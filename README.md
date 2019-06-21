@@ -1,2 +1,2 @@
 # PureBasic
-PureBasic Module
+PureBasic - Module
