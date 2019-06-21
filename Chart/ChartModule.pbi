@@ -944,10 +944,9 @@ Module Chart
             EndIf
             
             LastX = PosX + Radius : LastY = PosY - cHeight
-            
-            PosX + cWidth + sWidth
           EndIf
-
+          
+          PosX + cWidth + sWidth
         Next 
         
         VectorSourceColor(AlphaColor)
@@ -1003,26 +1002,30 @@ Module Chart
 
             Circle_(PosX + Radius, PosY - cHeight, Radius, BlendColor_(Color, Chart()\Color\Border, 50), Color)
             
+            ;{ --- Set data ----
+            If Chart()\Item()\Value < 0
+              Chart()\Item()\X      = PosX
+              Chart()\Item()\Y      = PosY - cHeight + Radius
+              Chart()\Item()\Width  = cWidth
+              Chart()\Item()\Height = cWidth
+            Else
+              Chart()\Item()\X      = PosX
+              Chart()\Item()\Y      = PosY - cHeight - Radius
+              Chart()\Item()\Width  = cWidth
+              Chart()\Item()\Height = cWidth
+            EndIf ;}
+            
           Else
+            Chart()\Item()\X      = 0
+            Chart()\Item()\Y      = 0
+            Chart()\Item()\Width  = 0
+            Chart()\Item()\Height = 0
             cHeight = 0
             Chart()\Item()\Height = cHeight
             Text$ = Str(Chart()\Item()\Value)
             Color = #Error
           EndIf ;}
-          
-          ;{ --- Set data ----
-          If Chart()\Item()\Value < 0
-            Chart()\Item()\X      = PosX
-            Chart()\Item()\Y      = PosY - cHeight + Radius
-            Chart()\Item()\Width  = cWidth
-            Chart()\Item()\Height = cWidth
-          Else
-            Chart()\Item()\X      = PosX
-            Chart()\Item()\Y      = PosY - cHeight - Radius
-            Chart()\Item()\Width  = cWidth
-            Chart()\Item()\Height = cWidth
-          EndIf ;}
-          
+
           ;{ --- Draw Text ---
           If Text$ 
             
@@ -1041,11 +1044,7 @@ Module Chart
             EndIf
 
             If Color = #Error
-              If Chart()\Item()\Value < 0
-                Text_(txtX, txtY - VectorTextHeight(Text$) - dpiY(2), Text$, $0000FF)
-              Else
-                Text_(txtX, txtY - dpiY(2), Text$, $0000FF)
-              EndIf
+              Text_(txtX, Y + Height - VectorTextHeight(Text$) - dpiY(2), Text$, $0000FF)
             Else
               Text_(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Color, 40))
             EndIf  
@@ -1872,10 +1871,9 @@ Module Chart
                 EndIf
                 
                 LastX = PosX + Radius : LastY = PosY - cHeight
-                
-                PosX + cWidth + sWidth
               EndIf
               
+              PosX + cWidth + sWidth
             Next
             
             VectorSourceColor(AlphaColor)
@@ -1891,45 +1889,45 @@ Module Chart
           If SelectElement(Chart()\Series(), Chart()\VisibleData())
             
             ForEach Chart()\Series()\Item()
-              
-              If Chart()\Series()\Item()\Value >= Minimum And Chart()\Series()\Item()\Value <= Maximum
-              
-                ;{ --- Calc Position & Height---
-                If Minimum < 0
-                  If Chart()\Series()\Item()\Value < 0
-                    PosY = Y + pHeight + dpiY(1)
-                    Factor = nHeight / Minimum
-                  Else
-                    PosY = Y + pHeight
-                    Factor = pHeight / Maximum
-                  EndIf
-                  cHeight = Chart()\Series()\Item()\Value * Factor
+
+              ;{ --- Calc Position & Height---
+              If Minimum < 0
+                If Chart()\Series()\Item()\Value < 0
+                  PosY = Y + pHeight + dpiY(1)
+                  Factor = nHeight / Minimum
                 Else
                   PosY = Y + pHeight
-                  Factor = Height / Range
-                  If Chart()\Line\Flags & #Descending
-                    cHeight = (Maximum - (Chart()\Series()\Item()\Value)) * Factor
-                  Else
-                    cHeight = (Chart()\Series()\Item()\Value - Minimum) * Factor
-                  EndIf
-                EndIf ;}
-                
-                ;{ --- Set text for #ShowValue or #ShowPercent ---
-                Calc = (Chart()\Series()\Item()\Value - Minimum) * 100
-                If Calc <> 0
-                  Percent$ = Str((Calc / Range)) + "%"
-                Else
-                  Percent$ = "0%"
+                  Factor = pHeight / Maximum
                 EndIf
-          
-                If Chart()\Flags & #ShowValue
-                  Text$ = Str(Chart()\Series()\Item()\Value)
-                ElseIf Chart()\Flags & #ShowPercent  
-                  Text$ = Percent$
+                cHeight = Chart()\Series()\Item()\Value * Factor
+              Else
+                PosY = Y + pHeight
+                Factor = Height / Range
+                If Chart()\Line\Flags & #Descending
+                  cHeight = (Maximum - (Chart()\Series()\Item()\Value)) * Factor
                 Else
-                  Text$ = GetText_(Chart()\Series()\Item()\Text, Percent$)
-                EndIf ;}
-          
+                  cHeight = (Chart()\Series()\Item()\Value - Minimum) * Factor
+                EndIf
+              EndIf ;}
+              
+              ;{ --- Set text for #ShowValue or #ShowPercent ---
+              Calc = (Chart()\Series()\Item()\Value - Minimum) * 100
+              If Calc <> 0
+                Percent$ = Str((Calc / Range)) + "%"
+              Else
+                Percent$ = "0%"
+              EndIf
+        
+              If Chart()\Flags & #ShowValue
+                Text$ = Str(Chart()\Series()\Item()\Value)
+              ElseIf Chart()\Flags & #ShowPercent  
+                Text$ = Percent$
+              Else
+                Text$ = GetText_(Chart()\Series()\Item()\Text, Percent$)
+              EndIf ;}
+              
+              If Chart()\Series()\Item()\Value >= Minimum And Chart()\Series()\Item()\Value <= Maximum
+  
                 ;{ --- Draw Circles ---
                 Color = Chart()\Series()\Color
                 If Color = #PB_Default : Color = Chart()\Color\Bar : EndIf
@@ -1938,78 +1936,71 @@ Module Chart
                 If Gradient = #PB_Default : Gradient = BlendColor_(Color, Chart()\Color\Back, 60) : EndIf
                 
                 If Chart()\Series()\Item()\Value >= Minimum And Chart()\Series()\Item()\Value <= Maximum
-                
+                  
                   Circle_(PosX + Radius, PosY - cHeight, Radius, BlendColor_(Color, Chart()\Color\Border, 50), Color)
                 
-                Else
-                  cHeight = 0
-                  Chart()\Series()\Item()\Height = cHeight
-                  Text$ = Str(Chart()\Series()\Item()\Value)
-                  Color = #Error
-                EndIf ;}
-                
-                ;{ --- Set Data ----
-                If Chart()\Series()\Item()\Value < 0
-                  Chart()\Series()\Item()\X      = PosX
-                  Chart()\Series()\Item()\Y      = PosY - cHeight + Radius
-                  Chart()\Series()\Item()\Width  = cWidth
-                  Chart()\Series()\Item()\Height = cWidth
-                Else
-                  Chart()\Series()\Item()\X      = PosX
-                  Chart()\Series()\Item()\Y      = PosY - cHeight - Radius
-                  Chart()\Series()\Item()\Width  = cWidth
-                  Chart()\Series()\Item()\Height = cWidth
-                EndIf ;}
-                
-                ;{ --- Draw Text ---
-                If Text$ 
-                  
-                  If Chart()\Line\FontSize = #PB_Default
-                    VectorFont(Chart()\Line\FontID)
+                  ;{ --- Set Data ----
+                  If Chart()\Series()\Item()\Value < 0
+                    Chart()\Series()\Item()\X      = PosX
+                    Chart()\Series()\Item()\Y      = PosY - cHeight + Radius
+                    Chart()\Series()\Item()\Width  = cWidth
+                    Chart()\Series()\Item()\Height = cWidth
                   Else
-                    VectorFont(Chart()\Line\FontID, dpiY(Chart()\Line\FontSize))
-                  EndIf
+                    Chart()\Series()\Item()\X      = PosX
+                    Chart()\Series()\Item()\Y      = PosY - cHeight - Radius
+                    Chart()\Series()\Item()\Width  = cWidth
+                    Chart()\Series()\Item()\Height = cWidth
+                  EndIf ;}
                   
-                  txtHeight = VectorTextHeight(Text$)
-                  
-                  txtX = PosX + ((cWidth - VectorTextWidth(Text$)) / 2)
-                  
-                  If Abs(cHeight) < txtHeight + dpiY(4) Or Abs(cWidth) < VectorTextWidth(Text$) + dpiY(4)
-                    If Chart()\Series()\Item()\Value < 0
-                      txtY = PosY - txtHeight - dpiY(1)
-                    Else
-                      txtY = PosY - cHeight - txtHeight - dpiY(1)
-                    EndIf
-                  Else
-                    If Chart()\Series()\Item()\Value < 0
-                      txtY = PosY - cHeight - txtHeight - dpiY(2)
-                    Else
-                      txtY = PosY - cHeight + dpiY(2)
-                    EndIf 
-                  EndIf
-                  
-                  If Color = #Error
-                    If Chart()\Series()\Item()\Value < 0
-                      Text_(txtX, txtY - txtHeight - dpiY(2), Text$, $0000FF)
-                    Else
-                      Text_(txtX, txtY - dpiY(2), Text$, $0000FF)
-                    EndIf
-                  Else
-                    Text_(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Color, 60))
-                  EndIf  
-                  
-                EndIf;}
-                
-                ;{ --- Remember all Labels ---
-                Text$ = Chart()\Series()\Item()\Label
-                If Text$
-                  Label(ListIndex(Chart()\Series()\Item())) = Text$
                 EndIf
                 ;}
-              
-                PosX + cWidth + sWidth
+                
+              Else
+                Chart()\Series()\Item()\X      = 0
+                Chart()\Series()\Item()\Y      = 0
+                Chart()\Series()\Item()\Width  = 0
+                Chart()\Series()\Item()\Height = 0
+                cHeight = 0
+                Chart()\Series()\Item()\Height = cHeight
+                Text$ = Str(Chart()\Series()\Item()\Value)
+                Color = #Error
               EndIf
-            
+              
+              ;{ --- Draw Text ---
+              If Text$ 
+                
+                If Chart()\Line\FontSize = #PB_Default
+                  VectorFont(Chart()\Line\FontID)
+                Else
+                  VectorFont(Chart()\Line\FontID, dpiY(Chart()\Line\FontSize))
+                EndIf
+                
+                txtHeight = VectorTextHeight(Text$)
+                
+                txtX = PosX + ((cWidth - VectorTextWidth(Text$)) / 2)
+                
+                If Chart()\Series()\Item()\Value < 0
+                  txtY = PosY - VectorTextHeight(Text$) - dpiY(2)
+                Else
+                  txtY = PosY - cHeight - VectorTextHeight(Text$) - dpiY(2)
+                EndIf
+
+                If Color = #Error
+                  Text_(txtX, Y + Height - txtHeight - dpiY(2), Text$, $0000FF)
+                Else
+                  Text_(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Color, 60))
+                EndIf  
+                
+              EndIf ;}
+              
+              ;{ --- Remember all Labels ---
+              Text$ = Chart()\Series()\Item()\Label
+              If Text$
+                Label(ListIndex(Chart()\Series()\Item())) = Text$
+              EndIf
+              ;}
+
+              PosX + cWidth + sWidth
             Next
 
           EndIf
@@ -4315,7 +4306,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   ; ----- Select Example -----
   
-  #Example = 0
+  #Example = 15
   
   ; --- Bar Chart ---
   ;  1: automatically adjust maximum value (#PB_Default)
@@ -4427,13 +4418,15 @@ CompilerIf #PB_Compiler_IsMainFile
       CompilerCase 12 ; Line Chart
         Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#LineChart|Chart::#Border|Chart::#ShowLines|Chart::#ShowValue|Chart::#AutoResize, #Window)
         Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#Colored) ; |Chart::#Descending
+        ;Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#NoAutoAdjust)
         ;Chart::SetAttribute(#Chart, Chart::#LineColor, $AACD66)
         Chart::SetAttribute(#Chart, Chart::#FontSize, 9)
         Chart::SetFont(#Chart, FontID(#Font), Chart::#LineChart)
         Chart::SetMargins(#Chart, 15, 15)
       CompilerCase 13 ; Line Chart (#BezierCurve)
         Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#LineChart|Chart::#Border|Chart::#ShowLines|Chart::#ShowValue|Chart::#AutoResize, #Window)
-        Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#Colored|Chart::#BezierCurve) ; |Chart::#Descending
+        Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#Colored|Chart::#BezierCurve) ; |Chart::#Descending|Chart::#NoAutoAdjust
+        ;Chart::SetAttribute(#Chart, Chart::#Maximum,  80)
         Chart::SetAttribute(#Chart, Chart::#FontSize, 10)
       CompilerCase 14 ; Line Chart (negative values)
         Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#LineChart|Chart::#Border|Chart::#ShowLines|Chart::#AutoResize, #Window)
@@ -4441,11 +4434,12 @@ CompilerIf #PB_Compiler_IsMainFile
         Chart::SetAttribute(#Chart, Chart::#Minimum, -50)
         Chart::SetAttribute(#Chart, Chart::#Maximum, 50)
       CompilerCase 15 ; Line Chart (data series)
-        Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#LineChart|Chart::#DataSeries|Chart::#ShowLines|Chart::#Border|Chart::#AutoResize, #Window)
+        Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#LineChart|Chart::#DataSeries|Chart::#ShowLines|Chart::#ShowValue|Chart::#Border|Chart::#AutoResize, #Window)
         Chart::SetFlags(#Chart, Chart::#Legend, Chart::#AllDataSeries|Chart::#PostEvents|Chart::#PopUpMenu)  ; |Chart::#Hide
         Chart::SetFont(#Chart, FontID(#Font), Chart::#Legend)
-        Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#BezierCurve) ; |Chart::#Descending
-        ;Chart::SetAttribute(#Chart, Chart::#Minimum, 10)
+        Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#BezierCurve) ; |Chart::#Descending|Chart::#NoAutoAdjust
+        ;Chart::SetAttribute(#Chart, Chart::#Maximum, 70)
+        Chart::SetAttribute(#Chart, Chart::#FontSize, 9)
         ; Popup Menu
         Chart::AttachPopupMenu(#Chart, #PopUp)
         Chart::UpdatePopupText(#Chart, #Menu_Display, "Display '"+Chart::#Serie$+"'")
@@ -4612,7 +4606,7 @@ CompilerIf #PB_Compiler_IsMainFile
               CompilerIf Chart::#Enable_DataSeries
                 CompilerIf #Example = 10
                   Chart::DisplayDataSeries(#Chart, Chart::EventDataSeries(#Chart), #False)
-                CompilerElseIf #Example = 14
+                CompilerElseIf #Example = 15
                   Chart::DisplayDataSeries(#Chart, Chart::EventDataSeries(#Chart), #False)
                 CompilerEndIf
               CompilerEndIf  
@@ -4624,7 +4618,7 @@ CompilerIf #PB_Compiler_IsMainFile
                 CompilerIf Chart::#Enable_DataSeries
                   Chart::SetSeriesLabelState(#Chart, DataSeries$, GetGadgetText(#Label), Val(GetGadgetText(#Value)))
                 CompilerEndIf  
-              CompilerElseIf #Example = 14 
+              CompilerElseIf #Example = 15 
                 CompilerIf Chart::#Enable_DataSeries
                   Chart::SetSeriesLabelState(#Chart, DataSeries$, GetGadgetText(#Label), Val(GetGadgetText(#Value)))
                 CompilerEndIf  
@@ -4641,8 +4635,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.70 LTS (Windows - x86)
-; CursorPosition = 4317
-; FirstLine = 704
-; Folding = MBAAAAAOAUTRKhAR2l3m1wgggEFAAAAUAAApDAAgwHw
+; CursorPosition = 4442
+; FirstLine = 886
+; Folding = MBAAAAAGAUTRKRAQ1l3m1wAAAEEAAAAUAAApDAAgwnz
 ; EnableXP
 ; DPIAware
