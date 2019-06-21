@@ -11,7 +11,7 @@
 
 
 ; Last Update: 21.06.19
-; 
+; Added: #ChangeCursor and #ToolTips
 ; Added: #FontSize for VectorFonts (Value or percentage in PieChart/LineChart)
 ; BugFixes
 ;
@@ -72,6 +72,7 @@
 ; Chart::SetItemText()         - similar to SetGadgetItemText()
 ; Chart::SetLabelState()       - similar to SetGadgetItemState(), but 'label' instead of 'position'
 ; Chart::SetMargins()          - define top, left, right and bottom margin
+; Chart::ToolTipText()         - defines the text for tooltips (#Percent$ / #Value$ / #Label$ / #Serie$)
 ; Chart::UpdatePopupText()     - updates the menu item text before the popup menu is displayed
 
 ; --- Data Series ---
@@ -131,6 +132,8 @@ DeclareModule Chart
     #Descending      ; Descending numbering of the y-axis              [#LineChart]
     #Hide            ; hide legend                                     [#Legend]
     #BezierCurve     ;                                                 [#LineChart]
+    #ToolTips
+    #ChangeCursor 
   EndEnumeration
   
   Enumeration 1    ; [Attribute]
@@ -226,6 +229,7 @@ DeclareModule Chart
   Declare.i SetItemText(GNum.i, Position.i, Text.s)
   Declare.i SetLabelState(GNum.i, Label.s, State.i)
   Declare   SetMargins(GNum.i, Top.i, Left.i, Right.i=#PB_Default, Bottom.i=#PB_Default)
+  Declare   ToolTipText(GNum.i, Text.s)
   Declare   UpdatePopupText(GNum.i, MenuItem.i, Text.s)
   
 EndDeclareModule
@@ -253,7 +257,7 @@ Module Chart
   ;-   Module - Structures
   ;- ============================================================================
   
-  Structure Chart_LegendEvent_Structure ;{
+  Structure Chart_EventSize_Structure ;{
     X.i
     Y.i
     Width.i
@@ -262,6 +266,9 @@ Module Chart
   
   Structure Chart_Legend_Structure      ;{ Chart()\Legend\...
     FontID.i
+    Minimum.i
+    Range.i
+    Sum.i
     Flags.i
   EndStructure ;}
   
@@ -269,6 +276,7 @@ Module Chart
     X.i
     Y.i
     Radius.i
+    Sum.i
     Spacing.i
     FontID.i
     FontSize.i
@@ -277,6 +285,8 @@ Module Chart
   
   Structure Chart_Line_Structure        ;{ Chart()\Bar\...
     Width.i
+    Minimum.i
+    Range.i
     Spacing.i
     Padding.i
     ScaleLines.i
@@ -289,6 +299,8 @@ Module Chart
   
   Structure Chart_Bar_Structure        ;{ Chart()\Bar\...
     Width.i
+    Minimum.i
+    Range.i
     Spacing.i
     Padding.i
     ScaleLines.i
@@ -310,7 +322,7 @@ Module Chart
     Color.i
     Gradient.i
     Border.i
-    Legend.Chart_LegendEvent_Structure
+    Legend.Chart_EventSize_Structure
   EndStructure ;}
   
   Structure Chart_SeriesItem_Structure ;{ Chart()\Series('label')\Item()...
@@ -329,7 +341,7 @@ Module Chart
     Color.i
     Gradient.i
     Border.i
-    Legend.Chart_LegendEvent_Structure 
+    Legend.Chart_EventSize_Structure 
     List Item.Chart_Item_Structure()
     Map  Index.i()
   EndStructure ;}
@@ -381,7 +393,7 @@ Module Chart
     
     Minimum.i
     Maximum.i
-
+    
     Bar.Chart_Bar_Structure
     Pie.Chart_Pie_Structure
     Line.Chart_Line_Structure
@@ -392,6 +404,7 @@ Module Chart
     Margin.Chart_Margins_Structure
     Window.Chart_Window_Structure
     Size.Chart_Size_Structure
+    EventSize.Chart_EventSize_Structure
     
     Flags.i
     
@@ -402,8 +415,11 @@ Module Chart
     Map  VisibleIndex.i()                ; labels with list index (VisibleData)
     Map  PopUpItem.s()
     
+    ToolTipText.s
+    
     ReDraw.i
     Error.i
+    ToolTip.i
   EndStructure ;}
   Global NewMap Chart.Chart_Structure()
   
@@ -454,13 +470,44 @@ Module Chart
   EndProcedure
   
   
-  Procedure.s GetText_(Text.s, Percent.s="")
+  Procedure.s GetText_(Text.s)
+    Define.f Percent
     Define.s Text$ = ""
     
     If Chart()\Flags & #DataSeries
       
       If Text
-        Text$ = ReplaceString(Text,  #Percent$, Percent)
+        
+        If Chart()\Flags & #LineChart
+          Percent = (Chart()\Series()\Item()\Value - Chart()\Line\Minimum) * 100
+          If Percent <> 0
+            Percent = (Percent / Chart()\Line\Range)
+          Else
+            Percent = 0
+          EndIf
+        Else
+          Percent = (Chart()\Series()\Item()\Value - Chart()\Bar\Minimum) * 100
+          If Percent <> 0
+            Percent = (Percent / Chart()\Bar\Range)
+          Else
+            Percent = 0
+          EndIf
+        EndIf
+        Text$ = ReplaceString(Text,  #Percent$, Str(Percent) + "%")
+        Text$ = ReplaceString(Text$, #Value$, Str(Chart()\Series()\Item()\Value))
+        Text$ = ReplaceString(Text$, #Label$, Chart()\Series()\Item()\Label)
+        Text$ = ReplaceString(Text$, #Serie$, Chart()\Series()\Label)
+      EndIf
+      
+    ElseIf Chart()\Flags & #PieChart
+
+      If Text
+        If Chart()\Pie\Sum <> 0
+          Percent = Chart()\Item()\Value / Chart()\Pie\Sum
+        Else  
+          Percent = 0
+        EndIf
+        Text$ = ReplaceString(Text,  #Percent$, Str(Percent * 100) + "%")
         Text$ = ReplaceString(Text$, #Value$, Str(Chart()\Series()\Item()\Value))
         Text$ = ReplaceString(Text$, #Label$, Chart()\Series()\Item()\Label)
         Text$ = ReplaceString(Text$, #Serie$, Chart()\Series()\Label)
@@ -468,8 +515,14 @@ Module Chart
       
     Else
       
+      Percent = (Chart()\Item()\Value - Chart()\Bar\Minimum) * 100
+      If Percent <> 0
+        Percent = (Percent / Chart()\Bar\Range)
+      Else
+        Percent = 0
+      EndIf
       If Text
-        Text$ = ReplaceString(Text,  #Percent$, Percent)
+        Text$ = ReplaceString(Text,  #Percent$, Str(Percent) + "%")
         Text$ = ReplaceString(Text$, #Value$, Str(Chart()\Item()\Value))
         Text$ = ReplaceString(Text$, #Label$, Chart()\Item()\Label)
       EndIf
@@ -489,6 +542,11 @@ Module Chart
     
   EndProcedure
   
+  Procedure UpdateToolTip()
+    
+    
+    
+  EndProcedure
   
   Procedure.i MaxLabelWidth_()
     Define.i MaxWidth
@@ -778,7 +836,7 @@ Module Chart
     Procedure   DrawLineChart_(X.i, Y.i, Width.i, Height.i)
       Define.i X, Y, Width, Height, PosX, PosY, sWidth, cWidth, cHeight, nHeight, pHeight, lastX, lastY, xW3
       Define.i txtX, txtY, txtWidth, txtHeight, axisY, Radius
-      Define.i n, Items, Spaces, ScaleLines, Range, AlphaColor, Color, Gradient, Maximum, Minimum, maxValue, minValue
+      Define.i n, Items, Spaces, ScaleLines, AlphaColor, Color, Gradient, Maximum, maxValue, minValue
       Define.f SpaceY, Factor, Calc
       Define.s Text$, Percent$
       
@@ -795,12 +853,12 @@ Module Chart
           If maxValue > Maximum : Maximum = maxValue : EndIf
         EndIf ;}
         
-        Minimum  = Chart()\Minimum ;{ Minimum
+        Chart()\Line\Minimum = Chart()\Minimum ;{ Minimum
         minValue = MinimumValue_()
-        If Minimum = #PB_Default
-          Minimum = minValue
+        If Chart()\Line\Minimum = #PB_Default
+          Chart()\Line\Minimum = minValue
         ElseIf Chart()\Line\Flags & #NoAutoAdjust = #False
-          If minValue < Minimum : Minimum = minValue : EndIf
+          If minValue < Chart()\Line\Minimum : Chart()\Line\Minimum = minValue : EndIf
         EndIf ;}
         
         txtHeight = TextHeight("Abc")
@@ -812,13 +870,18 @@ Module Chart
         Width  - txtWidth - dpiX(2)
         Height - (txtHeight * 1.5) - dpiY(3)
         
-        Range = Maximum - Minimum
+        Chart()\EventSize\X = X
+        Chart()\EventSize\Y = Y
+        Chart()\EventSize\Width  = Width
+        Chart()\EventSize\Height = Height
+        
+        Chart()\Line\Range = Maximum - Chart()\Line\Minimum
         
         ;{ --- Calc Height for positive and negative Values ---
-        If Minimum < 0
-          Factor = Height / Range
+        If Chart()\Line\Minimum < 0
+          Factor = Height / Chart()\Line\Range
           pHeight  = Factor * Maximum ; positiv
-          nHeight  = Factor * Minimum ; negativ 
+          nHeight  = Factor * Chart()\Line\Minimum ; negativ 
         Else
           pHeight = Height ; positiv
           nHeight = 0      ; negativ
@@ -850,14 +913,14 @@ Module Chart
         If Chart()\Line\ScaleLines = #PB_Default
           If Chart()\Line\ScaleSpacing = 0 : Chart()\Line\ScaleSpacing = 1 : EndIf
           ScaleLines = Height / (txtHeight * Chart()\Line\ScaleSpacing)
-          ScaleLines = CalcScaleLines_(ScaleLines, Range)
+          ScaleLines = CalcScaleLines_(ScaleLines, Chart()\Line\Range)
         Else
           ScaleLines = Chart()\Line\ScaleLines
         EndIf
   
         If ScaleLines
           
-          Factor = Range  / ScaleLines
+          Factor = Chart()\Line\Range  / ScaleLines
           SpaceY = Height / ScaleLines
   
           For n = 0 To ScaleLines
@@ -867,7 +930,7 @@ Module Chart
             EndIf 
             Line(X - dpiX(2), PosY, dpiX(5), 1, Chart()\Color\Axis)
             If Chart()\Line\Flags & #Descending
-              Text$ = Str((Factor * n) + Minimum)
+              Text$ = Str((Factor * n) + Chart()\Line\Minimum)
             Else
               Text$ = Str(Maximum - (Factor * n))
             EndIf
@@ -876,13 +939,13 @@ Module Chart
             DrawText(txtX, txtY, Text$, Chart()\Color\Front)
           Next
     
-          ;If Minimum
+          ;If Chart()\Line\Minimum
           ;  PosY = Y + Height
           ;  If Chart()\Flags & #ShowLines And PosY <> Y
           ;    Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
           ;  EndIf
           ;  Line(X - dpiX(2), PosY, dpiX(6), 1, Chart()\Color\Axis)
-          ;  Text$ = Str(Minimum)
+          ;  Text$ = Str(Chart()\Line\Minimum)
           ;  txtX = X - TextWidth(Text$) - dpix(4)
           ;  txtY = PosY - Round(txtHeight / 2, #PB_Round_Nearest)
           ;  DrawingMode(#PB_2DDrawing_Transparent)
@@ -909,13 +972,13 @@ Module Chart
         
         ForEach Chart()\Item()
           
-          If Chart()\Item()\Value >= Minimum And Chart()\Item()\Value <= Maximum
+          If Chart()\Item()\Value >= Chart()\Line\Minimum And Chart()\Item()\Value <= Maximum
             
             ;{ --- Calc Position & Height ---
-            If Minimum < 0
+            If Chart()\Line\Minimum < 0
               If Chart()\Item()\Value < 0
                 PosY = Y + pHeight + dpiY(1)
-                Factor = nHeight / Minimum
+                Factor = nHeight / Chart()\Line\Minimum
               Else
                 PosY = Y + pHeight
                 Factor = pHeight / Maximum
@@ -923,11 +986,11 @@ Module Chart
               cHeight = Chart()\Item()\Value * Factor
             Else
               PosY = Y + pHeight
-              Factor = Height / Range
+              Factor = Height / Chart()\Line\Range
               If Chart()\Line\Flags & #Descending
                 cHeight = (Maximum - (Chart()\Item()\Value)) * Factor
               Else
-                cHeight = (Chart()\Item()\Value - Minimum) * Factor
+                cHeight = (Chart()\Item()\Value - Chart()\Line\Minimum) * Factor
               EndIf
             EndIf ;} 
             
@@ -951,7 +1014,6 @@ Module Chart
         
         VectorSourceColor(AlphaColor)
         StrokePath(2, #PB_Path_RoundCorner)
-        
         ;}
       
         PosX = X + Chart()\Line\Padding
@@ -959,10 +1021,10 @@ Module Chart
         ForEach Chart()\Item()
           
           ;{ --- Calc Position & Height ---
-          If Minimum < 0
+          If Chart()\Line\Minimum < 0
             If Chart()\Item()\Value < 0
               PosY = Y + pHeight + dpiY(1)
-              Factor = nHeight / Minimum
+              Factor = nHeight / Chart()\Line\Minimum
             Else
               PosY = Y + pHeight
               Factor = pHeight / Maximum
@@ -970,18 +1032,18 @@ Module Chart
             cHeight = Chart()\Item()\Value * Factor
           Else
             PosY = Y + pHeight
-            Factor = Height / Range
+            Factor = Height / Chart()\Line\Range
             If Chart()\Line\Flags & #Descending
               cHeight = (Maximum - (Chart()\Item()\Value)) * Factor
             Else
-              cHeight = (Chart()\Item()\Value - Minimum) * Factor
+              cHeight = (Chart()\Item()\Value - Chart()\Line\Minimum) * Factor
             EndIf
           EndIf ;}
           
           ;{ --- Set text for #ShowValue or #ShowPercent ---
-          Calc = (Chart()\Item()\Value - Minimum) * 100
+          Calc = (Chart()\Item()\Value - Chart()\Line\Minimum) * 100
           If Calc <> 0
-            Percent$ = Str((Calc / Range)) + "%"
+            Percent$ = Str((Calc / Chart()\Line\Range)) + "%"
           Else
             Percent$ = "0%"
           EndIf
@@ -991,14 +1053,14 @@ Module Chart
           ElseIf Chart()\Flags & #ShowPercent  
             Text$ = Percent$
           Else
-            Text$ = GetText_(Chart()\Item()\Text, Percent$)
+            Text$ = GetText_(Chart()\Item()\Text)
           EndIf ;}
           
           ;{ --- Draw Circles ---
           Color = Chart()\Item()\Color
           If Color = #PB_Default : Color = Chart()\Color\Bar : EndIf
           
-          If Chart()\Item()\Value >= Minimum And Chart()\Item()\Value <= Maximum
+          If Chart()\Item()\Value >= Chart()\Line\Minimum And Chart()\Item()\Value <= Maximum
 
             Circle_(PosX + Radius, PosY - cHeight, Radius, BlendColor_(Color, Chart()\Color\Border, 50), Color)
             
@@ -1049,7 +1111,7 @@ Module Chart
               Text_(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Color, 40))
             EndIf  
             
-          EndIf;}
+          EndIf ;}
   
           PosX + cWidth + sWidth
         Next
@@ -1094,7 +1156,7 @@ Module Chart
   CompilerIf #Enable_PieChart
 
     Procedure   DrawPieChart(X.i, Y.i, Width.i, Height.i)
-      Define.i Radius, Sum, Number, Color, maxWidth, Spacing
+      Define.i Radius, Number, Color, maxWidth, Spacing
       Define.i lX, lY, pX, pY, lHeight, lWidth, txtX, txtWidth, txtHeight, PosX, PosY
       Define.f Factor, Angle, startAngle, endAngle
       Define.s Text$, Percent$
@@ -1107,11 +1169,16 @@ Module Chart
       Chart()\Pie\X = X
       Chart()\Pie\Y = Y
       Chart()\Pie\Radius = Radius
-     
+      
+      Chart()\EventSize\X = X
+      Chart()\EventSize\Y = Y
+      Chart()\EventSize\Width  = Radius * 2
+      Chart()\EventSize\Height = Radius * 2
+      
       If StartVectorDrawing(CanvasVectorOutput(Chart()\CanvasNum))
         
-        Sum = SumValue_()
-        If Sum > 0
+        Chart()\Pie\Sum = SumValue_()
+        If Chart()\Pie\Sum > 0
           
           ;{ --- Draw Pie Chart ---
           startAngle = 0
@@ -1129,8 +1196,8 @@ Module Chart
               Color = Chart()\Item()\Color
             EndIf
             
-            If Sum
-              Factor  = Chart()\Item()\Value / Sum
+            If Chart()\Pie\Sum
+              Factor  = Chart()\Item()\Value / Chart()\Pie\Sum
               Percent$ = Str(Factor * 100) + "%"
             Else
               Percent$ = "0%"
@@ -1183,19 +1250,19 @@ Module Chart
           
           DrawingFont(Chart()\FontID)
           
-          If Sum > 0
+          If Chart()\Pie\Sum > 0
             
             ;{ --- Calc max. legend  text width ---
             ForEach Chart()\Item()
               
               If Chart()\Flags & #ShowPercent
-                Factor   = Chart()\Item()\Value / Sum
+                Factor   = Chart()\Item()\Value / Chart()\Pie\Sum
                 Percent$ = Str(Factor * 100) + "%"
                 Text$ = ":  " + Percent$
               ElseIf Chart()\Flags & #ShowValue
                 Text$ = ":  " + Str(Chart()\Item()\Value)
               Else
-                Text$ = GetText_(Chart()\Item()\Text, Percent$)
+                Text$ = GetText_(Chart()\Item()\Text)
               EndIf
               
               Text$ = Chart()\Item()\Label + Text$
@@ -1245,8 +1312,8 @@ Module Chart
               
               DrawingMode(#PB_2DDrawing_Transparent)
               
-              If Sum
-                Factor   = Chart()\Item()\Value / Sum
+              If Chart()\Pie\Sum
+                Factor   = Chart()\Item()\Value / Chart()\Pie\Sum
                 Percent$ = Str(Factor * 100) + "%"
               Else
                 Percent$ = "0%"
@@ -1267,7 +1334,7 @@ Module Chart
                 DrawText(PosX + txtHeight + dpiX(5), PosY, Chart()\Item()\Label + ":  ", Chart()\Color\Front)
                 DrawText(lX + txtX, PosY, Str(Chart()\Item()\Value), Color)
               Else
-                Text$ = GetText_(Chart()\Item()\Text, Percent$)
+                Text$ = GetText_(Chart()\Item()\Text)
                 txtX = TextWidth(Chart()\Item()\Label)
                 DrawText(PosX + txtHeight + dpiX(5), PosY, Chart()\Item()\Label, Chart()\Color\Front)
                 DrawText(lX + txtX, PosY, Text$, Color)
@@ -1294,7 +1361,7 @@ Module Chart
     Procedure   DrawBarSeries_(X.i, Y.i, Width.i, Height.i)
       Define.i PosX, PosY, sWidth, bWidth, bHeight, nHeight, pHeight
       Define.i txtX, txtY, txtWidth, txtHeight, lX, lY, lHeight, lWidth, lTextWidth, axisY, padWidth, seriesX
-      Define.i n, Items, Spaces, ScaleLines, Range, Color, Gradient, Maximum, Minimum, maxValue, minValue, Series
+      Define.i n, Items, Spaces, ScaleLines, Color, Gradient, Maximum, maxValue, minValue, Series
       Define.f SpaceY, Quotient, Calc
       Define.s Text$, Percent$
       
@@ -1311,12 +1378,12 @@ Module Chart
           If maxValue > Maximum : Maximum = maxValue : EndIf
         EndIf ;}
         
-        Minimum  = Chart()\Minimum ;{ Minimum
+        Chart()\Bar\Minimum  = Chart()\Minimum ;{ Minimum
         minValue = MinimumValue_()
-        If Minimum = #PB_Default
-          Minimum = minValue
+        If Chart()\Bar\Minimum = #PB_Default
+          Chart()\Bar\Minimum = minValue
         ElseIf Chart()\Bar\Flags & #NoAutoAdjust = #False
-          If minValue < Minimum : Minimum = minValue : EndIf
+          If minValue < Chart()\Bar\Minimum : Chart()\Bar\Minimum = minValue : EndIf
         EndIf ;}
         
         txtHeight = TextHeight("Abc")
@@ -1334,13 +1401,18 @@ Module Chart
         Width  - txtWidth - dpiX(2)
         Height - txtHeight - lHeight - dpiY(13) ; Labels + Legend
         
-        Range = Maximum - Minimum
+        Chart()\EventSize\X = X
+        Chart()\EventSize\Y = Y
+        Chart()\EventSize\Width  = Width
+        Chart()\EventSize\Height = Height
+        
+        Chart()\Bar\Range = Maximum - Chart()\Bar\Minimum
         
         ;{ --- Calc Height for positive and negative Values ---
-        If Minimum < 0
-          Quotient = Height / Range
+        If Chart()\Bar\Minimum < 0
+          Quotient = Height / Chart()\Bar\Range
           pHeight  = Quotient * Maximum ; positiv
-          nHeight  = Quotient * Minimum ; negativ 
+          nHeight  = Quotient * Chart()\Bar\Minimum ; negativ 
         Else
           pHeight = Height ; positiv
           nHeight = 0      ; negativ
@@ -1373,14 +1445,14 @@ Module Chart
         If Chart()\Bar\ScaleLines = #PB_Default
           ScaleLines = Height / (txtHeight * Chart()\Bar\ScaleSpacing)
           If Chart()\Bar\ScaleSpacing = 0 : Chart()\Bar\ScaleSpacing = 1 : EndIf
-          ScaleLines = CalcScaleLines_(ScaleLines, Range)
+          ScaleLines = CalcScaleLines_(ScaleLines, Chart()\Bar\Range)
         Else
           ScaleLines = Chart()\Bar\ScaleLines
         EndIf
         
         If ScaleLines
          
-          Quotient = Range  / ScaleLines
+          Quotient = Chart()\Bar\Range  / ScaleLines
           SpaceY   = Height / ScaleLines
           
           DrawingMode(#PB_2DDrawing_Transparent)
@@ -1397,13 +1469,13 @@ Module Chart
             DrawText(txtX, txtY, Text$, Chart()\Color\Front)
           Next
     
-          ;If Minimum
+          ;If Chart()\Bar\Minimum
           ;  PosY = Y + Height
           ;  If Chart()\Flags & #ShowLines
           ;    Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
           ;  EndIf
           ;  Line(X - dpiX(2), PosY, dpiX(6), 1, Chart()\Color\Axis)
-          ;  Text$ = Str(Minimum)
+          ;  Text$ = Str(Chart()\Bar\Minimum)
           ;  txtX = X - TextWidth(Text$) - dpix(4)
           ;  txtY = PosY - Round(txtHeight / 2, #PB_Round_Nearest)
           ;  DrawText(txtX, txtY, Text$, Chart()\Color\Front)
@@ -1431,13 +1503,13 @@ Module Chart
 
             ForEach Chart()\Series()\Item()
               
-              If Chart()\Series()\Item()\Value >= Minimum And Chart()\Series()\Item()\Value <= Maximum
+              If Chart()\Series()\Item()\Value >= Chart()\Bar\Minimum And Chart()\Series()\Item()\Value <= Maximum
                 
                 ;{ --- Calc Position & Height---
-                If Minimum < 0
+                If Chart()\Bar\Minimum < 0
                   If Chart()\Series()\Item()\Value < 0
                     PosY = Y + pHeight + dpiY(1)
-                    Quotient = nHeight / Minimum
+                    Quotient = nHeight / Chart()\Bar\Minimum
                   Else
                     PosY = Y + pHeight
                     Quotient = pHeight / Maximum
@@ -1445,14 +1517,14 @@ Module Chart
                   bHeight = Chart()\Series()\Item()\Value * Quotient
                 Else
                   PosY = Y + pHeight
-                  Quotient = Height / Range
-                  bHeight = (Chart()\Series()\Item()\Value - Minimum) * Quotient
+                  Quotient = Height / Chart()\Bar\Range
+                  bHeight = (Chart()\Series()\Item()\Value - Chart()\Bar\Minimum) * Quotient
                 EndIf ;}
                 
                 ;{ --- Set text for #ShowValue or #ShowPercent ---
-                Calc = (Chart()\Series()\Item()\Value - Minimum) * 100
+                Calc = (Chart()\Series()\Item()\Value - Chart()\Bar\Minimum) * 100
                 If Calc <> 0
-                  Percent$ = Str((Calc / Range)) + "%"
+                  Percent$ = Str((Calc / Chart()\Bar\Range)) + "%"
                 Else
                   Percent$ = "0%"
                 EndIf
@@ -1462,7 +1534,7 @@ Module Chart
                 ElseIf Chart()\Flags & #ShowPercent  
                   Text$ = Percent$
                 Else
-                  Text$ = GetText_(Chart()\Series()\Item()\Text, Percent$)
+                  Text$ = GetText_(Chart()\Series()\Item()\Text)
                 EndIf ;}
           
                 ;{ --- Draw Bars ---
@@ -1472,7 +1544,7 @@ Module Chart
                 Gradient = Chart()\Series()\Gradient
                 If Gradient = #PB_Default : Gradient = BlendColor_(Color, Chart()\Color\Back, 60) : EndIf
                 
-                If Chart()\Series()\Item()\Value >= Minimum And Chart()\Series()\Item()\Value <= Maximum
+                If Chart()\Series()\Item()\Value >= Chart()\Bar\Minimum And Chart()\Series()\Item()\Value <= Maximum
                 
                   If Color <> Gradient ;{ Gradient color
           
@@ -1692,7 +1764,7 @@ Module Chart
     Procedure   DrawLineSeries_(X.i, Y.i, Width.i, Height.i)
       Define.i X, Y, Width, Height, PosX, PosY, sWidth, cWidth, cHeight, nHeight, pHeight, axisY, seriesX
       Define.i txtX, txtY, txtWidth, txtHeight, lX, lY, lHeight, lWidth, lTextWidth, Radius, xW3, lastX, lastY
-      Define.i n, Items, Spaces, ScaleLines, Range, Color, Gradient, Maximum, Minimum, maxValue, minValue, Series
+      Define.i n, Items, Spaces, ScaleLines, Color, Gradient, Maximum, maxValue, minValue, Series
       Define.q AlphaColor
       Define.f SpaceY, Factor, Calc
       Define.s Text$, Percent$
@@ -1710,12 +1782,12 @@ Module Chart
           If maxValue > Maximum : Maximum = maxValue : EndIf
         EndIf ;}
         
-        Minimum = Chart()\Minimum ;{ Minimum
+        Chart()\Line\Minimum = Chart()\Minimum ;{ Minimum
         minValue = MinimumValue_()
-        If Minimum = #PB_Default
-          Minimum = minValue
+        If Chart()\Line\Minimum = #PB_Default
+          Chart()\Line\Minimum = minValue
         ElseIf Chart()\Line\Flags & #NoAutoAdjust = #False
-          If minValue < Minimum : Minimum = minValue : EndIf
+          If minValue < Chart()\Line\Minimum : Chart()\Line\Minimum = minValue : EndIf
         EndIf ;}
         
         txtHeight = TextHeight("Abc")
@@ -1733,13 +1805,18 @@ Module Chart
         Width  - txtWidth - dpiX(2)
         Height - txtHeight - lHeight - dpiY(13) ; Labels + Legend
         
-        Range = Maximum - Minimum
+        Chart()\EventSize\X = X
+        Chart()\EventSize\Y = Y
+        Chart()\EventSize\Width  = Width
+        Chart()\EventSize\Height = Height
+        
+        Chart()\Line\Range = Maximum - Chart()\Line\Minimum
         
         ;{ --- Calc Height for positive and negative Values ---
-        If Minimum < 0
-          Factor = Height / Range
+        If Chart()\Line\Minimum < 0
+          Factor = Height / Chart()\Line\Range
           pHeight  = Factor * Maximum ; positiv
-          nHeight  = Factor * Minimum ; negativ 
+          nHeight  = Factor * Chart()\Line\Minimum ; negativ 
         Else
           pHeight = Height ; positiv
           nHeight = 0      ; negativ
@@ -1770,14 +1847,14 @@ Module Chart
         If Chart()\Line\ScaleLines = #PB_Default
           ScaleLines = Height / (txtHeight * Chart()\Line\ScaleSpacing)
           If Chart()\Line\ScaleSpacing = 0 : Chart()\Line\ScaleSpacing = 1 : EndIf
-          ScaleLines = CalcScaleLines_(ScaleLines, Range)
+          ScaleLines = CalcScaleLines_(ScaleLines, Chart()\Line\Range)
         Else
           ScaleLines = Chart()\Line\ScaleLines
         EndIf
         
         If ScaleLines
           
-          Factor = Range  / ScaleLines
+          Factor = Chart()\Line\Range  / ScaleLines
           SpaceY = Height / ScaleLines
           
           DrawingMode(#PB_2DDrawing_Transparent)
@@ -1789,7 +1866,7 @@ Module Chart
             EndIf 
             Line(X - dpiX(2), PosY, dpiX(5), 1, Chart()\Color\Axis)
             If Chart()\Line\Flags & #Descending
-              Text$ = Str((Factor * n) + Minimum)
+              Text$ = Str((Factor * n) + Chart()\Line\Minimum)
             Else
               Text$ = Str(Maximum - (Factor * n))
             EndIf
@@ -1798,13 +1875,13 @@ Module Chart
             DrawText(txtX, txtY, Text$, Chart()\Color\Front)
           Next
     
-          ;If Minimum
+          ;If Chart()\Line\Minimum
           ;  PosY = Y + Height
           ;  If Chart()\Flags & #ShowLines
           ;    Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
           ;  EndIf
           ;  Line(X - dpiX(2), PosY, dpiX(6), 1, Chart()\Color\Axis)
-          ;  Text$ = Str(Minimum)
+          ;  Text$ = Str(Chart()\Line\Minimum)
           ;  txtX = X - TextWidth(Text$) - dpix(4)
           ;  txtY = PosY - Round(txtHeight / 2, #PB_Round_Nearest)
           ;  DrawText(txtX, txtY, Text$, Chart()\Color\Front)
@@ -1836,13 +1913,13 @@ Module Chart
             
             ForEach Chart()\Series()\Item()
               
-              If Chart()\Series()\Item()\Value >= Minimum And Chart()\Series()\Item()\Value <= Maximum
+              If Chart()\Series()\Item()\Value >= Chart()\Line\Minimum And Chart()\Series()\Item()\Value <= Maximum
                 
                 ;{ --- Calc Position & Height---
-                If Minimum < 0
+                If Chart()\Line\Minimum < 0
                   If Chart()\Series()\Item()\Value < 0
                     PosY = Y + pHeight + dpiY(1)
-                    Factor = nHeight / Minimum
+                    Factor = nHeight / Chart()\Line\Minimum
                   Else
                     PosY = Y + pHeight
                     Factor = pHeight / Maximum
@@ -1850,11 +1927,11 @@ Module Chart
                   cHeight = Chart()\Series()\Item()\Value * Factor
                 Else
                   PosY = Y + pHeight
-                  Factor = Height / Range
+                  Factor = Height / Chart()\Line\Range
                   If Chart()\Line\Flags & #Descending
                     cHeight = (Maximum - (Chart()\Series()\Item()\Value)) * Factor
                   Else
-                    cHeight = (Chart()\Series()\Item()\Value - Minimum) * Factor
+                    cHeight = (Chart()\Series()\Item()\Value - Chart()\Line\Minimum) * Factor
                   EndIf
                 EndIf ;}
                 
@@ -1891,10 +1968,10 @@ Module Chart
             ForEach Chart()\Series()\Item()
 
               ;{ --- Calc Position & Height---
-              If Minimum < 0
+              If Chart()\Line\Minimum < 0
                 If Chart()\Series()\Item()\Value < 0
                   PosY = Y + pHeight + dpiY(1)
-                  Factor = nHeight / Minimum
+                  Factor = nHeight / Chart()\Line\Minimum
                 Else
                   PosY = Y + pHeight
                   Factor = pHeight / Maximum
@@ -1902,18 +1979,18 @@ Module Chart
                 cHeight = Chart()\Series()\Item()\Value * Factor
               Else
                 PosY = Y + pHeight
-                Factor = Height / Range
+                Factor = Height / Chart()\Line\Range
                 If Chart()\Line\Flags & #Descending
                   cHeight = (Maximum - (Chart()\Series()\Item()\Value)) * Factor
                 Else
-                  cHeight = (Chart()\Series()\Item()\Value - Minimum) * Factor
+                  cHeight = (Chart()\Series()\Item()\Value - Chart()\Line\Minimum) * Factor
                 EndIf
               EndIf ;}
               
               ;{ --- Set text for #ShowValue or #ShowPercent ---
-              Calc = (Chart()\Series()\Item()\Value - Minimum) * 100
+              Calc = (Chart()\Series()\Item()\Value - Chart()\Line\Minimum) * 100
               If Calc <> 0
-                Percent$ = Str((Calc / Range)) + "%"
+                Percent$ = Str((Calc / Chart()\Line\Range)) + "%"
               Else
                 Percent$ = "0%"
               EndIf
@@ -1923,10 +2000,10 @@ Module Chart
               ElseIf Chart()\Flags & #ShowPercent  
                 Text$ = Percent$
               Else
-                Text$ = GetText_(Chart()\Series()\Item()\Text, Percent$)
+                Text$ = GetText_(Chart()\Series()\Item()\Text)
               EndIf ;}
               
-              If Chart()\Series()\Item()\Value >= Minimum And Chart()\Series()\Item()\Value <= Maximum
+              If Chart()\Series()\Item()\Value >= Chart()\Line\Minimum And Chart()\Series()\Item()\Value <= Maximum
   
                 ;{ --- Draw Circles ---
                 Color = Chart()\Series()\Color
@@ -1935,7 +2012,7 @@ Module Chart
                 Gradient = Chart()\Series()\Gradient
                 If Gradient = #PB_Default : Gradient = BlendColor_(Color, Chart()\Color\Back, 60) : EndIf
                 
-                If Chart()\Series()\Item()\Value >= Minimum And Chart()\Series()\Item()\Value <= Maximum
+                If Chart()\Series()\Item()\Value >= Chart()\Line\Minimum And Chart()\Series()\Item()\Value <= Maximum
                   
                   Circle_(PosX + Radius, PosY - cHeight, Radius, BlendColor_(Color, Chart()\Color\Border, 50), Color)
                 
@@ -2143,7 +2220,7 @@ Module Chart
     Procedure   DrawHorizontalChart_(X.i, Y.i, Width.i, Height.i)
       Define.i X, Y, Width, Height, PosX, PosY, sHeight, bWidth, bHeight, maxLabelWidth
       Define.i txtX, txtY, txtWidth, txtHeight, axisY
-      Define.i n, Items, Spaces, ScaleLines, Range, Color, Gradient, Maximum, Minimum, maxValue, minValue
+      Define.i n, Items, Spaces, ScaleLines, Color, Gradient, Maximum, maxValue, minValue
       Define.f SpaceX, Quotient, Calc
       Define.s Text$, Percent$
       
@@ -2160,12 +2237,12 @@ Module Chart
           If maxValue > Maximum : Maximum = maxValue : EndIf
         EndIf ;}
   
-        Minimum  = Chart()\Minimum ; Minimum
+        Chart()\Bar\Minimum  = Chart()\Minimum ; Minimum
         If Chart()\Bar\Flags & #NoAutoAdjust = #False
-          Minimum = Chart()\Minimum
-          If minValue < Minimum : Minimum = minValue : EndIf
+          Chart()\Bar\Minimum = Chart()\Minimum
+          If minValue < Chart()\Bar\Minimum : Chart()\Bar\Minimum = minValue : EndIf
         EndIf
-        If Minimum < 0 : Minimum = 0 : EndIf
+        If Chart()\Bar\Minimum < 0 : Chart()\Bar\Minimum = 0 : EndIf
         
         maxLabelWidth = MaxLabelWidth_()
         
@@ -2177,7 +2254,12 @@ Module Chart
         Width  - maxLabelWidth - dpiX(5)
         Height - txtHeight - dpiY(4)
         
-        Range = Abs(Maximum - Minimum)
+        Chart()\EventSize\X = X
+        Chart()\EventSize\Y = Y
+        Chart()\EventSize\Width  = Width
+        Chart()\EventSize\Height = Height
+        
+        Chart()\Bar\Range = Abs(Maximum - Chart()\Bar\Minimum)
         
         ;{ --- Calc Bar & Spacing Width ---
         Items  = ListSize(Chart()\Item())
@@ -2203,14 +2285,14 @@ Module Chart
         If Chart()\Bar\ScaleLines = #PB_Default
           If Chart()\Bar\ScaleSpacing = 0 : Chart()\Bar\ScaleSpacing = 1 : EndIf
           ScaleLines = Width / ((TextWidth(Str(Maximum)) + dpiX(4)) * Chart()\Bar\ScaleSpacing) ; Labels width
-          ScaleLines = CalcScaleLines_(ScaleLines, Range)
+          ScaleLines = CalcScaleLines_(ScaleLines, Chart()\Bar\Range)
         Else
           ScaleLines = Chart()\Bar\ScaleLines
         EndIf
     
         If ScaleLines
           
-          Quotient = Range  / ScaleLines
+          Quotient = Chart()\Bar\Range  / ScaleLines
           SpaceX   = Width / ScaleLines
           
           PosY = Y + Height
@@ -2232,13 +2314,13 @@ Module Chart
             DrawText(txtX, txtY, Text$, Chart()\Color\Front)
           Next
     
-          ;If Minimum
+          ;If Chart()\Bar\Minimum
           ;  PosY = Y + Height
           ;  If Chart()\Flags & #ShowLines
           ;    Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
           ;  EndIf
           ;  Line(X - dpiX(2), PosY, dpiX(6), 1, Chart()\Color\Axis)
-          ;  Text$ = Str(Minimum)
+          ;  Text$ = Str(Chart()\Bar\Minimum)
           ;  txtX = X - TextWidth(Text$) - dpix(4)
           ;  txtY = PosY - Round(txtHeight / 2, #PB_Round_Nearest)
           ;  DrawText(txtX, txtY, Text$, Chart()\Color\Front)
@@ -2254,13 +2336,13 @@ Module Chart
         
         ForEach Chart()\Item()
           
-          Quotient = Width / Range
-          bWidth   = (Chart()\Item()\Value - Minimum) * Quotient
+          Quotient = Width / Chart()\Bar\Range
+          bWidth   = (Chart()\Item()\Value - Chart()\Bar\Minimum) * Quotient
           
           ;{ --- Set text for #ShowValue or #ShowPercent ---
-          Calc = (Chart()\Item()\Value - Minimum) * 100
+          Calc = (Chart()\Item()\Value - Chart()\Bar\Minimum) * 100
           If Calc <> 0
-            Percent$ = Str((Calc / Range)) + "%"
+            Percent$ = Str((Calc / Chart()\Bar\Range)) + "%"
           Else
             Percent$ = "0%"
           EndIf
@@ -2270,7 +2352,7 @@ Module Chart
           ElseIf Chart()\Flags & #ShowPercent  
             Text$ = Percent$
           Else
-            Text$ = GetText_(Chart()\Item()\Text, Percent$)
+            Text$ = GetText_(Chart()\Item()\Text)
           EndIf ;}
           
           ;{ --- Draw Bars ---
@@ -2280,7 +2362,7 @@ Module Chart
           Gradient = Chart()\Item()\Gradient
           If Gradient = #PB_Default : Gradient = BlendColor_(Color, Chart()\Color\Back, 60) : EndIf
           
-          If Chart()\Item()\Value >= Minimum And Chart()\Item()\Value <= Maximum
+          If Chart()\Item()\Value >= Chart()\Bar\Minimum And Chart()\Item()\Value <= Maximum
           
             If Color <> Gradient ;{ Gradient color
     
@@ -2375,7 +2457,7 @@ Module Chart
   Procedure   DrawBarChart_(X.i, Y.i, Width.i, Height.i)
     Define.i X, Y, Width, Height, PosX, PosY, sWidth, bWidth, bHeight, nHeight, pHeight
     Define.i txtX, txtY, txtWidth, txtHeight, axisY
-    Define.i n, Items, Spaces, ScaleLines, Range, Color, Gradient, Maximum, Minimum, maxValue, minValue
+    Define.i n, Items, Spaces, ScaleLines, Color, Gradient, Maximum, maxValue, minValue
     Define.f SpaceY, Quotient, Calc
     Define.s Text$, Percent$
     
@@ -2392,12 +2474,12 @@ Module Chart
         If maxValue > Maximum : Maximum = maxValue : EndIf
       EndIf ;}
       
-      Minimum  = Chart()\Minimum ;{ Minimum
+      Chart()\Bar\Minimum  = Chart()\Minimum ;{ Minimum
       minValue = MinimumValue_()
-      If Minimum = #PB_Default
-        Minimum = minValue
+      If Chart()\Bar\Minimum = #PB_Default
+        Chart()\Bar\Minimum = minValue
       ElseIf Chart()\Bar\Flags & #NoAutoAdjust = #False
-        If minValue < Minimum : Minimum = minValue : EndIf
+        If minValue < Chart()\Bar\Minimum : Chart()\Bar\Minimum = minValue : EndIf
       EndIf ;}
 
       txtHeight = TextHeight("Abc")
@@ -2409,13 +2491,18 @@ Module Chart
       Width  - txtWidth - dpiX(2)
       Height - (txtHeight * 1.5) - dpiY(3)
       
-      Range = Maximum - Minimum
+      Chart()\EventSize\X = X
+      Chart()\EventSize\Y = Y
+      Chart()\EventSize\Width  = Width
+      Chart()\EventSize\Height = Height
+      
+      Chart()\Bar\Range = Maximum - Chart()\Bar\Minimum
       
       ;{ --- Calc Height for positive and negative Values ---
-      If Minimum < 0
-        Quotient = Height / Range
+      If Chart()\Bar\Minimum < 0
+        Quotient = Height / Chart()\Bar\Range
         pHeight  = Quotient * Maximum ; positiv
-        nHeight  = Quotient * Minimum ; negativ 
+        nHeight  = Quotient * Chart()\Bar\Minimum ; negativ 
       Else
         pHeight = Height ; positiv
         nHeight = 0      ; negativ
@@ -2445,14 +2532,14 @@ Module Chart
       If Chart()\Bar\ScaleLines = #PB_Default
         If Chart()\Bar\ScaleSpacing = 0 : Chart()\Bar\ScaleSpacing = 1 : EndIf
         ScaleLines = Height / (txtHeight * Chart()\Bar\ScaleSpacing)
-        ScaleLines = CalcScaleLines_(ScaleLines, Range)
+        ScaleLines = CalcScaleLines_(ScaleLines, Chart()\Bar\Range)
       Else
         ScaleLines = Chart()\Bar\ScaleLines
       EndIf
   
       If ScaleLines
         
-        Quotient = Range  / ScaleLines
+        Quotient = Chart()\Bar\Range  / ScaleLines
         SpaceY   = Height / ScaleLines
         
         DrawingMode(#PB_2DDrawing_Transparent)
@@ -2469,13 +2556,13 @@ Module Chart
           DrawText(txtX, txtY, Text$, Chart()\Color\Front)
         Next
   
-        ;If Minimum
+        ;If Chart()\Bar\Minimum
         ;  PosY = Y + Height
         ;  If Chart()\Flags & #ShowLines
         ;    Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
         ;  EndIf
         ;  Line(X - dpiX(2), PosY, dpiX(6), 1, Chart()\Color\Axis)
-        ;  Text$ = Str(Minimum)
+        ;  Text$ = Str(Chart()\Bar\Minimum)
         ;  txtX = X - TextWidth(Text$) - dpix(4)
         ;  txtY = PosY - Round(txtHeight / 2, #PB_Round_Nearest)
         ;  DrawText(txtX, txtY, Text$, Chart()\Color\Front)
@@ -2490,10 +2577,10 @@ Module Chart
       ForEach Chart()\Item()
         
         ;{ --- Calc Position & Height---
-        If Minimum < 0
+        If Chart()\Bar\Minimum < 0
           If Chart()\Item()\Value < 0
             PosY = Y + pHeight + dpiY(1)
-            Quotient = nHeight / Minimum
+            Quotient = nHeight / Chart()\Bar\Minimum
           Else
             PosY = Y + pHeight
             Quotient = pHeight / Maximum
@@ -2501,14 +2588,14 @@ Module Chart
           bHeight = Chart()\Item()\Value * Quotient
         Else
           PosY = Y + pHeight
-          Quotient = Height / Range
-          bHeight = (Chart()\Item()\Value - Minimum) * Quotient
+          Quotient = Height / Chart()\Bar\Range
+          bHeight = (Chart()\Item()\Value - Chart()\Bar\Minimum) * Quotient
         EndIf ;}
         
         ;{ --- Set text for #ShowValue or #ShowPercent ---
-        Calc = (Chart()\Item()\Value - Minimum) * 100
+        Calc = (Chart()\Item()\Value - Chart()\Bar\Minimum) * 100
         If Calc <> 0
-          Percent$ = Str((Calc / Range)) + "%"
+          Percent$ = Str((Calc / Chart()\Bar\Range)) + "%"
         Else
           Percent$ = "0%"
         EndIf
@@ -2518,7 +2605,7 @@ Module Chart
         ElseIf Chart()\Flags & #ShowPercent  
           Text$ = Percent$
         Else
-          Text$ = GetText_(Chart()\Item()\Text, Percent$)
+          Text$ = GetText_(Chart()\Item()\Text)
         EndIf ;}
   
         ;{ --- Draw Bars ---
@@ -2529,7 +2616,7 @@ Module Chart
         If Gradient = #PB_Default : Gradient = BlendColor_(Color, Chart()\Color\Back, 60) : EndIf
         
         
-        If Chart()\Item()\Value >= Minimum And Chart()\Item()\Value <= Maximum
+        If Chart()\Item()\Value >= Chart()\Bar\Minimum And Chart()\Item()\Value <= Maximum
           
           If Color <> Gradient ;{ Gradient color
   
@@ -2829,7 +2916,7 @@ Module Chart
           EndIf
         Next
         ;}
-      Else                                    ;{ Bar Chart
+      Else                                    ;{ Bar / Line Chart
         
         ForEach Chart()\Item()
           
@@ -2949,7 +3036,7 @@ Module Chart
           EndIf
         Next
         ;}
-      Else                                    ;{ Bar Chart
+      Else                                    ;{ Bar / Line Chart
         
         ForEach Chart()\Item()
           If X > Chart()\Item()\X And X < Chart()\Item()\X + Chart()\Item()\Width
@@ -3076,6 +3163,7 @@ Module Chart
                       PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_RightClick)
                     EndIf
                     
+                    ProcedureReturn #True
                   EndIf
                 EndIf
               EndIf
@@ -3085,7 +3173,7 @@ Module Chart
           ;}
         EndIf
         
-        ForEach Chart()\VisibleData()         ;{ Bars
+        ForEach Chart()\VisibleData()         ;{ Bars / Circles
           If SelectElement(Chart()\Series(), Chart()\VisibleData())
             ForEach Chart()\Series()\Item()
               
@@ -3112,7 +3200,7 @@ Module Chart
         Next ;}
         
         ;}
-      Else                                    ;{ Bar Chart
+      Else                                    ;{ Bar / Line Chart
         
         ForEach Chart()\Item()
           
@@ -3142,6 +3230,153 @@ Module Chart
     EndIf
     
   EndProcedure
+  
+  Procedure _MouseMoveHandler()
+    Define.i X, Y, Radius, Angle
+    Define.i GadgetNum = EventGadget()
+    
+    If FindMapElement(Chart(), Str(GadgetNum))
+      
+      X = GetGadgetAttribute(GadgetNum, #PB_Canvas_MouseX)
+      Y = GetGadgetAttribute(GadgetNum, #PB_Canvas_MouseY)
+      
+      If Chart()\Flags & #ToolTips Or Chart()\Flags & #ChangeCursor
+        
+        If Chart()\Legend\Flags & #PostEvents ;{ Legend
+          
+          If Chart()\Flags & #PieChart        ;{ Pie Chart
+            ForEach Chart()\Item()
+              If X > Chart()\Item()\Legend\X And X < Chart()\Item()\Legend\X + Chart()\Item()\Legend\Width
+                If Y > Chart()\Item()\Legend\Y And Y < Chart()\Item()\Legend\Y + Chart()\Item()\Legend\Height
+                  
+                  If Chart()\Flags & #ChangeCursor : SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Hand) : EndIf
+                  
+                  ProcedureReturn #True
+                EndIf
+              EndIf 
+            Next
+            ;}
+          ElseIf Chart()\Flags & #DataSeries  ;{ Data Series Chart
+
+            If Chart()\Legend\Flags & #AllDataSeries
+              ForEach Chart()\Series()
+                If X > Chart()\Series()\Legend\X And X < Chart()\Series()\Legend\X + Chart()\Series()\Legend\Width
+                  If Y > Chart()\Series()\Legend\Y And Y < Chart()\Series()\Legend\Y + Chart()\Series()\Legend\Height
+
+                    If Chart()\Flags & #ChangeCursor : SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Hand) : EndIf
+
+                    ProcedureReturn #True
+                  EndIf
+                EndIf 
+              Next
+            Else
+              ForEach Chart()\VisibleData()
+                If SelectElement(Chart()\Series(), Chart()\VisibleData())
+                  If X > Chart()\Series()\Legend\X And X < Chart()\Series()\Legend\X + Chart()\Series()\Legend\Width
+                    If Y > Chart()\Series()\Legend\Y And Y < Chart()\Series()\Legend\Y + Chart()\Series()\Legend\Height
+                      
+                      If Chart()\Flags & #ChangeCursor : SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Hand) : EndIf
+                      
+                      ProcedureReturn #True
+                    EndIf
+                  EndIf
+                EndIf
+              Next
+            EndIf 
+            ;}
+          EndIf
+          ;}
+        EndIf  
+        
+        If X >= Chart()\EventSize\X And X <= Chart()\EventSize\X + Chart()\EventSize\Width
+          If Y >= Chart()\EventSize\Y And Y <= Chart()\EventSize\Y + Chart()\EventSize\Height
+            
+            If Chart()\Flags & #PieChart       ;{ Pie Chart
+
+              Radius = GetRadius_(Chart()\Pie\X, Chart()\Pie\Y, X, Y)
+              If Radius < Chart()\Pie\Radius ; within the circle
+                
+                ForEach Chart()\Item()
+                  
+                  Angle = GetAngleDegree_(X, Y, Chart()\Pie\X, Chart()\Pie\Y)
+                  If Angle > Chart()\Item()\sAngle And Angle < Chart()\Item()\eAngle
+                    
+                    If Chart()\Flags & #ToolTips And Chart()\ToolTip = #False
+                      GadgetToolTip(GadgetNum, GetText_(Chart()\ToolTipText))
+                      Chart()\ToolTip = #True
+                    EndIf
+                    
+                    If Chart()\Flags & #ChangeCursor : SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Hand) : EndIf
+                    
+                    ProcedureReturn #True
+                  EndIf
+                  
+                Next 
+                
+              EndIf
+              ;}
+            ElseIf Chart()\Flags & #DataSeries ;{ Data Series Chart
+ 
+              ForEach Chart()\VisibleData()
+                If SelectElement(Chart()\Series(), Chart()\VisibleData())
+                  
+                  ForEach Chart()\Series()\Item()
+                    
+                    If X > Chart()\Series()\Item()\X And X < Chart()\Series()\Item()\X + Chart()\Series()\Item()\Width
+                      If Y > Chart()\Series()\Item()\Y And Y < Chart()\Series()\Item()\Y + Chart()\Series()\Item()\Height
+                        
+                        If Chart()\Flags & #ToolTips And Chart()\ToolTip = #False
+                          GadgetToolTip(GadgetNum, GetText_(Chart()\ToolTipText))
+                          Chart()\ToolTip = #True
+                        EndIf
+                        
+                        If Chart()\Flags & #ChangeCursor : SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Hand) : EndIf
+
+                        ProcedureReturn #True
+                      EndIf
+                    EndIf
+                    
+                  Next
+                  
+                EndIf
+              Next
+              ;}
+            Else                               ;{ Bar / Line Chart
+              
+              ForEach Chart()\Item()
+          
+                If X >= Chart()\Item()\X And X <= Chart()\Item()\X + Chart()\Item()\Width
+                  If Y >= Chart()\Item()\Y And Y <= Chart()\Item()\Y + Chart()\Item()\Height
+                    
+                    If Chart()\Flags & #ToolTips And Chart()\ToolTip = #False
+                      GadgetToolTip(GadgetNum, GetText_(Chart()\ToolTipText))
+                      Chart()\ToolTip = #True
+                    EndIf
+                    
+                    If Chart()\Flags & #ChangeCursor : SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Hand) : EndIf
+                    
+                    ProcedureReturn #True
+                  EndIf 
+                EndIf
+                
+              Next  
+              ;}
+            EndIf
+
+          EndIf
+
+        EndIf
+        
+      EndIf
+      
+      Chart()\ToolTip = #False
+      GadgetToolTip(GadgetNum, "")
+      
+      If Chart()\Flags & #ChangeCursor : SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Default) : EndIf
+      
+    EndIf
+    
+  EndProcedure  
   
   Procedure _ResizeHandler()
     Define.i GadgetID = EventGadget()
@@ -3737,7 +3972,9 @@ Module Chart
         Chart()\Line\Color        = $9F723E
         Chart()\Line\FontSize     = #PB_Default
         
-        Chart()\Flags  = Flags
+        
+        Chart()\ToolTipText = #Value$
+        Chart()\Flags       = Flags
         
         Chart()\ReDraw = #True
         
@@ -3766,6 +4003,7 @@ Module Chart
         BindGadgetEvent(Chart()\CanvasNum,  @_RightClickHandler(),      #PB_EventType_RightClick)
         BindGadgetEvent(Chart()\CanvasNum,  @_LeftClickHandler(),       #PB_EventType_LeftClick)
         BindGadgetEvent(Chart()\CanvasNum,  @_LeftDoubleClickHandler(), #PB_EventType_LeftDoubleClick)
+        BindGadgetEvent(Chart()\CanvasNum,  @_MouseMoveHandler(),       #PB_EventType_MouseMove)
         
         If Flags & #AutoResize
           If IsWindow(WindowNum)
@@ -4089,6 +4327,7 @@ Module Chart
     If FindMapElement(Chart(), Str(GNum))
       
       Chart()\Size\Flags = Flags
+      Chart()\Flags | #AutoResize
       
     EndIf  
    
@@ -4285,12 +4524,24 @@ Module Chart
     
   EndProcedure
   
+  Procedure   ToolTipText(GNum.i, Text.s) ; #Value$ / Percent$ / #Label$ / #Series$
+    
+    If FindMapElement(Chart(), Str(GNum))
+      
+      Chart()\ToolTipText = Text
+      Chart()\Flags | #ToolTips
+      
+    EndIf  
+    
+  EndProcedure  
+    
   Procedure   UpdatePopupText(GNum.i, MenuItem.i, Text.s)
     
     If FindMapElement(Chart(), Str(GNum))
       
       If AddMapElement(Chart()\PopUpItem(), Str(MenuItem))
         Chart()\PopUpItem() = Text
+        Chart()\Flags | #PopUpMenu
       EndIf 
       
     EndIf
@@ -4306,7 +4557,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   ; ----- Select Example -----
   
-  #Example = 15
+  #Example = 0
   
   ; --- Bar Chart ---
   ;  1: automatically adjust maximum value (#PB_Default)
@@ -4416,7 +4667,7 @@ CompilerIf #PB_Compiler_IsMainFile
         Chart::SetAttribute(#Chart, Chart::#Width, 22)
         Chart::SetFlags(#Chart, Chart::#BarChart, Chart::#Colored)
       CompilerCase 12 ; Line Chart
-        Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#LineChart|Chart::#Border|Chart::#ShowLines|Chart::#ShowValue|Chart::#AutoResize, #Window)
+        Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#LineChart|Chart::#Border|Chart::#ShowLines|Chart::#ShowValue|Chart::#ChangeCursor|Chart::#AutoResize, #Window)
         Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#Colored) ; |Chart::#Descending
         ;Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#NoAutoAdjust)
         ;Chart::SetAttribute(#Chart, Chart::#LineColor, $AACD66)
@@ -4424,32 +4675,36 @@ CompilerIf #PB_Compiler_IsMainFile
         Chart::SetFont(#Chart, FontID(#Font), Chart::#LineChart)
         Chart::SetMargins(#Chart, 15, 15)
       CompilerCase 13 ; Line Chart (#BezierCurve)
-        Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#LineChart|Chart::#Border|Chart::#ShowLines|Chart::#ShowValue|Chart::#AutoResize, #Window)
+        Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#LineChart|Chart::#Border|Chart::#ShowLines|Chart::#ShowValue|Chart::#ChangeCursor|Chart::#AutoResize, #Window)
         Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#Colored|Chart::#BezierCurve) ; |Chart::#Descending|Chart::#NoAutoAdjust
         ;Chart::SetAttribute(#Chart, Chart::#Maximum,  80)
         Chart::SetAttribute(#Chart, Chart::#FontSize, 10)
       CompilerCase 14 ; Line Chart (negative values)
-        Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#LineChart|Chart::#Border|Chart::#ShowLines|Chart::#AutoResize, #Window)
+        Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#LineChart|Chart::#Border|Chart::#ShowLines|Chart::#ChangeCursor|Chart::#AutoResize, #Window)
         Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#Colored|Chart::#BezierCurve)
         Chart::SetAttribute(#Chart, Chart::#Minimum, -50)
         Chart::SetAttribute(#Chart, Chart::#Maximum, 50)
       CompilerCase 15 ; Line Chart (data series)
-        Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#LineChart|Chart::#DataSeries|Chart::#ShowLines|Chart::#ShowValue|Chart::#Border|Chart::#AutoResize, #Window)
+        Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#LineChart|Chart::#DataSeries|Chart::#ShowLines|Chart::#Border|Chart::#ChangeCursor|Chart::#ToolTips|Chart::#AutoResize, #Window) ; |Chart::#ShowValue
         Chart::SetFlags(#Chart, Chart::#Legend, Chart::#AllDataSeries|Chart::#PostEvents|Chart::#PopUpMenu)  ; |Chart::#Hide
         Chart::SetFont(#Chart, FontID(#Font), Chart::#Legend)
         Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#BezierCurve) ; |Chart::#Descending|Chart::#NoAutoAdjust
         ;Chart::SetAttribute(#Chart, Chart::#Maximum, 70)
-        Chart::SetAttribute(#Chart, Chart::#FontSize, 9)
+        ;Chart::SetAttribute(#Chart, Chart::#FontSize, 9)
+        ; Tooltips
+        Chart::ToolTipText(#Chart, "Value: " + Chart::#Value$)
         ; Popup Menu
         Chart::AttachPopupMenu(#Chart, #PopUp)
-        Chart::UpdatePopupText(#Chart, #Menu_Display, "Display '"+Chart::#Serie$+"'")
-        Chart::UpdatePopupText(#Chart, #Menu_Hide,    "Hide '"+Chart::#Serie$+"'")
+        Chart::UpdatePopupText(#Chart, #Menu_Display, "Display '" + Chart::#Serie$ + "'")
+        Chart::UpdatePopupText(#Chart, #Menu_Hide,    "Hide '" + Chart::#Serie$ + "'")
       CompilerDefault
-        Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#Border|Chart::#ShowLines|Chart::#ShowValue|Chart::#AutoResize, #Window)
+        Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#Border|Chart::#ShowLines|Chart::#ShowValue|Chart::#ChangeCursor|Chart::#AutoResize, #Window)
         Chart::SetFlags(#Chart, Chart::#BarChart, Chart::#Colored)
         ;Chart::SetAttribute(#Chart, Chart::#BarFlags, Chart::#NoBorder)
         Chart::SetAttribute(#Chart, Chart::#ScaleSpacing, Chart::#Double) ; Chart::#Single / Chart::#Double
         Chart::SetAttribute(#Chart, Chart::#Maximum, 100)
+        ; Tooltips
+        Chart::ToolTipText(#Chart, "Percent: " + Chart::#Percent$)
     CompilerEndSelect    
     
     Chart::SetAutoResizeFlags(#Chart, Chart::#ResizeWidth)
@@ -4635,8 +4890,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.70 LTS (Windows - x86)
-; CursorPosition = 4442
-; FirstLine = 886
-; Folding = MBAAAAAGAUTRKRAQ1l3m1wAAAEEAAAAUAAApDAAgwnz
+; CursorPosition = 4700
+; FirstLine = 1427
+; Folding = O2AEYAAMFgftWi3vcOt4xgBLgIiTEAAAQAAAgAAAAE+c+
 ; EnableXP
 ; DPIAware
