@@ -1,0 +1,177 @@
+%PDF-1.6
+%‚„œ”
+2 0 obj
+<<
+/Producer (pbPDF V2.0 for PureBasic X86)
+/CreationDate (D:20190220181150)
+>>
+endobj
+4 0 obj
+<<
+/ProcSet [/PDF /Text /ImageB /ImageC /ImageI]
+/Font <</F1 7 0 R /F2 8 0 R>>
+>>
+endobj
+6 0 obj
+<</Length 553>>
+stream
+2 J
+0.57 w
+BT /F1 16.00 Tf ET
+BT 204.10 800.74 Td (PDF Forms \(AcroForms\)) Tj ET
+BT /F1 11.00 Tf ET
+BT 31.18 764.07 Td (Text field \(single line\)) Tj ET
+BT /F2 11.00 Tf ET
+BT /F1 11.00 Tf ET
+q 0.000 g BT 31.18 696.04 Td (Text field \(multiple lines\)) Tj ET Q
+BT /F2 11.00 Tf ET
+BT /F1 11.00 Tf ET
+q 0.000 g BT 31.18 608.16 Td (Buttons) Tj ET Q
+BT /F2 11.00 Tf ET
+q 0.000 g BT 42.52 588.32 Td ( CheckBox) Tj ET Q
+q 0.000 g BT 42.52 564.22 Td ( RadioButton) Tj ET Q
+BT /F1 11.00 Tf ET
+q 0.000 g BT 31.18 528.79 Td (ComboBox) Tj ET Q
+BT /F2 11.00 Tf ET
+endstream
+endobj
+8 0 obj
+<</Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding>>
+endobj
+11 0 obj
+<<
+/Type /Annot /Subtype /Widget
+/Rect [28.35 597.29 39.69 585.95]
+/F 4
+/P 5 0 R
+/FT /Btn
+/MK << /BC [0.24 0.24 0.24] >>
+/V /Off
+/AS /Off
+/T (CheckBox)
+>>
+endobj
+13 0 obj
+<<
+/Type /Annot /Subtype /Widget
+/Rect [28.35 517.92 141.74 503.74]
+/F 4
+/P 5 0 R
+/FT /Ch
+ /Ff 131072
+/MK << /BC [0.24 0.24 0.24] >>
+/V ()
+/T (ChoiceField 1)
+/DV (Banana)
+/DA (/F2 11 Tf 0.000 g)
+/I [1]
+/Opt [ (Orange) (Apple) (Banana) (Pear) (Melon) (Cherry) ]
+>>
+endobj
+1 0 obj
+<<
+/Type /Pages
+/Kids [5 0 R]
+/Count 1
+>>
+endobj
+3 0 obj
+<<
+/Type /Catalog
+/Pages 1 0 R
+/OpenAction [5 0 R /XYZ 0 0 ]
+/AcroForm 14 0 R
+>>
+endobj
+5 0 obj
+<<
+/Type /Page
+/Parent 1 0 R
+/MediaBox [0 0 595.28 841.89]
+/Resources 4 0 R
+/Contents 6 0 R
+/Annots [9 0 R  10 0 R  11 0 R  12 0 R  13 0 R]
+>>
+endobj
+7 0 obj
+<</Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding>>
+endobj
+9 0 obj
+<<
+/Type /Annot /Subtype /Widget
+/Rect [28.35 753.19 255.12 733.35]
+/F 4
+/P 5 0 R
+/FT /Tx
+/Ff 2
+/Q 1
+/MK << /BC [0.24 0.24 0.24] >>
+/V ()
+/T (TextField 1)
+/TU (Enter a single line of text.)
+/DA (/F2 11 Tf 0.000 0.000 0.545 rg)
+>>
+endobj
+10 0 obj
+<<
+/Type /Annot /Subtype /Widget
+/Rect [28.35 685.16 255.12 642.64]
+/F 4
+/P 5 0 R
+/FT /Tx
+/Ff 4096
+/Q 0
+/MK << /BC [0.24 0.24 0.24] /BG [0.99 0.99 0.99] >>
+/V ()
+/T (TextField 2)
+/TU (Enter multiple lines of Text.)
+/DA (/F2 11 Tf 0.000 g)
+>>
+endobj
+12 0 obj
+<<
+/Type /Annot /Subtype /Widget
+/Rect [28.35 574.61 39.69 563.27]
+/F 4
+/P 5 0 R
+/FT /Btn
+ /Ff 32768
+/MK << /BC [0.24 0.24 0.24] >>
+/V /Off
+/AS /Off
+/T (RadioButton)
+>>
+endobj
+14 0 obj
+<<
+/NeedAppearances true
+/Fields [9 0 R 10 0 R 11 0 R 12 0 R 13 0 R]
+>>
+endobj
+xref
+0 15
+0000000000 65535 f
+0000001354 00000 n 
+0000000015 00000 n 
+0000001411 00000 n 
+0000000110 00000 n 
+0000001507 00000 n 
+0000000207 00000 n 
+0000001665 00000 n 
+0000000808 00000 n 
+0000001765 00000 n 
+0000002010 00000 n 
+0000000903 00000 n 
+0000002268 00000 n 
+0000001074 00000 n 
+0000002453 00000 n 
+trailer
+<<
+/Size 15
+/Root 3 0 R
+/Info 2 0 R
+/ID [<6640b43854557d929f48a56edb56bb24> <6640b43854557d929f48a56edb56bb24>]
+>>
+startxref
+2541
+%%EOF
