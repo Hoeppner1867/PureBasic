@@ -7,12 +7,12 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 12.06.2019
+; Last Update: 22.06.2019
+;
+; - Changed: SetAttribute() partially replaced by SetFlags()
+; - Added:   SetFlags() / RemoveFlag()
+; - Added:   #AutoResize
 
-; - Added: Attribute '#Padding'
-; - Added: Flags for alignment (#Left/#Center/#Right)
-; - Added: Automatic gadget size adjustment (#AutoResize)
-; - Added: SetAutoResizeFlags()
 
 ;{ ===== MIT License =====
 ;
@@ -54,9 +54,11 @@
 ; StringEx::GetText()            - similar to 'GetGadgetText()'
 ; StringEx::Gadget()             - similar to 'StringGadget()'
 ; StringEx::Paste()              - paste clipboard
+; StringEx::RemoveFlag()         - removes a flag
 ; StringEx::SetAttribute()       - similar to 'SetGadgetAttribute()'
 ; StringEx::SetAutoResizeFlags() - [#MoveX|#MoveY|#ResizeWidth|#ResizeHeight]
 ; StringEx::SetColor()           - similar to 'SetGadgetColor()'
+; StringEx::SetFlags()           - sets one or more flags
 ; StringEx::SetText()            - similar to 'SetGadgetText()'
 ; StringEx::Undo()               - undo last input
 
@@ -76,21 +78,24 @@ DeclareModule StringEx
   
   ;{ _____ Constants _____
   EnumerationBinary Flags
-    #UpperCase    = #PB_String_UpperCase
-    #LowerCase    = #PB_String_LowerCase
-    #Password     = #PB_String_Password
-    #NotEditable  = #PB_String_ReadOnly
-    #Numeric      = #PB_String_Numeric
-    #Borderless   = #PB_String_BorderLess
-    #MaximumLength = #PB_String_MaximumLength
+    #UpperCase     = #PB_String_UpperCase
+    #LowerCase     = #PB_String_LowerCase
+    #Password      = #PB_String_Password
+    #NotEditable   = #PB_String_ReadOnly
+    #Numeric       = #PB_String_Numeric
+    #Borderless    = #PB_String_BorderLess
     #AutoComplete
     #AutoResize
     #ShowButton
     #EventButton
-    #Padding
     #Left
     #Right
     #Center
+  EndEnumeration
+  
+  Enumeration Attribute 1
+    #MaximumLength = #PB_String_MaximumLength
+    #Padding
   EndEnumeration
   
   Enumeration Color 1 
@@ -110,8 +115,6 @@ DeclareModule StringEx
     #ResizeHeight
   EndEnumeration  
   
-  ; TODO: AutoResize
-  
   CompilerIf Defined(ModuleEx, #PB_Module)
     
     #Event_Cursor       = ModuleEx::#Event_Cursor
@@ -130,8 +133,7 @@ DeclareModule StringEx
     EndEnumeration
     
   CompilerEndIf
-  
-  
+
   ;}
   
   ;- ===========================================================================
@@ -157,9 +159,11 @@ DeclareModule StringEx
   Declare.s GetText(GNum.i) 
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Text.s="", Flags.i=#False, WindowNum.i=#PB_Default)
   Declare   Paste(GNum.i)
+  Declare   RemoveFlag(GNum.i, Flag.i)
   Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetColor(GNum.i, ColorType.i, Color.i) 
+  Declare   SetFlags(GNum.i, Flags.i)
   Declare   SetText(GNum.i, Text.s) 
   Declare   Undo(GNum.i)
   
@@ -526,8 +530,6 @@ Module StringEx
     
     If CursorX > dpiX(4)
       
-      ;LockMutex(StrgEx()\Cursor\Mutex)
-      
       Text = StrgEx()\Text
       If StrgEx()\Flags & #Password And StrgEx()\Button\State & #Click = #False
         Text = LSet("", Len(StrgEx()\Text), #PWChar)
@@ -545,8 +547,6 @@ Module StringEx
         Next
         StopDrawing()
       EndIf
-      
-      ;UnlockMutex(StrgEx()\Cursor\Mutex)
       
       ProcedureReturn Pos
     Else
@@ -1637,37 +1637,7 @@ Module StringEx
       
       Select Attribute
         Case #MaximumLength
-          ProcedureReturn StrgEx()\MaxLength
-        Case #NotEditable
-          If StrgEx()\Flags & #NotEditable
-            ProcedureReturn #True
-          Else
-            ProcedureReturn #False
-          EndIf
-        Case #UpperCase
-          If StrgEx()\Flags & #UpperCase
-            ProcedureReturn #True
-          Else
-            ProcedureReturn #False
-          EndIf  
-        Case #LowerCase
-          If StrgEx()\Flags & #LowerCase
-            ProcedureReturn #True
-          Else
-            ProcedureReturn #False
-          EndIf  
-        Case #Numeric
-          If StrgEx()\Flags & #Numeric
-            ProcedureReturn #True
-          Else
-            ProcedureReturn #False
-          EndIf  
-        Case #Borderless
-          If StrgEx()\Flags & #Borderless
-            ProcedureReturn #True
-          Else
-            ProcedureReturn #False
-          EndIf  
+          ProcedureReturn StrgEx()\MaxLength  
         Case #Padding
           ProcedureReturn StrgEx()\Padding
       EndSelect
@@ -1710,7 +1680,7 @@ Module StringEx
   EndProcedure
   
   
-  Procedure   SetAutoResizeFlags(GNum.i, Flags.i)
+  Procedure SetAutoResizeFlags(GNum.i, Flags.i)
     
     If FindMapElement(StrgEx(), Str(GNum))
       
@@ -1728,36 +1698,6 @@ Module StringEx
         Case #MaximumLength
           StrgEx()\MaxLength = Value
           Draw_(GNum)
-        Case #NotEditable  
-          If Value = #True
-            StrgEx()\Flags | #NotEditable
-          Else
-            StrgEx()\Flags & ~#NotEditable
-          EndIf
-        Case #UpperCase  
-          If Value = #True
-            StrgEx()\Flags | #UpperCase
-          Else
-            StrgEx()\Flags & ~#UpperCase
-          EndIf  
-        Case #LowerCase  
-          If Value = #True
-            StrgEx()\Flags | #LowerCase
-          Else
-            StrgEx()\Flags & ~#LowerCase
-          EndIf
-        Case #Numeric  
-          If Value = #True
-            StrgEx()\Flags | #Numeric
-          Else
-            StrgEx()\Flags & ~#Numeric
-          EndIf
-        Case #Borderless  
-          If Value = #True
-            StrgEx()\Flags | #Borderless
-          Else
-            StrgEx()\Flags & ~#Borderless
-          EndIf
         Case #Padding
           If Value < 2 : Value = 2 : EndIf 
           StrgEx()\Padding = dpiX(Value)
@@ -1790,6 +1730,22 @@ Module StringEx
       EndSelect
       
       Draw_(GNum)
+    EndIf
+    
+  EndProcedure
+  
+  Procedure SetFlags(GNum.i, Flags.i)
+    
+    If FindMapElement(StrgEx(), Str(GNum))
+      StrgEx()\Flags | Flags
+    EndIf
+    
+  EndProcedure
+  
+  Procedure RemoveFlag(GNum.i, Flag.i)
+    
+    If FindMapElement(StrgEx(), Str(GNum))
+      StrgEx()\Flags & ~Flag
     EndIf
     
   EndProcedure
@@ -1896,6 +1852,7 @@ CompilerIf #PB_Compiler_IsMainFile
     
     StringEx::Gadget(#StringPW, 225, 19, 100, 20, "Password", StringEx::#Password|StringEx::#ShowButton, #Window)
     ;StringEx::SetAttribute(#StringPW, StringEx::#Padding, 6)
+    ;StringEx::SetAttribute(#StringPW, StringEx::#MaximumLength, 10)
     
     StringEx::Gadget(#StringDel, 340, 19, 100, 20, "Delete this", StringEx::#Center|StringEx::#AutoResize, #Window)
     StringEx::AddButton(#StringDel, #Image)
@@ -1931,9 +1888,10 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf
-; IDE Options = PureBasic 5.70 LTS (Windows - x86)
-; CursorPosition = 11
-; Folding = MBwBBAAHAAAAAwZAIIC+
+; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x64)
+; CursorPosition = 1854
+; FirstLine = 601
+; Folding = OBgBBgAHAAAAsxZAAAA5
 ; EnableThread
 ; EnableXP
 ; DPIAware
