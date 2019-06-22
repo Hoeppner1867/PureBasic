@@ -632,9 +632,15 @@ Module StringEx
       DrawingMode(#PB_2DDrawing_Default)
       Box(StrgEx()\Button\X, 0, dpiX(#ButtonWidth), dpiY(GadgetHeight(StrgEx()\CanvasNum)), BlendColor_(StrgEx()\Color\Focus, $FFFFFF, 20))
     ElseIf StrgEx()\Button\State & #Focus
+      If GetGadgetAttribute(StrgEx()\CanvasNum, #PB_Canvas_Cursor) <> #PB_Cursor_Hand
+        SetGadgetAttribute(StrgEx()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
+      EndIf
       DrawingMode(#PB_2DDrawing_Default)
       Box(StrgEx()\Button\X, 0, dpiX(#ButtonWidth), dpiY(GadgetHeight(StrgEx()\CanvasNum)), BlendColor_(StrgEx()\Color\Focus, $FFFFFF, 10))
     Else
+      If GetGadgetAttribute(StrgEx()\CanvasNum, #PB_Canvas_Cursor) <> #PB_Cursor_IBeam
+        SetGadgetAttribute(StrgEx()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_IBeam)
+      EndIf
       DrawingMode(#PB_2DDrawing_Default)
       Box(StrgEx()\Button\X, 0, dpiX(#ButtonWidth), dpiY(GadgetHeight(StrgEx()\CanvasNum)), StrgEx()\Color\Button)
     EndIf 
