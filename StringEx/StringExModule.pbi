@@ -1485,6 +1485,8 @@ Module StringEx
       
       If GNum = #PB_Any : GNum = Result : EndIf
       
+      SetGadgetAttribute(GNum, #PB_Canvas_Cursor, #PB_Cursor_IBeam)
+      
       X      = dpiX(X)
       Y      = dpiY(Y)
       Width  = dpiX(Width)
