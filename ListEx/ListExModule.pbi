@@ -7,8 +7,7 @@
 ;/ Editable and sortable ListGadget
 ;/
 ;/ © 2019 Thorsten1867 (03/2019)
-;/
-  
+;/ 
 
 ; Last Update: 17.06.2019 - 20:00
 
@@ -4424,8 +4423,10 @@ Module ListEx
     
     If FindMapElement(ListEx(), Str(GNum))
       
-      If SelectElement(ListEx()\Rows(), Row)
-        ProcedureReturn ListEx()\Rows()\iData
+      If Row <> -1
+        If SelectElement(ListEx()\Rows(), Row)
+          ProcedureReturn ListEx()\Rows()\iData
+        EndIf
       EndIf
       
     EndIf
@@ -4436,8 +4437,10 @@ Module ListEx
     
     If FindMapElement(ListEx(), Str(GNum))
       
-      If SelectElement(ListEx()\Rows(), Row)
-        ProcedureReturn ListEx()\Rows()\ID
+      If Row <> -1
+        If SelectElement(ListEx()\Rows(), Row)
+          ProcedureReturn ListEx()\Rows()\ID
+        EndIf
       EndIf
       
     EndIf
@@ -4448,13 +4451,15 @@ Module ListEx
     
     If FindMapElement(ListEx(), Str(GNum))
       
-      If SelectElement(ListEx()\Rows(), Row)
-        If Column = #PB_Default
-          ProcedureReturn ListEx()\Rows()\State
-        Else
-          If SelectElement(ListEx()\Cols(), Column)
-            ProcedureReturn ListEx()\Rows()\Column(ListEx()\Cols()\Key)\State
-          EndIf 
+      If Row <> -1
+        If SelectElement(ListEx()\Rows(), Row)
+          If Column = #PB_Default
+            ProcedureReturn ListEx()\Rows()\State
+          Else
+            If SelectElement(ListEx()\Cols(), Column)
+              ProcedureReturn ListEx()\Rows()\Column(ListEx()\Cols()\Key)\State
+            EndIf 
+          EndIf
         EndIf
       EndIf
       
@@ -5399,11 +5404,11 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.70 LTS (Windows - x86)
-; CursorPosition = 2916
-; FirstLine = 822
-; Folding = 1DAAAASAAaCAAAgsHwIkA+HBAAwYgEA1oAAAAAQEAAAA16
-; Markers = 553
+; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
+; CursorPosition = 4403
+; FirstLine = 1020
+; Folding = 1DAAAASAAaCAAAgsHwIkA+HBAgwYgEA1oAAAAAAEAAAA16
+; Markers = 552
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
