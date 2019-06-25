@@ -576,6 +576,13 @@ Module ButtonEx
             BtEx()\Window\Width  = WindowWidth(BtEx()\Window\Num)
             BtEx()\Window\Height = WindowHeight(BtEx()\Window\Num)
             
+            If Flags & #AutoResize
+              If IsWindow(BtEx()\Window\Num)
+                BindEvent(#PB_Event_SizeWindow, @_ResizeWindowHandler(), BtEx()\Window\Num)
+              EndIf  
+            EndIf
+            
+            
             If BtEx()\Size\Flags
               
               X = #PB_Ignore : Y = #PB_Ignore : Width = #PB_Ignore : Height = #PB_Ignore
@@ -590,7 +597,9 @@ Module ButtonEx
             Else
               ResizeGadget(BtEx()\CanvasNum, #PB_Ignore, #PB_Ignore, GadgetWidth(BtEx()\CanvasNum) + OffSetX, GadgetHeight(BtEx()\CanvasNum) + OffsetY)
             EndIf
-          
+            
+            BindGadgetEvent(BtEx()\CanvasNum,  @_ResizeHandler(), #PB_EventType_Resize)
+            
             Draw_()
           EndIf
           
@@ -874,8 +883,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 47
-; FirstLine = 2
-; Folding = +OIM6Bsg-
+; CursorPosition = 600
+; FirstLine = 316
+; Folding = +OIM6Rsi-
 ; EnableXP
 ; DPIAware
