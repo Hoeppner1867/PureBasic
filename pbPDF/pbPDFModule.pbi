@@ -31,10 +31,10 @@
 ; SOFTWARE.
 ;}
 
-; Last Update: 20.06.2019
-; [20.06.2019] Bugfix:  PNG-Images
-; [20.02.2019] Added:   AddGotoLabel() / AddGotoAction() / TextField() / ButtonField() / ChoiceField() 
-; [20.02.2019] Changed: Internal structure completely revised and adapted to the structure of PDF documents.
+; Last Update: 25.06.2019
+; 
+; [25.06.2019] Bugfix: AutoPageBreak
+; [20.06.2019] Bugfix: PNG-Images
 
 
 ; ----- Description -----
@@ -192,7 +192,7 @@ DeclareModule PDF
   
   ;{ ===== Constants =====
   #Bullet$ = "•"
-  #NoLink = -1
+  #NoLink  = -1
   ;{ ----- AcroForms:   TextField() / ChoiceField() -----
   #Form_CheckBox          = 0
   #Form_SingleLine        = 0
@@ -2971,13 +2971,13 @@ Module PDF
         PDF()\Font\SizePt  = Size
         PDF()\Font\Size    = Size / PDF()\ScaleFactor
         PDF()\Font\Unicode = PDF()\Fonts()\Unicode
-        
-        If PDF()\pageNum > 0
-          objOutPage_("BT /F" + Str(PDF()\Fonts()\Number) + " " + strF_(PDF()\Font\SizePt, 2) + " Tf ET")
-        EndIf
-        
+
       EndIf
       
+    EndIf
+    
+    If PDF()\pageNum > 0
+      objOutPage_("BT /F" + Str(PDF()\Fonts()\Number) + " " + strF_(PDF()\Font\SizePt, 2) + " Tf ET")
     EndIf
     
   EndProcedure
@@ -3556,7 +3556,7 @@ Module PDF
     
     If Orientation = "" : Orientation = PDF()\Document\Orientation : EndIf
     PDF()\Page\Orientation = Left(UCase(Orientation), 1)
-    
+
     ;{ Close previous page
     If PDF()\pageNum > 0
       
@@ -3565,43 +3565,31 @@ Module PDF
         PDF()\Page\Angle = 0
         objOutPage_("Q" + #LF$)
   	  EndIf ;}
-     
+  	  
+  	  ;{ Backup Font & Colors & LineWidth
+      FontFamiliy = PDF()\Font\Family
+      FontStyle   = PDF()\Font\Style
+      Underline   = PDF()\Font\Underline
+      FontSize    = PDF()\Font\SizePt
+      DrawColor   = PDF()\Color\Draw
+      FillColor   = PDF()\Color\Fill
+      TextColor   = PDF()\Color\Text
+      ColorFlag   = PDF()\Color\Flag
+      LineWidth   = PDF()\LineWidth
+      ;}
+  	  
   	  ;{ Footer Procedure
       If PDF()\Footer\Flag And PDF()\Footer\ProcPtr
         
         PDF()\Footer\PageBreak = #False
-        
-        ;{ Backup Font & Colors & LineWidth
-        FontFamiliy = PDF()\Font\Family
-        FontStyle   = PDF()\Font\Style
-        Underline   = PDF()\Font\Underline
-        FontSize    = PDF()\Font\SizePt
-        DrawColor   = PDF()\Color\Draw
-        FillColor   = PDF()\Color\Fill
-        TextColor   = PDF()\Color\Text
-        ColorFlag   = PDF()\Color\Flag
-        LineWidth   = PDF()\LineWidth
-        ;}
-        
+
         ;{ Call Footer Procedure
         If PDF()\Footer\StrucPtr <> #Null
           CallFunctionFast(PDF()\Footer\ProcPtr, PDF()\Footer\StrucPtr)
         Else
           CallFunctionFast(PDF()\Footer\ProcPtr)
         EndIf ;}
-        
-        ;{ Restore Font & Colors & LineWidth
-        PDF()\LineWidth   = LineWidth
-        PDF()\Color\Draw  = DrawColor
-        PDF()\Color\Fill  = FillColor
-        PDF()\Color\Text  = TextColor
-        PDF()\Color\Flag  = ColorFlag
-        PDF()\Font\Family = FontFamiliy
-        PDF()\Font\Style  = FontStyle
-        PDF()\Font\SizePt = FontSize
-        PDF()\Font\Underline = Underline
-        ;}
-        
+
         PDF()\Footer\PageBreak = #True
         
       ElseIf PDF()\Footer\Numbering
@@ -3615,7 +3603,19 @@ Module PDF
         PDF()\Footer\PageBreak = #True
         
       EndIf ;}
-     
+      
+      ;{ Restore Font & Colors & LineWidth
+      PDF()\LineWidth      = LineWidth
+      PDF()\Color\Draw     = DrawColor
+      PDF()\Color\Fill     = FillColor
+      PDF()\Color\Text     = TextColor
+      PDF()\Color\Flag     = ColorFlag
+      PDF()\Font\Family    = FontFamiliy
+      PDF()\Font\Style     = FontStyle
+      PDF()\Font\SizePt    = FontSize
+      PDF()\Font\Underline = Underline
+      ;}
+      
     EndIf ;}
     
     PDF()\pageNum = objNew_(#objPage) ; New Page Object
@@ -3623,8 +3623,6 @@ Module PDF
     ; --- Page defaults ---
     PDF()\Page\X = PDF()\Margin\Left
     PDF()\Page\Y = PDF()\Margin\Right
-    
-    PDF()\Font\Family = ""
     
     If Trim(Format) ;{ Change page format
       ptWidth  = ValF(StringField(Format, 1, ","))
@@ -3669,6 +3667,7 @@ Module PDF
     If PDF()\Color\Draw <> "0 G" :  objStrg + PDF()\Color\Draw + #LF$ : EndIf  
     If PDF()\Color\Fill <> "0 g" :  objStrg + PDF()\Color\Fill + #LF$ : EndIf
     objOutPage_(objStrg)
+    
     If Trim(PDF()\Font\Family) <> ""
       SetFont_(PDF()\Font\Family, FontStyle, FontSize)
     EndIf
@@ -5962,7 +5961,7 @@ Module PDF
     EndIf
     
   EndProcedure
-    
+
   Procedure   InsertTOC(ID.i, Page.i=1, Label.s="", LabelFontSize.i=20, EntryFontSize.i=10, FontFamily.s="Times")
     Define.i StartTOC, Level, strgWidth, i, j, Num, NumTOC
     Define.f Width, Height, PageCellSize
@@ -6640,7 +6639,7 @@ CompilerIf #PB_Compiler_IsMainFile
     PDF::SetPosXY(#PDF, 90 + 10 * 2, 10)
     For n=1 To 10 : PDF::MultiCellList(#PDF, Text, 90, 6, #False, PDF::#Justified, #False, Str(n)+")") : Next
     ;}
-    
+        
     ;{ ----- Example: Table ----- 
     PDF::AddPage(#PDF)
     PDF::BookMark(#PDF, "Example: Table", 0, 0)
@@ -6884,10 +6883,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf 
 
 ;- ========================
-; IDE Options = PureBasic 5.70 LTS (Windows - x86)
-; CursorPosition = 34
-; Folding = MAAAIEAAAABAAAAAEAAAQACAQYAAAAAAAYAAsCgAAFqAAAAYAAQFBAAAAAACTAYAgAGAA+
-; Markers = 568,978,3730,3795
+; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
+; CursorPosition = 35
+; Folding = MAABAEAAAABAAAAAEAAAQIAAAQAAAAAQAQAAEABAAEqAAAAAAAQBBQAAAAACTAQAAAGAA+
+; Markers = 568,978,3729,3794
 ; EnableXP
 ; DPIAware
 ; EnablePurifier
