@@ -10,6 +10,7 @@
 ; Last Update: 25.6.2019
 ;
 ; Bugfix: PostEvent
+; Added:  AutoResize
 
 ;{ ===== MIT License =====
 ;
@@ -44,7 +45,7 @@
 ; Button::SetState()    - similar to 'SetGadgetState()'
 ; Button::SetFont()     - similar to 'SetGadgetFont()'
 ; Button::SetColor()    - similar to 'SetGadgetColor()'
-
+; SetAutoResizeFlags()  - [#MoveX|#MoveY|#ResizeWidth|#ResizeHeight]
 ;}
 
 DeclareModule ButtonEx
@@ -74,7 +75,15 @@ DeclareModule ButtonEx
     #Color
     #MacOS
     #Borderless
+    #AutoResize
   EndEnumeration
+  
+  EnumerationBinary 
+    #MoveX
+    #MoveY
+    #ResizeWidth
+    #ResizeHeight
+  EndEnumeration  
   
   CompilerIf Defined(ModuleEx, #PB_Module)
     
@@ -103,6 +112,7 @@ DeclareModule ButtonEx
   Declare   AddDropDown(GNum.i, PopupNum.i)
   Declare   AddImage(GNum.i, ImageNum.i, Width.i=#PB_Default, Height.i=#PB_Default, Flags.i=#Left)
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Text.s, Flags.i, WindowNum.i=#PB_Default)
+  Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare.i GetState(GNum.i)
   Declare   SetState(GNum.i, State.i)
   Declare   SetColor(GNum.i, ColorType.i, Color.i)
@@ -148,6 +158,7 @@ Module ButtonEx
     Y.f
     Width.f
     Height.f
+    Flags.i
   EndStructure ;}
   
   Structure ButtonEx_Window_Structure     ;{ ButtonEx()\Window\...
@@ -534,6 +545,62 @@ Module ButtonEx
     
   EndProcedure
   
+  Procedure _ResizeHandler()
+    Define.i GadgetID = EventGadget()
+    
+    If FindMapElement(BtEx(), Str(GadgetID))
+      
+      BtEx()\Size\Width  = dpiX(GadgetWidth(GadgetID))
+      BtEx()\Size\Height = dpiY(GadgetHeight(GadgetID))
+      
+      Draw_()
+    EndIf  
+ 
+  EndProcedure
+  
+  Procedure _ResizeWindowHandler()
+    Define.f X, Y, Width, Height
+    Define.f OffSetX, OffSetY
+    
+    ForEach BtEx()
+      
+      If IsGadget(BtEx()\CanvasNum)
+        
+        If BtEx()\Flags & #AutoResize
+          
+          If IsWindow(BtEx()\Window\Num)
+            
+            OffSetX = WindowWidth(BtEx()\Window\Num)  - BtEx()\Window\Width
+            OffsetY = WindowHeight(BtEx()\Window\Num) - BtEx()\Window\Height
+
+            BtEx()\Window\Width  = WindowWidth(BtEx()\Window\Num)
+            BtEx()\Window\Height = WindowHeight(BtEx()\Window\Num)
+            
+            If BtEx()\Size\Flags
+              
+              X = #PB_Ignore : Y = #PB_Ignore : Width = #PB_Ignore : Height = #PB_Ignore
+              
+              If BtEx()\Size\Flags & #MoveX : X = GadgetX(BtEx()\CanvasNum) + OffSetX : EndIf
+              If BtEx()\Size\Flags & #MoveY : Y = GadgetY(BtEx()\CanvasNum) + OffSetY : EndIf
+              If BtEx()\Size\Flags & #ResizeWidth  : Width  = GadgetWidth(BtEx()\CanvasNum)  + OffSetX : EndIf
+              If BtEx()\Size\Flags & #ResizeHeight : Height = GadgetHeight(BtEx()\CanvasNum) + OffSetY : EndIf
+              
+              ResizeGadget(BtEx()\CanvasNum, X, Y, Width, Height)
+              
+            Else
+              ResizeGadget(BtEx()\CanvasNum, #PB_Ignore, #PB_Ignore, GadgetWidth(BtEx()\CanvasNum) + OffSetX, GadgetHeight(BtEx()\CanvasNum) + OffsetY)
+            EndIf
+          
+            Draw_()
+          EndIf
+          
+        EndIf
+        
+      EndIf
+      
+    Next
+    
+  EndProcedure
  
   ;- ==========================================================================
   ;-   Module - Declared Procedures
@@ -674,6 +741,17 @@ Module ButtonEx
     
   EndProcedure
   
+  Procedure   SetAutoResizeFlags(GNum.i, Flags.i)
+    
+    If FindMapElement(BtEx(), Str(GNum))
+      
+      BtEx()\Size\Flags = Flags
+      
+    EndIf  
+   
+  EndProcedure
+  
+  
   Procedure   SetState(GNum.i, State.i)
     
     If FindMapElement(BtEx(), Str(GNum))
@@ -796,7 +874,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 11
-; Folding = 9CIM6hb+
+; CursorPosition = 47
+; FirstLine = 2
+; Folding = +OIM6Bsg-
 ; EnableXP
 ; DPIAware
