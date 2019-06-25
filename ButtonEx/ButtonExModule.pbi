@@ -575,14 +575,7 @@ Module ButtonEx
 
             BtEx()\Window\Width  = WindowWidth(BtEx()\Window\Num)
             BtEx()\Window\Height = WindowHeight(BtEx()\Window\Num)
-            
-            If Flags & #AutoResize
-              If IsWindow(BtEx()\Window\Num)
-                BindEvent(#PB_Event_SizeWindow, @_ResizeWindowHandler(), BtEx()\Window\Num)
-              EndIf  
-            EndIf
-            
-            
+
             If BtEx()\Size\Flags
               
               X = #PB_Ignore : Y = #PB_Ignore : Width = #PB_Ignore : Height = #PB_Ignore
@@ -597,8 +590,6 @@ Module ButtonEx
             Else
               ResizeGadget(BtEx()\CanvasNum, #PB_Ignore, #PB_Ignore, GadgetWidth(BtEx()\CanvasNum) + OffSetX, GadgetHeight(BtEx()\CanvasNum) + OffsetY)
             EndIf
-            
-            BindGadgetEvent(BtEx()\CanvasNum,  @_ResizeHandler(), #PB_EventType_Resize)
             
             Draw_()
           EndIf
@@ -728,6 +719,13 @@ Module ButtonEx
         BindGadgetEvent(BtEx()\CanvasNum,  @_MouseLeaveHandler(),     #PB_EventType_MouseLeave)
         BindGadgetEvent(BtEx()\CanvasNum,  @_LeftButtonDownHandler(), #PB_EventType_LeftButtonDown)
         BindGadgetEvent(BtEx()\CanvasNum,  @_LeftButtonUpHandler(),   #PB_EventType_LeftButtonUp)
+        BindGadgetEvent(BtEx()\CanvasNum,  @_ResizeHandler(),         #PB_EventType_Resize)
+        
+        If IsWindow(BtEx()\Window\Num)
+          BtEx()\Window\Width  = WindowWidth(BtEx()\Window\Num)
+          BtEx()\Window\Height = WindowHeight(BtEx()\Window\Num)
+          BindEvent(#PB_Event_SizeWindow, @_ResizeWindowHandler(), BtEx()\Window\Num)
+        EndIf 
         
         Draw_()
         
@@ -846,7 +844,8 @@ CompilerIf #PB_Compiler_IsMainFile
     ButtonEx::AddImage(#ButtonImg, #Image, 16, 16, ButtonEx::#Right)
     ButtonEx::SetFont(#ButtonImg, #Font)
     
-    ButtonEx::Gadget(#ButtonML, 345, 20, 90, 40, "MultiLine1 MultiLine2", ButtonEx::#MultiLine, #Window) ; ButtonEx::#MacOS
+    ButtonEx::Gadget(#ButtonML, 345, 20, 90, 40, "MultiLine1 MultiLine2", ButtonEx::#MultiLine|ButtonEx::#AutoResize, #Window) ; ButtonEx::#MacOS
+    ButtonEx::SetAutoResizeFlags(#ButtonML, ButtonEx::#ResizeWidth)
     
     Repeat
       Event = WaitWindowEvent()
@@ -883,8 +882,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 600
-; FirstLine = 316
-; Folding = +OIM6Rsi-
+; CursorPosition = 721
+; FirstLine = 420
+; Folding = +OIM6Zui-
 ; EnableXP
 ; DPIAware
