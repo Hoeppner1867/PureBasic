@@ -7,8 +7,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 16.5.2019
-
+; Last Update: 25.6.2019
+;
+; Bugfix: PostEvent
 
 ;{ ===== MIT License =====
 ;
@@ -501,7 +502,7 @@ Module ButtonEx
           PostEvent(#PB_Event_Gadget, BtEx()\Window\Num, BtEx()\CanvasNum, #EventType_DropDown)
         Else
           PostEvent(#Event_Gadget, BtEx()\Window\Num, BtEx()\CanvasNum, #EventType_Button, BtEx()\Toggle)
-          PostEvent(#PB_Event_Gadget, BtEx()\Window\Num, BtEx()\CanvasNum, #EventType_DropDown)
+          PostEvent(#PB_Event_Gadget, BtEx()\Window\Num, BtEx()\CanvasNum, #EventType_Button)
         EndIf
       EndIf
       
@@ -794,9 +795,8 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf
-; IDE Options = PureBasic 5.70 LTS (Windows - x86)
-; CursorPosition = 704
-; FirstLine = 369
+; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
+; CursorPosition = 11
 ; Folding = 9CIM6hb+
 ; EnableXP
 ; DPIAware
