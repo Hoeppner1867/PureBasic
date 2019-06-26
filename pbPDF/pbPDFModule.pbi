@@ -31,7 +31,7 @@
 ; SOFTWARE.
 ;}
 
-; Last Update: 25.06.2019
+; Last Update: 26.06.2019
 ; 
 ; [25.06.2019] Bugfix: AutoPageBreak
 ; [20.06.2019] Bugfix: PNG-Images
@@ -573,6 +573,9 @@ Module PDF
   #Error  = -1
   #Owner = 1
   #User  = 2
+  
+  #JSON = 1
+  
   CompilerIf #PB_Compiler_Processor=#PB_Processor_x86
     #pbPDF_Version = "pbPDF V" + #Version + " for PureBasic X86"
   CompilerElse
@@ -6045,7 +6048,7 @@ Module PDF
     EndIf
     
   EndProcedure    
-  
+    
   Procedure.s MultiCell(ID.i, Text.s, Width.f, Height.f, Border.i=#False, Align.s="", Fill.i=#False, Indent.i=0, maxLine.i=0) ; [*]
     
     If FindMapElement(PDF(), Str(ID))
@@ -6599,7 +6602,7 @@ CompilerIf #PB_Compiler_IsMainFile
   EndProcedure
   
   ; ========== Create PDF ==========
-  
+
   PDF::SetFooterProcedure(#PDF, @Footer())
   ;PDF::SetAliasTotalPages(#PDF, "{tp}")
   
@@ -6630,6 +6633,15 @@ CompilerIf #PB_Compiler_IsMainFile
     PDF::TruncateCell(#PDF, "That is a long text to test it.", 43, 6, #True, PDF::#NextLine) 
     ;}
     
+    ;{ ----- Example: AutoPageBreak ----- 
+    PDF::AddPage(#PDF)
+    PDF::BookMark(#PDF, "Example: AutoPageBreak", 0, 0)
+    PDF::SetFont(#PDF, "Arial", "", 11)
+    For i=1 To 60
+      PDF::Cell(#PDF, "("+Str(i)+") all work And no play makes jack a dull boy ", 100, 5, #False,  PDF::#NextLine)
+    Next  
+    ;}
+    
     ;{ ----- Example: Bulleted Text ----- 
     PDF::AddPage(#PDF)
     PDF::BookMark(#PDF, "Example: Bulleted Text", 0, 0)
@@ -6639,7 +6651,7 @@ CompilerIf #PB_Compiler_IsMainFile
     PDF::SetPosXY(#PDF, 90 + 10 * 2, 10)
     For n=1 To 10 : PDF::MultiCellList(#PDF, Text, 90, 6, #False, PDF::#Justified, #False, Str(n)+")") : Next
     ;}
-        
+
     ;{ ----- Example: Table ----- 
     PDF::AddPage(#PDF)
     PDF::BookMark(#PDF, "Example: Table", 0, 0)
@@ -6867,6 +6879,7 @@ CompilerIf #PB_Compiler_IsMainFile
     
     RunProgram(File$)
   EndIf
+  ;}
   
   DataSection
     begindata:
@@ -6884,9 +6897,9 @@ CompilerEndIf
 
 ;- ========================
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 35
-; Folding = MAABAEAAAABAAAAAEAAAQIAAAQAAAAAQAQAAEABAAEqAAAAAAAQBBQAAAAACTAQAAAGAA+
-; Markers = 568,978,3729,3794
+; CursorPosition = 33
+; Folding = GAABAEABCwAAAEAAEAAAQIAAAQAAAAAAAQAAEAhAAFiCAAAAAAQBBQAAAAACTAQAAAyLA9
+; Markers = 568,981,3732,3797
 ; EnableXP
 ; DPIAware
 ; EnablePurifier
