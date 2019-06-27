@@ -31,8 +31,9 @@
 ; SOFTWARE.
 ;}
 
-; Last Update: 26.06.2019
+; Last Update: 27.06.2019
 ; 
+; [25.06.2019] Bugfix: Gadget preferences for footer
 ; [25.06.2019] Bugfix: AutoPageBreak
 ; [20.06.2019] Bugfix: PNG-Images
 
@@ -6310,6 +6311,7 @@ Module PDF
       PDF()\PageBreak\Auto    = #True
       PDF()\PageBreak\Margin  = PDF()\Margin\Left * 2
       PDF()\PageBreak\Trigger = PDF()\Page\Height - PDF()\PageBreak\Margin
+      PDF()\Footer\PageBreak  = #True
       
       ; ----- Begin document -----
 
@@ -6897,9 +6899,10 @@ CompilerEndIf
 
 ;- ========================
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 33
-; Folding = GAABAEABCwAAAEAAEAAAQIAAAQAAAAAAAQAAEAhAAFiCAAAAAAQBBQAAAAACTAQAAAyLA9
-; Markers = 568,981,3732,3797
+; CursorPosition = 35
+; FirstLine = 2
+; Folding = CAABAEABCwAAAEAAEAAAQIAAAQAAAAAAAQAAEAhAAFiCAAAAAAQBBQAAAAACTAQAgAyLA9
+; Markers = 569,982,3733,3798
 ; EnableXP
 ; DPIAware
 ; EnablePurifier
