@@ -2,8 +2,8 @@
 %‚„œ”
 2 0 obj
 <<
-/Producer (pbPDF V2.0 for PureBasic X86)
-/CreationDate (D:20190216213458)
+/Producer (pbPDF V2.0 for PureBasic X64)
+/CreationDate (D:20190627134259)
 >>
 endobj
 4 0 obj
@@ -13,7 +13,7 @@ endobj
 >>
 endobj
 6 0 obj
-<</Length 7075>>
+<</Length 7094>>
 stream
 2 J
 0.57 w
@@ -23,6 +23,7 @@ q
 1 0 0 1 -85.04 -303.31 cm
 q 1.000 0.753 0.796 rg BT 85.04 303.31 Td (W a t e r m a r k  D e m o) Tj ET Q
 Q
+BT /F2 12.00 Tf ET
 BT /F2 12.00 Tf ET
 BT 31.18 802.85 Td (PureBasic is a programming language based on established BASIC rules. The key features of) Tj ET
 BT 31.18 788.68 Td (PureBasic are portability \(Windows, AmigaOS and Linux are currently fully supported\), the) Tj ET
@@ -91,11 +92,7 @@ BT 31.18 65.85 Td (on established BASIC rules. The key features of PureBasic are
 endstream
 endobj
 8 0 obj
-<<
-/Type /Font /Subtype /Type1
-/BaseFont /Helvetica
-/Encoding /WinAnsiEncoding
->>
+<</Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding>>
 endobj
 1 0 obj
 <<
@@ -108,6 +105,7 @@ endobj
 <<
 /Type /Catalog
 /Pages 1 0 R
+/OpenAction [5 0 R /FitH]
 >>
 endobj
 5 0 obj
@@ -120,11 +118,7 @@ endobj
 >>
 endobj
 7 0 obj
-<<
-/Type /Font /Subtype /Type1
-/BaseFont /Helvetica-Bold
-/Encoding /WinAnsiEncoding
->>
+<</Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding>>
 endobj
 9 0 obj
 <<
@@ -136,10 +130,11 @@ endobj
 >>
 endobj
 10 0 obj
-<</Length 2454>>
+<</Length 2473>>
 stream
 2 J
 0.57 w
+BT /F2 12.00 Tf ET
 BT /F1 50.00 Tf ET
 q
 0.70711 0.70711 -0.70711 0.70711 85.04 303.31 cm
@@ -173,23 +168,23 @@ endobj
 xref
 0 11
 0000000000 65535 f
-0000007428 00000 n 
+0000007445 00000 n 
 0000000015 00000 n 
-0000007491 00000 n 
+0000007508 00000 n 
 0000000110 00000 n 
-0000007540 00000 n 
+0000007583 00000 n 
 0000000207 00000 n 
-0000007650 00000 n 
-0000007331 00000 n 
-0000007752 00000 n 
-0000007863 00000 n 
+0000007693 00000 n 
+0000007350 00000 n 
+0000007793 00000 n 
+0000007904 00000 n 
 trailer
 <<
 /Size 11
 /Root 3 0 R
 /Info 2 0 R
-/ID [<517f216a6117c274bbd3b1eba9f26baf> <517f216a6117c274bbd3b1eba9f26baf>]
+/ID [<775f090915bb826d6d61a173bc151de3> <775f090915bb826d6d61a173bc151de3>]
 >>
 startxref
-10367
+10427
 %%EOF

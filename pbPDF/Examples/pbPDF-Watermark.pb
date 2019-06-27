@@ -15,9 +15,11 @@ Procedure Header()
   
 EndProcedure
 
-If PDF::Create(#PDF)
+PDF::HeaderProcedure(@Header())
 
-  PDF::SetHeaderProcedure(#PDF, @Header())
+If PDF::Create(#PDF)
+  
+  PDF::EnableHeader(#PDF)
   
   PDF::AddPage(#PDF)
   
@@ -37,6 +39,7 @@ If PDF::Create(#PDF)
 EndIf
 
 RunProgram(File$)
-; IDE Options = PureBasic 5.70 LTS (Windows - x86)
-; CursorPosition = 34
+; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x64)
+; CursorPosition = 8
+; FirstLine = 3
 ; Folding = -
