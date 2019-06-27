@@ -33,7 +33,8 @@
 
 ; Last Update: 27.06.2019
 ; 
-; [25.06.2019] Bugfix: Gadget preferences for footer
+; [26.06.2019] Bugfix: AddPage (Fonts)
+; [26.06.2019] Bugfix: Preferences for footer
 ; [25.06.2019] Bugfix: AutoPageBreak
 ; [20.06.2019] Bugfix: PNG-Images
 
@@ -3582,7 +3583,8 @@ Module PDF
       LineWidth   = PDF()\LineWidth
       ;}
   	  
-  	  ;{ Footer Procedure
+      ;{ Footer Procedure
+      
       If PDF()\Footer\Flag And PDF()\Footer\ProcPtr
         
         PDF()\Footer\PageBreak = #False
@@ -3596,6 +3598,8 @@ Module PDF
 
         PDF()\Footer\PageBreak = #True
         
+        SetFont_(FontFamiliy, FontStyle, FontSize)
+        
       ElseIf PDF()\Footer\Numbering
         
         PDF()\Footer\PageBreak = #False 
@@ -3605,6 +3609,8 @@ Module PDF
         Cell_(0, 10, "{p}", 0, 0, #CenterAlign)
         
         PDF()\Footer\PageBreak = #True
+        
+        SetFont_(FontFamiliy, FontStyle, FontSize)
         
       EndIf ;}
       
@@ -6605,11 +6611,10 @@ CompilerIf #PB_Compiler_IsMainFile
   
   ; ========== Create PDF ==========
 
-  PDF::SetFooterProcedure(#PDF, @Footer())
-  ;PDF::SetAliasTotalPages(#PDF, "{tp}")
-  
   If PDF::Create(#PDF)
     
+    PDF::SetFooterProcedure(#PDF, @Footer())
+    PDF::SetAliasTotalPages(#PDF, "{tp}")
     ;PDF::SetPageCompression(#PDF, #True)
     ;PDF::SetEncryption(#PDF, "Test", "pbPDF")
     
@@ -6898,11 +6903,11 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf 
 
 ;- ========================
-; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 35
-; FirstLine = 2
-; Folding = CAABAEABCwAAAEAAEAAAQIAAAQAAAAAAAQAAEAhAAFiCAAAAAAQBBQAAAAACTAQAgAyLA9
-; Markers = 569,982,3733,3798
+; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x64)
+; CursorPosition = 6549
+; FirstLine = 910
+; Folding = CAABAEABCwAAAEAAEAAAQIAAAQAAAAAAAQAAMDhAABiCAAAIAAQBBQAAAAACTgQAgAGAA9
+; Markers = 570,983,3739,3804
 ; EnableXP
 ; DPIAware
 ; EnablePurifier
