@@ -6945,9 +6945,9 @@ CompilerEndIf
 
 ;- ========================
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x64)
-; CursorPosition = 6653
-; FirstLine = 995
-; Folding = GAABAEAPQAIAAAAAgAAAACBAAACAAAAAAACAgZAEAIQUAAAADAAKIACAAAAQYCECAYADAA+
+; CursorPosition = 3722
+; FirstLine = 680
+; Folding = GAABAEAPQAIAAAAAgAAAACBAAACAAAAAAACAgZQFAIQUAAAADAAKIACAAAAQYCMCAAACAA+
 ; Markers = 574,1003,3760,3825
 ; EnableXP
 ; DPIAware
