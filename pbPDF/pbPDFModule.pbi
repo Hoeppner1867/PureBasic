@@ -91,6 +91,7 @@
   
   ; ----- Advanced Commands -----
   
+  ; PDF::AddEntryTOC()                 - Add TOC entry
   ; PDF::EmbedFile()                   - Embeds a file into the pdf.
   ; PDF::EmbedFont()                   - Embeds a font into the pdf and returns the font name.
   ; PDF::EmbedJavaScript()             - Add JavaScript
@@ -98,14 +99,15 @@
   ; PDF::EnableFooter()                - Enable/disable Footer (procedure)
   ; PDF::EnableHeader()                - Enable/disable Header (procedure)
   ; PDF::EnableTOCNums()               - Enable/disable adding page numbers to table of contents
-  ; PDF::AddEntryTOC()                 - Add TOC entry
   ; PDF::EscapeText()                  - Format a text string (=> masked string).
+  ; PDF::FooterProcedure()             - Set footer procedure.
   ; PDF::GetErrorCode()                - Return the error code.
   ; PDF::GetErrorMessage()             - Return the error message.    
   ; PDF::GetNumbering()                - Return if numbering is #True/#False. Usefull for TOC functions
   ; PDF::GetObjectNum()                - Get object number
   ; PDF::GetScaleFactor()              - Get scale factor for used unit.
   ; PDF::GetWordSpacing()              - Get word spacing.  
+  ; PDF::HeaderProcedure()             - Set header procedure.
   ; PDF::ImageMemory()                 - Puts an image (Memory) in the page.
   ; PDF::InsertTOC()                   - Insert table of contents.
   ; PDF::Link()                        - Puts a link on a rectangular area of the page.
@@ -451,6 +453,7 @@ DeclareModule PDF
   Declare   EnableFooter(ID.i, Flag.i=#True)
   Declare   EnableHeader(ID.i, Flag.i=#True)
   Declare   EnableTOCNums(ID.i, Flag.i=#True)
+  Declare   FooterProcedure(*ProcAddress, *StructAddress=#Null)
   Declare.i GetErrorCode(ID.i)
   Declare.s GetErrorMessage(ID.i)
   Declare.f GetFontSize(ID.i, Type.i=#Point)
@@ -466,6 +469,7 @@ DeclareModule PDF
   Declare.f GetScaleFactor(ID.i)
   Declare.f GetStringWidth(ID.i, String.s)
   Declare.f GetWordSpacing(ID.i)
+  Declare   HeaderProcedure(*ProcAddress, *StructAddress=#Null)
   Declare   Image(ID.i, FileName.s, X.f=#PB_Default, Y.f=#PB_Default, Width.f=#PB_Default, Height.f=#PB_Default, Link.i=#NoLink)
   Declare   ImageMemory(ID.i, ImageName.s, *Memory, Size.i, Format.i, X.f=#PB_Default, Y.f=#PB_Default, Width.f=#PB_Default, Height.f=#PB_Default, Link.i=#NoLink)
   Declare   InsertTOC(ID.i, Page.i=1, Label.s="", LabelFontSize.i=20, EntryFontSize.i=10, FontFamily.s="Times")
@@ -685,6 +689,22 @@ Module PDF
 ;- ============================================================================  
   
   ;{ ___ Internal Structures ___
+  Structure Header_Structure     ;{ Internal\Header\...
+    *ProcPtr
+    *StrucPtr
+  EndStructure ;}
+  
+  Structure Footer_Structure ;{ Internal\Footer\... 
+    *ProcPtr
+    *StrucPtr
+  EndStructure ;}
+  
+  Structure Internal_Structure ;{ Internal\...
+    Header.Header_Structure
+    Footer.Footer_Structure
+  EndStructure ;}
+  
+  
   Structure Memory_Structure          ;{ -> Internal *
     *Memory
     Size.i
@@ -912,7 +932,7 @@ Module PDF
     *StrucPtr
     PageBreak.i
     Flag.i    ; #True / #False
-  EndStructure;}  
+  EndStructure ;}  
   
   Structure PDF_Image_Structure      ;{ PDF()\objImages(FileName)\... | PDF()\objFonts()\... | PDF()\objFiles()\... | PDF()\objJavaScript()\...
     Number.i
@@ -1050,6 +1070,7 @@ Module PDF
     
   EndStructure ;}
   
+  Global Internal.Internal_Structure
   Global NewMap PDF.PDF_Structure()
   
 ;- ============================================================================
@@ -6237,6 +6258,20 @@ Module PDF
   
   ;- ----- Basic Commands -----------------
   
+  Procedure HeaderProcedure(*ProcAddress, *StructAddress=#Null)
+    
+    Internal\Header\ProcPtr  = *ProcAddress
+    Internal\Header\StrucPtr = *StructAddress
+
+  EndProcedure   
+  
+  Procedure FooterProcedure(*ProcAddress, *StructAddress=#Null)
+
+    Internal\Footer\ProcPtr  = *ProcAddress
+    Internal\Footer\StrucPtr = *StructAddress 
+    
+  EndProcedure 
+   
   Procedure.i Create(ID.i, Orientation.s="P", Unit.s="", Format.s="")  ; [*]
     Define objRes.i
     
@@ -6317,6 +6352,11 @@ Module PDF
       PDF()\PageBreak\Auto    = #True
       PDF()\PageBreak\Margin  = PDF()\Margin\Left * 2
       PDF()\PageBreak\Trigger = PDF()\Page\Height - PDF()\PageBreak\Margin
+      
+      PDF()\Header\ProcPtr    = Internal\Header\ProcPtr
+      PDF()\Header\StrucPtr   = Internal\Header\StrucPtr
+      PDF()\Footer\ProcPtr    = Internal\Footer\ProcPtr
+      PDF()\Footer\StrucPtr   = Internal\Footer\StrucPtr
       PDF()\Footer\PageBreak  = #True
       
       ; ----- Begin document -----
@@ -6610,10 +6650,11 @@ CompilerIf #PB_Compiler_IsMainFile
   EndProcedure
   
   ; ========== Create PDF ==========
-
+  
+  PDF::FooterProcedure(@Footer())
+  
   If PDF::Create(#PDF)
-    
-    PDF::SetFooterProcedure(#PDF, @Footer())
+
     PDF::SetAliasTotalPages(#PDF, "{tp}")
     ;PDF::SetPageCompression(#PDF, #True)
     ;PDF::SetEncryption(#PDF, "Test", "pbPDF")
@@ -6904,10 +6945,10 @@ CompilerEndIf
 
 ;- ========================
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x64)
-; CursorPosition = 6549
-; FirstLine = 910
-; Folding = CAABAEABCwAAAEAAEAAAQIAAAQAAAAAAAQAAMDhAABiCAAAIAAQBBQAAAAACTgQAgAGAA9
-; Markers = 570,983,3739,3804
+; CursorPosition = 6653
+; FirstLine = 995
+; Folding = GAABAEAPQAIAAAAAgAAAACBAAACAAAAAAACAgZAEAIQUAAAADAAKIACAAAAQYCECAYADAA+
+; Markers = 574,1003,3760,3825
 ; EnableXP
 ; DPIAware
 ; EnablePurifier
