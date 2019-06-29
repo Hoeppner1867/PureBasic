@@ -329,7 +329,7 @@ CompilerIf #PB_Compiler_IsMainFile
     ButtonGadget(0, 10, 10, 200, 20, "Standard Button")
     ButtonGadget(1, 10, 40, 200, 20, "Left Button", #PB_Button_Left)
     ButtonGadget(2, 10, 70, 200, 20, "Right Button", #PB_Button_Right)
-    ButtonGadget(3, 10,100, 200, 60, "Multiline Button  (längerer Text wird automatisch umgebrochen)", #PB_Button_MultiLine)
+    ButtonGadget(3, 10,100, 200, 60, "Multiline Button  (longer text is wrapped automatically)", #PB_Button_MultiLine)
     ButtonGadget(4, 10,170, 200, 20, "Toggle Button", #PB_Button_Toggle)
     ButtonImageGadget(5, 10, 200, 200, 60, LoadImage(2, #PB_Compiler_Home + "examples/sources/Data/PureBasic.bmp"))
     
@@ -362,7 +362,8 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x64)
-; CursorPosition = 9
-; Folding = ---
+; CursorPosition = 264
+; FirstLine = 167
+; Folding = C-v
 ; EnableXP
 ; DPIAware
