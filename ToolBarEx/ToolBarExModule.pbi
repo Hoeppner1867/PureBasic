@@ -847,7 +847,7 @@ Module ToolBar
             If TBEx()\Items()\Flags & #Disable = #False
               
               btIndex = ListIndex(TBEx()\Items())
-              Debug "Item: " + Str(btIndex)
+              
               Select TBEx()\Items()\Type
                 Case #ImageButton
                   
@@ -2002,7 +2002,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 656
-; Folding = 9BJAG9w4OBAAmBAqs0
+; CursorPosition = 1975
+; FirstLine = 982
+; Folding = 9BJAG9w-OBAAmBAqs0
 ; EnableXP
 ; DPIAware
