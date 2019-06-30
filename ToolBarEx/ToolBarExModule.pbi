@@ -9,8 +9,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 2.4.2019
-
+; Last Update: 30.6.2019
+;
+; Bugfix: Focus
 
 ;{ ===== MIT License =====
 ;
@@ -278,6 +279,7 @@ Module ToolBar
     Num.i
     Type.i
     X.i
+    Y.i
     Width.i
     Height.i
     Text.s
@@ -699,10 +701,11 @@ Module ToolBar
               ;}
             Case #Separator   ;{ Separator
               
-              TBEx()\Items()\X = X
-              
               btX = (TBEx()\Items()\Width - dpiX(2)) / 2
               If btX < 0 : btX = 0 : EndIf
+              
+              TBEx()\Items()\X = X   + btX + 1
+              TBEx()\Items()\Y = btY + dpiY(4)
               
               DrawingMode(#PB_2DDrawing_Default)
               Box(X + btX + 1, btY + dpiY(4), dpiX(1), TBEx()\Buttons\Height - dpiY(8), BlendColor_(TBEx()\Color\Separator, TBEx()\Color\Back))
@@ -836,27 +839,29 @@ Module ToolBar
         
         If TBEx()\Items()\X = #PB_Ignore : Continue : EndIf
         
-        If X > TBEx()\Items()\X And X < TBEx()\Items()\X + TBEx()\Items()\Width
+        If X > TBEx()\Items()\X And X < TBEx()\Items()\X + TBEx()\Items()\Width 
+          If Y > TBEx()\Items()\Y And Y < TBEx()\Items()\Y + TBEx()\Items()\Height - dpiY(8)
+            
+            If TBEx()\Items()\Flags & #Disable = #False
+              
+              btIndex = ListIndex(TBEx()\Items())
+              
+              Select TBEx()\Items()\Type
+                Case #ImageButton
+                  
+                  TBEx()\Event\Type    = #EventType_ImageButton
+                  TBEx()\Event\btIndex = btIndex
+                  
+                  If TBEx()\Event\btIndex > #NoFocus
+                    DrawSingleButton_(btIndex, #Click)
+                  EndIf
+                  
+              EndSelect  
+              
+            EndIf
           
-          If TBEx()\Items()\Flags & #Disable = #False
-            
-            btIndex = ListIndex(TBEx()\Items())
-            
-            Select TBEx()\Items()\Type
-              Case #ImageButton
-                
-                TBEx()\Event\Type    = #EventType_ImageButton
-                TBEx()\Event\btIndex = btIndex
-                
-                If TBEx()\Event\btIndex > #NoFocus
-                  DrawSingleButton_(btIndex, #Click)
-                EndIf
-                
-            EndSelect  
-            
+            Break
           EndIf
-          
-          Break
         EndIf
         
       Next
@@ -880,50 +885,52 @@ Module ToolBar
         If TBEx()\Items()\X = #PB_Ignore : Continue : EndIf
         
         If X > TBEx()\Items()\X And X < TBEx()\Items()\X + TBEx()\Items()\Width
-          
-          btIndex = ListIndex(TBEx()\Items())
-          
-          Select TBEx()\Event\Type
-            Case #EventType_ImageButton ;{ Button clicked & released
-              If TBEx()\Buttons\Focus = btIndex And TBEx()\Event\btIndex = btIndex
-                
-                If TBEx()\Items()\PopupMenu = #NotValid
-                  TBEx()\Event\Num = TBEx()\Items()\Event
-                  TBEx()\Event\ID  = TBEx()\Items()\EventID
-                  If IsWindow(TBEx()\Window\Num)
-                    If TBEx()\PostEvent = #Event_Menu
-                      PostEvent(#PB_Event_Menu, TBEx()\Window\Num, TBEx()\Items()\Event, #EventType_ImageButton, btIndex)
-                    Else
-                      PostEvent(#PB_Event_Gadget, TBEx()\Window\Num, TBEx()\CanvasNum, #EventType_ImageButton, btIndex)
-                      PostEvent(#Event_Gadget, TBEx()\Window\Num, TBEx()\CanvasNum, #EventType_ImageButton, btIndex)
-                    EndIf 
+          If Y > TBEx()\Items()\Y And Y < TBEx()\Items()\Y + TBEx()\Items()\Height - dpiY(8)
+            
+            btIndex = ListIndex(TBEx()\Items())
+            
+            Select TBEx()\Event\Type
+              Case #EventType_ImageButton ;{ Button clicked & released
+                If TBEx()\Buttons\Focus = btIndex And TBEx()\Event\btIndex = btIndex
+                  
+                  If TBEx()\Items()\PopupMenu = #NotValid
+                    TBEx()\Event\Num = TBEx()\Items()\Event
+                    TBEx()\Event\ID  = TBEx()\Items()\EventID
+                    If IsWindow(TBEx()\Window\Num)
+                      If TBEx()\PostEvent = #Event_Menu
+                        PostEvent(#PB_Event_Menu, TBEx()\Window\Num, TBEx()\Items()\Event, #EventType_ImageButton, btIndex)
+                      Else
+                        PostEvent(#PB_Event_Gadget, TBEx()\Window\Num, TBEx()\CanvasNum, #EventType_ImageButton, btIndex)
+                        PostEvent(#Event_Gadget, TBEx()\Window\Num, TBEx()\CanvasNum, #EventType_ImageButton, btIndex)
+                      EndIf 
+                    EndIf
+                  Else
+                    
+                    If IsMenu(TBEx()\Items()\PopupMenu) And IsWindow(TBEx()\Window\Num)
+                      TBEx()\Buttons\Focus = #NoFocus
+                      DisableToolTip_()
+                      If TBEx()\Flags & #PopupArrows
+                        DrawSingleButton_(TBEx()\LastFocus, #Click|#PopupOpen)
+                      Else
+                        DrawSingleButton_(TBEx()\LastFocus, #Click)
+                      EndIf 
+                      X = WindowX(TBEx()\Window\Num, #PB_Window_InnerCoordinate) + TBEx()\Size\X + TBEx()\Items()\X
+                      Y = WindowY(TBEx()\Window\Num, #PB_Window_InnerCoordinate) + TBEx()\Size\Y + GetButtonY_(#True) + TBEx()\Buttons\Spacing
+                      DisplayPopupMenu(TBEx()\Items()\PopupMenu, WindowID(TBEx()\Window\Num), dpiX(X), dpiY(Y))
+                      DrawSingleButton_(TBEx()\LastFocus, #FocusLost)
+                    EndIf
+                    
                   EndIf
+                  
                 Else
-                  
-                  If IsMenu(TBEx()\Items()\PopupMenu) And IsWindow(TBEx()\Window\Num)
-                    TBEx()\Buttons\Focus = #NoFocus
-                    DisableToolTip_()
-                    If TBEx()\Flags & #PopupArrows
-                      DrawSingleButton_(TBEx()\LastFocus, #Click|#PopupOpen)
-                    Else
-                      DrawSingleButton_(TBEx()\LastFocus, #Click)
-                    EndIf 
-                    X = WindowX(TBEx()\Window\Num, #PB_Window_InnerCoordinate) + TBEx()\Size\X + TBEx()\Items()\X
-                    Y = WindowY(TBEx()\Window\Num, #PB_Window_InnerCoordinate) + TBEx()\Size\Y + GetButtonY_(#True) + TBEx()\Buttons\Spacing
-                    DisplayPopupMenu(TBEx()\Items()\PopupMenu, WindowID(TBEx()\Window\Num), dpiX(X), dpiY(Y))
-                    DrawSingleButton_(TBEx()\LastFocus, #FocusLost)
-                  EndIf
-                  
+                  TBEx()\Event\Type    = #False
+                  TBEx()\Event\btIndex = #NoIndex
                 EndIf
-                
-              Else
-                TBEx()\Event\Type    = #False
-                TBEx()\Event\btIndex = #NoIndex
-              EndIf
               ;}
-          EndSelect  
+            EndSelect  
           
-          Break
+            Break
+          EndIf   
         EndIf
         
       Next
@@ -1988,9 +1995,8 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf  
-; IDE Options = PureBasic 5.70 LTS (Windows - x86)
-; CursorPosition = 893
-; FirstLine = 437
-; Folding = +BIAE134ABAA3BAqs0
+; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
+; CursorPosition = 13
+; Folding = +BJAE13fCBAAmBAqs0
 ; EnableXP
 ; DPIAware
