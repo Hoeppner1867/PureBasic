@@ -13,6 +13,7 @@
 ;
 ; Bugfix: Focus
 
+
 ;{ ===== MIT License =====
 ;
 ; Copyright (c) 2019 Thorsten Hoeppner
@@ -555,7 +556,7 @@ Module ToolBar
   
   Procedure   Draw_(Flags.i=#False)
     Define.f X, Y, btY, btX, imgY, imgX, txtX, txtY, cbY
-    Define.i Width, Height
+    Define.i Width, Height, btHeight
     Define.i ImageID
     
     If StartDrawing(CanvasOutput(TBEx()\CanvasNum))
@@ -639,9 +640,7 @@ Module ToolBar
           
           Select TBEx()\Items()\Type
             Case #ImageButton ;{ ImageButton
-              
-              TBEx()\Items()\X = X
-              
+
               imgX = (TBEx()\Items()\Width - TBEx()\Images\Width) / 2
               
               If IsImage(TBEx()\Items()\ImageNum)
@@ -655,6 +654,9 @@ Module ToolBar
                   DrawImage(ImageID(TBEx()\Items()\ImageNum), X + imgX, imgY, TBEx()\Images\Width, TBEx()\Images\Height)
                 EndIf
               EndIf
+              
+              TBEx()\Items()\X = X
+              TBEx()\Items()\Y = btY
               
               If TBEx()\Items()\PopupMenu <> #NotValid And TBEx()\Flags & #PopupArrows
                 DrawingMode(#PB_2DDrawing_Default)
@@ -840,12 +842,12 @@ Module ToolBar
         If TBEx()\Items()\X = #PB_Ignore : Continue : EndIf
         
         If X > TBEx()\Items()\X And X < TBEx()\Items()\X + TBEx()\Items()\Width 
-          If Y > TBEx()\Items()\Y And Y < TBEx()\Items()\Y + TBEx()\Items()\Height - dpiY(8)
+          If Y > TBEx()\Items()\Y And Y < TBEx()\Items()\Y + TBEx()\Buttons\Height
             
             If TBEx()\Items()\Flags & #Disable = #False
               
               btIndex = ListIndex(TBEx()\Items())
-              
+              Debug "Item: " + Str(btIndex)
               Select TBEx()\Items()\Type
                 Case #ImageButton
                   
@@ -885,7 +887,7 @@ Module ToolBar
         If TBEx()\Items()\X = #PB_Ignore : Continue : EndIf
         
         If X > TBEx()\Items()\X And X < TBEx()\Items()\X + TBEx()\Items()\Width
-          If Y > TBEx()\Items()\Y And Y < TBEx()\Items()\Y + TBEx()\Items()\Height - dpiY(8)
+          If Y > TBEx()\Items()\Y And Y < TBEx()\Items()\Y + TBEx()\Buttons\Height
             
             btIndex = ListIndex(TBEx()\Items())
             
@@ -894,6 +896,7 @@ Module ToolBar
                 If TBEx()\Buttons\Focus = btIndex And TBEx()\Event\btIndex = btIndex
                   
                   If TBEx()\Items()\PopupMenu = #NotValid
+                    
                     TBEx()\Event\Num = TBEx()\Items()\Event
                     TBEx()\Event\ID  = TBEx()\Items()\EventID
                     If IsWindow(TBEx()\Window\Num)
@@ -904,6 +907,7 @@ Module ToolBar
                         PostEvent(#Event_Gadget, TBEx()\Window\Num, TBEx()\CanvasNum, #EventType_ImageButton, btIndex)
                       EndIf 
                     EndIf
+                    
                   Else
                     
                     If IsMenu(TBEx()\Items()\PopupMenu) And IsWindow(TBEx()\Window\Num)
@@ -962,46 +966,48 @@ Module ToolBar
       LastButtonFocus = TBEx()\Buttons\Focus
       
       If X > TBEx()\Size\Spacing And X < TBEx()\Buttons\LastX And Y > minY And Y < maxY
-        
+
         ForEach TBEx()\Items()
           
           If TBEx()\Buttons\Focus <> ListIndex(TBEx()\Items())
             
             If TBEx()\Items()\X <> #PB_Ignore
-            
+              
               If X > TBEx()\Items()\X And X < TBEx()\Items()\X + TBEx()\Items()\Width
-              
-                Select TBEx()\Items()\Type
-                  Case #ImageButton ;{ Mouse over ImageButton
-                    If TBEx()\Items()\Flags & #Disable
-                      TBEx()\Buttons\Focus = #NoFocus
+                If Y > TBEx()\Items()\Y And Y < TBEx()\Items()\Y + TBEx()\Buttons\Height
+                  
+                  Select TBEx()\Items()\Type
+                    Case #ImageButton ;{ Mouse over ImageButton
+                      If TBEx()\Items()\Flags & #Disable
+                        TBEx()\Buttons\Focus = #NoFocus
+                        DisableToolTip_()
+                      Else
+                        TBEx()\Buttons\Focus = ListIndex(TBEx()\Items())
+                        TBEx()\LastFocus     = TBEx()\Buttons\Focus
+                        If TBEx()\Items()\ToolTip ;{ ToolTips
+                          TBEx()\ToolTip = #True
+                          GadgetToolTip(TBEx()\CanvasNum, TBEx()\Items()\ToolTip)
+                        Else 
+                          DisableToolTip_() ;}
+                        EndIf
+                        Draw_()
+                      EndIf ;}
+                    Default
                       DisableToolTip_()
-                    Else
-                      TBEx()\Buttons\Focus = ListIndex(TBEx()\Items())
-                      TBEx()\LastFocus     = TBEx()\Buttons\Focus
-                      If TBEx()\Items()\ToolTip ;{ ToolTips
-                        TBEx()\ToolTip = #True
-                        GadgetToolTip(TBEx()\CanvasNum, TBEx()\Items()\ToolTip)
-                      Else 
-                        DisableToolTip_() ;}
-                      EndIf
-                      Draw_()
-                    EndIf ;}
-                  Default
-                    DisableToolTip_()
-                    TBEx()\Buttons\Focus = #NoFocus
-                EndSelect
-              
+                      TBEx()\Buttons\Focus = #NoFocus
+                  EndSelect
+                
+                EndIf
               EndIf
               
+              TBEx()\Focus = ListIndex(TBEx()\Items())
+              
             EndIf
-            
-            TBEx()\Focus = ListIndex(TBEx()\Items())
             
           EndIf
           
         Next
-        
+       
       Else 
         TBEx()\Buttons\Focus = #NoFocus
       EndIf
@@ -1996,7 +2002,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 13
-; Folding = +BJAE13fCBAAmBAqs0
+; CursorPosition = 656
+; Folding = 9BJAG9w4OBAAmBAqs0
 ; EnableXP
 ; DPIAware
