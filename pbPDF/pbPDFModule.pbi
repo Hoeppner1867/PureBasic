@@ -114,8 +114,6 @@
   ; PDF::SetAliasTotalPages()          - Defines an alias for the total number of pages.
   ; PDF::SetColorCMYK()                - Set CMYK color for text, draw and fill (#TextColor / #DrawColor / #FillColor).
   ; PDF::SetEncryption()               - Enable encryption and set passworts and permission
-  ; PDF::SetFooterProcedure()          - Set footer procedure.
-  ; PDF::SetHeaderProcedure()          - Set header procedure.
   ; PDF::SetOpenAction()               - Set page and zoom for opening the document
   ; PDF::SetPageCompression()          - Enable/disable compression for pages
   ; PDF::SetPageLayout()               - Define display mode for pages in the viewer
@@ -6945,10 +6943,10 @@ CompilerEndIf
 
 ;- ========================
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x64)
-; CursorPosition = 3722
-; FirstLine = 680
+; CursorPosition = 115
+; FirstLine = 75
 ; Folding = GAABAEAPQAIAAAAAgAAAACBAAACAAAAAAACAgZQFAIQUAAAADAAKIACAAAAQYCMCAAACAA+
-; Markers = 574,1003,3760,3825
+; Markers = 572,1001,3758,3823
 ; EnableXP
 ; DPIAware
 ; EnablePurifier
