@@ -12,7 +12,7 @@
 
 ; Last Update: 01.07.19
 ;
-; Added: #OutOfRange (LineChart)
+; Added: #OutOfRange (BarCharts/LineChart)
 ;
 ; Added: #ChangeCursor and #ToolTips
 ; Added: #FontSize for VectorFonts (Value or percentage in PieChart/LineChart)
@@ -1504,7 +1504,9 @@ Module Chart
 
             ForEach Chart()\Series()\Item()
               
-              If Chart()\Series()\Item()\Value >= Chart()\Bar\Minimum And Chart()\Series()\Item()\Value <= Maximum
+              If (Chart()\Series()\Item()\Value >= Chart()\Bar\Minimum And Chart()\Series()\Item()\Value <= Maximum) Or Chart()\Bar\Flags & #OutOfRange
+                
+                If Chart()\Bar\Flags & #OutOfRange : ClipOutput(X, Y, Width, Height) : EndIf 
                 
                 ;{ --- Calc Position & Height---
                 If Chart()\Bar\Minimum < 0
@@ -1545,7 +1547,7 @@ Module Chart
                 Gradient = Chart()\Series()\Gradient
                 If Gradient = #PB_Default : Gradient = BlendColor_(Color, Chart()\Color\Back, 60) : EndIf
                 
-                If Chart()\Series()\Item()\Value >= Chart()\Bar\Minimum And Chart()\Series()\Item()\Value <= Maximum
+                If (Chart()\Series()\Item()\Value >= Chart()\Bar\Minimum And Chart()\Series()\Item()\Value <= Maximum) Or Chart()\Bar\Flags & #OutOfRange
                 
                   If Color <> Gradient ;{ Gradient color
           
@@ -1578,6 +1580,15 @@ Module Chart
                   Text$ = Str(Chart()\Series()\Item()\Value)
                   Color = #Error
                 EndIf ;}
+                
+                If Chart()\Bar\Flags & #OutOfRange ;{
+                  If Chart()\Series()\Item()\Value < Chart()\Bar\Minimum Or Chart()\Series()\Item()\Value > Maximum
+                    Text$ = Str(Chart()\Series()\Item()\Value)
+                    Color = #Error
+                  EndIf
+                  UnclipOutput()
+                  ;}
+                EndIf 
                 
                 ;{ --- Set Data ----
                 If Chart()\Series()\Item()\Value < 0
@@ -1614,11 +1625,26 @@ Module Chart
                   EndIf
                   
                   If Color = #Error
-                    If Chart()\Series()\Item()\Value < 0
-                      DrawText(txtX, txtY - txtHeight - dpiY(2), Text$, $0000FF)
+                    
+                    If Chart()\Bar\Flags & #OutOfRange
+                      If Chart()\Series()\Item()\Value < 0
+                        txtY = Y + Height - txtHeight - dpiY(1)
+                      Else
+                        txtY = Y + dpiY(5)
+                      EndIf
+                      If Chart()\Series()\Item()\Color = #PB_Default
+                        DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Color\Back, 60))
+                      Else
+                        DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Series()\Color, 60))
+                      EndIf
                     Else
-                      DrawText(txtX, txtY - dpiY(2), Text$, $0000FF)
+                      If Chart()\Series()\Item()\Value < 0
+                        DrawText(txtX, txtY - txtHeight - dpiY(2), Text$, $0000FF)
+                      Else
+                        DrawText(txtX, txtY - dpiY(2), Text$, $0000FF)
+                      EndIf
                     EndIf
+                    
                   Else
                     DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Color, 60))
                   EndIf  
@@ -1633,6 +1659,7 @@ Module Chart
                 ;}
                 
                 PosX + (bWidth * Series) + (Chart()\Bar\Padding * (Series - 1)) + sWidth
+                
               EndIf
               
             Next
@@ -1661,7 +1688,19 @@ Module Chart
             
             DrawingMode(#PB_2DDrawing_Transparent)
             If Color = #Error
-              DrawText(txtX, txtY, Text$, $808080)
+              If Chart()\Bar\Flags & #OutOfRange
+                If Chart()\Bar\Flags & #Colored
+                  If Chart()\Item()\Color = #PB_Default
+                    DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Color\Back, 30))
+                  Else
+                    DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Item()\Color, 30))
+                  EndIf
+                Else
+                  DrawText(txtX, txtY, Text$, Chart()\Color\Front)
+                EndIf 
+              Else
+                DrawText(txtX, txtY, Text$, $808080)
+              EndIf 
             ElseIf Chart()\Bar\Flags & #Colored
               DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Color, 40))
             Else
@@ -2252,6 +2291,7 @@ Module Chart
           Chart()\Bar\Minimum = Chart()\Minimum
           If minValue < Chart()\Bar\Minimum : Chart()\Bar\Minimum = minValue : EndIf
         EndIf
+        
         If Chart()\Bar\Minimum < 0 : Chart()\Bar\Minimum = 0 : EndIf
         
         maxLabelWidth = MaxLabelWidth_()
@@ -2343,7 +2383,6 @@ Module Chart
         PosX = X + dpiX(1)
         PosY = Y + sHeight
         
-        
         ForEach Chart()\Item()
           
           Quotient = Width / Chart()\Bar\Range
@@ -2372,8 +2411,10 @@ Module Chart
           Gradient = Chart()\Item()\Gradient
           If Gradient = #PB_Default : Gradient = BlendColor_(Color, Chart()\Color\Back, 60) : EndIf
           
-          If Chart()\Item()\Value >= Chart()\Bar\Minimum And Chart()\Item()\Value <= Maximum
-          
+          If (Chart()\Item()\Value >= Chart()\Bar\Minimum And Chart()\Item()\Value <= Maximum)  Or Chart()\Bar\Flags & #OutOfRange
+            
+            If Chart()\Bar\Flags & #OutOfRange : ClipOutput(X + dpiX(1), Y, Width, Height) : EndIf 
+            
             If Color <> Gradient ;{ Gradient color
     
               DrawingMode(#PB_2DDrawing_Gradient)
@@ -2398,6 +2439,15 @@ Module Chart
                 Box(PosX, PosY, bWidth, bHeight, Chart()\Item()\Border)
               EndIf
             EndIf ;}
+            
+            If Chart()\Bar\Flags & #OutOfRange ;{
+              If Chart()\Item()\Value < Chart()\Bar\Minimum Or Chart()\Item()\Value > Maximum
+                Text$ = Str(Chart()\Item()\Value)
+                Color = #Error
+              EndIf
+              UnclipOutput()
+              ;}
+            EndIf 
             
           Else
             bWidth = 0
@@ -2430,7 +2480,22 @@ Module Chart
             EndIf
             
             If Color = #Error
-              DrawText(PosX + bWidth + dpiY(3), txtY, Text$, $0000FF)
+              
+              If Chart()\Bar\Flags & #OutOfRange
+                If Chart()\Item()\Value < 0
+                  txtX = X + dpiY(5)
+                Else
+                  txtX = X + Width - TextWidth(Text$) - dpiY(5)
+                EndIf
+                If Chart()\Item()\Color = #PB_Default
+                  DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Color\Back, 60))
+                Else  
+                  DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Item()\Color, 60))
+                EndIf
+              Else
+                DrawText(PosX + bWidth + dpiY(3), txtY, Text$, $0000FF)
+              EndIf
+              
             Else
               DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Color, 60))
             EndIf  
@@ -2447,7 +2512,21 @@ Module Chart
 
           DrawingMode(#PB_2DDrawing_Transparent)
           If Color = #Error
-            DrawText(txtX, txtY, Text$, $808080)
+            
+            If Chart()\Bar\Flags & #OutOfRange
+              If Chart()\Bar\Flags & #Colored
+                If Chart()\Item()\Color = #PB_Default
+                  DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Color\Back, 30))
+                Else
+                  DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Item()\Color, 30))
+                EndIf
+              Else
+                DrawText(txtX, txtY, Text$, Chart()\Color\Front)
+              EndIf 
+            Else
+              DrawText(txtX, txtY, Text$, $808080)
+            EndIf
+            
           ElseIf Chart()\Bar\Flags & #Colored
             DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Color, 30))
           Else
@@ -2625,8 +2704,9 @@ Module Chart
         Gradient = Chart()\Item()\Gradient
         If Gradient = #PB_Default : Gradient = BlendColor_(Color, Chart()\Color\Back, 60) : EndIf
         
-        
-        If Chart()\Item()\Value >= Chart()\Bar\Minimum And Chart()\Item()\Value <= Maximum
+        If (Chart()\Item()\Value >= Chart()\Bar\Minimum And Chart()\Item()\Value <= Maximum) Or Chart()\Bar\Flags & #OutOfRange
+          
+          If Chart()\Bar\Flags & #OutOfRange : ClipOutput(X, Y, Width, Height) : EndIf 
           
           If Color <> Gradient ;{ Gradient color
   
@@ -2652,6 +2732,15 @@ Module Chart
               Box(PosX, PosY, bWidth, -bHeight, Chart()\Item()\Border)
             EndIf
           EndIf ;}
+          
+          If Chart()\Bar\Flags & #OutOfRange ;{
+            If Chart()\Item()\Value < Chart()\Bar\Minimum Or Chart()\Item()\Value > Maximum
+              Text$ = Str(Chart()\Item()\Value)
+              Color = #Error
+            EndIf
+            UnclipOutput()
+            ;}
+          EndIf 
           
         Else
           bHeight = 0
@@ -2698,10 +2787,24 @@ Module Chart
           EndIf
           
           If Color = #Error
-            If Chart()\Item()\Value < 0
-              DrawText(txtX, txtY - txtHeight - dpiY(2), Text$, $0000FF)
+            
+            If Chart()\Bar\Flags & #OutOfRange
+              If Chart()\Item()\Value < 0
+                txtY = Y + Height - txtHeight - dpiY(1)
+              Else
+                txtY = Y + dpiY(5)
+              EndIf
+              If Chart()\Item()\Color = #PB_Default
+                DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Color\Back, 60))
+              Else  
+                DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Item()\Color, 60))
+              EndIf
             Else
-              DrawText(txtX, txtY - dpiY(2), Text$, $0000FF)
+              If Chart()\Item()\Value < 0
+                DrawText(txtX, txtY - txtHeight - dpiY(2), Text$, $0000FF)
+              Else
+                DrawText(txtX, txtY - dpiY(2), Text$, $0000FF)
+              EndIf
             EndIf
           Else
             DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Color, 60))
@@ -2719,7 +2822,21 @@ Module Chart
         
         DrawingMode(#PB_2DDrawing_Transparent)
         If Color = #Error
-          DrawText(txtX, txtY, Text$, $808080)
+          
+          If Chart()\Bar\Flags & #OutOfRange
+            If Chart()\Bar\Flags & #Colored
+              If Chart()\Item()\Color = #PB_Default
+                DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Color\Back, 30))
+              Else
+                DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Item()\Color, 30))
+              EndIf
+            Else
+              DrawText(txtX, txtY, Text$, Chart()\Color\Front)
+            EndIf 
+          Else
+            DrawText(txtX, txtY, Text$, $808080)
+          EndIf
+          
         ElseIf Chart()\Bar\Flags & #Colored
           DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Color, 30))
         Else
@@ -4567,7 +4684,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   ; ----- Select Example -----
   
-  #Example = 13
+  #Example = 0
   
   ; --- Bar Chart ---
   ;  1: automatically adjust maximum value (#PB_Default)
@@ -4668,6 +4785,8 @@ CompilerIf #PB_Compiler_IsMainFile
         Chart::SetFlags(#Chart, Chart::#BarChart, Chart::#PopUpMenu)
         Chart::SetFont(#Chart, FontID(#Font), Chart::#BarChart)
         Chart::SetFont(#Chart, FontID(#Font), Chart::#Legend)
+        ;Chart::SetAttribute(#Chart, Chart::#Maximum, 100)
+        ;Chart::SetFlags(#Chart, Chart::#BarChart, Chart::#NoAutoAdjust|Chart::#OutOfRange)
         ; Popup Menu
         Chart::AttachPopupMenu(#Chart, #PopUp)
         Chart::UpdatePopupText(#Chart, #Menu_Display, "Display '"+Chart::#Serie$+"'")
@@ -4676,6 +4795,8 @@ CompilerIf #PB_Compiler_IsMainFile
         Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#Horizontal|Chart::#Border|Chart::#ShowValue|Chart::#ShowLines|Chart::#AutoResize, #Window)
         Chart::SetAttribute(#Chart, Chart::#Width, 22)
         Chart::SetFlags(#Chart, Chart::#BarChart, Chart::#Colored)
+        ;Chart::SetAttribute(#Chart, Chart::#Maximum, 100)
+        ;Chart::SetFlags(#Chart, Chart::#BarChart, Chart::#NoAutoAdjust|Chart::#OutOfRange)
       CompilerCase 12 ; Line Chart
         Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#LineChart|Chart::#Border|Chart::#ShowLines|Chart::#ShowValue|Chart::#ChangeCursor|Chart::#AutoResize, #Window)
         Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#Colored) ; |Chart::#Descending
@@ -4711,9 +4832,9 @@ CompilerIf #PB_Compiler_IsMainFile
       CompilerDefault
         Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#Border|Chart::#ShowLines|Chart::#ShowValue|Chart::#ChangeCursor|Chart::#AutoResize, #Window)
         Chart::SetFlags(#Chart, Chart::#BarChart, Chart::#Colored)
-        ;Chart::SetAttribute(#Chart, Chart::#BarFlags, Chart::#NoBorder)
         Chart::SetAttribute(#Chart, Chart::#ScaleSpacing, Chart::#Double) ; Chart::#Single / Chart::#Double
-        Chart::SetAttribute(#Chart, Chart::#Maximum, 100)
+        ;Chart::SetAttribute(#Chart, Chart::#Maximum, 100)
+        ;Chart::SetFlags(#Chart, Chart::#BarChart, Chart::#NoAutoAdjust|Chart::#OutOfRange)
         ; Tooltips
         Chart::ToolTipText(#Chart, "Percent: " + Chart::#Percent$)
     CompilerEndSelect    
@@ -4901,8 +5022,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 1964
-; FirstLine = 738
-; Folding = MBAAAgAGEh-WLRRXKn38YwAFQEwJCAAAAAAAQAAAACfK-
+; CursorPosition = 9
+; Folding = MBAAAgACEhfAAIAgMKAAAGGoAiAORAAAAAAAACAAAQ5T6
 ; EnableXP
 ; DPIAware
