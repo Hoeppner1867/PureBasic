@@ -10,15 +10,14 @@
 ;/
 
 
-; Last Update: 21.06.19
+; Last Update: 01.07.19
+;
+; Added: #OutOfRange (LineChart)
+;
 ; Added: #ChangeCursor and #ToolTips
 ; Added: #FontSize for VectorFonts (Value or percentage in PieChart/LineChart)
 ; BugFixes
-;
-; Added: Bezier curves for line charts (#BezierCurve)
-; Added: #Hide for hiding legend
-; Addes: #Descending for descending numbering of the y-axis in line charts
-; Bugfixes
+
 
 ;{ ===== MIT License =====
 ;
@@ -133,7 +132,8 @@ DeclareModule Chart
     #Hide            ; hide legend                                     [#Legend]
     #BezierCurve     ;                                                 [#LineChart]
     #ToolTips
-    #ChangeCursor 
+    #ChangeCursor
+    #OutOfRange
   EndEnumeration
   
   Enumeration 1    ; [Attribute]
@@ -182,7 +182,6 @@ DeclareModule Chart
   ;}
   
   ;- ===========================================================================
-  
   ;-   DeclareModule
   ;- ===========================================================================  
   
@@ -541,13 +540,7 @@ Module Chart
     Next
     
   EndProcedure
-  
-  Procedure UpdateToolTip()
     
-    
-    
-  EndProcedure
-  
   Procedure.i MaxLabelWidth_()
     Define.i MaxWidth
     
@@ -970,9 +963,15 @@ Module Chart
         
         xW3 = Round((cWidth + sWidth) / 3, #PB_Round_Nearest)
         
+        If Chart()\Line\Flags & #OutOfRange
+          SaveVectorState()
+          AddPathBox(X, Y, Width, Height)
+          ClipPath()
+        EndIf
+        
         ForEach Chart()\Item()
           
-          If Chart()\Item()\Value >= Chart()\Line\Minimum And Chart()\Item()\Value <= Maximum
+          If (Chart()\Item()\Value >= Chart()\Line\Minimum And Chart()\Item()\Value <= Maximum) Or Chart()\Line\Flags & #OutOfRange
             
             ;{ --- Calc Position & Height ---
             If Chart()\Line\Minimum < 0
@@ -993,7 +992,7 @@ Module Chart
                 cHeight = (Chart()\Item()\Value - Chart()\Line\Minimum) * Factor
               EndIf
             EndIf ;} 
-            
+
             If ListIndex(Chart()\Item()) = 0
               MovePathCursor(PosX + Radius, PosY - cHeight)
             Else
@@ -1005,7 +1004,7 @@ Module Chart
               EndIf  
 
             EndIf
-            
+
             LastX = PosX + Radius : LastY = PosY - cHeight
           EndIf
           
@@ -1014,6 +1013,8 @@ Module Chart
         
         VectorSourceColor(AlphaColor)
         StrokePath(2, #PB_Path_RoundCorner)
+        
+        If Chart()\Line\Flags & #OutOfRange : RestoreVectorState() : EndIf
         ;}
       
         PosX = X + Chart()\Line\Padding
@@ -4557,7 +4558,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   ; ----- Select Example -----
   
-  #Example = 0
+  #Example = 13
   
   ; --- Bar Chart ---
   ;  1: automatically adjust maximum value (#PB_Default)
@@ -4677,8 +4678,9 @@ CompilerIf #PB_Compiler_IsMainFile
       CompilerCase 13 ; Line Chart (#BezierCurve)
         Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#LineChart|Chart::#Border|Chart::#ShowLines|Chart::#ShowValue|Chart::#ChangeCursor|Chart::#AutoResize, #Window)
         Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#Colored|Chart::#BezierCurve) ; |Chart::#Descending|Chart::#NoAutoAdjust
-        ;Chart::SetAttribute(#Chart, Chart::#Maximum,  80)
+        Chart::SetAttribute(#Chart, Chart::#Maximum,  80)
         Chart::SetAttribute(#Chart, Chart::#FontSize, 10)
+        Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#NoAutoAdjust|Chart::#OutOfRange)
       CompilerCase 14 ; Line Chart (negative values)
         Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#LineChart|Chart::#Border|Chart::#ShowLines|Chart::#ChangeCursor|Chart::#AutoResize, #Window)
         Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#Colored|Chart::#BezierCurve)
@@ -4889,9 +4891,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 
-; IDE Options = PureBasic 5.70 LTS (Windows - x86)
-; CursorPosition = 4700
-; FirstLine = 1427
-; Folding = O2AEYAAMFgftWi3vcOt4xgBLgIiTEAAAQAAAgAAAAE+c+
+; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
+; CursorPosition = 13
+; Folding = MBAAAgAGEhvWLR8XKn38YwAFQEwJCAAAAAAAQAAAACfK-
 ; EnableXP
 ; DPIAware
