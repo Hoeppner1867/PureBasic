@@ -1904,6 +1904,12 @@ Module Chart
         ;{ --- Draw Lines ---
         xW3 = Round((cWidth + sWidth) / 3, #PB_Round_Nearest)
         
+        If Chart()\Line\Flags & #OutOfRange
+          SaveVectorState()
+          AddPathBox(X, Y, Width, Height)
+          ClipPath()
+        EndIf
+        
         ForEach Chart()\VisibleData()
           If SelectElement(Chart()\Series(), Chart()\VisibleData())
             
@@ -1914,7 +1920,7 @@ Module Chart
             
             ForEach Chart()\Series()\Item()
               
-              If Chart()\Series()\Item()\Value >= Chart()\Line\Minimum And Chart()\Series()\Item()\Value <= Maximum
+              If (Chart()\Series()\Item()\Value >= Chart()\Line\Minimum And Chart()\Series()\Item()\Value <= Maximum) Or Chart()\Line\Flags & #OutOfRange
                 
                 ;{ --- Calc Position & Height---
                 If Chart()\Line\Minimum < 0
@@ -1956,8 +1962,11 @@ Module Chart
             
             VectorSourceColor(AlphaColor)
             StrokePath(2, #PB_Path_RoundCorner)
+
           EndIf
         Next
+        If Chart()\Line\Flags & #OutOfRange : RestoreVectorState() : EndIf
+        
         ;}
         
         ForEach Chart()\VisibleData()
@@ -4892,7 +4901,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 13
-; Folding = MBAAAgAGEhvWLR8XKn38YwAFQEwJCAAAAAAAQAAAACfK-
+; CursorPosition = 1964
+; FirstLine = 738
+; Folding = MBAAAgAGEh-WLRRXKn38YwAFQEwJCAAAAAAAQAAAACfK-
 ; EnableXP
 ; DPIAware
