@@ -10,8 +10,9 @@
 ;/
 
 
-; Last Update: 01.07.19
+; Last Update: 02.07.19
 ;
+; New:   Adjustment of #OutOfRange
 ; Added: #OutOfRange (BarCharts/LineChart)
 ;
 ; Added: #ChangeCursor and #ToolTips
@@ -931,19 +932,6 @@ Module Chart
             txtY = PosY - Round(txtHeight / 2, #PB_Round_Nearest)
             DrawText(txtX, txtY, Text$, Chart()\Color\Front)
           Next
-    
-          ;If Chart()\Line\Minimum
-          ;  PosY = Y + Height
-          ;  If Chart()\Flags & #ShowLines And PosY <> Y
-          ;    Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
-          ;  EndIf
-          ;  Line(X - dpiX(2), PosY, dpiX(6), 1, Chart()\Color\Axis)
-          ;  Text$ = Str(Chart()\Line\Minimum)
-          ;  txtX = X - TextWidth(Text$) - dpix(4)
-          ;  txtY = PosY - Round(txtHeight / 2, #PB_Round_Nearest)
-          ;  DrawingMode(#PB_2DDrawing_Transparent)
-          ;  DrawText(txtX, txtY, Text$, Chart()\Color\Front)
-          ;EndIf
           
           Line(X, Y + pHeight, Width, 1, Chart()\Color\Axis)
           
@@ -975,34 +963,53 @@ Module Chart
             
             ;{ --- Calc Position & Height ---
             If Chart()\Line\Minimum < 0
+              
               If Chart()\Item()\Value < 0
                 PosY = Y + pHeight + dpiY(1)
                 Factor = nHeight / Chart()\Line\Minimum
+                cHeight = Chart()\Item()\Value * Factor
+                If Chart()\Item()\Value < Chart()\Line\Minimum : cHeight = - SpaceY : EndIf
               Else
                 PosY = Y + pHeight
                 Factor = pHeight / Maximum
+                cHeight = Chart()\Item()\Value * Factor
+                If Chart()\Item()\Value < Chart()\Line\Minimum
+                  cHeight = - SpaceY   
+                ElseIf Chart()\Item()\Value > Maximum
+                  cHeight = (Maximum -  Chart()\Line\Minimum) * Factor + SpaceY
+                EndIf 
               EndIf
-              cHeight = Chart()\Item()\Value * Factor
+
             Else
+              
               PosY = Y + pHeight
               Factor = Height / Chart()\Line\Range
               If Chart()\Line\Flags & #Descending
                 cHeight = (Maximum - (Chart()\Item()\Value)) * Factor
+                If Chart()\Item()\Value < Chart()\Line\Minimum
+                  cHeight = (Maximum -  Chart()\Line\Minimum) * Factor + SpaceY
+                ElseIf Chart()\Item()\Value > Maximum
+                  cHeight = - SpaceY   
+                EndIf 
               Else
                 cHeight = (Chart()\Item()\Value - Chart()\Line\Minimum) * Factor
+                If Chart()\Item()\Value < Chart()\Line\Minimum
+                  cHeight = - SpaceY   
+                ElseIf Chart()\Item()\Value > Maximum
+                  cHeight = (Maximum -  Chart()\Line\Minimum) * Factor + SpaceY
+                EndIf 
               EndIf
+              
             EndIf ;} 
-
+            
             If ListIndex(Chart()\Item()) = 0
               MovePathCursor(PosX + Radius, PosY - cHeight)
             Else
-              
               If Chart()\Line\Flags & #BezierCurve
                 AddPathCurve(lastX + xW3, LastY, PosX + Radius - xW3, PosY - cHeight, PosX + Radius, PosY - cHeight)
               Else
                 AddPathLine(PosX + Radius, PosY - cHeight)
               EndIf  
-
             EndIf
 
             LastX = PosX + Radius : LastY = PosY - cHeight
@@ -1915,18 +1922,6 @@ Module Chart
             DrawText(txtX, txtY, Text$, Chart()\Color\Front)
           Next
     
-          ;If Chart()\Line\Minimum
-          ;  PosY = Y + Height
-          ;  If Chart()\Flags & #ShowLines
-          ;    Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
-          ;  EndIf
-          ;  Line(X - dpiX(2), PosY, dpiX(6), 1, Chart()\Color\Axis)
-          ;  Text$ = Str(Chart()\Line\Minimum)
-          ;  txtX = X - TextWidth(Text$) - dpix(4)
-          ;  txtY = PosY - Round(txtHeight / 2, #PB_Round_Nearest)
-          ;  DrawText(txtX, txtY, Text$, Chart()\Color\Front)
-          ;EndIf
-          
           Line(X, Y + pHeight, Width, 1, Chart()\Color\Axis)
           
         EndIf ;} 
@@ -1963,24 +1958,44 @@ Module Chart
                 
                 ;{ --- Calc Position & Height---
                 If Chart()\Line\Minimum < 0
+                  
                   If Chart()\Series()\Item()\Value < 0
-                    PosY = Y + pHeight + dpiY(1)
-                    Factor = nHeight / Chart()\Line\Minimum
+                    PosY    = Y + pHeight + dpiY(1)
+                    Factor  = nHeight / Chart()\Line\Minimum
+                    cHeight = Chart()\Series()\Item()\Value * Factor
+                    If Chart()\Series()\Item()\Value < Chart()\Line\Minimum : cHeight = - SpaceY : EndIf
                   Else
-                    PosY = Y + pHeight
-                    Factor = pHeight / Maximum
+                    PosY    = Y + pHeight
+                    Factor  = pHeight / Maximum
+                    cHeight = Chart()\Series()\Item()\Value * Factor
+                    If Chart()\Series()\Item()\Value < Chart()\Line\Minimum
+                      cHeight = - SpaceY   
+                    ElseIf Chart()\Series()\Item()\Value > Maximum
+                      cHeight = (Maximum -  Chart()\Line\Minimum) * Factor + SpaceY
+                    EndIf 
                   EndIf
-                  cHeight = Chart()\Series()\Item()\Value * Factor
+
                 Else
+                  
                   PosY = Y + pHeight
                   Factor = Height / Chart()\Line\Range
                   If Chart()\Line\Flags & #Descending
                     cHeight = (Maximum - (Chart()\Series()\Item()\Value)) * Factor
+                    If Chart()\Series()\Item()\Value < Chart()\Line\Minimum
+                      cHeight = (Maximum -  Chart()\Line\Minimum) * Factor + SpaceY
+                    ElseIf Chart()\Series()\Item()\Value > Maximum
+                      cHeight = - SpaceY   
+                    EndIf 
                   Else
                     cHeight = (Chart()\Series()\Item()\Value - Chart()\Line\Minimum) * Factor
+                    If Chart()\Series()\Item()\Value < Chart()\Line\Minimum
+                      cHeight = - SpaceY   
+                    ElseIf Chart()\Series()\Item()\Value > Maximum
+                      cHeight = (Maximum -  Chart()\Line\Minimum) * Factor + SpaceY
+                    EndIf 
                   EndIf
+
                 EndIf ;}
-                
                 If ListIndex(Chart()\Series()\Item()) = 0
                   MovePathCursor(PosX + Radius, PosY - cHeight)
                 Else
@@ -2035,7 +2050,7 @@ Module Chart
                   cHeight = (Chart()\Series()\Item()\Value - Chart()\Line\Minimum) * Factor
                 EndIf
               EndIf ;}
-              
+
               ;{ --- Set text for #ShowValue or #ShowPercent ---
               Calc = (Chart()\Series()\Item()\Value - Chart()\Line\Minimum) * 100
               If Calc <> 0
@@ -4684,7 +4699,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   ; ----- Select Example -----
   
-  #Example = 0
+  #Example = 13
   
   ; --- Bar Chart ---
   ;  1: automatically adjust maximum value (#PB_Default)
@@ -4821,8 +4836,9 @@ CompilerIf #PB_Compiler_IsMainFile
         Chart::SetFlags(#Chart, Chart::#Legend, Chart::#AllDataSeries|Chart::#PostEvents|Chart::#PopUpMenu)  ; |Chart::#Hide
         Chart::SetFont(#Chart, FontID(#Font), Chart::#Legend)
         Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#BezierCurve) ; |Chart::#Descending|Chart::#NoAutoAdjust
-        ;Chart::SetAttribute(#Chart, Chart::#Maximum, 70)
-        ;Chart::SetAttribute(#Chart, Chart::#FontSize, 9)
+        Chart::SetAttribute(#Chart, Chart::#Maximum, 70)
+        Chart::SetAttribute(#Chart, Chart::#FontSize, 9)
+        Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#NoAutoAdjust|Chart::#OutOfRange)
         ; Tooltips
         Chart::ToolTipText(#Chart, "Value: " + Chart::#Value$)
         ; Popup Menu
@@ -5022,7 +5038,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 9
-; Folding = MBAAAgACEhfAAIAgMKAAAGGoAiAORAAAAAAAACAAAQ5T6
+; CursorPosition = 14
+; Folding = MBAAAgAGMgfAAogBIKAAAGGoAiAORAAAAAAAACAAAQ5T6
 ; EnableXP
 ; DPIAware
