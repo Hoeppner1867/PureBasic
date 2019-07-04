@@ -10,8 +10,11 @@
 ;/
 
 
-; Last Update: 02.07.19
+; Last Update: 04.07.19
 ;
+; Added: #ModifyByCursor for LineChart
+; Added: Popup-Menü für gesamten ChartBereich
+; 
 ; New:   Adjustment of #OutOfRange
 ; Added: #OutOfRange (BarCharts/LineChart)
 ;
@@ -94,10 +97,11 @@
 
 DeclareModule Chart
   
-  #Enable_PieChart   = #True
-  #Enable_DataSeries = #True
-  #Enable_Horizontal = #True
-  #Enable_LineChart  = #True
+  #Enable_PieChart       = #True
+  #Enable_DataSeries     = #True
+  #Enable_Horizontal     = #True
+  #Enable_LineChart      = #True
+  #Enable_ModifyByCursor = #True
   
   ;- ===========================================================================
   ;-   DeclareModule - Constants
@@ -135,6 +139,7 @@ DeclareModule Chart
     #ToolTips
     #ChangeCursor
     #OutOfRange
+    #ModifyByCursor
   EndEnumeration
   
   Enumeration 1    ; [Attribute]
@@ -244,6 +249,11 @@ Module Chart
   
   #NotValid = -1
   #Error    = -2
+  
+  Enumeration MouseMove
+    #Mouse_Released 
+    #Mouse_Pressed
+  EndEnumeration
   
   Enumeration 1
     #Error_LabelExists
@@ -385,6 +395,17 @@ Module Chart
     Border.i
   EndStructure  ;}
   
+  Structure Chart_Mouse_Structure  ;{ Chart()\Cursor\...
+    downY.i
+    Current.i
+    pFactor.f
+    nFactor.f
+    Minimum.i
+    Maximum.i
+    Offset.i
+    State.i
+  EndStructure ;}
+  
   Structure Chart_Structure         ;{ Chart()\...
     CanvasNum.i
     PopupNum.i
@@ -400,6 +421,7 @@ Module Chart
     Legend.Chart_Legend_Structure
     
     Color.Chart_Color_Structure
+    Mouse.Chart_Mouse_Structure
     Event.Chart_Event_Structure
     Margin.Chart_Margins_Structure
     Window.Chart_Window_Structure
@@ -532,7 +554,7 @@ Module Chart
     ProcedureReturn Text$
   EndProcedure
   
-  Procedure UpdatePopUpMenu_()
+  Procedure   UpdatePopUpMenu_()
     Define.s Text$
     
     ForEach Chart()\PopUpItem()
@@ -824,13 +846,40 @@ Module Chart
     ProcedureReturn RGB((R1*Blend) + (R2 * (1-Blend)), (G1*Blend) + (G2 * (1-Blend)), (B1*Blend) + (B2 * (1-Blend)))
   EndProcedure
   
+  Procedure.i Value_(Y.i) 
+    
+    Y -  Chart()\Mouse\Offset
+  
+    If Chart()\Line\Minimum < 0
+      
+      If Y < 0
+        ProcedureReturn Round(Chart()\Mouse\Minimum - (Y / Chart()\Mouse\nFactor), #PB_Round_Nearest)
+      Else
+        ProcedureReturn Round(Chart()\Mouse\Maximum - (Y / Chart()\Mouse\pFactor), #PB_Round_Nearest)
+      EndIf
+      
+    Else
+
+      If Chart()\Line\Flags & #Descending
+        
+        ProcedureReturn Round((Y / Chart()\Mouse\pFactor) + Chart()\Line\Minimum, #PB_Round_Nearest)
+        
+      Else
+        
+        ProcedureReturn Round(Chart()\Mouse\Maximum - (Y / Chart()\Mouse\pFactor), #PB_Round_Nearest)
+        
+      EndIf
+      
+    EndIf 
+    
+  EndProcedure
 
   CompilerIf #Enable_LineChart
     
     Procedure   DrawLineChart_(X.i, Y.i, Width.i, Height.i)
       Define.i X, Y, Width, Height, PosX, PosY, sWidth, cWidth, cHeight, nHeight, pHeight, lastX, lastY, xW3
       Define.i txtX, txtY, txtWidth, txtHeight, axisY, Radius
-      Define.i n, Items, Spaces, ScaleLines, AlphaColor, Color, Gradient, Maximum, maxValue, minValue
+      Define.i n, Items, Spaces, ScaleLines, AlphaColor, Color, Gradient, Maximum,  maxValue, minValue
       Define.f SpaceY, Factor, Calc
       Define.s Text$, Percent$
       
@@ -863,6 +912,8 @@ Module Chart
 
         Width  - txtWidth - dpiX(2)
         Height - (txtHeight * 1.5) - dpiY(3)
+        
+        Chart()\Mouse\Offset = txtHeight / 2
         
         Chart()\EventSize\X = X
         Chart()\EventSize\Y = Y
@@ -1033,9 +1084,11 @@ Module Chart
             If Chart()\Item()\Value < 0
               PosY = Y + pHeight + dpiY(1)
               Factor = nHeight / Chart()\Line\Minimum
+              Chart()\Mouse\nFactor= Factor
             Else
               PosY = Y + pHeight
               Factor = pHeight / Maximum
+              Chart()\Mouse\pFactor= Factor
             EndIf
             cHeight = Chart()\Item()\Value * Factor
           Else
@@ -1046,7 +1099,11 @@ Module Chart
             Else
               cHeight = (Chart()\Item()\Value - Chart()\Line\Minimum) * Factor
             EndIf
+            Chart()\Mouse\pFactor= Factor
           EndIf ;}
+          
+          
+          Chart()\Mouse\Maximum = Maximum
           
           ;{ --- Set text for #ShowValue or #ShowPercent ---
           Calc = (Chart()\Item()\Value - Chart()\Line\Minimum) * 100
@@ -1073,17 +1130,11 @@ Module Chart
             Circle_(PosX + Radius, PosY - cHeight, Radius, BlendColor_(Color, Chart()\Color\Border, 50), Color)
             
             ;{ --- Set data ----
-            If Chart()\Item()\Value < 0
-              Chart()\Item()\X      = PosX
-              Chart()\Item()\Y      = PosY - cHeight + Radius
-              Chart()\Item()\Width  = cWidth
-              Chart()\Item()\Height = cWidth
-            Else
-              Chart()\Item()\X      = PosX
-              Chart()\Item()\Y      = PosY - cHeight - Radius
-              Chart()\Item()\Width  = cWidth
-              Chart()\Item()\Height = cWidth
-            EndIf ;}
+            Chart()\Item()\X      = PosX
+            Chart()\Item()\Y      = PosY - cHeight - Radius
+            Chart()\Item()\Width  = cWidth
+            Chart()\Item()\Height = cWidth
+            ;}
             
           Else
             Chart()\Item()\X      = 0
@@ -1851,6 +1902,8 @@ Module Chart
         
         Width  - txtWidth - dpiX(2)
         Height - txtHeight - lHeight - dpiY(13) ; Labels + Legend
+
+        Chart()\Mouse\Offset = txtHeight / 2
         
         Chart()\EventSize\X = X
         Chart()\EventSize\Y = Y
@@ -2036,9 +2089,11 @@ Module Chart
                 If Chart()\Series()\Item()\Value < 0
                   PosY = Y + pHeight + dpiY(1)
                   Factor = nHeight / Chart()\Line\Minimum
+                  Chart()\Mouse\nFactor = Factor
                 Else
                   PosY = Y + pHeight
                   Factor = pHeight / Maximum
+                  Chart()\Mouse\pFactor = Factor
                 EndIf
                 cHeight = Chart()\Series()\Item()\Value * Factor
               Else
@@ -2049,8 +2104,11 @@ Module Chart
                 Else
                   cHeight = (Chart()\Series()\Item()\Value - Chart()\Line\Minimum) * Factor
                 EndIf
+                Chart()\Mouse\pFactor = Factor
               EndIf ;}
-
+              
+              Chart()\Mouse\Maximum = Maximum
+              
               ;{ --- Set text for #ShowValue or #ShowPercent ---
               Calc = (Chart()\Series()\Item()\Value - Chart()\Line\Minimum) * 100
               If Calc <> 0
@@ -2956,130 +3014,6 @@ Module Chart
   EndProcedure
   
   
-  Procedure _LeftClickHandler()
-    Define.i X, Y, Angle, Radius
-    Define.i GadgetNum = EventGadget()
-    
-    If FindMapElement(Chart(), Str(GadgetNum))
-      
-      X = GetGadgetAttribute(Chart()\CanvasNum, #PB_Canvas_MouseX)
-      Y = GetGadgetAttribute(Chart()\CanvasNum, #PB_Canvas_MouseY)
-      
-      If Chart()\Flags & #PieChart            ;{ Pie Chart
-        
-        If Chart()\Legend\Flags & #PostEvents ;{ Legend
-          
-          ForEach Chart()\Item()
-            
-            If X > Chart()\Item()\Legend\X And X < Chart()\Item()\Legend\X + Chart()\Item()\Legend\Width
-              If Y > Chart()\Item()\Legend\Y And Y < Chart()\Item()\Legend\Y + Chart()\Item()\Legend\Height
-                
-                UpdateEventData_(ListIndex(Chart()\Item()), Chart()\Item()\Label, Chart()\Item()\Value, Chart()\Item()\Color)
-                PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_LeftClick)
-                
-                ProcedureReturn #True
-              EndIf
-            EndIf 
-            
-          Next
-          ;}
-        EndIf
-       
-        Radius = GetRadius_(Chart()\Pie\X, Chart()\Pie\Y, X, Y)
-        If Radius < Chart()\Pie\Radius ; within the circle
-          
-          ForEach Chart()\Item()
-            Angle = GetAngleDegree_(X, Y, Chart()\Pie\X, Chart()\Pie\Y)
-            If Angle > Chart()\Item()\sAngle And Angle < Chart()\Item()\eAngle
-              
-              UpdateEventData_(ListIndex(Chart()\Item()), Chart()\Item()\Label, Chart()\Item()\Value, Chart()\Item()\Color)
-              PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_LeftClick, ListIndex(Chart()\Item()))
-              
-              ProcedureReturn #True
-            EndIf
-          Next 
-          
-        EndIf  
-        ;}
-      ElseIf Chart()\Flags & #DataSeries      ;{ Data Series Chart
-
-        If Chart()\Legend\Flags & #PostEvents ;{ Legend
-          
-          If Chart()\Legend\Flags & #AllDataSeries
-            
-            ForEach Chart()\Series()
-              If X > Chart()\Series()\Legend\X And X < Chart()\Series()\Legend\X + Chart()\Series()\Legend\Width
-                If Y > Chart()\Series()\Legend\Y And Y < Chart()\Series()\Legend\Y + Chart()\Series()\Legend\Height
-                  
-                  UpdateEventData_(#NotValid, "", 0, Chart()\Series()\Color, Chart()\Series()\Label)
-                  PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_RightClick)
-                  
-                  ProcedureReturn #True
-                EndIf
-              EndIf 
-            Next
-            
-          Else
-            
-            ForEach Chart()\VisibleData()
-              If SelectElement(Chart()\Series(), Chart()\VisibleData())
-                If X > Chart()\Series()\Legend\X And X < Chart()\Series()\Legend\X + Chart()\Series()\Legend\Width
-                  If Y > Chart()\Series()\Legend\Y And Y < Chart()\Series()\Legend\Y + Chart()\Series()\Legend\Height
-                    
-                    UpdateEventData_(#NotValid, "", 0, Chart()\Series()\Color, Chart()\Series()\Label)
-                    PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_RightClick)
-                    
-                  EndIf
-                EndIf
-              EndIf
-            Next
-            
-          EndIf 
-          ;}
-        EndIf
-        
-        ForEach Chart()\VisibleData()
-          If SelectElement(Chart()\Series(), Chart()\VisibleData())
-            
-            ForEach Chart()\Series()\Item()
-              
-              If X > Chart()\Series()\Item()\X And X < Chart()\Series()\Item()\X + Chart()\Series()\Item()\Width
-                If Y > Chart()\Series()\Item()\Y And Y < Chart()\Series()\Item()\Y + Chart()\Series()\Item()\Height
-                  
-                  UpdateEventData_(ListIndex(Chart()\Series()\Item()), Chart()\Series()\Item()\Label, Chart()\Series()\Item()\Value, Chart()\Series()\Color, Chart()\Series()\Label)
-                  PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_LeftClick, ListIndex(Chart()\Series()\Item()))
-                  
-                  ProcedureReturn #True
-                EndIf
-              EndIf
-              
-            Next
-            
-          EndIf
-        Next
-        ;}
-      Else                                    ;{ Bar / Line Chart
-        
-        ForEach Chart()\Item()
-          
-          If X > Chart()\Item()\X And X < Chart()\Item()\X + Chart()\Item()\Width
-            If Y > Chart()\Item()\Y And Y < Chart()\Item()\Y + Chart()\Item()\Height
-              
-              UpdateEventData_(ListIndex(Chart()\Item()), Chart()\Item()\Label, Chart()\Item()\Value, Chart()\Item()\Color)
-              PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_LeftClick, ListIndex(Chart()\Item()))
-              
-              ProcedureReturn #True
-            EndIf 
-          EndIf
-          
-        Next  
-        ;}
-      EndIf 
-      
-    EndIf
-    
-  EndProcedure
-  
   Procedure _LeftDoubleClickHandler()
     Define.i X, Y, Angle, Radius
     Define.i GadgetNum = EventGadget()
@@ -3368,13 +3302,267 @@ Module Chart
         
         ;}
       EndIf
-
+      
+      If Chart()\Flags & #PopUpMenu
+        
+        If X > = Chart()\EventSize\X And X <= Chart()\EventSize\X + Chart()\EventSize\Width
+          If Y >= Chart()\EventSize\Y And Y <= Chart()\EventSize\Y + Chart()\EventSize\Height
+            If IsWindow(Chart()\Window\Num) And IsMenu(Chart()\PopUpNum)
+              UpdatePopUpMenu_()
+              DisplayPopupMenu(Chart()\PopUpNum, WindowID(Chart()\Window\Num))
+            EndIf
+          EndIf
+        EndIf
+        
+      EndIf
+      
     EndIf
     
   EndProcedure
   
+  Procedure _LeftButtonDownHandler()
+    Define.i X, Y, Radius, Value
+    Define.i GadgetNum = EventGadget()
+    
+    If FindMapElement(Chart(), Str(GadgetNum))
+      
+      X = GetGadgetAttribute(Chart()\CanvasNum, #PB_Canvas_MouseX)
+      Y = GetGadgetAttribute(Chart()\CanvasNum, #PB_Canvas_MouseY) 
+      
+      CompilerIf #Enable_ModifyByCursor
+        
+        If Chart()\Line\Flags & #ModifyByCursor
+
+          If Chart()\Flags & #LineChart
+            If Chart()\Flags & #DataSeries ;{ DataSeries
+              
+              Radius = Chart()\Series()\Item()\Width / 2
+              
+              ForEach Chart()\VisibleData()
+                If SelectElement(Chart()\Series(), Chart()\VisibleData())
+                  
+                  ForEach Chart()\Series()\Item()
+
+                    If X > Chart()\Series()\Item()\X - Radius And X < Chart()\Series()\Item()\X + Chart()\Series()\Item()\Width  - Radius
+                      If Y > Chart()\Series()\Item()\Y - Radius  And Y < Chart()\Series()\Item()\Y + Chart()\Series()\Item()\Height
+                        If Chart()\Mouse\State = #Mouse_Released
+                          Chart()\Mouse\downY   = Y
+                          Chart()\Mouse\Current = ListIndex(Chart()\Series()\Item())
+                          Chart()\Mouse\State   = #Mouse_Pressed
+                          ProcedureReturn #True
+                        EndIf
+                      EndIf
+                    EndIf
+                    
+                  Next
+                  
+                EndIf
+              Next
+              ;}  
+            Else                           ;{ Single 
+              
+              ForEach Chart()\Item()
+                
+                Radius = Chart()\Item()\Width / 2
+                
+                If X > Chart()\Item()\X - Radius And X < Chart()\Item()\X + Chart()\Item()\Width - Radius
+                  If Y > Chart()\Item()\Y - Radius And Y < Chart()\Item()\Y + Chart()\Item()\Height
+                    If Chart()\Mouse\State = #Mouse_Released
+                      Chart()\Mouse\downY   = Y
+                      Chart()\Mouse\Current = ListIndex(Chart()\Item())
+                      Chart()\Mouse\State   = #Mouse_Pressed
+                      ProcedureReturn #True
+                    EndIf
+                  EndIf 
+                EndIf
+              Next  
+              ;}
+            EndIf
+          EndIf
+          
+        EndIf
+        
+      CompilerEndIf
+      
+    EndIf
+    
+  EndProcedure
+
+  Procedure _LeftButtonUpHandler()  
+    Define.i X, Y, Angle, Radius, Value
+    Define.i GadgetNum = EventGadget()
+    
+    If FindMapElement(Chart(), Str(GadgetNum))
+      
+      X = GetGadgetAttribute(Chart()\CanvasNum, #PB_Canvas_MouseX)
+      Y = GetGadgetAttribute(Chart()\CanvasNum, #PB_Canvas_MouseY)
+      
+      CompilerIf #Enable_ModifyByCursor
+        
+        If Chart()\Line\Flags & #ModifyByCursor
+          
+          If Chart()\Mouse\State = #Mouse_Pressed
+            Chart()\Mouse\Current = -1
+            Chart()\Mouse\State   = #Mouse_Released
+          EndIf
+          
+        EndIf
+        
+      CompilerEndIf
+      
+      If Chart()\Flags & #PieChart            ;{ Pie Chart
+        
+        If Chart()\Legend\Flags & #PostEvents ;{ Legend
+          
+          ForEach Chart()\Item()
+            
+            If X > Chart()\Item()\Legend\X And X < Chart()\Item()\Legend\X + Chart()\Item()\Legend\Width
+              If Y > Chart()\Item()\Legend\Y And Y < Chart()\Item()\Legend\Y + Chart()\Item()\Legend\Height
+                
+                UpdateEventData_(ListIndex(Chart()\Item()), Chart()\Item()\Label, Chart()\Item()\Value, Chart()\Item()\Color)
+                PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_LeftClick)
+                
+                ProcedureReturn #True
+              EndIf
+            EndIf 
+            
+          Next
+          ;}
+        EndIf
+       
+        Radius = GetRadius_(Chart()\Pie\X, Chart()\Pie\Y, X, Y)
+        If Radius < Chart()\Pie\Radius ; within the circle
+          
+          ForEach Chart()\Item()
+            Angle = GetAngleDegree_(X, Y, Chart()\Pie\X, Chart()\Pie\Y)
+            If Angle > Chart()\Item()\sAngle And Angle < Chart()\Item()\eAngle
+              
+              UpdateEventData_(ListIndex(Chart()\Item()), Chart()\Item()\Label, Chart()\Item()\Value, Chart()\Item()\Color)
+              PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_LeftClick, ListIndex(Chart()\Item()))
+              
+              ProcedureReturn #True
+            EndIf
+          Next 
+          
+        EndIf  
+        ;}
+      ElseIf Chart()\Flags & #DataSeries      ;{ Data Series Chart
+
+        If Chart()\Legend\Flags & #PostEvents ;{ Legend
+          
+          If Chart()\Legend\Flags & #AllDataSeries
+            
+            ForEach Chart()\Series()
+              If X > Chart()\Series()\Legend\X And X < Chart()\Series()\Legend\X + Chart()\Series()\Legend\Width
+                If Y > Chart()\Series()\Legend\Y And Y < Chart()\Series()\Legend\Y + Chart()\Series()\Legend\Height
+                  
+                  UpdateEventData_(#NotValid, "", 0, Chart()\Series()\Color, Chart()\Series()\Label)
+                  PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_RightClick)
+                  
+                  ProcedureReturn #True
+                EndIf
+              EndIf 
+            Next
+            
+          Else
+            
+            ForEach Chart()\VisibleData()
+              If SelectElement(Chart()\Series(), Chart()\VisibleData())
+                If X > Chart()\Series()\Legend\X And X < Chart()\Series()\Legend\X + Chart()\Series()\Legend\Width
+                  If Y > Chart()\Series()\Legend\Y And Y < Chart()\Series()\Legend\Y + Chart()\Series()\Legend\Height
+                    
+                    UpdateEventData_(#NotValid, "", 0, Chart()\Series()\Color, Chart()\Series()\Label)
+                    PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_RightClick)
+                    
+                  EndIf
+                EndIf
+              EndIf
+            Next
+            
+          EndIf 
+          ;}
+        EndIf
+        
+        ForEach Chart()\VisibleData()
+          If SelectElement(Chart()\Series(), Chart()\VisibleData())
+
+            ForEach Chart()\Series()\Item()
+             
+              If Chart()\Flags & #LineChart
+              
+                Radius = Chart()\Series()\Item()\Width / 2
+                
+                If X > Chart()\Series()\Item()\X - Radius And X < Chart()\Series()\Item()\X + Chart()\Series()\Item()\Width - Radius 
+                  If Y > Chart()\Series()\Item()\Y - Radius  And Y < Chart()\Series()\Item()\Y + Chart()\Series()\Item()\Height
+                    
+                    UpdateEventData_(ListIndex(Chart()\Series()\Item()), Chart()\Series()\Item()\Label, Chart()\Series()\Item()\Value, Chart()\Series()\Color, Chart()\Series()\Label)
+                    PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_LeftClick, ListIndex(Chart()\Series()\Item()))
+                    
+                    ProcedureReturn #True
+                  EndIf
+                EndIf
+                
+              Else
+                
+                If X > Chart()\Series()\Item()\X  And X < Chart()\Series()\Item()\X + Chart()\Series()\Item()\Width
+                  If Y > Chart()\Series()\Item()\Y  And Y < Chart()\Series()\Item()\Y + Chart()\Series()\Item()\Height
+                    
+                    UpdateEventData_(ListIndex(Chart()\Series()\Item()), Chart()\Series()\Item()\Label, Chart()\Series()\Item()\Value, Chart()\Series()\Color, Chart()\Series()\Label)
+                    PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_LeftClick, ListIndex(Chart()\Series()\Item()))
+                    
+                    ProcedureReturn #True
+                  EndIf
+                EndIf
+                
+              EndIf
+                
+            Next
+            
+          EndIf
+        Next
+        ;}
+      Else                                    ;{ Bar / Line Chart
+        
+        ForEach Chart()\Item()
+        
+          If Chart()\Flags & #LineChart
+            
+            Radius = Chart()\Item()\Width / 2
+            
+            If X > Chart()\Item()\X - Radius And X < Chart()\Item()\X + Chart()\Item()\Width - Radius
+              If Y > Chart()\Item()\Y - Radius And Y < Chart()\Item()\Y + Chart()\Item()\Height
+                
+                UpdateEventData_(ListIndex(Chart()\Item()), Chart()\Item()\Label, Chart()\Item()\Value, Chart()\Item()\Color)
+                PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_LeftClick, ListIndex(Chart()\Item()))
+                
+                ProcedureReturn #True
+              EndIf 
+            EndIf
+            
+          Else
+            
+            If X > Chart()\Item()\X And X < Chart()\Item()\X + Chart()\Item()\Width
+              If Y > Chart()\Item()\Y And Y < Chart()\Item()\Y + Chart()\Item()\Height
+                
+                UpdateEventData_(ListIndex(Chart()\Item()), Chart()\Item()\Label, Chart()\Item()\Value, Chart()\Item()\Color)
+                PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_LeftClick, ListIndex(Chart()\Item()))
+                
+                ProcedureReturn #True
+              EndIf 
+            EndIf
+            
+          EndIf
+          
+        Next 
+        ;}
+      EndIf 
+      
+    EndIf
+    
+  EndProcedure
+
   Procedure _MouseMoveHandler()
-    Define.i X, Y, Radius, Angle
+    Define.i X, Y, Radius, Angle, Value
     Define.i GadgetNum = EventGadget()
     
     If FindMapElement(Chart(), Str(GadgetNum))
@@ -3464,19 +3652,70 @@ Module Chart
                   
                   ForEach Chart()\Series()\Item()
                     
-                    If X > Chart()\Series()\Item()\X And X < Chart()\Series()\Item()\X + Chart()\Series()\Item()\Width
-                      If Y > Chart()\Series()\Item()\Y And Y < Chart()\Series()\Item()\Y + Chart()\Series()\Item()\Height
+                    CompilerIf #Enable_ModifyByCursor
+                      
+                      If Chart()\Line\Flags & #ModifyByCursor
                         
-                        If Chart()\Flags & #ToolTips And Chart()\ToolTip = #False
-                          GadgetToolTip(GadgetNum, GetText_(Chart()\ToolTipText))
-                          Chart()\ToolTip = #True
+                        If Chart()\Mouse\State = #Mouse_Pressed And Chart()\Mouse\Current = ListIndex(Chart()\Series()\Item())
+                          
+                          If X < Chart()\Series()\Item()\X - Chart()\Series()\Item()\Width Or X > Chart()\Series()\Item()\X + Chart()\Series()\Item()\Width
+                            Chart()\Mouse\Current = -1
+                            Chart()\Mouse\State   = #Mouse_Released
+                            If Chart()\Flags & #ChangeCursor : SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Default) : EndIf
+                            ProcedureReturn #False
+                          EndIf 
+                          
+                          ;{ Change value while the button is pressed
+                          If Chart()\Mouse\downY <> Y
+                            Value = Value_(Y)
+                            If Value <> Chart()\Series()\Item()\Value
+                              Chart()\Series()\Item()\Value = Value
+                              Draw_()
+                            EndIf
+                          EndIf ;}
+                          
+                          ProcedureReturn #True
                         EndIf
                         
-                        If Chart()\Flags & #ChangeCursor : SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Hand) : EndIf
-
-                        ProcedureReturn #True
                       EndIf
-                    EndIf
+                      
+                    CompilerEndIf
+                    
+                    If Chart()\Flags & #LineChart
+                      
+                      Radius = (Chart()\Item()\Width / 2)
+                      
+                      If X > Chart()\Series()\Item()\X - Radius And X < Chart()\Series()\Item()\X + Chart()\Series()\Item()\Width - Radius
+                        If Y > Chart()\Series()\Item()\Y - Radius And Y < Chart()\Series()\Item()\Y + Chart()\Series()\Item()\Height
+                         
+                          If Chart()\Flags & #ToolTips And Chart()\ToolTip = #False
+                            GadgetToolTip(GadgetNum, GetText_(Chart()\ToolTipText))
+                            Chart()\ToolTip = #True
+                          EndIf
+  
+                          If Chart()\Flags & #ChangeCursor : SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Hand) : EndIf
+  
+                          ProcedureReturn #True
+                        EndIf
+                      EndIf
+                      
+                    Else
+                      
+                      If X > Chart()\Series()\Item()\X And X < Chart()\Series()\Item()\X + Chart()\Series()\Item()\Width
+                        If Y > Chart()\Series()\Item()\Y And Y < Chart()\Series()\Item()\Y + Chart()\Series()\Item()\Height
+                         
+                          If Chart()\Flags & #ToolTips And Chart()\ToolTip = #False
+                            GadgetToolTip(GadgetNum, GetText_(Chart()\ToolTipText))
+                            Chart()\ToolTip = #True
+                          EndIf
+  
+                          If Chart()\Flags & #ChangeCursor : SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Hand) : EndIf
+  
+                          ProcedureReturn #True
+                        EndIf
+                      EndIf
+                      
+                    EndIf 
                     
                   Next
                   
@@ -3486,19 +3725,69 @@ Module Chart
             Else                               ;{ Bar / Line Chart
               
               ForEach Chart()\Item()
-          
-                If X >= Chart()\Item()\X And X <= Chart()\Item()\X + Chart()\Item()\Width
-                  If Y >= Chart()\Item()\Y And Y <= Chart()\Item()\Y + Chart()\Item()\Height
+                
+                CompilerIf #Enable_ModifyByCursor
+                  
+                  If Chart()\Line\Flags & #ModifyByCursor
                     
-                    If Chart()\Flags & #ToolTips And Chart()\ToolTip = #False
-                      GadgetToolTip(GadgetNum, GetText_(Chart()\ToolTipText))
-                      Chart()\ToolTip = #True
+                    If Chart()\Mouse\State = #Mouse_Pressed And Chart()\Mouse\Current = ListIndex(Chart()\Item())
+                      
+                      If X < Chart()\Item()\X - Chart()\Item()\Width Or X > Chart()\Item()\X + Chart()\Item()\Width
+                        Chart()\Mouse\Current = -1
+                        Chart()\Mouse\State   = #Mouse_Released
+                        If Chart()\Flags & #ChangeCursor : SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Default) : EndIf
+                      EndIf
+                      
+                      ;{ Change value While the button is pressed
+                      If Chart()\Mouse\downY <> Y
+                        Value = Value_(Y)
+                        If Value <> Chart()\Item()\Value
+                          Chart()\Item()\Value = Value
+                          Draw_()
+                        EndIf 
+                      EndIf ;}
+                      
+                      ProcedureReturn #True
                     EndIf
                     
-                    If Chart()\Flags & #ChangeCursor : SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Hand) : EndIf
-                    
-                    ProcedureReturn #True
-                  EndIf 
+                  EndIf
+                  
+                CompilerEndIf
+                
+                If Chart()\Flags & #LineChart ;{ LineChart
+                  
+                  Radius = (Chart()\Item()\Width / 2)
+                  
+                  If X >= Chart()\Item()\X - Radius And X <= Chart()\Item()\X + Chart()\Item()\Width - Radius
+                    If Y >= Chart()\Item()\Y - Radius And Y <= Chart()\Item()\Y + Chart()\Item()\Height
+                      
+                      If Chart()\Flags & #ToolTips And Chart()\ToolTip = #False
+                        GadgetToolTip(GadgetNum, GetText_(Chart()\ToolTipText))
+                        Chart()\ToolTip = #True
+                      EndIf
+                      
+                      If Chart()\Flags & #ChangeCursor : SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Hand) : EndIf
+                      
+                      ProcedureReturn #True
+                    EndIf 
+                  EndIf
+                  ;}
+                Else                           ;{ BarChart
+                  
+                  If X >= Chart()\Item()\X And X <= Chart()\Item()\X + Chart()\Item()\Width
+                    If Y >= Chart()\Item()\Y And Y <= Chart()\Item()\Y + Chart()\Item()\Height
+                      
+                      If Chart()\Flags & #ToolTips And Chart()\ToolTip = #False
+                        GadgetToolTip(GadgetNum, GetText_(Chart()\ToolTipText))
+                        Chart()\ToolTip = #True
+                      EndIf
+                      
+                      If Chart()\Flags & #ChangeCursor : SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Hand) : EndIf
+                      
+                      ProcedureReturn #True
+                    EndIf 
+                  EndIf
+                  ;}
                 EndIf
                 
               Next  
@@ -4143,9 +4432,14 @@ Module Chart
 
         BindGadgetEvent(Chart()\CanvasNum,  @_ResizeHandler(),          #PB_EventType_Resize)
         BindGadgetEvent(Chart()\CanvasNum,  @_RightClickHandler(),      #PB_EventType_RightClick)
-        BindGadgetEvent(Chart()\CanvasNum,  @_LeftClickHandler(),       #PB_EventType_LeftClick)
+        ;BindGadgetEvent(Chart()\CanvasNum,  @_LeftClickHandler(),       #PB_EventType_LeftClick)
         BindGadgetEvent(Chart()\CanvasNum,  @_LeftDoubleClickHandler(), #PB_EventType_LeftDoubleClick)
         BindGadgetEvent(Chart()\CanvasNum,  @_MouseMoveHandler(),       #PB_EventType_MouseMove)
+        
+        CompilerIf #Enable_ModifyByCursor
+          BindGadgetEvent(Chart()\CanvasNum,  @_LeftButtonDownHandler(),  #PB_EventType_LeftButtonDown)
+          BindGadgetEvent(Chart()\CanvasNum,  @_LeftButtonUpHandler(),    #PB_EventType_LeftButtonUp)
+        CompilerEndIf
         
         If Flags & #AutoResize
           If IsWindow(WindowNum)
@@ -4826,6 +5120,7 @@ CompilerIf #PB_Compiler_IsMainFile
         Chart::SetAttribute(#Chart, Chart::#Maximum,  80)
         Chart::SetAttribute(#Chart, Chart::#FontSize, 10)
         Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#NoAutoAdjust|Chart::#OutOfRange)
+        Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#ModifyByCursor)
       CompilerCase 14 ; Line Chart (negative values)
         Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#LineChart|Chart::#Border|Chart::#ShowLines|Chart::#ChangeCursor|Chart::#AutoResize, #Window)
         Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#Colored|Chart::#BezierCurve)
@@ -5039,6 +5334,6 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
 ; CursorPosition = 14
-; Folding = MBAAAgAGMgfAAogBIKAAAGGoAiAORAAAAAAAACAAAQ5T6
+; Folding = MBAIAAAcCE-DAgCEgoAAAYYAY5IAAhiAAAAgAAAIAAAg6Pl
 ; EnableXP
 ; DPIAware
