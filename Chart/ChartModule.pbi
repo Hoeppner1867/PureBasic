@@ -3343,7 +3343,7 @@ Module Chart
                   
                   ForEach Chart()\Series()\Item()
 
-                    If X > Chart()\Series()\Item()\X - Radius And X < Chart()\Series()\Item()\X + Chart()\Series()\Item()\Width  - Radius
+                    If X > Chart()\Series()\Item()\X - Radius And X < Chart()\Series()\Item()\X + Chart()\Series()\Item()\Width
                       If Y > Chart()\Series()\Item()\Y - Radius  And Y < Chart()\Series()\Item()\Y + Chart()\Series()\Item()\Height
                         If Chart()\Mouse\State = #Mouse_Released
                           Chart()\Mouse\downY   = Y
@@ -3365,7 +3365,7 @@ Module Chart
                 
                 Radius = Chart()\Item()\Width / 2
                 
-                If X > Chart()\Item()\X - Radius And X < Chart()\Item()\X + Chart()\Item()\Width - Radius
+                If X > Chart()\Item()\X - Radius And X < Chart()\Item()\X + Chart()\Item()\Width
                   If Y > Chart()\Item()\Y - Radius And Y < Chart()\Item()\Y + Chart()\Item()\Height
                     If Chart()\Mouse\State = #Mouse_Released
                       Chart()\Mouse\downY   = Y
@@ -3492,7 +3492,7 @@ Module Chart
               
                 Radius = Chart()\Series()\Item()\Width / 2
                 
-                If X > Chart()\Series()\Item()\X - Radius And X < Chart()\Series()\Item()\X + Chart()\Series()\Item()\Width - Radius 
+                If X > Chart()\Series()\Item()\X - Radius And X < Chart()\Series()\Item()\X + Chart()\Series()\Item()\Width
                   If Y > Chart()\Series()\Item()\Y - Radius  And Y < Chart()\Series()\Item()\Y + Chart()\Series()\Item()\Height
                     
                     UpdateEventData_(ListIndex(Chart()\Series()\Item()), Chart()\Series()\Item()\Label, Chart()\Series()\Item()\Value, Chart()\Series()\Color, Chart()\Series()\Label)
@@ -3529,7 +3529,7 @@ Module Chart
             
             Radius = Chart()\Item()\Width / 2
             
-            If X > Chart()\Item()\X - Radius And X < Chart()\Item()\X + Chart()\Item()\Width - Radius
+            If X > Chart()\Item()\X - Radius And X < Chart()\Item()\X + Chart()\Item()\Width
               If Y > Chart()\Item()\Y - Radius And Y < Chart()\Item()\Y + Chart()\Item()\Height
                 
                 UpdateEventData_(ListIndex(Chart()\Item()), Chart()\Item()\Label, Chart()\Item()\Value, Chart()\Item()\Color)
@@ -3683,9 +3683,9 @@ Module Chart
                     
                     If Chart()\Flags & #LineChart
                       
-                      Radius = (Chart()\Item()\Width / 2)
+                      Radius = (Chart()\Series()\Item()\Width / 2)
                       
-                      If X > Chart()\Series()\Item()\X - Radius And X < Chart()\Series()\Item()\X + Chart()\Series()\Item()\Width - Radius
+                      If X > Chart()\Series()\Item()\X - Radius And X < Chart()\Series()\Item()\X + Chart()\Series()\Item()\Width
                         If Y > Chart()\Series()\Item()\Y - Radius And Y < Chart()\Series()\Item()\Y + Chart()\Series()\Item()\Height
                          
                           If Chart()\Flags & #ToolTips And Chart()\ToolTip = #False
@@ -3758,7 +3758,7 @@ Module Chart
                   
                   Radius = (Chart()\Item()\Width / 2)
                   
-                  If X >= Chart()\Item()\X - Radius And X <= Chart()\Item()\X + Chart()\Item()\Width - Radius
+                  If X >= Chart()\Item()\X - Radius And X <= Chart()\Item()\X + Chart()\Item()\Width
                     If Y >= Chart()\Item()\Y - Radius And Y <= Chart()\Item()\Y + Chart()\Item()\Height
                       
                       If Chart()\Flags & #ToolTips And Chart()\ToolTip = #False
@@ -4993,7 +4993,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   ; ----- Select Example -----
   
-  #Example = 13
+  #Example = 15
   
   ; --- Bar Chart ---
   ;  1: automatically adjust maximum value (#PB_Default)
@@ -5333,7 +5333,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 14
-; Folding = MBAIAAAcCE-DAgCEgoAAAYYAY5IAAhiAAAAgAAAIAAAg6Pl
+; CursorPosition = 3760
+; FirstLine = 1167
+; Folding = MBAIAAAcCE-DAgCEgoAAAYYAI5PaIpiAAAAgAAAIAAAg6Pl
 ; EnableXP
 ; DPIAware
