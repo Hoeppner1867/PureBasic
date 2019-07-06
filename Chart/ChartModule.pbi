@@ -4964,7 +4964,6 @@ Module Chart
     If FindMapElement(Chart(), Str(GNum))
       
       Chart()\ToolTipText = Text
-      Chart()\Flags | #ToolTips
       
     EndIf  
     
@@ -5331,8 +5330,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 3740
-; FirstLine = 1429
-; Folding = MBAcQCAY1P7neE0CB1R9e1xAw-O1A-kBEQAkvAAagCCgzfE-
+; CursorPosition = 4965
+; FirstLine = 1870
+; Folding = CBAcQCAY1P7neE0CB1R9e1xAw-O1A-kBEQAkvAAagCCgzfE-
 ; EnableXP
 ; DPIAware
