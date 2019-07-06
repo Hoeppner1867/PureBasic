@@ -867,8 +867,6 @@ Module Chart
 
     EndIf 
     
-    Debug "Y: " + Str(Y)
-    
     If Value < Chart()\Current\Minimum : Value = Chart()\Current\Minimum : EndIf 
     If Value > Chart()\Current\Maximum : Value = Chart()\Current\Maximum : EndIf 
     
@@ -3309,7 +3307,6 @@ Module Chart
       EndIf
       
       If Chart()\Flags & #PopUpMenu
-        Debug "#PopUpMenu"
         If X > = Chart()\EventSize\X And X <= Chart()\EventSize\X + Chart()\EventSize\Width
           If Y >= Chart()\EventSize\Y And Y <= Chart()\EventSize\Y + Chart()\EventSize\Height
             If IsWindow(Chart()\Window\Num) And IsMenu(Chart()\PopUpNum)
@@ -3742,7 +3739,6 @@ Module Chart
                     EndIf
                     
                     ;{ Change value While the button is pressed
-                    Debug "Y: " + Str(Y) + " / downY: " + Str(Chart()\Mouse\downY)
                     If Chart()\Mouse\downY <> Y
                       Value = Value_(Y)
                       If Value <> Chart()\Item()\Value
@@ -5335,8 +5331,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 4981
-; FirstLine = 1848
-; Folding = MBAcQCAY1P7neE0CB1R9e1xAw-OUA-kBEQAkvAAagCCgTBE-
+; CursorPosition = 3740
+; FirstLine = 1429
+; Folding = MBAcQCAY1P7neE0CB1R9e1xAw-O1A-kBEQAkvAAagCCgzfE-
 ; EnableXP
 ; DPIAware
