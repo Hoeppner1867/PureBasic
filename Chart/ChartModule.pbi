@@ -10,7 +10,7 @@
 ;/
 
 
-; Last Update: 05.07.19
+; Last Update: 06.07.19
 ;
 ; BugFixes
 ;
@@ -131,10 +131,10 @@ DeclareModule Chart
     #Descending      ; Descending numbering of the y-axis              [#LineChart]
     #Hide            ; hide legend                                     [#Legend]
     #BezierCurve     ;                                                 [#LineChart]
-    #ToolTips
-    #ChangeCursor
-    #OutOfRange
-    #ModifyByCursor
+    #ToolTips        ; show tooltips
+    #ChangeCursor    ; change the cursor for clickable areas
+    #OutOfRange      ; shows value which are out of ranges
+    #ModifyByCursor  ; move data points up and down to change the value [#LineChart]
   EndEnumeration
   
   Enumeration 1    ; [Attribute]
@@ -3142,7 +3142,7 @@ Module Chart
     Define.i GadgetNum = EventGadget()
     
     If FindMapElement(Chart(), Str(GadgetNum))
-      
+
       X = GetGadgetAttribute(Chart()\CanvasNum, #PB_Canvas_MouseX)
       Y = GetGadgetAttribute(Chart()\CanvasNum, #PB_Canvas_MouseY)
       
@@ -3309,7 +3309,7 @@ Module Chart
       EndIf
       
       If Chart()\Flags & #PopUpMenu
-        
+        Debug "#PopUpMenu"
         If X > = Chart()\EventSize\X And X <= Chart()\EventSize\X + Chart()\EventSize\Width
           If Y >= Chart()\EventSize\Y And Y <= Chart()\EventSize\Y + Chart()\EventSize\Height
             If IsWindow(Chart()\Window\Num) And IsMenu(Chart()\PopUpNum)
@@ -4409,7 +4409,7 @@ Module Chart
         
         Chart()\ToolTipText = #Value$
         Chart()\Flags       = Flags
-        
+
         Chart()\ReDraw = #True
         
         Chart()\Color\Front     = $000000
@@ -4980,7 +4980,6 @@ Module Chart
       
       If AddMapElement(Chart()\PopUpItem(), Str(MenuItem))
         Chart()\PopUpItem() = Text
-        Chart()\Flags | #PopUpMenu
       EndIf 
       
     EndIf
@@ -4996,7 +4995,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   ; ----- Select Example -----
   
-  #Example = 13
+  #Example = 15
   
   ; --- Bar Chart ---
   ;  1: automatically adjust maximum value (#PB_Default)
@@ -5137,19 +5136,19 @@ CompilerIf #PB_Compiler_IsMainFile
         Chart::SetAttribute(#Chart, Chart::#Maximum, 70)
         Chart::SetAttribute(#Chart, Chart::#FontSize, 9)
         Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#NoAutoAdjust|Chart::#OutOfRange)
-        ; Tooltips
+        ; --- Tooltips ---
         Chart::ToolTipText(#Chart, "Value: " + Chart::#Value$)
         ; Popup Menu
         Chart::AttachPopupMenu(#Chart, #PopUp)
         Chart::UpdatePopupText(#Chart, #Menu_Display, "Display '" + Chart::#Serie$ + "'")
-        Chart::UpdatePopupText(#Chart, #Menu_Hide,    "Hide '" + Chart::#Serie$ + "'")
+        Chart::UpdatePopupText(#Chart, #Menu_Hide,    "Hide '"    + Chart::#Serie$ + "'")
       CompilerDefault
         Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#Border|Chart::#ShowLines|Chart::#ShowValue|Chart::#ChangeCursor|Chart::#AutoResize, #Window)
         Chart::SetFlags(#Chart, Chart::#BarChart, Chart::#Colored)
         Chart::SetAttribute(#Chart, Chart::#ScaleSpacing, Chart::#Double) ; Chart::#Single / Chart::#Double
         ;Chart::SetAttribute(#Chart, Chart::#Maximum, 100)
         ;Chart::SetFlags(#Chart, Chart::#BarChart, Chart::#NoAutoAdjust|Chart::#OutOfRange)
-        ; Tooltips
+        ; --- Tooltips ---
         Chart::ToolTipText(#Chart, "Percent: " + Chart::#Percent$)
     CompilerEndSelect    
     
@@ -5299,7 +5298,7 @@ CompilerIf #PB_Compiler_IsMainFile
               CompilerIf Chart::#Enable_DataSeries
                 CompilerIf #Example = 10
                   Chart::DisplayDataSeries(#Chart, Chart::EventDataSeries(#Chart))
-                CompilerElseIf  #Example = 14
+                CompilerElseIf  #Example = 15
                   Chart::DisplayDataSeries(#Chart, Chart::EventDataSeries(#Chart))
                 CompilerEndIf
               CompilerEndIf
@@ -5336,7 +5335,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 18
-; Folding = MBAcQCAY1P7neE0CB1R9e1xAQwO1A-kBEQAkvAAagACAyfK-
+; CursorPosition = 4981
+; FirstLine = 1848
+; Folding = MBAcQCAY1P7neE0CB1R9e1xAw-OUA-kBEQAkvAAagCCgTBE-
 ; EnableXP
 ; DPIAware
