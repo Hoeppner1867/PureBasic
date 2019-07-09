@@ -47,7 +47,7 @@
 
 ; Calendar::AddEntry()           - add an entry to the calendar
 ; Calendar::AttachPopupMenu()    - attachs a popup menu to the chart
-; Calendar::Date_()              - similar to Date()
+; Calendar::GetDate()              - similar to Date()
 ; Calendar::DefaultCountry()     - set country code for default language [DE/AT/FR/ES/GB/US]
 ; Calendar::DisableReDraw()      - disable/enable redrawing
 ; Calendar::Gadget()             - create a new gadget
@@ -70,6 +70,7 @@
 ;}
 
 XIncludeFile "CanvasTooltipModule.pbi"
+XIncludeFile "Date64Module.pbi"
 
 DeclareModule Calendar
   
@@ -174,7 +175,7 @@ DeclareModule Calendar
   
   Declare.i AddEntry(GNum.i, Label.s, Title.s, StartDate.q, EndDate.q=#PB_Default, FrontColor.i=#PB_Default, BackColor.i=#PB_Default, ToolTipMask.s="", Flag.i=#False)
   Declare   AttachPopupMenu(GNum.i, PopUpNum.i)
-  Declare.q Date_(Year.i, Month.i, Day.i=1, Hour.i=0, Minute.i=0, Second.i=0)
+  Declare.q GetDate(Day.i, Month.i, Year.i, Hour.i=0, Minute.i=0, Second.i=0)
   Declare   DefaultCountry(Code.s)
   Declare   DisableReDraw(GNum.i, State.i=#False)
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
@@ -389,6 +390,72 @@ Module Calendar
   Global NewMap NameOfMonth.s(), NewMap NameOfWeekDay.s()
   
   ;- ============================================================================
+  ;-   Module - Date 32Bit / 64Bit
+  ;- ============================================================================  
+  
+  CompilerIf Defined(Date64, #PB_Module)
+    
+    Procedure.q AddDate_(Date.q, Type.i, Value.i)
+      ProcedureReturn Date64::AddDate_(Date, Type, Value)
+    EndProcedure
+    
+    Procedure.q Date_(Year.i, Month.i, Day.i=1, Hour.i=0, Minute.i=0, Second.i=0)
+      ProcedureReturn Date64::Date_(Year, Month, Day, Hour, Minute, Second)
+    EndProcedure
+    
+    Procedure.i Day_(Date.q)
+      ProcedureReturn Date64::Day_(Date)
+    EndProcedure
+    
+    Procedure.i DayOfWeek_(Date.q)
+      ProcedureReturn Date64::DayOfWeek_(Date)
+    EndProcedure
+    
+    Procedure.s FormatDate_(Mask.s, Date.q)
+      ProcedureReturn Date64::FormatDate_(Mask, Date)
+    EndProcedure
+    
+    Procedure.i Month_(Date.q)
+      ProcedureReturn Date64::Month_(Date)
+    EndProcedure
+    
+    Procedure.i Year_(Date.q)
+      ProcedureReturn Date64::Year_(Date)
+    EndProcedure
+    
+  CompilerElse
+    
+    Procedure.q AddDate_(Date.q, Type.i, Value.i)
+      ProcedureReturn AddDate(Date, Type, Value)
+    EndProcedure
+    
+    Procedure.q Date_(Year.i, Month.i, Day.i=1, Hour.i=0, Minute.i=0, Second.i=0)
+      ProcedureReturn Date(Year, Month, Day, Hour, Minute, Second)
+    EndProcedure
+    
+    Procedure.i Day_(Date.q)
+      ProcedureReturn Day(Date)
+    EndProcedure
+    
+    Procedure.i DayOfWeek_(Date.q)
+      ProcedureReturn DayOfWeek(Date)
+    EndProcedure
+    
+    Procedure.s FormatDate_(Mask.s, Date.q)
+      ProcedureReturn FormatDate(Mask, Date)
+    EndProcedure
+    
+    Procedure.i Month_(Date.q)
+      ProcedureReturn Month(Date)
+    EndProcedure
+    
+    Procedure.i Year_(Date.q)
+      ProcedureReturn Year(Date)
+    EndProcedure
+    
+  CompilerEndIf
+  
+  ;- ============================================================================
   ;-   Module - Internal
   ;- ============================================================================  
   
@@ -437,19 +504,19 @@ Module Calendar
 
     If Text
       Text = ReplaceString(Text, #Day$,       MapKey(Calendar()\Day()))
-      Text = ReplaceString(Text, #WeekDay$,   Calendar()\Week\Day(Str(DayOfWeek(Calendar()\Day()\Entry()\StartDate))))
+      Text = ReplaceString(Text, #WeekDay$,   Calendar()\Week\Day(Str(DayOfWeek_(Calendar()\Day()\Entry()\StartDate))))
       Text = ReplaceString(Text, #Title$,     Calendar()\Day()\Entry()\Title)
       Text = ReplaceString(Text, #Label$,     Calendar()\Day()\Entry()\Label)
-      Text = ReplaceString(Text, #StartDate$, FormatDate(Calendar()\DateMask, Calendar()\Day()\Entry()\StartDate))
-      Text = ReplaceString(Text, #EndDate$,   FormatDate(Calendar()\DateMask, Calendar()\Day()\Entry()\EndDate))
-      Text = ReplaceString(Text, #Time$ ,     FormatDate(Calendar()\TimeMask, Calendar()\Day()\Entry()\StartDate))
-      Text = ReplaceString(Text, #Duration$,  FormatDate(Calendar()\TimeMask, Calendar()\Day()\Entry()\StartDate) + " - " + FormatDate(Calendar()\TimeMask, Calendar()\Day()\Entry()\EndDate))
+      Text = ReplaceString(Text, #StartDate$, FormatDate_(Calendar()\DateMask, Calendar()\Day()\Entry()\StartDate))
+      Text = ReplaceString(Text, #EndDate$,   FormatDate_(Calendar()\DateMask, Calendar()\Day()\Entry()\EndDate))
+      Text = ReplaceString(Text, #Time$ ,     FormatDate_(Calendar()\TimeMask, Calendar()\Day()\Entry()\StartDate))
+      Text = ReplaceString(Text, #Duration$,  FormatDate_(Calendar()\TimeMask, Calendar()\Day()\Entry()\StartDate) + " - " + FormatDate_(Calendar()\TimeMask, Calendar()\Day()\Entry()\EndDate))
     EndIf
     
     ProcedureReturn Text
   EndProcedure
   
-  Procedure.s GetPopUpText_(Text.s)
+  Procedure.s GetPopUpText_(Text.s) ; TODO:
     Define.f Percent
     Define.s Text$ = ""
 
@@ -471,7 +538,7 @@ Module Calendar
   EndProcedure
   
   
-  Procedure   Months_(Code.s="")
+  Procedure   MonthNames(Code.s="")
 	  
     Select Code
       Case "AT"
@@ -571,7 +638,7 @@ Module Calendar
 	  
 	EndProcedure
   
-  Procedure   WeekDays_(Code.s="")
+  Procedure   WeekDayNames_(Code.s="")
 	  
 	  Select Code
 	    Case "DE", "AT"
@@ -655,24 +722,26 @@ Module Calendar
 	  Define.i DayDiff
 	  Define.q FirstDay, FirstCalendarDay
 	  
-	  FirstDay = Date(Year, Month, 1, 0, 0, 0)
+	  FirstDay = Date_(Year, Month, 1, 0, 0, 0)
 	  
-	  DayDiff  = -DayOfWeek(firstDay) + 1
+	  DayDiff  = -DayOfWeek_(firstDay) + 1
 	  If DayDiff > 0 : DayDiff - 7 : EndIf
 	  
-	  ProcedureReturn Day(AddDate(FirstDay, #PB_Date_Day, DayDiff))
+	  ProcedureReturn Day_(AddDate_(FirstDay, #PB_Date_Day, DayDiff))
   EndProcedure 
 	
-	Procedure.i LastDayOfMonth_(Month.i, Year.i)
+  Procedure.i LastDayOfMonth_(Month.i, Year.i)
+    Define.q Date
+    
+    Date = Date_(Year, Month, 1, 0, 0, 0)
 
-	  ProcedureReturn Day(AddDate(AddDate(Date(Year, Month, 1, 0, 0, 0), #PB_Date_Month, 1), #PB_Date_Day, -1))
-	  
+	  ProcedureReturn Day_(AddDate_(AddDate_(Date, #PB_Date_Month, 1), #PB_Date_Day, -1))
 	EndProcedure
 	
 	Procedure.i FirstWeekDay_(Month.i, Year.i)
 	  Define.i DayOfWeek
 	  
-	  DayOfWeek = DayOfWeek(Date(Year, Month, 1, 0, 0, 0))
+	  DayOfWeek = DayOfWeek_(Date_(Year, Month, 1, 0, 0, 0))
 	  If DayOfWeek = 0 : DayOfWeek = 7 : EndIf
 	  
 	  ProcedureReturn DayOfWeek
@@ -688,7 +757,7 @@ Module Calendar
   	  
   	  For d=1 To LastDay
 
-	      DateDay = Date(Calendar()\Current\Year, Calendar()\Current\Month, d, 0, 0, 0)
+	      DateDay = Date_(Calendar()\Current\Year, Calendar()\Current\Month, d, 0, 0, 0)
 	      
 	      If AddMapElement(Calendar()\Day(), Str(d))
 	        
@@ -843,7 +912,7 @@ Module Calendar
       FirstWeekDay = FirstWeekDay_(Month, Year)
       LastDay      = LastDayOfMonth_(Month, Year)
       GreyDay      = FirstCalendarDay(Month.i, Year.i)
-      FocusDay     = Day(Calendar()\Current\Focus)
+      FocusDay     = Day_(Calendar()\Current\Focus)
       
       FocusX = #NotValid
       FocusY = #NotValid
@@ -967,14 +1036,12 @@ Module Calendar
                 If Entries        ;{ Draw entry background
                   
                   If FindMapElement(Calendar()\Day(), Str(Day))
-                    
-                    Debug Calendar()\Week\Day(Str(Day))
-                    
-                    Date = Date(Year, Month, Day, 0, 0, 0)
+
+                    Date = Date_(Year, Month, Day, 0, 0, 0)
                     If Calendar()\ToolTipTitle
                       Calendar()\Day()\ToolTipTitle = GetText_(Calendar()\ToolTipTitle)
                     Else
-                      Calendar()\Day()\ToolTipTitle = Calendar()\Week\Day(Str(c)) + "  " + FormatDate(Calendar()\DateMask, Date)
+                      Calendar()\Day()\ToolTipTitle = Calendar()\Week\Day(Str(c)) + "  " + FormatDate_(Calendar()\DateMask, Date)
                     EndIf
                     
                     If Entries = 1 ;{ Single Entry
@@ -1048,7 +1115,7 @@ Module Calendar
                 EndIf ;}
                 
                 If Day = FocusDay ;{ Draw focus
-                  If Month = Month(Calendar()\Current\Focus) And Year = Year(Calendar()\Current\Focus)
+                  If Month = Month_(Calendar()\Current\Focus) And Year = Year_(Calendar()\Current\Focus)
                     DrawingMode(#PB_2DDrawing_Default)
                     Box(PosX, PosY, ColumnWidth, RowHeight, BlendColor_(Calendar()\Color\Focus, BackColor, 10))
                     FocusX = PosX : FocusY = PosY
@@ -1151,14 +1218,14 @@ Module Calendar
         
         SetGadgetState(Calendar()\SpinNum, Calendar()\Current\Year)
         
-        spinWidth  = GadgetWidth(Calendar()\SpinNum,  #PB_Gadget_RequiredSize)
+        spinWidth  = GadgetWidth(Calendar()\SpinNum,  #PB_Gadget_RequiredSize) + 10
         spinHeight = GadgetHeight(Calendar()\SpinNum, #PB_Gadget_RequiredSize)
         
         SetAttribute(Calendar()\SpinNum, #PB_Spin_Minimum, Calendar()\Year\Minimum)
         SetAttribute(Calendar()\SpinNum, #PB_Spin_Maximum, Calendar()\Year\Maximum)
         
         OffsetY = Round((Height - spinHeight) / 2, #PB_Round_Nearest)
-        ResizeGadget(Calendar()\SpinNum, X, Y + OffsetY, dpiX(spinWidth), spinHeight)
+        ResizeGadget(Calendar()\SpinNum, X, Y + OffsetY, spinWidth, spinHeight)
         
         HideGadget(Calendar()\SpinNum, #False)
 
@@ -1170,7 +1237,7 @@ Module Calendar
         Year = GetGadgetState(Calendar()\SpinNum)
         
         Calendar()\Current\Year  = Year
-        Calendar()\Current\Date  = Date(Year, Calendar()\Current\Month, 1, 0, 0, 0)
+        Calendar()\Current\Date  = Date_(Year, Calendar()\Current\Month, 1, 0, 0, 0)
         
         UpdateCurrentEntries_()
         
@@ -1228,7 +1295,7 @@ Module Calendar
         Month = Selected + 1
         If Month >= 1 And Month <= 12
           Calendar()\Current\Month = Month
-          Calendar()\Current\Date  = Date(Calendar()\Current\Year, Month, 1, 0, 0, 0)
+          Calendar()\Current\Date  = Date_(Calendar()\Current\Year, Month, 1, 0, 0, 0)
           
           UpdateCurrentEntries_()
           
@@ -1241,7 +1308,7 @@ Module Calendar
     
   EndProcedure
   
-  Procedure _LeftDoubleClickHandler()
+  Procedure _LeftDoubleClickHandler() ; TODO: 
     Define.i X, Y
     Define.i GadgetNum = EventGadget()
     
@@ -1310,16 +1377,16 @@ Module Calendar
       If Calendar()\Flags & #FixMonth = #False
         If Y >= Calendar()\Button\Y And Y <= Calendar()\Button\Y + Calendar()\Button\Height
           If X >= Calendar()\Button\prevX And X <= Calendar()\Button\prevX + Calendar()\Button\Width
-            Calendar()\Current\Date  = AddDate(Calendar()\Current\Date, #PB_Date_Month, -1)
-            Calendar()\Current\Month = Month(Calendar()\Current\Date)
-            Calendar()\Current\Year  = Year(Calendar()\Current\Date)
+            Calendar()\Current\Date  = AddDate_(Calendar()\Current\Date, #PB_Date_Month, -1)
+            Calendar()\Current\Month = Month_(Calendar()\Current\Date)
+            Calendar()\Current\Year  = Year_(Calendar()\Current\Date)
             UpdateCurrentEntries_()
             Draw_()
             ProcedureReturn #True
           ElseIf X >= Calendar()\Button\nextX And X <= Calendar()\Button\nextX + Calendar()\Button\Width
-            Calendar()\Current\Date  = AddDate(Calendar()\Current\Date, #PB_Date_Month, 1)
-            Calendar()\Current\Month = Month(Calendar()\Current\Date)
-            Calendar()\Current\Year  = Year(Calendar()\Current\Date)
+            Calendar()\Current\Date  = AddDate_(Calendar()\Current\Date, #PB_Date_Month, 1)
+            Calendar()\Current\Month = Month_(Calendar()\Current\Date)
+            Calendar()\Current\Year  = Year_(Calendar()\Current\Date)
             UpdateCurrentEntries_()
             Draw_()
             ProcedureReturn #True
@@ -1360,7 +1427,7 @@ Module Calendar
           ForEach Calendar()\Day()
             If Y >= Calendar()\Day()\Y And Y <= Calendar()\Day()\Y + Calendar()\Day()\Height
               If X >= Calendar()\Day()\X And X <= Calendar()\Day()\X + Calendar()\Day()\Width
-                Calendar()\Current\Focus = Date(Calendar()\Current\Year, Calendar()\Current\Month, Val(MapKey(Calendar()\Day())), 0, 0, 0)
+                Calendar()\Current\Focus = Date_(Calendar()\Current\Year, Calendar()\Current\Month, Val(MapKey(Calendar()\Day())), 0, 0, 0)
                 Draw_()
                 ProcedureReturn #True
               EndIf
@@ -1632,13 +1699,13 @@ Module Calendar
             Calendar()\FontID = GetGadgetFont(#PB_Default)
         CompilerEndSelect ;}
         
-        Calendar()\SpinNum = SpinGadget(#PB_Any, 0, 0, 0, 0, 1970, 2032, #PB_Spin_Numeric|#PB_Spin_ReadOnly)
+        Calendar()\SpinNum = SpinGadget(#PB_Any, 0, 0, 0, 0, 1900, 2100, #PB_Spin_Numeric|#PB_Spin_ReadOnly)
         If Calendar()\SpinNum
           HideGadget(Calendar()\SpinNum, #True)
         EndIf
         
-        Months_(CountryCode)
-        WeekDays_(CountryCode)
+        MonthNames(CountryCode)
+        WeekDayNames_(CountryCode)
         
         Calendar()\ListNum = ListViewGadget(#PB_Any, 0, 0, 0, 0)
         If Calendar()\ListNum
@@ -1756,16 +1823,16 @@ Module Calendar
     
   EndProcedure    
   
-  Procedure.q Date_(Year.i, Month.i, Day.i=1, Hour.i=0, Minute.i=0, Second.i=0)
+  Procedure.q GetDate(Day.i, Month.i, Year.i, Hour.i=0, Minute.i=0, Second.i=0)
  
-    ProcedureReturn Date(Year, Month, Day, Hour, Minute, Second)
+    ProcedureReturn Date_(Year, Month, Day, Hour, Minute, Second)
 
   EndProcedure
   
   Procedure.i GetDay(GNum.i) 
     
     If FindMapElement(Calendar(), Str(GNum))
-      ProcedureReturn Day(Calendar()\Current\Focus)
+      ProcedureReturn Day_(Calendar()\Current\Focus)
     EndIf
     
   EndProcedure
@@ -1773,7 +1840,7 @@ Module Calendar
   Procedure.i GetMonth(GNum.i) 
     
     If FindMapElement(Calendar(), Str(GNum))
-      ProcedureReturn Month(Calendar()\Current\Focus)
+      ProcedureReturn Month_(Calendar()\Current\Focus)
     EndIf
     
   EndProcedure
@@ -1781,7 +1848,7 @@ Module Calendar
   Procedure.i GetYear(GNum.i) 
     
     If FindMapElement(Calendar(), Str(GNum))
-      ProcedureReturn Year(Calendar()\Current\Focus)
+      ProcedureReturn Year_(Calendar()\Current\Focus)
     EndIf
     
   EndProcedure
@@ -1879,10 +1946,10 @@ Module Calendar
 
     If FindMapElement(Calendar(), Str(GNum))
       
-      Calendar()\Current\Date  = Date(Year, Month, Day, Hour, Minute, Second)
+      Calendar()\Current\Date  = Date_(Year, Month, Day, Hour, Minute, Second)
       Calendar()\Current\Focus = Calendar()\Current\Date
-      Calendar()\Current\Month = Month(Calendar()\Current\Date)
-      Calendar()\Current\Year  = Year(Calendar()\Current\Date)
+      Calendar()\Current\Month = Month_(Calendar()\Current\Date)
+      Calendar()\Current\Year  = Year_(Calendar()\Current\Date)
       
       UpdateCurrentEntries_()
       
@@ -1958,8 +2025,8 @@ Module Calendar
       
       Calendar()\Current\Date  = Date
       Calendar()\Current\Focus = Date
-      Calendar()\Current\Month = Month(Date)
-      Calendar()\Current\Year  = Year(Date)
+      Calendar()\Current\Month = Month_(Date)
+      Calendar()\Current\Year  = Year_(Date)
       
       UpdateCurrentEntries_()
       
@@ -2059,10 +2126,10 @@ CompilerIf #PB_Compiler_IsMainFile
           
           ToolTipMask$ = "Holiday: " + Calendar::#StartDate$ + " - " + Calendar::#EndDate$
           
-          Calendar::AddEntry(#Calendar, "Thorsten", "Birthday", Calendar::Date_(2019, 7, 18))
-          ;Calendar::AddEntry(#Calendar, "Entry 2",  "Second entry", Calendar::Date_(2019, 7, 18))
-          ;Calendar::AddEntry(#Calendar, "Entry 3",  "Third entry", Calendar::Date_(2019, 7, 18))
-          Calendar::AddEntry(#Calendar, "Holidy", "Holiday: Summer", Calendar::Date_(2019, 7, 27), Calendar::Date_(2019, 8, 9), $008000, $61FFC1, ToolTipMask$)
+          Calendar::AddEntry(#Calendar, "Thorsten", "Birthday", Calendar::GetDate(18, 7, 2019))
+          ;Calendar::AddEntry(#Calendar, "Entry 2",  "Second entry", Calendar::GetDate(18, 7, 2019))
+          ;Calendar::AddEntry(#Calendar, "Entry 3",  "Third entry", Calendar::GetDate(18, 7, 2019))
+          Calendar::AddEntry(#Calendar, "Holidy", "Holiday: Summer", Calendar::GetDate(27, 7, 2019), Calendar::GetDate(9, 8, 2019), $008000, $61FFC1, ToolTipMask$)
           
       CompilerEndSelect
 
@@ -2105,9 +2172,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 15
-; FirstLine = 6
-; Folding = uByAAMAIwDQATMCEOc+
+; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x64)
+; CursorPosition = 1701
+; FirstLine = 591
+; Folding = uhAAIBCAAAx+kAYAAAgg-
 ; EnableXP
 ; DPIAware
