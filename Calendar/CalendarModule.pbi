@@ -12,6 +12,8 @@
 
 ; Last Update: 6.07.2019
 ;
+; Added: ToolTip-Module for multiline tooltips
+;
 ; Added: #GreyedDays to show days of previous/next month
 ; Added: AddEntry() to adds calendar entries
 ; Added: ToolTips for calendar entries
@@ -67,7 +69,7 @@
 ; Calendar::WeekDayName()        - defines name of the weekday
 ;}
 
-; TODO: Date64
+XIncludeFile "CanvasTooltipModule.pbi"
 
 DeclareModule Calendar
   
@@ -76,12 +78,14 @@ DeclareModule Calendar
   ;- =========================================================================== 
   
   ;{ _____ Constants _____
-  #Label$   = "{Label}"
-  #Titel$   = "{Titel}"
-  #Start$   = "{Start}"
-  #End$     = "{End}"
-  #Time$    = "{Time}"
-  #Duration = "{Duration}"
+  #Day$       = "{Day}"
+  #Duration$  = "{Duration}"
+  #EndDate$   = "{End}"
+  #Label$     = "{Label}"
+  #Time$      = "{Time}"
+  #Title$     = "{Title}"
+  #StartDate$ = "{Start}"
+  #WeekDay$   = "{Weekday}"
   
   EnumerationBinary ;{ GadgetFlags
     #AutoResize    ; Automatic resizing of the gadget
@@ -102,6 +106,8 @@ DeclareModule Calendar
     #Minimum         ; Year (SpinGadget)
     #Date            ; Mask date
     #Time            ; Mask time 
+    #ToolTipText     ; Mask for tooltip text
+    #ToolTipTitle    ; Mask for tooltip title (requires 'CanvasTooltipModule.pbi')
   EndEnumeration ;}
   
   Enumeration 1     ;{ FontType
@@ -109,6 +115,7 @@ DeclareModule Calendar
     #Font_Month
     #Font_WeekDays
     #Font_Entry
+    #Font_ToolTip
   EndEnumeration ;}
   
   Enumeration 1     ;{ FlagType
@@ -165,7 +172,7 @@ DeclareModule Calendar
   ;-   DeclareModule
   ;- ===========================================================================
   
-  Declare   AddEntry(GNum.i, Label.s, Titel.s, StartDate.q, EndDate.q=#PB_Default, FrontColor.i=#PB_Default, BackColor.i=#PB_Default, Flag.i=#False)
+  Declare.i AddEntry(GNum.i, Label.s, Title.s, StartDate.q, EndDate.q=#PB_Default, FrontColor.i=#PB_Default, BackColor.i=#PB_Default, ToolTipMask.s="", Flag.i=#False)
   Declare   AttachPopupMenu(GNum.i, PopUpNum.i)
   Declare.q Date_(Year.i, Month.i, Day.i=1, Hour.i=0, Minute.i=0, Second.i=0)
   Declare   DefaultCountry(Code.s)
@@ -223,9 +230,10 @@ Module Calendar
     StartDate.i
     EndDate.i
     Label.s
-    Titel.s
+    Title.s
     FrontColor.i
     BackColor.i
+    ToolTipMask.s
     Flags.i
   EndStructure ;}
   
@@ -253,14 +261,16 @@ Module Calendar
     Height.i
     List Entry.Entry_Structure()
     ToolTip.s
+    ToolTipTitle.s
   EndStructure ;}
   
   Structure Calendar_Entry_Structure     ;{ ...\Entry\...
     StartDate.i
     EndDate.i
-    Titel.s
+    Title.s
     FrontColor.i
     BackColor.i
+    ToolTipMask.s
     Flags.i
   EndStructure ;}
   
@@ -339,10 +349,11 @@ Module Calendar
     SpinNum.i
     ListNum.i
     PopupNum.i
+    TooltipNum.i
     
     FontID.i
     EntryFontID.i
-    
+
     ReDraw.i
     
     Flags.i
@@ -352,6 +363,7 @@ Module Calendar
     
     ToolTip.i
     ToolTipText.s
+    ToolTipTitle.s
     
     Color.Calendar_Color_Structure
     Current.Calendar_Current_Structure
@@ -422,14 +434,16 @@ Module Calendar
   EndProcedure
   
   Procedure.s GetText_(Text.s)
-    
+
     If Text
-      Text = ReplaceString(Text, #Titel$,   Calendar()\Day()\Entry()\Titel)
-      Text = ReplaceString(Text, #Label$,   Calendar()\Day()\Entry()\Label)
-      Text = ReplaceString(Text, #Start$,   FormatDate(Calendar()\DateMask, Calendar()\Day()\Entry()\StartDate))
-      Text = ReplaceString(Text, #End$,     FormatDate(Calendar()\DateMask, Calendar()\Day()\Entry()\EndDate))
-      Text = ReplaceString(Text, #Time$ ,   FormatDate(Calendar()\TimeMask, Calendar()\Day()\Entry()\StartDate))
-      Text = ReplaceString(Text, #Duration, FormatDate(Calendar()\TimeMask, Calendar()\Day()\Entry()\StartDate) + " - " + FormatDate(Calendar()\TimeMask, Calendar()\Day()\Entry()\EndDate))
+      Text = ReplaceString(Text, #Day$,       MapKey(Calendar()\Day()))
+      Text = ReplaceString(Text, #WeekDay$,   Calendar()\Week\Day(Str(DayOfWeek(Calendar()\Day()\Entry()\StartDate))))
+      Text = ReplaceString(Text, #Title$,     Calendar()\Day()\Entry()\Title)
+      Text = ReplaceString(Text, #Label$,     Calendar()\Day()\Entry()\Label)
+      Text = ReplaceString(Text, #StartDate$, FormatDate(Calendar()\DateMask, Calendar()\Day()\Entry()\StartDate))
+      Text = ReplaceString(Text, #EndDate$,   FormatDate(Calendar()\DateMask, Calendar()\Day()\Entry()\EndDate))
+      Text = ReplaceString(Text, #Time$ ,     FormatDate(Calendar()\TimeMask, Calendar()\Day()\Entry()\StartDate))
+      Text = ReplaceString(Text, #Duration$,  FormatDate(Calendar()\TimeMask, Calendar()\Day()\Entry()\StartDate) + " - " + FormatDate(Calendar()\TimeMask, Calendar()\Day()\Entry()\EndDate))
     EndIf
     
     ProcedureReturn Text
@@ -610,7 +624,9 @@ Module Calendar
   	      Calendar()\Week\Day("6") = "Sat."
   	      Calendar()\Week\Day("7") = "Sun."
   	    EndIf
-	    
+  	    
+  	    Calendar()\Week\Day("0") = Calendar()\Week\Day("1")
+  	    
 	  EndSelect
 	  
 	EndProcedure
@@ -681,13 +697,14 @@ Module Calendar
   	        If DateDay >= Calendar()\Entries()\StartDate And DateDay <= Calendar()\Entries()\EndDate
   	          
   	          If AddElement(Calendar()\Day(Str(d))\Entry())
-  	            Calendar()\Day(Str(d))\Entry()\Label      = MapKey(Calendar()\Entries())
-  	            Calendar()\Day(Str(d))\Entry()\StartDate  = Calendar()\Entries()\StartDate
-  	            Calendar()\Day(Str(d))\Entry()\EndDate    = Calendar()\Entries()\EndDate
-  	            Calendar()\Day(Str(d))\Entry()\Titel      = Calendar()\Entries()\Titel
-  	            Calendar()\Day(Str(d))\Entry()\FrontColor = Calendar()\Entries()\FrontColor
-  	            Calendar()\Day(Str(d))\Entry()\BackColor  = Calendar()\Entries()\BackColor
-  	            Calendar()\Day(Str(d))\Entry()\Flags      = Calendar()\Entries()\Flags
+  	            Calendar()\Day(Str(d))\Entry()\Label       = MapKey(Calendar()\Entries())
+  	            Calendar()\Day(Str(d))\Entry()\StartDate   = Calendar()\Entries()\StartDate
+  	            Calendar()\Day(Str(d))\Entry()\EndDate     = Calendar()\Entries()\EndDate
+  	            Calendar()\Day(Str(d))\Entry()\Title       = Calendar()\Entries()\Title
+  	            Calendar()\Day(Str(d))\Entry()\FrontColor  = Calendar()\Entries()\FrontColor
+  	            Calendar()\Day(Str(d))\Entry()\BackColor   = Calendar()\Entries()\BackColor
+  	            Calendar()\Day(Str(d))\Entry()\ToolTipMask = Calendar()\Entries()\ToolTipMask
+  	            Calendar()\Day(Str(d))\Entry()\Flags       = Calendar()\Entries()\Flags
   	          EndIf 
   	          
   	        EndIf
@@ -720,7 +737,7 @@ Module Calendar
 	  If Calendar()\Month\Color\Back = Calendar()\Color\Back
 	    Color = Calendar()\Color\Arrow
 	  Else
-	    Color = BlendColor_(Calendar()\Color\Arrow, Calendar()\Month\Color\Back, 80)
+	    Color = BlendColor_(Calendar()\Color\Arrow, Calendar()\Month\Color\Back, 70)
 	  EndIf
 	  
     Calendar()\Button\Width  = dpiX(5)
@@ -760,7 +777,7 @@ Module Calendar
   Procedure   Draw_()
     Define.i X, Y, Width, Height, PosX, PosY, txtX, txtY, txtHeight
     Define.i c, r, Column, Row, ColumnWidth, RowHeight, Difference
-    Define.i Month, Year, Day, GreyDay, FirstWeekDay, LastDay, FocusDay, FocusX, FocusY
+    Define.i Date, Month, Year, Day, GreyDay, FirstWeekDay, LastDay, FocusDay, FocusX, FocusY
     Define.i FrontColor, BackColor, CurrentDate, Entries
     Define.s Text$, Month$, Year$, ToolTip$
     
@@ -951,17 +968,28 @@ Module Calendar
                   
                   If FindMapElement(Calendar()\Day(), Str(Day))
                     
-                    If Entries = 1
+                    Debug Calendar()\Week\Day(Str(Day))
+                    
+                    Date = Date(Year, Month, Day, 0, 0, 0)
+                    If Calendar()\ToolTipTitle
+                      Calendar()\Day()\ToolTipTitle = GetText_(Calendar()\ToolTipTitle)
+                    Else
+                      Calendar()\Day()\ToolTipTitle = Calendar()\Week\Day(Str(c)) + "  " + FormatDate(Calendar()\DateMask, Date)
+                    EndIf
+                    
+                    If Entries = 1 ;{ Single Entry
 
                       FrontColor = Calendar()\Color\EntryFront
                       BackColor  = Calendar()\Color\EntryBack
                       
                       If FirstElement(Calendar()\Day()\Entry())
                         
-                        If Calendar()\ToolTipText 
+                        If Calendar()\Day()\Entry()\ToolTipMask
+                          Calendar()\Day()\ToolTip = GetText_(Calendar()\Day()\Entry()\ToolTipMask)
+                        ElseIf Calendar()\ToolTipText 
                           Calendar()\Day()\ToolTip = GetText_(Calendar()\ToolTipText)
                         Else
-                          Calendar()\Day()\ToolTip = Calendar()\Day()\Entry()\Titel
+                          Calendar()\Day()\ToolTip = Calendar()\Day()\Entry()\Title
                         EndIf
                         
                         If Calendar()\Day()\Entry()\FrontColor <> #PB_Default : FrontColor = Calendar()\Day()\Entry()\FrontColor : EndIf
@@ -971,29 +999,50 @@ Module Calendar
                       
                       If BackColor <> Calendar()\Color\Back
                         DrawingMode(#PB_2DDrawing_Default)
-                        BackColor = BlendColor_(BackColor, Calendar()\Day()\Entry()\BackColor, 40)
+                        BackColor = BlendColor_(BackColor, Calendar()\Day()\Entry()\BackColor, 30)
                         Box(PosX, PosY, ColumnWidth, RowHeight, BackColor)
                       EndIf
-                      
-                    Else 
+                      ;}
+                    Else           ;{ Multiple Entires
                       
                       FrontColor = Calendar()\Color\EntryFront
                       BackColor  = Calendar()\Color\EntryBack
                       
-                      ForEach Calendar()\Day()\Entry()
-                        If Calendar()\ToolTipText 
-                          Calendar()\Day()\ToolTip + " " + GetText_(Calendar()\ToolTipText) + " /"
-                        Else
-                          Calendar()\Day()\ToolTip + " " + Calendar()\Day()\Entry()\Titel + " /"
-                        EndIf
-                      Next
-                      Calendar()\Day()\ToolTip = Trim(RTrim(Calendar()\Day()\ToolTip, "/"))
+                      CompilerIf Defined(ToolTip, #PB_Module)
+                        
+                        ForEach Calendar()\Day()\Entry()
+                          If Calendar()\Day()\Entry()\ToolTipMask
+                            Calendar()\Day()\ToolTip = GetText_(Calendar()\Day()\Entry()\ToolTipMask) + #LF$
+                          ElseIf Calendar()\ToolTipText 
+                            Calendar()\Day()\ToolTip + GetText_(Calendar()\ToolTipText) + #LF$
+                          Else
+                            Calendar()\Day()\ToolTip + Calendar()\Day()\Entry()\Title + #LF$
+                          EndIf
+                        Next
+                        
+                        Calendar()\Day()\ToolTip = Trim(RTrim(Calendar()\Day()\ToolTip, #LF$))
+                        
+                      CompilerElse
+                       
+                        ForEach Calendar()\Day()\Entry()
+                          If Calendar()\Day()\Entry()\ToolTipMask
+                            Calendar()\Day()\ToolTip = GetText_(Calendar()\Day()\Entry()\ToolTipMask) + " /"
+                          ElseIf Calendar()\ToolTipText 
+                            Calendar()\Day()\ToolTip + " " + GetText_(Calendar()\ToolTipText) + " /"
+                          Else
+                            Calendar()\Day()\ToolTip + " " + Calendar()\Day()\Entry()\Title + " /"
+                          EndIf
+                        Next
+                        
+                        Calendar()\Day()\ToolTip = Trim(RTrim(Calendar()\Day()\ToolTip, "/"))
+                        
+                      CompilerEndIf
                       
                       DrawingMode(#PB_2DDrawing_Default)
                       Box(PosX, PosY, ColumnWidth, RowHeight, BackColor)
                       
                     EndIf
-                    
+                    ;}
                   EndIf
                   
                 EndIf ;}
@@ -1367,17 +1416,31 @@ Module Calendar
         If Calendar()\Year\State = #Change : ChangeYear_(#False) : EndIf
         
         ForEach Calendar()\Day()
+          
           If Y >= Calendar()\Day()\Y And Y <= Calendar()\Day()\Y + Calendar()\Day()\Height
             If X >= Calendar()\Day()\X And X <= Calendar()\Day()\X + Calendar()\Day()\Width
-
-              If Calendar()\ToolTip = #False
-                Calendar()\ToolTip = Val(MapKey(Calendar()\Day()))
-                GadgetToolTip(GadgetNum, Calendar()\Day()\ToolTip)
-              ElseIf Calendar()\ToolTip <> Val(MapKey(Calendar()\Day()))
-                Calendar()\ToolTip = #False
-                GadgetToolTip(GadgetNum, "")
-              EndIf
               
+              If Calendar()\ToolTip <> Val(MapKey(Calendar()\Day()))
+                
+                If ListSize(Calendar()\Day()\Entry())
+                
+                  CompilerIf Defined(ToolTip, #PB_Module)
+
+                    ToolTip::SetContent(GadgetNum, Calendar()\Day()\ToolTip, Calendar()\Day()\ToolTipTitle, Calendar()\Day()\X, Calendar()\Day()\Y, Calendar()\Day()\X + Calendar()\Day()\Width, Calendar()\Day()\Y + Calendar()\Day()\Height)
+                    
+                  CompilerElse
+
+                    GadgetToolTip(GadgetNum, Calendar()\Day()\ToolTip) 
+                    Calendar()\ToolTip = #True
+
+                  CompilerEndIf
+                  
+                EndIf
+                
+                Calendar()\ToolTip = Val(MapKey(Calendar()\Day()))
+                
+              EndIf
+
               If Calendar()\Flags & #FixDayOfMonth = #False
                 SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
               EndIf
@@ -1385,14 +1448,16 @@ Module Calendar
               ProcedureReturn #True
             EndIf
           EndIf
+          
         Next
+        
       EndIf ;}
       
       SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Default)
       
       Calendar()\ToolTip = #False
       GadgetToolTip(GadgetNum, "")
-      
+     
     EndIf
     
   EndProcedure  
@@ -1459,27 +1524,37 @@ Module Calendar
   ;-   Module - Declared Procedures
   ;- ========================================================================== 
   
-  Procedure   AddEntry(GNum.i, Label.s, Titel.s, StartDate.q, EndDate.q=#PB_Default, FrontColor.i=#PB_Default, BackColor.i=#PB_Default, Flag.i=#False)
+  Procedure.i AddEntry(GNum.i, Label.s, Title.s, StartDate.q, EndDate.q=#PB_Default, FrontColor.i=#PB_Default, BackColor.i=#PB_Default, ToolTipMask.s="", Flag.i=#False)
     
     If FindMapElement(Calendar(), Str(GNum))
       
+      If FindMapElement(Calendar()\Entries(), Label)
+        Debug "Label already exists"
+        ProcedureReturn #False
+      EndIf 
+      
       If AddMapElement(Calendar()\Entries(), Label)
-        Calendar()\Entries()\Titel      = Titel
-        Calendar()\Entries()\StartDate  = StartDate
+        Calendar()\Entries()\Title       = Title
+        Calendar()\Entries()\StartDate   = StartDate
         
         If EndDate = #PB_Default
-          Calendar()\Entries()\EndDate  = StartDate
+          Calendar()\Entries()\EndDate   = StartDate
         Else
-          Calendar()\Entries()\EndDate  = EndDate
+          Calendar()\Entries()\EndDate   = EndDate
         EndIf
         
-        Calendar()\Entries()\FrontColor = FrontColor
-        Calendar()\Entries()\BackColor  = BackColor
-        Calendar()\Entries()\Flags      = Flag
+        Calendar()\Entries()\FrontColor  = FrontColor
+        Calendar()\Entries()\BackColor   = BackColor
+        
+        Calendar()\Entries()\ToolTipMask = ToolTipMask
+        
+        Calendar()\Entries()\Flags       = Flag
         
         UpdateCurrentEntries_()
         
         If Calendar()\ReDraw : Draw_() : EndIf
+        
+        ProcedureReturn #True
       EndIf
 
     EndIf
@@ -1660,10 +1735,21 @@ Module Calendar
             BindEvent(#PB_Event_SizeWindow, @_ResizeWindowHandler(), Calendar()\Window\Num)
           EndIf  
         EndIf ;}
-
+        
+        CompilerIf Defined(ToolTip, #PB_Module)
+          Calendar()\TooltipNum = ToolTip::Gadget(Calendar()\CanvasNum, Calendar()\Window\Num)
+          If Calendar()\TooltipNum
+            ToolTip::SetColor(Calendar()\CanvasNum, ToolTip::#BorderColor,      $800000)
+            ToolTip::SetColor(Calendar()\CanvasNum, ToolTip::#BackColor,        $FFFFFA)
+            ToolTip::SetColor(Calendar()\CanvasNum, ToolTip::#TitleBorderColor, $800000)
+            ToolTip::SetColor(Calendar()\CanvasNum, ToolTip::#TitleBackColor,   $B48246)
+            ToolTip::SetColor(Calendar()\CanvasNum, ToolTip::#TitleColor,       $FFFFFF)
+          EndIf
+        CompilerEndIf
+        
         Draw_()
         
-        ProcedureReturn GNum
+        ProcedureReturn Calendar()\CanvasNum
       EndIf
      
     EndIf
@@ -1832,6 +1918,10 @@ Module Calendar
           Calendar()\Month\Font  = FontNum
         Case #Font_Weekdays
           Calendar()\Week\Font   = FontNum
+        Case #Font_ToolTip
+          CompilerIf Defined(ToolTip, #PB_Module)
+            ToolTip::SetFont(Calendar()\CanvasNum, FontNum, ToolTip::#Title)
+          CompilerEndIf  
         Case #Font_Entry
           Calendar()\EntryFontID = FontID(FontNum)
         Default
@@ -1849,9 +1939,13 @@ Module Calendar
       
       Select Type
         Case #Date
-          Calendar()\DateMask = String
+          Calendar()\DateMask    = String
         Case #Time
-          Calendar()\TimeMask = String
+          Calendar()\TimeMask    = String
+        Case #ToolTipText
+          Calendar()\ToolTipText = String
+        Case #ToolTipTitle
+          
       EndSelect
       
     EndIf
@@ -1905,7 +1999,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 1
+  #Example = 4
   
   ; Example 1: Default 
   ; Example 2: #GreyedDays
@@ -1925,7 +2019,7 @@ CompilerIf #PB_Compiler_IsMainFile
     #FontWeekDays
   EndEnumeration  
   
-  LoadFont(#FontMonth,    "Arial", 10, #PB_Font_Bold)
+  LoadFont(#FontMonth,    "Arial", 11, #PB_Font_Bold)
   LoadFont(#FontWeekDays, "Arial",  9, #PB_Font_Bold)
   
   If OpenWindow(#Window, 0, 0, 300, 200, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
@@ -1946,23 +2040,30 @@ CompilerIf #PB_Compiler_IsMainFile
         CompilerCase 3
           Calendar::SetColor(#Calendar, Calendar::#Month_FrontColor, $FFF8F0)
           Calendar::SetColor(#Calendar, Calendar::#Month_BackColor,  $701919)
-          Calendar::SetColor(#Calendar, Calendar::#Week_FrontColor, $701919)
-          Calendar::SetColor(#Calendar, Calendar::#Week_BackColor,  $FFFAF6)
-          Calendar::SetColor(#Calendar, Calendar::#FocusColor, $00FC7C)
+          Calendar::SetColor(#Calendar, Calendar::#Week_FrontColor,  $701919)
+          Calendar::SetColor(#Calendar, Calendar::#Week_BackColor,   $FFFAF6)
+          Calendar::SetColor(#Calendar, Calendar::#FocusColor,       $00FC7C)
           ;Calendar::SetColor(#Calendar, Calendar::#Entry_BackColor, $9595FF)
           Calendar::SetFlags(#Calendar, Calendar::#Gadget, Calendar::#GreyedDays)
         CompilerCase 4
           Calendar::SetColor(#Calendar, Calendar::#Month_FrontColor, $FFF8F0)
           Calendar::SetColor(#Calendar, Calendar::#Month_BackColor,  $701919)
-          Calendar::SetColor(#Calendar, Calendar::#Week_FrontColor, $701919)
-          Calendar::SetColor(#Calendar, Calendar::#Week_BackColor,  $FFFAF6)
+          Calendar::SetColor(#Calendar, Calendar::#Week_FrontColor,  $701919)
+          Calendar::SetColor(#Calendar, Calendar::#Week_BackColor,   $FFFAF6)
           
           Calendar::SetFont(#Calendar, #FontWeekDays, Calendar::#Font_Entry)
           Calendar::SetFlags(#Calendar, Calendar::#Gadget, Calendar::#GreyedDays)
-          Calendar::ToolTipText(#Calendar, Calendar::#Titel$)
           
-          StartDate = Calendar::Date_(2019, 7, 18)
-          Calendar::AddEntry(#Calendar, "Geburtstag", "Geburtstag: 18.07.1967", StartDate)
+          Calendar::SetMask(#Calendar, Calendar::#ToolTipText, Calendar::#Title$ + ": " + Calendar::#Label$)
+          Calendar::SetMask(#Calendar, Calendar::#Date, "%dd.%mm.%yyyy")
+          
+          ToolTipMask$ = "Holiday: " + Calendar::#StartDate$ + " - " + Calendar::#EndDate$
+          
+          Calendar::AddEntry(#Calendar, "Thorsten", "Birthday", Calendar::Date_(2019, 7, 18))
+          ;Calendar::AddEntry(#Calendar, "Entry 2",  "Second entry", Calendar::Date_(2019, 7, 18))
+          ;Calendar::AddEntry(#Calendar, "Entry 3",  "Third entry", Calendar::Date_(2019, 7, 18))
+          Calendar::AddEntry(#Calendar, "Holidy", "Holiday: Summer", Calendar::Date_(2019, 7, 27), Calendar::Date_(2019, 8, 9), $008000, $61FFC1, ToolTipMask$)
+          
       CompilerEndSelect
 
     EndIf
@@ -1978,9 +2079,6 @@ CompilerIf #PB_Compiler_IsMainFile
                   ; 
                 Case Calendar::#EventType_Year
                   ; 
-                Case #PB_EventType_LeftClick       ;{ Left mouse click
-                  Debug "Left Click"
-                  ;}
                 Case #PB_EventType_LeftDoubleClick ;{ LeftDoubleClick
                   Debug "Left DoubleClick"
                   ;}
@@ -2008,8 +2106,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 1907
-; FirstLine = 727
-; Folding = eqAAAAAOUAAAQCACU9
+; CursorPosition = 15
+; FirstLine = 6
+; Folding = uByAAMAIwDQATMCEOc+
 ; EnableXP
 ; DPIAware
