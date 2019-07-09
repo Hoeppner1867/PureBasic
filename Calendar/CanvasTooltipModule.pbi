@@ -42,6 +42,7 @@
 ; ToolTip::SetColor()     - similar to SetGadgetColor()
 ; ToolTip::SetContent()   - set tooltip text & Title and define tooltip area
 ; ToolTip::SetFont()      - similar to SetGadgetFont()
+; ToolTip::SetImage()     - adds an image to the tooltip
 ; ToolTip::SetState()     - activates/deactivates tooltip
 
 ;}
@@ -74,13 +75,13 @@ DeclareModule ToolTip
 	  #TitleBorderColor
 	EndEnumeration
   
-	EnumerationBinary ;{ GadgetFlags
+	EnumerationBinary ; GadgetFlags
 		#Border ; Draw a border
-	EndEnumeration ;}
+	EndEnumeration
 
   Enumeration #PB_Event_FirstCustomValue
 		#Event_ToolTip
-	EndEnumeration
+	EndEnumeration ;}
 	
 	;- ===========================================================================
 	;-   DeclareModule
@@ -91,6 +92,7 @@ DeclareModule ToolTip
   Declare   SetColor(GNum.i, ColorTyp.i, Value.i)
   Declare   SetContent(GNum.i, Text.s, Title.s="", X.i=#PB_Default, Y.i=#PB_Default, Width.i=#PB_Default, Height.i=#PB_Default)
   Declare   SetFont(GNum.i, FontNum.i, FontType.i=#Text)
+  Declare   SetImage(GNum.i, ImageNum.i, Width.i=#PB_Default, Height.i=#PB_Default, Flags.i=#False)
   Declare   SetState(GNum.i, State.i)
   
 EndDeclareModule
@@ -111,6 +113,13 @@ Module ToolTip
 	  Active.i
 	  Delay.i
 	  Value.i
+	EndStructure ;}
+	
+	Structure ToolTip_Image_Structure   ;{ ToolTip\Image\...
+	  Num.i
+	  Width.i
+	  Height.i
+	  Flags.i
 	EndStructure ;}
 	
 	Structure ToolTip_Area_Structure    ;{ ToolTip\Area\...
@@ -153,6 +162,7 @@ Module ToolTip
 	Structure ToolTip_Structure         ;{ ToolTip()\...
 	  CanvasNum.i
 	  GadgetNum.i
+
 	  
 	  MouseX.i
 	  MouseY.i
@@ -174,6 +184,7 @@ Module ToolTip
 		Area.ToolTip_Area_Structure
 		Color.ToolTip_Color_Structure
 		Content.ToolTip_Content_Structure
+		Image.ToolTip_Image_Structure
 		Size.ToolTip_Size_Structure
 		Window.ToolTip_Window_Structure
 		
@@ -188,6 +199,8 @@ Module ToolTip
 	;-   Module - Internal
 	;- ============================================================================
 	Declare _TimerThread(Map *Timer())
+	
+	UsePNGImageDecoder()
 	
 	Procedure.f dpiX(Num.i)
 		ProcedureReturn DesktopScaledX(Num)
@@ -283,19 +296,7 @@ Module ToolTip
   	
 	EndProcedure
 	
-	;- __________ Drawing __________
-
-	Procedure.i BlendColor_(Color1.i, Color2.i, Factor.i=50)
-		Define.i Red1, Green1, Blue1, Red2, Green2, Blue2
-		Define.f Blend = Factor / 100
-
-		Red1 = Red(Color1): Green1 = Green(Color1): Blue1 = Blue(Color1)
-		Red2 = Red(Color2): Green2 = Green(Color2): Blue2 = Blue(Color2)
-
-		ProcedureReturn RGB((Red1 * Blend) + (Red2 * (1 - Blend)), (Green1 * Blend) + (Green2 * (1 - Blend)), (Blue1 * Blend) + (Blue2 * (1 - Blend)))
-	EndProcedure
-	
-	Procedure   DetermineSize_()
+  Procedure   DetermineSize_()
 	  Define.i Rows
 	  Define.f MaxWidth, TitleWidth, TitleHeight, textHeight
 	  
@@ -316,14 +317,36 @@ Module ToolTip
     	
     	ToolTip()\Size\Width  = MaxWidth + (ToolTip()\PaddingX * 2)
     	ToolTip()\Size\Height = TitleHeight + (textHeight * Rows) + (ToolTip()\PaddingY * 2)
+    	
+    	If IsImage(ToolTip()\Image\Num)
+    	  
+    	  ToolTip()\Size\Width + ToolTip()\Image\Width + ToolTip()\PaddingY
+
+    	  If ToolTip()\Image\Height + (ToolTip()\PaddingY * 2) > ToolTip()\Size\Height
+      	  ToolTip()\Size\Height = ToolTip()\Image\Height + (ToolTip()\PaddingY * 2)
+      	EndIf
+
+    	EndIf
 
 	    StopDrawing()
 		EndIf  
 
 	EndProcedure
 	
+	;- __________ Drawing __________
+
+	Procedure.i BlendColor_(Color1.i, Color2.i, Factor.i=50)
+		Define.i Red1, Green1, Blue1, Red2, Green2, Blue2
+		Define.f Blend = Factor / 100
+
+		Red1 = Red(Color1): Green1 = Green(Color1): Blue1 = Blue(Color1)
+		Red2 = Red(Color2): Green2 = Green(Color2): Blue2 = Blue(Color2)
+
+		ProcedureReturn RGB((Red1 * Blend) + (Red2 * (1 - Blend)), (Green1 * Blend) + (Green2 * (1 - Blend)), (Blue1 * Blend) + (Blue2 * (1 - Blend)))
+	EndProcedure
+	
 	Procedure   Draw_()
-		Define.i X, Y, Rows, TitleHeight, txtX
+		Define.i X, Y, Rows, TitleHeight, TextHeight, txtX, txtY, imgY
 		
 		If StartDrawing(CanvasOutput(ToolTip()\CanvasNum))
 
@@ -352,11 +375,20 @@ Module ToolTip
 			
 			Y + ToolTip()\PaddingY
 			
+			If IsImage(ToolTip()\Image\Num)
+			  TextHeight = ToolTip()\Size\Height - TitleHeight - (ToolTip()\PaddingX * 2)
+			  imgY = (TextHeight - ToolTip()\Image\Height) / 2
+			  txtY = (TextHeight - (TextHeight("Abc") * ListSize(ToolTip()\Content\Text()))) / 2
+			  DrawingMode(#PB_2DDrawing_AlphaBlend)
+			  DrawImage(ImageID(ToolTip()\Image\Num), X, Y + imgY, ToolTip()\Image\Width, ToolTip()\Image\Height) 
+			  X + ToolTip()\Image\Width + ToolTip()\PaddingX
+			EndIf
+			
 			DrawingMode(#PB_2DDrawing_Transparent)
 			DrawingFont(GetFontID_(ToolTip()\Content\TextFont))
-
+			
 			ForEach ToolTip()\Content\Text()
-			  DrawText(X, Y, ToolTip()\Content\Text(), ToolTip()\Color\Front)
+			  DrawText(X, Y + txtY, ToolTip()\Content\Text(), ToolTip()\Color\Front)
 			  Y + TextHeight(ToolTip()\Content\Text())
 			Next
 			
@@ -707,6 +739,25 @@ Module ToolTip
     
   EndProcedure  
   
+  Procedure   SetImage(GNum.i, ImageNum.i, Width.i=#PB_Default, Height.i=#PB_Default, Flags.i=#False)
+    
+    If FindMapElement(ToolTip(), Str(GNum))
+      
+      If IsImage(ImageNum)
+        
+        If Width  = #PB_Default : Width  = ImageWidth(ImageNum)  : EndIf 
+        If Height = #PB_Default : Height = ImageHeight(ImageNum) : EndIf
+         
+        ToolTip()\Image\Num    = ImageNum
+        ToolTip()\Image\Width  = Width
+        ToolTip()\Image\Height = Height
+        ToolTip()\Image\Flags  = Flags
+      EndIf
+    
+    EndIf  
+      
+  EndProcedure
+  
   Procedure   SetState(GNum.i, State.i)
     
     If FindMapElement(ToolTip(), Str(GNum))
@@ -721,13 +772,18 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
+  UsePNGImageDecoder()
+  
   Enumeration 
     #Window
     #Gadget
     #Font
+    #Image
   EndEnumeration
   
   LoadFont(#Font, "Arial", 9, #PB_Font_Bold)
+  ;LoadImage(#Image, "Paper.png")
+  
   
   If OpenWindow(#Window, 0, 0, 200, 100, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
     
@@ -748,6 +804,7 @@ CompilerIf #PB_Compiler_IsMainFile
       ToolTip::SetColor(#Gadget, ToolTip::#TitleBorderColor, $800000)
       ToolTip::SetColor(#Gadget, ToolTip::#TitleBackColor,   $B48246)
       ToolTip::SetColor(#Gadget, ToolTip::#TitleColor,       $FFFFFF)
+      ;ToolTip::SetImage(#Gadget, #Image)
     EndIf
 
     Repeat
@@ -759,8 +816,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 426
-; FirstLine = 237
-; Folding = +ABYlI7
+; CursorPosition = 806
+; FirstLine = 196
+; Folding = WAAUAAg-
 ; EnableXP
 ; DPIAware
