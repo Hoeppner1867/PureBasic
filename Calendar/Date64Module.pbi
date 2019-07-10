@@ -11,6 +11,10 @@
 
 ;{ ===== MIT License =====
 ;
+; Copyright (c) 2012 mk-soft
+; Copyright (c) 2013-2017 Sicro
+; Copyright (c) 2014 ts-soft
+; Copyright (c) 2017 wilbert
 ; Copyright (c) 2019 Thorsten Hoeppner
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -730,9 +734,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x64)
-; CursorPosition = 247
-; FirstLine = 149
-; Folding = O5BAAAk-
+; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
+; CursorPosition = 16
+; FirstLine = 9
+; Folding = N5BAAAk-
 ; EnableXP
 ; DPIAware
