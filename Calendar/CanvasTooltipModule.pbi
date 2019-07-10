@@ -9,7 +9,11 @@
 ;/ © {Year}  by {Name} ({Month}/{Year})
 ;/
 
-; Last Update:
+; Last Update: 10.07.2019
+;
+; Bugfixes: DPI
+;
+
 
 ;{ ===== MIT License =====
 ;
@@ -258,17 +262,19 @@ Module ToolTip
 	  ProcedureReturn MaxWidth
 	EndProcedure  
 	
-	Procedure   DeterminePosition_(X.i, Y.i, gWidth, gHeight)
-	  Define.i gX, gY, wWidth, wHeigth, PosX, PosY, Reverse
+	Procedure   DeterminePosition_(X.i, Y.i)
+	  Define.i gX, gY, gWidth, gHeight, wWidth, wHeigth, PosX, PosY, Reverse
 	  
 	  If IsGadget(ToolTip()\GadgetNum)
-  	  gX = GadgetX(ToolTip()\GadgetNum)
-  	  gY = GadgetY(ToolTip()\GadgetNum)
+  	  gX = dpiX(GadgetX(ToolTip()\GadgetNum))
+  	  gY = dpiY(GadgetY(ToolTip()\GadgetNum))
+  	  gWidth  = dpiX(GadgetWidth(ToolTip()\GadgetNum))
+      gHeight = dpiY(GadgetHeight(ToolTip()\GadgetNum))
   	EndIf 
   	
   	If IsWindow(ToolTip()\Window\Num)
-  	  wWidth  = WindowWidth(ToolTip()\Window\Num)
-  	  wHeigth = WindowHeight(ToolTip()\Window\Num)
+  	  wWidth  = dpiX(WindowWidth(ToolTip()\Window\Num))
+  	  wHeigth = dpiY(WindowHeight(ToolTip()\Window\Num))
   	EndIf
   	
   	PosX = X + gX + ToolTip()\Size\Width
@@ -277,7 +283,7 @@ Module ToolTip
   	If PosX < wWidth
   	  ToolTip()\Size\X = X + gX
   	Else
-  	  ToolTip()\Size\X = X + gX - ToolTip()\Size\Width 
+  	  ToolTip()\Size\X = X + gX - ToolTip()\Size\Width
   	  Reverse = #True
   	EndIf
   	
@@ -360,14 +366,14 @@ Module ToolTip
 			X = ToolTip()\PaddingX
 
 			If ToolTip()\Content\Title
-			  Y = dpiY(2)
+			  Y = dpiY(1)
+			  DrawingFont(GetFontID_(ToolTip()\Content\TitleFont))
 			  TitleHeight = TextHeight(ToolTip()\Content\Title) + dpiY(2)
 			  If ToolTip()\Color\TitleBack <> #PB_Default
 			    DrawingMode(#PB_2DDrawing_Default)
 			    Box(0, 0, ToolTip()\Size\Width, TitleHeight, ToolTip()\Color\TitleBack)
 			  EndIf 
 			  DrawingMode(#PB_2DDrawing_Transparent)
-			  DrawingFont(GetFontID_(ToolTip()\Content\TitleFont))
 			  txtX = (ToolTip()\Size\Width - (ToolTip()\PaddingX * 2) - TextWidth(ToolTip()\Content\Title)) / 2
 			  DrawText(X + txtX, Y, ToolTip()\Content\Title, ToolTip()\Color\TitleFront)
 			  Y + TextHeight(ToolTip()\Content\Title)
@@ -520,28 +526,11 @@ Module ToolTip
           HideGadget(ToolTip()\CanvasNum, #True)
         EndIf
         ;}
-  
-        If IsGadget(GadgetNum)
-          gWidth  = GadgetWidth(GadgetNum)
-          gHeight = GadgetHeight(GadgetNum)
-        EndIf
-  
-        ;{ ToolTip area
-        aX = ToolTip()\Area\X
-        If aX = #PB_Default : aX = 0 : EndIf
-        aY = ToolTip()\Area\Y
-        If aY = #PB_Default : aY = 0 : EndIf
-        aWidth  = ToolTip()\Area\Width
-        If aWidth  = #PB_Default : aWidth  = gWidth : EndIf
-        aHeight = ToolTip()\Area\Height
-        If aHeight = #PB_Default : aHeight = gHeight : EndIf
-        ;}
-        
-        If X >= aX And X <= aX + aWidth
-          If Y >= aY And Y <= aY + aHeight
-            
+
+        If X >= ToolTip()\Area\X And X <= ToolTip()\Area\X + ToolTip()\Area\Width
+          If Y >= ToolTip()\Area\Y And Y <= ToolTip()\Area\Y + ToolTip()\Area\Height
       	    DetermineSize_() 
-            DeterminePosition_(X, Y, GadgetWidth(GadgetNum), GadgetHeight(GadgetNum))                 
+            DeterminePosition_(X, Y)                 
             LockMutex(Mutex)
             Timer(Str(GadgetNum))\State = #True
             UnlockMutex(Mutex)
@@ -710,12 +699,19 @@ Module ToolTip
           ToolTip()\Content\Text() = RTrim(StringField(Text, r, #LF$), #CR$)
         EndIf
       Next
+
+      ToolTip()\Area\X = dpiX(X)
+      If X = #PB_Default : ToolTip()\Area\X = 0 : EndIf
+      ToolTip()\Area\Y = dpiY(Y)
+      If Y = #PB_Default : ToolTip()\Area\Y = 0 : EndIf
       
-      ToolTip()\Area\X = X
-      ToolTip()\Area\Y = Y
-      ToolTip()\Area\Width  = Width
-      ToolTip()\Area\Height = Height
-      
+      ToolTip()\Area\Width  = dpiX(Width)
+      ToolTip()\Area\Height = dpiY(Height) 
+      If IsGadget(GNum)
+        If Width  = #PB_Default : ToolTip()\Area\Width  = dpiX(GadgetWidth(GNum))  : EndIf
+        If Height = #PB_Default : ToolTip()\Area\Height = dpiY(GadgetHeight(GNum)) : EndIf
+      EndIf
+    
       DetermineSize_()
       
       ToolTip()\State = #True
@@ -749,8 +745,8 @@ Module ToolTip
         If Height = #PB_Default : Height = ImageHeight(ImageNum) : EndIf
          
         ToolTip()\Image\Num    = ImageNum
-        ToolTip()\Image\Width  = Width
-        ToolTip()\Image\Height = Height
+        ToolTip()\Image\Width  = dpiX(Width)
+        ToolTip()\Image\Height = dpiY(Height)
         ToolTip()\Image\Flags  = Flags
       EndIf
     
@@ -790,14 +786,14 @@ CompilerIf #PB_Compiler_IsMainFile
     If CanvasGadget(#Gadget, 10, 10, 180, 80, #PB_Canvas_Border)
       If StartDrawing(CanvasOutput(#Gadget))
         DrawingMode(#PB_2DDrawing_Outlined)
-			  Box(80, 30, 20, 20, $800080)
+			  Box(DesktopScaledX(80), DesktopScaledY(30), DesktopScaledX(20), DesktopScaledY(20), $800080)
         StopDrawing()
       EndIf  
     EndIf
     
     If ToolTip::Gadget(#Gadget, #Window)
-      ;ToolTip::SetContent(#Gadget, "This is a tooltip.", "Title")
-      ToolTip::SetContent(#Gadget, "Tooltip area.", "Title", 80, 30, 20, 20)
+      ToolTip::SetContent(#Gadget, "This is a tooltip.", "Title")
+      ;ToolTip::SetContent(#Gadget, "Tooltip area.", "Title", 80, 30, 20, 20)
       ToolTip::SetFont(#Gadget, #Font, ToolTip::#Title) 
       ToolTip::SetColor(#Gadget, ToolTip::#BorderColor,      $800000)
       ToolTip::SetColor(#Gadget, ToolTip::#BackColor,        $FFFFFA)
@@ -816,8 +812,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 806
-; FirstLine = 196
-; Folding = WAAUAAg-
+; CursorPosition = 13
+; Folding = WACQgE1
 ; EnableXP
 ; DPIAware
