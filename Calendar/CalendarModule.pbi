@@ -151,6 +151,7 @@ DeclareModule Calendar
   CompilerIf Defined(ModuleEx, #PB_Module)
     
     #Event_Gadget    = ModuleEx::#Event_Gadget
+    #EventType_Day   = ModuleEx::#EventType_Day
     #EventType_Month = ModuleEx::#EventType_Month
     #EventType_Year  = ModuleEx::#EventType_Year
     
@@ -161,6 +162,7 @@ DeclareModule Calendar
     EndEnumeration
     
     Enumeration #PB_EventType_FirstCustomValue
+      #EventType_Day
       #EventType_Month
       #EventType_Year
     EndEnumeration
@@ -515,28 +517,6 @@ Module Calendar
     
     ProcedureReturn Text
   EndProcedure
-  
-  Procedure.s GetPopUpText_(Text.s) ; TODO:
-    Define.f Percent
-    Define.s Text$ = ""
-
-    If Text
-      Text$ = ReplaceString(Text$, #Value$, "") ; <<<
-    EndIf
-    
-    ProcedureReturn Text$
-  EndProcedure
-  
-  Procedure   UpdatePopUpMenu_()
-    Define.s Text$
-    
-    ForEach Calendar()\PopUpItem()
-      Text$ = GetPopUpText_(Calendar()\PopUpItem())
-      SetMenuItemText(Calendar()\PopupNum, Val(MapKey(Calendar()\PopUpItem())), Text$)
-    Next
-    
-  EndProcedure
-  
   
   Procedure   MonthNames(Code.s="")
 	  
@@ -1308,7 +1288,7 @@ Module Calendar
     
   EndProcedure
   
-  Procedure _LeftDoubleClickHandler() ; TODO: 
+  Procedure _LeftDoubleClickHandler()
     Define.i X, Y
     Define.i GadgetNum = EventGadget()
     
@@ -1316,6 +1296,33 @@ Module Calendar
       
       X = GetGadgetAttribute(Calendar()\CanvasNum, #PB_Canvas_MouseX)
       Y = GetGadgetAttribute(Calendar()\CanvasNum, #PB_Canvas_MouseY)
+      
+      If Calendar()\Month\State = #Change : ChangeMonth_(#False) : EndIf
+      If Calendar()\Year\State  = #Change : ChangeYear_(#False)  : EndIf
+      
+      If Y > Calendar()\Week\Y + Calendar()\Week\Height
+        
+        ForEach Calendar()\Day()
+          
+          If Y >= Calendar()\Day()\Y And Y <= Calendar()\Day()\Y + Calendar()\Day()\Height
+            If X >= Calendar()\Day()\X And X <= Calendar()\Day()\X + Calendar()\Day()\Width
+              
+              CompilerIf Defined(ToolTip, #PB_Module)
+                ToolTip::SetState(GadgetNum, #False)
+              CompilerElse
+                GadgetToolTip(GadgetNum, "")
+              CompilerEndIf
+              
+              PostEvent(#Event_Gadget, Calendar()\Window\Num, Calendar()\CanvasNum, #EventType_Day, Val(MapKey(Calendar()\Day())))
+              PostEvent(#PB_Event_Gadget, Calendar()\Window\Num, Calendar()\CanvasNum, #EventType_Day, Val(MapKey(Calendar()\Day())))
+              
+              Break
+            EndIf
+          EndIf
+          
+        Next
+          
+      EndIf   
       
     EndIf
     
@@ -1337,7 +1344,6 @@ Module Calendar
         If Y >= Calendar()\Size\Y And Y <= Calendar()\Size\Y + Calendar()\Size\Height
           
           If IsWindow(Calendar()\Window\Num) And IsMenu(Calendar()\PopUpNum)
-            UpdatePopUpMenu_()
             DisplayPopupMenu(Calendar()\PopUpNum, WindowID(Calendar()\Window\Num))
           EndIf
           
@@ -1493,13 +1499,12 @@ Module Calendar
                 
                   CompilerIf Defined(ToolTip, #PB_Module)
 
-                    ToolTip::SetContent(GadgetNum, Calendar()\Day()\ToolTip, Calendar()\Day()\ToolTipTitle, Calendar()\Day()\X, Calendar()\Day()\Y, Calendar()\Day()\X + Calendar()\Day()\Width, Calendar()\Day()\Y + Calendar()\Day()\Height)
+                    ToolTip::SetContent(GadgetNum, Calendar()\Day()\ToolTip, Calendar()\Day()\ToolTipTitle, Calendar()\Day()\X, Calendar()\Day()\Y, Calendar()\Day()\Width, Calendar()\Day()\Height)
                     
                   CompilerElse
 
                     GadgetToolTip(GadgetNum, Calendar()\Day()\ToolTip) 
-                    Calendar()\ToolTip = #True
-
+                   
                   CompilerEndIf
                   
                 EndIf
@@ -1730,7 +1735,7 @@ Module Calendar
         Calendar()\Margin\Top    = 0
         Calendar()\Margin\Bottom = 0
         
-        Calendar()\Month\Spacing     = 8
+        Calendar()\Month\Spacing     = dpiY(5)
         Calendar()\Month\defHeight   = #PB_Default
         Calendar()\Month\Color\Front = #PB_Default
         Calendar()\Month\Color\Back  = #PB_Default
@@ -2145,14 +2150,10 @@ CompilerIf #PB_Compiler_IsMainFile
                 Case Calendar::#EventType_Month
                   ; 
                 Case Calendar::#EventType_Year
-                  ; 
-                Case #PB_EventType_LeftDoubleClick ;{ LeftDoubleClick
-                  Debug "Left DoubleClick"
-                  ;}
-                Case #PB_EventType_RightClick      ;{ Right mouse click
-                  Debug "Right Click"
-                  ;}
-              EndSelect
+                  
+                Case Calendar::#EventType_Day
+                  Debug "Day: " + Str(EventData())   
+            EndSelect
           EndSelect ;}
         Case #PB_Event_Gadget  
           Select EventGadget()
@@ -2162,6 +2163,7 @@ CompilerIf #PB_Compiler_IsMainFile
                   Debug "Select: Month"
                 Case Calendar::#EventType_Year
                   Debug "Select: Year"
+                  ;}  
               EndSelect ;}
           EndSelect  
       EndSelect        
@@ -2172,9 +2174,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x64)
-; CursorPosition = 1701
-; FirstLine = 591
-; Folding = uhAAIBCAAAx+kAYAAAgg-
+; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
+; CursorPosition = 1836
+; FirstLine = 855
+; Folding = uxAAIBCAAQsPZiMQgAQQ+
 ; EnableXP
 ; DPIAware
