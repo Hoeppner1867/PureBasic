@@ -9,14 +9,14 @@
 ;/ © 2019 Thorsten1867 (07/2019)
 ;/
 
-
-; Last Update: 6.07.2019
+; Last Update: 10.07.2019
+;
+; Added: Popup menu for days of month / UpdatePopupText()
+; Added: #EventType_Focus / #EventType_RightClick
+; Added: EventDate() / EventEntries()
 ;
 ; Added: ToolTip-Module for multiline tooltips
-;
-; Added: #GreyedDays to show days of previous/next month
-; Added: AddEntry() to adds calendar entries
-; Added: ToolTips for calendar entries
+; Added: Date64-Module
 ;
 
 ;{ ===== MIT License =====
@@ -47,9 +47,11 @@
 
 ; Calendar::AddEntry()           - add an entry to the calendar
 ; Calendar::AttachPopupMenu()    - attachs a popup menu to the chart
-; Calendar::GetDate()              - similar to Date()
+; Calendar::GetDate()            - similar to Date()
 ; Calendar::DefaultCountry()     - set country code for default language [DE/AT/FR/ES/GB/US]
 ; Calendar::DisableReDraw()      - disable/enable redrawing
+; Calendar::EventDate()          - returns date after event
+; Calendar::EventEntries()       - returns list with calendar entries after event
 ; Calendar::Gadget()             - create a new gadget
 ; Calendar::GetDay()             - returns day of selected date
 ; Calendar::GetMonth()           - returns month of selected date
@@ -67,7 +69,9 @@
 ; Calendar::SetState()           - similar to SetGadgetState()
 ; Calendar::ToolTipText()        - define mask for tooltips
 ; Calendar::WeekDayName()        - defines name of the weekday
+; Calendar::UpdatePopupText()    - update menu item text with this mask
 ;}
+
 
 XIncludeFile "CanvasTooltipModule.pbi"
 XIncludeFile "Date64Module.pbi"
@@ -75,11 +79,14 @@ XIncludeFile "Date64Module.pbi"
 DeclareModule Calendar
   
   ;- ===========================================================================
-  ;-   DeclareModule - Constants
+  ;-   DeclareModule - Constants / Structures
   ;- =========================================================================== 
   
   ;{ _____ Constants _____
   #Day$       = "{Day}"
+  #Month$     = "{Month}"
+  #Year$      = "{Year}"
+  #Date$      = "{Date}"
   #Duration$  = "{Duration}"
   #EndDate$   = "{End}"
   #Label$     = "{Label}"
@@ -149,12 +156,11 @@ DeclareModule Calendar
   EndEnumeration ;}
   
   CompilerIf Defined(ModuleEx, #PB_Module)
-    
-    #Event_Gadget    = ModuleEx::#Event_Gadget
-    #EventType_Day   = ModuleEx::#EventType_Day
-    #EventType_Month = ModuleEx::#EventType_Month
-    #EventType_Year  = ModuleEx::#EventType_Year
-    
+    #Event_Gadget         = ModuleEx::#Event_Gadget
+    #EventType_Day        = ModuleEx::#EventType_Day
+    #EventType_Month      = ModuleEx::#EventType_Month
+    #EventType_Year       = ModuleEx::#EventType_Year
+    #EventType_RightClick = ModuleEx::#EventType_RightClick
   CompilerElse
     
     Enumeration #PB_Event_FirstCustomValue
@@ -165,12 +171,21 @@ DeclareModule Calendar
       #EventType_Day
       #EventType_Month
       #EventType_Year
+      #EventType_Focus
+      #EventType_RightClick
     EndEnumeration
     
   CompilerEndIf
   ;}
   
- 
+  Structure Entries_Structure
+    Label.s
+    StartDate.i
+    EndDate.i
+    Title.s
+    Flags.i
+  EndStructure
+
   ;- ===========================================================================
   ;-   DeclareModule
   ;- ===========================================================================
@@ -180,6 +195,8 @@ DeclareModule Calendar
   Declare.q GetDate(Day.i, Month.i, Year.i, Hour.i=0, Minute.i=0, Second.i=0)
   Declare   DefaultCountry(Code.s)
   Declare   DisableReDraw(GNum.i, State.i=#False)
+  Declare.i EventDate(GNum.i)
+  Declare   EventEntries(GNum.i, List Entries.Entries_Structure())
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
   Declare.i GetDay(GNum.i)
   Declare.i GetMonth(GNum.i) 
@@ -197,6 +214,7 @@ DeclareModule Calendar
   Declare   SetState(GNum.i, Date.i)
   Declare   ToolTipText(GNum.i, String.s) 
   Declare   WeekDayName(WeekDay.i, Name.s)
+  Declare   UpdatePopupText(GNum.i, MenuItem.i, Text.s)
   
 EndDeclareModule
 
@@ -207,8 +225,6 @@ Module Calendar
   ;- ============================================================================
   ;-   Module - Constants
   ;- ============================================================================ 
-  
-  #Value$ = "{Value}"
   
   #NotValid = -1
   
@@ -222,7 +238,7 @@ Module Calendar
   ;- ============================================================================
   ;-   Module - Structures
   ;- ============================================================================
-  
+
   Structure Color_Structure              ;{ ...\Color\...
     Front.i
     Back.i
@@ -247,6 +263,21 @@ Module Calendar
     Width.i
     Height.i
   EndStructure  ;}
+    
+  Structure Event_Entries_Structure      ;{ Calendar()\Event\Entries\...
+    Label.s
+    StartDate.i
+    EndDate.i
+    Title.s
+    Flags.i
+  EndStructure ;}
+  
+  Structure Calendar_Event_Structure     ;{ Calendar()\Event\
+    Day.i
+    Month.i
+    Year.i
+    List Entries.Event_Entries_Structure()
+  EndStructure ;}
   
   Structure Calendar_PostEvent_Structure ;{ Calendar()\PostEvent\
     MonthX.i
@@ -372,6 +403,7 @@ Module Calendar
     Current.Calendar_Current_Structure
     
     Button.Button_Size_Structure
+    Event.Calendar_Event_Structure
     Margin.Calendar_Margins_Structure
     Month.Calendar_Month_Structure
     PostEvent.Calendar_PostEvent_Structure
@@ -502,11 +534,26 @@ Module Calendar
     ProcedureReturn DesktopScaledY(Num)
   EndProcedure
   
+  Procedure.s GetPopUpText_(Text.s)
+    Define.i Date
+    
+    If Text
+      Date = Date_(Calendar()\Current\Year, Calendar()\Current\Month, Val(MapKey(Calendar()\Day())))
+      Text = ReplaceString(Text, #Day$,     MapKey(Calendar()\Day()))
+      Text = ReplaceString(Text, #Month$,   Str(Calendar()\Current\Month))
+      Text = ReplaceString(Text, #Year$,    Str(Calendar()\Current\Year))
+      Text = ReplaceString(Text, #WeekDay$, Calendar()\Week\Day(Str(DayOfWeek_(Date))))
+      Text = ReplaceString(Text, #Date$,    FormatDate_(Calendar()\DateMask, Date))
+    EndIf
+    
+    ProcedureReturn Text
+  EndProcedure
+  
   Procedure.s GetText_(Text.s)
 
     If Text
       Text = ReplaceString(Text, #Day$,       MapKey(Calendar()\Day()))
-      Text = ReplaceString(Text, #WeekDay$,   Calendar()\Week\Day(Str(DayOfWeek_(Calendar()\Day()\Entry()\StartDate))))
+      Text = ReplaceString(Text, #WeekDay$, Calendar()\Week\Day(Str(DayOfWeek_(Calendar()\Day()\Entry()\StartDate))))
       Text = ReplaceString(Text, #Title$,     Calendar()\Day()\Entry()\Title)
       Text = ReplaceString(Text, #Label$,     Calendar()\Day()\Entry()\Label)
       Text = ReplaceString(Text, #StartDate$, FormatDate_(Calendar()\DateMask, Calendar()\Day()\Entry()\StartDate))
@@ -727,6 +774,15 @@ Module Calendar
 	  ProcedureReturn DayOfWeek
 	EndProcedure
 	
+  Procedure   UpdatePopUpMenu_()
+		Define.s Text$
+
+		ForEach Calendar()\PopUpItem()
+		  Text$ = GetPopUpText_(Calendar()\PopUpItem())
+			SetMenuItemText(Calendar()\PopupNum, Val(MapKey(Calendar()\PopUpItem())), Text$)
+		Next
+
+	EndProcedure
 	
 	Procedure   UpdateCurrentEntries_()
 	  Define.i d, DateDay, LastDay
@@ -899,7 +955,9 @@ Module Calendar
       
       PosY = Y
       Day  = 1
-
+      
+      PushMapPosition(Calendar()\Day())
+      
       For r=1 To 8
 
         Select r
@@ -1150,6 +1208,8 @@ Module Calendar
 
       Next
       
+      PopMapPosition(Calendar()\Day())
+      
       ;{ Draw Focus Border
       If FocusX <> #NotValid And FocusY <> #NotValid 
         DrawingMode(#PB_2DDrawing_Outlined) 
@@ -1176,6 +1236,26 @@ Module Calendar
   
   ;- __________ Events __________
   
+  Procedure  UpdateEvent_()
+    
+    Calendar()\Event\Day   = Val(MapKey(Calendar()\Day()))
+    Calendar()\Event\Month = Calendar()\Current\Month
+    Calendar()\Event\Year  = Calendar()\Current\Year
+    
+    ClearList(Calendar()\Event\Entries())
+    If ListSize(Calendar()\Day()\Entry())
+      ForEach Calendar()\Day()\Entry()
+        If AddElement(Calendar()\Event\Entries())
+          Calendar()\Event\Entries()\Label     = Calendar()\Day()\Entry()\Label
+          Calendar()\Event\Entries()\StartDate = Calendar()\Day()\Entry()\StartDate
+          Calendar()\Event\Entries()\EndDate   = Calendar()\Day()\Entry()\EndDate
+          Calendar()\Event\Entries()\Title     = Calendar()\Day()\Entry()\Title
+          Calendar()\Event\Entries()\Flags     = Calendar()\Day()\Entry()\Flags
+        EndIf
+      Next
+    EndIf 
+    
+  EndProcedure
   
   Procedure  ChangeYear_(State.i=#True)
     Define.i X, Y, Width, Height, Year, OffsetY
@@ -1313,6 +1393,8 @@ Module Calendar
                 GadgetToolTip(GadgetNum, "")
               CompilerEndIf
               
+              UpdateEvent_()
+              
               PostEvent(#Event_Gadget, Calendar()\Window\Num, Calendar()\CanvasNum, #EventType_Day, Val(MapKey(Calendar()\Day())))
               PostEvent(#PB_Event_Gadget, Calendar()\Window\Num, Calendar()\CanvasNum, #EventType_Day, Val(MapKey(Calendar()\Day())))
               
@@ -1340,14 +1422,30 @@ Module Calendar
       If Calendar()\Month\State = #Change : ChangeMonth_(#False) : EndIf
       If Calendar()\Year\State  = #Change : ChangeYear_(#False)  : EndIf
       
-      If X > = Calendar()\Size\X And X <= Calendar()\Size\X + Calendar()\Size\Width
-        If Y >= Calendar()\Size\Y And Y <= Calendar()\Size\Y + Calendar()\Size\Height
+      If Y > Calendar()\Week\Y + Calendar()\Week\Height
+        
+        ForEach Calendar()\Day()
           
-          If IsWindow(Calendar()\Window\Num) And IsMenu(Calendar()\PopUpNum)
-            DisplayPopupMenu(Calendar()\PopUpNum, WindowID(Calendar()\Window\Num))
+          If Y >= Calendar()\Day()\Y And Y <= Calendar()\Day()\Y + Calendar()\Day()\Height
+            If X >= Calendar()\Day()\X And X <= Calendar()\Day()\X + Calendar()\Day()\Width
+              
+              ToolTip::SetState(GadgetNum, #False)
+              
+              UpdateEvent_()
+              
+              If IsWindow(Calendar()\Window\Num) And IsMenu(Calendar()\PopUpNum)
+                UpdatePopUpMenu_()
+                DisplayPopupMenu(Calendar()\PopUpNum, WindowID(Calendar()\Window\Num))
+              Else  
+                PostEvent(#Event_Gadget,    Calendar()\Window\Num, Calendar()\CanvasNum, #EventType_RightClick, Val(MapKey(Calendar()\Day())))
+                PostEvent(#PB_Event_Gadget, Calendar()\Window\Num, Calendar()\CanvasNum, #EventType_RightClick, Val(MapKey(Calendar()\Day())))
+              EndIf
+              
+            EndIf
           EndIf
           
-        EndIf
+        Next
+        
       EndIf
       
     EndIf
@@ -1435,7 +1533,10 @@ Module Calendar
               If X >= Calendar()\Day()\X And X <= Calendar()\Day()\X + Calendar()\Day()\Width
                 Calendar()\Current\Focus = Date_(Calendar()\Current\Year, Calendar()\Current\Month, Val(MapKey(Calendar()\Day())), 0, 0, 0)
                 Draw_()
-                ProcedureReturn #True
+                UpdateEvent_()
+                PostEvent(#Event_Gadget,    Calendar()\Window\Num, Calendar()\CanvasNum, #EventType_Focus, Val(MapKey(Calendar()\Day())))
+                PostEvent(#PB_Event_Gadget, Calendar()\Window\Num, Calendar()\CanvasNum, #EventType_Focus, Val(MapKey(Calendar()\Day())))
+                Break
               EndIf
             EndIf
           Next
@@ -1533,7 +1634,6 @@ Module Calendar
     EndIf
     
   EndProcedure  
-  
   
   Procedure _ResizeHandler()
     Define.i GadgetID = EventGadget()
@@ -1659,6 +1759,23 @@ Module Calendar
     EndIf
     
   EndProcedure  
+  
+  
+  Procedure   EventEntries(GNum.i, List Entries.Entries_Structure())
+    
+    If FindMapElement(Calendar(), Str(GNum))
+      CopyList(Calendar()\Event\Entries(), Entries())
+    EndIf
+    
+  EndProcedure
+  
+  Procedure.i EventDate(GNum.i)
+    
+    If FindMapElement(Calendar(), Str(GNum))
+      ProcedureReturn Date_(Calendar()\Event\Year, Calendar()\Event\Month, Calendar()\Event\Day)
+    EndIf
+    
+  EndProcedure
   
   Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
     Define d, m, DummyNum, Result.i
@@ -2054,6 +2171,18 @@ Module Calendar
     EndIf
   EndProcedure
   
+  Procedure   UpdatePopupText(GNum.i, MenuItem.i, Text.s)
+    
+    If FindMapElement(Calendar(), Str(GNum))
+      
+      If AddMapElement(Calendar()\PopUpItem(), Str(MenuItem))
+        Calendar()\PopUpItem() = Text
+      EndIf 
+      
+    EndIf
+    
+  EndProcedure
+  
   Procedure   WeekDayName(WeekDay.i, Name.s)
     If WeekDay >= 0 And WeekDay <= 7
       If WeekDay = 0
@@ -2083,6 +2212,9 @@ CompilerIf #PB_Compiler_IsMainFile
   Enumeration 1
     #Window
     #Calendar
+    #PopUpMenu
+    #AddEntry
+    #ShowEntries
   EndEnumeration
   
   Enumeration 1
@@ -2094,15 +2226,28 @@ CompilerIf #PB_Compiler_IsMainFile
   LoadFont(#FontMonth,    "Arial", 11, #PB_Font_Bold)
   LoadFont(#FontWeekDays, "Arial",  9, #PB_Font_Bold)
   
+  NewList Entries.Calendar::Entries_Structure()
+  
   If OpenWindow(#Window, 0, 0, 300, 200, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
-
+    
+    If CreatePopupMenu(#PopUpMenu)
+      MenuItem(#AddEntry, "Add calendar entry")
+      MenuBar()
+      MenuItem(#ShowEntries, "Show calendar entries")
+    EndIf
+    
     If Calendar::Gadget(#Calendar, 10, 10, 280, 180, #False, #Window) ; Calendar::#PostEvent|Calendar::#FixDayOfMonth|Calendar::#FixMonth|Calendar::#FixYear
+      
+      Calendar::AttachPopupMenu(#Calendar, #PopUpMenu)
       
       Calendar::SetFont(#Calendar, #FontMonth, Calendar::#Font_Month)
       Calendar::SetAttribute(#Calendar, Calendar::#Height_Month, 28)
       
       Calendar::SetFont(#Calendar, #FontWeekDays, Calendar::#Font_Weekdays)
       Calendar::SetAttribute(#Calendar, Calendar::#Height_WeekDays, 22)
+      
+      Calendar::UpdatePopupText(#Calendar, #AddEntry,    "Add calendar entry for '" + Calendar::#Date$ + "'.")
+      Calendar::UpdatePopupText(#Calendar, #ShowEntries, "Show calendar entries for '" + Calendar::#Date$ + "'.")
       
       Calendar::SetState(#Calendar, Date())
       
@@ -2153,11 +2298,24 @@ CompilerIf #PB_Compiler_IsMainFile
                   
                 Case Calendar::#EventType_Day
                   Debug "Day: " + Str(EventData())   
+                Case Calendar::#EventType_Focus
+                  Debug "Focus: " + Str(EventData()) 
             EndSelect
+          EndSelect ;}
+        Case #PB_Event_Menu          ;{ PopupMenu
+          Select EventMenu()
+            Case  #AddEntry
+              Debug "Add calendar entry: " + FormatDate("%dd/%mm/%yyyy",  Calendar::EventDate(#Calendar))
+            Case #ShowEntries  
+              Debug "Show calendar entries: "
+              Calendar::EventEntries(#Calendar, Entries())
+              ForEach Entries()
+                Debug "> " + FormatDate("%dd/%mm/%yyyy",  Entries()\StartDate) + ": " +  Entries()\Title
+              Next
           EndSelect ;}
         Case #PB_Event_Gadget  
           Select EventGadget()
-            Case #Calendar      ;{ only in use with EventType()  
+            Case #Calendar           ;{ only in use with EventType()  
               Select EventType()
                 Case Calendar::#EventType_Month
                   Debug "Select: Month"
@@ -2175,8 +2333,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 1836
-; FirstLine = 855
-; Folding = uxAAIBCAAQsPZiMQgAQQ+
+; CursorPosition = 13
+; FirstLine = 3
+; Folding = GgAAA--LAA5-PIAEAfAgA2
 ; EnableXP
 ; DPIAware
