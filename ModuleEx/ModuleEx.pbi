@@ -83,6 +83,9 @@ DeclareModule ModuleEx
     #EventType_SpinBox
     #EventType_String
     #EventType_Row
+    #EventType_Day
+    #EventType_Month
+    #EventType_Year
   EndEnumeration
   
   #Event_Tabulator      = 64000
@@ -490,9 +493,9 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf
-; IDE Options = PureBasic 5.70 LTS (Windows - x86)
-; CursorPosition = 69
-; FirstLine = 35
+; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
+; CursorPosition = 75
+; FirstLine = 41
 ; Folding = OAAg-
 ; EnableXP
 ; DPIAware
