@@ -9,14 +9,13 @@
 ;/ © 2019 Thorsten1867 (07/2019)
 ;/
 
-; Last Update: 10.07.2019
+; Last Update: 12.07.2019
+;
+; Added: Import/export of calendar entries as files in iCal-format
 ;
 ; Added: Popup menu for days of month / UpdatePopupText()
 ; Added: #EventType_Focus / #EventType_RightClick
-; Added: EventDate() / EventEntries()
-;
-; Added: ToolTip-Module for multiline tooltips
-; Added: Date64-Module
+; Added: EventDate() / EventEntries() / EventDay()
 ;
 
 ;{ ===== MIT License =====
@@ -50,13 +49,17 @@
 ; Calendar::GetDate()            - similar to Date()
 ; Calendar::DefaultCountry()     - set country code for default language [DE/AT/FR/ES/GB/US]
 ; Calendar::DisableReDraw()      - disable/enable redrawing
+; Calendar::ExportDay()          - exports the events of this day as a file    (iCal)
+; Calendar::ExportLabel()        - exports the event with this label as a file (iCal)
 ; Calendar::EventDate()          - returns date after event
+; Calendar::EventDayOfMonth()    - returns the day of month
 ; Calendar::EventEntries()       - returns list with calendar entries after event
 ; Calendar::Gadget()             - create a new gadget
 ; Calendar::GetDay()             - returns day of selected date
 ; Calendar::GetMonth()           - returns month of selected date
 ; Calendar::GetState()           - returns selected date
 ; Calendar::GetYear()            - returns year of selected date
+; Calendar::ImportEvent()        - imports an event from a file (iCal)
 ; Calendar::MonthName()          - defines name of the month
 ; Calendar::RemoveEntry()        - removes an entry form the calendar
 ; Calendar::SetAttribute()       - similar to SetGadgetAttribute()
@@ -78,22 +81,26 @@ XIncludeFile "Date64Module.pbi"
 
 DeclareModule Calendar
   
+  #Enable_iCalFormat = #True
+  
   ;- ===========================================================================
   ;-   DeclareModule - Constants / Structures
   ;- =========================================================================== 
   
   ;{ _____ Constants _____
-  #Day$       = "{Day}"
-  #Month$     = "{Month}"
-  #Year$      = "{Year}"
-  #Date$      = "{Date}"
-  #Duration$  = "{Duration}"
-  #EndDate$   = "{End}"
-  #Label$     = "{Label}"
-  #Time$      = "{Time}"
-  #Title$     = "{Title}"
-  #StartDate$ = "{Start}"
-  #WeekDay$   = "{Weekday}"
+  #Day$         = "{Day}"
+  #Description$ = "{Description}"
+  #Month$       = "{Month}"
+  #Year$        = "{Year}"
+  #Date$        = "{Date}"
+  #Duration$    = "{Duration}"
+  #EndDate$     = "{End}"
+  #Label$       = "{Label}"
+  #Location$    = "{Location}"
+  #StartDate$   = "{Start}"
+  #Summary$     = "{Title}"
+  #Time$        = "{Time}"
+  #WeekDay$     = "{Weekday}"
   
   EnumerationBinary ;{ GadgetFlags
     #AutoResize    ; Automatic resizing of the gadget
@@ -182,7 +189,9 @@ DeclareModule Calendar
     Label.s
     StartDate.i
     EndDate.i
-    Title.s
+    Summary.s
+    Description.s
+    Location.s
     Flags.i
   EndStructure
 
@@ -190,12 +199,13 @@ DeclareModule Calendar
   ;-   DeclareModule
   ;- ===========================================================================
   
-  Declare.i AddEntry(GNum.i, Label.s, Title.s, StartDate.q, EndDate.q=#PB_Default, FrontColor.i=#PB_Default, BackColor.i=#PB_Default, ToolTipMask.s="", Flag.i=#False)
+  Declare.i AddEntry(GNum.i, Label.s, Summary.s, Description.s, Location.s, StartDate.q, EndDate.q=#PB_Default, FrontColor.i=#PB_Default, BackColor.i=#PB_Default, ToolTipMask.s="", Flag.i=#False)
   Declare   AttachPopupMenu(GNum.i, PopUpNum.i)
   Declare.q GetDate(Day.i, Month.i, Year.i, Hour.i=0, Minute.i=0, Second.i=0)
   Declare   DefaultCountry(Code.s)
   Declare   DisableReDraw(GNum.i, State.i=#False)
   Declare.i EventDate(GNum.i)
+  Declare.i EventDayOfMonth(GNum.i)
   Declare   EventEntries(GNum.i, List Entries.Entries_Structure())
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
   Declare.i GetDay(GNum.i)
@@ -216,6 +226,12 @@ DeclareModule Calendar
   Declare   WeekDayName(WeekDay.i, Name.s)
   Declare   UpdatePopupText(GNum.i, MenuItem.i, Text.s)
   
+  CompilerIf #Enable_iCalFormat
+    Declare.i ExportDay(GNum.i, DayOfMonth.i, File.s)
+    Declare.i ExportLabel(GNum.i, Label.s, File.s)
+    Declare.i ImportEvent(GNum.i, Label.s, File.s)
+  CompilerEndIf
+  
 EndDeclareModule
 
 Module Calendar
@@ -235,10 +251,34 @@ Module Calendar
   #Next     = 2
   #Change   = 1
   
+  CompilerIf #Enable_iCalFormat
+    #iCal_BeginCalendar = "BEGIN:VCALENDAR" ; Begin iCalendar file
+    #iCal_Version       = "VERSION:2.0"     ; Version of the format
+    #iCal_ProID         = "PRODID:"         ; Instance that created the document.
+    #iCal_Publish       = "METHOD:PUBLISH"  ; Makes the entry appear immediately
+    #iCal_Request       = "METHOD:REQUEST"  ; Packs the entry into a request to the user
+    #iCal_BeginEvent    = "BEGIN:VEVENT"    ; Begin of the area in which the appointment data is contained.
+    #iCal_UID           = "UID:"            ; Unique ID of an ICS file
+    #iCal_Location      = "LOCATION:"       ; Event location
+    #iCal_Summary       = "SUMMARY:"        ; Summary 
+    #iCal_Description   = "DESCRIPTION:"    ; Description
+    #iCal_Public        = "CLASS:PUBLIC"    ; Save appointment publicly 
+    #iCal_Private       = "CLASS:PRIVATE"   ; Save appointment privately 
+    #iCal_DateStart     = "DTSTART:"        ; Start of the calendar entry
+    #iCal_DateEnd       = "DTEND:"          ; End of the calendar entry
+    #iCal_DateStamp     = "DTSTAMP:"        ; Time at which the entry was created
+    #iCal_EndEvent      = "END:VEVENT"      ; End of the area in which the appointment data is contained.
+    #iCal_EndCalendar   = "END:VCALENDAR"   ; End iCalendar file
+  CompilerEndIf
+  
   ;- ============================================================================
   ;-   Module - Structures
   ;- ============================================================================
-
+  
+  Structure UUID_Structure               ;{ UID
+    Byte.b[16]
+  EndStructure ;}
+  
   Structure Color_Structure              ;{ ...\Color\...
     Front.i
     Back.i
@@ -249,7 +289,9 @@ Module Calendar
     StartDate.i
     EndDate.i
     Label.s
-    Title.s
+    Summary.s
+    Description.s
+    Location.s
     FrontColor.i
     BackColor.i
     ToolTipMask.s
@@ -268,7 +310,9 @@ Module Calendar
     Label.s
     StartDate.i
     EndDate.i
-    Title.s
+    Summary.s
+    Description.s
+    Location.s
     Flags.i
   EndStructure ;}
   
@@ -301,7 +345,9 @@ Module Calendar
   Structure Calendar_Entry_Structure     ;{ ...\Entry\...
     StartDate.i
     EndDate.i
-    Title.s
+    Summary.s
+    Description.s
+    Location.s
     FrontColor.i
     BackColor.i
     ToolTipMask.s
@@ -552,14 +598,16 @@ Module Calendar
   Procedure.s GetText_(Text.s)
 
     If Text
-      Text = ReplaceString(Text, #Day$,       MapKey(Calendar()\Day()))
-      Text = ReplaceString(Text, #WeekDay$, Calendar()\Week\Day(Str(DayOfWeek_(Calendar()\Day()\Entry()\StartDate))))
-      Text = ReplaceString(Text, #Title$,     Calendar()\Day()\Entry()\Title)
-      Text = ReplaceString(Text, #Label$,     Calendar()\Day()\Entry()\Label)
-      Text = ReplaceString(Text, #StartDate$, FormatDate_(Calendar()\DateMask, Calendar()\Day()\Entry()\StartDate))
-      Text = ReplaceString(Text, #EndDate$,   FormatDate_(Calendar()\DateMask, Calendar()\Day()\Entry()\EndDate))
-      Text = ReplaceString(Text, #Time$ ,     FormatDate_(Calendar()\TimeMask, Calendar()\Day()\Entry()\StartDate))
-      Text = ReplaceString(Text, #Duration$,  FormatDate_(Calendar()\TimeMask, Calendar()\Day()\Entry()\StartDate) + " - " + FormatDate_(Calendar()\TimeMask, Calendar()\Day()\Entry()\EndDate))
+      Text = ReplaceString(Text, #Day$,         MapKey(Calendar()\Day()))
+      Text = ReplaceString(Text, #WeekDay$,     Calendar()\Week\Day(Str(DayOfWeek_(Calendar()\Day()\Entry()\StartDate))))
+      Text = ReplaceString(Text, #Summary$,     Calendar()\Day()\Entry()\Summary)
+      Text = ReplaceString(Text, #Description$, Calendar()\Day()\Entry()\Summary)
+      Text = ReplaceString(Text, #Location$,    Calendar()\Day()\Entry()\Summary)
+      Text = ReplaceString(Text, #Label$,       Calendar()\Day()\Entry()\Label)
+      Text = ReplaceString(Text, #StartDate$,   FormatDate_(Calendar()\DateMask, Calendar()\Day()\Entry()\StartDate))
+      Text = ReplaceString(Text, #EndDate$,     FormatDate_(Calendar()\DateMask, Calendar()\Day()\Entry()\EndDate))
+      Text = ReplaceString(Text, #Time$ ,       FormatDate_(Calendar()\TimeMask, Calendar()\Day()\Entry()\StartDate))
+      Text = ReplaceString(Text, #Duration$,    FormatDate_(Calendar()\TimeMask, Calendar()\Day()\Entry()\StartDate) + " - " + FormatDate_(Calendar()\TimeMask, Calendar()\Day()\Entry()\EndDate))
     EndIf
     
     ProcedureReturn Text
@@ -805,7 +853,9 @@ Module Calendar
   	            Calendar()\Day(Str(d))\Entry()\Label       = MapKey(Calendar()\Entries())
   	            Calendar()\Day(Str(d))\Entry()\StartDate   = Calendar()\Entries()\StartDate
   	            Calendar()\Day(Str(d))\Entry()\EndDate     = Calendar()\Entries()\EndDate
-  	            Calendar()\Day(Str(d))\Entry()\Title       = Calendar()\Entries()\Title
+  	            Calendar()\Day(Str(d))\Entry()\Summary     = Calendar()\Entries()\Summary
+  	            Calendar()\Day(Str(d))\Entry()\Description = Calendar()\Entries()\Description
+  	            Calendar()\Day(Str(d))\Entry()\Location    = Calendar()\Entries()\Location
   	            Calendar()\Day(Str(d))\Entry()\FrontColor  = Calendar()\Entries()\FrontColor
   	            Calendar()\Day(Str(d))\Entry()\BackColor   = Calendar()\Entries()\BackColor
   	            Calendar()\Day(Str(d))\Entry()\ToolTipMask = Calendar()\Entries()\ToolTipMask
@@ -1094,7 +1144,7 @@ Module Calendar
                         ElseIf Calendar()\ToolTipText 
                           Calendar()\Day()\ToolTip = GetText_(Calendar()\ToolTipText)
                         Else
-                          Calendar()\Day()\ToolTip = Calendar()\Day()\Entry()\Title
+                          Calendar()\Day()\ToolTip = Calendar()\Day()\Entry()\Summary
                         EndIf
                         
                         If Calendar()\Day()\Entry()\FrontColor <> #PB_Default : FrontColor = Calendar()\Day()\Entry()\FrontColor : EndIf
@@ -1121,7 +1171,7 @@ Module Calendar
                           ElseIf Calendar()\ToolTipText 
                             Calendar()\Day()\ToolTip + GetText_(Calendar()\ToolTipText) + #LF$
                           Else
-                            Calendar()\Day()\ToolTip + Calendar()\Day()\Entry()\Title + #LF$
+                            Calendar()\Day()\ToolTip + Calendar()\Day()\Entry()\Summary + #LF$
                           EndIf
                         Next
                         
@@ -1135,7 +1185,7 @@ Module Calendar
                           ElseIf Calendar()\ToolTipText 
                             Calendar()\Day()\ToolTip + " " + GetText_(Calendar()\ToolTipText) + " /"
                           Else
-                            Calendar()\Day()\ToolTip + " " + Calendar()\Day()\Entry()\Title + " /"
+                            Calendar()\Day()\ToolTip + " " + Calendar()\Day()\Entry()\Summary + " /"
                           EndIf
                         Next
                         
@@ -1246,11 +1296,13 @@ Module Calendar
     If ListSize(Calendar()\Day()\Entry())
       ForEach Calendar()\Day()\Entry()
         If AddElement(Calendar()\Event\Entries())
-          Calendar()\Event\Entries()\Label     = Calendar()\Day()\Entry()\Label
-          Calendar()\Event\Entries()\StartDate = Calendar()\Day()\Entry()\StartDate
-          Calendar()\Event\Entries()\EndDate   = Calendar()\Day()\Entry()\EndDate
-          Calendar()\Event\Entries()\Title     = Calendar()\Day()\Entry()\Title
-          Calendar()\Event\Entries()\Flags     = Calendar()\Day()\Entry()\Flags
+          Calendar()\Event\Entries()\Label       = Calendar()\Day()\Entry()\Label
+          Calendar()\Event\Entries()\Summary     = Calendar()\Day()\Entry()\Summary
+          Calendar()\Event\Entries()\Description = Calendar()\Day()\Entry()\Description
+          Calendar()\Event\Entries()\Location    = Calendar()\Day()\Entry()\Location
+          Calendar()\Event\Entries()\StartDate   = Calendar()\Day()\Entry()\StartDate
+          Calendar()\Event\Entries()\EndDate     = Calendar()\Day()\Entry()\EndDate
+          Calendar()\Event\Entries()\Flags       = Calendar()\Day()\Entry()\Flags
         EndIf
       Next
     EndIf 
@@ -1696,7 +1748,175 @@ Module Calendar
   ;-   Module - Declared Procedures
   ;- ========================================================================== 
   
-  Procedure.i AddEntry(GNum.i, Label.s, Title.s, StartDate.q, EndDate.q=#PB_Default, FrontColor.i=#PB_Default, BackColor.i=#PB_Default, ToolTipMask.s="", Flag.i=#False)
+  CompilerIf #Enable_iCalFormat
+    
+    Procedure.s UniqueID(*UUID.UUID_Structure)
+      Define i.i, UUID$
+      
+      If Not *UUID : ProcedureReturn "" : EndIf
+      
+      For i=0 To 15
+        *UUID\Byte[i]=Random(255)
+      Next
+      
+      *UUID\Byte[9] = 128 + Random(63)
+      *UUID\Byte[7] =  64 + Random(15)
+      
+      For i=0 To 16-1
+        UUID$ + RSet(Hex(*UUID\Byte[i]&$FF), 2, "0")
+      Next
+      
+      ProcedureReturn UUID$
+    EndProcedure
+    
+    Procedure.i ExportDay(GNum.i, DayOfMonth.i, File.s) 
+      Define.i FileID, Result = #False
+      Define   UUID.UUID_Structure
+      
+      If FindMapElement(Calendar(), Str(GNum))
+        Debug "Day: "+Str(DayOfMonth)
+        If FindMapElement(Calendar()\Day(), Str(DayOfMonth))
+        
+          FileID = CreateFile(#PB_Any, File, #PB_UTF8)
+          If FileID
+            
+            WriteStringN(FileID, #iCal_BeginCalendar, #PB_UTF8)
+            WriteStringN(FileID, #iCal_Version, #PB_UTF8)
+            WriteStringN(FileID, #iCal_ProID + "PureBasic", #PB_UTF8)
+            WriteStringN(FileID, #iCal_Publish, #PB_UTF8)
+            
+            ForEach Calendar()\Day()\Entry() ;{ Entries
+              
+              WriteStringN(FileID, #iCal_BeginEvent, #PB_UTF8)
+              WriteStringN(FileID, #iCal_UID + UniqueID(@UUID), #PB_UTF8)
+              WriteStringN(FileID, #iCal_Location    + Calendar()\Day()\Entry()\Location,    #PB_UTF8)
+              WriteStringN(FileID, #iCal_Summary     + Calendar()\Day()\Entry()\Summary,     #PB_UTF8)
+              WriteStringN(FileID, #iCal_Description + Calendar()\Day()\Entry()\Description, #PB_UTF8)
+              WriteStringN(FileID, #iCal_Private, #PB_UTF8)
+              WriteStringN(FileID, #iCal_DateStart   + FormatDate("%yyyy%mm%ddT%hh%ii%ssZ", Calendar()\Day()\Entry()\StartDate), #PB_UTF8)
+              WriteStringN(FileID, #iCal_DateEnd     + FormatDate("%yyyy%mm%ddT%hh%ii%ssZ", Calendar()\Day()\Entry()\EndDate),   #PB_UTF8)
+              WriteStringN(FileID, #iCal_DateStamp   + FormatDate("%yyyy%mm%ddT%hh%ii%ssZ", Date()), #PB_UTF8)
+              WriteStringN(FileID, #iCal_EndEvent,  #PB_UTF8)
+              ;}
+            Next
+            
+            WriteStringN(FileID, #iCal_EndCalendar, #PB_UTF8)
+            
+            Result = #True
+            CloseFile(FileID)
+          EndIf
+          
+        EndIf
+        
+      EndIf
+      
+      ProcedureReturn Result
+    EndProcedure
+    
+    Procedure.i ExportLabel(GNum.i, Label.s, File.s) 
+      Define.i FileID, Result = #False
+      Define   UUID.UUID_Structure
+      
+      If FindMapElement(Calendar(), Str(GNum))
+        
+        FileID = CreateFile(#PB_Any, File, #PB_UTF8)
+        If FileID
+          
+          WriteStringN(FileID, #iCal_BeginCalendar, #PB_UTF8)
+          WriteStringN(FileID, #iCal_Version, #PB_UTF8)
+          WriteStringN(FileID, #iCal_ProID + "PureBasic", #PB_UTF8)
+          WriteStringN(FileID, #iCal_Publish, #PB_UTF8)
+          
+          If FindMapElement(Calendar()\Entries(), Label) ;{ Entries
+            
+            WriteStringN(FileID, #iCal_BeginEvent, #PB_UTF8)
+            WriteStringN(FileID, #iCal_UID + UniqueID(@UUID), #PB_UTF8)
+            WriteStringN(FileID, #iCal_Location    + Calendar()\Entries()\Location,    #PB_UTF8)
+            WriteStringN(FileID, #iCal_Summary     + Calendar()\Entries()\Summary,     #PB_UTF8)
+            WriteStringN(FileID, #iCal_Description + Calendar()\Entries()\Description, #PB_UTF8)
+            WriteStringN(FileID, #iCal_Private, #PB_UTF8)
+            WriteStringN(FileID, #iCal_DateStart   + FormatDate("%yyyy%mm%ddT%hh%ii%ssZ", Calendar()\Entries()\StartDate), #PB_UTF8)
+            WriteStringN(FileID, #iCal_DateEnd     + FormatDate("%yyyy%mm%ddT%hh%ii%ssZ", Calendar()\Entries()\EndDate),   #PB_UTF8)
+            WriteStringN(FileID, #iCal_DateStamp   + FormatDate("%yyyy%mm%ddT%hh%ii%ssZ", Date()), #PB_UTF8)
+            WriteStringN(FileID, #iCal_EndEvent,  #PB_UTF8)
+            ;}
+          EndIf
+          
+          WriteStringN(FileID, #iCal_EndCalendar, #PB_UTF8)
+          
+          Result = #True
+          CloseFile(FileID)
+        EndIf
+        
+      EndIf
+      
+      ProcedureReturn Result
+    EndProcedure
+    
+    Procedure.i ImportEvent(GNum.i, Label.s, File.s)
+      Define.i FileID, Result = #False
+      Define.s String, Param
+      
+      If FindMapElement(Calendar(), Str(GNum))
+        
+        If FindMapElement(Calendar()\Entries(), Label)
+          Debug "Label already exists"
+          ProcedureReturn #False
+        EndIf 
+        
+        FileID = ReadFile(#PB_Any, File, #PB_UTF8)
+        If FileID
+  
+          While Eof(FileID) = #False
+            
+            String = ReadString(FileID)
+            
+            Select StringField(String, 1, ":")
+              Case "END"    ;{ END:VCALENDAR
+                If StringField(String, 2, ":") = "VCALENDAR"
+                  Result = #True
+                  Break
+                EndIf ;}  
+              Case "BEGIN"  ;{ BEGIN:VEVENT
+                
+                If StringField(String, 2, ":") = "VEVENT" 
+                  
+                  If AddMapElement(Calendar()\Entries(), Label)
+                    Repeat
+                      String = ReadString(FileID)
+                      Select StringField(String, 1, ":")
+                        Case "LOCATION"
+                          Calendar()\Entries()\Location    = StringField(String, 2, ":")
+                        Case "SUMMARY"
+                          Calendar()\Entries()\Summary     = StringField(String, 2, ":")
+                        Case "DESCRIPTION"
+                          Calendar()\Entries()\Description = StringField(String, 2, ":")
+                        Case "DTSTART"
+                          Calendar()\Entries()\StartDate   = ParseDate("%yyyy%mm%ddT%hh%ii%ssZ", StringField(String, 2, ":")) 
+                        Case "DTEND"
+                          Calendar()\Entries()\EndDate     = ParseDate("%yyyy%mm%ddT%hh%ii%ssZ", StringField(String, 2, ":")) 
+                      EndSelect
+                    Until String = "END:VEVENT" Or Eof(FileID)
+                  EndIf
+                  
+                EndIf
+                ;}
+            EndSelect
+  
+          Wend
+          
+          CloseFile(FileID)
+        EndIf
+
+      EndIf 
+      
+      ProcedureReturn Result
+    EndProcedure
+    
+  CompilerEndIf 
+  
+  
+  Procedure.i AddEntry(GNum.i, Label.s, Summary.s, Description.s, Location.s, StartDate.q, EndDate.q=#PB_Default, FrontColor.i=#PB_Default, BackColor.i=#PB_Default, ToolTipMask.s="", Flag.i=#False)
     
     If FindMapElement(Calendar(), Str(GNum))
       
@@ -1706,7 +1926,9 @@ Module Calendar
       EndIf 
       
       If AddMapElement(Calendar()\Entries(), Label)
-        Calendar()\Entries()\Title       = Title
+        Calendar()\Entries()\Summary     = Summary
+        Calendar()\Entries()\Description = Description
+        Calendar()\Entries()\Location    = Location
         Calendar()\Entries()\StartDate   = StartDate
         
         If EndDate = #PB_Default
@@ -1760,11 +1982,18 @@ Module Calendar
     
   EndProcedure  
   
-  
   Procedure   EventEntries(GNum.i, List Entries.Entries_Structure())
     
     If FindMapElement(Calendar(), Str(GNum))
       CopyList(Calendar()\Event\Entries(), Entries())
+    EndIf
+    
+  EndProcedure
+  
+  Procedure.i EventDayOfMonth(GNum.i)
+    
+    If FindMapElement(Calendar(), Str(GNum))
+      ProcedureReturn Calendar()\Event\Day
     EndIf
     
   EndProcedure
@@ -2213,7 +2442,7 @@ CompilerIf #PB_Compiler_IsMainFile
     #Window
     #Calendar
     #PopUpMenu
-    #AddEntry
+    #ExportEvent
     #ShowEntries
   EndEnumeration
   
@@ -2231,7 +2460,7 @@ CompilerIf #PB_Compiler_IsMainFile
   If OpenWindow(#Window, 0, 0, 300, 200, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
     
     If CreatePopupMenu(#PopUpMenu)
-      MenuItem(#AddEntry, "Add calendar entry")
+      MenuItem(#ExportEvent, "Export calendar entries")
       MenuBar()
       MenuItem(#ShowEntries, "Show calendar entries")
     EndIf
@@ -2246,8 +2475,8 @@ CompilerIf #PB_Compiler_IsMainFile
       Calendar::SetFont(#Calendar, #FontWeekDays, Calendar::#Font_Weekdays)
       Calendar::SetAttribute(#Calendar, Calendar::#Height_WeekDays, 22)
       
-      Calendar::UpdatePopupText(#Calendar, #AddEntry,    "Add calendar entry for '" + Calendar::#Date$ + "'.")
-      Calendar::UpdatePopupText(#Calendar, #ShowEntries, "Show calendar entries for '" + Calendar::#Date$ + "'.")
+      Calendar::UpdatePopupText(#Calendar, #ExportEvent, "Export calendar entries for '" + Calendar::#Date$ + "'.")
+      Calendar::UpdatePopupText(#Calendar, #ShowEntries, "Show calendar entries for '"   + Calendar::#Date$ + "'.")
       
       Calendar::SetState(#Calendar, Date())
       
@@ -2271,15 +2500,15 @@ CompilerIf #PB_Compiler_IsMainFile
           Calendar::SetFont(#Calendar, #FontWeekDays, Calendar::#Font_Entry)
           Calendar::SetFlags(#Calendar, Calendar::#Gadget, Calendar::#GreyedDays)
           
-          Calendar::SetMask(#Calendar, Calendar::#ToolTipText, Calendar::#Title$ + ": " + Calendar::#Label$)
+          Calendar::SetMask(#Calendar, Calendar::#ToolTipText, Calendar::#Summary$ + ": " + Calendar::#Label$)
           Calendar::SetMask(#Calendar, Calendar::#Date, "%dd.%mm.%yyyy")
           
           ToolTipMask$ = "Holiday: " + Calendar::#StartDate$ + " - " + Calendar::#EndDate$
           
-          Calendar::AddEntry(#Calendar, "Thorsten", "Birthday", Calendar::GetDate(18, 7, 2019))
-          ;Calendar::AddEntry(#Calendar, "Entry 2",  "Second entry", Calendar::GetDate(18, 7, 2019))
-          ;Calendar::AddEntry(#Calendar, "Entry 3",  "Third entry", Calendar::GetDate(18, 7, 2019))
-          Calendar::AddEntry(#Calendar, "Holidy", "Holiday: Summer", Calendar::GetDate(27, 7, 2019), Calendar::GetDate(9, 8, 2019), $008000, $61FFC1, ToolTipMask$)
+          Calendar::AddEntry(#Calendar, "Thorsten", "Birthday", "", "", Calendar::GetDate(18, 7, 2019))
+          ;Calendar::AddEntry(#Calendar, "Entry 2",  "Second entry", "", "", Calendar::GetDate(18, 7, 2019))
+          ;Calendar::AddEntry(#Calendar, "Entry 3",  "Third entry",  "", "", Calendar::GetDate(18, 7, 2019))
+          Calendar::AddEntry(#Calendar, "Holidy", "Holiday: Summer", "", "", Calendar::GetDate(27, 7, 2019), Calendar::GetDate(9, 8, 2019), $008000, $61FFC1, ToolTipMask$)
           
       CompilerEndSelect
 
@@ -2304,13 +2533,15 @@ CompilerIf #PB_Compiler_IsMainFile
           EndSelect ;}
         Case #PB_Event_Menu          ;{ PopupMenu
           Select EventMenu()
-            Case  #AddEntry
-              Debug "Add calendar entry: " + FormatDate("%dd/%mm/%yyyy",  Calendar::EventDate(#Calendar))
+            Case  #ExportEvent
+              Debug "Export calendar entries: " + FormatDate("%dd/%mm/%yyyy",  Calendar::EventDate(#Calendar))
+              DayOfMonth.i = Calendar::EventDayOfMonth(#Calendar)
+              Calendar::ExportDay(#Calendar, DayOfMonth, "iCal_Export.ics")
             Case #ShowEntries  
               Debug "Show calendar entries: "
               Calendar::EventEntries(#Calendar, Entries())
               ForEach Entries()
-                Debug "> " + FormatDate("%dd/%mm/%yyyy",  Entries()\StartDate) + ": " +  Entries()\Title
+                Debug "> " + FormatDate("%dd/%mm/%yyyy",  Entries()\StartDate) + ": " +  Entries()\Summary
               Next
           EndSelect ;}
         Case #PB_Event_Gadget  
@@ -2320,8 +2551,7 @@ CompilerIf #PB_Compiler_IsMainFile
                 Case Calendar::#EventType_Month
                   Debug "Select: Month"
                 Case Calendar::#EventType_Year
-                  Debug "Select: Year"
-                  ;}  
+                  Debug "Select: Year" 
               EndSelect ;}
           EndSelect  
       EndSelect        
@@ -2333,8 +2563,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 13
-; FirstLine = 3
-; Folding = GgAAA--LAA5-PIAEAfAgA2
+; CursorPosition = 1995
+; FirstLine = 335
+; Folding = CgBAA5-fBAA--hBg1gQ+DABq
 ; EnableXP
 ; DPIAware
