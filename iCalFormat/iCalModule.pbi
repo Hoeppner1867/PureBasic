@@ -38,13 +38,13 @@
 
 ;{ _____ iCal - Commands _____
 
-; iCal::AddEvent()    ; adds an event to iCal
-; iCal::ClearEvents() ; clear all events
-; iCal::Create()      ; create an iCal entry
-; iCal::ExportFile()  ; export as iCal file (*.ics)
-; iCal::GetEvents()   ; get events as linked list (iCal::Event_Structure)
-; iCal::ImportFile()  ; import an iCal file (*.ics)
-; iCal::Remove(ID.i)  ; remove the iCal entry
+; iCal::AddEvent()    - adds an event to iCal
+; iCal::ClearEvents() - clear all events
+; iCal::Create()      - create an iCal entry
+; iCal::ExportFile()  - export as iCal file (*.ics)
+; iCal::GetEvents()   - get events as linked list (iCal::Event_Structure)
+; iCal::ImportFile()  - import an iCal file (*.ics)
+; iCal::Remove(ID.i)  - remove the iCal entry
   
 ;}
 
@@ -83,8 +83,8 @@ DeclareModule iCal
   Declare   ClearEvents(ID.i)
   Declare.i Create(ID.i, Producer.s="PureBasic", Method.i=#Publish)
   Declare.i ExportFile(ID.i, File.s="iCal_Export.ics")
-  Declare.i GetEvents(ID.i, List Events.iCal_Structure()) 
-  Declare.i ImportFile(ID.i, File.s="iCal_Export.ics")
+  Declare.i GetEvents(ID.i, List Events.Event_Structure()) 
+  Declare.i ImportFile(ID.i, File.s="iCal_Import.ics")
   Declare.i Remove(ID.i)
   
 EndDeclareModule  
@@ -229,8 +229,8 @@ Module iCal
    
   EndProcedure
   
-  Procedure.i GetEvents(ID.i, List Events.iCal_Structure()) 
-    Debug Count.i
+  Procedure.i GetEvents(ID.i, List Events.Event_Structure()) 
+    Define.i Count
     
     If FindMapElement(iCal(), Str(ID))
       
@@ -413,19 +413,20 @@ CompilerIf #PB_Compiler_IsMainFile
   If iCal::Create(#Date)
     iCal::AddEvent(#Date, Date, "Geburtstag")
     
+    iCal::GetEvents(#Date, Events())
     ForEach Events()
       Debug "Event: " + Events()\Summary + " " + FormatDate("%dd/%mm/%yyyy", Events()\StartDate)
     Next
     
     ;iCal::ImportFile(#Date, "iCal_Import.ics")
-    ;iCal::ExportFile(#Date, "iCal_Export.ics")
+    iCal::ExportFile(#Date, "iCal_Export.ics")
   EndIf
   
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 381
-; FirstLine = 85
-; Folding = kAAg
+; CursorPosition = 421
+; FirstLine = 146
+; Folding = 3AEw
 ; EnableXP
 ; DPIAware
