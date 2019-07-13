@@ -9,7 +9,12 @@
 ;/ © 2019 Thorsten1867 (07/2019)
 ;/
 
-; Last Update: 12.07.2019
+; Last Update: 13.07.2019
+;
+; Changed: AddEntry() -> colors and tooltip mask removed
+; Added:   SetEntryColor() / SetEntryMsk() / CountEntries() / GetEntries()
+; Added:   Calendar entry flags (#FullDay/#StartTime/#Duration)
+; BugFixes
 ;
 ; Added: Import/export of calendar entries as files in iCal-format
 ;
@@ -46,6 +51,7 @@
 
 ; Calendar::AddEntry()           - add an entry to the calendar
 ; Calendar::AttachPopupMenu()    - attachs a popup menu to the chart
+; Calendar::CountEntries()       - counts entries of the day of current month
 ; Calendar::GetDate()            - similar to Date()
 ; Calendar::DefaultCountry()     - set country code for default language [DE/AT/FR/ES/GB/US]
 ; Calendar::DisableReDraw()      - disable/enable redrawing
@@ -53,9 +59,10 @@
 ; Calendar::ExportLabel()        - exports the event with this label as a file (iCal)
 ; Calendar::EventDate()          - returns date after event
 ; Calendar::EventDayOfMonth()    - returns the day of month
-; Calendar::EventEntries()       - returns list with calendar entries after event
+; Calendar::EventEntries()       - returns calendar entries after event as linked list (Calendar::Entries_Structure)
 ; Calendar::Gadget()             - create a new gadget
 ; Calendar::GetDay()             - returns day of selected date
+; Calendar::GetEntries()         - all entries on this date as linked list (Calendar::Entries_Structure)
 ; Calendar::GetMonth()           - returns month of selected date
 ; Calendar::GetState()           - returns selected date
 ; Calendar::GetYear()            - returns year of selected date
@@ -65,6 +72,8 @@
 ; Calendar::SetAttribute()       - similar to SetGadgetAttribute()
 ; Calendar::SetAutoResizeFlags() - [#MoveX|#MoveY|#ResizeWidth|#ResizeHeight]
 ; Calendar::SetDate()            - similar to SetGadgetState()
+; Calendar::SetEntryColor(GNum.i, Label.s, ColorType.i, Value.i)
+; Calendar::SetEntryMask(GNum.i, Label.s, String.s)
 ; Calendar::SetColor()           - similar to SetGadgetColor()
 ; Calendar::SetFlags()           - set flags [#Year/#Month/#Gadget]
 ; Calendar::SetFont()            - similar to SetGadgetFont()
@@ -94,13 +103,21 @@ DeclareModule Calendar
   #Year$        = "{Year}"
   #Date$        = "{Date}"
   #Duration$    = "{Duration}"
-  #EndDate$     = "{End}"
+  #EndDate$     = "{EndDate}"
+  #EndTime$     = "{EndTime}"
   #Label$       = "{Label}"
   #Location$    = "{Location}"
-  #StartDate$   = "{Start}"
-  #Summary$     = "{Title}"
-  #Time$        = "{Time}"
+  #StartDate$   = "{StartDate}"
+  #Summary$     = "{Summary}"
+  #StartTime$   = "{StartTime}"
   #WeekDay$     = "{Weekday}"
+  
+  EnumerationBinary ;{ calendar entry flags
+    #FullDay
+    #StartTime
+    #Duration
+  EndEnumeration  
+  ;}  
   
   EnumerationBinary ;{ GadgetFlags
     #AutoResize    ; Automatic resizing of the gadget
@@ -187,8 +204,8 @@ DeclareModule Calendar
   
   Structure Entries_Structure
     Label.s
-    StartDate.i
-    EndDate.i
+    StartDate.q
+    EndDate.q
     Summary.s
     Description.s
     Location.s
@@ -199,8 +216,9 @@ DeclareModule Calendar
   ;-   DeclareModule
   ;- ===========================================================================
   
-  Declare.i AddEntry(GNum.i, Label.s, Summary.s, Description.s, Location.s, StartDate.q, EndDate.q=#PB_Default, FrontColor.i=#PB_Default, BackColor.i=#PB_Default, ToolTipMask.s="", Flag.i=#False)
+  Declare.i AddEntry(GNum.i, Label.s, Summary.s, Description.s, Location.s, StartDate.q, EndDate.q=#PB_Default, Flag.i=#False)
   Declare   AttachPopupMenu(GNum.i, PopUpNum.i)
+  Declare.i CountEntries(GNum.i, DayOfMonth.i)
   Declare.q GetDate(Day.i, Month.i, Year.i, Hour.i=0, Minute.i=0, Second.i=0)
   Declare   DefaultCountry(Code.s)
   Declare   DisableReDraw(GNum.i, State.i=#False)
@@ -209,6 +227,7 @@ DeclareModule Calendar
   Declare   EventEntries(GNum.i, List Entries.Entries_Structure())
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
   Declare.i GetDay(GNum.i)
+  Declare.i GetEntries(GNum.i, Date.q, List Entries.Entries_Structure())
   Declare.i GetMonth(GNum.i) 
   Declare.i GetState(GNum.i) 
   Declare.i GetYear(GNum.i)
@@ -216,12 +235,14 @@ DeclareModule Calendar
   Declare   RemoveEntry(GNum.i, Label.s)
   Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
-  Declare   SetColor(GNum.i, ColorTyp.i, Value.i)
+  Declare   SetColor(GNum.i, ColorType.i, Value.i)
   Declare   SetDate(GNum.i, Year.i, Month.i, Day.i=1, Hour.i=0, Minute.i=0, Second.i=0)
+  Declare   SetEntryColor(GNum.i, Label.s, ColorType.i, Value.i)
+  Declare   SetEntryMask(GNum.i, Label.s, String.s)
   Declare   SetFlags(GNum.i, Type.i, Flags.i)
   Declare   SetFont(GNum.i, FontNum.i, FontType.i=#Font_Gadget)
   Declare   SetMask(GNum.i, Type.i, String.s)
-  Declare   SetState(GNum.i, Date.i)
+  Declare   SetState(GNum.i, Date.q)
   Declare   ToolTipText(GNum.i, String.s) 
   Declare   WeekDayName(WeekDay.i, Name.s)
   Declare   UpdatePopupText(GNum.i, MenuItem.i, Text.s)
@@ -286,8 +307,8 @@ Module Calendar
   EndStructure  ;}
   
   Structure Entry_Structure              ;{ ...\Entry\...
-    StartDate.i
-    EndDate.i
+    StartDate.q
+    EndDate.q
     Label.s
     Summary.s
     Description.s
@@ -308,8 +329,8 @@ Module Calendar
     
   Structure Event_Entries_Structure      ;{ Calendar()\Event\Entries\...
     Label.s
-    StartDate.i
-    EndDate.i
+    StartDate.q
+    EndDate.q
     Summary.s
     Description.s
     Location.s
@@ -343,8 +364,8 @@ Module Calendar
   EndStructure ;}
   
   Structure Calendar_Entry_Structure     ;{ ...\Entry\...
-    StartDate.i
-    EndDate.i
+    StartDate.q
+    EndDate.q
     Summary.s
     Description.s
     Location.s
@@ -384,7 +405,7 @@ Module Calendar
   EndStructure ;}
   
   Structure Calendar_Current_Structure   ;{ Calendar()\Current\...
-    Date.i
+    Date.q
     Focus.i
     Month.i
     Year.i
@@ -606,7 +627,8 @@ Module Calendar
       Text = ReplaceString(Text, #Label$,       Calendar()\Day()\Entry()\Label)
       Text = ReplaceString(Text, #StartDate$,   FormatDate_(Calendar()\DateMask, Calendar()\Day()\Entry()\StartDate))
       Text = ReplaceString(Text, #EndDate$,     FormatDate_(Calendar()\DateMask, Calendar()\Day()\Entry()\EndDate))
-      Text = ReplaceString(Text, #Time$ ,       FormatDate_(Calendar()\TimeMask, Calendar()\Day()\Entry()\StartDate))
+      Text = ReplaceString(Text, #StartTime$ ,  FormatDate_(Calendar()\TimeMask, Calendar()\Day()\Entry()\StartDate))
+      Text = ReplaceString(Text, #EndTime$ ,    FormatDate_(Calendar()\TimeMask, Calendar()\Day()\Entry()\EndDate))
       Text = ReplaceString(Text, #Duration$,    FormatDate_(Calendar()\TimeMask, Calendar()\Day()\Entry()\StartDate) + " - " + FormatDate_(Calendar()\TimeMask, Calendar()\Day()\Entry()\EndDate))
     EndIf
     
@@ -832,23 +854,42 @@ Module Calendar
 
 	EndProcedure
 	
+	Procedure.s UpdateToolTipMask(Mask.s, Flags.i)
+	  
+	  If Flags & #FullDay
+	    
+	    Mask = RemoveString(Mask, #StartTime$)
+	    Mask = RemoveString(Mask, #EndTime$)
+	    Mask = RemoveString(Mask, #Duration$)
+	    Mask = ReplaceString(Mask, "  ", " ")
+	    
+	  EndIf
+	  
+	  If Flags & #StartTime
+	    Mask = ReplaceString(Mask, #Duration$, #StartTime$)
+	  EndIf
+
+	  ProcedureReturn Mask
+	EndProcedure
+	
 	Procedure   UpdateCurrentEntries_()
-	  Define.i d, DateDay, LastDay
+	  Define.i d, StartDay, EndDay, LastDay
 	  
 	  If MapSize(Calendar()\Entries())
 	    
   	  LastDay = LastDayOfMonth_(Calendar()\Current\Month, Calendar()\Current\Year)
   	  
   	  For d=1 To LastDay
+        
+	      StartDay = Date_(Calendar()\Current\Year, Calendar()\Current\Month, d, 0, 0, 0)
+	      EndDay   = Date_(Calendar()\Current\Year, Calendar()\Current\Month, d, 23, 59, 59)
 
-	      DateDay = Date_(Calendar()\Current\Year, Calendar()\Current\Month, d, 0, 0, 0)
-	      
 	      If AddMapElement(Calendar()\Day(), Str(d))
 	        
-  	      ForEach Calendar()\Entries()
-  	        
-  	        If DateDay >= Calendar()\Entries()\StartDate And DateDay <= Calendar()\Entries()\EndDate
-  	          
+	        ForEach Calendar()\Entries()
+
+	          If (Calendar()\Entries()\StartDate >= StartDay And Calendar()\Entries()\EndDate <= EndDay) Or (StartDay >= Calendar()\Entries()\StartDate And EndDay <= Calendar()\Entries()\EndDate)
+
   	          If AddElement(Calendar()\Day(Str(d))\Entry())
   	            Calendar()\Day(Str(d))\Entry()\Label       = MapKey(Calendar()\Entries())
   	            Calendar()\Day(Str(d))\Entry()\StartDate   = Calendar()\Entries()\StartDate
@@ -869,6 +910,8 @@ Module Calendar
   	    EndIf
   	    
   	  Next
+  	  
+  	  SortStructuredList(Calendar()\Day()\Entry(), #PB_Sort_Ascending, OffsetOf(Entry_Structure\StartDate), TypeOf(Entry_Structure\StartDate))
   	  
   	EndIf  
 
@@ -934,7 +977,7 @@ Module Calendar
     Define.i c, r, Column, Row, ColumnWidth, RowHeight, Difference
     Define.i Date, Month, Year, Day, GreyDay, FirstWeekDay, LastDay, FocusDay, FocusX, FocusY
     Define.i FrontColor, BackColor, CurrentDate, Entries
-    Define.s Text$, Month$, Year$, ToolTip$
+    Define.s Text$, Month$, Year$, ToolTipMask$
     
     X = Calendar()\Margin\Left
     Y = Calendar()\Margin\Top
@@ -1140,11 +1183,23 @@ Module Calendar
                       If FirstElement(Calendar()\Day()\Entry())
                         
                         If Calendar()\Day()\Entry()\ToolTipMask
-                          Calendar()\Day()\ToolTip = GetText_(Calendar()\Day()\Entry()\ToolTipMask)
+                          ToolTipMask$ = UpdateToolTipMask(Calendar()\Day()\Entry()\ToolTipMask, Calendar()\Day()\Entry()\Flags)
+                          Calendar()\Day()\ToolTip = GetText_(ToolTipMask$)
                         ElseIf Calendar()\ToolTipText 
-                          Calendar()\Day()\ToolTip = GetText_(Calendar()\ToolTipText)
+                          ToolTipMask$ = UpdateToolTipMask(Calendar()\ToolTipText, Calendar()\Day()\Entry()\Flags)
+                          Calendar()\Day()\ToolTip = GetText_(ToolTipMask$)
                         Else
-                          Calendar()\Day()\ToolTip = Calendar()\Day()\Entry()\Summary
+                          
+                          If Calendar()\Day()\Entry()\Flags & #FullDay
+                            Calendar()\Day()\ToolTip = Calendar()\Day()\Entry()\Summary
+                          ElseIf Calendar()\Day()\Entry()\Flags & #Duration
+                            Calendar()\Day()\ToolTip = GetText_(#Summary$ + " (" + #Duration$ + ")")
+                          ElseIf Calendar()\Day()\Entry()\Flags & #StartTime
+                            Calendar()\Day()\ToolTip = GetText_(#Summary$ + " (" + #StartTime$ + ")")
+                          Else
+                            Calendar()\Day()\ToolTip = Calendar()\Day()\Entry()\Summary
+                          EndIf  
+                          
                         EndIf
                         
                         If Calendar()\Day()\Entry()\FrontColor <> #PB_Default : FrontColor = Calendar()\Day()\Entry()\FrontColor : EndIf
@@ -1171,7 +1226,17 @@ Module Calendar
                           ElseIf Calendar()\ToolTipText 
                             Calendar()\Day()\ToolTip + GetText_(Calendar()\ToolTipText) + #LF$
                           Else
-                            Calendar()\Day()\ToolTip + Calendar()\Day()\Entry()\Summary + #LF$
+                            
+                            If Calendar()\Day()\Entry()\Flags & #FullDay
+                              Calendar()\Day()\ToolTip = Calendar()\Day()\Entry()\Summary + #LF$
+                            ElseIf Calendar()\Day()\Entry()\Flags & #Duration
+                              Calendar()\Day()\ToolTip = GetText_(#Summary$ + " (" + #Duration$ + ")") + #LF$
+                            ElseIf Calendar()\Day()\Entry()\Flags & #StartTime
+                              Calendar()\Day()\ToolTip = GetText_(#Summary$ + " (" + #StartTime$ + ")") + #LF$
+                            Else
+                              Calendar()\Day()\ToolTip = Calendar()\Day()\Entry()\Summary + #LF$
+                            EndIf  
+
                           EndIf
                         Next
                         
@@ -1916,7 +1981,7 @@ Module Calendar
   CompilerEndIf 
   
   
-  Procedure.i AddEntry(GNum.i, Label.s, Summary.s, Description.s, Location.s, StartDate.q, EndDate.q=#PB_Default, FrontColor.i=#PB_Default, BackColor.i=#PB_Default, ToolTipMask.s="", Flag.i=#False)
+  Procedure.i AddEntry(GNum.i, Label.s, Summary.s, Description.s, Location.s, StartDate.q, EndDate.q=#PB_Default, Flag.i=#False)
     
     If FindMapElement(Calendar(), Str(GNum))
       
@@ -1926,6 +1991,7 @@ Module Calendar
       EndIf 
       
       If AddMapElement(Calendar()\Entries(), Label)
+        
         Calendar()\Entries()\Summary     = Summary
         Calendar()\Entries()\Description = Description
         Calendar()\Entries()\Location    = Location
@@ -1937,10 +2003,8 @@ Module Calendar
           Calendar()\Entries()\EndDate   = EndDate
         EndIf
         
-        Calendar()\Entries()\FrontColor  = FrontColor
-        Calendar()\Entries()\BackColor   = BackColor
-        
-        Calendar()\Entries()\ToolTipMask = ToolTipMask
+        Calendar()\Entries()\FrontColor  = #PB_Default
+        Calendar()\Entries()\BackColor   = #PB_Default
         
         Calendar()\Entries()\Flags       = Flag
         
@@ -1962,6 +2026,17 @@ Module Calendar
     EndIf
     
   EndProcedure  
+  
+  Procedure.i CountEntries(GNum.i, DayOfMonth.i)
+    
+    If FindMapElement(Calendar(), Str(GNum))
+      If FindMapElement(Calendar()\Day(), Str(DayOfMonth))
+        ProcedureReturn ListSize(Calendar()\Day()\Entry())
+      EndIf
+    EndIf
+    
+    ProcedureReturn #False
+  EndProcedure 
   
   Procedure   DefaultCountry(Code.s)
     CountryCode = Code
@@ -1986,6 +2061,7 @@ Module Calendar
     
     If FindMapElement(Calendar(), Str(GNum))
       CopyList(Calendar()\Event\Entries(), Entries())
+      SortStructuredList(Entries(), #PB_Sort_Ascending, OffsetOf(Entries_Structure\StartDate), TypeOf(Entries_Structure\StartDate))
     EndIf
     
   EndProcedure
@@ -2188,6 +2264,37 @@ Module Calendar
     
   EndProcedure
   
+  Procedure.i GetEntries(GNum.i, Date.q, List Entries.Entries_Structure()) 
+    
+    If FindMapElement(Calendar(), Str(GNum))
+      
+      ClearList(Entries())
+      
+      ForEach Calendar()\Entries()
+        
+        If Date >= Calendar()\Entries()\StartDate And Date <= Calendar()\Entries()\EndDate
+          
+          If AddElement(Entries())
+            Entries()\Label       = MapKey(Calendar()\Entries())
+            Entries()\StartDate   = Calendar()\Entries()\StartDate
+            Entries()\EndDate     = Calendar()\Entries()\EndDate
+            Entries()\Summary     = Calendar()\Entries()\Summary
+            Entries()\Description = Calendar()\Entries()\Description
+            Entries()\Location    = Calendar()\Entries()\Location
+            Entries()\Flags       = Calendar()\Entries()\Flags
+          EndIf  
+          
+        EndIf
+        
+      Next
+      
+      SortStructuredList(Entries(), #PB_Sort_Ascending, OffsetOf(Entries_Structure\StartDate), TypeOf(Entries_Structure\StartDate))
+
+    EndIf
+    
+    ProcedureReturn ListSize(Entries())
+  EndProcedure
+  
   Procedure.i GetMonth(GNum.i) 
     
     If FindMapElement(Calendar(), Str(GNum))
@@ -2253,11 +2360,11 @@ Module Calendar
    
   EndProcedure
   
-  Procedure   SetColor(GNum.i, ColorTyp.i, Value.i)
+  Procedure   SetColor(GNum.i, ColorType.i, Value.i)
     
     If FindMapElement(Calendar(), Str(GNum))
     
-      Select ColorTyp
+      Select ColorType
         Case #ArrowColor
           Calendar()\Color\Arrow       = Value  
         Case #BackColor
@@ -2309,6 +2416,47 @@ Module Calendar
     
   EndProcedure
   
+  Procedure   SetEntryColor(GNum.i, Label.s, ColorType.i, Value.i)
+    
+    If FindMapElement(Calendar(), Str(GNum))
+      
+      If FindMapElement(Calendar()\Entries(), Label)
+        
+        Select ColorType
+          Case #Entry_FrontColor, #FrontColor
+            Calendar()\Entries()\FrontColor = Value
+          Case #Entry_BackColor, #BackColor
+            Calendar()\Entries()\BackColor  = Value
+        EndSelect
+        
+        UpdateCurrentEntries_()
+        
+        If Calendar()\ReDraw : Draw_() : EndIf
+        
+      EndIf
+      
+    EndIf  
+    
+  EndProcedure
+  
+  Procedure   SetEntryMask(GNum.i, Label.s, String.s)
+    
+    If FindMapElement(Calendar(), Str(GNum))
+      
+      If FindMapElement(Calendar()\Entries(), Label)
+        
+        Calendar()\Entries()\ToolTipMask = String
+        
+        UpdateCurrentEntries_()
+        
+        If Calendar()\ReDraw : Draw_() : EndIf
+        
+      EndIf
+      
+    EndIf  
+    
+  EndProcedure
+  
   Procedure   SetFlags(GNum.i, Type.i, Flags.i)
     
     If FindMapElement(Calendar(), Str(GNum))
@@ -2357,20 +2505,20 @@ Module Calendar
       
       Select Type
         Case #Date
-          Calendar()\DateMask    = String
+          Calendar()\DateMask     = String
         Case #Time
-          Calendar()\TimeMask    = String
+          Calendar()\TimeMask     = String
         Case #ToolTipText
-          Calendar()\ToolTipText = String
+          Calendar()\ToolTipText  = String
         Case #ToolTipTitle
-          
+          Calendar()\ToolTipTitle = String
       EndSelect
       
     EndIf
     
   EndProcedure  
   
-  Procedure   SetState(GNum.i, Date.i) 
+  Procedure   SetState(GNum.i, Date.q) 
     
     If FindMapElement(Calendar(), Str(GNum))
       
@@ -2429,12 +2577,11 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 4
+  #Example = 0
   
   ; Example 1: Default 
   ; Example 2: #GreyedDays
   ; Example 3: Colors
-  ; Example 3: Add calendar entry
   
   ;Calendar::DefaultCountry("DE")
   
@@ -2491,7 +2638,7 @@ CompilerIf #PB_Compiler_IsMainFile
           Calendar::SetColor(#Calendar, Calendar::#FocusColor,       $00FC7C)
           ;Calendar::SetColor(#Calendar, Calendar::#Entry_BackColor, $9595FF)
           Calendar::SetFlags(#Calendar, Calendar::#Gadget, Calendar::#GreyedDays)
-        CompilerCase 4
+        CompilerDefault
           Calendar::SetColor(#Calendar, Calendar::#Month_FrontColor, $FFF8F0)
           Calendar::SetColor(#Calendar, Calendar::#Month_BackColor,  $701919)
           Calendar::SetColor(#Calendar, Calendar::#Week_FrontColor,  $701919)
@@ -2503,12 +2650,14 @@ CompilerIf #PB_Compiler_IsMainFile
           Calendar::SetMask(#Calendar, Calendar::#ToolTipText, Calendar::#Summary$ + ": " + Calendar::#Label$)
           Calendar::SetMask(#Calendar, Calendar::#Date, "%dd.%mm.%yyyy")
           
-          ToolTipMask$ = "Holiday: " + Calendar::#StartDate$ + " - " + Calendar::#EndDate$
-          
           Calendar::AddEntry(#Calendar, "Thorsten", "Birthday", "", "", Calendar::GetDate(18, 7, 2019))
-          ;Calendar::AddEntry(#Calendar, "Entry 2",  "Second entry", "", "", Calendar::GetDate(18, 7, 2019))
-          ;Calendar::AddEntry(#Calendar, "Entry 3",  "Third entry",  "", "", Calendar::GetDate(18, 7, 2019))
-          Calendar::AddEntry(#Calendar, "Holidy", "Holiday: Summer", "", "", Calendar::GetDate(27, 7, 2019), Calendar::GetDate(9, 8, 2019), $008000, $61FFC1, ToolTipMask$)
+          Calendar::AddEntry(#Calendar, "Entry 2",  "2nd appointment",  "", "", Calendar::GetDate(18, 7, 2019, 8), Calendar::GetDate(18, 7, 2019, 11, 15), Calendar::#Duration)
+          Calendar::AddEntry(#Calendar, "Entry 3",  "3rd appointment",  "", "", Calendar::GetDate(18, 7, 2019, 15, 30), #PB_Default, Calendar::#StartTime)
+
+          Calendar::AddEntry(#Calendar, "Holidy", "Holiday: Summer", "", "", Calendar::GetDate(27, 7, 2019), Calendar::GetDate(9, 8, 2019))
+          Calendar::SetEntryColor(#Calendar, "Holidy", Calendar::#FrontColor, $008000)
+          Calendar::SetEntryColor(#Calendar, "Holidy", Calendar::#BackColor,  $61FFC1)
+          Calendar::SetEntryMask(#Calendar, "Holidy",  "Holiday: " + Calendar::#StartDate$ + " - " + Calendar::#EndDate$)
           
       CompilerEndSelect
 
@@ -2563,8 +2712,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 1995
-; FirstLine = 335
-; Folding = CgBAA5-fBAA--hBg1gQ+DABq
+; CursorPosition = 1762
+; FirstLine = 353
+; Folding = MADAA5--CAAA-FEAXCAwHAABq
 ; EnableXP
 ; DPIAware
