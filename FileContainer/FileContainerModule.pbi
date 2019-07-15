@@ -9,11 +9,14 @@
 ;/ © 2019 Thorsten1867 (04/2019)
 ;/
 
+; Last Update: 15.07.2019
+
 ; - Groups all files of a program in one container. 
 ; - The files in the container are encrypted when a container password is assigned.
 ; - Files are unpacked only when they are needed and are then automatically moved back into the container when the container is closed.
 ; - Resources can be loaded directly from the container
 ; - XML and JSON can be read directly from the container or written to the container.
+
 
 ;{ ===== MIT License =====
 ;
@@ -37,6 +40,7 @@
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ; SOFTWARE.
 ;}
+
 
 ;{ _____ FileContainer - Commands _____
 
@@ -175,6 +179,7 @@ Module Container
     Path.s
     Error.i
     Password.s
+    DES.s
     Temp.s
     Flags.i
     Content.Container_Content_File
@@ -199,8 +204,33 @@ Module Container
   EndProcedure
   
   
-  Procedure   LoadContent(ID.i)
-    Define.i Size, XML
+  Procedure   RepairContent(ID.i)
+    
+    If FindMapElement(FC(), Str(ID))
+      
+      If ExaminePack(FC()\Pack)
+        While NextPackEntry(FC()\Pack)
+          
+          If PackEntryName(FC()\Pack) = #ContentFile : Continue : EndIf 
+          
+          If AddMapElement(FC()\Content\File(), PackEntryName(FC()\Pack))
+            FC()\Content\File()\Size     = PackEntrySize(FC()\Pack, #PB_Packer_UncompressedSize)
+            FC()\Content\File()\Modified = Date()
+          EndIf
+          
+        Wend
+      EndIf
+      
+      If FC()\DES
+        FC()\Content\DES = FC()\DES
+      EndIf
+      
+    EndIf
+    
+  EndProcedure
+  
+  Procedure.i LoadContent(ID.i)
+    Define.i Size, XML, Result = #False
     Define   *Buffer
     Define   Load.Container_Content_File
     
@@ -217,6 +247,7 @@ Module Container
                 If XML
                   ExtractXMLStructure(MainXMLNode(XML), @Load, Container_Content_File)
                   FreeXML(XML)
+                  Result = #True
                 EndIf
               EndIf
               FreeMemory(*Buffer)
@@ -235,6 +266,7 @@ Module Container
 
     EndIf
     
+    ProcedureReturn Result
   EndProcedure
   
   Procedure   SaveContent(ID.i)
@@ -357,7 +389,6 @@ Module Container
     
     ProcedureReturn Result
   EndProcedure
-  
   
   Procedure   AddToContent(ID.i, File.s)
     Define.s FileName
@@ -685,6 +716,7 @@ Module Container
       If FC()\Content\DES = DESFingerprint(Password, #DESKey)
         
         FC()\Password = StringFingerprint(Password, #PB_Cipher_SHA2)
+        FC()\DES      = DESFingerprint(Password, #DESKey)
         FC()\Flags | #AES
         
         ProcedureReturn #True
@@ -932,6 +964,7 @@ Module Container
   EndProcedure  
 
   Procedure.i Open(ID.i, File.s, TargetPath.s="", Password.s="")
+    Define.i Result
     Define.s TempDir
     
     If ID = #PB_Any
@@ -955,12 +988,17 @@ Module Container
         
         FC()\Flags | #Open
         
-        LoadContent(ID)
+        Result = LoadContent(ID)
         
         If Password <> ""
           FC()\Password = StringFingerprint(Password, #PB_Cipher_SHA2)
+          FC()\DES      = DESFingerprint(Password, #DESKey)
           FC()\Flags | #AES
         EndIf
+        
+        If Result = #False
+          RepairContent(ID)
+        EndIf   
         
         FC()\Temp = GetTemporaryDirectory() + "FC" + Str(FC()\Pack) + #PS$
         
@@ -1042,9 +1080,17 @@ Module Container
   Procedure.i Update(ID.i)
     
     If FindMapElement(FC(), Str(ID))
+
       ReBuild_(ID)
       SaveContent(ID)
-      ProcedureReturn #True
+      
+      ClosePack(FC()\Pack)
+      
+      FC()\Pack = OpenPack(#PB_Any, FC()\File, #PB_PackerPlugin_Lzma)
+      If FC()\Pack
+        ProcedureReturn #True
+      EndIf
+      
     EndIf
     
     ProcedureReturn #False
@@ -1103,7 +1149,8 @@ Module Container
     
     ProcedureReturn #False
   EndProcedure
- 
+  
+  
 EndModule
 
 ;- ========  Module - Example ========
@@ -1185,9 +1232,9 @@ CompilerIf #PB_Compiler_IsMainFile
 
 CompilerEndIf
 
-; IDE Options = PureBasic 5.70 LTS (Windows - x86)
-; CursorPosition = 1049
-; FirstLine = 182
-; Folding = OAQQCAAg9
+; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
+; CursorPosition = 965
+; FirstLine = 280
+; Folding = eYAAAJAy5
 ; EnableXP
 ; DPIAware

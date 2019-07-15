@@ -9,7 +9,10 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
   
-; Last Update: 2.4.2019
+; Last Update: 15.07.2019
+;
+; Bugfixes (DPI)
+;
 
 ;{ ===== MIT License =====
 ;
@@ -93,28 +96,12 @@ DeclareModule StatusBar
     #SizeHandle
   EndEnumeration
   
-  CompilerIf Defined(ModuleEx, #PB_Module)
-    
-    #EventType_ComboBox    = ModuleEx::#EventType_ComboBox
-    #EventType_Button      = ModuleEx::#EventType_Button
-    #EventType_ImageButton = ModuleEx::#EventType_ImageButton
-    #EventType_HyperLink   = ModuleEx::#EventType_HyperLink
-    #Event_Gadget          = ModuleEx::#Event_Gadget
-    
-  CompilerElse
-    
-    Enumeration #PB_Event_FirstCustomValue
-      #Event_Gadget
-    EndEnumeration
-    
-    Enumeration #PB_EventType_FirstCustomValue
-      #EventType_ComboBox
-      #EventType_Button
-      #EventType_ImageButton
-      #EventType_HyperLink
-    EndEnumeration
-    
-  CompilerEndIf  
+  Enumeration #PB_EventType_FirstCustomValue
+    #EventType_ComboBox
+    #EventType_TextButton
+    #EventType_ImageButton
+    #EventType_HyperLink
+  EndEnumeration 
   ;}
   
   ;- ===========================================================================
@@ -538,23 +525,19 @@ Module StatusBar
                   
                   If StBEx()\Gadget()\Event = #PB_Ignore
                     PostEvent(#PB_Event_Gadget, StBEx()\Window\Num, StBEx()\CanvasNum,     #EventType_ComboBox, ListIndex(StBEx()\Fields()))
-                    PostEvent(#Event_Gadget, StBEx()\Window\Num, StBEx()\CanvasNum,     #EventType_ComboBox, ListIndex(StBEx()\Fields()))
                   Else
                     PostEvent(#PB_Event_Gadget, StBEx()\Window\Num, StBEx()\Gadget()\Event, #EventType_ComboBox, StBEx()\Event\State)
-                    PostEvent(#Event_Gadget, StBEx()\Window\Num, StBEx()\Gadget()\Event, #EventType_ComboBox, StBEx()\Event\State)
                   EndIf
                   ;}
                 Case #TextButton  ;{ Textbutton clicked
                   
-                  StBEx()\Event\Type  = #EventType_Button
+                  StBEx()\Event\Type  = #EventType_TextButton
                   StBEx()\Event\State = GetGadgetState(GadgetNum)
                   
                   If StBEx()\Gadget()\Event = #PB_Ignore
-                    PostEvent(#PB_Event_Gadget, StBEx()\Window\Num, StBEx()\CanvasNum,     #EventType_Button, ListIndex(StBEx()\Fields()))
-                    PostEvent(#Event_Gadget, StBEx()\Window\Num, StBEx()\CanvasNum,     #EventType_Button, ListIndex(StBEx()\Fields()))
+                    PostEvent(#PB_Event_Gadget, StBEx()\Window\Num, StBEx()\CanvasNum,     #EventType_TextButton, ListIndex(StBEx()\Fields()))
                   Else
-                    PostEvent(#PB_Event_Gadget, StBEx()\Window\Num, StBEx()\Gadget()\Event, #EventType_Button, StBEx()\Event\State)
-                    PostEvent(#Event_Gadget, StBEx()\Window\Num, StBEx()\Gadget()\Event, #EventType_Button, StBEx()\Event\State)
+                    PostEvent(#PB_Event_Gadget, StBEx()\Window\Num, StBEx()\Gadget()\Event, #EventType_TextButton, StBEx()\Event\State)
                   EndIf
                   ;}
                 Case #ImageButton ;{ Imagebutton clicked
@@ -564,10 +547,8 @@ Module StatusBar
                   
                   If StBEx()\Gadget()\Event = #PB_Ignore
                     PostEvent(#PB_Event_Gadget, StBEx()\Window\Num, StBEx()\CanvasNum,      #EventType_ImageButton, ListIndex(StBEx()\Fields()))
-                    PostEvent(#Event_Gadget, StBEx()\Window\Num, StBEx()\CanvasNum,      #EventType_ImageButton, ListIndex(StBEx()\Fields()))
                   Else
                     PostEvent(#PB_Event_Gadget, StBEx()\Window\Num, StBEx()\Gadget()\Event, #EventType_ImageButton, StBEx()\Event\State)
-                    PostEvent(#Event_Gadget, StBEx()\Window\Num, StBEx()\Gadget()\Event, #EventType_ImageButton, StBEx()\Event\State)
                   EndIf
                   ;}    
                 Case #HyperLink   ;{ HyperLink clicked
@@ -577,10 +558,8 @@ Module StatusBar
                   
                   If StBEx()\Gadget()\Event = #PB_Ignore
                     PostEvent(#PB_Event_Gadget, StBEx()\Window\Num, StBEx()\CanvasNum,      #EventType_HyperLink, ListIndex(StBEx()\Fields()))
-                    PostEvent(#Event_Gadget, StBEx()\Window\Num, StBEx()\CanvasNum,      #EventType_HyperLink, ListIndex(StBEx()\Fields()))
                   Else
                     PostEvent(#PB_Event_Gadget, StBEx()\Window\Num, StBEx()\Gadget()\Event, #EventType_HyperLink, StBEx()\Event\State)
-                    PostEvent(#Event_Gadget, StBEx()\Window\Num, StBEx()\Gadget()\Event, #EventType_HyperLink, StBEx()\Event\State)
                   EndIf
                   ;}
               EndSelect
@@ -638,8 +617,8 @@ Module StatusBar
         
         If IsWindow(StBEx()\Window\Num)
           
-          OffSetX = WindowWidth(StBEx()\Window\Num)  - StBEx()\Window\Width
-          OffSetY = WindowHeight(StBEx()\Window\Num) - StBEx()\Window\Height
+          OffSetX = WindowWidth(StBEx()\Window\Num)  - DesktopUnscaledX(StBEx()\Window\Width)
+          OffSetY = WindowHeight(StBEx()\Window\Num) - DesktopUnscaledY(StBEx()\Window\Height)
           
           ResizeGadget(StBEx()\CanvasNum, #PB_Ignore, DesktopUnscaledY(StBEx()\Size\Y) + OffSetY, DesktopUnscaledX(StBEx()\Size\Width) + OffSetX,  #PB_Ignore)
 
@@ -831,13 +810,13 @@ Module StatusBar
     Define.i Result, Y, Width, Height
     
     If IsWindow(WindowNum)
-      Width  = WindowWidth(WindowNum,  #PB_Window_InnerCoordinate)
-      Height = WindowHeight(WindowNum, #PB_Window_InnerCoordinate)
+      Width  = dpiX(WindowWidth(WindowNum,  #PB_Window_InnerCoordinate))
+      Height = dpiY(WindowHeight(WindowNum, #PB_Window_InnerCoordinate))
       BindEvent(#PB_Event_SizeWindow, @_ResizeWindowHandler(), WindowNum)
       If IsMenu(MenuNum)
-        Y = Height - #StatusBar_Height - MenuHeight()
+        Y = Height - dpiY(#StatusBar_Height - MenuHeight())
       Else
-        Y = Height - #StatusBar_Height
+        Y = Height - dpiY(#StatusBar_Height)
       EndIf
     Else
       ProcedureReturn #False
@@ -858,19 +837,13 @@ Module StatusBar
         StBEx()\Flags  = Flags
         
         StBEx()\Size\X = 0
-        StBEx()\Size\Y = dpiY(Y)
-        StBEx()\Size\Width  = dpiX(Width)
+        StBEx()\Size\Y = Y
+        StBEx()\Size\Width  = Width
         StBEx()\Size\Height = dpiY(#StatusBar_Height)
         
         StBEx()\Window\Num    = WindowNum
         StBEx()\Window\Width  = Width
         StBEx()\Window\Height = Height
-        
-        CompilerIf Defined(ModuleEx, #PB_Module)
-          If ModuleEx::AddWindow(StBEx()\Window\Num, ModuleEx::#Tabulator)
-            ModuleEx::AddGadget(GNum, StBEx()\Window\Num)
-          EndIf
-        CompilerEndIf
         
         StBEx()\Color\Front     = $000000
         StBEx()\Color\Back      = $EDEDED
@@ -1372,7 +1345,7 @@ CompilerIf #PB_Compiler_IsMainFile
               Select EventType()
                 Case StatusBar::#EventType_ComboBox
                   Debug "ComboBox changed: " + Str(EventData()) + " (State: " + Str(StatusBar::EventState(#StatusBar)) + ")"
-                Case StatusBar::#EventType_Button
+                Case StatusBar::#EventType_TextButton
                   Debug "TextButton clicked: " + Str(EventData())
                 Case StatusBar::#EventType_ImageButton
                   Debug "ImageButton clicked: " + Str(EventData())
@@ -1391,9 +1364,8 @@ CompilerEndIf
   
 
 
-; IDE Options = PureBasic 5.70 LTS (Windows - x86)
-; CursorPosition = 473
-; FirstLine = 225
-; Folding = 9A5Aj5fAIAEw
+; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
+; CursorPosition = 13
+; Folding = eAAgQEIAMEA5
 ; EnableXP
 ; DPIAware
