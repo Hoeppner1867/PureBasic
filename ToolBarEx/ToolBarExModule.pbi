@@ -9,9 +9,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 30.6.2019
+; Last Update: 15.7.2019
 ;
-; Bugfix: Focus
+; Bugfix: DPI
 
 
 ;{ ===== MIT License =====
@@ -1623,7 +1623,7 @@ Module ToolBar
     
     If FindMapElement(TBEx(), Str(GNum))
       
-      ProcedureReturn TBEx()\Size\Height
+      ProcedureReturn DesktopUnscaledY(TBEx()\Size\Height)
       
     EndIf
     
@@ -2002,8 +2002,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 1975
-; FirstLine = 982
-; Folding = 9BJAG9w-OBAAmBAqs0
+; CursorPosition = 13
+; Folding = 9BJAG9w-OBAAmhAqs0
 ; EnableXP
 ; DPIAware

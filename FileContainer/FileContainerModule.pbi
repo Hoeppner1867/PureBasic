@@ -9,7 +9,11 @@
 ;/ © 2019 Thorsten1867 (04/2019)
 ;/
 
-; Last Update: 15.07.2019
+; Last Update: 17.07.2019
+; 
+; Prevent the archive from being damaged in the event of a crash
+; 
+
 
 ; - Groups all files of a program in one container. 
 ; - The files in the container are encrypted when a container password is assigned.
@@ -55,7 +59,6 @@
 ; Container::Open()          - opens the container (password is not required if CheckPassword() is used)
 ; Container::RemoveFile()    - removes a file form the container
 ; Container::Save()          - save directly to the container (#XML / #JSON)
-; Container::Update()        - update container without closing it
 ; Container::UpdateFile()    - update file in container
 ; Container::UseFile()       - unpack a file to use it
 
@@ -95,7 +98,6 @@ DeclareModule Container
   Declare.i Open(ID.i, File.s, TargetPath.s="", Password.s="")
   Declare.i RemoveFile(ID.i, FileName.s)  
   Declare.i Save(ID.i, pbNum.i, Type.i, FileName.s)
-  Declare.i Update(ID.i)
   Declare.i UpdateFile(ID.i, FileName.s)
   Declare.i UseFile(ID.i, FileName.s, Path.s="")
   
@@ -116,7 +118,6 @@ Module Container
   
   #DESKey      = "18FC67"
   #ContentFile = "Content.xml"
-  
   #InitVector = "ã¬‹â´£é‘æžŠá«¾â¦"
   
   EnumerationBinary Flag
@@ -390,6 +391,7 @@ Module Container
     ProcedureReturn Result
   EndProcedure
   
+  
   Procedure   AddToContent(ID.i, File.s)
     Define.s FileName
     
@@ -411,209 +413,219 @@ Module Container
     
   EndProcedure
   
+  
   Procedure   ReBuild_(ID.i)
-    Define.i Pack, Size, pResult, Result = #True
-    Define.s FileName, PackName, File
+    Define.i Pack, Size, pResult, ContentXML, Result = #True
+    Define.s FileName, PackName, File, RebuildFile
     Define   *Archive
     
     If FindMapElement(FC(), Str(ID))
       
-      ClosePack(FC()\Pack)
+      ;If ClosePack(FC()\Pack)
       
-      If CopyFile(FC()\File, FC()\Temp + GetFilePart(FC()\File))
+      RebuildFile = FC()\Temp + GetFilePart(FC()\File)
+      
+      FC()\Pack = CreatePack(#PB_Any, RebuildFile, #PB_PackerPlugin_Lzma)
+      If FC()\Pack
 
-        DeleteFile(FC()\File, #PB_FileSystem_Force)
-
-        FC()\Pack = CreatePack(#PB_Any, FC()\File, #PB_PackerPlugin_Lzma)
-        If FC()\Pack
+        ;{ Read archive file and repack files
+        Pack = OpenPack(#PB_Any, FC()\File, #PB_PackerPlugin_Lzma)
+        If Pack
           
-          ;{ Read archive file and repack files
-          Pack = OpenPack(#PB_Any, FC()\Temp + GetFilePart(FC()\File), #PB_PackerPlugin_Lzma)
-          If Pack
+          If ExaminePack(Pack) 
             
-            If ExaminePack(Pack) 
+            While NextPackEntry(Pack)
               
-              While NextPackEntry(Pack)
-                
-                PackName = PackEntryName(Pack)
-                If Right(PackName, 4) = ".aes"
-                  FileName = Left(PackName, Len(PackName) - 4)
-                Else
-                  FileName = PackName
-                EndIf
-                
-                If FileName = #ContentFile : Continue : EndIf
-                
-                Select PackEntryType(Pack)
-                  Case #PB_Packer_Directory                   ; Verzeichnisse ignorieren
-                    Continue  
-                  Case #PB_Packer_File
-                   
-                    If FindMapElement(FC()\Files(), FileName) ;{ File currently open (unpacked)
-                      If FC()\Files()\Flags & #Remove      ;{ Remove file from container
-                        If FC()\Files()\Flags & #Extract
-                          DeleteFile(FC()\Files()\Path + MapKey(FC()\Files()), #PB_FileSystem_Force)
-                        EndIf
-                        DeleteMapElement(FC()\Files())
-                        Continue
-                        ;}
-                      ElseIf FC()\Files()\Flags & #Memory  ;{ XML or JSON in memory
-                        Select FC()\Files()\Type
-                          Case #JSON
-                            If IsJSON(FC()\Files()\Num)
-                              Continue
-                            Else 
-                              DeleteMapElement(FC()\Files())
-                            EndIf
-                          Case #XML 
-                            If IsXML(FC()\Files()\Num)
-                              Continue
-                            Else
-                              DeleteMapElement(FC()\Files())
-                            EndIf
-                          Default
-                            DeleteMapElement(FC()\Files())
-                        EndSelect
-                        ;}
-                      ElseIf FC()\Files()\Flags & #Extract ;{ Replace file in container
-                        Continue
-                        ;}
-                      EndIf ;}                                     
-                    EndIf
-                    
-                    ;{ File currently not opened (in the archive)
-                    Size = PackEntrySize(Pack, #PB_Packer_UncompressedSize)
-                    If Size
-                      *Archive = AllocateMemory(Size)
-                      If *Archive
-                        If UncompressPackMemory(Pack, *Archive, Size) <> -1
-                          pResult = AddPackMemory(FC()\Pack, *Archive, Size, PackName)
-                        Else
-                          Result = #False
-                          Error   = #Error_UncompressPackMemory  
-                        EndIf
-                        FreeMemory(*Archive)
-                      EndIf
-                    EndIf 
-                    If pResult = #False : Result = #False : EndIf
-                    ;}
-                    
-                EndSelect
-                
-              Wend
-              
-            Else
-              Result = #False
-              Error  = #Error_ExaminePack
-            EndIf
-            
-            ClosePack(Pack)
-          Else
-            Result = #False
-            Error  = #Error_OpenPack
-          EndIf ;}
-          
-          ;{ Adding files to the archive
-          ForEach FC()\Files()
-            
-            If FC()\Files()\Flags & #Memory
-
-              Select FC()\Files()\Type
-                Case #JSON ;{ JSON in memory
-                  If IsJSON(FC()\Files()\Num)
-                    FC()\Files()\Size = ExportJSONSize(FC()\Files()\Num)
-                    If FC()\Files()\Size
-                      *Archive = AllocateMemory(FC()\Files()\Size)
-                      If *Archive
-                        If ExportJSON(FC()\Files()\Num, *Archive, FC()\Files()\Size) = #False
-                          *Archive = #False
-                        EndIf
-                      EndIf
-                    EndIf
-                  EndIf ;}
-                Case #XML  ;{ XML in memory
-                  If IsXML(FC()\Files()\Num)
-                    FC()\Files()\Size = ExportXMLSize(FC()\Files()\Num)
-                    If FC()\Files()\Size
-                      *Archive = AllocateMemory(FC()\Files()\Size)
-                      If *Archive
-                        If ExportXML(FC()\Files()\Num, *Archive, FC()\Files()\Size) = #False
-                          *Archive = #False
-                        EndIf 
-                      EndIf
-                    EndIf 
-                  EndIf ;}
-              EndSelect
-              
-              If *Archive And FC()\Files()\Size > 0
-                
-                If FC()\Flags & #AES
-                  pResult = EncryptMemory(ID, *Archive, FC()\Files()\Size, MapKey(FC()\Files())) 
-                Else
-                  pResult = AddPackMemory(FC()\Pack, *Archive, FC()\Files()\Size, MapKey(FC()\Files()))
-                EndIf 
-                
-                If pResult
-                  FC()\Content\File(MapKey(FC()\Files()))\Size = FC()\Files()\Size
-                EndIf
-                
-                FreeMemory(*Archive)
-                
+              PackName = PackEntryName(Pack)
+              If Right(PackName, 4) = ".aes"
+                FileName = Left(PackName, Len(PackName) - 4)
               Else
-                Error  = #Error_MemoryBuffer
-                Result = #False
-              EndIf 
-              
-              
-            ElseIf FC()\Files()\Flags & #Extract Or FC()\Files()\Flags & #Close
-              
-              pResult = #False
-
-              File = FC()\Files()\Path + MapKey(FC()\Files())
-             
-              If FileSize(File) > 0
-              
-                If FC()\Flags & #AES
-                  pResult = EncryptFile(ID, File, MapKey(FC()\Files()))
-                Else
-                  pResult = AddPackFile(FC()\Pack, File, MapKey(FC()\Files()))
-                EndIf
-
-              Else
-                Error  = #Error_FileExist
-                Result = #False
+                FileName = PackName
               EndIf
               
-              If pResult = #False : Result = #False : EndIf
+              If FileName = #ContentFile : Continue : EndIf
               
-            EndIf 
+              Select PackEntryType(Pack)
+                Case #PB_Packer_Directory ; ignore directories
+                  Continue  
+                Case #PB_Packer_File
+                  ;{ File currently open (unpacked)
+                  If FindMapElement(FC()\Files(), FileName) 
+                    If FC()\Files()\Flags & #Remove      ;{ Remove file from container
+                      If FC()\Files()\Flags & #Extract
+                        DeleteFile(FC()\Files()\Path + MapKey(FC()\Files()), #PB_FileSystem_Force)
+                      EndIf
+                      DeleteMapElement(FC()\Files())
+                      Continue
+                      ;}
+                    ElseIf FC()\Files()\Flags & #Memory  ;{ XML or JSON in memory
+                      Select FC()\Files()\Type
+                        Case #JSON
+                          If IsJSON(FC()\Files()\Num)
+                            Continue
+                          Else 
+                            DeleteMapElement(FC()\Files())
+                          EndIf
+                        Case #XML 
+                          If IsXML(FC()\Files()\Num)
+                            Continue
+                          Else
+                            DeleteMapElement(FC()\Files())
+                          EndIf
+                        Default
+                          DeleteMapElement(FC()\Files())
+                      EndSelect
+                      ;}
+                    ElseIf FC()\Files()\Flags & #Extract ;{ Replace file in container
+                      Continue
+                      ;}
+                    EndIf 
+                  EndIf ;} 
+                  ;{ File currently not opened (in the archive)
+                  Size = PackEntrySize(Pack, #PB_Packer_UncompressedSize)
+                  If Size
+                    *Archive = AllocateMemory(Size)
+                    If *Archive
+                      If UncompressPackMemory(Pack, *Archive, Size) <> -1
+                        pResult = AddPackMemory(FC()\Pack, *Archive, Size, PackName)
+                      Else
+                        Result = #False
+                        Error   = #Error_UncompressPackMemory  
+                      EndIf
+                      FreeMemory(*Archive)
+                    EndIf
+                  EndIf 
+                  If pResult = #False : Result = #False : EndIf
+                  ;}
+              EndSelect
+              
+            Wend
             
-          Next ;}
+          Else
+            Result = #False
+            Error  = #Error_ExaminePack
+          EndIf
           
+          ClosePack(Pack)
         Else
           Result = #False
-          Error  = #Error_CreatePack
-        EndIf
+          Error  = #Error_OpenPack
+        EndIf ;}
         
-      EndIf
-      
-      If Result = #False ;{ Restore archive in case of error
-        ClosePack(FC()\Pack)
-        If CopyFile(FC()\Temp + GetFilePart(FC()\File), FC()\File)
-          FC()\Pack = OpenPack(#PB_Any, FC()\File, #PB_PackerPlugin_Lzma)
-          FC()\Flags | #Open
-        EndIf
-        Error = #Error_ReBuildArchive
-        ;}
-      Else               ;{ Rebuild successfull
-        ForEach FC()\Files() ; Delete files with flag #Move Or #Close
-          If FC()\Files()\Flags & #Move Or FC()\Files()\Flags & #Close
-            If DeleteFile(FC()\Files()\Path + MapKey(FC()\Files()), #PB_FileSystem_Force)
-              DeleteMapElement(FC()\Files())
+        ;{ Adding files to the archive
+        ForEach FC()\Files()
+          
+          If FC()\Files()\Flags & #Memory
+
+            Select FC()\Files()\Type
+              Case #JSON ;{ JSON in memory
+                If IsJSON(FC()\Files()\Num)
+                  FC()\Files()\Size = ExportJSONSize(FC()\Files()\Num)
+                  If FC()\Files()\Size
+                    *Archive = AllocateMemory(FC()\Files()\Size)
+                    If *Archive
+                      If ExportJSON(FC()\Files()\Num, *Archive, FC()\Files()\Size) = #False
+                        *Archive = #False
+                      EndIf
+                    EndIf
+                  EndIf
+                EndIf ;}
+              Case #XML  ;{ XML in memory
+                If IsXML(FC()\Files()\Num)
+                  FC()\Files()\Size = ExportXMLSize(FC()\Files()\Num)
+                  If FC()\Files()\Size
+                    *Archive = AllocateMemory(FC()\Files()\Size)
+                    If *Archive
+                      If ExportXML(FC()\Files()\Num, *Archive, FC()\Files()\Size) = #False
+                        *Archive = #False
+                      EndIf 
+                    EndIf
+                  EndIf 
+                EndIf ;}
+            EndSelect
+            
+            If *Archive And FC()\Files()\Size > 0
+              
+              If FC()\Flags & #AES
+                pResult = EncryptMemory(ID, *Archive, FC()\Files()\Size, MapKey(FC()\Files())) 
+              Else
+                pResult = AddPackMemory(FC()\Pack, *Archive, FC()\Files()\Size, MapKey(FC()\Files()))
+              EndIf 
+              
+              If pResult
+                FC()\Content\File(MapKey(FC()\Files()))\Size = FC()\Files()\Size
+              EndIf
+              
+              FreeMemory(*Archive)
+              
+            Else
+              Error  = #Error_MemoryBuffer
+              Result = #False
+            EndIf 
+            
+            
+          ElseIf FC()\Files()\Flags & #Extract Or FC()\Files()\Flags & #Close
+            
+            pResult = #False
+
+            File = FC()\Files()\Path + MapKey(FC()\Files())
+           
+            If FileSize(File) > 0
+            
+              If FC()\Flags & #AES
+                pResult = EncryptFile(ID, File, MapKey(FC()\Files()))
+              Else
+                pResult = AddPackFile(FC()\Pack, File, MapKey(FC()\Files()))
+              EndIf
+
+            Else
+              Error  = #Error_FileExist
+              Result = #False
             EndIf
+            
+            If pResult = #False : Result = #False : EndIf
+            
+          EndIf 
+          
+        Next ;}
+        
+        ;{ Add content file
+        ContentXML = CreateXML(#PB_Any)
+        If ContentXML
+          InsertXMLStructure(RootXMLNode(ContentXML), @FC()\Content, Container_Content_File)
+          Size = ExportXMLSize(ContentXML)
+          *Archive = AllocateMemory(Size)
+          If *Archive
+            If ExportXML(ContentXML, *Archive, Size)
+              If FC()\Pack : AddPackMemory(FC()\Pack, *Archive, Size, #ContentFile) : EndIf
+            EndIf
+            FreeMemory(*Archive)
           EndIf
-        Next
+          FreeXML(ContentXML)
+        EndIf ;}
+
+        ClosePack(FC()\Pack)
+      Else
+        Result = #False
+        Error  = #Error_CreatePack
+      EndIf  
+
+      If Result ;{ Replace archive with rebuild file
+        
+        If CopyFile(RebuildFile, FC()\File)
+          
+          ForEach FC()\Files() ; Delete files with flag #Move Or #Close
+            If FC()\Files()\Flags & #Move Or FC()\Files()\Flags & #Close
+              If DeleteFile(FC()\Files()\Path + MapKey(FC()\Files()), #PB_FileSystem_Force)
+                DeleteMapElement(FC()\Files())
+              EndIf
+            EndIf
+          Next
+          
+        EndIf
         ;}
+      Else
+        Error = #Error_ReBuildArchive
       EndIf
       
     EndIf
@@ -646,23 +658,29 @@ Module Container
           ;}
         Else                                      ;{ File does not yet exist in the archive
           
-          If FC()\Flags & #AES
-            Result = EncryptFile(ID, File, FileName)
-          Else
-            Result = AddPackFile(FC()\Pack, File, FileName)
-          EndIf 
-          
-          If Result
-            If AddMapElement(FC()\Files(), FileName)
-              FC()\Files()\Path  = GetPathPart(File)
-              FC()\Files()\Size  = FileSize(File)
-              If Flag & #Move
-                FC()\Files()\Flags = #Move|#Extract
-              Else
-                FC()\Files()\Flags = #Extract
+          FC()\Pack = OpenPack(#PB_Any, FC()\File, #PB_PackerPlugin_Lzma)
+          If FC()\Pack 
+            
+            If FC()\Flags & #AES
+              Result = EncryptFile(ID, File, FileName)
+            Else
+              Result = AddPackFile(FC()\Pack, File, FileName)
+            EndIf 
+            
+            If Result
+              If AddMapElement(FC()\Files(), FileName)
+                FC()\Files()\Path  = GetPathPart(File)
+                FC()\Files()\Size  = FileSize(File)
+                If Flag & #Move
+                  FC()\Files()\Flags = #Move|#Extract
+                Else
+                  FC()\Files()\Flags = #Extract
+                EndIf
               EndIf
             EndIf
-          EndIf
+            
+            ClosePack(FC()\Pack)
+          EndIf  
           ;}
         EndIf
         
@@ -701,7 +719,6 @@ Module Container
         AddToContent(ID, File) 
         
         ProcedureReturn #True
-        
       EndIf
       
     EndIf 
@@ -761,6 +778,8 @@ Module Container
         
         FC()\Temp = GetTemporaryDirectory() + "FC" + Str(FC()\Pack) + #PS$
         
+        ClosePack(FC()\Pack)
+        
         If CreateDirectory(FC()\Temp)
           ProcedureReturn #True
         EndIf
@@ -784,9 +803,8 @@ Module Container
       
       ReBuild_(ID)
       
-      SaveContent(ID)
-      
-      ClosePack(FC()\Pack)
+      ;SaveContent(ID)
+      ;ClosePack(FC()\Pack)
       
       DeleteDirectory(FC()\Temp, "*.*", #PB_FileSystem_Force)
       DeleteMapElement(FC())
@@ -899,64 +917,72 @@ Module Container
     Define   *Buffer, *Memory
     
     If FindMapElement(FC(), Str(ID))
-      
       If FindMapElement(FC()\Content\File(), Name)
         
-        Size = FC()\Content\File()\Size
-        
-        *Buffer = AllocateMemory(Size)
-        If *Buffer
+        FC()\Pack = OpenPack(#PB_Any, FC()\File, #PB_PackerPlugin_Lzma)
+        If FC()\Pack 
           
-          If FC()\Flags & #AES
-            PackName = Name + ".aes"
-          Else  
-            PackName = Name
-          EndIf
+          Size = FC()\Content\File()\Size
           
-          If UncompressPackMemory(FC()\Pack, *Buffer, Size, PackName) <> -1
+          *Buffer = AllocateMemory(Size)
+          If *Buffer
             
             If FC()\Flags & #AES
-              *Memory = AllocateMemory(Size)
-              If *Memory
-                If AESDecoder(*Buffer, *Memory, Size, @FC()\Password, 128, @InitVector, #PB_Cipher_CBC)
-                  CopyMemory(*Memory, *Buffer, Size)
-                  FreeMemory(*Memory)
-                EndIf 
-              EndIf
+              PackName = Name + ".aes"
+            Else  
+              PackName = Name
             EndIf
             
-            Select Type
-              Case #Image
-                Result = CatchImage(pbNum,  *Buffer, Size)
-              Case #JSON
-                Result = CatchJSON(pbNum,   *Buffer, Size)
-                If Result
-                  If AddMapElement(FC()\Files(), Name)
-                    FC()\Files()\Num   = pbNum
-                    FC()\Files()\Type  = #JSON
-                    FC()\Files()\Flags = #Memory
-                  EndIf
-                EndIf 
-              Case #Sprite
-                Result = CatchSprite(pbNum, *Buffer, Size)
-              Case #Sound  
-                Result = CatchSound(pbNum,  *Buffer, Size)
-              Case #XML
-                Result = CatchXML(pbNum,    *Buffer, Size)
-                If Result
-                  If AddMapElement(FC()\Files(), Name)
-                    FC()\Files()\Num   = pbNum
-                    FC()\Files()\Type  = #XML
-                    FC()\Files()\Flags = #Memory
-                  EndIf
-                EndIf 
-            EndSelect
+            If UncompressPackMemory(FC()\Pack, *Buffer, Size, PackName) <> -1
+              
+              If FC()\Flags & #AES ;{ Decode AES
+                *Memory = AllocateMemory(Size)
+                If *Memory
+                  If AESDecoder(*Buffer, *Memory, Size, @FC()\Password, 128, @InitVector, #PB_Cipher_CBC)
+                    CopyMemory(*Memory, *Buffer, Size)
+                    FreeMemory(*Memory)
+                  EndIf 
+                EndIf
+              EndIf ;}
+              
+              Select Type
+                Case #Image  ;{ Catch image
+                  Result = CatchImage(pbNum,  *Buffer, Size)
+                  ;}
+                Case #JSON   ;{ Catch JSON
+                  Result = CatchJSON(pbNum,   *Buffer, Size)
+                  If Result
+                    If AddMapElement(FC()\Files(), Name)
+                      FC()\Files()\Num   = pbNum
+                      FC()\Files()\Type  = #JSON
+                      FC()\Files()\Flags = #Memory
+                    EndIf
+                  EndIf ;}
+                Case #Sprite ;{ Catch sprite
+                  Result = CatchSprite(pbNum, *Buffer, Size)
+                  ;}
+                Case #Sound  ;{ Catch sound
+                  Result = CatchSound(pbNum,  *Buffer, Size)
+                  ;}
+                Case #XML    ;{ Catch XML
+                  Result = CatchXML(pbNum,    *Buffer, Size)
+                  If Result
+                    If AddMapElement(FC()\Files(), Name)
+                      FC()\Files()\Num   = pbNum
+                      FC()\Files()\Type  = #XML
+                      FC()\Files()\Flags = #Memory
+                    EndIf
+                  EndIf ;}
+              EndSelect
+            EndIf
+            
+            FreeMemory(*Buffer)
           EndIf
           
-          FreeMemory(*Buffer)
+          ClosePack(FC()\Pack)
         EndIf
+        
       EndIf
-      
     EndIf
     
     
@@ -1000,10 +1026,12 @@ Module Container
           RepairContent(ID)
         EndIf   
         
+        ClosePack(FC()\Pack)
+        
         FC()\Temp = GetTemporaryDirectory() + "FC" + Str(FC()\Pack) + #PS$
         
         If CreateDirectory(FC()\Temp)
-          ProcedureReturn #True
+          ProcedureReturn Result
         EndIf
         
       EndIf
@@ -1077,25 +1105,6 @@ Module Container
     
   EndProcedure  
   
-  Procedure.i Update(ID.i)
-    
-    If FindMapElement(FC(), Str(ID))
-
-      ReBuild_(ID)
-      SaveContent(ID)
-      
-      ClosePack(FC()\Pack)
-      
-      FC()\Pack = OpenPack(#PB_Any, FC()\File, #PB_PackerPlugin_Lzma)
-      If FC()\Pack
-        ProcedureReturn #True
-      EndIf
-      
-    EndIf
-    
-    ProcedureReturn #False
-  EndProcedure  
-  
   Procedure.i UpdateFile(ID.i, FileName.s)
     
     If FindMapElement(FC(), Str(ID))
@@ -1122,27 +1131,39 @@ Module Container
       If Path = "" : Path = FC()\Path : EndIf
       
       If FindMapElement(FC()\Content\File(), FileName) 
-        If FC()\Flags & #AES 
-          If DecryptFile(ID, Path + FileName, FC()\Content\File()\Size, FileName)
-            If AddMapElement(FC()\Files(), FileName)
-              FC()\Files()\Path  = Path
-              FC()\Files()\Size  = FC()\Content\File()\Size
-              FC()\Files()\CRC32 = FileFingerprint(Path + FileName, #PB_Cipher_CRC32)
-              FC()\Files()\Flags = #Extract
-              ProcedureReturn #True
+        
+        FC()\Pack = OpenPack(#PB_Any, FC()\File, #PB_PackerPlugin_Lzma)
+        If FC()\Pack 
+        
+          If FC()\Flags & #AES ;{ Decode AES
+            
+            If DecryptFile(ID, Path + FileName, FC()\Content\File()\Size, FileName)
+              If AddMapElement(FC()\Files(), FileName)
+                FC()\Files()\Path  = Path
+                FC()\Files()\Size  = FC()\Content\File()\Size
+                FC()\Files()\CRC32 = FileFingerprint(Path + FileName, #PB_Cipher_CRC32)
+                FC()\Files()\Flags = #Extract
+                ProcedureReturn #True
+              EndIf
             EndIf
-          EndIf
-        Else
-          If UncompressPackFile(FC()\Pack, Path + FileName, FileName)
-            If AddMapElement(FC()\Files(), FileName)
-              FC()\Files()\Path  = Path
-              FC()\Files()\Size  = FC()\Content\File()\Size
-              FC()\Files()\CRC32 = FileFingerprint(Path + FileName, #PB_Cipher_CRC32)
-              FC()\Files()\Flags = #Extract
-              ProcedureReturn #True
+            ;}
+          Else                 ;{ uncompress only
+
+            If UncompressPackFile(FC()\Pack, Path + FileName, FileName)
+              If AddMapElement(FC()\Files(), FileName)
+                FC()\Files()\Path  = Path
+                FC()\Files()\Size  = FC()\Content\File()\Size
+                FC()\Files()\CRC32 = FileFingerprint(Path + FileName, #PB_Cipher_CRC32)
+                FC()\Files()\Flags = #Extract
+                ProcedureReturn #True
+              EndIf
             EndIf
+            ;}
           EndIf
+
+          ClosePack(FC()\Pack)
         EndIf
+        
       EndIf
       
     EndIf
@@ -1233,8 +1254,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 965
-; FirstLine = 280
-; Folding = eYAAAJAy5
+; CursorPosition = 416
+; FirstLine = 181
+; Folding = eAQAQHAA5y
 ; EnableXP
 ; DPIAware
