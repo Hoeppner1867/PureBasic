@@ -12,6 +12,8 @@
 
 ; Last Update: 17.07.2019
 ;
+
+; - Added:   New flag #FitColumn for AddColumn() 
 ; - Added:   Align and font for each header column  
 ; - Added:   SetHeaderHeight(
 ; - Changed: SetFont() -> Type & Column/ SetColor() -> Column
@@ -207,6 +209,7 @@ DeclareModule ListEx
     #HeaderBackColor
     #HeaderGridColor
     #AlternateRowColor
+    #FitColumn
   EndEnumeration
 
   EnumerationBinary ColumnFlags
@@ -566,6 +569,7 @@ Module ListEx
     Align.i
     FontID.i
     Mask.s
+    MaxWidth.i
     Currency.s
     Flags.i
     FrontColor.i
@@ -922,7 +926,7 @@ Module ListEx
     EndIf
     
   EndProcedure
-  
+    
   ;- _____ Check Content _____
   
   CompilerIf #Enable_Validation
@@ -1500,7 +1504,7 @@ Module ListEx
   EndProcedure
   
   
-  ;- __________ Drawing __________
+  ;- __________ Drawing __________ 
   
   Procedure.f GetAlignOffset_(Text.s, Width.f, Flags.i)
     Define.f Offset
@@ -1818,7 +1822,7 @@ Module ListEx
   
  
   Procedure   Draw_()
-    Define.f colX, rowY, textY, textX, colW0, colWidth, rowHeight, imgY, imgX
+    Define.f colX, rowY, textY, textX, colW0, colWidth, rowHeight, imgY, imgX, imgWidth
     Define.i Flags, imgFlags, Align, Mark, Row
     Define.i FrontColor, FocusColor, RowColor
     Define.s Key$, Text$
@@ -1909,7 +1913,7 @@ Module ListEx
       
       DrawingFont(ListEx()\Row\FontID)
 
-      ;{ _____ Rows _____
+      ; _____ Rows _____
       ListEx()\Row\OffSetY = 0
 
       ForEach ListEx()\Rows()
@@ -1951,6 +1955,11 @@ Module ListEx
         ForEach ListEx()\Cols()
           
           If ListEx()\Cols()\Flags & #Hide : Continue : EndIf
+          
+          If ListEx()\Cols()\Flags & #FitColumn
+            If ListIndex(ListEx()\Rows()) = 0 : ListEx()\Cols()\MaxWidth = 0 : EndIf
+            Debug "Max: " + Str(ListEx()\Cols()\MaxWidth)
+          EndIf
           
           Key$ = ListEx()\Cols()\Key
           If Key$ = "" : Key$ = Str(ListIndex(ListEx()\Cols())) : EndIf
@@ -2068,11 +2077,13 @@ Module ListEx
               If imgFlags & #Center
                 imgX  = (ListEx()\Cols()\Width - ListEx()\Rows()\Column(Key$)\Image\Width) / 2
               ElseIf imgFlags & #Right
-                imgX  = ListEx()\Cols()\Width - ListEx()\Rows()\Column(Key$)\Image\Width - dpiX(4)
+                imgX  = ListEx()\Cols()\Width  - ListEx()\Rows()\Column(Key$)\Image\Width - dpiX(4)
               Else 
                 imgX = dpiX(4)
               EndIf
-
+              
+              imgWidth = ListEx()\Rows()\Column(Key$)\Image\Width + dpiX(4)
+              
               imgY  = (ListEx()\Rows()\Height - ListEx()\Rows()\Column(Key$)\Image\Height) / 2 + dpiY(1)
               
               DrawingMode(#PB_2DDrawing_AlphaBlend)
@@ -2121,6 +2132,10 @@ Module ListEx
                 CompilerEndIf
                 
                 DrawText(colX + textX, rowY + textY, Text$, FrontColor)
+                
+                If ListEx()\Cols()\Flags & #FitColumn
+                  If TextWidth(Text$) + imgWidth > ListEx()\Cols()\MaxWidth : ListEx()\Cols()\MaxWidth = TextWidth(Text$) + imgWidth : EndIf
+                EndIf
                 
                 If Flags & #CellFont : DrawingFont(ListEx()\Row\FontID) : EndIf
                 
@@ -2176,6 +2191,10 @@ Module ListEx
                 
                 DrawText(colX + textX, rowY + textY, Text$, FrontColor)
                 
+                If ListEx()\Cols()\Flags & #FitColumn
+                  If TextWidth(Text$) > ListEx()\Cols()\MaxWidth : ListEx()\Cols()\MaxWidth = TextWidth(Text$) : EndIf
+                EndIf
+                
                 CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
                   UnclipOutput()
                 CompilerEndIf
@@ -2199,8 +2218,14 @@ Module ListEx
         
         If rowY > ListEx()\Size\Height : Break : EndIf
         
-      Next ;}
-      
+      Next
+
+      ForEach ListEx()\Cols()
+        If ListEx()\Cols()\Flags & #FitColumn
+          ListEx()\Cols()\Width = ListEx()\Cols()\MaxWidth + dpiX(8)
+        EndIf  
+      Next
+
       colX = ListEx()\Size\X - ListEx()\Col\OffsetX
       rowY = ListEx()\Size\Y
       
@@ -3814,7 +3839,7 @@ Module ListEx
   EndProcedure
   
   Procedure.i AddItem(GNum.i, Row.i=-1, Text.s="", RowID.s="", Flags.i=#False) 
-    Define.i i, nc, Result
+    Define.i i, nc, FitColumn, Result
     
     If FindMapElement(ListEx(), Str(GNum))
       
@@ -3853,12 +3878,16 @@ Module ListEx
           Else
             nc = 1
           EndIf
+          FitColumn = #False
           For i=1 To CountString(Text, #LF$) + 1
             If SelectElement(ListEx()\Cols(), i - nc)
               ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Value = StringField(Text, i, #LF$)
+              If ListEx()\Cols()\Flags & #FitColumn : FitColumn = #True : EndIf
             EndIf
           Next
         EndIf
+        
+        If FitColumn : Draw_() : EndIf
         
         If ListEx()\ReDraw
           UpdateRowY_()
@@ -4684,14 +4713,14 @@ Module ListEx
         
         Select Attrib
           Case #Align
-            ListEx()\Cols()\Align = Value
+            ListEx()\Cols()\Align  = Value
           Case #Width
-            ListEx()\Cols()\Width = dpiX(Value)
+            ListEx()\Cols()\Width  = dpiX(Value)
             UpdateColumnX_()
           Case #FontID
-            ListEx()\Cols()\FontID  = Value
+            ListEx()\Cols()\FontID = Value
           Case #Font  
-            ListEx()\Cols()\FontID  = FontID(Value)
+            ListEx()\Cols()\FontID = FontID(Value)
         EndSelect
         
         If ListEx()\ReDraw : Draw_() : EndIf
@@ -5074,6 +5103,7 @@ Module ListEx
         If SelectElement(ListEx()\Rows(), Row)
           If SelectElement(ListEx()\Cols(), Column)
             ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Value = Text
+            If ListEx()\Cols()\Flags & #FitColumn : Draw_() : EndIf 
           EndIf
         EndIf
       EndIf
@@ -5258,8 +5288,8 @@ CompilerIf #PB_Compiler_IsMainFile
     
     ListEx::DisableReDraw(#List, #True) 
     
-    ListEx::AddColumn(#List, 1, "Link",    75, "link",   ListEx::#Links)
-    ListEx::AddColumn(#List, 2, "Edit",    85, "edit",   ListEx::#Editable) ; |ListEx::#Time
+    ListEx::AddColumn(#List, 1, "Link",    75, "link",   ListEx::#Links)    ; |ListEx::#FitColumn
+    ListEx::AddColumn(#List, 2, "Edit",    85, "edit",   ListEx::#Editable) ; |ListEx::#FitColumn
     ListEx::AddColumn(#List, ListEx::#LastItem, "Combo",   78, "combo",  ListEx::#ComboBoxes)
     ListEx::AddColumn(#List, ListEx::#LastItem, "Date",    76, "date",   ListEx::#Dates)
     ListEx::AddColumn(#List, ListEx::#LastItem, "Buttons", 60, "button", ListEx::#Buttons) ; ListEx::#Hide
@@ -5397,8 +5427,8 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
 ; CursorPosition = 15
-; Folding = OBAgAAAAAAAAAAAAAiCAAAAAAAAAAAEAAAAFAAAAEhAQ9
-; Markers = 561
+; Folding = MBAAAICAAAAAAAAAAAAABAAAAAAAAAAAAAgCAAAAAAEI+
+; Markers = 564
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
