@@ -10,9 +10,10 @@
 ;/
   
 
-; Last Update: 17.07.2019
+; Last Update: 18.07.2019
 ;
-
+; - Added:   Added: CloseEdit() - close all open string gadgets, comboboxes and date gadgets
+;
 ; - Added:   New flag #FitColumn for AddColumn() 
 ; - Added:   Align and font for each header column  
 ; - Added:   SetHeaderHeight(
@@ -300,6 +301,7 @@ DeclareModule ListEx
   Declare   ChangeCountrySettings(GNum.i, CountryCode.s, Currency.s="", Clock.s="", DecimalSeperator.s="", TimeSeperator.s="", DateSeperator.s="")
   Declare   ClearComboBoxItems(GNum.i, Column.i)
   Declare   ClearItems(GNum.i)
+  Declare   CloseEdit(GNum.i)
   Declare.i CountItems(GNum.i)
   Declare   DisableEditing(GNum.i, State.i=#True)
   Declare   DisableReDraw(GNum.i, State.i=#False)
@@ -3949,6 +3951,28 @@ Module ListEx
     
   EndProcedure    
   
+  Procedure CloseEdit(GNum.i)
+    
+    If FindMapElement(ListEx(), Str(GNum))
+      
+      If ListEx()\String\Flag   ;{ Close String
+        CloseString_()
+      EndIf ;}
+      
+      If ListEx()\ComboBox\Flag ;{ Close ComboBox
+        CloseComboBox_()
+      EndIf ;}
+      
+      If ListEx()\Date\Flag     ;{ Close DateGadget
+        CloseDate_()
+      EndIf ;}
+      
+      Draw_()
+      
+    EndIf
+      
+  EndProcedure
+  
   Procedure.i CountItems(GNum.i)
     
     If FindMapElement(ListEx(), Str(GNum))
@@ -5426,9 +5450,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 15
-; Folding = MBAAAICAAAAAAAAAAAAABAAAAAAAAAAAAAgCAAAAAAEI+
-; Markers = 564
+; CursorPosition = 14
+; Folding = MBAAAICAAAAAAAAAAAAABAAAYAMAAAAgPAAoAAAAAAABi
+; Markers = 566
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
