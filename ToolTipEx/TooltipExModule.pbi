@@ -671,13 +671,9 @@ Module ToolTip
 	    Timer(Str(GadgetNum))\Active = #True
 	    Timer(Str(GadgetNum))\Value  = 0
 	    Timer(Str(GadgetNum))\State  = #False
-      UnlockMutex(Mutex)
-      
-      ToolTip()\Visible = #False
-      
-      HideWindow(ToolTip()\Number, #True)
-      SetActiveWindow(ToolTip()\WindowNum)
+	    UnlockMutex(Mutex)
 	    
+	    SetActiveWindow(ToolTip()\WindowNum)
 	  EndIf
 	  
 	EndProcedure
@@ -1078,7 +1074,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 9
+; CursorPosition = 675
+; FirstLine = 315
 ; Folding = 9AkAgxdMw
 ; EnableXP
 ; DPIAware

@@ -456,6 +456,7 @@ Module ToolTip
         ResizeGadget(ToolTip()\CanvasNum, 0, 0, DesktopUnscaledX(ToolTip()\Size\Width), DesktopUnscaledY(ToolTip()\Size\Height))
         Draw_()
         ToolTip()\Visible = #True
+        StickyWindow(ToolTip()\Number, #True) 
         HideWindow(ToolTip()\Number, #False)
         SetActiveWindow(ToolTip()\WindowNum)
       EndIf
@@ -490,9 +491,7 @@ Module ToolTip
 	    Timer(Str(GadgetNum))\Value  = 0
 	    Timer(Str(GadgetNum))\State  = #False
       UnlockMutex(Mutex)
-      
-      ToolTip()\Visible = #False
-      HideWindow(ToolTip()\Number, #True)
+
       SetActiveWindow(ToolTip()\WindowNum)
 	  EndIf
 	  
@@ -518,8 +517,9 @@ Module ToolTip
         Timer(Str(GadgetNum))\Value  = 0
         UnlockMutex(Mutex)
 
-        If ToolTip()\Visible
+        If ToolTip()\Visible 
           ToolTip()\Visible = #False
+          StickyWindow(ToolTip()\Number, #False)
           HideWindow(ToolTip()\Number, #True)
           SetActiveWindow(ToolTip()\WindowNum)
         EndIf
@@ -527,12 +527,13 @@ Module ToolTip
 
         If X >= ToolTip()\Area\X And X <= ToolTip()\Area\X + ToolTip()\Area\Width
           If Y >= ToolTip()\Area\Y And Y <= ToolTip()\Area\Y + ToolTip()\Area\Height
-      	    DetermineSize_() 
+            
+            DetermineSize_() 
             DeterminePosition_(X, Y)                 
             LockMutex(Mutex)
             Timer(Str(GadgetNum))\State = #True
             UnlockMutex(Mutex)
-              
+    
             ProcedureReturn #True
           EndIf 
         EndIf  
@@ -575,7 +576,7 @@ Module ToolTip
 		WNum = OpenWindow(#PB_Any, 0, 0, 0, 0, "ToolTip", #PB_Window_BorderLess|#PB_Window_Invisible, WindowID(Window))
 		If WNum
 		  
-		  StickyWindow(WNum, #True) 
+		  ;StickyWindow(WNum, #True) 
 
   		GNum = CanvasGadget(#PB_Any, 10, 10, 200, 100)
   		If GNum
@@ -801,7 +802,7 @@ CompilerIf #PB_Compiler_IsMainFile
     EndIf
     
     If ToolTip::Create(#Gadget, #Window)
-      ToolTip::SetContent(#Gadget, "This is a tooltip.", "Title")
+      ToolTip::SetContent(#Gadget, "This is an especially long tooltip for testing.", "Tooltip") ; This is a tooltip.
       ;ToolTip::SetContent(#Gadget, "Tooltip area.", "Title", 80, 30, 20, 20)
       ToolTip::SetFont(#Gadget, #Font, ToolTip::#Title) 
       ToolTip::SetColor(#Gadget, ToolTip::#BorderColor,      $800000)
@@ -821,7 +822,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 8
-; Folding = WgBBAC8
+; CursorPosition = 456
+; FirstLine = 201
+; Folding = WABK7i5
 ; EnableXP
 ; DPIAware

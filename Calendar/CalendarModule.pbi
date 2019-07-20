@@ -9,18 +9,15 @@
 ;/ © 2019 Thorsten1867 (07/2019)
 ;/
 
-; Last Update: 13.07.2019
+; Last Update: 20.07.2019
 ;
-; Changed: AddEntry() -> colors and tooltip mask removed
-; Added:   SetEntryColor() / SetEntryMsk() / CountEntries() / GetEntries()
-; Added:   Calendar entry flags (#FullDay/#StartTime/#Duration)
 ; BugFixes
 ;
+; Changed: AddEntry() -> colors and tooltip mask removed
+; Added:   SetEntryColor() / SetEntryMask() / CountEntries() / GetEntries()
+; Added:   Calendar entry flags (#FullDay/#StartTime/#Duration)
+; 
 ; Added: Import/export of calendar entries as files in iCal-format
-;
-; Added: Popup menu for days of month / UpdatePopupText()
-; Added: #EventType_Focus / #EventType_RightClick
-; Added: EventDate() / EventEntries() / EventDay()
 ;
 
 ;{ ===== MIT License =====
@@ -1716,9 +1713,8 @@ Module Calendar
                 If ListSize(Calendar()\Day()\Entry())
                 
                   CompilerIf Defined(ToolTip, #PB_Module)
-
-                    ToolTip::SetContent(GadgetNum, Calendar()\Day()\ToolTip, Calendar()\Day()\ToolTipTitle, Calendar()\Day()\X, Calendar()\Day()\Y, Calendar()\Day()\Width, Calendar()\Day()\Height)
-                    
+                    Debug "Calendar: " + Str(Calendar()\Day()\X) +" / "+ Str(Calendar()\Day()\Y) + " / "+Str(Calendar()\Day()\Width) + " / "+Str(Calendar()\Day()\Height)
+                    ToolTip::SetContent(GadgetNum, Calendar()\Day()\ToolTip, Calendar()\Day()\ToolTipTitle, DesktopUnscaledX(Calendar()\Day()\X), DesktopUnscaledY(Calendar()\Day()\Y), DesktopUnscaledX(Calendar()\Day()\Width), DesktopUnscaledY(Calendar()\Day()\Height))
                   CompilerElse
 
                     GadgetToolTip(GadgetNum, Calendar()\Day()\ToolTip) 
@@ -2231,7 +2227,7 @@ Module Calendar
         EndIf ;}
         
         CompilerIf Defined(ToolTip, #PB_Module)
-          Calendar()\TooltipNum = ToolTip::Gadget(Calendar()\CanvasNum, Calendar()\Window\Num)
+          Calendar()\TooltipNum = ToolTip::Create(Calendar()\CanvasNum, Calendar()\Window\Num)
           If Calendar()\TooltipNum
             ToolTip::SetColor(Calendar()\CanvasNum, ToolTip::#BorderColor,      $800000)
             ToolTip::SetColor(Calendar()\CanvasNum, ToolTip::#BackColor,        $FFFFFA)
@@ -2712,8 +2708,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 1762
-; FirstLine = 353
-; Folding = MADAA5--CAAA-FEAXCAwHAABq
+; CursorPosition = 2571
+; FirstLine = 1092
+; Folding = MADAA5--CBQC-FuMXCA5HAABq
 ; EnableXP
 ; DPIAware
