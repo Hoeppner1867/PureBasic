@@ -12,16 +12,11 @@
 
 ; Last Update: 18.07.2019
 ;
-; - Added:   Added: CloseEdit() - close all open string gadgets, comboboxes and date gadgets
+; - Added: GetColumnLabel()
+; - Added: AddCells() to adds a new row and inserts text in cells with label
 ;
-; - Added:   New flag #FitColumn for AddColumn() 
-; - Added:   Align and font for each header column  
-; - Added:   SetHeaderHeight(
-; - Changed: SetFont() -> Type & Column/ SetColor() -> Column
-; - Bugfixes
+; - Added: CloseEdit() to close all open string gadgets, comboboxes and date gadgets
 ;
-; - SetState() moves now the row into the visible area
-; - Added: #ProgressBar for AddColumn() => SetProgressBarAttribute() / SetProgressBarFlags()
 
 
 ;{ ===== MIT License =====
@@ -50,9 +45,10 @@
 
 ;{ _____ ListEx - Commands _____
 
-; ListEx::AddItem()                 - similar to 'AddGadgetItem()'
+; ListEx::AddCells()                - adds a new row and insert text in cells with label
 ; ListEx::AddColumn()               - similar to 'AddGadgetColumn()'
 ; ListEx::AddComboBoxItems()        - add items to the comboboxes of the column (items seperated by #LF$)
+; ListEx::AddItem()                 - similar to 'AddGadgetItem()'
 ; ListEx::CountItems()              - similar to 'CountGadgetItems()'
 ; ListEx::ChangeCountrySettings()   - change default settings
 ; ListEx::ClearComboBoxItems()      - clear items of the comboboxes of the column
@@ -70,6 +66,7 @@
 ; ListEx::GetCellState()            - similar to 'GetGadgetItemState()' with labels
 ; ListEx::GetChangedState()         - check whether entries have been edited
 ; ListEx::GetColumnAttribute()      - similar to 'GetGadgetItemAttribute()'
+; ListEx::GetColumnLabel()          - returns the label of the column
 ; ListEx::GetColumnState()          - similar to 'GetGadgetItemState()' for a specific column
 ; ListEx::GetItemData()             - similar to 'GetGadgetItemData()'
 ; ListEx::GetItemID()               - similar to 'GetGadgetItemData()' but with string data
@@ -296,6 +293,7 @@ DeclareModule ListEx
   
   Declare.i AddColumn(GNum.i, Column.i, Title.s, Width.f, Label.s="", Flags.i=#False)
   Declare.i AddComboBoxItems(GNum.i, Column.i, Text.s)
+  Declare.i AddCells(GNum.i, Row.i=-1, Labels.s="", Text.s="", RowID.s="", Flags.i=#False) 
   Declare.i AddItem(GNum.i, Row.i=-1, Text.s="", RowID.s="", Flags.i=#False)
   Declare   AttachPopupMenu(GNum.i, Popup.i)
   Declare   ChangeCountrySettings(GNum.i, CountryCode.s, Currency.s="", Clock.s="", DecimalSeperator.s="", TimeSeperator.s="", DateSeperator.s="")
@@ -315,8 +313,9 @@ DeclareModule ListEx
   Declare.s GetCellText(GNum.i, Row.i, Label.s)
   Declare.i GetCellState(GNum.i, Row.i, Label.s) 
   Declare.i GetChangedState(GNum.i)
-  Declare.i GetColumnState(GNum.i, Row.i, Column.i)
   Declare.i GetColumnAttribute(GNum.i, Column.i, Attribute.i)
+  Declare.s GetColumnLabel(GNum.i, Column.i)
+  Declare.i GetColumnState(GNum.i, Row.i, Column.i)
   Declare.i GetItemData(GNum.i, Row.i)
   Declare.s GetItemID(GNum.i, Row.i)
   Declare.i GetItemState(GNum.i, Row.i, Column.i=#PB_Ignore)
@@ -726,6 +725,7 @@ Module ListEx
     Focus.i
     Strg.i
     Changed.i
+    FitCols.i
     Flags.i
     
     Size.ListEx_Size_Structure
@@ -1959,8 +1959,7 @@ Module ListEx
           If ListEx()\Cols()\Flags & #Hide : Continue : EndIf
           
           If ListEx()\Cols()\Flags & #FitColumn
-            If ListIndex(ListEx()\Rows()) = 0 : ListEx()\Cols()\MaxWidth = 0 : EndIf
-            Debug "Max: " + Str(ListEx()\Cols()\MaxWidth)
+            If ListIndex(ListEx()\Rows()) = 0 : ListEx()\Cols()\MaxWidth = TextWidth(ListEx()\Cols()\Header\Titel) : EndIf
           EndIf
           
           Key$ = ListEx()\Cols()\Key
@@ -3778,6 +3777,10 @@ Module ListEx
           Flags & ~#Left
         EndIf
         
+        If Flags & #FitColumn
+          ListEx()\FitCols = #True
+        EndIf
+        
         ListEx()\Col\Number           = ListSize(ListEx()\Cols())
         ListEx()\Cols()\Header\Titel  = Title
         ListEx()\Cols()\Header\Align  = #PB_Default
@@ -3787,6 +3790,7 @@ Module ListEx
         ListEx()\Cols()\FrontColor    = #PB_Default
         ListEx()\Cols()\BackColor     = #PB_Default
         ListEx()\Cols()\Flags         = Flags
+
         If Label
           ListEx()\Cols()\Key = Label
         Else
@@ -3838,6 +3842,76 @@ Module ListEx
       ProcedureReturn ListSize(ListEx()\ComboBox\Column(Key$)\Items())      
     EndIf
     
+  EndProcedure
+  
+  Procedure.i AddCells(GNum.i, Row.i=-1, Labels.s="", Text.s="", RowID.s="", Flags.i=#False) 
+    Define.i i, Result, FitColumn, CountLabel, CountText
+    Define.s Text$, Label$
+    
+    If FindMapElement(ListEx(), Str(GNum))
+      
+      ;{ Add item
+      Select Row
+        Case #FirstItem
+          FirstElement(ListEx()\Rows())
+          Result = InsertElement(ListEx()\Rows()) 
+        Case #LastItem
+          LastElement(ListEx()\Rows())
+          Result = AddElement(ListEx()\Rows())
+        Default
+          If SelectElement(ListEx()\Rows(), Row)
+            Result = InsertElement(ListEx()\Rows()) 
+          Else
+            LastElement(ListEx()\Rows())
+            Result = AddElement(ListEx()\Rows())
+          EndIf
+      EndSelect ;}
+      
+      If Result
+      
+        ListEx()\Row\Number    = ListSize(ListEx()\Rows())
+        ListEx()\Rows()\ID     = RowID
+        ListEx()\Rows()\Height = ListEx()\Row\Height
+        
+        ListEx()\Rows()\FontID = ListEx()\Row\FontID
+        
+        ListEx()\Rows()\Color\Front = ListEx()\Color\Front
+        ListEx()\Rows()\Color\Back  = ListEx()\Color\Back
+        ListEx()\Rows()\Color\Grid  = ListEx()\Color\Grid
+          
+        If Text <> ""
+          
+          CountText  = CountString(Text,   #LF$) + 1
+          CountLabel = CountString(Labels, "|")  + 1
+          
+          If CountText <> CountLabel : ProcedureReturn #False : EndIf
+          
+          FitColumn = #False
+          
+          For i=1 To CountText
+            
+            Label$ = StringField(Labels, i, "|")
+            Text$  = StringField(Text,  i, #LF$)
+            
+            ListEx()\Rows()\Column(Label$)\Value = Text$
+
+          Next
+          
+        EndIf
+        
+      EndIf
+      
+      If ListEx()\FitCols : Draw_() : EndIf
+      
+      If ListEx()\ReDraw
+        UpdateRowY_()
+        AdjustScrollBars_()
+        Draw_()
+      EndIf
+
+    EndIf
+    
+    ProcedureReturn ListIndex(ListEx()\Rows())
   EndProcedure
   
   Procedure.i AddItem(GNum.i, Row.i=-1, Text.s="", RowID.s="", Flags.i=#False) 
@@ -3951,7 +4025,7 @@ Module ListEx
     
   EndProcedure    
   
-  Procedure CloseEdit(GNum.i)
+  Procedure   CloseEdit(GNum.i)
     
     If FindMapElement(ListEx(), Str(GNum))
       
@@ -4358,6 +4432,40 @@ Module ListEx
     
   EndProcedure
   
+  Procedure.i GetColumnAttribute(GNum.i, Column.i, Attribute.i)
+    ; Attrib: #Align / #Width / #FontID
+    
+    If FindMapElement(ListEx(), Str(GNum))
+      
+      If SelectElement(ListEx()\Cols(), Column)
+        
+        Select Attribute
+          Case #Align
+            ProcedureReturn ListEx()\Cols()\Align 
+          Case #FontID
+            ProcedureReturn ListEx()\Cols()\FontID 
+          Case #Width
+            ProcedureReturn ListEx()\Cols()\Width
+        EndSelect
+      
+      EndIf
+      
+    EndIf
+    
+  EndProcedure  
+  
+  Procedure.s GetColumnLabel(GNum.i, Column.i)
+
+    If FindMapElement(ListEx(), Str(GNum))
+      
+      If SelectElement(ListEx()\Cols(), Column)
+        ProcedureReturn ListEx()\Cols()\Key 
+      EndIf
+      
+    EndIf
+    
+  EndProcedure    
+  
   Procedure.i GetColumnState(GNum.i, Row.i, Column.i)
     
     If FindMapElement(ListEx(), Str(GNum))
@@ -4370,28 +4478,6 @@ Module ListEx
       
     EndIf   
  
-  EndProcedure
-  
-  Procedure.i GetColumnAttribute(GNum.i, Column.i, Attribute.i)
-    ; Attrib: #Align / #Width / #FontID
-    
-    If FindMapElement(ListEx(), Str(GNum))
-      
-      If SelectElement(ListEx()\Cols(), Column)
-        
-        Select Attribute
-          Case #Align
-            ProcedureReturn ListEx()\Cols()\Align  
-          Case #Width
-            ProcedureReturn ListEx()\Cols()\Width
-          Case #FontID
-            ProcedureReturn ListEx()\Cols()\FontID
-        EndSelect
-      
-      EndIf
-      
-    EndIf
-    
   EndProcedure
 
   Procedure.i GetItemData(GNum.i, Row.i)
@@ -4591,7 +4677,8 @@ Module ListEx
       
       If SelectElement(ListEx()\Rows(), Row)
         ListEx()\Rows()\Column(Label)\Value = Text
-        If ListEx()\ReDraw : Draw_() : EndIf
+        If ListEx()\FitCols : Draw_() : EndIf
+        If ListEx()\ReDraw  : Draw_() : EndIf
       EndIf
       
     EndIf
@@ -5450,9 +5537,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 14
-; Folding = MBAAAICAAAAAAAAAAAAABAAAYAMAAAAgPAAoAAAAAAABi
-; Markers = 566
+; CursorPosition = 7
+; Folding = OBAAAAAAAAAAAAAAAAAABAAAQAIAAAAA5AAgCAAgAAAIQ9
+; Markers = 565
 ; EnableXP
 ; DPIAware
 ; EnableUnicode

@@ -14,7 +14,6 @@
 ; Copyright (c) 2012 mk-soft
 ; Copyright (c) 2013-2017 Sicro
 ; Copyright (c) 2014 ts-soft
-; Copyright (c) 2017 wilbert
 ; Copyright (c) 2019 Thorsten Hoeppner
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,6 +34,7 @@
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ; SOFTWARE.
 ;}
+
 
 ;{ _____ Date64 - Commands _____
 
@@ -101,21 +101,21 @@ Module Date64
       
       If Not Defined(tm, #PB_Structure)
         Structure tm Align #PB_Structure_AlignC
-          tm_sec.i 
-          tm_min.i
-          tm_hour.i
-          tm_mday.i
-          tm_mon.i
-          tm_year.i
-          tm_wday.i
-          tm_yday.i
-          tm_isdst.i
+          tm_sec.l 
+          tm_min.l
+          tm_hour.l
+          tm_mday.l
+          tm_mon.l
+          tm_year.l
+          tm_wday.l
+          tm_yday.l
+          tm_isdst.l
           CompilerIf #PB_Compiler_Processor = #PB_Processor_x86
-            tm_gmtoff.i
+            tm_gmtoff.l
             *tm_zone    
           CompilerElse
-            tm_zone.i 
-            tm_gmtoff.i
+            tm_zone.l 
+            tm_gmtoff.l
             *tm_zone64
           CompilerEndIf
         EndStructure
@@ -125,17 +125,17 @@ Module Date64
       
       If Not Defined(tm, #PB_Structure)
         Structure tm Align #PB_Structure_AlignC
-          tm_sec.i
-          tm_min.i
-          tm_hour.i
-          tm_mday.i
-          tm_mon.i
-          tm_year.i
-          tm_wday.i
-          tm_yday.i
-          tm_isdst.i 
-           tm_zone.i
-          tm_gmtoff.i
+          tm_sec.l
+          tm_min.l
+          tm_hour.l
+          tm_mday.l
+          tm_mon.l
+          tm_year.l
+          tm_wday.l
+          tm_yday.l
+          tm_isdst.l 
+           tm_zone.l
+          tm_gmtoff.l
           *tm_zone64
         EndStructure
       EndIf
@@ -735,8 +735,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 16
-; FirstLine = 9
-; Folding = N5BAAAk-
+; CursorPosition = 37
+; FirstLine = 263
+; Folding = 95BAAAk-
 ; EnableXP
 ; DPIAware
