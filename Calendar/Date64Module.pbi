@@ -4,7 +4,7 @@
 ;/
 ;/ [ PB V5.7x / 64Bit / All OS ]
 ;/
-;/ based on 'Module Date64' by mk-soft / Sicro / ts-soft
+;/ based on 'Module Date64' by mk-soft / Sicro / ts-soft / wilbert
 ;/
 ;/ adapted from Thorsten Hoeppner (07/2019)
 ;/
@@ -14,6 +14,7 @@
 ; Copyright (c) 2012 mk-soft
 ; Copyright (c) 2013-2017 Sicro
 ; Copyright (c) 2014 ts-soft
+; Copyright (c) 2017 wilbert
 ; Copyright (c) 2019 Thorsten Hoeppner
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -53,6 +54,7 @@
 
 ;}
 
+
 DeclareModule Date64
 
 	;- ===========================================================================
@@ -64,10 +66,12 @@ DeclareModule Date64
   Declare.i Day_(Date.q)
   Declare.i DayOfWeek_(Date.q)
   Declare.i DayOfYear_(Date.q)
+  Declare.i DaysInMonth_(Year.i, Month.i)
   Declare.s FormatDate_(Mask.s, Date.q) 
   Declare.i Minute_(Date.q)
   Declare.i Month_(Date.q)
   Declare.i Hour_(Date.q)
+  Declare.i IsLeapYear_(Year.i)
   Declare.q ParseDate_(Mask.s, Date.s)
   Declare.i Second_(Date.q)
   Declare.i Year_(Date.q)
@@ -101,7 +105,7 @@ Module Date64
       
       If Not Defined(tm, #PB_Structure)
         Structure tm Align #PB_Structure_AlignC
-          tm_sec.l 
+          tm_sec.l
           tm_min.l
           tm_hour.l
           tm_mday.l
@@ -112,33 +116,41 @@ Module Date64
           tm_isdst.l
           CompilerIf #PB_Compiler_Processor = #PB_Processor_x86
             tm_gmtoff.l
-            *tm_zone    
+            *tm_zone
           CompilerElse
-            tm_zone.l 
+            tm_zone.l
             tm_gmtoff.l
             *tm_zone64
           CompilerEndIf
+  
         EndStructure
       EndIf
       
     CompilerCase #PB_OS_MacOS
       
-      If Not Defined(tm, #PB_Structure)
-        Structure tm Align #PB_Structure_AlignC
-          tm_sec.l
-          tm_min.l
-          tm_hour.l
-          tm_mday.l
-          tm_mon.l
-          tm_year.l
-          tm_wday.l
-          tm_yday.l
-          tm_isdst.l 
-           tm_zone.l
-          tm_gmtoff.l
-          *tm_zone64
-        EndStructure
-      EndIf
+      ImportC ""
+        CFCalendarAddComponents(calendar, *at, options, componentDesc.p-ascii, value)
+        CFCalendarComposeAbsoluteTime(calendar, *at, componentDesc.p-ascii, year, month, day, hour, minute, second)
+        CFCalendarCreateWithIdentifier(allocator, identifier)
+        CFCalendarDecomposeAbsoluteTime(calendar, at.d, componentDesc.p-ascii, *component)
+        CFCalendarSetTimeZone(calendar, tz)
+        CFTimeZoneCopyDefault()
+        CFTimeZoneCreateWithTimeIntervalFromGMT(allocator, ti.d)
+        CFTimeZoneGetSecondsFromGMT.d(tz, at.d)
+      EndImport
+  
+      Global.i GregorianGMT, TimeZone
+  
+      Procedure Date64Init(); Init global variables GregorianGMT and TimeZone
+        Protected *kCFGregorianCalendar.Integer = dlsym_(#RTLD_DEFAULT, "kCFGregorianCalendar")
+        TimeZone = CFTimeZoneCreateWithTimeIntervalFromGMT(0, 0)
+        GregorianGMT = CFCalendarCreateWithIdentifier(0, *kCFGregorianCalendar\i)
+        CFCalendarSetTimeZone(GregorianGMT, TimeZone)
+        CFRelease_(TimeZone)
+        TimeZone = CFTimeZoneCopyDefault()
+      EndProcedure
+  
+      Date64Init()
       
   CompilerEndSelect ;}
 
@@ -163,7 +175,55 @@ Module Date64
       
   CompilerEndSelect ;}
   
-  Procedure.i IsLeapYear(Year.i)
+  Macro Windows_ReturnDatePart(Type)
+    Define   st.SYSTEMTIME
+
+    Date = Date * #Nano100_Second + #Nano100_1601To1970
+    FileTimeToSystemTime_(@Date, @st)
+
+    ProcedureReturn st\Type
+  EndMacro
+  
+  Macro Linux_ReturnDatePart(Type, ReturnCode)
+    Define   *tm.tm
+    Define.i Value
+
+    *tm = gmtime_(@Date)
+    If *tm
+      Value = *tm\Type
+    EndIf
+
+    ProcedureReturn ReturnCode
+  EndMacro
+  
+  Macro Mac_ReturnDatePart(Type)
+    Define.i DatePart
+
+    CFCalendarDecomposeAbsoluteTime(GregorianGMT, Date - 978307200, Type, @DatePart)
+
+    CompilerIf Type = "E"
+      ProcedureReturn DatePart - 1
+    CompilerElse
+      ProcedureReturn DatePart
+    CompilerEndIf
+  EndMacro
+  
+  Macro ReadMaskVariable(MaskVariable, ReturnVariable)
+    If Mid(Mask, i, 3) = MaskVariable
+      IsVariableFound = #True
+      ReturnVariable = Val(Mid(Date$, DatePos, 2))
+      DatePos + 2 ; Skip the 2 numbers of the number
+      i + 2       ; Skip the 3 characters of the variable
+      Continue
+    EndIf
+  EndMacro
+  
+  
+	;- ==========================================================================
+	;-   Module - Declared Procedures
+	;- ==========================================================================
+  
+  Procedure.i IsLeapYear_(Year.i)
     If Year < 1600
       ProcedureReturn Bool(Year % 4 = 0)
     Else
@@ -171,97 +231,94 @@ Module Date64
     EndIf
   EndProcedure
   
-  Procedure.i DaysInMonth(Year.i, Month.i)
+  Procedure.i DaysInMonth_(Year.i, Month.i)
     
     While Month > 12 : Month - 12 : Wend
-   
+    
+    While Month <  0 
+      Year  - 1
+      Month + 13
+    Wend
+    
+    If Month = 0 : Month = 1 : EndIf
+
     Select Month
-      Case 0, 1, 3, 5, 7, 8, 10, 12 ; Bugfixes for AddDate() with result 0
+      Case 1, 3, 5, 7, 8, 10, 12
         ProcedureReturn 31
       Case 4, 6, 9, 11
         ProcedureReturn 30
       Case 2
-        ProcedureReturn 28 + IsLeapYear(Year)
+        ProcedureReturn 28 + IsLeapYear_(Year)
     EndSelect
     
   EndProcedure
   
-	;- ==========================================================================
-	;-   Module - Declared Procedures
-	;- ==========================================================================
+  CompilerSelect #PB_Compiler_OS
+    CompilerCase #PB_OS_Windows
+      
+      Procedure.q Date_(Year.i=-1, Month.i=1, Day.i=1, Hour.i=0, Minute.i=0, Second.i=0)
+        Define   st.SYSTEMTIME
+        Define   ft.FILETIME, ft2.FILETIME
+        Define.i DaysInMonth
 
-  Procedure.q Date_(Year.i=#PB_Default, Month.i=1, Day.i=1, Hour.i=0, Minute.i=0, Second.i=0)
-    
-    CompilerSelect #PB_Compiler_OS
-      CompilerCase #PB_OS_Windows ;{ Windows
-        Define st.SYSTEMTIME
-        Define ft.FILETIME
-       
-        If Year > #PB_Default
-          
-          ;{ Correct incorrect data
-          While Second > 59
-            Minute + 1
-            Second - 60
-          Wend
-         
-          While Minute > 59
-            Hour + 1
-            Minute - 60
-          Wend
-         
-          While Hour > 23
-            Day + 1
-            Hour - 24
-          Wend
-         
-          While Day > DaysInMonth(Year, Month)
-            Day - DaysInMonth(Year, Month)
-            Month + 1
-          Wend
-         
-          While Month > 12
-            Year + 1
-            Month - 12
-            
-          Wend
-         
-          While Second < 0
+        If Year > -1 ; Valid date
+
+          Minute + Second / 60
+          Second % 60
+          If Second < 0
             Minute - 1
-            Second + 59
+            Second + 60
+          EndIf
+
+          Hour + Minute / 60
+          Minute % 60
+          If Minute < 0
+            Hour   - 1
+            Minute + 60
+          EndIf
+
+          Day + Hour / 24
+          Hour % 24
+          If Hour < 0
+            Day  - 1
+            Hour + 24
+          EndIf
+
+          While Month > 12
+            Year  + 1
+            Month - 12
           Wend
-         
-          While Minute < 0
-            Hour - 1
-            Minute + 59
+
+          DaysInMonth = DaysInMonth_(Year, Month)
+          While Day > DaysInMonth
+            Day - DaysInMonth
+            Month + 1
+            If Month > 12
+              Year  + 1
+              Month - 12
+            EndIf
+            DaysInMonth = DaysInMonth_(Year, Month)
           Wend
-         
-          While Hour < 0
-            Day - 1
-            Hour + 23
-          Wend
-         
-          While Day < 0
-            Day + DaysInMonth(Year, Month)
+
+          If Day < 0
             Month - 1
-          Wend
-         
-          While Month < 0
-            Year - 1
-            Month + 12
-          Wend
+            If Month = 0
+              Year  - 1
+              Month = 12
+            EndIf
+            Day + DaysInMonth_(Year, Month)
+          EndIf
           
           ; Bugfixes for AddDate() with result 0
           If Day = 0
             Month - 1
-            Day = DaysInMonth(Year, Month)
+            Day = DaysInMonth_(Year, Month)
           EndIf
 
           If Month = 0
             Year - 1
             Month = 12
           EndIf
-          ;}
           
           st\wYear   = Year
           st\wMonth  = Month
@@ -269,424 +326,297 @@ Module Date64
           st\wHour   = Hour
           st\wMinute = Minute
           st\wSecond = Second
-         
-          SystemTimeToFileTime_(@st, @ft)
-         
-          ProcedureReturn (PeekQ(@ft) - #Nano100_1601To1970) / #Nano100_Second
+
+          SystemTimeToFileTime_(@st, @ft) ; Convert system time (UTC) to file time (UTC)
+
+          ProcedureReturn (PeekQ(@ft) - #Nano100_1601To1970) / #Nano100_Second ; Convert UTC time to seconds
         Else
           
-          GetLocalTime_(@st)
-          SystemTimeToFileTime_(@st, @ft)
-         
-          ProcedureReturn (PeekQ(@ft) - #Nano100_1601To1970) / #Nano100_Second
+          GetLocalTime_(@st)              ; No valid date. Local system time is determined
+          SystemTimeToFileTime_(@st, @ft) ; "st" is read as UTC and convert to file time
+
+          ProcedureReturn (PeekQ(@ft) - #Nano100_1601To1970) / #Nano100_Second ; Convert UTC time to seconds
         EndIf
-        ;}
-      CompilerDefault             ;{ Linux / MacOS
-        Define tm.tm
+        
+      EndProcedure
+      
+    CompilerCase #PB_OS_Linux
+
+      Procedure.q Date_(Year.i=-1, Month.i=1, Day.i=1, Hour.i=0, Minute.i=0, Second.i=0)
+        Define   tm.tm
         Define.q time
-       
-        If Year > #PB_Default
           
-          tm\tm_year  = Year - 1900 
-          tm\tm_mon   = Month - 1
+        If Year > -1 ; Valid date
+          tm\tm_year  = Year - 1900 ; Years from 1900
+          tm\tm_mon   = Month - 1   ; Months from January
           tm\tm_mday  = Day
           tm\tm_hour  = Hour
           tm\tm_min   = Minute
           tm\tm_sec   = Second
 
-          time = mktime_(@tm)
-          If time >= 0
-            localtime_r_(@time, @tm)
-            time = mktime_(@tm)
-            ProcedureReturn time
-          Else
-            ProcedureReturn #False
-          EndIf
-         
+          time = timegm_(@tm) ; Convert structured UTC time to UTC time as seconds
+
+          ProcedureReturn time ; UTC time in seconds
         Else
-         
+          
           time = time_(0)
-          If time >= 0
-            localtime_r_(@time, @tm)
-            time = mktime_(@tm)
-            ProcedureReturn time
-          Else
-            ProcedureReturn #False
+          If localtime_r_(@time, @tm) <> 0
+            time = timegm_(@tm)
           EndIf
-         
+
+          ProcedureReturn time ; UTC time in seconds
         EndIf
-        ;}
-    CompilerEndSelect
-    
-  EndProcedure
+        
+      EndProcedure
+      
+    CompilerCase #PB_OS_MacOS
+      
+      Procedure.q Date_(Year.i=-1, Month.i=1, Day.i=1, Hour.i=0, Minute.i=0, Second.i=0)
+        Define.d at
+        
+        If Year > -1 ; Valid date
+          CFCalendarComposeAbsoluteTime(GregorianGMT, @at, "yMdHms", Year, Month, Day, Hour, Minute, Second)
+        Else 
+          at = CFAbsoluteTimeGetCurrent_()
+          at + CFTimeZoneGetSecondsFromGMT(TimeZone, at)
+        EndIf
+        
+        ProcedureReturn at + 978307200
+      EndProcedure
+      
+  CompilerEndSelect
+  
   
   Procedure.i Year_(Date.q)
-    
     CompilerSelect #PB_Compiler_OS
-      CompilerCase #PB_OS_Windows ;{ Windows
-        Define st.SYSTEMTIME
-       
-        Date = Date * #Nano100_Second + #Nano100_1601To1970
-        FileTimeToSystemTime_(@Date, @st)
-       
-        ProcedureReturn st\wYear
-        ;}
-      CompilerDefault             ;{ Linux / MacOS
-        Define   *Memory_localtime.tm
-        Define.i Year
-       
-        Date - GMTOffset(Date)
-       
-        *Memory_localtime = AllocateMemory(SizeOf(tm))
-        If *Memory_localtime
-          localtime_r_(@Date, *Memory_localtime)
-          Year = *Memory_localtime\tm_year + 1900
-          FreeMemory(*Memory_localtime)
-          ProcedureReturn Year
-        Else
-          ProcedureReturn #PB_Default
-        EndIf
-        ;}
+      CompilerCase #PB_OS_Windows
+        Windows_ReturnDatePart(wYear)
+      CompilerCase #PB_OS_Linux
+        Linux_ReturnDatePart(tm_year, Value + 1900)
+      CompilerCase #PB_OS_MacOS
+        Mac_ReturnDatePart("y")
     CompilerEndSelect
-    
   EndProcedure
   
   Procedure.i Month_(Date.q)
-    
     CompilerSelect #PB_Compiler_OS
-      CompilerCase #PB_OS_Windows  ;{ Windows
-        Define st.SYSTEMTIME
-       
-        Date = Date * #Nano100_Second + #Nano100_1601To1970
-        FileTimeToSystemTime_(@Date, @st)
-       
-        ProcedureReturn st\wMonth
-        ;}
-      CompilerDefault              ;{ Linux / MacOS
-        Define *Memory_localtime.tm
-        Define.i Month
-       
-        Date - GMTOffset(Date)
-       
-        *Memory_localtime = AllocateMemory(SizeOf(tm))
-        If *Memory_localtime
-          localtime_r_(@Date, *Memory_localtime)
-          Month = *Memory_localtime\tm_mon + 1
-          FreeMemory(*Memory_localtime)
-          ProcedureReturn Month
-        Else
-          ProcedureReturn #PB_Default
-        EndIf
-        ;}
+      CompilerCase #PB_OS_Windows
+        Windows_ReturnDatePart(wMonth)
+      CompilerCase #PB_OS_Linux
+        Linux_ReturnDatePart(tm_mon, Value + 1)
+      CompilerCase #PB_OS_MacOS
+        Mac_ReturnDatePart("M")
     CompilerEndSelect
-    
   EndProcedure
   
   Procedure.i Day_(Date.q)
-    
     CompilerSelect #PB_Compiler_OS
-      CompilerCase #PB_OS_Windows ;{ Windows
-        Define st.SYSTEMTIME
-       
-        Date = Date * #Nano100_Second + #Nano100_1601To1970
-        FileTimeToSystemTime_(@Date, @st)
-        
-        ProcedureReturn st\wDay
-        ;}
-      CompilerDefault             ;{ Linux / MacOS
-        Define *Memory_localtime.tm
-        Define.i  Day
-       
-        Date - GMTOffset(Date)
-       
-        *Memory_localtime = AllocateMemory(SizeOf(tm))
-        If *Memory_localtime
-          localtime_r_(@Date, *Memory_localtime)
-          Day = *Memory_localtime\tm_mday
-          FreeMemory(*Memory_localtime)
-          ProcedureReturn Day
-        Else
-          ProcedureReturn #PB_Default
-        EndIf
-        ;}
+      CompilerCase #PB_OS_Windows
+        Windows_ReturnDatePart(wDay)
+      CompilerCase #PB_OS_Linux
+        Linux_ReturnDatePart(tm_mday, Value)
+      CompilerCase #PB_OS_MacOS
+        Mac_ReturnDatePart("d")
     CompilerEndSelect
-    
   EndProcedure
   
   Procedure.i Hour_(Date.q)
-    
     CompilerSelect #PB_Compiler_OS
-      CompilerCase #PB_OS_Windows ;{ Windows
-        Define st.SYSTEMTIME
-       
-        Date = Date * #Nano100_Second + #Nano100_1601To1970
-        FileTimeToSystemTime_(@Date, @st)
-       
-        ProcedureReturn st\wHour
-        ;}
-      CompilerDefault             ;{ Linux / MacOS
-        Define *Memory_localtime.tm
-        Define.i  Hour
-       
-        Date - GMTOffset(Date)
-       
-        *Memory_localtime = AllocateMemory(SizeOf(tm))
-        If *Memory_localtime
-          localtime_r_(@Date, *Memory_localtime)
-          Hour = *Memory_localtime\tm_hour
-          FreeMemory(*Memory_localtime)
-          ProcedureReturn Hour
-        Else
-          ProcedureReturn #PB_Default
-        EndIf
-        ;}
+      CompilerCase #PB_OS_Windows
+        Windows_ReturnDatePart(wHour)
+      CompilerCase #PB_OS_Linux
+        Linux_ReturnDatePart(tm_hour, Value)
+      CompilerCase #PB_OS_MacOS
+        Mac_ReturnDatePart("H")
     CompilerEndSelect
-    
   EndProcedure
  
   Procedure.i Minute_(Date.q)
-    
     CompilerSelect #PB_Compiler_OS
-      CompilerCase #PB_OS_Windows ;{ Windows
-        Define st.SYSTEMTIME
-       
-        Date = Date * #Nano100_Second + #Nano100_1601To1970
-        FileTimeToSystemTime_(@Date, @st)
-       
-        ProcedureReturn st\wMinute
-        ;}
-      CompilerDefault             ;{ Linux / MacOS
-        Define *Memory_localtime.tm
-        Define.i Minute
-       
-        Date - GMTOffset(Date)
-       
-        *Memory_localtime = AllocateMemory(SizeOf(tm))
-        If *Memory_localtime
-          localtime_r_(@Date, *Memory_localtime)
-          Minute = *Memory_localtime\tm_min
-          FreeMemory(*Memory_localtime)
-          ProcedureReturn Minute
-        Else
-          ProcedureReturn #PB_Default
-        EndIf
-        ;}
+      CompilerCase #PB_OS_Windows
+        Windows_ReturnDatePart(wMinute)
+      CompilerCase #PB_OS_Linux
+        Linux_ReturnDatePart(tm_min, Value)
+      CompilerCase #PB_OS_MacOS
+        Mac_ReturnDatePart("m")
     CompilerEndSelect
-    
   EndProcedure
  
   Procedure.i Second_(Date.q)
-    
     CompilerSelect #PB_Compiler_OS
-      CompilerCase #PB_OS_Windows ;{ Windows
-        Define st.SYSTEMTIME
-       
-        Date = Date * #Nano100_Second + #Nano100_1601To1970
-        FileTimeToSystemTime_(@Date, @st)
-       
-        ProcedureReturn st\wSecond
-        ;}
-      CompilerDefault             ;{ Linux / MacOS
-        Define *Memory_localtime.tm
-        Define.i Second
-       
-        Date - GMTOffset(Date)
-       
-        *Memory_localtime = AllocateMemory(SizeOf(tm))
-        If *Memory_localtime
-          localtime_r_(@Date, *Memory_localtime)
-          Second = *Memory_localtime\tm_sec
-          FreeMemory(*Memory_localtime)
-          ProcedureReturn Second
-        Else
-          ProcedureReturn #PB_Default
-        EndIf
-        ;}
+      CompilerCase #PB_OS_Windows
+        Windows_ReturnDatePart(wSecond)
+      CompilerCase #PB_OS_Linux
+        Linux_ReturnDatePart(tm_sec, Value)
+      CompilerCase #PB_OS_MacOS
+        Mac_ReturnDatePart("s")
     CompilerEndSelect
-    
   EndProcedure
   
   Procedure.i DayOfWeek_(Date.q)
-    
     CompilerSelect #PB_Compiler_OS
-      CompilerCase #PB_OS_Windows ;{ Windows
-        Define st.SYSTEMTIME
-       
-        Date = Date * #Nano100_Second + #Nano100_1601To1970
-        FileTimeToSystemTime_(@Date, @st)
-       
-        ProcedureReturn st\wDayOfWeek
-        ;}
-      CompilerDefault             ;{ Linux / MacOS
-        Define *Memory_localtime.tm
-        Define.i DayOfWeek
-       
-        Date - GMTOffset(Date)
-       
-        *Memory_localtime = AllocateMemory(SizeOf(tm))
-        If *Memory_localtime
-          localtime_r_(@Date, *Memory_localtime)
-          DayOfWeek = *Memory_localtime\tm_wday
-          FreeMemory(*Memory_localtime)
-          ProcedureReturn DayOfWeek
-        Else
-          ProcedureReturn #PB_Default
-        EndIf
-        ;}
+      CompilerCase #PB_OS_Windows
+        Windows_ReturnDatePart(wDayOfWeek)
+      CompilerCase #PB_OS_Linux
+        Linux_ReturnDatePart(tm_wday, Value)
+      CompilerCase #PB_OS_MacOS
+        Mac_ReturnDatePart("E")
     CompilerEndSelect
-    
   EndProcedure
  
   Procedure.i DayOfYear_(Date.q)
-    
     CompilerSelect #PB_Compiler_OS
-      CompilerCase #PB_OS_Windows ;{ Windows
-        Define.q yearDate
-       
-        yearDate = Date_(Year_(Date))
-       
-        ProcedureReturn (Date - yearDate) / #Seconds_Day + 1
-        ;}
-      CompilerDefault             ;{ Linux / MacOS
-        Define *Memory_localtime.tm
-        Define.i  DayOfYear
-       
-        Date - GMTOffset(Date)
-       
-        *Memory_localtime = AllocateMemory(SizeOf(tm))
-        If *Memory_localtime
-          localtime_r_(@Date, *Memory_localtime)
-          DayOfYear = *Memory_localtime\tm_yday
-          FreeMemory(*Memory_localtime)
-          ProcedureReturn DayOfYear + 1
-        Else
-          ProcedureReturn #PB_Default
-        EndIf
-        ;}
+      CompilerCase #PB_OS_Windows
+        Define.q TempDate
+        TempDate = Date_(Year_(Date))
+        ProcedureReturn (Date - TempDate) / #Seconds_Day + 1
+      CompilerCase #PB_OS_Linux
+        Linux_ReturnDatePart(tm_yday, Value + 1)
+      CompilerCase #PB_OS_MacOS
+        Mac_ReturnDatePart("D")
     CompilerEndSelect
-    
   EndProcedure
   
-  Procedure.q AddDate_(Date.q, Type.i, Value.i)
-    Define.i Day, Month, Year
-   
-    Select Type
-      Case #PB_Date_Year
-        ProcedureReturn Date_(Year_(Date) + Value, Month_(Date), Day_(Date), Hour_(Date), Minute_(Date), Second_(Date))
-      Case #PB_Date_Month
-        Day   = Day_(Date)
-        Month = Month_(Date) + Value
-        Year  = Year_(Date)
-        If Day > DaysInMonth(Year, Month) : Day = DaysInMonth(Year, Month) : EndIf
-        ProcedureReturn Date_(Year_(Date), Month, Day, Hour_(Date), Minute_(Date), Second_(Date))
-      Case #PB_Date_Week
-        ProcedureReturn Date_(Year_(Date), Month_(Date), Day_(Date) + Value * 7, Hour_(Date), Minute_(Date), Second_(Date))
-      Case #PB_Date_Day
-        ProcedureReturn Date_(Year_(Date), Month_(Date), Day_(Date) + Value, Hour_(Date), Minute_(Date), Second_(Date))
-      Case #PB_Date_Hour
-        ProcedureReturn Date_(Year_(Date), Month_(Date), Day_(Date), Hour_(Date) + Value, Minute_(Date), Second_(Date))
-      Case #PB_Date_Minute
-        ProcedureReturn Date_(Year_(Date), Month_(Date), Day_(Date), Hour_(Date), Minute_(Date) + Value, Second_(Date))
-      Case #PB_Date_Second
-        ProcedureReturn Date_(Year_(Date), Month_(Date), Day_(Date), Hour_(Date), Minute_(Date), Second_(Date) + Value)
-    EndSelect
+  
+  CompilerIf #PB_Compiler_OS = #PB_OS_MacOS
     
-  EndProcedure
+    Procedure.q AddDate_Date.q, Type.i, Value.i)
+      Define.d at
+      
+      at = Date - 978307200
+      
+      Select Type
+        Case #PB_Date_Year
+          CFCalendarAddComponents(GregorianGMT, @at, 0, "y", Value)
+        Case #PB_Date_Month
+          CFCalendarAddComponents(GregorianGMT, @at, 0, "M", Value)
+        Case #PB_Date_Week
+          CFCalendarAddComponents(GregorianGMT, @at, 0, "d", Value * 7)
+        Case #PB_Date_Day
+          CFCalendarAddComponents(GregorianGMT, @at, 0, "d", Value)
+        Case #PB_Date_Hour
+          CFCalendarAddComponents(GregorianGMT, @at, 0, "H", Value)
+        Case #PB_Date_Minute
+          CFCalendarAddComponents(GregorianGMT, @at, 0, "m", Value)
+        Case #PB_Date_Second
+          CFCalendarAddComponents(GregorianGMT, @at, 0, "s", Value)
+      EndSelect
+
+      ProcedureReturn at + 978307200 
+    EndProcedure
+    
+  CompilerElse ; Windows or Linux
+    
+    Procedure.q AddDate_(Date.q, Type.i, Value.i)
+      Define.i Day, Month, Year
+
+      Select Type
+        Case #PB_Date_Year
+          
+          ProcedureReturn Date_(Year_(Date) + Value, Month_(Date), Day_(Date), Hour_(Date), Minute_(Date), Second_(Date))
+          
+        Case #PB_Date_Month
+          
+          Day   = Day_(Date)
+          Month = Month_(Date) + Value
+          Year  = Year_(Date)
+
+          If Day > DaysInMonth_(Year, Month)
+            Day = DaysInMonth_(Year, Month) ; Set day to the maximum of the new month
+          EndIf
+
+          ProcedureReturn Date_(Year_(Date), Month, Day, Hour_(Date), Minute_(Date), Second_(Date))
+
+        Case #PB_Date_Week
+          
+          ProcedureReturn Date_(Year_(Date), Month_(Date), Day_(Date) + Value * 7, Hour_(Date), Minute_(Date), Second_(Date))
+          
+        Case #PB_Date_Day
+          
+          ProcedureReturn Date_(Year_(Date), Month_(Date), Day_(Date) + Value, Hour_(Date), Minute_(Date), Second_(Date))
+          
+        Case #PB_Date_Hour
+          
+          ProcedureReturn Date_(Year_(Date), Month_(Date), Day_(Date), Hour_(Date) + Value, Minute_(Date), Second_(Date))
+          
+        Case #PB_Date_Minute
+          
+          ProcedureReturn Date_(Year_(Date), Month_(Date), Day_(Date), Hour_(Date), Minute_(Date) + Value, Second_(Date))
+          
+        Case #PB_Date_Second
+          
+          ProcedureReturn Date_(Year_(Date), Month_(Date), Day_(Date), Hour_(Date), Minute_(Date), Second_(Date) + Value)
+          
+      EndSelect
+      
+    EndProcedure  
  
+  CompilerEndIf
+
   Procedure.s FormatDate_(Mask.s, Date.q)
-    Define.s String
-   
-    String = ReplaceString(Mask,   "%yyyy", RSet(Str(Year_(Date)),   4, "0"))
-    String = ReplaceString(String, "%yy",   RSet(Right(Str(Year_(Date)), 2), 2, "0"))
-    String = ReplaceString(String, "%mm",   RSet(Str(Month_(Date)),  2, "0"))
-    String = ReplaceString(String, "%dd",   RSet(Str(Day_(Date)),    2, "0"))
-    String = ReplaceString(String, "%hh",   RSet(Str(Hour_(Date)),   2, "0"))
-    String = ReplaceString(String, "%ii",   RSet(Str(Minute_(Date)), 2, "0"))
-    String = ReplaceString(String, "%ss",   RSet(Str(Second_(Date)), 2, "0"))
-   
-    ProcedureReturn String
+    Define.s Result$
+
+    Result$ = ReplaceString(Mask,   "%yyyy", RSet(Str(Year_(Date)),           4, "0"))
+    Result$ = ReplaceString(Result$, "%yy",  RSet(Right(Str(Year_(Date)), 2), 2, "0"))
+    Result$ = ReplaceString(Result$, "%mm",  RSet(Str(Month_(Date)),          2, "0"))
+    Result$ = ReplaceString(Result$, "%dd",  RSet(Str(Day_(Date)),            2, "0"))
+    Result$ = ReplaceString(Result$, "%hh",  RSet(Str(Hour_(Date)),           2, "0"))
+    Result$ = ReplaceString(Result$, "%ii",  RSet(Str(Minute_(Date)),         2, "0"))
+    Result$ = ReplaceString(Result$, "%ss",  RSet(Str(Second_(Date)),         2, "0"))
+
+    ProcedureReturn Result$
   EndProcedure
  
-  Procedure.q ParseDate_(Mask.s, Date.s)
+  Procedure.q ParseDate_(Mask.s, Date$)
     Define.i i, DatePos, IsVariableFound, Year, Month, Day, Hour, Minute, Second
-    Define.s MaskChar, DateChar
+    Define.s MaskChar$, DateChar$
     
     DatePos = 1
     Month   = 1
     Day     = 1
-
+    
     For i = 1 To Len(Mask)
       
-      MaskChar = Mid(Mask, i, 1)
-      DateChar = Mid(Date, DatePos, 1)
-     
-      If MaskChar <> DateChar
-        If MaskChar = "%"
+      MaskChar$ = Mid(Mask, i, 1)
+      DateChar$ = Mid(Date$, DatePos, 1)
+
+      If MaskChar$ <> DateChar$
+        
+        If MaskChar$ = "%"
+
           If Mid(Mask, i, 5) = "%yyyy"
             IsVariableFound = #True
-            Year = Val(Mid(Date, DatePos, 4))
-            DatePos + 4 
-            i + 4 
+            Year = Val(Mid(Date$, DatePos, 4))
+            DatePos + 4 ; Skip the 4 numbers of the year
+            i + 4       ; Skip the 5 characters of the variable "%yyyy"
             Continue
           ElseIf Mid(Mask, i, 3) = "%yy"
             IsVariableFound = #True
-            Year = Val(Mid(Date, DatePos, 2))
-            DatePos + 2
-            i + 2
+            Year = Val(Mid(Date$, DatePos, 2))
+            DatePos + 2 ; Skip the 2 numbers of the year
+            i + 2       ; Skip the 3 characters of the variable "%yy"
             Continue
           EndIf
-         
-          If Mid(Mask, i, 3) = "%mm"
-            IsVariableFound = #True
-            Month = Val(Mid(Date, DatePos, 2))
-            DatePos + 2
-            i + 2
-            Continue
-          EndIf
-         
-          If Mid(Mask, i, 3) = "%dd"
-            IsVariableFound = #True
-            Day = Val(Mid(Date, DatePos, 2))
-            DatePos + 2 
-            i + 2
-            Continue
-          EndIf
-         
-          If Mid(Mask, i, 3) = "%hh"
-            IsVariableFound = #True
-            Hour = Val(Mid(Date, DatePos, 2))
-            DatePos + 2
-            i + 2
-            Continue
-          EndIf
-         
-          If Mid(Mask, i, 3) = "%ii"
-            IsVariableFound = #True
-            Minute = Val(Mid(Date, DatePos, 2))
-            DatePos + 2
-            i + 2
-            Continue
-          EndIf
-         
-          If Mid(Mask, i, 3) = "%ss"
-            IsVariableFound = #True
-            Second = Val(Mid(Date, DatePos, 2))
-            DatePos + 2
-            i + 2 
-            Continue
-          EndIf
-         
+
+          ReadMaskVariable("%mm", Month)
+          ReadMaskVariable("%dd", Day)
+          ReadMaskVariable("%hh", Hour)
+          ReadMaskVariable("%ii", Minute)
+          ReadMaskVariable("%ss", Second)
+
           If Not IsVariableFound
             ProcedureReturn #False
           EndIf
+
         Else
           ProcedureReturn #False
         EndIf
+
       EndIf
-     
+
       DatePos + 1
     Next
-   
+
     ProcedureReturn Date_(Year, Month, Day, Hour, Minute, Second)
   EndProcedure
   
@@ -735,8 +665,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 37
-; FirstLine = 263
-; Folding = 95BAAAk-
+; CursorPosition = 56
+; FirstLine = 48
+; Folding = M6BDm9
 ; EnableXP
 ; DPIAware
