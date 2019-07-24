@@ -10,12 +10,9 @@
 ;/
 
 
-; Last Update: 06.07.19
+; Last Update: 24.07.19
 ;
 ; BugFixes
-;
-; Added: #ModifyByCursor for LineChart
-; Added: Popup-Menü für gesamten ChartBereich
 ;
 
 ;{ ===== MIT License =====
@@ -1142,7 +1139,6 @@ Module Chart
             Chart()\Item()\Height = 0
             cHeight = 0
             Chart()\Item()\Height = cHeight
-            Text$ = Str(Chart()\Item()\Value)
             Color = #Error
           EndIf ;}
 
@@ -1636,13 +1632,11 @@ Module Chart
                 Else
                   bHeight = 0
                   Chart()\Series()\Item()\Height = bHeight
-                  Text$ = Str(Chart()\Series()\Item()\Value)
                   Color = #Error
                 EndIf ;}
                 
                 If Chart()\Bar\Flags & #OutOfRange ;{
                   If Chart()\Series()\Item()\Value < Chart()\Current\Minimum Or Chart()\Series()\Item()\Value > Chart()\Current\Maximum
-                    Text$ = Str(Chart()\Series()\Item()\Value)
                     Color = #Error
                   EndIf
                   UnclipOutput()
@@ -2162,7 +2156,6 @@ Module Chart
                 Chart()\Series()\Item()\Height = 0
                 cHeight = 0
                 Chart()\Series()\Item()\Height = cHeight
-                Text$ = Str(Chart()\Series()\Item()\Value)
                 Color = #Error
               EndIf
               
@@ -2516,7 +2509,6 @@ Module Chart
             
             If Chart()\Bar\Flags & #OutOfRange ;{
               If Chart()\Item()\Value < Chart()\Current\Minimum Or Chart()\Item()\Value > Chart()\Current\Maximum
-                Text$ = Str(Chart()\Item()\Value)
                 Color = #Error
               EndIf
               UnclipOutput()
@@ -2526,7 +2518,6 @@ Module Chart
           Else
             bWidth = 0
             Chart()\Item()\Width = bWidth
-            Text$ = Str(Chart()\Item()\Value)
             Color = #Error
           EndIf ;}
           
@@ -2811,7 +2802,6 @@ Module Chart
           
           If Chart()\Bar\Flags & #OutOfRange ;{
             If Chart()\Item()\Value < Chart()\Current\Minimum Or Chart()\Item()\Value > Chart()\Current\Maximum
-              Text$ = Str(Chart()\Item()\Value)
               Color = #Error
             EndIf
             UnclipOutput()
@@ -2821,7 +2811,6 @@ Module Chart
         Else
           bHeight = 0
           Chart()\Item()\Height = bHeight
-          Text$ = Str(Chart()\Item()\Value)
           Color = #Error
         EndIf ;}
         
@@ -3073,7 +3062,7 @@ Module Chart
                 If Y > Chart()\Series()\Legend\Y And Y < Chart()\Series()\Legend\Y + Chart()\Series()\Legend\Height
                   
                   UpdateEventData_(#NotValid, "", 0, Chart()\Series()\Color, Chart()\Series()\Label)
-                  PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_RightClick)
+                  PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_LeftDoubleClick)
                   
                   ProcedureReturn #True
                 EndIf
@@ -3088,7 +3077,7 @@ Module Chart
                   If Y > Chart()\Series()\Legend\Y And Y < Chart()\Series()\Legend\Y + Chart()\Series()\Legend\Height
                     
                     UpdateEventData_(#NotValid, "", 0, Chart()\Series()\Color, Chart()\Series()\Label)
-                    PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_RightClick)
+                    PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_LeftDoubleClick)
                     
                   EndIf
                 EndIf
@@ -3106,7 +3095,7 @@ Module Chart
                 If Y > Chart()\Series()\Item()\Y And Y < Chart()\Series()\Item()\Y + Chart()\Series()\Item()\Height
 
                   UpdateEventData_(ListIndex(Chart()\Series()\Item()), Chart()\Series()\Item()\Label, Chart()\Series()\Item()\Value, Chart()\Series()\Color, Chart()\Series()\Label)
-                  PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_LeftClick, ListIndex(Chart()\Series()\Item()))
+                  PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_LeftDoubleClick, ListIndex(Chart()\Series()\Item()))
                   
                   ProcedureReturn #True
                 EndIf
@@ -3459,7 +3448,7 @@ Module Chart
                 If Y > Chart()\Series()\Legend\Y And Y < Chart()\Series()\Legend\Y + Chart()\Series()\Legend\Height
                   
                   UpdateEventData_(#NotValid, "", 0, Chart()\Series()\Color, Chart()\Series()\Label)
-                  PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_RightClick)
+                  PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_LeftClick)
                   
                   ProcedureReturn #True
                 EndIf
@@ -3474,7 +3463,7 @@ Module Chart
                   If Y > Chart()\Series()\Legend\Y And Y < Chart()\Series()\Legend\Y + Chart()\Series()\Legend\Height
                     
                     UpdateEventData_(#NotValid, "", 0, Chart()\Series()\Color, Chart()\Series()\Label)
-                    PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_RightClick)
+                    PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_LeftClick)
                     
                   EndIf
                 EndIf
@@ -5330,8 +5319,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 4965
-; FirstLine = 1870
-; Folding = CBAcQCAY1P7neE0CB1R9e1xAw-O1A-kBEQAkvAAagCCgzfE-
+; CursorPosition = 14
+; Folding = eBAcQCA51v8neU0CV4R-e1xAU1Q9A-9BEQAkvAAagCCgz---
 ; EnableXP
 ; DPIAware
