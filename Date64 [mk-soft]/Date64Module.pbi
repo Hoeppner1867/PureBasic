@@ -4,6 +4,8 @@
 ;/
 ;/ [ PB V5.7x / 64Bit / All OS ]
 ;/
+;/ Support for enlarged date range (64 bit unix timestamp)
+;/
 ;/ based on 'Module Date64' by mk-soft / Sicro / ts-soft / wilbert
 ;/
 ;/ adapted from Thorsten Hoeppner (07/2019)
@@ -37,20 +39,29 @@
 ;}
 
 
+; !!! >>> WARNING <<< !!!
+; The Gregorian calendar was introduced in many regions at different times.
+; This module uses the API date functions of the operating system and these have implemented a
+; uniform introduction time, so that date calculations before the introduction of the Gregorian
+; calendar usually lead to wrong results.
+
+
 ;{ _____ Date64 - Commands _____
 
-; Date64::AddDate_()    - similar to AddDate()
-; Date64::Date_()       - similar to Date()
-; Date64::Day_()        - similar to Day()
-; Date64::DayOfWeek_()  - similar to DayOfWeek() 
-; Date64::DayOfYear_()  - similar to DayOfYear()
-; Date64::FormatDate_() - similar to FormatDate()
-; Date64::Minute_()     - similar to Minute()
-; Date64::Month_()      - similar to Month()
-; Date64::Hour_()       - similar to Hour()
-; Date64::ParseDate_()  - similar to ParseDate()
-; Date64::Second_()     - similar to Second()
-; Date64::Year_()       - similar to Year()
+; Date64::AddDate_()     - similar to AddDate()
+; Date64::Date_()        - similar to Date()
+; Date64::Day_()         - similar to Day()
+; Date64::DayOfWeek_()   - similar to DayOfWeek() 
+; Date64::DayOfYear_()   - similar to DayOfYear()
+; Date64::DaysInMonth_() - number of days of this month
+; Date64::FormatDate_()  - similar to FormatDate()
+; Date64::Minute_()      - similar to Minute()
+; Date64::Month_()       - similar to Month()
+; Date64::Hour_()        - similar to Hour()
+; Date64::IsLeapYear_()  - check whether it is a leap year
+; Date64::ParseDate_()   - similar to ParseDate()
+; Date64::Second_()      - similar to Second()
+; Date64::Year_()        - similar to Year()
 
 ;}
 
@@ -97,13 +108,24 @@ Module Date64
 	;- ============================================================================
 	;-   Module - Structures
 	;- ============================================================================
-	
-  CompilerSelect #PB_Compiler_OS ;{ OS specific structure
+
+  CompilerSelect #PB_Compiler_OS ;{ OS specific
     CompilerCase #PB_OS_Windows
-     
+      
+      ; >> Minimum: 01.01.1601 00:00:00
+      ; >> Maximum: 31.12.9999 23:59:59
+      
     CompilerCase #PB_OS_Linux
       
+      ; 32-Bit:
+      ; >> Minimum: 01.01.1902 00:00:00
+      ; >> Maximum: 18.01.2038 23:59:59
+      ; 64-Bit:
+      ; >> Minimum: 01.01.0000 00:00:00
+      ; >> Maximum: 31.12.9999 23:59:59
+      
       If Not Defined(tm, #PB_Structure)
+        
         Structure tm Align #PB_Structure_AlignC
           tm_sec.l
           tm_min.l
@@ -122,11 +144,14 @@ Module Date64
             tm_gmtoff.l
             *tm_zone64
           CompilerEndIf
-  
         EndStructure
+        
       EndIf
       
     CompilerCase #PB_OS_MacOS
+      
+      ; >> Minimum: 31.12.1969 23:59:59
+      ; >> Maximum: 31.12.9999 23:59:59
       
       ImportC ""
         CFCalendarAddComponents(calendar, *at, options, componentDesc.p-ascii, value)
@@ -157,26 +182,9 @@ Module Date64
 	;- ============================================================================
 	;-   Module - Internal
 	;- ============================================================================
-  
-  CompilerSelect #PB_Compiler_OS ;{ OS specific procedure
-    CompilerCase #PB_OS_Windows
-      
-    CompilerDefault
-      
-      Procedure.i GMTOffset(Date.q)
-        Define tm.tm
-        Define.i OffSet
-        localtime_r_(@Date, @tm)
-        If TM\tm_isdst
-          OffSet = 3600
-        EndIf
-        ProcedureReturn OffSet
-      EndProcedure
-      
-  CompilerEndSelect ;}
-  
+
   Macro Windows_ReturnDatePart(Type)
-    Define   st.SYSTEMTIME
+    Define st.SYSTEMTIME
 
     Date = Date * #Nano100_Second + #Nano100_1601To1970
     FileTimeToSystemTime_(@Date, @st)
@@ -626,6 +634,8 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
+  #Enable_SelfTest = #False  
+  
   Define Event.i, Date.q
   
   Enumeration 
@@ -636,6 +646,65 @@ CompilerIf #PB_Compiler_IsMainFile
     #Date32
     #Text
   EndEnumeration
+  
+  CompilerIf #Enable_SelfTest
+    
+    Procedure SelfTest(Minimum.s, Maximum.s)
+      Define.s Result64$
+      Define.q Date64
+      
+      Debug "---------------------"
+      Debug "Self-Test"
+      Debug "---------------------"
+      Debug ""
+
+      Date64    = Date64::ParseDate_("%dd.%mm.%yyyy %hh:%ii:%ss",  Minimum)
+      Result64$ = Date64::FormatDate_("%dd.%mm.%yyyy %hh:%ii:%ss", Date64)
+      
+      If Minimum <> Result64$
+        Debug "Minimum is wrong:"
+        Debug "> Expected was: "    + Minimum
+        Debug "> It was returned: " + Result64$
+      Else
+        Debug "Minimum:  " + Result64$
+      EndIf
+      
+      Date64    = Date64::ParseDate_("%dd.%mm.%yyyy %hh:%ii:%ss",  Maximum)
+      Result64$ = Date64::FormatDate_("%dd.%mm.%yyyy %hh:%ii:%ss", Date64)
+      
+      If Maximum <> Result64$
+        Debug "Maximum is wrong:"
+        Debug "> Expected was: "    + Maximum
+        Debug "> It was returned: " + Result64$
+      Else
+        Debug "Maximum: " + Result64$
+      EndIf
+      
+    EndProcedure
+    
+    CompilerSelect #PB_Compiler_OS
+      CompilerCase #PB_OS_Windows
+        
+        SelfTest("01.01.1601 00:00:00", "31.12.9999 23:59:59")
+        
+      CompilerCase #PB_OS_Linux
+        CompilerIf #PB_Compiler_Processor = #PB_Processor_x86
+          
+          SelfTest("01.01.1902 00:00:00", "18.01.2038 23:59:59")
+          
+        CompilerElse
+          
+          SelfTest("01.01.0000 00:00:00", "31.12.9999 23:59:59")
+          
+        CompilerEndIf
+        
+      CompilerCase #PB_OS_MacOS
+        
+        SelfTest("31.12.1969 23:59:59", "31.12.9999 23:59:59")
+        
+    CompilerEndSelect
+    
+  CompilerEndIf
   
   If OpenWindow(#Window, 0, 0, 220, 70, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
     
@@ -665,8 +734,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 56
-; FirstLine = 48
-; Folding = M6BDm9
+; CursorPosition = 195
+; FirstLine = 138
+; Folding = cfwgJ0
 ; EnableXP
 ; DPIAware
