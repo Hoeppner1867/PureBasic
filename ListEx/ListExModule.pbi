@@ -10,7 +10,9 @@
 ;/
   
 
-; Last Update: 18.07.2019
+; Last Update: 24.07.2019
+;
+; - Added: individual colors for the columns of the header line
 ;
 ; - Added: GetColumnLabel()
 ; - Added: AddCells() to adds a new row and inserts text in cells with label
@@ -484,6 +486,8 @@ Module ListEx
     Align.i
     FontID.i
     Image.Image_Structure
+    FrontColor.i
+    BackColor.i
     Flags.i
   EndStructure ;}
   
@@ -1869,6 +1873,11 @@ Module ListEx
             DrawingFont(ListEx()\Cols()\Header\FontID)
           EndIf
           
+          If ListEx()\Cols()\Header\BackColor <> #PB_Default
+            DrawingMode(#PB_2DDrawing_Default)
+            Box(colX, rowY, ListEx()\Cols()\Width, ListEx()\Header\Height, ListEx()\Cols()\Header\BackColor)
+          EndIf 
+          
           If CurrentColumn_() = ListEx()\Sort\Column And ListEx()\Cols()\Header\Sort & #SortArrows
             Arrow_(colX, rowY, ListEx()\Cols()\Width, ListEx()\Header\Height, ListEx()\Cols()\Header\Direction) 
           EndIf
@@ -1898,10 +1907,16 @@ Module ListEx
             Align = ListEx()\Cols()\Header\Align
           EndIf
           
+          If ListEx()\Cols()\Header\FrontColor = #PB_Default
+            FrontColor = ListEx()\Color\HeaderFront
+          Else
+            FrontColor = ListEx()\Cols()\Header\FrontColor
+          EndIf
+          
           If ListEx()\Cols()\Header\Titel
             textX = GetAlignOffset_(ListEx()\Cols()\Header\Titel, ListEx()\Cols()\Width, Align)
             DrawingMode(#PB_2DDrawing_Transparent)
-            DrawText(colX + textX, rowY + textY, ListEx()\Cols()\Header\Titel, ListEx()\Color\HeaderFront)
+            DrawText(colX + textX, rowY + textY, ListEx()\Cols()\Header\Titel, FrontColor)
           EndIf
           
           DrawingMode(#PB_2DDrawing_Outlined)
@@ -3781,15 +3796,17 @@ Module ListEx
           ListEx()\FitCols = #True
         EndIf
         
-        ListEx()\Col\Number           = ListSize(ListEx()\Cols())
-        ListEx()\Cols()\Header\Titel  = Title
-        ListEx()\Cols()\Header\Align  = #PB_Default
-        ListEx()\Cols()\Header\FontID = #PB_Default
-        ListEx()\Cols()\Width         = dpiX(Width)
-        ListEx()\Cols()\Currency      = ListEx()\Country\Currency
-        ListEx()\Cols()\FrontColor    = #PB_Default
-        ListEx()\Cols()\BackColor     = #PB_Default
-        ListEx()\Cols()\Flags         = Flags
+        ListEx()\Col\Number               = ListSize(ListEx()\Cols())
+        ListEx()\Cols()\Header\Titel      = Title
+        ListEx()\Cols()\Header\Align      = #PB_Default
+        ListEx()\Cols()\Header\FontID     = #PB_Default
+        ListEx()\Cols()\Header\FrontColor = #PB_Default
+        ListEx()\Cols()\Header\BackColor  = #PB_Default
+        ListEx()\Cols()\Width             = dpiX(Width)
+        ListEx()\Cols()\Currency          = ListEx()\Country\Currency
+        ListEx()\Cols()\FrontColor        = #PB_Default
+        ListEx()\Cols()\BackColor         = #PB_Default
+        ListEx()\Cols()\Flags             = Flags
 
         If Label
           ListEx()\Cols()\Key = Label
@@ -4293,13 +4310,15 @@ Module ListEx
         
         ;{ Column
         If AddElement(ListEx()\Cols())
-          ListEx()\Cols()\Header\Titel  = ColTitle
-          ListEx()\Cols()\Header\Align  = #PB_Default
-          ListEx()\Cols()\Header\FontID = #PB_Default
-          ListEx()\Cols()\Width         = dpiX(ColWidth)
-          ListEx()\Cols()\Key           = ColLabel
-          ListEx()\Cols()\FrontColor    = #PB_Default
-          ListEx()\Cols()\BackColor     = #PB_Default
+          ListEx()\Cols()\Header\Titel      = ColTitle
+          ListEx()\Cols()\Header\Align      = #PB_Default
+          ListEx()\Cols()\Header\FontID     = #PB_Default
+          ListEx()\Cols()\Header\FrontColor = #PB_Default
+          ListEx()\Cols()\Header\BackColor  = #PB_Default
+          ListEx()\Cols()\Width             = dpiX(ColWidth)
+          ListEx()\Cols()\Key               = ColLabel
+          ListEx()\Cols()\FrontColor        = #PB_Default
+          ListEx()\Cols()\BackColor         = #PB_Default
           ListEx()\Col\Number = 1      ; Number of columns
         EndIf
         ListEx()\Size\Cols    = ListEx()\Cols()\Width ; Width of all columns
@@ -5030,23 +5049,33 @@ Module ListEx
       Select ColorTyp
         Case #FrontColor ;{ FrontColor
           If Row = #Header
-            ListEx()\Color\HeaderFront = Value
+            If Column = #PB_Ignore
+              ListEx()\Color\HeaderFront = Value
+            Else
+              If SelectElement(ListEx()\Cols(), Column)
+                ListEx()\Cols()\Header\FrontColor = Value
+              EndIf  
+            EndIf
           Else
             If SelectElement(ListEx()\Rows(), Row)
-              If Column = #PB_Ignore
                 ListEx()\Rows()\Color\Front = Value
-              Else
-                If SelectElement(ListEx()\Cols(), Column)
-                  Key$ = ListEx()\Cols()\Key
-                  ListEx()\Rows()\Column(Key$)\Color\Front = Value
-                  ListEx()\Rows()\Column(Key$)\Flags | #FrontColor
-                EndIf
+            Else
+              If SelectElement(ListEx()\Cols(), Column)
+                Key$ = ListEx()\Cols()\Key
+                ListEx()\Rows()\Column(Key$)\Color\Front = Value
+                ListEx()\Rows()\Column(Key$)\Flags | #FrontColor
               EndIf
             EndIf
           EndIf ;}
         Case #BackColor  ;{ BackColor
           If Row = #Header
-            ListEx()\Color\HeaderBack = Value
+            If Column = #PB_Ignore
+              ListEx()\Color\HeaderBack = Value
+            Else
+              If SelectElement(ListEx()\Cols(), Column)
+                ListEx()\Cols()\Header\BackColor = Value
+              EndIf 
+            EndIf
           Else
             If SelectElement(ListEx()\Rows(), Row)
               If Column = #PB_Ignore
@@ -5410,7 +5439,9 @@ CompilerIf #PB_Compiler_IsMainFile
     ;ListEx::SetProgressBarFlags(#List, ListEx::#ShowPercent)
     
     ListEx::SetHeaderAttribute(#List, ListEx::#Align, ListEx::#Center)
-
+    
+    ;ListEx::SetItemColor(#List, ListEx::#Header, ListEx::#FrontColor, $0000FF, 1)
+    
     ListEx::SetFont(#List, FontID(#Font_Arial9))
     ListEx::SetFont(#List, FontID(#Font_Arial9B), ListEx::#HeaderFont)
     
@@ -5537,9 +5568,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 7
-; Folding = OBAAAAAAAAAAAAAAAAAABAAAQAIAAAAA5AAgCAAgAAAIQ9
-; Markers = 565
+; CursorPosition = 5442
+; FirstLine = 882
+; Folding = IBAAAAAAAAAAAAAAAKAABAAAQAIAAACA5AEgCAAgAAHIQ9
+; Markers = 569
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
