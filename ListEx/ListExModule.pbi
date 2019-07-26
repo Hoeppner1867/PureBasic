@@ -10,8 +10,10 @@
 ;/
   
 
-; Last Update: 24.07.2019
+; Last Update: 26.07.2019
 ;
+; - Changed: Tabulator jumps to the next/previous row, if it is the last/first cell
+; 
 ; - Added: individual colors for the columns of the header line
 ;
 ; - Added: GetColumnLabel()
@@ -391,7 +393,6 @@ Module ListEx
   #DefaultTimeSeparator    = ":"
   #DefaultDateSeparator    = "."
   #DefaultDecimalSeperator = ","
-  
   
   #RegEx = 1
   #JSON  = 1
@@ -2683,19 +2684,33 @@ Module ListEx
   
   Procedure.i NextEditColumn_(Column.i)
     
-    If SelectElement(ListEx()\Cols(), Column)
+    If Column = #PB_Default
       
-      While NextElement(ListEx()\Cols())
-        
-        If ListEx()\Cols()\Flags & #Strings
-          ProcedureReturn ListIndex(ListEx()\Cols())
-        ElseIf ListEx()\Cols()\Flags & #ComboBoxes
-          ProcedureReturn ListIndex(ListEx()\Cols())
-        ElseIf ListEx()\Cols()\Flags & #Dates
-          ProcedureReturn ListIndex(ListEx()\Cols())
-        EndIf
-        
-      Wend
+      If FirstElement(ListEx()\Cols())
+        Repeat
+          If ListEx()\Cols()\Flags & #Strings
+            ProcedureReturn ListIndex(ListEx()\Cols())
+          ElseIf ListEx()\Cols()\Flags & #ComboBoxes
+            ProcedureReturn ListIndex(ListEx()\Cols())
+          ElseIf ListEx()\Cols()\Flags & #Dates
+            ProcedureReturn ListIndex(ListEx()\Cols())
+          EndIf
+        Until NextElement(ListEx()\Cols()) = #False
+      EndIf
+      
+    Else
+    
+      If SelectElement(ListEx()\Cols(), Column)
+        While NextElement(ListEx()\Cols())
+          If ListEx()\Cols()\Flags & #Strings
+            ProcedureReturn ListIndex(ListEx()\Cols())
+          ElseIf ListEx()\Cols()\Flags & #ComboBoxes
+            ProcedureReturn ListIndex(ListEx()\Cols())
+          ElseIf ListEx()\Cols()\Flags & #Dates
+            ProcedureReturn ListIndex(ListEx()\Cols())
+          EndIf
+        Wend
+      EndIf
       
     EndIf
     
@@ -2704,19 +2719,33 @@ Module ListEx
   
   Procedure.i PreviousEditColumn_(Column.i)
     
-    If SelectElement(ListEx()\Cols(), Column)
+    If Column = #PB_Default
       
-      While PreviousElement(ListEx()\Cols())
-        
-        If ListEx()\Cols()\Flags & #Strings
-          ProcedureReturn ListIndex(ListEx()\Cols())
-        ElseIf ListEx()\Cols()\Flags & #ComboBoxes
-          ProcedureReturn ListIndex(ListEx()\Cols())
-        ElseIf ListEx()\Cols()\Flags & #Dates
-          ProcedureReturn ListIndex(ListEx()\Cols())
-        EndIf
-        
-      Wend
+      If LastElement(ListEx()\Cols())
+        Repeat
+          If ListEx()\Cols()\Flags & #Strings
+            ProcedureReturn ListIndex(ListEx()\Cols())
+          ElseIf ListEx()\Cols()\Flags & #ComboBoxes
+            ProcedureReturn ListIndex(ListEx()\Cols())
+          ElseIf ListEx()\Cols()\Flags & #Dates
+            ProcedureReturn ListIndex(ListEx()\Cols())
+          EndIf
+        Until PreviousElement(ListEx()\Cols()) = #False
+      EndIf
+      
+    Else
+    
+      If SelectElement(ListEx()\Cols(), Column)
+        While PreviousElement(ListEx()\Cols())
+          If ListEx()\Cols()\Flags & #Strings
+            ProcedureReturn ListIndex(ListEx()\Cols())
+          ElseIf ListEx()\Cols()\Flags & #ComboBoxes
+            ProcedureReturn ListIndex(ListEx()\Cols())
+          ElseIf ListEx()\Cols()\Flags & #Dates
+            ProcedureReturn ListIndex(ListEx()\Cols())
+          EndIf
+        Wend
+      EndIf
       
     EndIf
     
@@ -2726,7 +2755,7 @@ Module ListEx
   ;- ----------------------------
   
   Procedure _KeyShiftTabHandler()
-    Define.i GNum, Column
+    Define.i GNum, Column, Row
     Define.i ActiveID = GetActiveGadget()
     
     If IsGadget(ActiveID)
@@ -2739,19 +2768,43 @@ Module ListEx
           Case ListEx()\StringNum
             CloseString_()
             Column = PreviousEditColumn_(ListEx()\String\Col)
-            If Column <> #NotValid
+            If Column = #NotValid
+              Row = ListEx()\String\Row - 1
+              If SelectElement(ListEx()\Rows(), Row)
+                Column = PreviousEditColumn_(#PB_Default)
+                If Column <> #NotValid
+                  ManageEditGadgets_(Row, Column)
+                EndIf 
+              EndIf
+            Else
               ManageEditGadgets_(ListEx()\String\Row, Column)
             EndIf
           Case ListEx()\ComboNum
             CloseComboBox_()
             Column = PreviousEditColumn_(ListEx()\ComboBox\Col)
-            If Column <> #NotValid
+            If Column = #NotValid
+              Row = ListEx()\String\Row - 1
+              If SelectElement(ListEx()\Rows(), Row)
+                Column = PreviousEditColumn_(#PB_Default)
+                If Column <> #NotValid
+                  ManageEditGadgets_(Row, Column)
+                EndIf 
+              EndIf
+            Else
               ManageEditGadgets_(ListEx()\ComboBox\Row, Column)
             EndIf
           Case ListEx()\DateNum
             CloseDate_()
             Column = PreviousEditColumn_(ListEx()\Date\Col)
-            If Column <> #NotValid
+            If Column = #NotValid
+              Row = ListEx()\String\Row - 1
+              If SelectElement(ListEx()\Rows(), Row)
+                Column = PreviousEditColumn_(#PB_Default)
+                If Column <> #NotValid
+                  ManageEditGadgets_(Row, Column)
+                EndIf 
+              EndIf
+            Else
               ManageEditGadgets_(ListEx()\Date\Row, Column)
             EndIf
         EndSelect
@@ -2763,7 +2816,7 @@ Module ListEx
   EndProcedure
   
   Procedure _KeyTabHandler()
-    Define.i GNum, Column
+    Define.i GNum, Column, Row
     Define.i ActiveID = GetActiveGadget()
     
     If IsGadget(ActiveID)
@@ -2771,35 +2824,50 @@ Module ListEx
       GNum = GetGadgetData(ActiveID)
       
       If FindMapElement(ListEx(), Str(GNum))  
-
+        
         Select ActiveID 
           Case ListEx()\StringNum
-
             CloseString_()
-            
             Column = NextEditColumn_(ListEx()\String\Col)
-            If Column <> #NotValid
+            If Column = #NotValid
+              Row = ListEx()\String\Row + 1
+              If SelectElement(ListEx()\Rows(), Row)
+                Column = NextEditColumn_(#PB_Default)
+                If Column <> #NotValid
+                  ManageEditGadgets_(Row, Column)
+                EndIf 
+              EndIf
+            Else
               ManageEditGadgets_(ListEx()\String\Row, Column)
             EndIf
-            
           Case ListEx()\ComboNum
-            
             CloseComboBox_()
-            
             Column = NextEditColumn_(ListEx()\ComboBox\Col)
-            If Column <> #NotValid
+            If Column = #NotValid
+              Row = ListEx()\String\Row + 1
+              If SelectElement(ListEx()\Rows(), Row)
+                Column = NextEditColumn_(#PB_Default)
+                If Column <> #NotValid
+                  ManageEditGadgets_(Row, Column)
+                EndIf 
+              EndIf
+            Else
               ManageEditGadgets_(ListEx()\ComboBox\Row, Column)
             EndIf
-            
           Case ListEx()\DateNum
-            
             CloseDate_()
-            
             Column = NextEditColumn_(ListEx()\Date\Col)
-            If Column <> #NotValid
+            If Column = #NotValid
+              Row = ListEx()\String\Row + 1
+              If SelectElement(ListEx()\Rows(), Row)
+                Column = NextEditColumn_(#PB_Default)
+                If Column <> #NotValid
+                  ManageEditGadgets_(Row, Column)
+                EndIf 
+              EndIf
+            Else
               ManageEditGadgets_(ListEx()\Date\Row, Column)
             EndIf
-            
         EndSelect
         
       EndIf
@@ -2866,7 +2934,6 @@ Module ListEx
       
     EndIf
   EndProcedure
-  
   
   Procedure _RightClickHandler()
     Define.i X, Y
@@ -5568,10 +5635,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 5442
-; FirstLine = 882
-; Folding = IBAAAAAAAAAAAAAAAKAABAAAQAIAAACA5AEgCAAgAAHIQ9
-; Markers = 569
+; CursorPosition = 14
+; Folding = MBAAAAAAAAAAAAAAAIAABAwRQAIAACAA5AAgAQAAAAGCQ9
+; Markers = 570
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
