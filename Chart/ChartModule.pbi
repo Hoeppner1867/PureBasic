@@ -10,7 +10,9 @@
 ;/
 
 
-; Last Update: 24.07.19
+; Last Update: 27.07.19
+;
+; Added: Scatter plot chart
 ;
 ; BugFixes
 ;
@@ -75,7 +77,7 @@
 ; Chart::AddDataSeries()       - add a new data series
 ; Chart::AddSeriesItem()       - add a new item to the data series
 ; Chart::DisplayDataSeries()   - displays the data series
-; Chart::EventDataSeries()     - returns the label of the data series after the event
+; Chart::EventDataSeries()     - returns the value of the item by index
 ; Chart::GetSeriesColor()      - returns the color of the data series
 ; Chart::GetSeriesItemState()  - returns the value of the item by index
 ; Chart::GetSeriesLabelState() - returns the value of the item by label
@@ -83,7 +85,24 @@
 ; Chart::RemoveSeriesLabel()   - removes the item by label
 ; Chart::RemoveDataSeries()    - removes the data series
 ; Chart::SetSeriesItemState()  - sets the value of the item by index
-; Chart::SetSeriesLabelState() - sets the value of the item by label
+; Chart::SetSeriesLabelState() 
+
+; --- Scatter Plot ---
+
+; Chart::AddScatterPlot()       - add a new scatter plot
+; Chart::AddScatterItem()       - add a new item to the scatter plot
+; Chart::DisplayScatterPlot()   - displays the scatter plot
+; Chart::EventScatterPlot()     - returns the label of the scatter plot after the event
+; Chart::EventDataX()           - returns dataX after the event 
+; Chart::EventDataY()           - returns dataY after the event 
+; Chart::GetScatterColor()      - returns the color of the scatter plot
+; Chart::GetScatterItem()       - returns the value of the item by index [#DataX/#DataY]
+; Chart::GetScatterLabelData()  - returns the value of the item by label [#DataX/#DataY]
+; Chart::RemoveScatterPlot()    - removes the item by index
+; Chart::RemoveScatterItem()    - removes the item by label
+; Chart::RemoveScatterLabel()   - removes the data series
+; Chart::SetScatterItem()       - sets the values of the item by index
+; Chart::SetScatterLabelData()  - sets the values of the item by label
 
 ;}
 
@@ -93,6 +112,7 @@ DeclareModule Chart
   #Enable_DataSeries     = #True
   #Enable_Horizontal     = #True
   #Enable_LineChart      = #True
+  #Enable_ScatterPlot    = #True
   #Enable_ModifyByCursor = #True
   
   ;- ===========================================================================
@@ -104,6 +124,9 @@ DeclareModule Chart
   #Value$   = "{Value}"
   #Label$   = "{Label}"
   #Serie$   = "{Series}"
+  #Scatter$ = "{Scatter}"
+  #DataX$   = "{DataX}"
+  #DataY$   = "{DataY}"
   
   EnumerationBinary
     #BarChart        ; bar chart             (german: "Säulendiagramm")
@@ -111,6 +134,7 @@ DeclareModule Chart
     #DataSeries      ; chart for data series (german: "Diagramm für Datenreihen")
     #Horizontal      ; horizontal bars       (german: "Balkendiagramm")
     #LineChart       ; line chart            (german: "Kurvendiagramm")
+    #ScatterPlot     ; scatter plot          (german: "Streudiagramm")
     #Legend          ; legend for pie chart / chart for data series
     #PopUpMenu       ; opens the attached popup menu with a rightclick [#BarChart/#PieChart/#Legend]
     #AutoResize      ; Automatic resizing of the gadget
@@ -134,9 +158,13 @@ DeclareModule Chart
     #ModifyByCursor  ; move data points up and down to change the value [#LineChart]
   EndEnumeration
   
+  #AllScatterPlots = #AllDataSeries
+  
   Enumeration 1    ; [Attribute]
     #Minimum       ; Minimum value
     #Maximum       ; Maximum value
+    #MinimumX      ; Minimum value Y
+    #MaximumX      ; Maximum value X
     #Width         ; Width of the bars / circle diameter for data points (LineChart)
     #Spacing       ; Spacing between the bars / between chart and legend (PieChart) / between data points (LineChart)
     #Padding       ; Padding between data series bars (DataSeries) / between y-axis and first data (LineChart)
@@ -144,8 +172,15 @@ DeclareModule Chart
     #ScaleSpacing  ; Spacing of scale lines [#Single/#Double]
     #LineColor     ; (LineChart)
     #FontSize      ; Value/Percent in Chart (LineChart/PieChart)
+    #Decimals      ; decimal places for scatter plot data
   EndEnumeration
- 
+  
+  #DataX = 1
+  #DataY = 2
+  
+  #MinimumY = #Minimum
+  #MaximumY = #Maximum
+  
   #Single = 1
   #Double = 2
   
@@ -199,6 +234,25 @@ DeclareModule Chart
     Declare   SetSeriesLabelState(GNum.i, Series.s, Label.s, Value.i)
     
   CompilerEndIf
+  
+  CompilerIf #Enable_ScatterPlot
+    
+    Declare.i AddScatterPlot(GNum.i, Label.s, Color.i=#PB_Default, GradientColor.i=#PB_Default, BorderColor.i=#PB_Default)
+    Declare.i AddScatterItem(GNum.i, Scatter.s, Label.s, DataX.f, DataY.f)
+    Declare.i DisplayScatterPlot(GNum.i, Scatter.s, State.i=#True)
+    Declare.s EventScatterPlot(GNum.i) 
+    Declare.f EventDataX(GNum.i) 
+    Declare.f EventDataY(GNum.i) 
+    Declare.i GetScatterColor(GNum.i, Scatter.s)
+    Declare.i GetScatterItem(GNum.i, Scatter.s, Position.i, Type.i)
+    Declare.i GetScatterLabelData(GNum.i, Scatter.s, Label.s, Type.i)
+    Declare.i RemoveScatterPlot(GNum.i, Scatter.s)
+    Declare.i RemoveScatterItem(GNum.i, Scatter.s, Position.i)
+    Declare.i RemoveScatterLabel(GNum.i, Scatter.s, Label.s)
+    Declare   SetScatterItem(GNum.i, Scatter.s, Position.i, DataX.f, DataY.f)
+    Declare   SetScatterLabelData(GNum.i, Scatter.s, Label.s, , DataX.f, DataY.f)
+    
+  CompilerEndIf  
   
   Declare.i AddItem(GNum.i, Label.s, Value.i, BarColor.i=#PB_Default, GradientColor.i=#PB_Default, BorderColor.i=#PB_Default)
   Declare   AttachPopupMenu(GNum.i, PopUpNum.i)
@@ -266,7 +320,7 @@ Module Chart
     Height.i
   EndStructure ;}
   
-  Structure Chart_Legend_Structure      ;{ Chart()\Legend\...
+  Structure Chart_Legend_Structure     ;{ Chart()\Legend\...
     FontID.i
     Minimum.i
     Range.i
@@ -274,7 +328,7 @@ Module Chart
     Flags.i
   EndStructure ;}
   
-  Structure Chart_Pie_Structure         ;{ Chart()\Pie\...
+  Structure Chart_Pie_Structure        ;{ Chart()\Pie\...
     X.i
     Y.i
     Radius.i
@@ -285,7 +339,7 @@ Module Chart
     Flags.i
   EndStructure ;}
   
-  Structure Chart_Line_Structure        ;{ Chart()\Bar\...
+  Structure Chart_Line_Structure       ;{ Chart()\Line\...
     Width.i
     Range.i
     Spacing.i
@@ -309,6 +363,26 @@ Module Chart
     Flags.i
   EndStructure ;}
   
+  Structure Chart_Scatter_Structure    ;{ Chart()\Scatter\...
+    MinimumX.i
+    MinimumY.i
+    MaximumX.i
+    MaximumY.i
+    ScaleLinesX.i
+    ScaleLinesY.i
+    ScaleSpacingX.i
+    ScaleSpacingY.i
+    RangeX.i
+    RangeY.i
+    Width.i
+    ;Spacing.i
+    ;Padding.i
+    FontSize.i
+    FontID.i
+    Color.i
+    Flags.i
+  EndStructure ;}
+  
   Structure Chart_Item_Structure       ;{ Chart()\Item()\...
     Label.s
     X.i
@@ -317,22 +391,14 @@ Module Chart
     Height.i
     sAngle.f
     eAngle.f
+    DataX.f
+    DataY.f
     Value.i
     Text.s
     Color.i
     Gradient.i
     Border.i
     Legend.Chart_EventSize_Structure
-  EndStructure ;}
-  
-  Structure Chart_SeriesItem_Structure ;{ Chart()\Series('label')\Item()...
-    Label.s
-    X.i
-    Y.i
-    Width.i
-    Height.i
-    Value.i
-    Text.s
   EndStructure ;}
   
   Structure Chart_Series_Structure     ;{ Chart()\Series('label')\...
@@ -359,6 +425,8 @@ Module Chart
     Index.i  ; item index
     Color.i  ; data series color or item color
     Value.i
+    DataX.f
+    DataY.f
   EndStructure ;}
   
   Structure Chart_Window_Structure     ;{ Chart()\Window\...
@@ -392,12 +460,16 @@ Module Chart
   EndStructure ;}
   
   Structure Chart_Currrent_Structure   ;{ Chart()\Currrent\...
-    pFactor.f
-    nFactor.f
-    Minimum.i
-    Maximum.i
+    pFactorY.f
+    nFactorY.f
+    pFactorX.f
+    nFactorX.f
+    MinimumY.i
+    MaximumY.i
+    MinimumX.i
+    MaximumX.i
     Offset.i
-  EndStructure
+  EndStructure ;}
   
   Structure Chart_Structure            ;{ Chart()\...
     CanvasNum.i
@@ -407,7 +479,7 @@ Module Chart
     
     Minimum.i
     Maximum.i
-    
+    Decimals.i
     
     Bar.Chart_Bar_Structure
     Current.Chart_Currrent_Structure
@@ -420,6 +492,7 @@ Module Chart
     Event.Chart_Event_Structure
     Margin.Chart_Margins_Structure
     Window.Chart_Window_Structure
+    Scatter.Chart_Scatter_Structure
     Size.Chart_Size_Structure
     EventSize.Chart_EventSize_Structure
     
@@ -428,6 +501,7 @@ Module Chart
     List VisibleData.i()                 ; visible data series (labels)
     List Series.Chart_Series_Structure() ; data series
     List Item.Chart_Item_Structure()
+    
     Map  Index.i()                       ; labels with list index
     Map  VisibleIndex.i()                ; labels with list index (VisibleData)
     Map  PopUpItem.s()
@@ -496,14 +570,14 @@ Module Chart
       If Text
         
         If Chart()\Flags & #LineChart
-          Percent = (Chart()\Series()\Item()\Value - Chart()\Current\Minimum) * 100
+          Percent = (Chart()\Series()\Item()\Value - Chart()\Current\MinimumY) * 100
           If Percent <> 0
             Percent = (Percent / Chart()\Line\Range)
           Else
             Percent = 0
           EndIf
         Else
-          Percent = (Chart()\Series()\Item()\Value - Chart()\Current\Minimum) * 100
+          Percent = (Chart()\Series()\Item()\Value - Chart()\Current\MinimumY) * 100
           If Percent <> 0
             Percent = (Percent / Chart()\Bar\Range)
           Else
@@ -530,9 +604,20 @@ Module Chart
         Text$ = ReplaceString(Text$, #Serie$, Chart()\Series()\Label)
       EndIf
       
+    ElseIf Chart()\Flags & #ScatterPlot
+      
+      If Text
+        Text$ = ReplaceString(Text,  #Value$,   Str(Chart()\Series()\Item()\DataX) + "/" + Str(Chart()\Series()\Item()\DataY))
+        Text$ = ReplaceString(Text$, #Label$,   Chart()\Series()\Item()\Label)
+        Text$ = ReplaceString(Text$, #Serie$,   Chart()\Series()\Label)
+        Text$ = ReplaceString(Text$, #Scatter$, Chart()\Series()\Label)
+        Text$ = ReplaceString(Text$, #DataX$,   StrF(Chart()\Series()\Item()\DataX), Chart()\Decimals)
+        Text$ = ReplaceString(Text$, #DataY$,   StrF(Chart()\Series()\Item()\DataY), Chart()\Decimals)
+      EndIf
+      
     Else
       
-      Percent = (Chart()\Item()\Value - Chart()\Current\Minimum) * 100
+      Percent = (Chart()\Item()\Value - Chart()\Current\MinimumY) * 100
       If Percent <> 0
         Percent = (Percent / Chart()\Bar\Range)
       Else
@@ -571,12 +656,12 @@ Module Chart
     ProcedureReturn MaxWidth
   EndProcedure
 
-  Procedure.i MaximumValue_()
+  Procedure.i MaximumValue_(X.i=#False)
     Define.i MaxValue
     
-    MaxValue = Chart()\Maximum
-    
-    If Chart()\Flags & #DataSeries
+    If Chart()\Flags & #DataSeries      ;{ DataSeries
+      
+      MaxValue = Chart()\Maximum
       
       ForEach Chart()\VisibleData()
         If SelectElement(Chart()\Series(), Chart()\VisibleData())
@@ -587,26 +672,60 @@ Module Chart
           Next
         EndIf    
       Next
+      ;}
+    ElseIf Chart()\Flags & #ScatterPlot ;{ ScatterPlot
       
-    Else
+      If X
+        
+        MaxValue = Chart()\Scatter\MaximumX
+        
+        ForEach Chart()\VisibleData()
+          If SelectElement(Chart()\Series(), Chart()\VisibleData())
+            ForEach Chart()\Series()\Item()
+              If Chart()\Series()\Item()\DataX > MaxValue
+                MaxValue = Chart()\Series()\Item()\DataX
+              EndIf
+            Next
+          EndIf    
+        Next
+        
+      Else
+        
+        MaxValue = Chart()\Scatter\MaximumY
+        
+        ForEach Chart()\VisibleData()
+          If SelectElement(Chart()\Series(), Chart()\VisibleData())
+            ForEach Chart()\Series()\Item()
+              If Chart()\Series()\Item()\DataY > MaxValue
+                MaxValue = Chart()\Series()\Item()\DataY
+              EndIf
+            Next
+          EndIf    
+        Next        
+        
+      EndIf
+      ;}
+    Else                                ;{ other Charts
+      
+      MaxValue = Chart()\Maximum
       
       ForEach Chart()\Item()
         If Chart()\Item()\Value > MaxValue
           MaxValue = Chart()\Item()\Value
         EndIf
       Next
-      
+      ;}
     EndIf
   
     ProcedureReturn MaxValue
   EndProcedure
   
-  Procedure.i MinimumValue_()
+  Procedure.i MinimumValue_(X.i=#False)
     Define.i MinValue
-    
-    MinValue = Chart()\Minimum
-    
-    If Chart()\Flags & #DataSeries
+
+    If Chart()\Flags & #DataSeries      ;{ DataSeries
+      
+      MinValue = Chart()\Minimum
       
       ForEach Chart()\VisibleData()
         If SelectElement(Chart()\Series(), Chart()\VisibleData())
@@ -617,15 +736,49 @@ Module Chart
           Next
         EndIf   
       Next
+      ;}
+    ElseIf Chart()\Flags & #ScatterPlot ;{ ScatterPlot
       
-    Else
+      If X
+        
+        MinValue = Chart()\Scatter\MinimumX
+        
+        ForEach Chart()\VisibleData()
+          If SelectElement(Chart()\Series(), Chart()\VisibleData())
+            ForEach Chart()\Series()\Item()
+              If Chart()\Series()\Item()\DataX < MinValue
+                MinValue = Chart()\Series()\Item()\DataX
+              EndIf
+            Next
+          EndIf   
+        Next        
+        
+      Else
+        
+        MinValue = Chart()\Scatter\MinimumY
+        
+        ForEach Chart()\VisibleData()
+          If SelectElement(Chart()\Series(), Chart()\VisibleData())
+            ForEach Chart()\Series()\Item()
+              If Chart()\Series()\Item()\DataY < MinValue
+                MinValue = Chart()\Series()\Item()\DataY
+              EndIf
+            Next
+          EndIf   
+        Next 
+        
+      EndIf
+      ;}
+    Else                                ;{ other Charts
+      
+      MinValue = Chart()\Minimum
       
       ForEach Chart()\Item()
         If Chart()\Item()\Value < MinValue
           MinValue = Chart()\Item()\Value
         EndIf
       Next
-      
+      ;}
     EndIf
     
     ProcedureReturn MinValue
@@ -846,26 +999,26 @@ Module Chart
     
     Y - Chart()\Margin\Top - Chart()\Current\Offset
     
-    If Chart()\Current\Minimum < 0
+    If Chart()\Current\MinimumY < 0
       
       If Y < 0
-        Value = Round(Chart()\Current\Minimum - (Y / Chart()\Current\nFactor), #PB_Round_Nearest)
+        Value = Round(Chart()\Current\MinimumY - (Y / Chart()\Current\nFactorY), #PB_Round_Nearest)
       Else
-        Value = Round(Chart()\Current\Maximum - (Y / Chart()\Current\pFactor), #PB_Round_Nearest)
+        Value = Round(Chart()\Current\MaximumY - (Y / Chart()\Current\pFactorY), #PB_Round_Nearest)
       EndIf
       
     Else
 
       If Chart()\Line\Flags & #Descending
-        Value = Round((Y / Chart()\Current\pFactor) + Chart()\Current\Minimum, #PB_Round_Nearest)
+        Value = Round((Y / Chart()\Current\pFactorY) + Chart()\Current\MinimumY, #PB_Round_Nearest)
       Else
-        Value = Round(Chart()\Current\Maximum - (Y / Chart()\Current\pFactor), #PB_Round_Nearest)
+        Value = Round(Chart()\Current\MaximumY - (Y / Chart()\Current\pFactorY), #PB_Round_Nearest)
       EndIf
 
     EndIf 
     
-    If Value < Chart()\Current\Minimum : Value = Chart()\Current\Minimum : EndIf 
-    If Value > Chart()\Current\Maximum : Value = Chart()\Current\Maximum : EndIf 
+    If Value < Chart()\Current\MinimumY : Value = Chart()\Current\MinimumY : EndIf 
+    If Value > Chart()\Current\MaximumY : Value = Chart()\Current\MaximumY : EndIf 
     
     ProcedureReturn Value
   EndProcedure
@@ -873,7 +1026,7 @@ Module Chart
   CompilerIf #Enable_LineChart
     
     Procedure   DrawLineChart_(X.i, Y.i, Width.i, Height.i)
-      Define.i X, Y, Width, Height, PosX, PosY, sWidth, cWidth, cHeight, nHeight, pHeight, lastX, lastY, xW3
+      Define.i PosX, PosY, sWidth, cWidth, cHeight, nHeight, pHeight, lastX, lastY, xW3
       Define.i txtX, txtY, txtWidth, txtHeight, axisY, Radius
       Define.i n, Items, Spaces, ScaleLines, AlphaColor, Color, Gradient, maxValue, minValue
       Define.f SpaceY, Factor, Calc
@@ -883,25 +1036,25 @@ Module Chart
         
         DrawingFont(Chart()\FontID)
 
-        Chart()\Current\Maximum  = Chart()\Maximum ;{ Maximum
+        Chart()\Current\MaximumY = Chart()\Maximum ;{ Maximum
         maxValue = MaximumValue_()
-        If Chart()\Current\Maximum = #PB_Default
-          Chart()\Current\Maximum = maxValue
+        If Chart()\Current\MaximumY = #PB_Default
+          Chart()\Current\MaximumY = maxValue
         ElseIf Chart()\Line\Flags & #NoAutoAdjust = #False
-          Chart()\Current\Maximum = Chart()\Maximum
-          If maxValue > Chart()\Current\Maximum : Chart()\Current\Maximum = maxValue : EndIf
+          Chart()\Current\MaximumY = Chart()\Maximum
+          If maxValue > Chart()\Current\MaximumY : Chart()\Current\MaximumY = maxValue : EndIf
         EndIf ;}
         
-        Chart()\Current\Minimum = Chart()\Minimum ;{ Minimum
+        Chart()\Current\MinimumY = Chart()\Minimum ;{ Minimum
         minValue = MinimumValue_()
-        If Chart()\Current\Minimum = #PB_Default
-          Chart()\Current\Minimum = minValue
+        If Chart()\Current\MinimumY = #PB_Default
+          Chart()\Current\MinimumY = minValue
         ElseIf Chart()\Line\Flags & #NoAutoAdjust = #False
-          If minValue < Chart()\Current\Minimum : Chart()\Current\Minimum = minValue : EndIf
+          If minValue < Chart()\Current\MinimumY : Chart()\Current\MinimumY = minValue : EndIf
         EndIf ;}
-         
+       
         txtHeight = TextHeight("Abc")
-        txtWidth  = TextWidth(Str(Chart()\Current\Maximum))
+        txtWidth  = TextWidth(Str(Chart()\Current\MaximumY))
         
         X  + txtWidth + dpiX(2)
         Y  + (txtHeight / 2)
@@ -916,13 +1069,13 @@ Module Chart
         Chart()\EventSize\Width  = Width
         Chart()\EventSize\Height = Height
         
-        Chart()\Line\Range = Chart()\Current\Maximum - Chart()\Current\Minimum
+        Chart()\Line\Range = Chart()\Current\MaximumY - Chart()\Current\MinimumY
         
         ;{ --- Calc Height for positive and negative Values ---
-        If Chart()\Current\Minimum < 0
+        If Chart()\Current\MinimumY < 0
           Factor = Height / Chart()\Line\Range
-          pHeight  = Factor * Chart()\Current\Maximum ; positiv
-          nHeight  = Factor * Chart()\Current\Minimum ; negativ 
+          pHeight  = Factor * Chart()\Current\MaximumY ; positiv
+          nHeight  = Factor * Chart()\Current\MinimumY ; negativ 
         Else
           pHeight = Height ; positiv
           nHeight = 0      ; negativ
@@ -971,9 +1124,9 @@ Module Chart
             EndIf 
             Line(X - dpiX(2), PosY, dpiX(5), 1, Chart()\Color\Axis)
             If Chart()\Line\Flags & #Descending
-              Text$ = Str((Factor * n) + Chart()\Current\Minimum)
+              Text$ = Str((Factor * n) + Chart()\Current\MinimumY)
             Else
-              Text$ = Str(Chart()\Current\Maximum - (Factor * n))
+              Text$ = Str(Chart()\Current\MaximumY - (Factor * n))
             EndIf
             txtX = X - TextWidth(Text$) - dpix(4)
             txtY = PosY - Round(txtHeight / 2, #PB_Round_Nearest)
@@ -1006,24 +1159,24 @@ Module Chart
         
         ForEach Chart()\Item()
           
-          If (Chart()\Item()\Value >= Chart()\Current\Minimum And Chart()\Item()\Value <= Chart()\Current\Maximum) Or Chart()\Line\Flags & #OutOfRange
+          If (Chart()\Item()\Value >= Chart()\Current\MinimumY And Chart()\Item()\Value <= Chart()\Current\MaximumY) Or Chart()\Line\Flags & #OutOfRange
             
             ;{ --- Calc Position & Height ---
-            If Chart()\Current\Minimum < 0
+            If Chart()\Current\MinimumY < 0
               
               If Chart()\Item()\Value < 0
                 PosY = Y + pHeight + dpiY(1)
-                Factor = nHeight / Chart()\Current\Minimum
+                Factor = nHeight / Chart()\Current\MinimumY
                 cHeight = Chart()\Item()\Value * Factor
-                If Chart()\Item()\Value < Chart()\Current\Minimum : cHeight = - SpaceY : EndIf
+                If Chart()\Item()\Value < Chart()\Current\MinimumY : cHeight = - SpaceY : EndIf
               Else
                 PosY = Y + pHeight
-                Factor = pHeight / Chart()\Current\Maximum
+                Factor = pHeight / Chart()\Current\MaximumY
                 cHeight = Chart()\Item()\Value * Factor
-                If Chart()\Item()\Value < Chart()\Current\Minimum
+                If Chart()\Item()\Value < Chart()\Current\MinimumY
                   cHeight = - SpaceY   
-                ElseIf Chart()\Item()\Value > Chart()\Current\Maximum
-                  cHeight = (Chart()\Current\Maximum -  Chart()\Current\Minimum) * Factor + SpaceY
+                ElseIf Chart()\Item()\Value > Chart()\Current\MaximumY
+                  cHeight = (Chart()\Current\MaximumY -  Chart()\Current\MinimumY) * Factor + SpaceY
                 EndIf 
               EndIf
 
@@ -1032,18 +1185,18 @@ Module Chart
               PosY = Y + pHeight
               Factor = Height / Chart()\Line\Range
               If Chart()\Line\Flags & #Descending
-                cHeight = (Chart()\Current\Maximum - (Chart()\Item()\Value)) * Factor
-                If Chart()\Item()\Value < Chart()\Current\Minimum
-                  cHeight = (Chart()\Current\Maximum -  Chart()\Current\Minimum) * Factor + SpaceY
-                ElseIf Chart()\Item()\Value > Chart()\Current\Maximum
+                cHeight = (Chart()\Current\MaximumY - (Chart()\Item()\Value)) * Factor
+                If Chart()\Item()\Value < Chart()\Current\MinimumY
+                  cHeight = (Chart()\Current\MaximumY -  Chart()\Current\MinimumY) * Factor + SpaceY
+                ElseIf Chart()\Item()\Value > Chart()\Current\MaximumY
                   cHeight = - SpaceY   
                 EndIf 
               Else
-                cHeight = (Chart()\Item()\Value - Chart()\Current\Minimum) * Factor
-                If Chart()\Item()\Value < Chart()\Current\Minimum
+                cHeight = (Chart()\Item()\Value - Chart()\Current\MinimumY) * Factor
+                If Chart()\Item()\Value < Chart()\Current\MinimumY
                   cHeight = - SpaceY   
-                ElseIf Chart()\Item()\Value > Chart()\Current\Maximum
-                  cHeight = (Chart()\Current\Maximum -  Chart()\Current\Minimum) * Factor + SpaceY
+                ElseIf Chart()\Item()\Value > Chart()\Current\MaximumY
+                  cHeight = (Chart()\Current\MaximumY -  Chart()\Current\MinimumY) * Factor + SpaceY
                 EndIf 
               EndIf
               
@@ -1076,33 +1229,32 @@ Module Chart
         ForEach Chart()\Item()
           
           ;{ --- Calc Position & Height ---
-          If Chart()\Current\Minimum < 0
+          If Chart()\Current\MinimumY < 0
             If Chart()\Item()\Value < 0
               PosY = Y + pHeight + dpiY(1)
-              Factor = nHeight / Chart()\Current\Minimum
-              Chart()\Current\nFactor= Factor
+              Factor = nHeight / Chart()\Current\MinimumY
+              Chart()\Current\nFactorY= Factor
             Else
               PosY = Y + pHeight
-              Factor = pHeight / Chart()\Current\Maximum
-              Chart()\Current\pFactor= Factor
+              Factor = pHeight / Chart()\Current\MaximumY
+              Chart()\Current\pFactorY= Factor
             EndIf
             cHeight = Chart()\Item()\Value * Factor
           Else
             PosY = Y + pHeight
             Factor = Height / Chart()\Line\Range
             If Chart()\Line\Flags & #Descending
-              cHeight = (Chart()\Current\Maximum - (Chart()\Item()\Value)) * Factor
+              cHeight = (Chart()\Current\MaximumY - (Chart()\Item()\Value)) * Factor
             Else
-              cHeight = (Chart()\Item()\Value - Chart()\Current\Minimum) * Factor
+              cHeight = (Chart()\Item()\Value - Chart()\Current\MinimumY) * Factor
             EndIf
-            Chart()\Current\pFactor= Factor
+            Chart()\Current\pFactorY= Factor
           EndIf ;}
           
-          
-          Chart()\Current\Maximum = Chart()\Current\Maximum
+          Chart()\Current\MaximumY = Chart()\Current\MaximumY
           
           ;{ --- Set text for #ShowValue or #ShowPercent ---
-          Calc = (Chart()\Item()\Value - Chart()\Current\Minimum) * 100
+          Calc = (Chart()\Item()\Value - Chart()\Current\MinimumY) * 100
           If Calc <> 0
             Percent$ = Str((Calc / Chart()\Line\Range)) + "%"
           Else
@@ -1121,7 +1273,7 @@ Module Chart
           Color = Chart()\Item()\Color
           If Color = #PB_Default : Color = Chart()\Color\Bar : EndIf
           
-          If Chart()\Item()\Value >= Chart()\Current\Minimum And Chart()\Item()\Value <= Chart()\Current\Maximum
+          If Chart()\Item()\Value >= Chart()\Current\MinimumY And Chart()\Item()\Value <= Chart()\Current\MaximumY
 
             Circle_(PosX + Radius, PosY - cHeight, Radius, BlendColor_(Color, Chart()\Color\Border, 50), Color)
             
@@ -1409,7 +1561,428 @@ Module Chart
     EndProcedure
     
   CompilerEndIf
+  
+  CompilerIf #Enable_ScatterPlot
+    
+    Procedure    DrawScatterPlot(X.i, Y.i, Width.i, Height.i)
+      Define.i axisY, seriesX, xW3, lastX, lastY, lX, lY
+      Define.i txtX, txtY, txtWidth, txtHeight, lHeight, lWidth, lTextWidth
+      Define.i n, Items, Spaces, ScaleLines, Color, Gradient, maxValue, minValue, Series
+      Define.q AlphaColor
+      Define.f PosX, PosY, SpaceX, SpaceY, cWidth, nWidth, nHeight, pWidth, pHeight, Radius, Factor, Calc, Value
+      Define.s Text$, Percent$
+      
+      If StartDrawing(CanvasOutput(Chart()\CanvasNum))
+        
+        DrawingFont(Chart()\FontID)
+        
+        Chart()\Current\MaximumX = Chart()\Scatter\MaximumX ;{ MaximumX
+        maxValue = MaximumValue_(#True)
+        If Chart()\Current\MaximumX = #PB_Default
+          Chart()\Current\MaximumX = maxValue
+        ElseIf Chart()\Scatter\Flags & #NoAutoAdjust = #False
+          Chart()\Current\MaximumX = Chart()\Scatter\MaximumX
+          If maxValue > Chart()\Current\MaximumX : Chart()\Current\MaximumX = maxValue : EndIf
+        EndIf ;}
+        
+        Chart()\Current\MaximumY = Chart()\Scatter\MaximumY ;{ MaximumY
+        maxValue = MaximumValue_()
+        If Chart()\Current\MaximumY = #PB_Default
+          Chart()\Current\MaximumY = maxValue
+        ElseIf Chart()\Scatter\Flags & #NoAutoAdjust = #False
+          Chart()\Current\MaximumY = Chart()\Scatter\MaximumY
+          If maxValue > Chart()\Current\MaximumY : Chart()\Current\MaximumY = maxValue : EndIf
+        EndIf ;}
+        
+        Chart()\Current\MinimumX = Chart()\Scatter\MinimumX ;{ MinimumX
+        minValue = MinimumValue_(#True)
+        If Chart()\Current\MinimumX = #PB_Default
+          Chart()\Current\MinimumX = minValue
+        ElseIf Chart()\Scatter\Flags & #NoAutoAdjust = #False
+          If minValue < Chart()\Current\MinimumX : Chart()\Current\MinimumX = minValue : EndIf
+        EndIf ;}
+        
+        Chart()\Current\MinimumY = Chart()\Scatter\MinimumY ;{ MinimumY
+        minValue = MinimumValue_()
+        If Chart()\Current\MinimumY = #PB_Default
+          Chart()\Current\MinimumY = minValue
+        ElseIf Chart()\Scatter\Flags & #NoAutoAdjust = #False
+          If minValue < Chart()\Current\MinimumY : Chart()\Current\MinimumY = minValue : EndIf
+        EndIf ;}
 
+        txtHeight = TextHeight("Abc")
+        txtWidth  = TextWidth(StrF(Chart()\Current\MaximumY, Chart()\Decimals))
+       
+        X  + txtWidth + dpiX(2)
+        Y  + (txtHeight / 2)
+        
+        If Chart()\Legend\Flags & #Hide
+          lHeight = -dpiY(5)
+        Else
+          lHeight = txtHeight + dpiY(10)
+        EndIf 
+        
+        Width  - (txtWidth * 1.5)  - dpiX(2)
+        Height - txtHeight - lHeight - dpiY(13) ; Labels + Legend
+
+        Chart()\Current\Offset = txtHeight / 2
+        
+        Chart()\EventSize\X = X
+        Chart()\EventSize\Y = Y
+        Chart()\EventSize\Width  = Width
+        Chart()\EventSize\Height = Height
+        
+        Chart()\Scatter\RangeX = Chart()\Current\MaximumX - Chart()\Current\MinimumX
+        Chart()\Scatter\RangeY = Chart()\Current\MaximumY - Chart()\Current\MinimumY
+        
+        ;{ --- Calc Height for positive and negative Values ---
+        If Chart()\Current\MinimumY < 0
+          Factor  = Height / Chart()\Scatter\RangeY
+          pHeight = Factor * Chart()\Current\MaximumY ; positiv
+          nHeight = Factor * Chart()\Current\MinimumY ; negativ
+          Factor  = Width / Chart()\Scatter\RangeX
+          pWidth  = Factor * Chart()\Current\MaximumX ; positiv
+          nWidth  = Factor * Chart()\Current\MinimumX ; negativ
+        Else
+          pHeight = Height ; positiv
+          pWidth  = Width  
+          nHeight = 0      ; negativ
+          nWidth  = 0
+        EndIf ;}        
+        
+        ;{ --- Diameter ---
+        Series = ListSize(Chart()\VisibleData())
+        Items  = MaximumItems_()
+        
+        If Chart()\Scatter\Width = #PB_Default
+          cWidth = dpiX(6)
+        Else  
+          cWidth = Chart()\Scatter\Width
+        EndIf ;}
+      
+        Line(X, Y, 1, Height, Chart()\Color\Axis)          ;{ Draw Y - Axis
+        If Chart()\Scatter\ScaleLinesY = #PB_Default
+          ScaleLines = Height / (txtHeight * Chart()\Scatter\ScaleSpacingY)
+          If Chart()\Scatter\ScaleSpacingY = 0 : Chart()\Scatter\ScaleSpacingY = 1 : EndIf
+          ScaleLines = CalcScaleLines_(ScaleLines, Chart()\Scatter\RangeY)
+        Else
+          ScaleLines = Chart()\Scatter\ScaleLinesY
+        EndIf
+
+        If ScaleLines
+          
+          Factor = Chart()\Scatter\RangeY / ScaleLines
+          SpaceY = Height / ScaleLines
+          
+          DrawingMode(#PB_2DDrawing_Transparent)
+          
+          For n = 0 To ScaleLines
+            PosY = Y + Round(n * SpaceY, #PB_Round_Nearest)
+            If Chart()\Flags & #ShowLines
+              Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
+            EndIf 
+            Line(X - dpiX(2), PosY, dpiX(5), 1, Chart()\Color\Axis)
+            If Chart()\Scatter\Flags & #Descending
+              Value = (Factor * n) + Chart()\Current\MinimumY
+              If Value
+                Text$ = StrF(Value, Chart()\Decimals)
+              Else
+                Text$ = "0"
+              EndIf  
+            Else
+              Value = Chart()\Current\MaximumY - (Factor * n)
+              If Value
+                Text$ = StrF(Value, Chart()\Decimals)
+              Else
+                Text$ = "0"
+              EndIf  
+            EndIf
+            txtX = X - TextWidth(Text$) - dpix(4)
+            txtY = PosY - Round(txtHeight / 2, #PB_Round_Nearest)
+            DrawText(txtX, txtY, Text$, Chart()\Color\Front)
+          Next
+
+        EndIf ;}
+
+        Line(X, Y + pHeight, Width, 1, Chart()\Color\Axis) ;{ Draw X - Axis
+        If Chart()\Scatter\ScaleLinesX = #PB_Default
+          ScaleLines = Width / (txtWidth * Chart()\Scatter\ScaleSpacingX)
+          If Chart()\Scatter\ScaleSpacingX = 0 : Chart()\Scatter\ScaleSpacingX = 1 : EndIf
+          ScaleLines = CalcScaleLines_(ScaleLines, Chart()\Scatter\RangeX)
+        Else
+          ScaleLines = Chart()\Scatter\ScaleLinesX
+        EndIf
+        
+        If ScaleLines
+          
+          Factor = Chart()\Scatter\RangeX / ScaleLines
+          SpaceX = Width / ScaleLines
+          
+          DrawingMode(#PB_2DDrawing_Transparent)
+          
+          For n = 1 To ScaleLines
+            PosX = X + Round(n * SpaceX, #PB_Round_Nearest)
+            If Chart()\Flags & #ShowLines
+              Line(PosX, Y, 1, Height, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
+            EndIf 
+            Line(PosX, Y + pHeight - dpiX(2), 1, dpiX(5), Chart()\Color\Axis)
+            If Chart()\Scatter\Flags & #Descending
+              Value = Chart()\Current\MaximumX - (Factor * n)
+              If Value
+                Text$ = StrF(Value, Chart()\Decimals)
+              Else
+                Text$ = "0"
+              EndIf
+            Else
+              Value = (Factor * n) + Chart()\Current\MinimumX
+              If Value
+                Text$ = StrF(Value, Chart()\Decimals)
+              Else
+                Text$ = "0"
+              EndIf  
+            EndIf
+            txtX = PosX - Round(TextWidth(Text$) / 2, #PB_Round_Nearest)
+            txtY = Y + pHeight + dpix(4)
+            DrawText(txtX, txtY, Text$, Chart()\Color\Front)
+          Next
+
+        EndIf ;}
+        
+        StopDrawing()
+      EndIf 
+
+      If StartVectorDrawing(CanvasVectorOutput(Chart()\CanvasNum))
+        
+        Radius = cWidth / 2
+        
+        ForEach Chart()\VisibleData()
+          
+          If SelectElement(Chart()\Series(), Chart()\VisibleData())
+            
+            ForEach Chart()\Series()\Item()
+              
+              ;{ --- Calc Position X/Y ---
+              If Chart()\Current\MinimumY < 0
+                If Chart()\Series()\Item()\DataY < 0
+                  PosY = Y + pHeight + dpiY(1)
+                  Factor = nHeight / Chart()\Current\MinimumY
+                  Chart()\Current\nFactorY = Factor
+                Else
+                  PosY = Y + pHeight
+                  Factor = pHeight / Chart()\Current\MaximumY
+                  Chart()\Current\pFactorY = Factor
+                EndIf
+                PosY + Chart()\Series()\Item()\DataY * Factor
+              Else
+                PosY = Y + pHeight
+                Factor = Height / Chart()\Scatter\RangeY
+                If Chart()\Scatter\Flags & #Descending
+                  PosY - (Chart()\Current\MaximumY - (Chart()\Series()\Item()\DataY)) * Factor
+                Else
+                  PosY - (Chart()\Series()\Item()\DataY - Chart()\Current\MinimumY) * Factor
+                EndIf
+                Chart()\Current\pFactorY = Factor
+              EndIf
+              
+              If Chart()\Current\MinimumX < 0
+                If Chart()\Series()\Item()\DataX < 0
+                  PosX = X
+                  Factor = nWidth / Chart()\Current\MinimumX
+                  Chart()\Current\nFactorX = Factor
+                Else
+                  PosX = X + nWidth + dpiX(1)
+                  Factor = pWidth / Chart()\Current\MaximumX
+                  Chart()\Current\pFactorX = Factor
+                EndIf
+                PosX + Chart()\Series()\Item()\DataX * Factor
+              Else
+                PosX = X
+                Factor = Width / Chart()\Scatter\RangeX
+                If Chart()\Scatter\Flags & #Descending
+                  PosX + (Chart()\Current\MaximumX - (Chart()\Series()\Item()\DataX)) * Factor
+                Else
+                  PosX + (Chart()\Series()\Item()\DataX - Chart()\Current\MinimumX) * Factor
+                EndIf
+                Chart()\Current\pFactorX = Factor
+              EndIf
+              ;}
+              
+              ;{ --- Set text for #ShowValue or #ShowPercent ---        
+              If Chart()\Flags & #ShowValue
+                Text$ = "(" + StrF(Chart()\Series()\Item()\DataX, Chart()\Decimals) + "/" +StrF(Chart()\Series()\Item()\DataX, Chart()\Decimals)+ ")"
+              Else
+                Text$ = GetText_(Chart()\Series()\Item()\Text)
+              EndIf ;}
+              
+              If Chart()\Series()\Item()\DataY >= Chart()\Current\MinimumY And Chart()\Series()\Item()\DataY <= Chart()\Current\MaximumY And Chart()\Series()\Item()\DataX >= Chart()\Current\MinimumX And Chart()\Series()\Item()\DataX <= Chart()\Current\MaximumX
+                
+                Color = Chart()\Series()\Color
+                If Color = #PB_Default : Color = Chart()\Color\Bar : EndIf
+
+                Circle_(Round(PosX, #PB_Round_Nearest), Round(PosY, #PB_Round_Nearest), Radius, BlendColor_(Color, Chart()\Color\Border, 50), Color)
+              
+                ;{ --- Set Data ----
+                If Chart()\Series()\Item()\Value < 0
+                  Chart()\Series()\Item()\X      = PosX
+                  Chart()\Series()\Item()\Y      = PosY
+                  Chart()\Series()\Item()\Width  = cWidth
+                  Chart()\Series()\Item()\Height = cWidth
+                Else
+                  Chart()\Series()\Item()\X      = PosX
+                  Chart()\Series()\Item()\Y      = PosY
+                  Chart()\Series()\Item()\Width  = cWidth
+                  Chart()\Series()\Item()\Height = cWidth
+                EndIf ;}
+              
+              Else
+                Chart()\Series()\Item()\X      = 0
+                Chart()\Series()\Item()\Y      = 0
+                Chart()\Series()\Item()\Width  = 0
+                Chart()\Series()\Item()\Height = 0
+                Color = #Error
+              EndIf
+              
+              ;{ --- Draw Text ---
+              If Text$ 
+                
+                If Chart()\Scatter\FontSize = #PB_Default
+                  VectorFont(Chart()\Scatter\FontID)
+                Else
+                  VectorFont(Chart()\Scatter\FontID, dpiY(Chart()\Scatter\FontSize))
+                EndIf
+                
+                txtHeight = VectorTextHeight(Text$)
+                
+                txtX = PosX - Radius + ((cWidth - VectorTextWidth(Text$)) / 2)
+                
+                If Chart()\Series()\Item()\Value < 0
+                  txtY = PosY - VectorTextHeight(Text$) - dpiY(2)
+                Else
+                  txtY = PosY - VectorTextHeight(Text$) - dpiY(2)
+                EndIf
+
+                If Color = #Error
+                  Text_(txtX, Y + Height - txtHeight - dpiY(2), Text$, $0000FF)
+                Else
+                  Text_(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Color, 60))
+                EndIf  
+                
+              EndIf ;}
+              
+            Next  
+            
+          EndIf
+          
+        Next
+        
+        StopVectorDrawing()
+      EndIf
+      
+      If StartDrawing(CanvasOutput(Chart()\CanvasNum))
+    
+        DrawingFont(Chart()\FontID)
+        
+        If Items
+          
+          If Chart()\Legend\Flags & #Hide = #False
+            
+            ;{ --- Draw Legend ---
+            DrawingFont(Chart()\Legend\FontID)
+            txtHeight = TextHeight("Abc")
+            
+            lTextWidth = 0
+            
+            If Chart()\Legend\Flags & #AllDataSeries
+              Series = ListSize(Chart()\Series())
+              ForEach Chart()\Series()
+                lTextWidth + TextWidth(Chart()\Series()\Label)
+              Next
+            Else
+              ForEach Chart()\VisibleData()
+                If SelectElement(Chart()\Series(), Chart()\VisibleData())  
+                  lTextWidth + TextWidth(Chart()\Series()\Label)
+                EndIf  
+              Next
+            EndIf
+            
+            lWidth  = lTextWidth + ((txtHeight + dpiX(5)) * Series) + (dpiX(10) * (Series - 1)) + dpiX(10)
+            
+            lX = (Width - lWidth) / 2 + X
+            lY = Y + Height + txtHeight + dpiY(8)
+            
+            DrawingMode(#PB_2DDrawing_Default)
+            Box(lX, lY, lWidth, lHeight, $FFFFFF)
+            
+            DrawingMode(#PB_2DDrawing_Outlined)
+            Box(lX, lY, lWidth, lHeight, Chart()\Color\Border)
+            
+            PosX = lX + dpiX(5)
+            PosY = lY + dpiX(5)
+           
+            If Chart()\Legend\Flags & #AllDataSeries
+              
+              ForEach Chart()\Series()
+                
+                DrawingMode(#PB_2DDrawing_Default)
+                Box(PosX, PosY, txtHeight, txtHeight, Chart()\Series()\Color)
+               
+                DrawingMode(#PB_2DDrawing_Outlined)
+                Box(PosX, PosY, txtHeight, txtHeight, BlendColor_(Chart()\Series()\Color, Chart()\Color\Border, 40))
+                
+                Chart()\Series()\Legend\X      = PosX
+                Chart()\Series()\Legend\Y      = PosY
+                Chart()\Series()\Legend\Width  = txtHeight + dpiX(5) + TextWidth(Chart()\Series()\Label)
+                Chart()\Series()\Legend\Height = txtHeight
+                
+                PosX + txtHeight + dpiX(5)
+      
+                DrawingMode(#PB_2DDrawing_Transparent)
+                DrawText(PosX, PosY, Chart()\Series()\Label, Chart()\Color\Front)
+                
+                PosX + TextWidth(Chart()\Series()\Label) + dpiX(10)
+              Next  
+              
+            Else
+              
+              ForEach Chart()\VisibleData()
+              
+                If SelectElement(Chart()\Series(), Chart()\VisibleData())
+                  
+                  DrawingMode(#PB_2DDrawing_Default)
+                  Box(PosX, PosY, txtHeight, txtHeight, Chart()\Series()\Color)
+                 
+                  DrawingMode(#PB_2DDrawing_Outlined)
+                  Box(PosX, PosY, txtHeight, txtHeight, BlendColor_(Chart()\Series()\Color, Chart()\Color\Border, 40))
+                  
+                  Chart()\Series()\Legend\X      = PosX
+                  Chart()\Series()\Legend\Y      = PosY
+                  Chart()\Series()\Legend\Width  = txtHeight + dpiX(5) + TextWidth(Chart()\Series()\Label)
+                  Chart()\Series()\Legend\Height = txtHeight
+                  
+                  PosX + txtHeight + dpiX(5)
+        
+                  DrawingMode(#PB_2DDrawing_Transparent)
+                  DrawText(PosX, PosY, Chart()\Series()\Label, Chart()\Color\Front)
+                  
+                  PosX + TextWidth(Chart()\Series()\Label) + dpiX(10)
+        
+                EndIf 
+                
+              Next
+              
+            EndIf ;}
+            
+          EndIf  
+          
+        EndIf
+        
+        StopDrawing()
+      EndIf
+      
+    EndProcedure
+    
+  CompilerEndIf
+  
   CompilerIf #Enable_DataSeries
 
     Procedure   DrawBarSeries_(X.i, Y.i, Width.i, Height.i)
@@ -1423,25 +1996,25 @@ Module Chart
         
         DrawingFont(Chart()\FontID)
         
-        Chart()\Current\Maximum  = Chart()\Maximum ;{ Maximum
+        Chart()\Current\MaximumY  = Chart()\Maximum ;{ Maximum
         maxValue = MaximumValue_()
-        If Chart()\Current\Maximum = #PB_Default
-          Chart()\Current\Maximum = maxValue
+        If Chart()\Current\MaximumY = #PB_Default
+          Chart()\Current\MaximumY = maxValue
         ElseIf Chart()\Bar\Flags & #NoAutoAdjust = #False
-          Chart()\Current\Maximum = Chart()\Maximum
-          If maxValue > Chart()\Current\Maximum : Chart()\Current\Maximum = maxValue : EndIf
+          Chart()\Current\MaximumY = Chart()\Maximum
+          If maxValue > Chart()\Current\MaximumY : Chart()\Current\MaximumY = maxValue : EndIf
         EndIf ;}
         
-        Chart()\Current\Minimum  = Chart()\Minimum ;{ Minimum
+        Chart()\Current\MinimumY  = Chart()\Minimum ;{ Minimum
         minValue = MinimumValue_()
-        If Chart()\Current\Minimum = #PB_Default
-          Chart()\Current\Minimum = minValue
+        If Chart()\Current\MinimumY = #PB_Default
+          Chart()\Current\MinimumY = minValue
         ElseIf Chart()\Bar\Flags & #NoAutoAdjust = #False
-          If minValue < Chart()\Current\Minimum : Chart()\Current\Minimum = minValue : EndIf
+          If minValue < Chart()\Current\MinimumY : Chart()\Current\MinimumY = minValue : EndIf
         EndIf ;}
         
         txtHeight = TextHeight("Abc")
-        txtWidth  = TextWidth(Str(Chart()\Current\Maximum))
+        txtWidth  = TextWidth(Str(Chart()\Current\MaximumY))
        
         X  + txtWidth + dpiX(2)
         Y  + (txtHeight / 2)
@@ -1462,13 +2035,13 @@ Module Chart
         Chart()\EventSize\Width  = Width
         Chart()\EventSize\Height = Height
         
-        Chart()\Bar\Range = Chart()\Current\Maximum - Chart()\Current\Minimum
+        Chart()\Bar\Range = Chart()\Current\MaximumY - Chart()\Current\MinimumY
         
         ;{ --- Calc Height for positive and negative Values ---
-        If Chart()\Current\Minimum < 0
+        If Chart()\Current\MinimumY < 0
           Quotient = Height / Chart()\Bar\Range
-          pHeight  = Quotient * Chart()\Current\Maximum ; positiv
-          nHeight  = Quotient * Chart()\Current\Minimum ; negativ 
+          pHeight  = Quotient * Chart()\Current\MaximumY ; positiv
+          nHeight  = Quotient * Chart()\Current\MinimumY ; negativ 
         Else
           pHeight = Height ; positiv
           nHeight = 0      ; negativ
@@ -1519,19 +2092,19 @@ Module Chart
               Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
             EndIf 
             Line(X - dpiX(2), PosY, dpiX(5), 1, Chart()\Color\Axis)
-            Text$ = Str(Chart()\Current\Maximum - (Quotient * n))
+            Text$ = Str(Chart()\Current\MaximumY - (Quotient * n))
             txtX = X - TextWidth(Text$) - dpix(4)
             txtY = PosY - Round(txtHeight / 2, #PB_Round_Nearest)
             DrawText(txtX, txtY, Text$, Chart()\Color\Front)
           Next
     
-          ;If Chart()\Current\Minimum
+          ;If Chart()\Current\MinimumY
           ;  PosY = Y + Height
           ;  If Chart()\Flags & #ShowLines
           ;    Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
           ;  EndIf
           ;  Line(X - dpiX(2), PosY, dpiX(6), 1, Chart()\Color\Axis)
-          ;  Text$ = Str(Chart()\Current\Minimum)
+          ;  Text$ = Str(Chart()\Current\MinimumY)
           ;  txtX = X - TextWidth(Text$) - dpix(4)
           ;  txtY = PosY - Round(txtHeight / 2, #PB_Round_Nearest)
           ;  DrawText(txtX, txtY, Text$, Chart()\Color\Front)
@@ -1559,28 +2132,28 @@ Module Chart
 
             ForEach Chart()\Series()\Item()
               
-              If (Chart()\Series()\Item()\Value >= Chart()\Current\Minimum And Chart()\Series()\Item()\Value <= Chart()\Current\Maximum) Or Chart()\Bar\Flags & #OutOfRange
+              If (Chart()\Series()\Item()\Value >= Chart()\Current\MinimumY And Chart()\Series()\Item()\Value <= Chart()\Current\MaximumY) Or Chart()\Bar\Flags & #OutOfRange
                 
                 If Chart()\Bar\Flags & #OutOfRange : ClipOutput(X, Y, Width, Height) : EndIf 
                 
                 ;{ --- Calc Position & Height---
-                If Chart()\Current\Minimum < 0
+                If Chart()\Current\MinimumY < 0
                   If Chart()\Series()\Item()\Value < 0
                     PosY = Y + pHeight + dpiY(1)
-                    Quotient = nHeight / Chart()\Current\Minimum
+                    Quotient = nHeight / Chart()\Current\MinimumY
                   Else
                     PosY = Y + pHeight
-                    Quotient = pHeight / Chart()\Current\Maximum
+                    Quotient = pHeight / Chart()\Current\MaximumY
                   EndIf
                   bHeight = Chart()\Series()\Item()\Value * Quotient
                 Else
                   PosY = Y + pHeight
                   Quotient = Height / Chart()\Bar\Range
-                  bHeight = (Chart()\Series()\Item()\Value - Chart()\Current\Minimum) * Quotient
+                  bHeight = (Chart()\Series()\Item()\Value - Chart()\Current\MinimumY) * Quotient
                 EndIf ;}
                 
                 ;{ --- Set text for #ShowValue or #ShowPercent ---
-                Calc = (Chart()\Series()\Item()\Value - Chart()\Current\Minimum) * 100
+                Calc = (Chart()\Series()\Item()\Value - Chart()\Current\MinimumY) * 100
                 If Calc <> 0
                   Percent$ = Str((Calc / Chart()\Bar\Range)) + "%"
                 Else
@@ -1602,7 +2175,7 @@ Module Chart
                 Gradient = Chart()\Series()\Gradient
                 If Gradient = #PB_Default : Gradient = BlendColor_(Color, Chart()\Color\Back, 60) : EndIf
                 
-                If (Chart()\Series()\Item()\Value >= Chart()\Current\Minimum And Chart()\Series()\Item()\Value <= Chart()\Current\Maximum) Or Chart()\Bar\Flags & #OutOfRange
+                If (Chart()\Series()\Item()\Value >= Chart()\Current\MinimumY And Chart()\Series()\Item()\Value <= Chart()\Current\MaximumY) Or Chart()\Bar\Flags & #OutOfRange
                 
                   If Color <> Gradient ;{ Gradient color
           
@@ -1636,7 +2209,7 @@ Module Chart
                 EndIf ;}
                 
                 If Chart()\Bar\Flags & #OutOfRange ;{
-                  If Chart()\Series()\Item()\Value < Chart()\Current\Minimum Or Chart()\Series()\Item()\Value > Chart()\Current\Maximum
+                  If Chart()\Series()\Item()\Value < Chart()\Current\MinimumY Or Chart()\Series()\Item()\Value > Chart()\Current\MaximumY
                     Color = #Error
                   EndIf
                   UnclipOutput()
@@ -1855,7 +2428,7 @@ Module Chart
     EndProcedure
     
     Procedure   DrawLineSeries_(X.i, Y.i, Width.i, Height.i)
-      Define.i X, Y, Width, Height, PosX, PosY, sWidth, cWidth, cHeight, nHeight, pHeight, axisY, seriesX
+      Define.i PosX, PosY, sWidth, cWidth, cHeight, nHeight, pHeight, axisY, seriesX
       Define.i txtX, txtY, txtWidth, txtHeight, lX, lY, lHeight, lWidth, lTextWidth, Radius, xW3, lastX, lastY
       Define.i n, Items, Spaces, ScaleLines, Color, Gradient, maxValue, minValue, Series
       Define.q AlphaColor
@@ -1866,25 +2439,25 @@ Module Chart
       
         DrawingFont(Chart()\FontID)
         
-        Chart()\Current\Maximum = Chart()\Maximum ;{ Maximum
+        Chart()\Current\MaximumY = Chart()\Maximum ;{ Maximum
         maxValue = MaximumValue_()
-        If Chart()\Current\Maximum = #PB_Default
-          Chart()\Current\Maximum = maxValue
+        If Chart()\Current\MaximumY = #PB_Default
+          Chart()\Current\MaximumY = maxValue
         ElseIf Chart()\Line\Flags & #NoAutoAdjust = #False
-          Chart()\Current\Maximum = Chart()\Maximum
-          If maxValue > Chart()\Current\Maximum : Chart()\Current\Maximum = maxValue : EndIf
+          Chart()\Current\MaximumY = Chart()\Maximum
+          If maxValue > Chart()\Current\MaximumY : Chart()\Current\MaximumY = maxValue : EndIf
         EndIf ;}
         
-        Chart()\Current\Minimum = Chart()\Minimum ;{ Minimum
+        Chart()\Current\MinimumY = Chart()\Minimum ;{ Minimum
         minValue = MinimumValue_()
-        If Chart()\Current\Minimum = #PB_Default
-          Chart()\Current\Minimum = minValue
+        If Chart()\Current\MinimumY = #PB_Default
+          Chart()\Current\MinimumY = minValue
         ElseIf Chart()\Line\Flags & #NoAutoAdjust = #False
-          If minValue < Chart()\Current\Minimum : Chart()\Current\Minimum = minValue : EndIf
+          If minValue < Chart()\Current\MinimumY : Chart()\Current\MinimumY = minValue : EndIf
         EndIf ;}
         
         txtHeight = TextHeight("Abc")
-        txtWidth  = TextWidth(Str(Chart()\Current\Maximum))
+        txtWidth  = TextWidth(Str(Chart()\Current\MaximumY))
        
         X  + txtWidth + dpiX(2)
         Y  + (txtHeight / 2)
@@ -1905,13 +2478,13 @@ Module Chart
         Chart()\EventSize\Width  = Width
         Chart()\EventSize\Height = Height
         
-        Chart()\Line\Range = Chart()\Current\Maximum - Chart()\Current\Minimum
+        Chart()\Line\Range = Chart()\Current\MaximumY - Chart()\Current\MinimumY
         
         ;{ --- Calc Height for positive and negative Values ---
-        If Chart()\Current\Minimum < 0
+        If Chart()\Current\MinimumY < 0
           Factor = Height / Chart()\Line\Range
-          pHeight  = Factor * Chart()\Current\Maximum ; positiv
-          nHeight  = Factor * Chart()\Current\Minimum ; negativ 
+          pHeight  = Factor * Chart()\Current\MaximumY ; positiv
+          nHeight  = Factor * Chart()\Current\MinimumY ; negativ 
         Else
           pHeight = Height ; positiv
           nHeight = 0      ; negativ
@@ -1961,9 +2534,9 @@ Module Chart
             EndIf 
             Line(X - dpiX(2), PosY, dpiX(5), 1, Chart()\Color\Axis)
             If Chart()\Line\Flags & #Descending
-              Text$ = Str((Factor * n) + Chart()\Current\Minimum)
+              Text$ = Str((Factor * n) + Chart()\Current\MinimumY)
             Else
-              Text$ = Str(Chart()\Current\Maximum - (Factor * n))
+              Text$ = Str(Chart()\Current\MaximumY - (Factor * n))
             EndIf
             txtX = X - TextWidth(Text$) - dpix(4)
             txtY = PosY - Round(txtHeight / 2, #PB_Round_Nearest)
@@ -1981,7 +2554,7 @@ Module Chart
  
         If Items : Dim Label.s(Items - 1) : EndIf
   
-        Radius  = cWidth / 2
+        Radius = cWidth / 2
         
         ;{ --- Draw Lines ---
         xW3 = Round((cWidth + sWidth) / 3, #PB_Round_Nearest)
@@ -2002,24 +2575,24 @@ Module Chart
             
             ForEach Chart()\Series()\Item()
               
-              If (Chart()\Series()\Item()\Value >= Chart()\Current\Minimum And Chart()\Series()\Item()\Value <= Chart()\Current\Maximum) Or Chart()\Line\Flags & #OutOfRange
+              If (Chart()\Series()\Item()\Value >= Chart()\Current\MinimumY And Chart()\Series()\Item()\Value <= Chart()\Current\MaximumY) Or Chart()\Line\Flags & #OutOfRange
                 
                 ;{ --- Calc Position & Height---
-                If Chart()\Current\Minimum < 0
+                If Chart()\Current\MinimumY < 0
                   
                   If Chart()\Series()\Item()\Value < 0
                     PosY    = Y + pHeight + dpiY(1)
-                    Factor  = nHeight / Chart()\Current\Minimum
+                    Factor  = nHeight / Chart()\Current\MinimumY
                     cHeight = Chart()\Series()\Item()\Value * Factor
-                    If Chart()\Series()\Item()\Value < Chart()\Current\Minimum : cHeight = - SpaceY : EndIf
+                    If Chart()\Series()\Item()\Value < Chart()\Current\MinimumY : cHeight = - SpaceY : EndIf
                   Else
                     PosY    = Y + pHeight
-                    Factor  = pHeight / Chart()\Current\Maximum
+                    Factor  = pHeight / Chart()\Current\MaximumY
                     cHeight = Chart()\Series()\Item()\Value * Factor
-                    If Chart()\Series()\Item()\Value < Chart()\Current\Minimum
+                    If Chart()\Series()\Item()\Value < Chart()\Current\MinimumY
                       cHeight = - SpaceY   
-                    ElseIf Chart()\Series()\Item()\Value > Chart()\Current\Maximum
-                      cHeight = (Chart()\Current\Maximum -  Chart()\Current\Minimum) * Factor + SpaceY
+                    ElseIf Chart()\Series()\Item()\Value > Chart()\Current\MaximumY
+                      cHeight = (Chart()\Current\MaximumY -  Chart()\Current\MinimumY) * Factor + SpaceY
                     EndIf 
                   EndIf
 
@@ -2028,18 +2601,18 @@ Module Chart
                   PosY = Y + pHeight
                   Factor = Height / Chart()\Line\Range
                   If Chart()\Line\Flags & #Descending
-                    cHeight = (Chart()\Current\Maximum - (Chart()\Series()\Item()\Value)) * Factor
-                    If Chart()\Series()\Item()\Value < Chart()\Current\Minimum
-                      cHeight = (Chart()\Current\Maximum -  Chart()\Current\Minimum) * Factor + SpaceY
-                    ElseIf Chart()\Series()\Item()\Value > Chart()\Current\Maximum
+                    cHeight = (Chart()\Current\MaximumY - (Chart()\Series()\Item()\Value)) * Factor
+                    If Chart()\Series()\Item()\Value < Chart()\Current\MinimumY
+                      cHeight = (Chart()\Current\MaximumY -  Chart()\Current\MinimumY) * Factor + SpaceY
+                    ElseIf Chart()\Series()\Item()\Value > Chart()\Current\MaximumY
                       cHeight = - SpaceY   
                     EndIf 
                   Else
-                    cHeight = (Chart()\Series()\Item()\Value - Chart()\Current\Minimum) * Factor
-                    If Chart()\Series()\Item()\Value < Chart()\Current\Minimum
+                    cHeight = (Chart()\Series()\Item()\Value - Chart()\Current\MinimumY) * Factor
+                    If Chart()\Series()\Item()\Value < Chart()\Current\MinimumY
                       cHeight = - SpaceY   
-                    ElseIf Chart()\Series()\Item()\Value > Chart()\Current\Maximum
-                      cHeight = (Chart()\Current\Maximum -  Chart()\Current\Minimum) * Factor + SpaceY
+                    ElseIf Chart()\Series()\Item()\Value > Chart()\Current\MaximumY
+                      cHeight = (Chart()\Current\MaximumY -  Chart()\Current\MinimumY) * Factor + SpaceY
                     EndIf 
                   EndIf
 
@@ -2080,32 +2653,32 @@ Module Chart
             ForEach Chart()\Series()\Item()
 
               ;{ --- Calc Position & Height---
-              If Chart()\Current\Minimum < 0
+              If Chart()\Current\MinimumY < 0
                 If Chart()\Series()\Item()\Value < 0
                   PosY = Y + pHeight + dpiY(1)
-                  Factor = nHeight / Chart()\Current\Minimum
-                  Chart()\Current\nFactor = Factor
+                  Factor = nHeight / Chart()\Current\MinimumY
+                  Chart()\Current\nFactorY = Factor
                 Else
                   PosY = Y + pHeight
-                  Factor = pHeight / Chart()\Current\Maximum
-                  Chart()\Current\pFactor = Factor
+                  Factor = pHeight / Chart()\Current\MaximumY
+                  Chart()\Current\pFactorY = Factor
                 EndIf
                 cHeight = Chart()\Series()\Item()\Value * Factor
               Else
                 PosY = Y + pHeight
                 Factor = Height / Chart()\Line\Range
                 If Chart()\Line\Flags & #Descending
-                  cHeight = (Chart()\Current\Maximum - (Chart()\Series()\Item()\Value)) * Factor
+                  cHeight = (Chart()\Current\MaximumY - (Chart()\Series()\Item()\Value)) * Factor
                 Else
-                  cHeight = (Chart()\Series()\Item()\Value - Chart()\Current\Minimum) * Factor
+                  cHeight = (Chart()\Series()\Item()\Value - Chart()\Current\MinimumY) * Factor
                 EndIf
-                Chart()\Current\pFactor = Factor
+                Chart()\Current\pFactorY = Factor
               EndIf ;}
               
-              Chart()\Current\Maximum = Chart()\Current\Maximum
+              ;Chart()\Current\MaximumY = Chart()\Current\MaximumY
               
               ;{ --- Set text for #ShowValue or #ShowPercent ---
-              Calc = (Chart()\Series()\Item()\Value - Chart()\Current\Minimum) * 100
+              Calc = (Chart()\Series()\Item()\Value - Chart()\Current\MinimumY) * 100
               If Calc <> 0
                 Percent$ = Str((Calc / Chart()\Line\Range)) + "%"
               Else
@@ -2120,40 +2693,46 @@ Module Chart
                 Text$ = GetText_(Chart()\Series()\Item()\Text)
               EndIf ;}
               
-              If Chart()\Series()\Item()\Value >= Chart()\Current\Minimum And Chart()\Series()\Item()\Value <= Chart()\Current\Maximum
+              If Chart()\Series()\Item()\Value >= Chart()\Current\MinimumY And Chart()\Series()\Item()\Value <= Chart()\Current\MaximumY
   
                 ;{ --- Draw Circles ---
                 Color = Chart()\Series()\Color
                 If Color = #PB_Default : Color = Chart()\Color\Bar : EndIf
                 
-                Gradient = Chart()\Series()\Gradient
-                If Gradient = #PB_Default : Gradient = BlendColor_(Color, Chart()\Color\Back, 60) : EndIf
+                ;Gradient = Chart()\Series()\Gradient
+                ;If Gradient = #PB_Default : Gradient = BlendColor_(Color, Chart()\Color\Back, 60) : EndIf
                 
-                If Chart()\Series()\Item()\Value >= Chart()\Current\Minimum And Chart()\Series()\Item()\Value <= Chart()\Current\Maximum
-                  
-                  Circle_(PosX + Radius, PosY - cHeight, Radius, BlendColor_(Color, Chart()\Color\Border, 50), Color)
-                
-                  ;{ --- Set Data ----
-                  If Chart()\Series()\Item()\Value < 0
-                    Chart()\Series()\Item()\X      = PosX
-                    Chart()\Series()\Item()\Y      = PosY - cHeight + Radius
-                    Chart()\Series()\Item()\Width  = cWidth
-                    Chart()\Series()\Item()\Height = cWidth
-                  Else
-                    Chart()\Series()\Item()\X      = PosX
-                    Chart()\Series()\Item()\Y      = PosY - cHeight - Radius
-                    Chart()\Series()\Item()\Width  = cWidth
-                    Chart()\Series()\Item()\Height = cWidth
-                  EndIf ;}
-                  
-                EndIf
+                Circle_(PosX + Radius, PosY - cHeight, Radius, BlendColor_(Color, Chart()\Color\Border, 50), Color)
+              
+                ;{ --- Set Data ----
+                If Chart()\Series()\Item()\Value < 0
+                  Chart()\Series()\Item()\X      = PosX
+                  Chart()\Series()\Item()\Y      = PosY - cHeight + Radius
+                  Chart()\Series()\Item()\Width  = cWidth
+                  Chart()\Series()\Item()\Height = cWidth
+                Else
+                  Chart()\Series()\Item()\X      = PosX
+                  Chart()\Series()\Item()\Y      = PosY - cHeight - Radius
+                  Chart()\Series()\Item()\Width  = cWidth
+                  Chart()\Series()\Item()\Height = cWidth
+                EndIf ;}
+                If Chart()\Series()\Item()\Value < 0
+                  Chart()\Series()\Item()\X      = PosX
+                  Chart()\Series()\Item()\Y      = PosY + Radius
+                  Chart()\Series()\Item()\Width  = cWidth
+                  Chart()\Series()\Item()\Height = cWidth
+                Else
+                  Chart()\Series()\Item()\X      = PosX
+                  Chart()\Series()\Item()\Y      = PosY - Radius
+                  Chart()\Series()\Item()\Width  = cWidth
+                  Chart()\Series()\Item()\Height = cWidth
+                EndIf  
                 ;}
                 
               Else
                 Chart()\Series()\Item()\X      = 0
                 Chart()\Series()\Item()\Y      = 0
                 Chart()\Series()\Item()\Width  = 0
-                Chart()\Series()\Item()\Height = 0
                 cHeight = 0
                 Chart()\Series()\Item()\Height = cHeight
                 Color = #Error
@@ -2344,22 +2923,22 @@ Module Chart
       
         DrawingFont(Chart()\FontID)
         
-        Chart()\Current\Maximum  = Chart()\Maximum ;{ Maximum
+        Chart()\Current\MaximumY  = Chart()\Maximum ;{ Maximum
         maxValue = MaximumValue_()
-        If Chart()\Current\Maximum = #PB_Default
-          Chart()\Current\Maximum = maxValue
+        If Chart()\Current\MaximumY = #PB_Default
+          Chart()\Current\MaximumY = maxValue
         ElseIf Chart()\Bar\Flags & #NoAutoAdjust = #False
-          Chart()\Current\Maximum = Chart()\Maximum
-          If maxValue > Chart()\Current\Maximum : Chart()\Current\Maximum = maxValue : EndIf
+          Chart()\Current\MaximumY = Chart()\Maximum
+          If maxValue > Chart()\Current\MaximumY : Chart()\Current\MaximumY = maxValue : EndIf
         EndIf ;}
   
-        Chart()\Current\Minimum  = Chart()\Minimum ; Minimum
+        Chart()\Current\MinimumY  = Chart()\Minimum ; Minimum
         If Chart()\Bar\Flags & #NoAutoAdjust = #False
-          Chart()\Current\Minimum = Chart()\Minimum
-          If minValue < Chart()\Current\Minimum : Chart()\Current\Minimum = minValue : EndIf
+          Chart()\Current\MinimumY = Chart()\Minimum
+          If minValue < Chart()\Current\MinimumY : Chart()\Current\MinimumY = minValue : EndIf
         EndIf
         
-        If Chart()\Current\Minimum < 0 : Chart()\Current\Minimum = 0 : EndIf
+        If Chart()\Current\MinimumY < 0 : Chart()\Current\MinimumY = 0 : EndIf
         
         maxLabelWidth = MaxLabelWidth_()
         
@@ -2376,7 +2955,7 @@ Module Chart
         Chart()\EventSize\Width  = Width
         Chart()\EventSize\Height = Height
         
-        Chart()\Bar\Range = Abs(Chart()\Current\Maximum - Chart()\Current\Minimum)
+        Chart()\Bar\Range = Abs(Chart()\Current\MaximumY - Chart()\Current\MinimumY)
         
         ;{ --- Calc Bar & Spacing Width ---
         Items  = ListSize(Chart()\Item())
@@ -2401,7 +2980,7 @@ Module Chart
         
         If Chart()\Bar\ScaleLines = #PB_Default
           If Chart()\Bar\ScaleSpacing = 0 : Chart()\Bar\ScaleSpacing = 1 : EndIf
-          ScaleLines = Width / ((TextWidth(Str(Chart()\Current\Maximum)) + dpiX(4)) * Chart()\Bar\ScaleSpacing) ; Labels width
+          ScaleLines = Width / ((TextWidth(Str(Chart()\Current\MaximumY)) + dpiX(4)) * Chart()\Bar\ScaleSpacing) ; Labels width
           ScaleLines = CalcScaleLines_(ScaleLines, Chart()\Bar\Range)
         Else
           ScaleLines = Chart()\Bar\ScaleLines
@@ -2431,13 +3010,13 @@ Module Chart
             DrawText(txtX, txtY, Text$, Chart()\Color\Front)
           Next
     
-          ;If Chart()\Current\Minimum
+          ;If Chart()\Current\MinimumY
           ;  PosY = Y + Height
           ;  If Chart()\Flags & #ShowLines
           ;    Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
           ;  EndIf
           ;  Line(X - dpiX(2), PosY, dpiX(6), 1, Chart()\Color\Axis)
-          ;  Text$ = Str(Chart()\Current\Minimum)
+          ;  Text$ = Str(Chart()\Current\MinimumY)
           ;  txtX = X - TextWidth(Text$) - dpix(4)
           ;  txtY = PosY - Round(txtHeight / 2, #PB_Round_Nearest)
           ;  DrawText(txtX, txtY, Text$, Chart()\Color\Front)
@@ -2453,10 +3032,10 @@ Module Chart
         ForEach Chart()\Item()
           
           Quotient = Width / Chart()\Bar\Range
-          bWidth   = (Chart()\Item()\Value - Chart()\Current\Minimum) * Quotient
+          bWidth   = (Chart()\Item()\Value - Chart()\Current\MinimumY) * Quotient
           
           ;{ --- Set text for #ShowValue or #ShowPercent ---
-          Calc = (Chart()\Item()\Value - Chart()\Current\Minimum) * 100
+          Calc = (Chart()\Item()\Value - Chart()\Current\MinimumY) * 100
           If Calc <> 0
             Percent$ = Str((Calc / Chart()\Bar\Range)) + "%"
           Else
@@ -2478,7 +3057,7 @@ Module Chart
           Gradient = Chart()\Item()\Gradient
           If Gradient = #PB_Default : Gradient = BlendColor_(Color, Chart()\Color\Back, 60) : EndIf
           
-          If (Chart()\Item()\Value >= Chart()\Current\Minimum And Chart()\Item()\Value <= Chart()\Current\Maximum)  Or Chart()\Bar\Flags & #OutOfRange
+          If (Chart()\Item()\Value >= Chart()\Current\MinimumY And Chart()\Item()\Value <= Chart()\Current\MaximumY)  Or Chart()\Bar\Flags & #OutOfRange
             
             If Chart()\Bar\Flags & #OutOfRange : ClipOutput(X + dpiX(1), Y, Width, Height) : EndIf 
             
@@ -2508,7 +3087,7 @@ Module Chart
             EndIf ;}
             
             If Chart()\Bar\Flags & #OutOfRange ;{
-              If Chart()\Item()\Value < Chart()\Current\Minimum Or Chart()\Item()\Value > Chart()\Current\Maximum
+              If Chart()\Item()\Value < Chart()\Current\MinimumY Or Chart()\Item()\Value > Chart()\Current\MaximumY
                 Color = #Error
               EndIf
               UnclipOutput()
@@ -2609,7 +3188,7 @@ Module Chart
   CompilerEndIf
   
   Procedure   DrawBarChart_(X.i, Y.i, Width.i, Height.i)
-    Define.i X, Y, Width, Height, PosX, PosY, sWidth, bWidth, bHeight, nHeight, pHeight
+    Define.i PosX, PosY, sWidth, bWidth, bHeight, nHeight, pHeight
     Define.i txtX, txtY, txtWidth, txtHeight, axisY
     Define.i n, Items, Spaces, ScaleLines, Color, Gradient, maxValue, minValue
     Define.f SpaceY, Quotient, Calc
@@ -2619,25 +3198,25 @@ Module Chart
       
       DrawingFont(Chart()\FontID)
     
-      Chart()\Current\Maximum  = Chart()\Maximum ;{ Maximum
+      Chart()\Current\MaximumY  = Chart()\Maximum ;{ Maximum
       maxValue = MaximumValue_()
-      If Chart()\Current\Maximum = #PB_Default
-        Chart()\Current\Maximum = maxValue
+      If Chart()\Current\MaximumY = #PB_Default
+        Chart()\Current\MaximumY = maxValue
       ElseIf Chart()\Bar\Flags & #NoAutoAdjust = #False
-        Chart()\Current\Maximum = Chart()\Maximum
-        If maxValue > Chart()\Current\Maximum : Chart()\Current\Maximum = maxValue : EndIf
+        Chart()\Current\MaximumY = Chart()\Maximum
+        If maxValue > Chart()\Current\MaximumY : Chart()\Current\MaximumY = maxValue : EndIf
       EndIf ;}
       
-      Chart()\Current\Minimum  = Chart()\Minimum ;{ Minimum
+      Chart()\Current\MinimumY  = Chart()\Minimum ;{ Minimum
       minValue = MinimumValue_()
-      If Chart()\Current\Minimum = #PB_Default
-        Chart()\Current\Minimum = minValue
+      If Chart()\Current\MinimumY = #PB_Default
+        Chart()\Current\MinimumY = minValue
       ElseIf Chart()\Bar\Flags & #NoAutoAdjust = #False
-        If minValue < Chart()\Current\Minimum : Chart()\Current\Minimum = minValue : EndIf
+        If minValue < Chart()\Current\MinimumY : Chart()\Current\MinimumY = minValue : EndIf
       EndIf ;}
 
       txtHeight = TextHeight("Abc")
-      txtWidth  = TextWidth(Str(Chart()\Current\Maximum))
+      txtWidth  = TextWidth(Str(Chart()\Current\MaximumY))
      
       X  + txtWidth + dpiX(2)
       Y  + (txtHeight / 2)
@@ -2652,13 +3231,13 @@ Module Chart
       Chart()\EventSize\Width  = Width
       Chart()\EventSize\Height = Height
       
-      Chart()\Bar\Range = Chart()\Current\Maximum - Chart()\Current\Minimum
+      Chart()\Bar\Range = Chart()\Current\MaximumY - Chart()\Current\MinimumY
       
       ;{ --- Calc Height for positive and negative Values ---
-      If Chart()\Current\Minimum < 0
+      If Chart()\Current\MinimumY < 0
         Quotient = Height / Chart()\Bar\Range
-        pHeight  = Quotient * Chart()\Current\Maximum ; positiv
-        nHeight  = Quotient * Chart()\Current\Minimum ; negativ 
+        pHeight  = Quotient * Chart()\Current\MaximumY ; positiv
+        nHeight  = Quotient * Chart()\Current\MinimumY ; negativ 
       Else
         pHeight = Height ; positiv
         nHeight = 0      ; negativ
@@ -2706,19 +3285,19 @@ Module Chart
             Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
           EndIf 
           Line(X - dpiX(2), PosY, dpiX(5), 1, Chart()\Color\Axis)
-          Text$ = Str(Chart()\Current\Maximum - (Quotient * n))
+          Text$ = Str(Chart()\Current\MaximumY - (Quotient * n))
           txtX = X - TextWidth(Text$) - dpix(4)
           txtY = PosY - Round(txtHeight / 2, #PB_Round_Nearest)
           DrawText(txtX, txtY, Text$, Chart()\Color\Front)
         Next
   
-        ;If Chart()\Current\Minimum
+        ;If Chart()\Current\MinimumY
         ;  PosY = Y + Height
         ;  If Chart()\Flags & #ShowLines
         ;    Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
         ;  EndIf
         ;  Line(X - dpiX(2), PosY, dpiX(6), 1, Chart()\Color\Axis)
-        ;  Text$ = Str(Chart()\Current\Minimum)
+        ;  Text$ = Str(Chart()\Current\MinimumY)
         ;  txtX = X - TextWidth(Text$) - dpix(4)
         ;  txtY = PosY - Round(txtHeight / 2, #PB_Round_Nearest)
         ;  DrawText(txtX, txtY, Text$, Chart()\Color\Front)
@@ -2733,23 +3312,23 @@ Module Chart
       ForEach Chart()\Item()
         
         ;{ --- Calc Position & Height---
-        If Chart()\Current\Minimum < 0
+        If Chart()\Current\MinimumY < 0
           If Chart()\Item()\Value < 0
             PosY = Y + pHeight + dpiY(1)
-            Quotient = nHeight / Chart()\Current\Minimum
+            Quotient = nHeight / Chart()\Current\MinimumY
           Else
             PosY = Y + pHeight
-            Quotient = pHeight / Chart()\Current\Maximum
+            Quotient = pHeight / Chart()\Current\MaximumY
           EndIf
           bHeight = Chart()\Item()\Value * Quotient
         Else
           PosY = Y + pHeight
           Quotient = Height / Chart()\Bar\Range
-          bHeight = (Chart()\Item()\Value - Chart()\Current\Minimum) * Quotient
+          bHeight = (Chart()\Item()\Value - Chart()\Current\MinimumY) * Quotient
         EndIf ;}
         
         ;{ --- Set text for #ShowValue or #ShowPercent ---
-        Calc = (Chart()\Item()\Value - Chart()\Current\Minimum) * 100
+        Calc = (Chart()\Item()\Value - Chart()\Current\MinimumY) * 100
         If Calc <> 0
           Percent$ = Str((Calc / Chart()\Bar\Range)) + "%"
         Else
@@ -2771,7 +3350,7 @@ Module Chart
         Gradient = Chart()\Item()\Gradient
         If Gradient = #PB_Default : Gradient = BlendColor_(Color, Chart()\Color\Back, 60) : EndIf
         
-        If (Chart()\Item()\Value >= Chart()\Current\Minimum And Chart()\Item()\Value <= Chart()\Current\Maximum) Or Chart()\Bar\Flags & #OutOfRange
+        If (Chart()\Item()\Value >= Chart()\Current\MinimumY And Chart()\Item()\Value <= Chart()\Current\MaximumY) Or Chart()\Bar\Flags & #OutOfRange
           
           If Chart()\Bar\Flags & #OutOfRange : ClipOutput(X, Y, Width, Height) : EndIf 
           
@@ -2801,7 +3380,7 @@ Module Chart
           EndIf ;}
           
           If Chart()\Bar\Flags & #OutOfRange ;{
-            If Chart()\Item()\Value < Chart()\Current\Minimum Or Chart()\Item()\Value > Chart()\Current\Maximum
+            If Chart()\Item()\Value < Chart()\Current\MinimumY Or Chart()\Item()\Value > Chart()\Current\MaximumY
               Color = #Error
             EndIf
             UnclipOutput()
@@ -2967,6 +3546,12 @@ Module Chart
         DrawLineChart_(X, Y, Width, Height)
       CompilerEndIf
       
+    ElseIf Chart()\Flags & #ScatterPlot  
+      
+      CompilerIf #Enable_ScatterPlot
+        DrawScatterPlot(X, Y, Width, Height)
+      CompilerEndIf  
+      
     Else
       
       DrawBarChart_(X, Y, Width, Height)
@@ -2995,10 +3580,12 @@ Module Chart
     ProcedureReturn Sqr((X * X) + (Y * Y))
   EndProcedure
   
-  Procedure   UpdateEventData_(Index.i, Label.s, Value.i=0, Color.i=#PB_Default, Series.s="")
+  Procedure   UpdateEventData_(Index.i, Label.s, Value.i=0, Color.i=#PB_Default, Series.s="", DataX.f=0, DataY.f=0)
     
     Chart()\Event\Index  = Index
     Chart()\Event\Value  = Value
+    Chart()\Event\DataX  = DataX
+    Chart()\Event\DataY  = DataY
     Chart()\Event\Label  = Label
     Chart()\Event\Series = Series
     Chart()\Event\Color  = Color
@@ -3104,6 +3691,45 @@ Module Chart
           EndIf
         Next
         ;}
+      ElseIf Chart()\Flags & #ScatterPlot     ;{ Scatter Plot Chart 
+        
+        If Chart()\Legend\Flags & #PostEvents ;{ Legend
+          
+          If Chart()\Legend\Flags & #AllScatterPlots
+            
+            ForEach Chart()\Series()
+              If X > Chart()\Series()\Legend\X And X < Chart()\Series()\Legend\X + Chart()\Series()\Legend\Width
+                If Y > Chart()\Series()\Legend\Y And Y < Chart()\Series()\Legend\Y + Chart()\Series()\Legend\Height
+                  
+                  UpdateEventData_(#NotValid, "", 0, Chart()\Series()\Color, Chart()\Series()\Label)
+                  PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_LeftDoubleClick)
+                  
+                  ProcedureReturn #True
+                EndIf
+              EndIf 
+            Next
+
+          EndIf 
+          ;}
+        EndIf
+        
+        ForEach Chart()\VisibleData()
+          If SelectElement(Chart()\Series(), Chart()\VisibleData())
+            ForEach Chart()\Series()\Item()
+              If X > Chart()\Series()\Item()\X And X < Chart()\Series()\Item()\X + Chart()\Series()\Item()\Width
+                If Y > Chart()\Series()\Item()\Y And Y < Chart()\Series()\Item()\Y + Chart()\Series()\Item()\Height
+
+                  UpdateEventData_(ListIndex(Chart()\Series()\Item()), Chart()\Series()\Item()\Label, 0, Chart()\Series()\Color, Chart()\Series()\Label, Chart()\Series()\Item()\DataX, Chart()\Series()\Item()\DataY)
+                  PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_LeftDoubleClick, ListIndex(Chart()\Series()\Item()))
+                  
+                  ProcedureReturn #True
+                EndIf
+              EndIf
+            Next
+          EndIf
+        Next
+        ;}  
+        
       Else                                    ;{ Bar / Line Chart
         
         ForEach Chart()\Item()
@@ -3267,6 +3893,87 @@ Module Chart
           EndIf
         Next ;}
         
+        ;}
+      ElseIf Chart()\Flags & #ScatterPlot     ;{ ScatterPlot
+        
+        If Chart()\Legend\Flags & #PostEvents ;{ Legend
+          
+          If Chart()\Legend\Flags & #AllScatterPlots
+            
+            ForEach Chart()\Series()
+              If X > Chart()\Series()\Legend\X And X < Chart()\Series()\Legend\X + Chart()\Series()\Legend\Width
+                If Y > Chart()\Series()\Legend\Y And Y < Chart()\Series()\Legend\Y + Chart()\Series()\Legend\Height
+                  
+                  UpdateEventData_(#NotValid, "", 0, Chart()\Series()\Color, Chart()\Series()\Label)
+                  
+                  If Chart()\Legend\Flags & #PopUpMenu
+                    If IsWindow(Chart()\Window\Num) And IsMenu(Chart()\PopUpNum)
+                      UpdatePopUpMenu_()
+                      DisplayPopupMenu(Chart()\PopUpNum, WindowID(Chart()\Window\Num))
+                    EndIf
+                  Else  
+                    PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_RightClick)
+                  EndIf
+                  
+                  ProcedureReturn #True
+                EndIf
+              EndIf 
+            Next
+            
+          Else
+            
+            ForEach Chart()\VisibleData()
+              If SelectElement(Chart()\Series(), Chart()\VisibleData())
+                If X > Chart()\Series()\Legend\X And X < Chart()\Series()\Legend\X + Chart()\Series()\Legend\Width
+                  If Y > Chart()\Series()\Legend\Y And Y < Chart()\Series()\Legend\Y + Chart()\Series()\Legend\Height
+                    
+                    UpdateEventData_(#NotValid, "", 0, Chart()\Series()\Color, Chart()\Series()\Label)
+                    
+                    If Chart()\Legend\Flags & #PopUpMenu
+                      If IsWindow(Chart()\Window\Num) And IsMenu(Chart()\PopUpNum)
+                        UpdatePopUpMenu_()
+                        DisplayPopupMenu(Chart()\PopUpNum, WindowID(Chart()\Window\Num))
+                      EndIf
+                    Else  
+                      PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_RightClick)
+                    EndIf
+                    
+                    ProcedureReturn #True
+                  EndIf
+                EndIf
+              EndIf
+            Next
+            
+          EndIf 
+          ;}
+        EndIf
+        
+        ForEach Chart()\VisibleData()         ;{ Circles
+          If SelectElement(Chart()\Series(), Chart()\VisibleData())
+            ForEach Chart()\Series()\Item()
+              
+              If X > Chart()\Series()\Item()\X And X < Chart()\Series()\Item()\X + Chart()\Series()\Item()\Width
+                If Y > Chart()\Series()\Item()\Y And Y < Chart()\Series()\Item()\Y + Chart()\Series()\Item()\Height
+                  
+                  UpdateEventData_(ListIndex(Chart()\Series()\Item()), Chart()\Series()\Item()\Label, 0, Chart()\Series()\Color, Chart()\Series()\Label, Chart()\Series()\Item()\DataX, Chart()\Series()\Item()\DataY)
+                  
+                  If Chart()\Scatter\Flags & #PopUpMenu
+                    If IsWindow(Chart()\Window\Num) And IsMenu(Chart()\PopUpNum)
+                      UpdatePopUpMenu_()
+                      DisplayPopupMenu(Chart()\PopUpNum, WindowID(Chart()\Window\Num))
+                    EndIf
+                  Else  
+                    PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_RightClick, ListIndex(Chart()\Series()\Item()))
+                  EndIf
+
+                  ProcedureReturn #True
+                EndIf
+              EndIf
+              
+            Next
+          EndIf
+        Next ;}
+     
         ;}
       Else                                    ;{ Bar / Line Chart
         
@@ -3512,6 +4219,65 @@ Module Chart
           EndIf
         Next
         ;}
+      ElseIf Chart()\Flags & #ScatterPlot     ;{ Scatter Plot Chart
+
+        If Chart()\Legend\Flags & #PostEvents ;{ Legend
+          
+          If Chart()\Legend\Flags & #AllDataSeries
+            
+            ForEach Chart()\Series()
+              If X > Chart()\Series()\Legend\X And X < Chart()\Series()\Legend\X + Chart()\Series()\Legend\Width
+                If Y > Chart()\Series()\Legend\Y And Y < Chart()\Series()\Legend\Y + Chart()\Series()\Legend\Height
+                  
+                  UpdateEventData_(#NotValid, "", 0, Chart()\Series()\Color, Chart()\Series()\Label)
+                  PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_LeftClick)
+                  
+                  ProcedureReturn #True
+                EndIf
+              EndIf 
+            Next
+            
+          Else
+            
+            ForEach Chart()\VisibleData()
+              If SelectElement(Chart()\Series(), Chart()\VisibleData())
+                If X > Chart()\Series()\Legend\X And X < Chart()\Series()\Legend\X + Chart()\Series()\Legend\Width
+                  If Y > Chart()\Series()\Legend\Y And Y < Chart()\Series()\Legend\Y + Chart()\Series()\Legend\Height
+                    
+                    UpdateEventData_(#NotValid, "", 0, Chart()\Series()\Color, Chart()\Series()\Label)
+                    PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_LeftClick)
+                    
+                  EndIf
+                EndIf
+              EndIf
+            Next
+            
+          EndIf 
+          ;}
+        EndIf
+        
+        ForEach Chart()\VisibleData()
+          If SelectElement(Chart()\Series(), Chart()\VisibleData())
+
+            ForEach Chart()\Series()\Item()
+             
+              Radius = Chart()\Series()\Item()\Width / 2
+              
+              If X > Chart()\Series()\Item()\X - Radius And X < Chart()\Series()\Item()\X + Chart()\Series()\Item()\Width
+                If Y > Chart()\Series()\Item()\Y - Radius  And Y < Chart()\Series()\Item()\Y + Chart()\Series()\Item()\Height
+                  
+                  UpdateEventData_(ListIndex(Chart()\Series()\Item()), Chart()\Series()\Item()\Label, 0, Chart()\Series()\Color, Chart()\Series()\Label, Chart()\Series()\Item()\DataX, Chart()\Series()\Item()\DataY)
+                  PostEvent(#Event_Gadget, Chart()\Window\Num, Chart()\CanvasNum, #PB_EventType_LeftClick, ListIndex(Chart()\Series()\Item()))
+                  
+                  ProcedureReturn #True
+                EndIf
+              EndIf
+             
+            Next
+            
+          EndIf
+        Next
+        ;}  
       Else                                    ;{ Bar / Line Chart
         
         ForEach Chart()\Item()
@@ -3610,7 +4376,7 @@ Module Chart
       If X >= Chart()\EventSize\X And X <= Chart()\EventSize\X + Chart()\EventSize\Width
         If Y >= Chart()\EventSize\Y And Y <= Chart()\EventSize\Y + Chart()\EventSize\Height
 
-          If Chart()\Flags & #PieChart       ;{ Pie Chart
+          If Chart()\Flags & #PieChart        ;{ Pie Chart
 
             Radius = GetRadius_(Chart()\Pie\X, Chart()\Pie\Y, X, Y)
             If Radius < Chart()\Pie\Radius ; within the circle
@@ -3634,7 +4400,7 @@ Module Chart
               
             EndIf
             ;}
-          ElseIf Chart()\Flags & #DataSeries ;{ Data Series Chart
+          ElseIf Chart()\Flags & #DataSeries  ;{ Data Series Chart
 
             ForEach Chart()\VisibleData()
               If SelectElement(Chart()\Series(), Chart()\VisibleData())
@@ -3711,7 +4477,36 @@ Module Chart
               EndIf
             Next
             ;}
-          Else                               ;{ Bar / Line Chart
+          ElseIf Chart()\Flags & #ScatterPlot ;{ Scatter plot chart
+            
+            ForEach Chart()\VisibleData()
+              If SelectElement(Chart()\Series(), Chart()\VisibleData())
+                
+                ForEach Chart()\Series()\Item()
+
+                  Radius = (Chart()\Series()\Item()\Width / 2)
+                  
+                  If X > Chart()\Series()\Item()\X - Radius And X < Chart()\Series()\Item()\X + Chart()\Series()\Item()\Width
+                    If Y > Chart()\Series()\Item()\Y - Radius And Y < Chart()\Series()\Item()\Y + Chart()\Series()\Item()\Height
+
+                      If Chart()\Flags & #ToolTips And Chart()\ToolTip = #False
+                        Debug ">>> Tooltip: " + GetText_(Chart()\ToolTipText)
+                        GadgetToolTip(GadgetNum, GetText_(Chart()\ToolTipText))
+                        Chart()\ToolTip = #True
+                      EndIf
+
+                      If Chart()\Flags & #ChangeCursor : SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Hand) : EndIf
+
+                      ProcedureReturn #True
+                    EndIf
+                  EndIf
+ 
+                Next
+                
+              EndIf
+            Next
+            ;}
+          Else                                ;{ Bar / Line Chart
             
             ForEach Chart()\Item()
               
@@ -3859,6 +4654,389 @@ Module Chart
   ;-   Module - Declared Procedures
   ;- ========================================================================== 
   
+  CompilerIf #Enable_ScatterPlot
+    
+    Procedure   AddScatterPlot(GNum.i, Label.s, Color.i=#PB_Default, GradientColor.i=#PB_Default, BorderColor.i=#PB_Default)
+      
+      If FindMapElement(Chart(), Str(GNum))
+        
+        If Color = #PB_Default : Color = Chart()\Color\Bar : EndIf
+        
+        If FindMapElement(Chart()\Index(), Label) ;{ Error: Label already exists
+          Chart()\Error = #Error_LabelExists
+          ProcedureReturn #False
+          ;}
+        EndIf
+
+        If AddElement(Chart()\Series())
+          
+          Chart()\Series()\Label    = Label
+          Chart()\Series()\Color    = Color
+          Chart()\Series()\Gradient = GradientColor
+          Chart()\Series()\Border   = BorderColor
+         
+          If AddMapElement(Chart()\Index(), Label)
+            Chart()\Index() = ListIndex(Chart()\Series())
+          EndIf
+          
+          ProcedureReturn #True
+        EndIf  
+        
+      EndIf 
+      
+    EndProcedure
+    
+    Procedure.i AddScatterItem(GNum.i, Scatter.s, Label.s, DataX.f, DataY.f) 
+      
+      If FindMapElement(Chart(), Str(GNum))
+      
+        If DataX < Chart()\Minimum Or DataY < Chart()\Minimum ;{ Error: Minimum
+          Chart()\Error = #Error_Minimum
+          ;}
+        EndIf  
+      
+        If Chart()\Maximum <> #PB_Default And (DataX > Chart()\Maximum Or DataY > Chart()\Maximum) ;{ Error: Maximum
+          Chart()\Error = #Error_Maximum
+          ;}
+        EndIf
+        
+        If FindMapElement(Chart()\Index(), Scatter)             ; Data Series Label
+          If SelectElement(Chart()\Series(), Chart()\Index())  ; Data Series Element
+            
+            If FindMapElement(Chart()\Series()\Index(), Label) ;{ Error: Label already exists
+              Chart()\Error = #Error_LabelExists
+              ProcedureReturn #False
+              ;}
+            EndIf
+            
+            If AddElement(Chart()\Series()\Item())
+          
+              Chart()\Series()\Item()\Label = Label
+              Chart()\Series()\Item()\DataX = DataX
+              Chart()\Series()\Item()\DataY = DataY
+              
+              If AddMapElement(Chart()\Series()\Index(), Label)
+                Chart()\Series()\Index() = ListIndex(Chart()\Series()\Item())
+              EndIf
+              
+              If Chart()\ReDraw : Draw_() : EndIf
+              
+              ProcedureReturn #True
+            EndIf  
+            
+          EndIf
+        EndIf  
+
+      EndIf
+    
+    EndProcedure
+    
+    Procedure.i DisplayScatterPlot(GNum.i, Scatter.s, State.i=#True)
+
+      If FindMapElement(Chart(), Str(GNum))
+        
+        If FindMapElement(Chart()\Index(), Scatter)
+          If SelectElement(Chart()\Series(), Chart()\Index())
+            
+            If State
+              
+              If AddElement(Chart()\VisibleData())
+                
+                Chart()\VisibleData() = ListIndex(Chart()\Series())
+                
+                If AddMapElement(Chart()\VisibleIndex(), Scatter)
+                  
+                  Chart()\VisibleIndex() = ListIndex(Chart()\Series())
+                  
+                  If Chart()\ReDraw : Draw_() : EndIf
+                  
+                  ProcedureReturn #True
+                EndIf 
+              EndIf
+              
+            Else
+              
+              If FindMapElement(Chart()\VisibleIndex(), Scatter)
+              
+                ForEach Chart()\VisibleData()
+                  If Chart()\VisibleData() = Chart()\VisibleIndex()
+                    DeleteElement(Chart()\VisibleData())
+                  EndIf 
+                Next
+                
+                DeleteMapElement(Chart()\VisibleIndex())
+                
+                If Chart()\ReDraw : Draw_() : EndIf
+                
+                ProcedureReturn #True
+              EndIf
+              
+            EndIf
+            
+          EndIf
+        EndIf
+
+      EndIf
+      
+    EndProcedure
+    
+    Procedure.s EventScatterPlot(GNum.i) 
+      
+      If FindMapElement(Chart(), Str(GNum))
+        ProcedureReturn Chart()\Event\Series
+      EndIf
+      
+    EndProcedure
+    
+    Procedure.f EventDataX(GNum.i) 
+      
+      If FindMapElement(Chart(), Str(GNum))
+        ProcedureReturn Chart()\Event\DataX
+      EndIf
+      
+    EndProcedure 
+    
+    Procedure.f EventDataY(GNum.i) 
+      
+      If FindMapElement(Chart(), Str(GNum))
+        ProcedureReturn Chart()\Event\DataY
+      EndIf
+      
+    EndProcedure 
+    
+    Procedure.i GetScatterColor(GNum.i, Scatter.s)
+      
+      If FindMapElement(Chart(), Str(GNum))
+        
+        If FindMapElement(Chart()\Index(), Scatter)
+          If SelectElement(Chart()\Series(), Chart()\Index())
+            ProcedureReturn Chart()\Series()\Color
+          EndIf
+        Else
+          Chart()\Error = #Error_LabelUnknown
+        EndIf
+        
+      EndIf
+      
+    EndProcedure
+    
+    Procedure.i GetScatterItem(GNum.i, Scatter.s, Position.i, Type.i)
+      
+      If FindMapElement(Chart(), Str(GNum))
+        
+        If Position < 0 ;{ Error: List Index
+          Chart()\Error = #Error_IndexNotValid
+          ProcedureReturn #NotValid
+          ;}
+        EndIf
+        
+        If FindMapElement(Chart()\Index(), Scatter)
+          If SelectElement(Chart()\Series(), Chart()\Index())
+            
+            If SelectElement(Chart()\Series()\Item(), Position)
+              
+              Select Type
+                Case #DataX
+                  ProcedureReturn Chart()\Series()\Item()\DataX
+                Case #DataY
+                  ProcedureReturn Chart()\Series()\Item()\DataY
+              EndSelect
+              
+            Else
+              Chart()\Error = #Error_IndexNotValid
+            EndIf
+            
+          EndIf
+        EndIf
+        
+      EndIf
+      
+    EndProcedure
+    
+    Procedure.i GetScatterLabelData(GNum.i, Scatter.s, Label.s, Type.i)
+     
+      If FindMapElement(Chart(), Str(GNum))
+       
+        If FindMapElement(Chart()\Index(), Scatter)
+          If SelectElement(Chart()\Series(), Chart()\Index())
+            
+            If FindMapElement(Chart()\Series()\Index(), Label)
+              If SelectElement(Chart()\Series()\Item(), Chart()\Series()\Index())
+                
+                Select Type
+                  Case #DataX
+                    ProcedureReturn Chart()\Series()\Item()\DataX
+                  Case #DataY
+                    ProcedureReturn Chart()\Series()\Item()\DataY
+                EndSelect
+                
+              Else
+                Chart()\Error = #Error_IndexNotValid
+              EndIf
+            Else
+              Chart()\Error = #Error_LabelUnknown
+            EndIf
+            
+          EndIf
+        EndIf
+        
+      EndIf
+      
+    EndProcedure
+    
+    
+    Procedure.i RemoveScatterPlot(GNum.i, Scatter.s)
+      
+      If FindMapElement(Chart(), Str(GNum))
+
+        If FindMapElement(Chart()\Index(), Scatter)           ; ScatterPlot Label
+          If SelectElement(Chart()\Series(), Chart()\Index()) ; ScatterPlot Element
+
+            DeleteMapElement(Chart()\Index())
+            DeleteElement(Chart()\Series())
+            
+            ForEach Chart()\VisibleData()
+              If Chart()\VisibleData() = ListIndex(Chart()\Series())
+                DeleteElement(Chart()\VisibleData())
+              EndIf 
+            Next
+            
+            DeleteMapElement(Chart()\VisibleIndex(), Scatter)
+            
+            If Chart()\ReDraw : Draw_() : EndIf
+            
+            ProcedureReturn #True
+          EndIf
+        EndIf
+  
+      EndIf
+      
+    EndProcedure
+    
+    Procedure.i RemoveScatterItem(GNum.i, Scatter.s, Position.i)
+      
+      If FindMapElement(Chart(), Str(GNum))
+      
+        If Position < 0 ;{ Error: List Index
+          Chart()\Error = #Error_IndexNotValid
+          ProcedureReturn #False
+          ;}
+        EndIf
+        
+        If FindMapElement(Chart()\Index(), Scatter)           ; Data Series Label
+          If SelectElement(Chart()\Series(), Chart()\Index()) ; Data Series Element
+            
+            If SelectElement(Chart()\Series()\Item(), Position)
+          
+              DeleteMapElement(Chart()\Series()\Index(), Chart()\Series()\Item()\Label)
+              DeleteElement(Chart()\Series()\Item())
+              
+              If Chart()\ReDraw : Draw_() : EndIf
+              
+              ProcedureReturn #True
+            Else
+              Chart()\Error = #Error_IndexNotValid
+              ProcedureReturn #False
+            EndIf
+
+          EndIf
+        EndIf
+  
+      EndIf
+      
+    EndProcedure
+    
+    Procedure.i RemoveScatterLabel(GNum.i, Scatter.s, Label.s)
+      
+      If FindMapElement(Chart(), Str(GNum))
+
+        If FindMapElement(Chart()\Index(), Scatter)            ; Data Series Label
+          If SelectElement(Chart()\Series(), Chart()\Index()) ; Data Series Element
+            
+            If FindMapElement(Chart()\Series()\Index(), Label)
+              If SelectElement(Chart()\Series()\Item(), Chart()\Series()\Index())
+            
+                DeleteMapElement(Chart()\Series()\Index())
+                DeleteElement(Chart()\Series()\Item())
+                
+                If Chart()\ReDraw : Draw_() : EndIf
+                
+                ProcedureReturn #True
+              EndIf
+            Else
+              Chart()\Error = #Error_LabelUnknown
+            EndIf
+            
+          EndIf
+        EndIf
+  
+      EndIf
+      
+    EndProcedure
+    
+    
+    Procedure   SetScatterItem(GNum.i, Scatter.s, Position.i, DataX.f, DataY.f)
+      
+      If FindMapElement(Chart(), Str(GNum))
+        
+        If Position < 0 ;{ Error: List Index
+          Chart()\Error = #Error_IndexNotValid
+          ProcedureReturn #NotValid
+          ;}
+        EndIf
+        
+        If FindMapElement(Chart()\Index(), Scatter)
+          If SelectElement(Chart()\Series(), Chart()\Index())
+            
+            If SelectElement(Chart()\Series()\Item(), Position)
+              
+              Chart()\Series()\Item()\DataX = DataX
+              Chart()\Series()\Item()\DataY = DataY
+              
+              If Chart()\ReDraw : Draw_() : EndIf
+              
+            Else
+              Chart()\Error = #Error_IndexNotValid
+            EndIf
+            
+          EndIf
+        EndIf
+        
+      EndIf
+      
+    EndProcedure
+    
+    Procedure   SetScatterLabelData(GNum.i, Scatter.s, Label.s, , DataX.f, DataY.f)
+     
+      If FindMapElement(Chart(), Str(GNum))
+       
+        If FindMapElement(Chart()\Index(), Scatter)
+          If SelectElement(Chart()\Series(), Chart()\Index())
+            
+            If FindMapElement(Chart()\Series()\Index(), Label)
+              If SelectElement(Chart()\Series()\Item(), Chart()\Series()\Index())
+                
+                Chart()\Series()\Item()\Value = Value
+                
+                If Chart()\ReDraw : Draw_() : EndIf
+                
+              Else
+                Chart()\Error = #Error_IndexNotValid
+              EndIf
+            Else
+              Chart()\Error = #Error_LabelUnknown
+            EndIf
+            
+          EndIf
+        EndIf
+        
+      EndIf
+      
+    EndProcedure
+    
+  CompilerEndIf  
+  
+  
   CompilerIf #Enable_DataSeries
     
     Procedure.i AddDataSeries(GNum.i, Label.s, Color.i=#PB_Default, GradientColor.i=#PB_Default, BorderColor.i=#PB_Default)
@@ -3983,7 +5161,6 @@ Module Chart
       EndIf
       
     EndProcedure
-    
     
     Procedure.s EventDataSeries(GNum.i) 
       
@@ -4356,10 +5533,11 @@ Module Chart
             Chart()\FontID = GetGadgetFont(#PB_Default)
         CompilerEndSelect ;}
         
-        Chart()\Legend\FontID = Chart()\FontID 
-        Chart()\Pie\FontID    = Chart()\FontID
-        Chart()\Bar\FontID    = Chart()\FontID
-        Chart()\Line\FontID   = Chart()\FontID
+        Chart()\Legend\FontID  = Chart()\FontID 
+        Chart()\Pie\FontID     = Chart()\FontID
+        Chart()\Bar\FontID     = Chart()\FontID
+        Chart()\Line\FontID    = Chart()\FontID
+        Chart()\Scatter\FontID = Chart()\FontID
         
         Chart()\Size\X = X
         Chart()\Size\Y = Y
@@ -4371,8 +5549,9 @@ Module Chart
         Chart()\Margin\Top    = 10
         Chart()\Margin\Bottom = 10
         
-        Chart()\Minimum = 0
-        Chart()\Maximum = #PB_Default
+        Chart()\Minimum  = 0
+        Chart()\Maximum  = #PB_Default
+        Chart()\Decimals = 0
         
         Chart()\Bar\ScaleSpacing  = #Single
         Chart()\Bar\ScaleLines    = #PB_Default
@@ -4391,6 +5570,15 @@ Module Chart
         Chart()\Line\Color        = $9F723E
         Chart()\Line\FontSize     = #PB_Default
         
+        Chart()\Scatter\ScaleSpacingX = #Single
+        Chart()\Scatter\ScaleSpacingY = #Single
+        Chart()\Scatter\ScaleLinesX   = #PB_Default
+        Chart()\Scatter\ScaleLinesY   = #PB_Default
+        Chart()\Scatter\Width         = #PB_Default
+        Chart()\Scatter\Color         = $9F723E
+        Chart()\Scatter\FontSize      = #PB_Default
+        Chart()\Scatter\MaximumX      = #PB_Default
+        Chart()\Scatter\MaximumY      = #PB_Default
         
         Chart()\ToolTipText = #Value$
         Chart()\Flags       = Flags
@@ -4685,12 +5873,33 @@ Module Chart
     If FindMapElement(Chart(), Str(GNum))
       
       Select Attribute
-        Case #Minimum        ;{ minimum value
-          Chart()\Minimum = Value
+        Case #Minimum        ;{ minimum value (Y-axis)
+          If Chart()\Flags & #ScatterPlot
+            Chart()\Scatter\MinimumY = Value
+          Else
+            Chart()\Minimum = Value
+          EndIf 
           ;}
-        Case #Maximum        ;{ maximum value
-          Chart()\Maximum = Value 
+        Case #Maximum        ;{ maximum value (Y-axis)
+          If Chart()\Flags & #ScatterPlot
+            Chart()\Scatter\MaximumY = Value
+          Else
+            Chart()\Maximum = Value 
+          EndIf
           ;}
+        Case #MinimumX       ;{ minimum value (X-axis)
+          If Chart()\Flags & #ScatterPlot
+            Chart()\Scatter\MinimumX = Value
+          Else
+            Chart()\Minimum = Value
+          EndIf
+          ;}
+        Case #MaximumX       ;{ maximum value (X-axis)
+          If Chart()\Flags & #ScatterPlot
+            Chart()\Scatter\MaximumX = Value
+          Else
+            Chart()\Maximum = Value 
+          EndIf ;}
         Case #Width          ;{ width of bars (X-axis)
           If Chart()\Flags & #LineChart
             Chart()\Line\Width  = dpiX(Value)
@@ -4737,6 +5946,9 @@ Module Chart
           ElseIf  Chart()\Flags & #PieChart
             Chart()\Pie\FontSize = Value
           EndIf 
+          ;}
+        Case #Decimals       ;{ Decimal places for scatter plot data
+          Chart()\Decimals = Value
           ;}
       EndSelect
       
@@ -4795,6 +6007,8 @@ Module Chart
           Chart()\Pie\Flags | Flags
         Case #LineChart
           Chart()\Line\Flags | Flags
+        Case #ScatterPlot
+          Chart()\Scatter\Flags | Flags
         Case #Legend
           Chart()\Legend\Flags | Flags
       EndSelect
@@ -4809,17 +6023,20 @@ Module Chart
     
     If FindMapElement(Chart(), Str(GNum))
       
-      If Flags & #Legend        ;{ Text in the legend
+      If Flags & #Legend          ;{ Text in the legend
         Chart()\Legend\FontID = FontID
         ;}
-      ElseIf Flags & #PieChart  ;{ Text in circle sectors
+      ElseIf Flags & #PieChart    ;{ Text in circle sectors
         Chart()\Pie\FontID = FontID
         ;}
-      ElseIf Flags & #BarChart  ;{ Text in bars
+      ElseIf Flags & #BarChart    ;{ Text in bars
         Chart()\Bar\FontID = FontID
         ;}
-      ElseIf Flags & #LineChart ;{ Text over data points
+      ElseIf Flags & #LineChart   ;{ Text over data points
         Chart()\Line\FontID = FontID
+        ;}
+      ElseIf Flags & #ScatterPlot ;{ Text over data points
+        Chart()\Scatter\FontID = FontID
         ;}
       Else
         Chart()\FontID = FontID
@@ -4979,7 +6196,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   ; ----- Select Example -----
   
-  #Example = 15
+  #Example = 16
   
   ; --- Bar Chart ---
   ;  1: automatically adjust maximum value (#PB_Default)
@@ -4998,9 +6215,11 @@ CompilerIf #PB_Compiler_IsMainFile
   ; 11: chart with horizontal bars
   ; --- Line Charts ---
   ; 12: positive values
-  ; 13: Bezier curves
+  ; 13: bezier curves
   ; 14: negative & positive values
   ; 15: data series
+  ; --- Scatter Plot ---
+  ; 16: default
   ; --------------------------
   
   Enumeration 
@@ -5126,6 +6345,18 @@ CompilerIf #PB_Compiler_IsMainFile
         Chart::AttachPopupMenu(#Chart, #PopUp)
         Chart::UpdatePopupText(#Chart, #Menu_Display, "Display '" + Chart::#Serie$ + "'")
         Chart::UpdatePopupText(#Chart, #Menu_Hide,    "Hide '"    + Chart::#Serie$ + "'")
+      CompilerCase 16  
+        Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#ScatterPlot|Chart::#Border|Chart::#ToolTips|Chart::#AutoResize, #Window) ; |Chart::#ShowLines|Chart::#ShowValue
+        Chart::SetFlags(#Chart, Chart::#Legend, Chart::#PostEvents|Chart::#PopUpMenu)
+        Chart::SetAttribute(#Chart, Chart::#MaximumY, 80)
+        Chart::SetAttribute(#Chart, Chart::#MaximumX, 80)
+        ;Chart::SetAttribute(#Chart, Chart::#Decimals, 1)
+        Chart::ToolTipText(#Chart, Chart::#Scatter$ + ": " + Chart::#Value$)
+        ; Popup Menu
+        Chart::AttachPopupMenu(#Chart, #PopUp)
+        Chart::UpdatePopupText(#Chart, #Menu_Display, "Display '" + Chart::#Serie$ + "'")
+        Chart::UpdatePopupText(#Chart, #Menu_Hide,    "Hide '"    + Chart::#Serie$ + "'")
+       ;Chart::SetFont(#Chart, FontID(#Font), Chart::#ScatterPlot)
       CompilerDefault
         Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#Border|Chart::#ShowLines|Chart::#ShowValue|Chart::#ChangeCursor|Chart::#AutoResize, #Window)
         Chart::SetFlags(#Chart, Chart::#BarChart, Chart::#Colored)
@@ -5212,6 +6443,33 @@ CompilerIf #PB_Compiler_IsMainFile
           
         CompilerEndIf
         
+      CompilerCase 16
+     
+        If Chart::AddScatterPlot(#Chart, "Scatter 1", $FF901E)
+          Chart::AddScatterItem(#Chart, "Scatter 1", "Data 1", 20, 45)
+          Chart::AddScatterItem(#Chart, "Scatter 1", "Data 2", 30, 50)
+          Chart::AddScatterItem(#Chart, "Scatter 1", "Data 3", 55, 60)
+        EndIf
+        
+        Chart::DisplayScatterPlot(#Chart, "Scatter 1", #True)
+        
+        If Chart::AddScatterPlot(#Chart, "Scatter 2", $0000FF)
+          Chart::AddScatterItem(#Chart, "Scatter 2", "Data 1", 60, 50)
+          Chart::AddScatterItem(#Chart, "Scatter 2", "Data 2", 45, 35)
+          Chart::AddScatterItem(#Chart, "Scatter 2", "Data 3", 25, 30)
+        EndIf
+        
+        Chart::DisplayScatterPlot(#Chart, "Scatter 2", #True)
+        
+        If Chart::AddScatterPlot(#Chart, "Scatter 3", $00D7FF)
+          Chart::AddScatterItem(#Chart, "Scatter 3", "Data 1", 25, 60)
+          Chart::AddScatterItem(#Chart, "Scatter 3", "Data 2", 35, 45)
+          Chart::AddScatterItem(#Chart, "Scatter 3", "Data 3", 55, 30)
+        EndIf
+        
+        Chart::DisplayScatterPlot(#Chart, "Scatter 3", #True)
+        
+        
       CompilerDefault 
         
         Chart::AddItem(#Chart, "Data 1", 35, $FF901E)
@@ -5282,8 +6540,10 @@ CompilerIf #PB_Compiler_IsMainFile
               CompilerIf Chart::#Enable_DataSeries
                 CompilerIf #Example = 10
                   Chart::DisplayDataSeries(#Chart, Chart::EventDataSeries(#Chart))
-                CompilerElseIf  #Example = 15
+                CompilerElseIf #Example = 15
                   Chart::DisplayDataSeries(#Chart, Chart::EventDataSeries(#Chart))
+                CompilerElseIf #Example = 16
+                  Chart::DisplayScatterPlot(#Chart, Chart::EventDataSeries(#Chart))  
                 CompilerEndIf
               CompilerEndIf
             Case #Menu_Hide
@@ -5292,6 +6552,8 @@ CompilerIf #PB_Compiler_IsMainFile
                   Chart::DisplayDataSeries(#Chart, Chart::EventDataSeries(#Chart), #False)
                 CompilerElseIf #Example = 15
                   Chart::DisplayDataSeries(#Chart, Chart::EventDataSeries(#Chart), #False)
+                CompilerElseIf #Example = 16
+                  Chart::DisplayScatterPlot(#Chart, Chart::EventDataSeries(#Chart), #False)  
                 CompilerEndIf
               CompilerEndIf  
           EndSelect
@@ -5319,7 +6581,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 14
-; Folding = eBAcQCA51v8neU0CV4R-e1xAU1Q9A-9BEQAkvAAagCCgz---
+; CursorPosition = 99
+; Folding = GDAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAIAAECIAAAAAAAAAAAAAA95
 ; EnableXP
 ; DPIAware
