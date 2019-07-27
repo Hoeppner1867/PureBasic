@@ -250,7 +250,7 @@ DeclareModule Chart
     Declare.i RemoveScatterItem(GNum.i, Scatter.s, Position.i)
     Declare.i RemoveScatterLabel(GNum.i, Scatter.s, Label.s)
     Declare   SetScatterItem(GNum.i, Scatter.s, Position.i, DataX.f, DataY.f)
-    Declare   SetScatterLabelData(GNum.i, Scatter.s, Label.s, , DataX.f, DataY.f)
+    Declare   SetScatterLabelData(GNum.i, Scatter.s, Label.s, DataX.f, DataY.f)
     
   CompilerEndIf  
   
@@ -5006,7 +5006,7 @@ Module Chart
       
     EndProcedure
     
-    Procedure   SetScatterLabelData(GNum.i, Scatter.s, Label.s, , DataX.f, DataY.f)
+    Procedure   SetScatterLabelData(GNum.i, Scatter.s, Label.s, DataX.f, DataY.f)
      
       If FindMapElement(Chart(), Str(GNum))
        
@@ -5016,7 +5016,8 @@ Module Chart
             If FindMapElement(Chart()\Series()\Index(), Label)
               If SelectElement(Chart()\Series()\Item(), Chart()\Series()\Index())
                 
-                Chart()\Series()\Item()\Value = Value
+                Chart()\Series()\Item()\DataX = DataX
+                Chart()\Series()\Item()\DataY = DataY
                 
                 If Chart()\ReDraw : Draw_() : EndIf
                 
@@ -6581,7 +6582,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 99
-; Folding = GDAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAIAAECIAAAAAAAAAAAAAA95
+; CursorPosition = 5019
+; FirstLine = 331
+; Folding = GDAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAIAAEDIAAAAAAAAAAAAAA95
 ; EnableXP
 ; DPIAware
