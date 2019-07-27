@@ -9,7 +9,10 @@
 ;/ © 2019 Thorsten1867 (06/2019)
 ;/
 
-; Last Update: 
+; Last Update: 27.07.2019
+;
+; Added: correction suggestions on the basis of 'Damerau-Levenshtein-Distance'
+;
 
 ;{ ===== MIT License =====
 ;
@@ -38,6 +41,7 @@
 
 ; SpellCheck::AddToUserDictionary() - add a word to the user dictionary
 ; SpellCheck::ClearCheckedWords()   - clears all check words from map
+; CorrectionSuggestions()           - returns a list with correction suggestions
 ; SpellCheck::FreeDictionary()      - removes dictionary from memory
 ; SpellCheck::LoadDictionary()      - loads a dictionary
 ; SpellCheck::Query()               - returns whether a word is right, misspelled or unknown.
@@ -65,6 +69,7 @@ DeclareModule SpellCheck
   
   Declare   AddToUserDictionary(Word.s)
   Declare   ClearCheckedWords()
+  Declare.i CorrectionSuggestions(Word.s, List Suggestions.s())
   Declare   FreeDictionary()
   Declare.i LoadDictionary(DicFile.s, AddDicFile.s="")
   Declare.i Query(Word.s)
@@ -102,6 +107,40 @@ Module SpellCheck
   ;- ============================================================================
   ;-   Module - Internal
   ;- ============================================================================ 
+  
+  Procedure.s UCase_(Word.s)
+    ProcedureReturn UCase(Left(Word, 1)) + Mid(Word, 2)
+  EndProcedure
+  
+  Procedure.i SearchFirstLetter(Char.s)
+    Define.i ListPos, StartPos, EndPos
+    
+    StartPos = 0
+    EndPos   = ListSize(Dictionary()) - 1
+    
+    Char = LCase(Left(Char, 1))
+    
+    Repeat
+      ListPos = StartPos + Round((EndPos - StartPos)  / 2, #PB_Round_Up)
+      If SelectElement(Dictionary(), ListPos)
+        If Char = Left(Dictionary()\Stem, 1)
+          Break
+        ElseIf Char < Left(Dictionary()\Stem, 1)
+          EndPos   = ListPos - 1
+        ElseIf Char > Left(Dictionary()\Stem, 1)
+          StartPos = ListPos + 1
+        EndIf  
+      EndIf
+    Until (EndPos - StartPos) < 0
+    
+    While PreviousElement(Dictionary())
+      If Char <> Left(Dictionary()\Stem, 1)
+        ProcedureReturn ListIndex(Dictionary()) + 1
+      EndIf
+    Wend
+    
+    ProcedureReturn ListIndex(Dictionary())
+  EndProcedure
   
   Procedure.s GetWord_(Word.s)
     Define i.i, Char$, Diff1$, Diff2$
@@ -255,7 +294,68 @@ Module SpellCheck
     EndIf
     
   EndProcedure
+  
+  Macro D(i,j) ; DamerauLevenshteinDistance
+    D_(i+1,j+1)
+  EndMacro
 
+  Procedure DamerauLevenshteinDistance(String1$, String2$)
+    Define.i m, n, i, j, k, l, db, min, value, cost, maxDist
+    
+    NewMap DA.i()
+    
+    m = Len(String1$)
+    n = Len(String2$)
+    
+    Dim D_(m+1,n+1)
+    
+    maxDist = m + n
+    D(-1,-1) = maxDist 
+  
+    For i=0 To m
+      D( i,-1) = maxDist
+      D( i, 0) = i
+    Next
+  
+    For j=0 To n
+      D(-1, j) = maxDist
+      D( 0, j) = j
+    Next
+    
+    For i=1 To m
+      
+      db = 0
+      
+      For j=1 To n
+        
+        k = DA(Mid(String2$, j, 1))
+        l = db
+        
+        If Mid(String1$, i, 1) = Mid(String2$, j, 1)
+          cost = 0
+          db = j
+        Else
+          cost = 1
+        EndIf
+        
+        min   = D(i-1,j-1) + cost ; a substitution
+        value = D(i  ,j-1) + 1    ; an insertion
+        If value < min : min = value : EndIf
+        value = D(i-1,j  ) + 1    ; a deletion
+        If value < min : min = value : EndIf
+        value = D(k-1,l-1) + (i-k-1) + 1 + (j-l-1) ; transposition
+        If value < min : min = value : EndIf
+        D(i,j) = min
+        
+      Next
+      
+      DA(Mid(String1$, i, 1)) = i
+      
+    Next  
+    
+    ProcedureReturn D(m,n)
+  EndProcedure
+  
   ;- ==========================================================================
   ;-   Module - Declared Procedures
   ;- ========================================================================== 
@@ -402,6 +502,63 @@ Module SpellCheck
     EndIf
     
   EndProcedure
+    
+  Procedure.i CorrectionSuggestions(Word.s, List Suggestions.s())
+    Define.i i, Index, UCase, Count
+    Define.s FirstChar, dicWord$
+    
+    FirstChar = Left(Word, 1)
+    
+    If FirstChar = UCase(FirstChar) : UCase = #True : EndIf
+    
+    ClearList(Suggestions())
+    
+    Index = SearchFirstLetter(FirstChar)
+    If SelectElement(Dictionary(), Index)
+      
+      Repeat
+
+        If Left(Dictionary()\Stem, 1) <> LCase(FirstChar) : Break : EndIf
+        
+        If Dictionary()\Flag = 1 And UCase = #False
+          Continue
+        EndIf
+        
+        If UCase
+          dicWord$ = UCase_(Dictionary()\Stem)
+        Else
+          dicWord$ = Dictionary()\Stem
+        EndIf
+        
+        If DamerauLevenshteinDistance(Word, dicWord$) = 1
+          
+          AddElement(Suggestions())
+          Suggestions() = dicWord$
+         
+        EndIf  
+        
+        If Dictionary()\Endings
+          
+          Count = CountString(Dictionary()\Endings, "|") + 1
+          
+          For i=1 To Count
+            
+            If DamerauLevenshteinDistance(Word, dicWord$ + StringField(Dictionary()\Endings, i, "|")) = 1
+              
+              AddElement(Suggestions())
+              Suggestions() = dicWord$ + StringField(Dictionary()\Endings, i, "|")
+              
+            EndIf
+            
+          Next
+          
+        EndIf
+        
+      Until NextElement(Dictionary()) = #False
+      
+    EndIf
+    
+  EndProcedure
   
   Procedure.i Text(Text.s, List Wrong.s())
     Define.i s, Spaces
@@ -472,9 +629,10 @@ CompilerIf #PB_Compiler_IsMainFile
   EndEnumeration
   
   NewList WrongWords.s()
+  NewList Suggestions.s()
   
   ; ===========================
-  Language.i = #French
+  Language.i = #Deutsch
   ; ===========================
   
   Select Language
@@ -518,7 +676,11 @@ CompilerIf #PB_Compiler_IsMainFile
               If SpellCheck::Word(Word$) = SpellCheck::#Correct
                 SetGadgetColor(#Word, #PB_Gadget_FrontColor, $008000)
               Else
+                SpellCheck::CorrectionSuggestions(Word$, Suggestions())
                 SetGadgetColor(#Word, #PB_Gadget_FrontColor, $0000FF)
+                ForEach Suggestions()
+                  Debug Suggestions()
+                Next
               EndIf
             Case #Button2
               Text$ = GetGadgetText(#Editor)
@@ -539,7 +701,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 4
-; Folding = GAAA-
+; CursorPosition = 48
+; FirstLine = 15
+; Folding = aMAAw
 ; EnableXP
 ; DPIAware
