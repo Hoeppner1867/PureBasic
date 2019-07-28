@@ -10,7 +10,10 @@
 ;/
 
 
-; Last Update: 27.07.19
+; Last Update: 28.07.19
+;
+; Added: #Time flag for axis / AddAxisLabel()
+; Added: 
 ;
 ; Added: Scatter plot chart
 ;
@@ -69,6 +72,7 @@
 ; Chart::SetItemText()         - similar to SetGadgetItemText()
 ; Chart::SetLabelState()       - similar to SetGadgetItemState(), but 'label' instead of 'position'
 ; Chart::SetMargins()          - define top, left, right and bottom margin
+; Chart::SetMask()             - define mask for FormatDate()
 ; Chart::ToolTipText()         - defines the text for tooltips (#Percent$ / #Value$ / #Label$ / #Serie$)
 ; Chart::UpdatePopupText()     - updates the menu item text before the popup menu is displayed
 
@@ -89,6 +93,7 @@
 
 ; --- Scatter Plot ---
 
+; Chart::AddAxisLabel()         - defines a axis label for a specific value
 ; Chart::AddScatterPlot()       - add a new scatter plot
 ; Chart::AddScatterItem()       - add a new item to the scatter plot
 ; Chart::DisplayScatterPlot()   - displays the scatter plot
@@ -127,6 +132,9 @@ DeclareModule Chart
   #Scatter$ = "{Scatter}"
   #DataX$   = "{DataX}"
   #DataY$   = "{DataY}"
+  #Time$    = "{Time}"
+  #TimeX$   = "{Time}"
+  #TimeY$   = "{TimeY}"
   
   EnumerationBinary
     #BarChart        ; bar chart             (german: "Säulendiagramm")
@@ -156,9 +164,16 @@ DeclareModule Chart
     #ChangeCursor    ; change the cursor for clickable areas
     #OutOfRange      ; shows value which are out of ranges
     #ModifyByCursor  ; move data points up and down to change the value [#LineChart]
+    #AxisX
+    #AxisY
   EndEnumeration
   
   #AllScatterPlots = #AllDataSeries
+  
+  EnumerationBinary  
+    #Time
+    #Labels
+  EndEnumeration
   
   Enumeration 1    ; [Attribute]
     #Minimum       ; Minimum value
@@ -169,17 +184,21 @@ DeclareModule Chart
     #Spacing       ; Spacing between the bars / between chart and legend (PieChart) / between data points (LineChart)
     #Padding       ; Padding between data series bars (DataSeries) / between y-axis and first data (LineChart)
     #ScaleLines    ; Number of scale lines for Y-axis
-    #ScaleSpacing  ; Spacing of scale lines [#Single/#Double]
+    #ScaleLinesX   ; Number of scale lines for X-axis
+    #ScaleSpacing  ; Spacing of scale lines for Y-axis [#Single/#Double]
+    #ScaleSpacingX ; Spacing of scale lines for X-axis [#Single/#Double]
     #LineColor     ; (LineChart)
     #FontSize      ; Value/Percent in Chart (LineChart/PieChart)
     #Decimals      ; decimal places for scatter plot data
   EndEnumeration
-  
+
+  #ScaleLinesY   = #ScaleLines
+  #ScaleSpacingY = #ScaleSpacing
+  #MinimumY      = #Minimum
+  #MaximumY      = #Maximum
+    
   #DataX = 1
   #DataY = 2
-  
-  #MinimumY = #Minimum
-  #MaximumY = #Maximum
   
   #Single = 1
   #Double = 2
@@ -237,8 +256,9 @@ DeclareModule Chart
   
   CompilerIf #Enable_ScatterPlot
     
+    Declare.i AddAxisLabel(GNum.i, Label.s, Value.f, Type.i=#AxisX)
     Declare.i AddScatterPlot(GNum.i, Label.s, Color.i=#PB_Default, GradientColor.i=#PB_Default, BorderColor.i=#PB_Default)
-    Declare.i AddScatterItem(GNum.i, Scatter.s, Label.s, DataX.f, DataY.f)
+    Declare.i AddScatterItem(GNum.i, Scatter.s, Label.s, DataX.q, DataY.q)
     Declare.i DisplayScatterPlot(GNum.i, Scatter.s, State.i=#True)
     Declare.s EventScatterPlot(GNum.i) 
     Declare.f EventDataX(GNum.i) 
@@ -249,8 +269,8 @@ DeclareModule Chart
     Declare.i RemoveScatterPlot(GNum.i, Scatter.s)
     Declare.i RemoveScatterItem(GNum.i, Scatter.s, Position.i)
     Declare.i RemoveScatterLabel(GNum.i, Scatter.s, Label.s)
-    Declare   SetScatterItem(GNum.i, Scatter.s, Position.i, DataX.f, DataY.f)
-    Declare   SetScatterLabelData(GNum.i, Scatter.s, Label.s, DataX.f, DataY.f)
+    Declare   SetScatterItem(GNum.i, Scatter.s, Position.i, DataX.q, DataY.q)
+    Declare   SetScatterLabelData(GNum.i, Scatter.s, Label.s, DataX.q, DataY.q)
     
   CompilerEndIf  
   
@@ -280,6 +300,7 @@ DeclareModule Chart
   Declare.i SetItemText(GNum.i, Position.i, Text.s)
   Declare.i SetLabelState(GNum.i, Label.s, State.i)
   Declare   SetMargins(GNum.i, Top.i, Left.i, Right.i=#PB_Default, Bottom.i=#PB_Default)
+  Declare   SetMask(GNum.i, Type.i, String.s)
   Declare   ToolTipText(GNum.i, Text.s)
   Declare   UpdatePopupText(GNum.i, MenuItem.i, Text.s)
   
@@ -312,6 +333,17 @@ Module Chart
   ;- ============================================================================
   ;-   Module - Structures
   ;- ============================================================================
+  
+  Structure Axis_Label_Structure
+    Text.s
+    Value.q
+  EndStructure
+  
+  Structure Chart_Axis_Structure
+    DateMask.s
+    Flags.i
+    List Label.Axis_Label_Structure()
+  EndStructure
   
   Structure Chart_EventSize_Structure ;{
     X.i
@@ -391,8 +423,8 @@ Module Chart
     Height.i
     sAngle.f
     eAngle.f
-    DataX.f
-    DataY.f
+    DataX.q
+    DataY.q
     Value.i
     Text.s
     Color.i
@@ -481,6 +513,8 @@ Module Chart
     Maximum.i
     Decimals.i
     
+    AxisX.Chart_Axis_Structure
+    AxisY.Chart_Axis_Structure
     Bar.Chart_Bar_Structure
     Current.Chart_Currrent_Structure
     Pie.Chart_Pie_Structure
@@ -613,6 +647,8 @@ Module Chart
         Text$ = ReplaceString(Text$, #Scatter$, Chart()\Series()\Label)
         Text$ = ReplaceString(Text$, #DataX$,   StrF(Chart()\Series()\Item()\DataX), Chart()\Decimals)
         Text$ = ReplaceString(Text$, #DataY$,   StrF(Chart()\Series()\Item()\DataY), Chart()\Decimals)
+        Text$ = ReplaceString(Text$, #TimeX$,   FormatDate(Chart()\AxisX\DateMask, Int(Chart()\Series()\Item()\DataX)))
+        Text$ = ReplaceString(Text$, #TimeY$,   FormatDate(Chart()\AxisY\DateMask, Int(Chart()\Series()\Item()\DataY)))
       EndIf
       
     Else
@@ -632,6 +668,27 @@ Module Chart
     EndIf
     
     ProcedureReturn Text$
+  EndProcedure
+  
+  Procedure.s FormatValue_(Value.f, Type.i=#False) 
+   
+    Select Type
+      Case #AxisX
+        If Chart()\AxisX\Flags & #Time
+          ProcedureReturn FormatDate(Chart()\AxisX\DateMask, Int(Value))
+        Else
+          ProcedureReturn StrF(Value, Chart()\Decimals)
+        EndIf 
+      Case #AxisY
+        If Chart()\AxisY\Flags & #Time
+          ProcedureReturn FormatDate(Chart()\AxisY\DateMask, Int(Value))
+        Else
+          ProcedureReturn StrF(Value, Chart()\Decimals)
+        EndIf 
+      Default
+        ProcedureReturn StrF(Value, Chart()\Decimals)
+    EndSelect
+    
   EndProcedure
   
   Procedure   UpdatePopUpMenu_()
@@ -1566,10 +1623,11 @@ Module Chart
     
     Procedure    DrawScatterPlot(X.i, Y.i, Width.i, Height.i)
       Define.i axisY, seriesX, xW3, lastX, lastY, lX, lY
-      Define.i txtX, txtY, txtWidth, txtHeight, lHeight, lWidth, lTextWidth
+      Define.i txtX, txtY, txtWidth, txtWidthX, txtHeight, lHeight, lWidth, lTextWidth
       Define.i n, Items, Spaces, ScaleLines, Color, Gradient, maxValue, minValue, Series
       Define.q AlphaColor
-      Define.f PosX, PosY, SpaceX, SpaceY, cWidth, nWidth, nHeight, pWidth, pHeight, Radius, Factor, Calc, Value
+      Define.d Factor, Value, Calc
+      Define.f PosX, PosY, SpaceX, SpaceY, cWidth, nWidth, nHeight, pWidth, pHeight, Radius
       Define.s Text$, Percent$
       
       If StartDrawing(CanvasOutput(Chart()\CanvasNum))
@@ -1611,8 +1669,11 @@ Module Chart
         EndIf ;}
 
         txtHeight = TextHeight("Abc")
-        txtWidth  = TextWidth(StrF(Chart()\Current\MaximumY, Chart()\Decimals))
-       
+        txtWidth  = TextWidth(FormatValue_(Chart()\Current\MaximumY, #AxisY))
+        txtWidthX = TextWidth(FormatValue_(Chart()\Current\MaximumY, #AxisX))
+        
+        If txtWidthX / 2 > txtWidth : txtWidth = txtWidthX / 2 : EndIf  
+        
         X  + txtWidth + dpiX(2)
         Y  + (txtHeight / 2)
         
@@ -1622,7 +1683,7 @@ Module Chart
           lHeight = txtHeight + dpiY(10)
         EndIf 
         
-        Width  - (txtWidth * 1.5)  - dpiX(2)
+        Width  - txtWidthX  - dpiX(2)
         Height - txtHeight - lHeight - dpiY(13) ; Labels + Legend
 
         Chart()\Current\Offset = txtHeight / 2
@@ -1659,94 +1720,143 @@ Module Chart
         Else  
           cWidth = Chart()\Scatter\Width
         EndIf ;}
-      
-        Line(X, Y, 1, Height, Chart()\Color\Axis)          ;{ Draw Y - Axis
-        If Chart()\Scatter\ScaleLinesY = #PB_Default
-          ScaleLines = Height / (txtHeight * Chart()\Scatter\ScaleSpacingY)
-          If Chart()\Scatter\ScaleSpacingY = 0 : Chart()\Scatter\ScaleSpacingY = 1 : EndIf
-          ScaleLines = CalcScaleLines_(ScaleLines, Chart()\Scatter\RangeY)
-        Else
-          ScaleLines = Chart()\Scatter\ScaleLinesY
-        EndIf
-
-        If ScaleLines
+        
+        ; ----- Draw Y - Axis -----
+        If Chart()\AxisY\Flags & #Labels ;{ defined labels
           
-          Factor = Chart()\Scatter\RangeY / ScaleLines
-          SpaceY = Height / ScaleLines
+          Factor = Height / Chart()\Scatter\RangeY
           
           DrawingMode(#PB_2DDrawing_Transparent)
-          
-          For n = 0 To ScaleLines
-            PosY = Y + Round(n * SpaceY, #PB_Round_Nearest)
+
+          ForEach Chart()\AxisY\Label()
+            PosY = Y + Round((Chart()\AxisY\Label()\Value - Chart()\Scatter\MinimumY) * Factor, #PB_Round_Nearest)
             If Chart()\Flags & #ShowLines
               Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
             EndIf 
             Line(X - dpiX(2), PosY, dpiX(5), 1, Chart()\Color\Axis)
-            If Chart()\Scatter\Flags & #Descending
-              Value = (Factor * n) + Chart()\Current\MinimumY
-              If Value
-                Text$ = StrF(Value, Chart()\Decimals)
-              Else
-                Text$ = "0"
-              EndIf  
-            Else
-              Value = Chart()\Current\MaximumY - (Factor * n)
-              If Value
-                Text$ = StrF(Value, Chart()\Decimals)
-              Else
-                Text$ = "0"
-              EndIf  
-            EndIf
-            txtX = X - TextWidth(Text$) - dpix(4)
+            txtX = X - TextWidth(Chart()\AxisY\Label()\Text) - dpix(4)
             txtY = PosY - Round(txtHeight / 2, #PB_Round_Nearest)
-            DrawText(txtX, txtY, Text$, Chart()\Color\Front)
+            DrawText(txtX, txtY, Chart()\AxisY\Label()\Text, Chart()\Color\Front)
           Next
-
-        EndIf ;}
-
-        Line(X, Y + pHeight, Width, 1, Chart()\Color\Axis) ;{ Draw X - Axis
-        If Chart()\Scatter\ScaleLinesX = #PB_Default
-          ScaleLines = Width / (txtWidth * Chart()\Scatter\ScaleSpacingX)
-          If Chart()\Scatter\ScaleSpacingX = 0 : Chart()\Scatter\ScaleSpacingX = 1 : EndIf
-          ScaleLines = CalcScaleLines_(ScaleLines, Chart()\Scatter\RangeX)
-        Else
-          ScaleLines = Chart()\Scatter\ScaleLinesX
+          ;}
+        Else                             ;{ calculated scalelines & labels
+          
+          If Chart()\Scatter\ScaleLinesY = #PB_Default
+            If Chart()\Scatter\ScaleSpacingY = 0 : Chart()\Scatter\ScaleSpacingY = 1 : EndIf
+            ScaleLines = Height / (txtHeight * Chart()\Scatter\ScaleSpacingY)
+            ScaleLines = CalcScaleLines_(ScaleLines, Chart()\Scatter\RangeY)
+          Else
+            ScaleLines = Chart()\Scatter\ScaleLinesY
+          EndIf
+          
+          If ScaleLines
+          
+            Factor = Chart()\Scatter\RangeY / ScaleLines
+            SpaceY = Height / ScaleLines
+            
+            DrawingMode(#PB_2DDrawing_Transparent)
+            
+            For n = 0 To ScaleLines - 1
+              PosY = Y + Round(n * SpaceY, #PB_Round_Nearest)
+              If Chart()\Flags & #ShowLines
+                Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
+              EndIf 
+              Line(X - dpiX(2), PosY, dpiX(5), 1, Chart()\Color\Axis)
+              If Chart()\Scatter\Flags & #Descending
+                Value = (Factor * n) + Chart()\Current\MinimumY
+                If Value
+                  Text$ = FormatValue_(Value, #AxisY)
+                Else
+                  Text$ = "0"
+                EndIf  
+              Else
+                Value = Chart()\Current\MaximumY - (Factor * n)
+                If Value
+                  Text$ = StrF(Value, Chart()\Decimals)
+                Else
+                  Text$ = "0"
+                EndIf  
+              EndIf
+              txtX = X - TextWidth(Text$) - dpix(4)
+              txtY = PosY - Round(txtHeight / 2, #PB_Round_Nearest)
+              DrawText(txtX, txtY, Text$, Chart()\Color\Front)
+            Next
+            
+          EndIf
+          ;}
         EndIf
         
-        If ScaleLines
+        ; ----- Draw X - Axis -----
+        If Chart()\AxisX\Flags & #Labels ;{ defined labels
           
-          Factor = Chart()\Scatter\RangeX / ScaleLines
-          SpaceX = Width / ScaleLines
+          Factor = Width / Chart()\Scatter\RangeX
           
           DrawingMode(#PB_2DDrawing_Transparent)
           
-          For n = 1 To ScaleLines
-            PosX = X + Round(n * SpaceX, #PB_Round_Nearest)
+          ForEach Chart()\AxisX\Label()
+            PosX = X + Round((Chart()\AxisX\Label()\Value - Chart()\Scatter\MinimumX) * Factor, #PB_Round_Nearest)
+            If PosX > X + Width : PosX = X + Width : EndIf 
             If Chart()\Flags & #ShowLines
               Line(PosX, Y, 1, Height, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
-            EndIf 
-            Line(PosX, Y + pHeight - dpiX(2), 1, dpiX(5), Chart()\Color\Axis)
-            If Chart()\Scatter\Flags & #Descending
-              Value = Chart()\Current\MaximumX - (Factor * n)
-              If Value
-                Text$ = StrF(Value, Chart()\Decimals)
-              Else
-                Text$ = "0"
-              EndIf
-            Else
-              Value = (Factor * n) + Chart()\Current\MinimumX
-              If Value
-                Text$ = StrF(Value, Chart()\Decimals)
-              Else
-                Text$ = "0"
-              EndIf  
             EndIf
-            txtX = PosX - Round(TextWidth(Text$) / 2, #PB_Round_Nearest)
+            Line(PosX, Y + pHeight - dpiX(2), 1, dpiX(5), Chart()\Color\Axis)
+            txtX = PosX - Round(TextWidth(Chart()\AxisX\Label()\Text) / 2, #PB_Round_Nearest)
             txtY = Y + pHeight + dpix(4)
-            DrawText(txtX, txtY, Text$, Chart()\Color\Front)
+            DrawText(txtX, txtY, Chart()\AxisX\Label()\Text, Chart()\Color\Front)
           Next
-
-        EndIf ;}
+          ;}
+        Else                             ;{ calculated scalelines & labels
+          
+          If Chart()\Scatter\ScaleLinesX = #PB_Default
+            If Chart()\Scatter\ScaleSpacingX = 0 : Chart()\Scatter\ScaleSpacingX = 1 : EndIf
+            If Chart()\Scatter\ScaleSpacingX = 1
+              ScaleLines = Width / ((txtWidthX + dpiX(6)) * Chart()\Scatter\ScaleSpacingX)
+            Else  
+              ScaleLines = Width / (txtWidthX * Chart()\Scatter\ScaleSpacingX)
+            EndIf
+            ScaleLines = CalcScaleLines_(ScaleLines, Chart()\Scatter\RangeX)
+          Else
+            ScaleLines = Chart()\Scatter\ScaleLinesX - 1
+          EndIf
+        
+          If ScaleLines                
+        
+            Factor = Chart()\Scatter\RangeX / ScaleLines
+            SpaceX = Width / ScaleLines
+            
+            DrawingMode(#PB_2DDrawing_Transparent)
+            
+            For n = 0 To ScaleLines
+              PosX = X + Round(n * SpaceX, #PB_Round_Nearest)
+              If Chart()\Flags & #ShowLines
+                Line(PosX, Y, 1, Height, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
+              EndIf 
+              Line(PosX, Y + pHeight - dpiX(2), 1, dpiX(5), Chart()\Color\Axis)
+              If Chart()\Scatter\Flags & #Descending
+                Value = Chart()\Current\MaximumX - (Factor * n)
+                If Value
+                  Text$ = FormatValue_(Value, #AxisX)
+                Else
+                  Text$ = "0"
+                EndIf
+              Else
+                Value = (Factor * n) + Chart()\Current\MinimumX
+                If Value
+                  Text$ = FormatValue_(Value, #AxisX)
+                Else
+                  Text$ = "0"
+                EndIf  
+              EndIf
+              txtX = PosX - Round(TextWidth(Text$) / 2, #PB_Round_Nearest)
+              txtY = Y + pHeight + dpix(4)
+              DrawText(txtX, txtY, Text$, Chart()\Color\Front)
+            Next
+          EndIf
+          ;}
+        EndIf
+        
+        Line(X, Y, 1, Height, Chart()\Color\Axis) 
+        Line(X, Y + pHeight, Width, 1, Chart()\Color\Axis)
         
         StopDrawing()
       EndIf 
@@ -1806,7 +1916,7 @@ Module Chart
                 Chart()\Current\pFactorX = Factor
               EndIf
               ;}
-              
+             
               ;{ --- Set text for #ShowValue or #ShowPercent ---        
               If Chart()\Flags & #ShowValue
                 Text$ = "(" + StrF(Chart()\Series()\Item()\DataX, Chart()\Decimals) + "/" +StrF(Chart()\Series()\Item()\DataX, Chart()\Decimals)+ ")"
@@ -4488,9 +4598,8 @@ Module Chart
                   
                   If X > Chart()\Series()\Item()\X - Radius And X < Chart()\Series()\Item()\X + Chart()\Series()\Item()\Width
                     If Y > Chart()\Series()\Item()\Y - Radius And Y < Chart()\Series()\Item()\Y + Chart()\Series()\Item()\Height
-
+                      
                       If Chart()\Flags & #ToolTips And Chart()\ToolTip = #False
-                        Debug ">>> Tooltip: " + GetText_(Chart()\ToolTipText)
                         GadgetToolTip(GadgetNum, GetText_(Chart()\ToolTipText))
                         Chart()\ToolTip = #True
                       EndIf
@@ -4686,7 +4795,7 @@ Module Chart
       
     EndProcedure
     
-    Procedure.i AddScatterItem(GNum.i, Scatter.s, Label.s, DataX.f, DataY.f) 
+    Procedure.i AddScatterItem(GNum.i, Scatter.s, Label.s, DataX.q, DataY.q) 
       
       If FindMapElement(Chart(), Str(GNum))
       
@@ -4700,7 +4809,7 @@ Module Chart
           ;}
         EndIf
         
-        If FindMapElement(Chart()\Index(), Scatter)             ; Data Series Label
+        If FindMapElement(Chart()\Index(), Scatter)            ; Data Series Label
           If SelectElement(Chart()\Series(), Chart()\Index())  ; Data Series Element
             
             If FindMapElement(Chart()\Series()\Index(), Label) ;{ Error: Label already exists
@@ -4714,7 +4823,7 @@ Module Chart
               Chart()\Series()\Item()\Label = Label
               Chart()\Series()\Item()\DataX = DataX
               Chart()\Series()\Item()\DataY = DataY
-              
+
               If AddMapElement(Chart()\Series()\Index(), Label)
                 Chart()\Series()\Index() = ListIndex(Chart()\Series()\Item())
               EndIf
@@ -4730,6 +4839,34 @@ Module Chart
       EndIf
     
     EndProcedure
+    
+    Procedure   AddAxisLabel(GNum.i, Label.s, Value.f, Type.i=#AxisX) ; enable with flag '#Label'
+      Define.i i, Count
+      
+      If FindMapElement(Chart(), Str(GNum))
+
+        Select Type
+          Case #AxisX
+            
+            If AddElement(Chart()\AxisX\Label())
+              Chart()\AxisX\Label()\Text  = Label
+              Chart()\AxisX\Label()\Value = Value
+            EndIf
+            Chart()\Scatter\ScaleLinesX = ListSize(Chart()\AxisX\Label())
+            
+          Case #AxisY
+
+            If AddElement(Chart()\AxisX\Label())
+              Chart()\AxisY\Label()\Text  = Label
+              Chart()\AxisY\Label()\Value = Value
+            EndIf
+            Chart()\Scatter\ScaleLinesY = ListSize(Chart()\AxisY\Label())
+            
+        EndSelect
+        
+      EndIf  
+      
+    EndProcedure 
     
     Procedure.i DisplayScatterPlot(GNum.i, Scatter.s, State.i=#True)
 
@@ -4975,7 +5112,7 @@ Module Chart
     EndProcedure
     
     
-    Procedure   SetScatterItem(GNum.i, Scatter.s, Position.i, DataX.f, DataY.f)
+    Procedure   SetScatterItem(GNum.i, Scatter.s, Position.i, DataX.q, DataY.q)
       
       If FindMapElement(Chart(), Str(GNum))
         
@@ -5006,7 +5143,7 @@ Module Chart
       
     EndProcedure
     
-    Procedure   SetScatterLabelData(GNum.i, Scatter.s, Label.s, DataX.f, DataY.f)
+    Procedure   SetScatterLabelData(GNum.i, Scatter.s, Label.s, DataX.q, DataY.q)
      
       If FindMapElement(Chart(), Str(GNum))
        
@@ -5581,6 +5718,9 @@ Module Chart
         Chart()\Scatter\MaximumX      = #PB_Default
         Chart()\Scatter\MaximumY      = #PB_Default
         
+        Chart()\AxisX\DateMask = "%hh:%ii"
+        Chart()\AxisY\DateMask = "%hh:%ii"
+        
         Chart()\ToolTipText = #Value$
         Chart()\Flags       = Flags
 
@@ -5930,16 +6070,26 @@ Module Chart
         Case #ScaleLines     ;{ Number of scale lines (Y-axis)
           If Chart()\Flags & #LineChart
             Chart()\Line\ScaleLines = Value
+          ElseIf Chart()\Flags & #ScatterPlot
+            Chart()\Scatter\ScaleLinesY = Value
           Else
             Chart()\Bar\ScaleLines = Value
           EndIf
           ;}
+        Case #ScaleLinesX    ;{ Number of scale lines (X-axis)
+          Chart()\Scatter\ScaleLinesX = Value
+          ;}
         Case #ScaleSpacing   ;{ Spacing of scale lines [#Single/#Double]
           If Chart()\Flags & #LineChart
             If Value > 0 : Chart()\Line\ScaleSpacing = Value : EndIf
+          ElseIf Chart()\Flags & #ScatterPlot
+            If Value > 0 : Chart()\Scatter\ScaleSpacingY = Value : EndIf
           Else
             If Value > 0 : Chart()\Bar\ScaleSpacing  = Value : EndIf
           EndIf
+          ;}
+        Case #ScaleSpacingX  ;{ Spacing of scale lines [#Single/#Double]
+          If Value > 0 : Chart()\Scatter\ScaleSpacingX = Value : EndIf
           ;}
         Case #FontSize       ;{ Font size for vector text
           If Chart()\Flags & #LineChart
@@ -6012,6 +6162,10 @@ Module Chart
           Chart()\Scatter\Flags | Flags
         Case #Legend
           Chart()\Legend\Flags | Flags
+        Case #AxisX
+          Chart()\AxisX\Flags | Flags
+        Case #AxisY
+          Chart()\AxisY\Flags | Flags
       EndSelect
       
       If Chart()\ReDraw : Draw_() : EndIf
@@ -6166,6 +6320,22 @@ Module Chart
     
   EndProcedure
   
+  Procedure   SetMask(GNum.i, Type.i, String.s)
+    
+    If FindMapElement(Chart(), Str(GNum))
+      
+      Select Type
+        Case #AxisX
+          Chart()\AxisX\DateMask = String
+        Case #AxisY
+          Chart()\AxisY\DateMask = String
+      EndSelect
+      
+    EndIf
+    
+  EndProcedure
+  
+  
   Procedure   ToolTipText(GNum.i, Text.s) ; #Value$ / Percent$ / #Label$ / #Series$
     
     If FindMapElement(Chart(), Str(GNum))
@@ -6197,7 +6367,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   ; ----- Select Example -----
   
-  #Example = 16
+  #Example = 17
   
   ; --- Bar Chart ---
   ;  1: automatically adjust maximum value (#PB_Default)
@@ -6220,7 +6390,8 @@ CompilerIf #PB_Compiler_IsMainFile
   ; 14: negative & positive values
   ; 15: data series
   ; --- Scatter Plot ---
-  ; 16: default
+  ; 16: popup menu
+  ; 17: time axis
   ; --------------------------
   
   Enumeration 
@@ -6357,7 +6528,23 @@ CompilerIf #PB_Compiler_IsMainFile
         Chart::AttachPopupMenu(#Chart, #PopUp)
         Chart::UpdatePopupText(#Chart, #Menu_Display, "Display '" + Chart::#Serie$ + "'")
         Chart::UpdatePopupText(#Chart, #Menu_Hide,    "Hide '"    + Chart::#Serie$ + "'")
-       ;Chart::SetFont(#Chart, FontID(#Font), Chart::#ScatterPlot)
+        ;Chart::SetFont(#Chart, FontID(#Font), Chart::#ScatterPlot)
+      CompilerCase 17  
+        Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#ScatterPlot|Chart::#Border|Chart::#ShowLines|Chart::#ToolTips|Chart::#AutoResize, #Window) ; |Chart::#ShowLines|Chart::#ShowValue
+        Chart::SetFlags(#Chart, Chart::#Legend, Chart::#PostEvents|Chart::#PopUpMenu)
+        Chart::SetAttribute(#Chart, Chart::#MaximumY, 80)
+        Chart::SetAttribute(#Chart, Chart::#MinimumX, Date(2019, 1, 1, 8, 0, 0))
+        Chart::SetAttribute(#Chart, Chart::#MaximumX, Date(2019, 1, 1, 13, 0, 0))
+       
+        Chart::AddAxisLabel(#Chart,  "8:00", Date(2019, 1, 1,  8, 0, 0))
+        Chart::AddAxisLabel(#Chart,  "9:00", Date(2019, 1, 1,  9, 0, 0))
+        Chart::AddAxisLabel(#Chart, "10:00", Date(2019, 1, 1, 10, 0, 0))
+        Chart::AddAxisLabel(#Chart, "11:00", Date(2019, 1, 1, 11, 0, 0))
+        Chart::AddAxisLabel(#Chart, "12:00", Date(2019, 1, 1, 12, 0, 0))
+        Chart::AddAxisLabel(#Chart, "13:00", Date(2019, 1, 1, 13, 0, 0))
+        Chart::SetFlags(#Chart, Chart::#AxisX, Chart::#Time|Chart::#Labels) ; 
+        
+        Chart::ToolTipText(#Chart, Chart::#Scatter$ + ": " + Chart::#Time$ + " - " + Chart::#DataY$) 
       CompilerDefault
         Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#Border|Chart::#ShowLines|Chart::#ShowValue|Chart::#ChangeCursor|Chart::#AutoResize, #Window)
         Chart::SetFlags(#Chart, Chart::#BarChart, Chart::#Colored)
@@ -6451,7 +6638,6 @@ CompilerIf #PB_Compiler_IsMainFile
           Chart::AddScatterItem(#Chart, "Scatter 1", "Data 2", 30, 50)
           Chart::AddScatterItem(#Chart, "Scatter 1", "Data 3", 55, 60)
         EndIf
-        
         Chart::DisplayScatterPlot(#Chart, "Scatter 1", #True)
         
         If Chart::AddScatterPlot(#Chart, "Scatter 2", $0000FF)
@@ -6459,7 +6645,6 @@ CompilerIf #PB_Compiler_IsMainFile
           Chart::AddScatterItem(#Chart, "Scatter 2", "Data 2", 45, 35)
           Chart::AddScatterItem(#Chart, "Scatter 2", "Data 3", 25, 30)
         EndIf
-        
         Chart::DisplayScatterPlot(#Chart, "Scatter 2", #True)
         
         If Chart::AddScatterPlot(#Chart, "Scatter 3", $00D7FF)
@@ -6467,9 +6652,30 @@ CompilerIf #PB_Compiler_IsMainFile
           Chart::AddScatterItem(#Chart, "Scatter 3", "Data 2", 35, 45)
           Chart::AddScatterItem(#Chart, "Scatter 3", "Data 3", 55, 30)
         EndIf
-        
         Chart::DisplayScatterPlot(#Chart, "Scatter 3", #True)
         
+      CompilerCase 17
+        
+        If Chart::AddScatterPlot(#Chart, "Scatter 1", $FF901E)
+          Chart::AddScatterItem(#Chart, "Scatter 1", "08:30",  Date(2019, 1, 1,  8, 30, 0), 45)
+          Chart::AddScatterItem(#Chart, "Scatter 1", "10:30",  Date(2019, 1, 1,  10, 30, 0), 50)
+          Chart::AddScatterItem(#Chart, "Scatter 1", "12::30", Date(2019, 1, 1,  12, 30, 0), 60)
+        EndIf
+        Chart::DisplayScatterPlot(#Chart, "Scatter 1", #True)
+        
+        If Chart::AddScatterPlot(#Chart, "Scatter 2", $0000FF)
+          Chart::AddScatterItem(#Chart, "Scatter 2", "09:00", Date(2019, 1, 1,   9, 0, 0), 50)
+          Chart::AddScatterItem(#Chart, "Scatter 2", "11:00", Date(2019, 1, 1,  11, 0, 0), 35)
+          Chart::AddScatterItem(#Chart, "Scatter 2", "13:00", Date(2019, 1, 1,  13, 0, 0), 30)
+        EndIf
+        Chart::DisplayScatterPlot(#Chart, "Scatter 2", #True)
+        
+        If Chart::AddScatterPlot(#Chart, "Scatter 3", $00D7FF)
+          Chart::AddScatterItem(#Chart, "Scatter 3", "10:00", Date(2019, 1, 1, 10, 0, 0), 60)
+          Chart::AddScatterItem(#Chart, "Scatter 3", "11:00", Date(2019, 1, 1, 11, 0, 0), 45)
+          Chart::AddScatterItem(#Chart, "Scatter 3", "12:00", Date(2019, 1, 1, 12, 0, 0), 30)
+        EndIf
+        Chart::DisplayScatterPlot(#Chart, "Scatter 3", #True)
         
       CompilerDefault 
         
@@ -6582,8 +6788,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 5019
-; FirstLine = 331
-; Folding = GDAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAIAAEDIAAAAAAAAAAAAAA95
+; CursorPosition = 6545
+; FirstLine = 6334
+; Folding = -----------v----------------------------------------------
 ; EnableXP
 ; DPIAware
