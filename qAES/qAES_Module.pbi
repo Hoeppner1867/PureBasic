@@ -1,6 +1,6 @@
-﻿;/ ===================================
-;/ =    qAES_SmartCoderModule.pbi    =
-;/ ===================================
+﻿;/ =========================
+;/ =    qAES_Module.pbi    =
+;/ =========================
 ;/
 ;/ [ PB V5.7x / 64Bit / All OS]
 ;/
@@ -15,17 +15,20 @@
 ; - This coder can handle automatic string termination for any strings - In compiler mode ASCII and UNICODE !
 ; - The coder works with all data lengths, also < 16 Byte
 
-; Last Update:
+; Last Update: 01.08.2019
+;
+; - Bugfix
+
 ;{ _____ qAES - Commands _____
 
-; qAES::KeyStretching()          - use keystretching to make brute force attacks more difficult
-; qAES::SetAttribute()           - [#EnlargeBytes/#HashLength/#ProtectedMarker/#CryptMarker]
-; qAES::SetSalt()                - define your own salt
+; qAES::KeyStretching()   - use keystretching to make brute force attacks more difficult
+; qAES::SetAttribute()    - [#EnlargeBytes/#HashLength/#ProtectedMarker/#CryptMarker]
+; qAES::SetSalt()         - define your own salt
 ; qAES::GetErrorMessage() - returns error message 
 ; ----- qAES::SmartCoder() -----
-; qAES::SmartCoder()             - encrypt / decrypt ascii strings, unicode strings and binary data (#Binary/#Ascii/#Unicode)
-; qAES::File()                   - File:   encrypt / decrypt only with SmartCoder()
-; qAES::String()                 - String: encrypt / decrypt only with SmartCoder()
+; qAES::SmartCoder()      - encrypt / decrypt ascii strings, unicode strings and binary data (#Binary/#Ascii/#Unicode)
+; qAES::File()            - File:   encrypt / decrypt only with SmartCoder()
+; qAES::String()          - String: encrypt / decrypt only with SmartCoder()
 ; ----- qAES::SmartFileCoder() -----
 ; qAES::SmartFileCoder()  - encrypting or decrypting file (high security)
 ; qAES::CheckIntegrity()  - checks the integrity of a encrypted file           [SmartFileCoder]
@@ -106,29 +109,6 @@ Module qAES
 	EndStructure ;}
 	Global qAES.AES_Structure
 
-	;- ============================================================================
-	;-   Module - Internal
-	;- ============================================================================
-	
-	CompilerIf #PB_Compiler_OS = #PB_OS_Linux
-	  
-	  Procedure.q FixWriteData(File.i, *Adress, Length.q) ; Workaround for Linux PB560
-	    Define.q Location, Bytes
-
-      Location = Loc(File)
-      Bytes    = WriteData(File, *Adress, Length)
-      
-      FileSeek(file, Location + Bytes)
-    
-      ProcedureReturn Bytes
-    EndProcedure
- 
-    Macro WriteData(File, Buffer, Size)
-      FixWriteData(File, Buffer, Size)
-    EndMacro
-    
-  CompilerEndIf
-	
 	;- ==========================================================================
 	;-   Module - Declared Procedures
 	;- ==========================================================================
@@ -958,8 +938,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
   ; 1: String
   ; 2: File (only encrypt / decrypt)
-  ; 3: FileCoder
-  ; 4: FileCoder with CryptExtension
+  ; 3: SmartFileCoder
+  ; 4: SmartFileCoder with CryptExtension
   ; 5: Check integrity
   
   Enumeration 1
@@ -990,12 +970,12 @@ CompilerIf #PB_Compiler_IsMainFile
       
     CompilerCase 3
       
-      qAES::FileCoder("PureBasic.jpg", Key$)
-      ;qAES::FileCoder("PureBasic.jpg.aes", Key$)
+      qAES::SmartFileCoder("PureBasic.jpg", Key$)
+      ;qAES::SmartFileCoder("PureBasic.jpg.aes", Key$)
       
     CompilerCase 4  
       
-      qAES::FileCoder("PureBasic.jpg", Key$, #CryptExtension$)
+      qAES::SmartFileCoder("PureBasic.jpg", Key$, #CryptExtension$)
       If qAES::IsEncrypted("PureBasic.jpg", Key$, #CryptExtension$)
         Debug "File is encrypted"
       Else
@@ -1004,7 +984,7 @@ CompilerIf #PB_Compiler_IsMainFile
       
     CompilerCase 5
       
-      qAES::FileCoder("PureBasic.jpg", Key$, #CryptExtension$)
+      qAES::SmartFileCoder("PureBasic.jpg", Key$, #CryptExtension$)
       If qAES::CheckIntegrity("PureBasic.jpg", Key$, #CryptExtension$)
         Debug "File integrity succesfully checked"
       Else
@@ -1016,8 +996,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 996
-; Folding = GABBkAq-
-; Markers = 480,694
+; CursorPosition = 18
+; Folding = HIIgEQ0
+; Markers = 460,674
 ; EnableXP
 ; DPIAware

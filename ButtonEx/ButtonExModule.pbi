@@ -7,7 +7,7 @@
 ;/ Â© 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 30.7.2019
+; Last Update: 31.7.2019
 ;
 ; Bugfixes
 ; Added: Support of #LF$ for multiline - buttons
@@ -479,6 +479,9 @@ Module ButtonEx
 								EndIf
   						Next
   						
+  						Height = ListSize(Rows()) * TextHeight(BtEx()\Text)
+  						Y = (dpiY(GadgetHeight(BtEx()\CanvasNum)) - Height) / 2
+  						
   						ForEach Rows()
   							X = GetAlignOffset_(Rows(), Width, BtEx()\Flags)
   							DrawingMode(#PB_2DDrawing_Transparent)
@@ -892,7 +895,7 @@ CompilerIf #PB_Compiler_IsMainFile
   LoadFont(#Font11, "Arial", 11)
 	LoadImage(#Image, "Test.png")
 
-	If OpenWindow(#Window, 0, 0, 500, 150, "Window", #PB_Window_SystemMenu|#PB_Window_ScreenCentered|#PB_Window_SizeGadget) ; 450, 80
+	If OpenWindow(#Window, 0, 0, 450, 80, "Window", #PB_Window_SystemMenu|#PB_Window_ScreenCentered|#PB_Window_SizeGadget) ; 450, 80
 
 		If CreatePopupMenu(#DropDown)
 			MenuItem(#DropDown_Item1, "Item 1")
@@ -913,12 +916,8 @@ CompilerIf #PB_Compiler_IsMainFile
 		;ButtonEx::SetColor(#ButtonImg, ButtonEx::#BackColor, $E1E4FF)
 		;ButtonEx::SetColor(#ButtonImg, ButtonEx::#BorderColor, $0000FF)
 
-		;ButtonEx::Gadget(#ButtonML, 345, 20, 90, 40, "MultiLine1 MultiLine2", ButtonEx::#MultiLine|ButtonEx::#AutoResize, #Window) ; ButtonEx::#MacOS
-		;ButtonEx::SetAutoResizeFlags(#ButtonML, ButtonEx::#ResizeWidth)
-		
-		ButtonEx::Gadget(#ButtonML, 345, 20, 120, 100, "Pitsos Eosuaggel", ButtonEx::#MultiLine|ButtonEx::#MacOS, #Window) ; ButtonEx::#MacOS
-    ;ButtonEx::SetAutoResizeFlags(#ButtonML, ButtonEx::#ResizeWidth)
-    ButtonEx::SetFont(#ButtonML, #Font11)
+		ButtonEx::Gadget(#ButtonML, 345, 20, 90, 40, "MultiLine1 MultiLine2", ButtonEx::#MultiLine|ButtonEx::#AutoResize, #Window) ; ButtonEx::#MacOS
+		ButtonEx::SetAutoResizeFlags(#ButtonML, ButtonEx::#ResizeWidth)
 		
 		;ButtonEx::SetColor(#ButtonML, ButtonEx::#BackColor, $008000)
 		;ButtonEx::SetColor(#ButtonML, ButtonEx::#FrontColor, $00D7FF)
@@ -960,8 +959,7 @@ CompilerIf #PB_Compiler_IsMainFile
 
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 416
-; FirstLine = 253
-; Folding = 8--HN+--0
+; CursorPosition = 11
+; Folding = 8--HR+---
 ; EnableXP
 ; DPIAware
