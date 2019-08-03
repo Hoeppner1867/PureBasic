@@ -10,16 +10,19 @@
 ;/
   
 
-; Last Update: 26.07.2019
+; Last Update: 3.08.2019
 ;
-; - Changed: Tabulator jumps to the next/previous row, if it is the last/first cell
+; - Added:   attribute '#Padding' for SetColumnAttribute() to change padding if you use #FitColumn
+; - Bugfixes
+;
+; - Changed: tabulator jumps to the next/previous row, if it is the last/first cell
 ; 
-; - Added: individual colors for the columns of the header line
+; - Added:   individual colors for the columns of the header line
 ;
-; - Added: GetColumnLabel()
-; - Added: AddCells() to adds a new row and inserts text in cells with label
+; - Added:   GetColumnLabel()
+; - Added:   AddCells() to adds a new row and inserts text in cells with label
 ;
-; - Added: CloseEdit() to close all open string gadgets, comboboxes and date gadgets
+; - Added:   CloseEdit() to close all open string gadgets, comboboxes and date gadgets
 ;
 
 
@@ -166,12 +169,13 @@ DeclareModule ListEx
     #SwitchDirection
   EndEnumeration  
   
-  Enumeration 
+  Enumeration ; Attribute
     #Align
     #Font
     #FontID
     #Width
     #Height
+    #Padding
     #Gadget
     #StringFont
     #HeaderFont
@@ -563,6 +567,7 @@ Module ListEx
     Current.i
     Number.i
     Width.f
+    Padding.i
     OffsetX.f
     CheckBoxes.i
   EndStructure ;}
@@ -1856,7 +1861,9 @@ Module ListEx
 
       ;{ _____ Header _____
       If ListEx()\Flags & #NoRowHeader
+        
         rowY = ListEx()\Size\Y
+        
       Else
         
         textY = (ListEx()\Header\Height - TextHeight("Abc")) / 2 + 0.5
@@ -1873,7 +1880,7 @@ Module ListEx
           Else
             DrawingFont(ListEx()\Cols()\Header\FontID)
           EndIf
-          
+
           If ListEx()\Cols()\Header\BackColor <> #PB_Default
             DrawingMode(#PB_2DDrawing_Default)
             Box(colX, rowY, ListEx()\Cols()\Width, ListEx()\Header\Height, ListEx()\Cols()\Header\BackColor)
@@ -1899,8 +1906,14 @@ Module ListEx
           
             DrawingMode(#PB_2DDrawing_AlphaBlend)
             DrawImage(ListEx()\Cols()\Header\Image\ID, colX + imgX, rowY + imgY, ListEx()\Cols()\Header\Image\Width, ListEx()\Cols()\Header\Image\Height) 
+            
+            ListEx()\Cols()\MaxWidth = TextWidth(ListEx()\Cols()\Header\Titel) + ListEx()\Cols()\Header\Image\Width + dpiX(4)
+            
+          Else
+            
+            ListEx()\Cols()\MaxWidth = TextWidth(ListEx()\Cols()\Header\Titel)
             ;}
-          EndIf
+          EndIf          
           
           If ListEx()\Cols()\Header\Align = #PB_Default
             Align = ListEx()\Header\Align
@@ -1973,11 +1986,7 @@ Module ListEx
         ForEach ListEx()\Cols()
           
           If ListEx()\Cols()\Flags & #Hide : Continue : EndIf
-          
-          If ListEx()\Cols()\Flags & #FitColumn
-            If ListIndex(ListEx()\Rows()) = 0 : ListEx()\Cols()\MaxWidth = TextWidth(ListEx()\Cols()\Header\Titel) : EndIf
-          EndIf
-          
+
           Key$ = ListEx()\Cols()\Key
           If Key$ = "" : Key$ = Str(ListIndex(ListEx()\Cols())) : EndIf
           
@@ -2151,7 +2160,9 @@ Module ListEx
                 DrawText(colX + textX, rowY + textY, Text$, FrontColor)
                 
                 If ListEx()\Cols()\Flags & #FitColumn
+                  
                   If TextWidth(Text$) + imgWidth > ListEx()\Cols()\MaxWidth : ListEx()\Cols()\MaxWidth = TextWidth(Text$) + imgWidth : EndIf
+                  
                 EndIf
                 
                 If Flags & #CellFont : DrawingFont(ListEx()\Row\FontID) : EndIf
@@ -2239,7 +2250,7 @@ Module ListEx
 
       ForEach ListEx()\Cols()
         If ListEx()\Cols()\Flags & #FitColumn
-          ListEx()\Cols()\Width = ListEx()\Cols()\MaxWidth + dpiX(8)
+          ListEx()\Cols()\Width = ListEx()\Cols()\MaxWidth + (ListEx()\Col\Padding * 2)
         EndIf  
       Next
 
@@ -4369,13 +4380,14 @@ Module ListEx
         ;}
         
         ;{ Rows
+        ListEx()\Row\Focus   = #NotValid
         ListEx()\Row\Current = #NoFocus
         ListEx()\Row\FontID  = ListEx()\Header\FontID
         ListEx()\Size\Rows   = ListEx()\Row\Height ; Height of all rows
-        ListEx()\Row\Focus   = #NotValid
         ;}
         
         ;{ Column
+        ListEx()\Col\Padding = 5
         If AddElement(ListEx()\Cols())
           ListEx()\Cols()\Header\Titel      = ColTitle
           ListEx()\Cols()\Header\Align      = #PB_Default
@@ -4914,6 +4926,8 @@ Module ListEx
           Case #Width
             ListEx()\Cols()\Width  = dpiX(Value)
             UpdateColumnX_()
+          Case #Padding
+            ListEx()\Col\Padding = dpiX(Value)
           Case #FontID
             ListEx()\Cols()\FontID = Value
           Case #Font  
@@ -5636,8 +5650,8 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
 ; CursorPosition = 14
-; Folding = MBAAAAAAAAAAAAAAAIAABAwRQAIAACAA5AAgAQAAAAGCQ9
-; Markers = 570
+; Folding = MBAwAACAAAAAAAAAACBEBAwRQAIAACAA5AEABAAAIAGAQ9
+; Markers = 575
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
