@@ -20,7 +20,9 @@
 ; - Removed: File()
 ; - Added: EncodeFile() / DecodeFile()
 ; - Added: String2File() / File2String()
-; - Added: LoadCryptImage() 
+; - Added: SaveCryptImage() / LoadCryptImage() 
+; - Added: SaveCryptJSON()  / LoadCryptJSON() 
+; - Added: SaveCryptXML()   / LoadCryptXML() 
 
 ;{ _____ qAES - Commands _____
 
@@ -36,6 +38,7 @@
 ; qAES::LoadCryptImage()  - similar to LoadImage()
 ; qAES::LoadCryptJSON()   - similar to LoadJSON()
 ; qAES::LoadCryptXML()    - similar to LoadXML()
+; qAES::SaveCryptImage()  - similar to SaveImage()
 ; qAES::SaveCryptJSON()   - similar to SaveJSON()
 ; qAES::SaveCryptXML()    - similar to SaveXML()
 
@@ -96,6 +99,7 @@ DeclareModule qAES
   Declare.i LoadCryptImage(Image.i, File.s, Key.s, KeyStretching.i=#False)
   Declare.i LoadCryptJSON(JSON.i, File.s, Key.s, KeyStretching.i=#False)
   Declare.i LoadCryptXML(XML.i, File.s, Key.s, KeyStretching.i=#False)
+  Declare.i SaveCryptImage(Image.i, File.s, Key.s, KeyStretching.i=#False)
   Declare.i SaveCryptJSON(JSON.i, File.s, Key.s, KeyStretching.i=#False)
   Declare.i SaveCryptXML(XML.i, File.s, Key.s, KeyStretching.i=#False)
   Declare.s String(String.s, Key.s, KeyStretching.i=#False) 
@@ -1157,7 +1161,46 @@ Module qAES
   EndProcedure 
   
   
-  Procedure.i LoadCryptImage(Image.i, File.s, Key.s, KeyStretching.i=#False) ; Use EncodeFile() to encrypt image
+  Procedure.i SaveCryptImage(Image.i, File.s, Key.s, KeyStretching.i=#False)
+    Define.i FileID, MemorySize, Result
+    Define.q Counter
+    Define   *Buffer
+    
+    If IsImage(Image)
+      
+      If KeyStretching
+        Key = KeyStretching(Key, KeyStretching)
+      EndIf 
+      
+      If OpenCryptRandom()
+        CryptRandomData(@Counter, 8)
+      Else
+        RandomData(@Counter, 8)
+      EndIf
+
+      *Buffer = EncodeImage(Image)
+      If *Buffer
+   
+        MemorySize = MemorySize(*Buffer)
+
+        SmartCoder(#Binary, *Buffer, *Buffer, MemorySize, Key, Counter)
+       
+        FileID = CreateFile(#PB_Any, File)
+        If FileID 
+          Result = WriteData(FileID, *Buffer, MemorySize)
+          WriteQuad(FileID, Counter)
+          CloseFile(FileID)
+        EndIf
+
+        FreeMemory(*Buffer)
+      EndIf
+      
+    EndIf
+    
+    ProcedureReturn Result
+  EndProcedure
+  
+  Procedure.i LoadCryptImage(Image.i, File.s, Key.s, KeyStretching.i=#False) ; Use SaveCryptImage() or EncodeFile() to encrypt image
     Define   *Input, *Output
     Define.q Counter
     Define.i FileID, FileSize, Result
@@ -1260,7 +1303,7 @@ Module qAES
     ProcedureReturn Result
   EndProcedure
   
-  Procedure.i LoadCryptXML(XML.i, File.s, Key.s, KeyStretching.i=#False)
+  Procedure.i LoadCryptXML(XML.i, File.s, Key.s, KeyStretching.i=#False)     ; Use SaveCryptXML() or EncodeFile() to encrypt XML
     Define   *Buffer
     Define.q Counter
     Define.i FileID, FileSize, Result
@@ -1357,7 +1400,7 @@ Module qAES
     ProcedureReturn Result
   EndProcedure
   
-  Procedure.i LoadCryptJSON(JSON.i, File.s, Key.s, KeyStretching.i=#False)
+  Procedure.i LoadCryptJSON(JSON.i, File.s, Key.s, KeyStretching.i=#False)   ; Use SaveCryptJSON() or EncodeFile() to encrypt XML
     Define   *Buffer
     Define.q Counter
     Define.i FileID, FileSize, Result
@@ -1413,7 +1456,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 10
+  #Example = 1
   
   ;  1: String
   ;  2: File (only encrypt / decrypt)
@@ -1422,7 +1465,7 @@ CompilerIf #PB_Compiler_IsMainFile
   ;  5: SmartFileCoder with CryptExtension
   ;  6: Check integrity
   ;  7: Protected Mode
-  ;  8: LoadCryptImage()
+  ;  8: Image
   ;  9: XML
   ; 10: JSON
   
@@ -1505,7 +1548,11 @@ CompilerIf #PB_Compiler_IsMainFile
       
       UseJPEGImageDecoder()
       
-      qAES::EncodeFile("PureBasic.jpg", Key$)
+      ;qAES::EncodeFile("PureBasic.jpg", Key$)
+      
+      If LoadImage(#Image, "PureBasic.jpg")
+        qAES::SaveCryptImage(#Image, "PureBasic.jpg.aes", Key$)
+      EndIf
       
       If qAES::LoadCryptImage(#Image, "PureBasic.jpg", Key$)
         SaveImage(#Image, "DecryptedImage.jpg")
@@ -1555,9 +1602,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 1546
-; FirstLine = 146
-; Folding = HIIwEQCAA+
-; Markers = 482,696
+; CursorPosition = 1458
+; FirstLine = 159
+; Folding = GIIwEQCAA+
+; Markers = 486,700
 ; EnableXP
 ; DPIAware
