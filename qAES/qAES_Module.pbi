@@ -32,7 +32,13 @@
 ; qAES::SmartCoder()      - encrypt / decrypt ascii strings, unicode strings and binary data (#Binary/#Ascii/#Unicode)
 ; qAES::EncodeFile()      - encrypt file with SmartCoder()
 ; qAES::DecodeFile()      - decrypt file with SmartCoder()
+
 ; qAES::LoadCryptImage()  - similar to LoadImage()
+; qAES::LoadCryptJSON()   - similar to LoadJSON()
+; qAES::LoadCryptXML()    - similar to LoadXML()
+; qAES::SaveCryptJSON()   - similar to SaveJSON()
+; qAES::SaveCryptXML()    - similar to SaveXML()
+
 ; qAES::String()          - encrypt / decrypt string with SmartCoder()
 ; qAES::String2File()     - create an encryoted string file
 ; qAES::File2String()     - read an encrypted string file
@@ -88,6 +94,10 @@ DeclareModule qAES
   Declare.i EncodeFile(File.s, Key.s, outFile.s="", KeyStretching.i=#False) 
   Declare.s File2String(File.s, Key.s, KeyStretching.i=#False)
   Declare.i LoadCryptImage(Image.i, File.s, Key.s, KeyStretching.i=#False)
+  Declare.i LoadCryptJSON(JSON.i, File.s, Key.s, KeyStretching.i=#False)
+  Declare.i LoadCryptXML(XML.i, File.s, Key.s, KeyStretching.i=#False)
+  Declare.i SaveCryptJSON(JSON.i, File.s, Key.s, KeyStretching.i=#False)
+  Declare.i SaveCryptXML(XML.i, File.s, Key.s, KeyStretching.i=#False)
   Declare.s String(String.s, Key.s, KeyStretching.i=#False) 
   Declare.i String2File(String.s, File.s, Key.s, KeyStretching.i=#False)
   
@@ -899,6 +909,7 @@ Module qAES
     ProcedureReturn Output$
   EndProcedure
   
+  
   Procedure.i String2File(String.s, File.s, Key.s, KeyStretching.i=#False) 
     Define   *Output
     Define.q Counter
@@ -1018,6 +1029,7 @@ Module qAES
     
     ProcedureReturn Output
   EndProcedure 
+  
   
   Procedure.i EncodeFile(File.s, Key.s, outFile.s="", KeyStretching.i=#False) 
     Define   *Input, *Output
@@ -1144,6 +1156,7 @@ Module qAES
     ProcedureReturn Result
   EndProcedure 
   
+  
   Procedure.i LoadCryptImage(Image.i, File.s, Key.s, KeyStretching.i=#False) ; Use EncodeFile() to encrypt image
     Define   *Input, *Output
     Define.q Counter
@@ -1200,22 +1213,218 @@ Module qAES
     
   EndProcedure
   
+  
+  Procedure.i SaveCryptXML(XML.i, File.s, Key.s, KeyStretching.i=#False)
+    Define.i FileID, Size, Result
+    Define.q Counter
+    Define   *Buffer
+    
+    If IsXML(XML)
+      
+      If KeyStretching
+        Key = KeyStretching(Key, KeyStretching)
+      EndIf 
+      
+      If OpenCryptRandom()
+        CryptRandomData(@Counter, 8)
+      Else
+        RandomData(@Counter, 8)
+      EndIf
+
+      Size = ExportXMLSize(XML)
+      If Size
+        
+        *Buffer = AllocateMemory(Size)
+        If *Buffer
+          
+          If ExportXML(XML, *Buffer, Size)
+            
+            SmartCoder(#Binary, *Buffer, *Buffer, Size, Key, Counter)
+            
+            FileID = CreateFile(#PB_Any, File)
+            If FileID 
+              Result = WriteData(FileID, *Buffer, Size)
+              WriteQuad(FileID, Counter)
+              CloseFile(FileID)
+            EndIf
+            
+          EndIf
+          
+          FreeMemory(*Buffer)
+        EndIf
+        
+      EndIf
+      
+    EndIf
+    
+    ProcedureReturn Result
+  EndProcedure
+  
+  Procedure.i LoadCryptXML(XML.i, File.s, Key.s, KeyStretching.i=#False)
+    Define   *Buffer
+    Define.q Counter
+    Define.i FileID, FileSize, Result
+    
+    If KeyStretching
+      Key = KeyStretching(Key, KeyStretching)
+    EndIf 
+    
+    If FileSize(File + ".aes") > 0
+      File + ".aes"
+    EndIf
+    
+    FileID = ReadFile(#PB_Any, File)
+    If FileID
+      
+      FileSize = Lof(FileID)
+      
+      ;{ Read Counter
+      FileSeek(FileID, FileSize - 8)
+      Counter = ReadQuad(FileID)
+      FileSeek(FileID, 0)
+      If Counter : FileSize - 8 : EndIf
+      ;}
+      
+      *Buffer  = AllocateMemory(FileSize)
+      If *Buffer
+
+        If ReadData(FileID, *Buffer, FileSize)
+          
+          CloseFile(FileID)
+
+          SmartCoder(#Binary, *Buffer, *Buffer, FileSize, Key, Counter)
+          
+          Result = CatchXML(XML, *Buffer, FileSize)
+          
+        EndIf
+        
+        FreeMemory(*Buffer)
+      EndIf
+      
+    Else
+      qAES\Error = #ERROR_FILE_NOT_EXIST
+      ProcedureReturn #False
+    EndIf
+    
+    ProcedureReturn Result
+    
+  EndProcedure
+  
+  
+  Procedure.i SaveCryptJSON(JSON.i, File.s, Key.s, KeyStretching.i=#False)
+    Define.i FileID, Size, Result
+    Define.q Counter
+    Define   *Buffer
+    
+    If IsJSON(JSON)
+      
+      If KeyStretching
+        Key = KeyStretching(Key, KeyStretching)
+      EndIf 
+      
+      If OpenCryptRandom()
+        CryptRandomData(@Counter, 8)
+      Else
+        RandomData(@Counter, 8)
+      EndIf
+
+      Size = ExportJSONSize(JSON)
+      If Size
+        
+        *Buffer = AllocateMemory(Size)
+        If *Buffer
+          
+          If ExportJSON(JSON, *Buffer, Size)
+            
+            SmartCoder(#Binary, *Buffer, *Buffer, Size, Key, Counter)
+            
+            FileID = CreateFile(#PB_Any, File)
+            If FileID 
+              Result = WriteData(FileID, *Buffer, Size)
+              WriteQuad(FileID, Counter)
+              CloseFile(FileID)
+            EndIf
+            
+          EndIf
+          
+          FreeMemory(*Buffer)
+        EndIf
+        
+      EndIf
+      
+    EndIf
+    
+    ProcedureReturn Result
+  EndProcedure
+  
+  Procedure.i LoadCryptJSON(JSON.i, File.s, Key.s, KeyStretching.i=#False)
+    Define   *Buffer
+    Define.q Counter
+    Define.i FileID, FileSize, Result
+    
+    If KeyStretching
+      Key = KeyStretching(Key, KeyStretching)
+    EndIf 
+    
+    If FileSize(File + ".aes") > 0
+      File + ".aes"
+    EndIf
+    
+    FileID = ReadFile(#PB_Any, File)
+    If FileID
+      
+      FileSize = Lof(FileID)
+      
+      ;{ Read Counter
+      FileSeek(FileID, FileSize - 8)
+      Counter = ReadQuad(FileID)
+      FileSeek(FileID, 0)
+      If Counter : FileSize - 8 : EndIf
+      ;}
+      
+      *Buffer  = AllocateMemory(FileSize)
+      If *Buffer
+
+        If ReadData(FileID, *Buffer, FileSize)
+          
+          CloseFile(FileID)
+ 
+          SmartCoder(#Binary, *Buffer, *Buffer, FileSize, Key, Counter)
+          
+          Result = CatchJSON(JSON, *Buffer, FileSize)
+          
+        EndIf
+        
+        FreeMemory(*Buffer)
+      EndIf
+      
+    Else
+      qAES\Error = #ERROR_FILE_NOT_EXIST
+      ProcedureReturn #False
+    EndIf
+    
+    ProcedureReturn Result
+    
+  EndProcedure
+
 EndModule
 
 ;- ========  Module - Example ========
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 8
+  #Example = 10
   
-  ; 1: String
-  ; 2: File (only encrypt / decrypt)
-  ; 3: String to File
-  ; 4: SmartFileCoder
-  ; 5: SmartFileCoder with CryptExtension
-  ; 6: Check integrity
-  ; 7: Protected Mode
-  ; 8: LoadCryptImage()
+  ;  1: String
+  ;  2: File (only encrypt / decrypt)
+  ;  3: String to File
+  ;  4: SmartFileCoder
+  ;  5: SmartFileCoder with CryptExtension
+  ;  6: Check integrity
+  ;  7: Protected Mode
+  ;  8: LoadCryptImage()
+  ;  9: XML
+  ; 10: JSON
   
   Enumeration 1
     #Window
@@ -1248,10 +1457,10 @@ CompilerIf #PB_Compiler_IsMainFile
       
       Text$ = "This is a test text for the qAES-Module."
       
-      ;If qAES::String2File(Text$, "String.aes", Key$) 
+      If qAES::String2File(Text$, "String.aes", Key$) 
         decText$ = qAES::File2String("String.aes", Key$)
         Debug decText$
-      ;EndIf
+      EndIf
       
     CompilerCase 4
       
@@ -1286,7 +1495,6 @@ CompilerIf #PB_Compiler_IsMainFile
         Debug "File is not protected"
       EndIf
       
-      
       If qAES::CheckIntegrity("PureBasic.jpg", Key$, #ProtectExtension$, 18)
         Debug "File integrity succesfully checked"
       Else
@@ -1303,13 +1511,53 @@ CompilerIf #PB_Compiler_IsMainFile
         SaveImage(#Image, "DecryptedImage.jpg")
       EndIf
       
+    CompilerCase 9
+      
+      #XML = 1
+      
+      NewList Shapes$()
+      
+      AddElement(Shapes$()): Shapes$() = "square"
+      AddElement(Shapes$()): Shapes$() = "circle"
+      AddElement(Shapes$()): Shapes$() = "triangle"
+    
+      If CreateXML(#XML)
+        InsertXMLList(RootXMLNode(#XML), Shapes$())
+        qAES::SaveCryptXML(#XML, "Shapes.xml", Key$)
+        FreeXML(#XML)
+      EndIf
+      
+      If qAES::LoadCryptXML(#XML, "Shapes.xml", Key$)
+        Debug ComposeXML(#XML)
+        FreeXML(#XML)
+      EndIf
+      
+    CompilerCase 10
+      
+      #JSON = 1
+      
+      If CreateJSON(#JSON)
+        Person.i = SetJSONObject(JSONValue(#JSON))
+        SetJSONString(AddJSONMember(Person, "FirstName"), "John")
+        SetJSONString(AddJSONMember(Person, "LastName"), "Smith")
+        SetJSONInteger(AddJSONMember(Person, "Age"), 42)
+        qAES::SaveCryptJSON(#JSON, "Person.json", Key$)
+        FreeJSON(#JSON)
+      EndIf
+      
+      If qAES::LoadCryptJSON(#JSON, "Person.json", Key$)
+        Debug ComposeJSON(#JSON, #PB_JSON_PrettyPrint)
+        FreeJSON(#JSON)
+      EndIf
+    
   CompilerEndSelect
 
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 22
-; Folding = HIIwEQCS-
-; Markers = 472,686
+; CursorPosition = 1546
+; FirstLine = 146
+; Folding = HIIwEQCAA+
+; Markers = 482,696
 ; EnableXP
 ; DPIAware
