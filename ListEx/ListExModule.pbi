@@ -12,7 +12,7 @@
 
 ; Last Update: 3.08.2019
 ;
-; - Added:   attribute '#Padding' for SetColumnAttribute() to change padding if you use #FitColumn
+; - Added:   attribute '#Padding' for SetAttribute() to change padding if you use #FitColumn
 ; - Bugfixes
 ;
 ; - Changed: tabulator jumps to the next/previous row, if it is the last/first cell
@@ -84,6 +84,7 @@
 ; ListEx::RemoveColumn()            - similar to 'RemoveGadgetColumn()'
 ; ListEx::RemoveItem()              - similar to 'RemoveGadgetItem()'
 ; ListEx::ResetChangedState()       - reset to not edited
+; ListEx::SetAttribute()            - similar to SetGadgetAttribute()  [#Padding] 
 ; ListEx::SetAutoResizeColumn()     - column that is reduced when the vertical scrollbar is displayed.
 ; ListEx::SetAutoResizeFlags()      - [#MoveX|#MoveY|#ResizeWidth|#ResizeHeight]
 ; ListEx::SetCellState()            - similar to 'SetGadgetItemState()' with labels
@@ -335,6 +336,7 @@ DeclareModule ListEx
   Declare   RemoveItem(GNum.i, Row.i)
   Declare   ResetChangedState(GNum.i)
   Declare   SaveColorTheme(GNum.i, File.s)
+  Declare   SetAttribute(GNum.i, Attrib.i, Value.i)
   Declare   SetAutoResizeColumn(GNum.i, Column.i, minWidth.f=#PB_Default, maxWidth.f=#PB_Default)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetCellState(GNum.i, Row.i, Label.s, State.i)
@@ -4743,6 +4745,19 @@ Module ListEx
     
   EndProcedure  
   
+  Procedure   SetAttribute(GNum.i, Attrib.i, Value.i)
+    ; Attrib: #Padding
+    
+    If FindMapElement(ListEx(), Str(GNum))
+      
+      Select Attrib
+        Case #Padding
+          ListEx()\Col\Padding = dpiX(Value)
+      EndSelect
+      
+    EndIf
+    
+  EndProcedure  
   
   Procedure   SetAutoResizeColumn(GNum.i, Column.i, minWidth.f=#PB_Default, maxWidth.f=#PB_Default)
     
@@ -4926,8 +4941,6 @@ Module ListEx
           Case #Width
             ListEx()\Cols()\Width  = dpiX(Value)
             UpdateColumnX_()
-          Case #Padding
-            ListEx()\Col\Padding = dpiX(Value)
           Case #FontID
             ListEx()\Cols()\FontID = Value
           Case #Font  
@@ -5649,9 +5662,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 14
-; Folding = MBAwAACAAAAAAAAAACBEBAwRQAIAACAA5AEABAAAIAGAQ9
-; Markers = 575
+; CursorPosition = 18
+; Folding = OBAwAACAAAAAAAAAACBEBAwRQAIAACAA5AEABAAAAAMAg5
+; Markers = 577
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
