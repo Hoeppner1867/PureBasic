@@ -10,7 +10,9 @@
 ;/
   
 
-; Last Update: 3.08.2019
+; Last Update: 4.08.2019
+;
+; - Bugfixes: #FitColumn
 ;
 ; - Added:   attribute '#Padding' for SetAttribute() to change padding if you use #FitColumn
 ; - Bugfixes
@@ -1519,7 +1521,7 @@ Module ListEx
   
   
   ;- __________ Drawing __________ 
-  
+   
   Procedure.f GetAlignOffset_(Text.s, Width.f, Flags.i)
     Define.f Offset
     
@@ -1548,6 +1550,195 @@ Module ListEx
     R2 = Red(Color2): G2 = Green(Color2): B2 = Blue(Color2)
     
     ProcedureReturn RGB((R1*Blend) + (R2 * (1-Blend)), (G1*Blend) + (G2 * (1-Blend)), (B1*Blend) + (B2 * (1-Blend)))
+  EndProcedure
+  
+  
+  Procedure   FitColumns_()
+    Define.i Flags, imgWidth, FontID
+    Define.s Key$, Text$
+    
+    If StartDrawing(CanvasOutput(ListEx()\CanvasNum))
+      
+      PushListPosition(ListEx()\Rows())
+      PushListPosition(ListEx()\Cols())
+      
+      ;{ _____ Header _____
+      If ListEx()\Flags & #NoRowHeader = #False
+  
+        ForEach ListEx()\Cols()
+          
+          If ListEx()\Cols()\Flags & #Hide : Continue : EndIf
+          
+          If ListEx()\Cols()\Header\FontID = #PB_Default
+            DrawingFont(ListEx()\Header\FontID)
+          Else
+            DrawingFont(ListEx()\Cols()\Header\FontID)
+          EndIf
+          
+          If ListEx()\Cols()\Header\Flags & #Image 
+            ListEx()\Cols()\MaxWidth = TextWidth(ListEx()\Cols()\Header\Titel) + ListEx()\Cols()\Header\Image\Width + dpiX(4)
+          Else
+            ListEx()\Cols()\MaxWidth = TextWidth(ListEx()\Cols()\Header\Titel)
+          EndIf          
+
+        Next
+        
+      EndIf ;}
+      
+      DrawingFont(ListEx()\Row\FontID)
+
+      ; _____ Rows _____
+
+      ForEach ListEx()\Rows()
+        
+        If ListEx()\Rows()\FontID : DrawingFont(ListEx()\Rows()\FontID) : EndIf
+        
+        DrawingMode(#PB_2DDrawing_Default)
+        
+        ;{ Columns of current row
+        ForEach ListEx()\Cols()
+          
+          If ListEx()\Cols()\Flags & #Hide : Continue : EndIf
+
+          Key$ = ListEx()\Cols()\Key
+          If Key$ = "" : Key$ = Str(ListIndex(ListEx()\Cols())) : EndIf
+          
+          Flags = ListEx()\Rows()\Column(Key$)\Flags
+          
+          If ListEx()\Cols()\FontID
+            FontID = ListEx()\Cols()\FontID
+          Else
+            FontID = ListEx()\Rows()\FontID
+          EndIf
+          DrawingFont(FontID)
+          
+          If CurrentColumn_() = 0 And ListEx()\Flags & #NumberedColumn ;{ Numbering column 0
+            
+            If Flags & #CellFont : DrawingFont(ListEx()\Rows()\Column(Key$)\FontID) : EndIf
+            
+            Text$ = Str(ListIndex(ListEx()\Rows()) + 1)
+            If TextWidth(Text$) > ListEx()\Cols()\MaxWidth : ListEx()\Cols()\MaxWidth = TextWidth(Text$) : EndIf
+            
+            If Flags & #CellFont : DrawingFont(FontID) : EndIf
+            
+            ;}
+          Else  
+            
+            Flags = ListEx()\Rows()\Column(Key$)\Flags
+           
+            If ListEx()\Cols()\Flags & #CheckBoxes      ;{ CheckBox
+              If ListEx()\Cols()\Width > ListEx()\Cols()\MaxWidth : ListEx()\Cols()\MaxWidth = ListEx()\Cols()\Width : EndIf
+              ;}
+            ElseIf ListEx()\Cols()\Flags & #Buttons     ;{ Button
+              
+              If Flags & #CellFont : DrawingFont(ListEx()\Rows()\Column(Key$)\FontID) : EndIf
+              
+              Text$ = ListEx()\Rows()\Column(Key$)\Value
+              
+              If Flags & #Image
+                If TextWidth(Text$) + ListEx()\Rows()\Column(Key$)\Image\Width > ListEx()\Cols()\MaxWidth
+                  ListEx()\Cols()\MaxWidth = TextWidth(Text$) + ListEx()\Rows()\Column(Key$)\Image\Width
+                EndIf
+              Else
+                If TextWidth(Text$) > ListEx()\Cols()\MaxWidth : ListEx()\Cols()\MaxWidth = TextWidth(Text$) : EndIf
+              EndIf
+              
+              If Flags & #CellFont : DrawingFont(FontID) : EndIf
+              ;}
+            ElseIf ListEx()\Cols()\Flags & #ProgressBar ;{ ProgressBar
+              If ListEx()\Cols()\Width > ListEx()\Cols()\MaxWidth : ListEx()\Cols()\MaxWidth = ListEx()\Cols()\Width : EndIf
+              ;}
+            ElseIf Flags & #Image       ;{ Image
+
+              imgWidth = ListEx()\Rows()\Column(Key$)\Image\Width + dpiX(4)
+              
+              Text$ = ListEx()\Rows()\Column(Key$)\Value
+              If Text$ <> ""
+                
+                If Flags & #CellFont : DrawingFont(ListEx()\Rows()\Column(Key$)\FontID) : EndIf
+                
+                CompilerIf #Enable_MarkContent
+                  
+                  If ListEx()\Cols()\Flags & #MarkContent
+                    If FindMapElement(ListEx()\Mark(), ListEx()\Cols()\Key)
+                      Select IsMarked_(Text$, ListEx()\Mark()\Term, ListEx()\Cols()\Flags)
+                        Case #Condition1
+                          If ListEx()\Mark()\FontID <> #PB_Default : DrawingFont(ListEx()\Mark()\FontID) : EndIf
+                        Case #Condition2
+                          If ListEx()\Mark()\FontID <> #PB_Default : DrawingFont(ListEx()\Mark()\FontID) : EndIf
+                      EndSelect
+                    EndIf
+                  EndIf
+                  
+                CompilerEndIf
+                
+                If TextWidth(Text$) + imgWidth > ListEx()\Cols()\MaxWidth : ListEx()\Cols()\MaxWidth = TextWidth(Text$) + imgWidth : EndIf
+                If Flags & #CellFont : DrawingFont(FontID) : EndIf
+                
+              Else
+                
+                If imgWidth > ListEx()\Cols()\MaxWidth : ListEx()\Cols()\MaxWidth = imgWidth : EndIf
+
+              EndIf  
+              ;}
+            Else                                        ;{ Text
+              
+              Text$ = ListEx()\Rows()\Column(Key$)\Value
+              If Text$ <> ""
+
+                If Flags & #CellFont : DrawingFont(ListEx()\Rows()\Column(Key$)\FontID) : EndIf
+                
+                CompilerIf #Enable_MarkContent
+                  
+                  If ListEx()\Cols()\Flags & #MarkContent
+                    If FindMapElement(ListEx()\Mark(), ListEx()\Cols()\Key)
+                      Select IsMarked_(Text$, ListEx()\Mark()\Term, ListEx()\Cols()\Flags)
+                        Case #Condition1
+                          If ListEx()\Mark()\FontID <> #PB_Default : DrawingFont(ListEx()\Mark()\FontID) : EndIf
+                        Case #Condition2
+                          If ListEx()\Mark()\FontID <> #PB_Default : DrawingFont(ListEx()\Mark()\FontID) : EndIf
+                      EndSelect
+                    EndIf
+                  EndIf
+                  
+                CompilerEndIf
+                
+                If TextWidth(Text$) > ListEx()\Cols()\MaxWidth : ListEx()\Cols()\MaxWidth = TextWidth(Text$) : EndIf
+                
+                If Flags & #CellFont : DrawingFont(FontID) : EndIf
+                
+              EndIf
+              ;}  
+            EndIf
+
+          EndIf
+          
+        Next ;}
+        
+      Next
+      
+      ListEx()\Size\Cols = 0
+      
+      ForEach ListEx()\Cols()
+        
+        If ListEx()\Cols()\Flags & #Hide : Continue : EndIf
+      
+        If ListEx()\Cols()\Flags & #FitColumn
+          ListEx()\Cols()\Width = ListEx()\Cols()\MaxWidth + (ListEx()\Col\Padding * 2)
+        EndIf  
+        
+        ListEx()\Cols()\X  = ListEx()\Size\Cols
+        ListEx()\Size\Cols + ListEx()\Cols()\Width
+        
+      Next
+
+
+      PopListPosition(ListEx()\Cols())
+      PopListPosition(ListEx()\Rows())
+
+      StopDrawing()
+    EndIf  
+  
   EndProcedure
   
   
@@ -1838,7 +2029,7 @@ Module ListEx
   Procedure   Draw_()
     Define.f colX, rowY, textY, textX, colW0, colWidth, rowHeight, imgY, imgX, imgWidth
     Define.i Flags, imgFlags, Align, Mark, Row
-    Define.i FrontColor, FocusColor, RowColor
+    Define.i FrontColor, FocusColor, RowColor, FontID
     Define.s Key$, Text$
     
     AdjustScrollBars_()
@@ -1992,13 +2183,18 @@ Module ListEx
           Key$ = ListEx()\Cols()\Key
           If Key$ = "" : Key$ = Str(ListIndex(ListEx()\Cols())) : EndIf
           
-          If ListEx()\Cols()\FontID
-            DrawingFont(ListEx()\Cols()\FontID)
-          Else
-            DrawingFont(ListEx()\Rows()\FontID)
-          EndIf
+          Flags = ListEx()\Rows()\Column(Key$)\Flags
           
+          If ListEx()\Cols()\FontID
+            FontID = ListEx()\Cols()\FontID
+          Else
+            FontID = ListEx()\Rows()\FontID
+          EndIf
+          DrawingFont(ListEx()\Rows()\FontID)
+
           If CurrentColumn_() = 0 And ListEx()\Flags & #NumberedColumn ;{ Numbering column 0
+            
+            If Flags & #CellFont : FontID = ListEx()\Rows()\Column(Key$)\FontID : EndIf
             
             Text$    = Str(ListIndex(ListEx()\Rows()) + 1)
             textX    = GetAlignOffset_(Text$, ListEx()\Cols()\Width, #Right)
@@ -2013,11 +2209,11 @@ Module ListEx
             
             DrawingMode(#PB_2DDrawing_Outlined)
             Box(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height + dpiY(1), ListEx()\Color\HeaderGrid)
+            
+            If Flags & #CellFont : DrawingFont(FontID) : EndIf
             ;}
           Else  
-            
-            Flags = ListEx()\Rows()\Column(Key$)\Flags
-            
+
             ;{ Colored cell background
             If ListIndex(ListEx()\Rows()) <> ListEx()\Row\Current
               If Flags & #BackColor                       
@@ -2051,12 +2247,12 @@ Module ListEx
                 ClipOutput(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height)
               CompilerEndIf
               
-              If ListEx()\Rows()\Column(Key$)\Flags & #CellFont : DrawingFont(ListEx()\Rows()\Column(Key$)\FontID) : EndIf
+              If Flags & #CellFont : FontID = ListEx()\Rows()\Column(Key$)\FontID : EndIf
               
               If ListEx()\Rows()\Column(Key$)\Flags & #FrontColor
-                Button_(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height, ListEx()\Rows()\Column(Key$)\Value, #False, ListEx()\Rows()\Column(Key$)\Color\Front)
+                Button_(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height, ListEx()\Rows()\Column(Key$)\Value, #False, ListEx()\Rows()\Column(Key$)\Color\Front, FontID)
               Else
-                Button_(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height, ListEx()\Rows()\Column(Key$)\Value, #False, ListEx()\Rows()\Color\Front)
+                Button_(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height, ListEx()\Rows()\Column(Key$)\Value, #False, ListEx()\Rows()\Color\Front, FontID)
               EndIf
               
               If Flags & #Image
@@ -2078,7 +2274,7 @@ Module ListEx
                 
               EndIf
               
-              If ListEx()\Rows()\Column(Key$)\Flags & #CellFont : DrawingFont(ListEx()\Row\FontID) : EndIf
+              If Flags & #CellFont : DrawingFont(FontID) : EndIf
               
               CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
                 UnclipOutput()
@@ -2093,6 +2289,8 @@ Module ListEx
               Else
                 DrawProgressBar_(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height, ListEx()\Rows()\Column(Key$)\State, ListEx()\Rows()\Column(Key$)\Value, ListEx()\Rows()\Color\Front, ListEx()\Cols()\Align)
               EndIf
+              
+              If Flags & #CellFont : DrawingFont(FontID) : EndIf
               ;}
             ElseIf Flags & #Image                       ;{ Image
               
@@ -2161,13 +2359,7 @@ Module ListEx
                 
                 DrawText(colX + textX, rowY + textY, Text$, FrontColor)
                 
-                If ListEx()\Cols()\Flags & #FitColumn
-                  
-                  If TextWidth(Text$) + imgWidth > ListEx()\Cols()\MaxWidth : ListEx()\Cols()\MaxWidth = TextWidth(Text$) + imgWidth : EndIf
-                  
-                EndIf
-                
-                If Flags & #CellFont : DrawingFont(ListEx()\Row\FontID) : EndIf
+                If Flags & #CellFont : DrawingFont(FontID) : EndIf
                 
               EndIf  
               CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
@@ -2177,7 +2369,6 @@ Module ListEx
             Else                                        ;{ Text
               
               Text$ = ListEx()\Rows()\Column(Key$)\Value
-              
               If Text$ <> ""
                 
                 CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
@@ -2221,9 +2412,7 @@ Module ListEx
                 
                 DrawText(colX + textX, rowY + textY, Text$, FrontColor)
                 
-                If ListEx()\Cols()\Flags & #FitColumn
-                  If TextWidth(Text$) > ListEx()\Cols()\MaxWidth : ListEx()\Cols()\MaxWidth = TextWidth(Text$) : EndIf
-                EndIf
+                If Flags & #CellFont : DrawingFont(FontID) : EndIf
                 
                 CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
                   UnclipOutput()
@@ -2248,12 +2437,6 @@ Module ListEx
         
         If rowY > ListEx()\Size\Height : Break : EndIf
         
-      Next
-
-      ForEach ListEx()\Cols()
-        If ListEx()\Cols()\Flags & #FitColumn
-          ListEx()\Cols()\Width = ListEx()\Cols()\MaxWidth + (ListEx()\Col\Padding * 2)
-        EndIf  
       Next
 
       colX = ListEx()\Size\X - ListEx()\Col\OffsetX
@@ -3827,6 +4010,7 @@ Module ListEx
         
         If SelectElement(ListEx()\Cols(), Column)
           MarkContent_(Term, Color1, Color2, FontID)
+          If ListEx()\FitCols : FitColumns_() : EndIf
           Draw_()
         EndIf
         
@@ -3872,9 +4056,7 @@ Module ListEx
           Flags & ~#Left
         EndIf
         
-        If Flags & #FitColumn
-          ListEx()\FitCols = #True
-        EndIf
+        If Flags & #FitColumn : ListEx()\FitCols = #True : EndIf
         
         ListEx()\Col\Number               = ListSize(ListEx()\Cols())
         ListEx()\Cols()\Header\Titel      = Title
@@ -3998,7 +4180,7 @@ Module ListEx
         
       EndIf
       
-      If ListEx()\FitCols : Draw_() : EndIf
+      If ListEx()\FitCols : FitColumns_() : EndIf
       
       If ListEx()\ReDraw
         UpdateRowY_()
@@ -4051,16 +4233,14 @@ Module ListEx
           Else
             nc = 1
           EndIf
-          FitColumn = #False
           For i=1 To CountString(Text, #LF$) + 1
             If SelectElement(ListEx()\Cols(), i - nc)
               ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Value = StringField(Text, i, #LF$)
-              If ListEx()\Cols()\Flags & #FitColumn : FitColumn = #True : EndIf
             EndIf
           Next
         EndIf
         
-        If FitColumn : Draw_() : EndIf
+        If ListEx()\FitCols : FitColumns_() : EndIf
         
         If ListEx()\ReDraw
           UpdateRowY_()
@@ -4402,10 +4582,10 @@ Module ListEx
           ListEx()\Cols()\BackColor         = #PB_Default
           ListEx()\Col\Number = 1      ; Number of columns
         EndIf
-        ListEx()\Size\Cols    = ListEx()\Cols()\Width ; Width of all columns
-        ListEx()\Sort\Column  = #NotValid
+        ListEx()\Size\Cols           = ListEx()\Cols()\Width ; Width of all columns
+        ListEx()\Sort\Column         = #NotValid
         ListEx()\AutoResize\MinWidth = ListEx()\Col\Width
-        ListEx()\AutoResize\Column = #PB_Ignore
+        ListEx()\AutoResize\Column   = #PB_Ignore
         ;} 
         
         ;{ Default Colors
@@ -4673,6 +4853,7 @@ Module ListEx
       UpdateRowY_()
       UpdateColumnX_()
       AdjustScrollBars_()
+      If ListEx()\FitCols : FitColumns_() : EndIf
       Draw_()
       
     EndIf  
@@ -4790,7 +4971,7 @@ Module ListEx
       
       If SelectElement(ListEx()\Rows(), Row)
         ListEx()\Rows()\Column(Label)\Value = Text
-        If ListEx()\FitCols : Draw_() : EndIf
+        If ListEx()\FitCols : FitColumns_() : EndIf
         If ListEx()\ReDraw  : Draw_() : EndIf
       EndIf
       
@@ -5050,6 +5231,7 @@ Module ListEx
           EndIf
       EndSelect
       
+      If ListEx()\FitCols : FitColumns_() : EndIf
       If ListEx()\ReDraw : Draw_() : EndIf
     EndIf
     
@@ -5091,6 +5273,7 @@ Module ListEx
           EndIf
       EndSelect
       
+      If ListEx()\FitCols : FitColumns_() : EndIf
       If ListEx()\ReDraw : Draw_() : EndIf
       
     EndIf
@@ -5251,7 +5434,9 @@ Module ListEx
         EndIf
       EndIf
       
+      If ListEx()\FitCols : FitColumns_() : EndIf
       If ListEx()\ReDraw : Draw_() : EndIf
+      
     EndIf
     
   EndProcedure  
@@ -5280,7 +5465,8 @@ Module ListEx
           ListEx()\Cols()\Header\Image\Height = dpiY(Height)
           ListEx()\Cols()\Header\Image\Flags  = Align
           ListEx()\Cols()\Header\Flags | #Image
-          If ListEx()\ReDraw : Draw_() : EndIf
+          If ListEx()\FitCols : FitColumns_() : EndIf
+          If ListEx()\ReDraw  : Draw_()       : EndIf
         EndIf
         
       Else
@@ -5292,7 +5478,8 @@ Module ListEx
             ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Image\Height = dpiY(Height)
             ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Image\Flags  = Align
             ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Flags | #Image
-            If ListEx()\ReDraw : Draw_() : EndIf
+            If ListEx()\FitCols : FitColumns_() : EndIf
+            If ListEx()\ReDraw  : Draw_()       : EndIf
           EndIf
         EndIf
         
@@ -5337,12 +5524,14 @@ Module ListEx
         If SelectElement(ListEx()\Rows(), Row)
           If SelectElement(ListEx()\Cols(), Column)
             ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Value = Text
-            If ListEx()\Cols()\Flags & #FitColumn : Draw_() : EndIf 
           EndIf
         EndIf
       EndIf
       
+      If ListEx()\Cols()\Flags & #FitColumn : FitColumns_() : EndIf
+      
       If ListEx()\ReDraw : Draw_() : EndIf
+      
     EndIf
     
   EndProcedure  
@@ -5662,9 +5851,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 18
-; Folding = OBAwAACAAAAAAAAAACBEBAwRQAIAACAA5AEABAAAAAMAg5
-; Markers = 577
+; CursorPosition = 5715
+; FirstLine = 1169
+; Folding = OBEAAICBAAAAAAAUIAA2ACgD5AKAEAAAAAcAAoBAAAAAGAA9
+; Markers = 579
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
