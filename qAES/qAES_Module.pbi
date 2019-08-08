@@ -20,7 +20,8 @@
 ; - file format changed (improved safety)
 ; - some optimizations & bugfixes
 ; - ProgressBar added to SmartFileCoder()
-;
+; - EnableKeyStretching()
+
 
 ;{ ===== MIT License =====
 ;
@@ -121,40 +122,18 @@ DeclareModule qAES
     #ERROR_ENCODING_FAILS
     #ERROR_NOT_QAES_ENCRYPTED
   EndEnumeration
-  
-  CompilerIf Defined(ModuleEx, #PB_Module)
-    
-    #Event_Gadget = ModuleEx::#Event_Gadget
-    
-    Enumeration #PB_EventType_FirstCustomValue
-      #EventType_KeyStretching
-      #EventType_Encryption
-    EndEnumeration
-    
-  CompilerElse  
-    
-    Enumeration #PB_Event_FirstCustomValue
-      #Event_Gadget
-    EndEnumeration
-    
-    Enumeration #PB_EventType_FirstCustomValue
-      #EventType_KeyStretching
-      #EventType_Encryption
-    EndEnumeration
-    
-  CompilerEndIf
-  
+
 	;- ===========================================================================
 	;-   DeclareModule
   ;- ===========================================================================
   
   CompilerIf #Enable_BasicCoders
-    Declare.i DecodeFile(File.s, Key.s, outFile.s="", KeyStretching.i=#False) 
-    Declare.i EncodeFile(File.s, Key.s, outFile.s="", KeyStretching.i=#False) 
-    Declare.s File2String(File.s, Key.s, KeyStretching.i=#False)
-    Declare.s String(String.s, Key.s, KeyStretching.i=#False) 
-    Declare.i String2File(String.s, File.s, Key.s, KeyStretching.i=#False)
-    Declare.i IsCryptFile(File.s)
+    Declare.i DecodeFile(File.s, Key.s, outFile.s="") 
+    Declare.i EncodeFile(File.s, Key.s, outFile.s="") 
+    Declare.s File2String(File.s, Key.s)
+    Declare.s String(String.s, Key.s) 
+    Declare.i String2File(String.s, File.s, Key.s)
+    Declare.i IsCryptFile(File.s, CryptExtension.s="")
   CompilerEndIf
   
   CompilerIf #Enable_SmartFileCoder
@@ -165,30 +144,30 @@ DeclareModule qAES
   CompilerEndIf
   
   CompilerIf #Enable_LoadSaveCrypt
-    Declare.i LoadCryptImage(Image.i, File.s, Key.s, KeyStretching.i=#False)
-    Declare.i LoadCryptJSON(JSON.i, File.s, Key.s, KeyStretching.i=#False)
-    Declare.i LoadCryptXML(XML.i, File.s, Key.s, KeyStretching.i=#False)
-    Declare.i SaveCryptImage(Image.i, File.s, Key.s, KeyStretching.i=#False)
-    Declare.i SaveCryptJSON(JSON.i, File.s, Key.s, KeyStretching.i=#False)
-    Declare.i SaveCryptXML(XML.i, File.s, Key.s, KeyStretching.i=#False)
+    Declare.i LoadCryptImage(Image.i, File.s, Key.s)
+    Declare.i LoadCryptJSON(JSON.i, File.s, Key.s)
+    Declare.i LoadCryptXML(XML.i, File.s, Key.s)
+    Declare.i SaveCryptImage(Image.i, File.s, Key.s)
+    Declare.i SaveCryptJSON(JSON.i, File.s, Key.s)
+    Declare.i SaveCryptXML(XML.i, File.s, Key.s)
   CompilerEndIf
   
   CompilerIf #Enable_CryptPacker
     
-    Declare.i AddCryptPackFile(Pack.i, File.s, Key.s, KeyStretching.i=#False)
-    Declare.i UncompressCryptPackFile(Pack.i, File.s, Key.s, PackedFileName.s="", KeyStretching.i=#False)
+    Declare.i AddCryptPackFile(Pack.i, File.s, Key.s)
+    Declare.i UncompressCryptPackFile(Pack.i, File.s, Key.s, PackedFileName.s="")
     
-    Declare.i AddCryptPackMemory(Pack.i, *Buffer, Size.i, Key.s, PackedFileName.s, KeyStretching.i=#False)
-    Declare.i UncompressCryptPackMemory(Pack.i, *Buffer, Size.i, Key.s, PackedFileName.s="", KeyStretching.i=#False)
+    Declare.i AddCryptPackMemory(Pack.i, *Buffer, Size.i, Key.s, PackedFileName.s)
+    Declare.i UncompressCryptPackMemory(Pack.i, *Buffer, Size.i, Key.s, PackedFileName.s="")
     
-    Declare.i AddCryptPackXML(Pack.i, XML.i, Key.s, PackedFileName.s, KeyStretching.i=#False)
-    Declare.i UncompressCryptPackXML(Pack.i, XML.i, Key.s, PackedFileName.s="", KeyStretching.i=#False)
+    Declare.i AddCryptPackXML(Pack.i, XML.i, Key.s, PackedFileName.s)
+    Declare.i UncompressCryptPackXML(Pack.i, XML.i, Key.s, PackedFileName.s="")
     
-    Declare.i AddCryptPackJSON(Pack.i, JSON.i, Key.s, PackedFileName.s, KeyStretching.i=#False)
-    Declare.i UncompressCryptPackJSON(Pack.i, JSON.i, Key.s, PackedFileName.s="", KeyStretching.i=#False)
+    Declare.i AddCryptPackJSON(Pack.i, JSON.i, Key.s, PackedFileName.s)
+    Declare.i UncompressCryptPackJSON(Pack.i, JSON.i, Key.s, PackedFileName.s="")
     
-    Declare.i AddCryptPackImage(Pack.i, Image.i, Key.s, PackedFileName.s, KeyStretching.i=#False)
-    Declare.i UncompressCryptPackImage(Pack.i, Image.i, Key.s, PackedFileName.s="", KeyStretching.i=#False)
+    Declare.i AddCryptPackImage(Pack.i, Image.i, Key.s, PackedFileName.s)
+    Declare.i UncompressCryptPackImage(Pack.i, Image.i, Key.s, PackedFileName.s="")
     
     Declare.i IsCryptPackFile(Pack.i, PackedFileName.s)
     
@@ -196,6 +175,7 @@ DeclareModule qAES
   
   Declare.i SmartCoder(Mode.i, *Input.word, *Output.word, Size.q, Key.s, CounterKey.q=0, CounterAES.q=0)
   Declare.s KeyStretching(Key.s, Loops.i, ProgressBar.i=#PB_Default)
+  Declare   EnableKeyStretching(Loops.i, State.i=#True, ProgressBar.i=#PB_Default)
   Declare   SetAttribute(Attribute.i, Value.i)
   Declare   SetSalt(String.s)
   Declare.s GetErrorMessage(Error.i)
@@ -228,6 +208,9 @@ Module qAES
 	  ProtectedMarker.q
 	  CryptMarker.q
 	  Salt.s
+	  KeyStretching.i
+	  Loops.i
+	  ProgressBar.i
 	  Error.i
 	EndStructure ;}
 	Global qAES.AES_Structure
@@ -310,6 +293,14 @@ Module qAES
   
   ;- _____ Settings _____
   
+	Procedure   EnableKeyStretching(Loops.i, State.i=#True, ProgressBar.i=#PB_Default)
+  
+	  qAES\KeyStretching = State
+	  qAES\Loops = Loops
+	  qAES\ProgressBar = ProgressBar
+	  
+	EndProcedure
+  
   Procedure   SetAttribute(Attribute.i, Value.i)
     
     Select Attribute
@@ -341,7 +332,7 @@ Module qAES
 	  Define   *aRegister.ascii, *wRegister.word, *aBufferIn.ascii, *aBufferOut.ascii, *qBufferIn.quad, *qBufferOut.quad
 	  Static   FixedKey${64}
 	  Static   Dim Register.q(3)
-	   
+	  
 	  Hash$     = #Salt$ + Key + Str(CounterKey) + ReverseString(#Salt$)
 	  FixedKey$ = Fingerprint(@Hash$, StringByteLength(Hash$), #PB_Cipher_SHA3, 256)	  
 	  
@@ -502,6 +493,8 @@ Module qAES
   	  Define.q FileSize, fCounter, ReadBytes, WritenBytes, fMagic ; File data
   	  Define.s Key$, Hash$, cHash$
   	  Define   *Buffer
+  	  
+  	  If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
   	  
   	  If CryptExtension
   	    If FileSize(GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + CryptExtension + "." + GetExtensionPart(File)) > 0
@@ -728,6 +721,8 @@ Module qAES
   	  Define.s Key$, Hash$, fHash$, cHash$
   	  Define   *Buffer
   	  
+  	  If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
+  	  
   	  If CryptExtension ;{
   	    If FileSize(GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + CryptExtension + "." + GetExtensionPart(File)) > 0
   	      File = GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + CryptExtension + "." + GetExtensionPart(File)
@@ -912,6 +907,8 @@ Module qAES
   	  Define.i FileID, CryptRandom, EncryptedFileFound
   	  Define.s Key$
   	  
+  	  If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
+  	  
   	  If CryptExtension
   	    If FileSize(GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + CryptExtension + "." + GetExtensionPart(File)) > 0
   	      File = GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + CryptExtension + "." + GetExtensionPart(File)
@@ -1002,12 +999,12 @@ Module qAES
 	
 	CompilerIf #Enable_BasicCoders
 	  
-    Procedure.s String(String.s, Key.s, KeyStretching.i=#False) 
+    Procedure.s String(String.s, Key.s) 
       ; KeyStretching: number of loops for KeyStretching()
       Define.i StrgSize
       Define.s Output$
       
-      If KeyStretching : Key = KeyStretching(Key, KeyStretching) : EndIf     
+      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf     
       
       If String
         
@@ -1026,12 +1023,12 @@ Module qAES
       ProcedureReturn String
     EndProcedure
     
-    Procedure.i String2File(String.s, File.s, Key.s, KeyStretching.i=#False) 
+    Procedure.i String2File(String.s, File.s, Key.s) 
       Define   *Buffer
       Define.q Counter, qAES_ID = #qAES
       Define.i FileID, StrgSize, Result
       
-      If KeyStretching : Key = KeyStretching(Key, KeyStretching) : EndIf 
+      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
       
       Counter = GetCounter_()
       
@@ -1089,13 +1086,13 @@ Module qAES
       ProcedureReturn Result
     EndProcedure  
     
-    Procedure.s File2String(File.s, Key.s, KeyStretching.i=#False) 
+    Procedure.s File2String(File.s, Key.s) 
       Define.i FileID, FileSize, Result
       Define.q Counter, qAES_ID
       Define.s String
       Define   *Buffer
       
-      If KeyStretching : Key = KeyStretching(Key, KeyStretching) : EndIf 
+      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
       
       FileID = ReadFile(#PB_Any, File)
       If FileID
@@ -1145,12 +1142,12 @@ Module qAES
       ProcedureReturn String
     EndProcedure 
     
-    Procedure.i EncodeFile(File.s, Key.s, CryptExtension.s="", KeyStretching.i=#False) 
+    Procedure.i EncodeFile(File.s, Key.s, CryptExtension.s="") 
       Define.i FileID, FileSize, Result
       Define.q Counter, cCounter, checkID, qAES_ID = #qAES
       Define   *Buffer
       
-      If KeyStretching : Key = KeyStretching(Key, KeyStretching) : EndIf 
+      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
       
       Counter = GetCounter_()
       
@@ -1206,13 +1203,13 @@ Module qAES
       ProcedureReturn Result
     EndProcedure  
     
-    Procedure.i DecodeFile(File.s, Key.s, CryptExtension.s="", KeyStretching.i=#False) 
+    Procedure.i DecodeFile(File.s, Key.s, CryptExtension.s="") 
       Define.i FileID, FileSize, Encrypted, Result
       Define.q Counter, qAES_ID
       Define.s DeleteFile$
       Define   *Buffer
       
-      If KeyStretching : Key = KeyStretching(Key, KeyStretching) : EndIf 
+      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
       
       If CryptExtension
   	    If FileSize(GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + CryptExtension + "." + GetExtensionPart(File)) > 0
@@ -1314,14 +1311,14 @@ Module qAES
   
   CompilerIf #Enable_LoadSaveCrypt
   
-    Procedure.i SaveCryptImage(Image.i, File.s, Key.s, KeyStretching.i=#False)
+    Procedure.i SaveCryptImage(Image.i, File.s, Key.s)
       Define.i FileID, Size, Result
       Define.q Counter, qAES_ID = #qAES
       Define   *Buffer
       
       If IsImage(Image)
         
-        If KeyStretching : Key = KeyStretching(Key, KeyStretching) : EndIf 
+        If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
         
         Counter = GetCounter_()
         
@@ -1349,12 +1346,12 @@ Module qAES
       ProcedureReturn Result
     EndProcedure
     
-    Procedure.i LoadCryptImage(Image.i, File.s, Key.s, KeyStretching.i=#False) ; Use SaveCryptImage() or EncodeFile() to encrypt image
+    Procedure.i LoadCryptImage(Image.i, File.s, Key.s) ; Use SaveCryptImage() or EncodeFile() to encrypt image
       Define   *Buffer
       Define.q Counter, qAES_ID
       Define.i FileID, FileSize, Encrypted, Result
       
-      If KeyStretching : Key = KeyStretching(Key, KeyStretching) : EndIf 
+      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
       
       FileID = ReadFile(#PB_Any, File)
       If FileID
@@ -1404,14 +1401,14 @@ Module qAES
     EndProcedure
     
     
-    Procedure.i SaveCryptXML(XML.i, File.s, Key.s, KeyStretching.i=#False)
+    Procedure.i SaveCryptXML(XML.i, File.s, Key.s)
       Define.i FileID, Size, Result
       Define.q Counter, qAES_ID = #qAES
       Define   *Buffer
       
       If IsXML(XML)
         
-        If KeyStretching : Key = KeyStretching(Key, KeyStretching) : EndIf 
+        If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
         
         Counter = GetCounter_()
         
@@ -1446,12 +1443,12 @@ Module qAES
       ProcedureReturn Result
     EndProcedure
     
-    Procedure.i LoadCryptXML(XML.i, File.s, Key.s, KeyStretching.i=#False)     ; Use SaveCryptXML() or EncodeFile() to encrypt XML
+    Procedure.i LoadCryptXML(XML.i, File.s, Key.s)     ; Use SaveCryptXML() or EncodeFile() to encrypt XML
       Define   *Buffer
       Define.q Counter, qAES_ID
       Define.i FileID, FileSize, Encrypted, Result
       
-      If KeyStretching : Key = KeyStretching(Key, KeyStretching) : EndIf 
+      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
       
       FileID = ReadFile(#PB_Any, File)
       If FileID
@@ -1500,14 +1497,14 @@ Module qAES
     EndProcedure
     
     
-    Procedure.i SaveCryptJSON(JSON.i, File.s, Key.s, KeyStretching.i=#False)
+    Procedure.i SaveCryptJSON(JSON.i, File.s, Key.s)
       Define.i FileID, Size, Result
       Define.q Counter, qAES_ID = #qAES
       Define   *Buffer
       
       If IsJSON(JSON)
         
-        If KeyStretching : Key = KeyStretching(Key, KeyStretching) : EndIf 
+        If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
         
         Counter = GetCounter_()
         
@@ -1542,12 +1539,12 @@ Module qAES
       ProcedureReturn Result
     EndProcedure
     
-    Procedure.i LoadCryptJSON(JSON.i, File.s, Key.s, KeyStretching.i=#False)   ; Use SaveCryptJSON() or EncodeFile() to encrypt XML
+    Procedure.i LoadCryptJSON(JSON.i, File.s, Key.s)   ; Use SaveCryptJSON() or EncodeFile() to encrypt XML
       Define   *Buffer
       Define.q Counter, qAES_ID
       Define.i FileID, FileSize, Encrypted, Result
 
-      If KeyStretching : Key = KeyStretching(Key, KeyStretching) : EndIf 
+      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
       
       FileID = ReadFile(#PB_Any, File)
       If FileID
@@ -1601,12 +1598,12 @@ Module qAES
   
   CompilerIf #Enable_CryptPacker
 
-    Procedure.i AddCryptPackFile(Pack.i, File.s, Key.s, KeyStretching.i=#False) 
+    Procedure.i AddCryptPackFile(Pack.i, File.s, Key.s) 
       Define.i FileID, Size, Result
       Define.q Counter, cCounter, checkID, qAES_ID = #qAES
       Define   *Buffer
       
-      If KeyStretching : Key = KeyStretching(Key, KeyStretching) : EndIf 
+      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
       
       Counter = GetCounter_()
       
@@ -1652,12 +1649,12 @@ Module qAES
       ProcedureReturn Result
     EndProcedure  
     
-    Procedure.i UncompressCryptPackFile(Pack.i, File.s, Key.s, PackedFileName.s="", KeyStretching.i=#False) 
+    Procedure.i UncompressCryptPackFile(Pack.i, File.s, Key.s, PackedFileName.s="") 
       Define.i FileID, Size, Result = -1
       Define.q Counter, qAES_ID
       Define   *Buffer
       
-      If KeyStretching : Key = KeyStretching(Key, KeyStretching) : EndIf 
+      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
       
       If PackedFileName = "" : PackedFileName = GetFilePart(File) : EndIf
       
@@ -1709,12 +1706,12 @@ Module qAES
     EndProcedure 
     
     
-    Procedure.i AddCryptPackMemory(Pack.i, *Buffer, Size.i, Key.s, PackedFileName.s, KeyStretching.i=#False)
+    Procedure.i AddCryptPackMemory(Pack.i, *Buffer, Size.i, Key.s, PackedFileName.s)
       Define   *Buffer, *Output
       Define.q Counter, qAES_ID = #qAES
       Define.i Size, Result
 
-      If KeyStretching : Key = KeyStretching(Key, KeyStretching) : EndIf 
+      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
       
       Counter = GetCounter_()
 
@@ -1739,12 +1736,12 @@ Module qAES
       ProcedureReturn Result
     EndProcedure
     
-    Procedure.i UncompressCryptPackMemory(Pack.i, *Buffer, Size.i, Key.s, PackedFileName.s="", KeyStretching.i=#False)
+    Procedure.i UncompressCryptPackMemory(Pack.i, *Buffer, Size.i, Key.s, PackedFileName.s="")
       Define   *Input, *Buffer
       Define.q Counter, qAES_ID
       Define.i Size, Result
 
-      If KeyStretching : Key = KeyStretching(Key, KeyStretching) : EndIf 
+      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
       
       If *Buffer
 
@@ -1770,14 +1767,14 @@ Module qAES
     EndProcedure
     
 
-    Procedure.i AddCryptPackXML(Pack.i, XML.i, Key.s, PackedFileName.s, KeyStretching.i=#False)
+    Procedure.i AddCryptPackXML(Pack.i, XML.i, Key.s, PackedFileName.s)
       Define   *Buffer
       Define.q Counter, qAES_ID = #qAES
       Define.i Size, Result
 
       If IsXML(XML)
       
-        If KeyStretching : Key = KeyStretching(Key, KeyStretching) : EndIf 
+        If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
         
         Counter = GetCounter_()
 
@@ -1809,12 +1806,12 @@ Module qAES
       ProcedureReturn Result
     EndProcedure  
     
-    Procedure.i UncompressCryptPackXML(Pack.i, XML.i, Key.s, PackedFileName.s="", KeyStretching.i=#False)
+    Procedure.i UncompressCryptPackXML(Pack.i, XML.i, Key.s, PackedFileName.s="")
       Define   *Buffer
       Define.q Counter, qAES_ID
       Define.i Size, Result
 
-      If KeyStretching : Key = KeyStretching(Key, KeyStretching) : EndIf 
+      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
     
       If ExaminePack(Pack)
         
@@ -1858,14 +1855,14 @@ Module qAES
     EndProcedure
     
     
-    Procedure.i AddCryptPackJSON(Pack.i, JSON.i, Key.s, PackedFileName.s, KeyStretching.i=#False)
+    Procedure.i AddCryptPackJSON(Pack.i, JSON.i, Key.s, PackedFileName.s)
       Define   *Buffer
       Define.q Counter, qAES_ID = #qAES
       Define.i Size, Result
       
       If IsJSON(JSON)
       
-        If KeyStretching : Key = KeyStretching(Key, KeyStretching) : EndIf 
+        If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
         
         Counter = GetCounter_()
         
@@ -1897,12 +1894,12 @@ Module qAES
       ProcedureReturn Result
     EndProcedure  
     
-    Procedure.i UncompressCryptPackJSON(Pack.i, JSON.i, Key.s, PackedFileName.s="", KeyStretching.i=#False)
+    Procedure.i UncompressCryptPackJSON(Pack.i, JSON.i, Key.s, PackedFileName.s="")
       Define   *Buffer
       Define.q Counter, qAES_ID
       Define.i Size, Result
   
-      If KeyStretching : Key = KeyStretching(Key, KeyStretching) : EndIf 
+      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
     
       If ExaminePack(Pack)
         
@@ -1946,14 +1943,14 @@ Module qAES
     EndProcedure
     
     
-    Procedure.i AddCryptPackImage(Pack.i, Image.i, Key.s, PackedFileName.s, KeyStretching.i=#False)
+    Procedure.i AddCryptPackImage(Pack.i, Image.i, Key.s, PackedFileName.s)
       Define   *Buffer, *Output
       Define.q Counter, qAES_ID = #qAES
       Define.i Size, Result
  
       If IsImage(Image)
       
-        If KeyStretching : Key = KeyStretching(Key, KeyStretching) : EndIf 
+        If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
         
         Counter = GetCounter_()
 
@@ -1984,12 +1981,12 @@ Module qAES
       ProcedureReturn Result
     EndProcedure  
     
-    Procedure.i UncompressCryptPackImage(Pack.i, Image.i, Key.s, PackedFileName.s="", KeyStretching.i=#False)
+    Procedure.i UncompressCryptPackImage(Pack.i, Image.i, Key.s, PackedFileName.s="")
       Define   *Buffer
       Define.q Counter, qAES_ID
       Define.i Size, Result
 
-      If KeyStretching : Key = KeyStretching(Key, KeyStretching) : EndIf 
+      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
     
       If ExaminePack(Pack)
         
@@ -2085,7 +2082,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 5
+  #Example = 1
   
   ;  1: String
   ;  2: File (only encrypt / decrypt)
@@ -2101,7 +2098,6 @@ CompilerIf #PB_Compiler_IsMainFile
   ; 12: Packer: XML
   ; 13: Packer: JSON
   ; 14: Packer: Image
-  ; 15: ProgressBar
   
   Enumeration 1
     #Window
@@ -2117,6 +2113,8 @@ CompilerIf #PB_Compiler_IsMainFile
   If OpenWindow(#Window, 0, 0, 280, 50, "",  #PB_Window_ScreenCentered|#PB_Window_BorderLess|#PB_Window_SystemMenu)
     
     ProgressBarGadget(#ProgressBar, 10, 10, 260, 30, 0, 100, #PB_ProgressBar_Smooth)
+    
+    ;qAES::EnableKeyStretching(2e4, #True, #ProgressBar)
     
     CompilerSelect #Example
       CompilerCase 1 
@@ -2407,10 +2405,6 @@ CompilerIf #PB_Compiler_IsMainFile
   
         CompilerEndIf
         
-      CompilerCase 15
-        
-        Key$ = qAES::KeyStretching(Key$, 1e5, #ProgressBar)
-        
     CompilerEndSelect
 
     CloseWindow(#Window)
@@ -2419,9 +2413,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 1636
-; FirstLine = 159
-; Folding = sEAACKRFRAAGAABw
-; Markers = 608,827
+; CursorPosition = 2084
+; FirstLine = 1484
+; Folding = 9HBYCOxtT63+-CAw
+; Markers = 601,822
 ; EnableXP
 ; DPIAware
