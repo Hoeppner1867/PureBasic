@@ -1634,9 +1634,10 @@ Module qAES
               PokeQ(*Buffer + Size, qAES_ID)
               PokeQ(*Buffer + Size + 8, Counter)
               
+              Size + 16
             EndIf
 
-            Result = AddPackMemory(Pack, *Buffer, Size + 16, GetFilePart(File))
+            Result = AddPackMemory(Pack, *Buffer, Size, GetFilePart(File))
 
           EndIf
           
@@ -2418,8 +2419,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 20
-; Folding = sEAACKRFBAACAABw
+; CursorPosition = 1636
+; FirstLine = 159
+; Folding = sEAACKRFRAAGAABw
 ; Markers = 608,827
 ; EnableXP
 ; DPIAware
