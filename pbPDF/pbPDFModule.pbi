@@ -31,7 +31,7 @@
 ; SOFTWARE.
 ;}
 
-; Last Update: 27.06.2019
+; Last Update: 11.08.2019
 ; 
 ; [26.06.2019] Bugfix: AddPage (Fonts)
 ; [26.06.2019] Bugfix: Preferences for footer
@@ -469,7 +469,7 @@ DeclareModule PDF
   Declare.f GetWordSpacing(ID.i)
   Declare   HeaderProcedure(*ProcAddress, *StructAddress=#Null)
   Declare   Image(ID.i, FileName.s, X.f=#PB_Default, Y.f=#PB_Default, Width.f=#PB_Default, Height.f=#PB_Default, Link.i=#NoLink)
-  Declare   ImageMemory(ID.i, ImageName.s, *Memory, Size.i, Format.i, X.f=#PB_Default, Y.f=#PB_Default, Width.f=#PB_Default, Height.f=#PB_Default, Link.i=#NoLink)
+  ;Declare   ImageMemory(ID.i, ImageName.s, *Memory, Size.i, Format.i, X.f=#PB_Default, Y.f=#PB_Default, Width.f=#PB_Default, Height.f=#PB_Default, Link.i=#NoLink)
   Declare   InsertTOC(ID.i, Page.i=1, Label.s="", LabelFontSize.i=20, EntryFontSize.i=10, FontFamily.s="Times")
   Declare   Ln(ID.i, Height.f=#PB_Default)
   Declare.s MultiCell(ID.i, Text.s, Width.f, Height.f, Border.i=#False, Align.s="", Fill.i=#False, Indent.i=0, maxLine.i=0)
@@ -2239,7 +2239,7 @@ Module PDF
     If *Memory And Size
 
       *MemPtr = *Memory
-      
+      Debug "MaxMem: " + Str(*Memory + Size)
       *Header\Size = 0
       
       *Header\Signature = Hex(EndianQ(PeekQ(*MemPtr)), #PB_Quad)
@@ -2278,10 +2278,11 @@ Module PDF
             *Header\Size + BlockLen
         EndSelect
         *MemPtr + BlockLen
+        If *MemPtr >= *Memory + Size : Break : EndIf
         CRC = uint32(PeekL(*MemPtr))
         *MemPtr + 4
       Until BlockTyp = "IEND" Or *MemPtr >= *Memory + Size
-      FreeMemory(*Memory)
+      
     Else
       PDF()\Error = #ERROR_PROBLEM_READING_IMAGE_FILE_IN_MEMORY
     EndIf
@@ -2359,7 +2360,9 @@ Module PDF
         ; Read image file header
         Select Format
           Case #Image_PNG      ;{ PNG-Image
+            Debug "MemorySize: " + Str(Size)
             If HeaderPNG_(*Memory, Size, @Header)
+              Debug "HeaderPNG"
               Filter = "FlateDecode"
               Select Header\ColorSpace
                 Case 0
@@ -6291,7 +6294,7 @@ Module PDF
       PDF()\Page\TOCNum = 1 ; ?
       PDF()\Error       = #False
       
-     ;{ Scale factor
+      ;{ Scale factor
       Select Unit
         Case "pt"
           PDF()\ScaleFactor = 1
@@ -6942,11 +6945,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf 
 
 ;- ========================
-; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x64)
-; CursorPosition = 115
-; FirstLine = 75
-; Folding = GAABAEAPQAIAAAAAgAAAACBAAACAAAAAAACAgZQFAIQUAAAADAAKIACAAAAQYCMCAAACAA+
-; Markers = 572,1001,3758,3823
+; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
+; CursorPosition = 33
+; Folding = MAIBAEAPQAIAAAAAgAAAACBAAACAAAAAAACAAZQBAgREAAAADAAKIACAAAIQYCMHAgABAA+
+; Markers = 572,1001,2352,3761,3826
 ; EnableXP
 ; DPIAware
 ; EnablePurifier
