@@ -11,17 +11,23 @@
 ;/ Module by Thorsten Hoeppner (07/2019) 
 ;/
 
-; - This coder go always forward, an extra decoder isn't necessary, just use exactly the same calling convention for encrypting and decrypting!
-; - This coder can handle automatic string termination for any strings - In compiler mode ASCII and UNICODE !
-; - The coder works with all data lengths, also < 16 Byte
+; Last Update: 12.08.2019
 
-; Last Update: 08.08.2019
+; - Bugfixes
+; - Changed: SmartFileCoder() - added 'Mode' [#Auto/#Encrypt/#Decrypt/#Protect/#Unprotect]
+; - Added:   GetFileSize()
+; - Added:   LoadEncryptedImage()
+; - Added:   ReadProtectedFile()
 ;
-; - file format changed (improved safety)
-; - some optimizations & bugfixes
-; - ProgressBar added to SmartFileCoder()
-; - EnableKeyStretching()
-
+; - Changed: user salt
+; - Changed: KeyStretching()
+; - Removed: EnableKeyStretching()
+; - Added:   CreateSecureKey()
+; - Added:   GetHash() / FileHash() / PackFileHash()
+; - Added:   Integrity check for SmartFileCoder()
+; - Added:   Attribute #CounterAES 
+; - Added:   Flags #EnlargeSize & #RandomizeSize for SmartFileCoder()
+; - Added:   EncryptImage() & DecryptImage() for SmartFileCoder()
 
 ;{ ===== MIT License =====
 ;
@@ -48,28 +54,39 @@
 ;}
 
 
+; [Security Level 1]: No normal mortal should be able to access my data.
+; [Security Level 2]: I'm a little paranoid about my data.
+; [Security Level 3]: Security level 2 + CreateSecureKey(Key, 1e5)
+
 ;{ _____ qAES - Commands _____
 
-; qAES::KeyStretching()             - use keystretching to make brute force attacks more difficult
+; qAES::CreateSecureKey()           - use secure keys to make brute force attacks more difficult
 ; qAES::SetAttribute()              - [#EnlargeBytes/#HashLength/#ProtectedMarker/#CryptMarker]
-; qAES::SetSalt()                   - define your own salt
+; qAES::SetSalt()                   - add your own salt
 ; qAES::GetErrorMessage()           - returns error message 
 ; qAES::SmartCoder()                - encrypt / decrypt ascii strings, unicode strings and binary data (#Binary/#Ascii/#Unicode)
-; ----- #Enable_BasicCoders -----
+
+; ----- #Enable_BasicCoders [Security Level 1] -----
+
 ; qAES::EncodeFile()                - encrypt file with SmartCoder()
 ; qAES::DecodeFile()                - decrypt file with SmartCoder()
+; qAES::FileCoder()                 - encrypt & decrypt  with SmartCoder()
 ; qAES::String()                    - encrypt / decrypt string with SmartCoder()
-; qAES::String2File()               - create an encryoted string file
-; qAES::File2String()               - read an encrypted string file
-; qAES::IsCryptFile()               - checks if the file is encrypted.
-; ----- #Enable_LoadSaveCrypt -----
+; qAES::StringToFile()              - create an encrypted string file with SmartCoder()
+; qAES::File2String()               - read an encrypted string file with SmartCoder()
+; qAES::IsCryptFile()               - checks if the file is encrypted. with SmartCoder()
+
+; ----- #Enable_LoadSaveCrypt [Security Level 1] -----
+
 ; qAES::LoadCryptImage()            - similar to LoadImage()
 ; qAES::SaveCryptImage()            - similar to SaveImage()
 ; qAES::LoadCryptJSON()             - similar to LoadJSON()
 ; qAES::SaveCryptJSON()             - similar to SaveJSON()
 ; qAES::LoadCryptXML()              - similar to LoadXML()
 ; qAES::SaveCryptXML()              - similar to SaveXML()
-; ----- #Enable_CryptPacker -----
+
+; ----- #Enable_CryptPacker [Security Level 1] -----
+
 ; qAES::AddCryptPackFile()          - similar to AddPackFile()
 ; qAES::UncompressCryptPackFile()   - similar to UncompressPackFile()
 ; qAES::AddCryptPackMemory()        - similar to AddPackMemory()
@@ -81,66 +98,110 @@
 ; qAES::AddCryptPackImage()         - similar to SaveImage(), but for packer
 ; qAES::UncompressCryptPackImage()  - similar to LoadImage(), but for packer
 ; qAES::IsCryptPackFile()           - checks if the packed file is encrypted
-; ----- #Enable_SmartFileCoder -----
-; qAES::SmartFileCoder()            - encrypting or decrypting file (high security)
-; qAES::CheckIntegrity()            - checks the integrity of a encrypted file      [SmartFileCoder]
-; qAES::IsEncrypted()               - checks if a file is already encrypted         [SmartFileCoder]
-; qAES::IsProtected()               - checks if a file is already protected         [SmartFileCoder]
+
+; ----- #Enable_SmartFileCoder [Security Level 2] -----
+
+; qAES::SmartFileCoder()            - encrypting or decrypting file
+; qAES::CheckIntegrity()            - checks the integrity of a encrypted file
+; qAES::IsEncrypted()               - checks if a file is already encrypted
+; qAES::IsProtected()               - checks if a file is already protected
+; qAES::GetFileSize()               - returns the real file size
+; qAES::CreateStringFile()          - create an encrypted string file
+; qAES::ReadStringFile()            - read an encrypted string file
+; qAES::ReadProtectedFile()         - read protected file and write it to memory
+; qAES::EncryptImage()              - encrypt an image
+; qAES::DecryptImage()              - decrypt an image
+; qAES::LoadEncryptedImage()        - load an encrypted image (returns image number)
 
 ;}
 
 
 DeclareModule qAES
   
-  #Enable_BasicCoders    = #True
-  #Enable_SmartFileCoder = #True
-  #Enable_LoadSaveCrypt  = #True
-  #Enable_CryptPacker    = #True
+  #Enable_BasicCoders    = #True  ; [Security Level 1]
+  #Enable_LoadSaveCrypt  = #True  ; [Security Level 1]
+  #Enable_CryptPacker    = #True  ; [Security Level 1]
+  #Enable_SmartFileCoder = #True  ; [Security Level 2]
   
 	;- ===========================================================================
 	;-   DeclareModule - Constants
 	;- ===========================================================================
+  
+  #ProtectCounter = 18
 
+  #Binary  = 0  ; Mode BINARY, you can encrypt binary data, don't use this for on demand string encryption, it break the string termination!
+  #Ascii   = 1  ; Mode ASCII, you can encrypt mixed data, string and binary - This ignore the encryption of zero bytes, recommended for mixed datea with ASCII strings.
+  #Unicode = 2  ; Mode UNICODE, you can encrypt mixed data, ascii strings, unicode strings and binary - This ignore the encryption of zero bytes.
+  
   Enumeration
-    #Binary          ; Mode BINARY, you can encrypt binary data, don't use this for on demand string encryption, it break the string termination!
-    #Ascii           ; Mode ASCII, you can encrypt mixed data, string and binary - This ignore the encryption of zero bytes, recommended for mixed datea with ASCII strings.
-    #Unicode         ; Mode UNICODE, you can encrypt mixed data, ascii strings, unicode strings and binary - This ignore the encryption of zero bytes.
+    #Auto
+    #Encrypt
+    #Decrypt
+    #Protect
+    #Unprotect
   EndEnumeration
   
   Enumeration 1
     #CryptMarker     ; preset crypt marker
     #EnlargeBytes    ; enlarge file length bytes
+    #RandomizeBytes  ; randomize file lengtb bytes
     #HashLength      ; (224, 256, 384, 512)
     #ProtectedMarker ; preset protected marker
+    #CounterAES      ; CounterAES for SmartCoder()
+  EndEnumeration
+  
+  EnumerationBinary
+    #EnlargeSize       ; enlarge file with random data (#EnlargeBytes)
+    #RandomizeSize     ; randomize the file length (0 - 256 Bytes)
   EndEnumeration
   
   Enumeration 1
+    #ERROR_ALREADY_ENCRYPTED
     #ERROR_CAN_NOT_CREATE_COUNTER
-    #ERROR_FINGERPRINT_FAILS
-    #ERROR_FILE_NOT_EXIST
     #ERROR_CAN_NOT_OPEN_FILE
     #ERROR_ENCODING_FAILS
-    #ERROR_NOT_QAES_ENCRYPTED
+    #ERROR_INTEGRITY_CORRUPTED
+    #ERROR_FILE_NOT_EXIST
+    #ERROR_FILE_HASH_BROKEN
+    #ERROR_FINGERPRINT_FAILS
+    #ERROR_NOT_ENCRYPTED
+    #ERROR_INCORRECT_DATA
   EndEnumeration
-
+  
+	;- ===========================================================================
+	;-   DeclareModule - Structures
+	;- ===========================================================================  
+  
+  Structure Memory_Structure
+	  *Buffer
+	  Size.i
+	EndStructure
+  
 	;- ===========================================================================
 	;-   DeclareModule
   ;- ===========================================================================
   
   CompilerIf #Enable_BasicCoders
-    Declare.i DecodeFile(File.s, Key.s, outFile.s="") 
-    Declare.i EncodeFile(File.s, Key.s, outFile.s="") 
-    Declare.s File2String(File.s, Key.s)
+    Declare.i DecodeFile(File.s, Key.s, CryptExtension.s="") 
+    Declare.i EncodeFile(File.s, Key.s, CryptExtension.s="") 
+    Declare.i FileCoder(File.s, Key.s, CryptExtension.s="")
+    Declare.s FileToString(File.s, Key.s)
     Declare.s String(String.s, Key.s) 
-    Declare.i String2File(String.s, File.s, Key.s)
-    Declare.i IsCryptFile(File.s, CryptExtension.s="")
+    Declare.i StringToFile(String.s, File.s, Key.s)
   CompilerEndIf
   
   CompilerIf #Enable_SmartFileCoder
-    Declare.i CheckIntegrity(File.s, Key.s, CryptExtension.s="", ProtectionMode.i=#False)
-    Declare.i SmartFileCoder(File.s, Key.s, CryptExtension.s="", ProtectionMode.i=#False, ProgressBar.i=#PB_Default)
-    Declare.i IsEncrypted(File.s, Key.s, CryptExtension.s="", ProtectionMode.i=#False)
-    Declare.i IsProtected(File.s, Key.s, CryptExtension.s="", ProtectionMode.i=#False)
+    Declare.i CheckIntegrity(File.s, Key.s, CryptExtension.s="", ProtectCounter.i=#False)
+    Declare.i SmartFileCoder(Mode.i, File.s, Key.s, CryptExtension.s="", Flags.i=#False, ProtectCounter.i=#False, ProgressBar.i=#PB_Default)
+    Declare.i IsEncrypted(File.s, Key.s, CryptExtension.s="")
+    Declare.i IsProtected(File.s, Key.s, ProtectExtension.s="", ProtectCounter.i=#ProtectCounter)
+    Declare.i GetFileSize(File.s, Key.s, FileExtension.s="", ProtectCounter.i=#False)
+    Declare.i CreateStringFile(String.s, File.s, Key.s, Flags.i=#False, ProtectCounter.i=#ProtectCounter)
+    Declare.s ReadStringFile(File.s, Key.s, ProtectCounter.i=#ProtectCounter)
+    Declare.i ReadProtectedFile(File.s, *Memory.Memory_Structure, Key.s, FileExtension.s="")
+    Declare.i EncryptImage(File.s, Key.s, CryptExtension.s="", Flags.i=#False, ProtectCounter.i=#ProtectCounter)
+    Declare.i DecryptImage(File.s, Key.s, CryptExtension.s="", ProtectCounter.i=#ProtectCounter)
+    Declare.i LoadEncryptedImage(File.s, Key.s, CryptExtension.s="", ProtectCounter.i=#ProtectCounter)
   CompilerEndIf
   
   CompilerIf #Enable_LoadSaveCrypt
@@ -170,15 +231,19 @@ DeclareModule qAES
     Declare.i UncompressCryptPackImage(Pack.i, Image.i, Key.s, PackedFileName.s="")
     
     Declare.i IsCryptPackFile(Pack.i, PackedFileName.s)
+    Declare.s PackFileHash(Pack.i, PackedFileName.s)
     
   CompilerEndIf
   
   Declare.i SmartCoder(Mode.i, *Input.word, *Output.word, Size.q, Key.s, CounterKey.q=0, CounterAES.q=0)
-  Declare.s KeyStretching(Key.s, Loops.i, ProgressBar.i=#PB_Default)
-  Declare   EnableKeyStretching(Loops.i, State.i=#True, ProgressBar.i=#PB_Default)
-  Declare   SetAttribute(Attribute.i, Value.i)
+  Declare.s CreateSecureKey(Key.s, Loops.i=2048, ProgressBar.i=#PB_Default)
+  Declare   SetAttribute(Attribute.i, Value.q)
   Declare   SetSalt(String.s)
-  Declare.s GetErrorMessage(Error.i)
+  Declare.i GetError()
+  Declare.s GetErrorMessage()
+  Declare.s GetHash()
+  Declare.i IsCryptFile(File.s, CryptExtension.s="") ; NOT: SmartFileCoder
+  Declare.s FileHash(File.s, CryptExtension.s="")    ; NOT: SmartFileCoder
   
 EndDeclareModule
 
@@ -192,25 +257,29 @@ Module qAES
 	;-   Module - Constants
 	;- ============================================================================
 	
-	#qAES = 113656983
-	
-	#Hints$ = "QUICK-AES-256 (QAES) AES256 KFB crypter" + #LF$ + "No warranty whatsever - Use at your own risk" + #LF$ + #LF$
-  #Salt$  = "t8690352cj2p1ch7fgw34u&=)?=)/%&§/&)=?(otmq09745$%()=)&%"
-  
+	#qAES  = 113656983
+	#Salt$ = "t8690352cj2p1ch7fgw34u&=)?=)/%&§/&)=?(otmq09745$%()=)&%"
+
 	;- ============================================================================
   ;-   Module - Structure
 	;- ============================================================================
 	
+	Structure Footer_Structure
+	  ID.q
+	  Counter.q
+	  Hash.s
+	EndStructure
+	
 	Structure AES_Structure ;{ qAES\...
 	  CryptExtLength.i
+	  CounterAES.q
 	  EnlargeBytes.i
+	  RandomizeBytes.i
+	  Hash.s
 	  HashLength.i
 	  ProtectedMarker.q
 	  CryptMarker.q
 	  Salt.s
-	  KeyStretching.i
-	  Loops.i
-	  ProgressBar.i
 	  Error.i
 	EndStructure ;}
 	Global qAES.AES_Structure
@@ -218,6 +287,26 @@ Module qAES
   ;- ==========================================================================
 	;-   Module - Internal Procedures
 	;- ==========================================================================
+	
+	Procedure.s ExtendedFileName_(File.s, Extension.s, FileMustExist.i=#False)
+    Define.s ExtendedFile 
+    
+    ExtendedFile = GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + Extension + "." + GetExtensionPart(File)
+    
+    If FileMustExist
+      
+      If FileSize(ExtendedFile) > 0
+        ProcedureReturn ExtendedFile
+      Else
+        ProcedureReturn File
+      EndIf
+      
+    Else
+      ProcedureReturn ExtendedFile
+    EndIf 
+    
+  EndProcedure
+	
 	
 	Procedure.q GetCounter_()
 	  Define.q Counter
@@ -230,15 +319,30 @@ Module qAES
     
     ProcedureReturn Counter
 	EndProcedure
+	
+	Procedure   EncodeHash_(Hash.s, Counter.q, *Hash)
+    Define.i i
+    
+    Static Dim Hash.q(31)
+    
+    For i=0 To 31
+      PokeA(@Hash(0) + i, Val("$" + PeekS(@Hash + i * SizeOf(character) << 1, 2)))
+    Next
+    
+    SmartCoder(#Binary, @Hash(0), *Hash, 32, Str(Counter))
+    
+  EndProcedure
 
-	;- ==========================================================================
-	;-   Module - Declared Procedures
-	;- ==========================================================================
-  
-  ;- _____ Tools _____
-  
-  Procedure.s KeyStretching(Key.s, Loops.i, ProgressBar.i=#PB_Default)
+	Procedure.s KeyStretching_(Key.s, Loops.i, ProgressBar.i=#PB_Default)
+    ; Author Werner Albus - www.nachtoptik.de
     Define.i i, Timer
+    Define.s Salt$
+    
+    If qAES\Salt = "" 
+	    Salt$ = "59#ö#3:_,.45ß$/($(/=)?=JjB$§/(&=$?=)((/&)%WE/()T&%z#'"
+	  Else  
+	    Salt$ = qAES\Salt + "59#ö#3:_,.45ß$/($(/=)?=JjB$§/(&=$?=)((/&)%WE/()T&%z#'"
+	  EndIf
     
     If IsGadget(ProgressBar)
       Timer = ElapsedMilliseconds()
@@ -246,10 +350,10 @@ Module qAES
       While WindowEvent() : Wend
     EndIf
     
-    For i=1 To Loops ; Iterations
+    For i=1 To Loops
       
+      Key = ReverseString(Salt$) + Key + Salt$ + ReverseString(Key)
       Key = Fingerprint(@Key, StringByteLength(Key), #PB_Cipher_SHA3, 512)
-      Key = ReverseString(qAES\Salt) + Key + qAES\Salt + ReverseString(Key)
       
       If IsGadget(ProgressBar)
         If ElapsedMilliseconds() > Timer + 100
@@ -261,6 +365,7 @@ Module qAES
       
     Next
     
+    Key = ReverseString(Key) + Salt$ + Key + ReverseString(Key)
     Key = Fingerprint(@Key, StringByteLength(Key), #PB_Cipher_SHA3, 512) ; Finalize
     
     If IsGadget(ProgressBar)
@@ -271,47 +376,313 @@ Module qAES
     ProcedureReturn Key
   EndProcedure
   
-  Procedure.s GetErrorMessage(Error.i)
+  
+  Procedure.i IsEncrypted_(File.s, Key.s, CryptExtension.s="", ProtectCounter.i=#False)
+	  Define.q FileSize, fCounter, Magic, fMagic
+	  Define.i FileID, EncryptedFileFound
+	  Define.s Key$, Salt$
+
+	  If CryptExtension
+	    File = ExtendedFileName_(File, CryptExtension, #True)
+	  EndIf
+	  
+	  If FileSize(File) <= 0
+	    qAES\Error = #ERROR_FILE_NOT_EXIST
+	    ProcedureReturn #False
+	  EndIf
+	  
+	  If qAES\CryptMarker     = 0 : qAES\CryptMarker     = 415628580943792148170 : EndIf
+	  If qAES\ProtectedMarker = 0 : qAES\ProtectedMarker = 275390641757985374251 : EndIf
+	  If qAES\HashLength      = 0 : qAES\HashLength      = 256    : EndIf
+	  If qAES\Salt = "" 
+	    Salt$ = "59#ö#3:_,.45ß$/($(/=)?=JjB$§/(&=$?=)((/&)%WE/()T&%z#'"
+	  Else  
+	    Salt$ = qAES\Salt + "59#ö#3:_,.45ß$/($(/=)?=JjB$§/(&=$?=)((/&)%WE/()T&%z#'"
+	  EndIf
+	  
+	  qAES\CryptExtLength = 8 + 8 + qAES\HashLength >> 3
+	  
+	  If ProtectCounter ;{ Counter / Magic
+      Magic = qAES\ProtectedMarker
+    Else
+      Magic = qAES\CryptMarker
+      ;}
+    EndIf
+
+    Key$  = ReverseString(Salt$) + Key + Salt$ + ReverseString(Key)
+    Key$  = Fingerprint(@Key$, StringByteLength(Key$), #PB_Cipher_SHA3, 512)
     
-    Select Error
+    SmartCoder(#Binary, @Magic, @Magic, 8, Salt$ + ReverseString(Key$) + Str(Magic) + Key$)
+    
+	  FileID = ReadFile(#PB_Any, File)
+	  If FileID
+	    
+	    FileSize = Lof(FileID)
+	    
+	    If FileSize - qAES\CryptExtLength > 0
+	      
+  	    FileSeek(FileID, FileSize - qAES\CryptExtLength)
+  	    
+  	    ReadData(FileID, @fCounter, 8)
+  	    ReadData(FileID, @fMagic, 8)
+  	    
+  	    SmartCoder(#Binary, @fCounter, @fCounter, 8, ReverseString(Key$) + Key$ + Salt$)
+        SmartCoder(#Binary, @fMagic,   @fMagic,   8, ReverseString(Key$) + Key$, fCounter)
+      EndIf
+      
+      If fMagic = Magic 
+        EncryptedFileFound = #True
+      EndIf    
+   
+      CloseFile(FileID)
+    Else 
+      qAES\Error = #ERROR_CAN_NOT_OPEN_FILE
+      ProcedureReturn #False  
+	  EndIf
+	  
+	  ProcedureReturn EncryptedFileFound
+	EndProcedure
+	
+  Procedure.i NotEncrypted_(*Buffer, Size.i) 
+    Define.q Counter, qAES_ID
+    
+    qAES_ID = PeekQ(*Buffer + Size - 16)
+    Counter = PeekQ(*Buffer + Size -  8)
+    
+    SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
+    
+    If qAES_ID = #qAES
+      qAES\Error = #ERROR_ALREADY_ENCRYPTED
+      ProcedureReturn #False
+    EndIf
+    
+    ProcedureReturn #True    
+  EndProcedure
+  
+  
+	Procedure.i WriteEncryptedFile_(File.s, *Buffer, Size.i, Key.s) 
+	  Define.i FileID, Size, Result
+    Define.q Counter, qAES_ID = #qAES
+    Define   *Buffer, *Hash
+    
+    Counter = GetCounter_()
+    
+    qAES\Hash = Fingerprint(*Buffer, Size, #PB_Cipher_SHA3)
+    *Hash = AllocateMemory(32)
+    If *Hash : EncodeHash_(qAES\Hash, Counter, *Hash) : EndIf
+    
+    SmartCoder(#Binary, *Buffer, *Buffer, Size, Key, Counter)
+    SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
+    
+    FileID = CreateFile(#PB_Any, File)
+    If FileID 
+      Result = WriteData(FileID, *Buffer, Size)
+      WriteData(FileID, *Hash, 32)
+      WriteQuad(FileID, qAES_ID)
+      WriteQuad(FileID, Counter)
+      CloseFile(FileID)
+    EndIf
+    
+    If *Hash : FreeMemory(*Hash) : EndIf
+    
+    ProcedureReturn Result
+	EndProcedure
+	
+  Procedure.i WriteDecryptedFile_(File.s, *Buffer, Size.i, Key.s) 
+	  Define.i i, FileID, Result
+    Define.q Counter, qAES_ID
+    Static Dim Hash.q(31)
+    
+    Counter = PeekQ(*Buffer + Size - 8)
+    qAES_ID = PeekQ(*Buffer + Size - 16)
+    
+    SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
+    SmartCoder(#Binary, *Buffer + Size - 48, @Hash(0), 32, Str(Counter))
+    
+    qAES\Hash = ""
+    For i = 0 To 31
+      qAES\Hash + RSet(Hex(PeekA(@Hash(0) + i)), 2, "0")
+    Next i
+    qAES\Hash = LCase(qAES\Hash)
+    
+    If qAES_ID = #qAES
+      
+      Size - 48
+      
+      SmartCoder(#Binary, *Buffer, *Buffer, Size, Key, Counter)
+      
+      If qAES\Hash <> Fingerprint(*Buffer, Size, #PB_Cipher_SHA3)
+        qAES\Error = #ERROR_INTEGRITY_CORRUPTED
+        qAES\Hash  = Fingerprint(*Buffer, Size, #PB_Cipher_SHA3)
+        FreeMemory(*Buffer)
+        ProcedureReturn #False
+      EndIf
+
+    Else
+      qAES\Error = #ERROR_NOT_ENCRYPTED
+    EndIf
+  
+    FileID = CreateFile(#PB_Any, File)
+    If FileID 
+      Result = WriteData(FileID, *Buffer, Size)
+      CloseFile(FileID)
+    EndIf
+    
+    ProcedureReturn Result
+	EndProcedure
+	
+  Procedure   WriteEncryptedMemory_(*Buffer, Size.i, Key.s)
+    Define.i i
+    Define.q Counter, qAES_ID = #qAES
+    Static Dim Hash.q(31)
+    
+    Counter = GetCounter_()
+    
+    qAES\Hash = Fingerprint(*Buffer, Size, #PB_Cipher_SHA3)
+    For i=0 To 31
+      PokeA(@Hash(0) + i, Val("$" + PeekS(@qAES\Hash + i * SizeOf(character) << 1, 2)))
+    Next
+
+    SmartCoder(#Binary, *Buffer, *Buffer, Size, Key, Counter)
+    SmartCoder(#Binary, @Hash(0), *Buffer + Size, 32, Str(Counter))
+    SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
+    
+    PokeQ(*Buffer + Size + 32, qAES_ID)
+    PokeQ(*Buffer + Size + 40, Counter)
+    
+  EndProcedure
+  
+  
+  Procedure.i ReadFileFooter_(FileID.i, FileSize.i, *Footer.Footer_Structure)
+    Define i.i, qAES_ID.q 
+    Define *Hash
+    Static Dim Hash.q(31)
+
+    *Hash = AllocateMemory(32)
+    If *Hash
+      
+      FileSeek(FileID, FileSize - 48)
+      ReadData(FileID, *Hash, 32)
+      qAES_ID = ReadQuad(FileID) 
+      *Footer\Counter = ReadQuad(FileID)
+      FileSeek(FileID, 0)
+      
+      SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(*Footer\Counter))
+      SmartCoder(#Binary, *Hash, @Hash(0), 32, Str(*Footer\Counter))
+      
+      *Footer\ID = qAES_ID
+      
+      *Footer\Hash = ""
+      For i = 0 To 31
+        *Footer\Hash + RSet(Hex(PeekA(@Hash(0) + i)), 2, "0")
+      Next
+      *Footer\Hash = LCase(*Footer\Hash)
+      
+      FreeMemory(*Hash)
+      
+      ProcedureReturn #True
+    EndIf
+    
+    ProcedureReturn #False
+  EndProcedure
+  
+  Procedure   ReadMemoryFooter_(*Buffer, Size.i, *Footer.Footer_Structure)
+    Define i.i, qAES_ID.q 
+    Static Dim Hash.q(31)
+    
+    *Footer\Counter = PeekQ(*Buffer + Size - 8)
+    qAES_ID = PeekQ(*Buffer + Size - 16)
+    
+    SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(*Footer\Counter))
+    SmartCoder(#Binary, *Buffer + Size - 48, @Hash(0), 32, Str(*Footer\Counter))
+   
+    *Footer\ID = qAES_ID
+   
+    *Footer\Hash = ""
+    For i = 0 To 31
+      *Footer\Hash + RSet(Hex(PeekA(@Hash(0) + i)), 2, "0")
+    Next
+    *Footer\Hash = LCase(*Footer\Hash)
+
+  EndProcedure
+  
+	Procedure.i DecryptBuffer_(*Buffer, Size.i, Key.s, Counter.q) 
+	  
+	  SmartCoder(#Binary, *Buffer, *Buffer, Size, Key, Counter)
+
+    If qAES\Hash = Fingerprint(*Buffer, Size, #PB_Cipher_SHA3)
+      ProcedureReturn #True
+    Else  
+      qAES\Error = #ERROR_INTEGRITY_CORRUPTED
+      qAES\Hash  = Fingerprint(*Buffer, Size, #PB_Cipher_SHA3)
+      ProcedureReturn #False
+    EndIf
+    
+  EndProcedure
+	
+	;- ==========================================================================
+	;-   Module - Declared Procedures
+	;- ==========================================================================
+  
+  ;- _____ Tools _____
+
+  Procedure.s CreateSecureKey(Key.s, Loops.i=2048, ProgressBar.i=#PB_Default)
+    ProcedureReturn KeyStretching_(Key, Loops, ProgressBar)
+  EndProcedure
+  
+  Procedure.i GetError()
+    ProcedureReturn qAES\Error
+  EndProcedure
+  
+  Procedure.s GetErrorMessage()
+    
+    Select qAES\Error
       Case #ERROR_CAN_NOT_CREATE_COUNTER
         ProcedureReturn "Error: Can't create counter."
-      Case #ERROR_FINGERPRINT_FAILS
-        ProcedureReturn "Error: Fingerprint not valid."
+      Case #ERROR_INTEGRITY_CORRUPTED
+        ProcedureReturn "Error: Integrity is corrupted."
       Case #ERROR_FILE_NOT_EXIST
         ProcedureReturn "Error: File not found."
+      Case #ERROR_FILE_HASH_BROKEN 
+        ProcedureReturn "Error: File hash broken."
+      Case #ERROR_FINGERPRINT_FAILS
+        ProcedureReturn "Error: Fingerprint fails."
       Case #ERROR_CAN_NOT_OPEN_FILE
         ProcedureReturn "Error: Can't open file."
       Case #ERROR_ENCODING_FAILS
         ProcedureReturn "No error found."
-      Case #ERROR_NOT_QAES_ENCRYPTED
+      Case #ERROR_NOT_ENCRYPTED
         ProcedureReturn "Not qAES encrypted."
+      Case #ERROR_ALREADY_ENCRYPTED
+        ProcedureReturn "Is already qAES encrypted." 
+      Case #ERROR_INCORRECT_DATA
+        ProcedureReturn "Incorrect data."   
     EndSelect
     
     ProcedureReturn "No error found."
   EndProcedure
   
+  Procedure.s GetHash()
+    ProcedureReturn qAES\Hash
+  EndProcedure
+  
   ;- _____ Settings _____
-  
-	Procedure   EnableKeyStretching(Loops.i, State.i=#True, ProgressBar.i=#PB_Default)
-  
-	  qAES\KeyStretching = State
-	  qAES\Loops = Loops
-	  qAES\ProgressBar = ProgressBar
-	  
-	EndProcedure
-  
-  Procedure   SetAttribute(Attribute.i, Value.i)
+
+  Procedure   SetAttribute(Attribute.i, Value.q)
     
     Select Attribute
       Case #EnlargeBytes
-        qAES\EnlargeBytes = Value
+        qAES\EnlargeBytes    = Value
       Case #HashLength
-        qAES\HashLength = Value
+        qAES\HashLength      = Value
       Case #ProtectedMarker
         qAES\ProtectedMarker = Value
       Case #CryptMarker
-        qAES\CryptMarker = Value
+        qAES\CryptMarker     = Value
+      Case #CounterAES
+        qAES\CounterAES      = Value
+      Case #RandomizeBytes
+        qAES\RandomizeBytes  = Value
     EndSelect
     
   EndProcedure
@@ -320,7 +691,12 @@ Module qAES
 	  qAES\Salt = String
 	EndProcedure
 	
+	
 	;- _____ SmartCoder _____
+	
+  ; - This coder go always forward, an extra decoder isn't necessary, just use exactly the same calling convention for encrypting and decrypting!
+  ; - This coder can handle automatic string termination for any strings - In compiler mode ASCII and UNICODE !
+  ; - The coder works with all data lengths, also < 16 Byte	
 	
 	Procedure.i SmartCoder(Mode.i, *Input.word, *Output.word, Size.q, Key.s, CounterKey.q=0, CounterAES.q=0)
 	  ; Author: Werner Albus - www.nachtoptik.de (No warranty whatsoever - Use at your own risk)
@@ -328,12 +704,20 @@ Module qAES
     ; CounterAES: This counter will be automatically used by the coder, but you can change the startpoint.
 	  Define.i i, ii, iii, cStep
 	  Define.q Rounds, Remaining
-	  Define.s Hash$
+	  Define.s Hash$, Salt$
 	  Define   *aRegister.ascii, *wRegister.word, *aBufferIn.ascii, *aBufferOut.ascii, *qBufferIn.quad, *qBufferOut.quad
 	  Static   FixedKey${64}
 	  Static   Dim Register.q(3)
 	  
-	  Hash$     = #Salt$ + Key + Str(CounterKey) + ReverseString(#Salt$)
+	  If qAES\Salt = "" 
+	    Salt$ = #Salt$
+	  Else  
+	    Salt$ = qAES\Salt + #Salt$
+	  EndIf
+	  
+	  If CounterAES = 0 : CounterAES = qAES\CounterAES :  EndIf
+	  
+	  Hash$     = Salt$ + Key + Str(CounterKey) + ReverseString(Salt$)
 	  FixedKey$ = Fingerprint(@Hash$, StringByteLength(Hash$), #PB_Cipher_SHA3, 256)	  
 	  
 	  cStep     = SizeOf(character) << 1
@@ -481,54 +865,65 @@ Module qAES
 	  ProcedureReturn #True
 	EndProcedure
 	
-	CompilerIf #Enable_SmartFileCoder
 	
-  	Procedure.i SmartFileCoder(File.s, Key.s, CryptExtension.s="", ProtectionMode.i=#False, ProgressBar.i=#PB_Default)
-  	  ; Set ProtectionMode <> 0 activates the file protection mode (against changes)
-  	  ; Set on this variable to define the CounterAES from the universal crypter
-      ; This protect a file, but dont encrypt the file. Mostly files you can normaly use protected
-  	  Define.i i, CryptRandom, EncryptedFileFound, HashBytes
-  	  Define.i FileID, BlockSize, Blocks, BlockCounter, Remaining
+	CompilerIf #Enable_SmartFileCoder
+	  
+	  Procedure.i SmartFileCoder(Mode.i, File.s, Key.s, CryptExtension.s="", Flags.i=#False, ProtectCounter.i=#False, ProgressBar.i=#PB_Default)
+	    ; Flags: #EnlargeSize | #RandomizeSize
+  	  ; Set Flags = #Protext to activate the file protection mode (against changes)
+  	  ; ProtectCounter define the CounterAES from the universal crypter
+      ; This protect a file, but don't encrypt the file. Mostly files you can normaly use protected
+  	  Define.i i, CryptRandom, EncryptedFileFound, HashBytes, ProtectMode
+  	  Define.i FileID, BlockSize, Blocks, BlockCounter, Remaining, FileBroken, EnlargeFile
   	  Define.q Counter, cCounter, spCounter, Magic, Timer
-  	  Define.q FileSize, fCounter, ReadBytes, WritenBytes, fMagic ; File data
-  	  Define.s Key$, Hash$, cHash$
-  	  Define   *Buffer
-  	  
-  	  If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
+  	  Define.q FileSize, fCounter, ReadBytes, WritenBytes, fMagic, FakeLength, fFakeLength
+  	  Define.s Key$, Hash$, fHash$, cHash$, Salt$
+  	  Define   *Buffer, *Enlarge
+
+  	  qAES\Error = #False
+  	  qAES\Hash  = ""
   	  
   	  If CryptExtension
-  	    If FileSize(GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + CryptExtension + "." + GetExtensionPart(File)) > 0
-  	      File = GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + CryptExtension + "." + GetExtensionPart(File)
-  	    EndIf
+  	    File = ExtendedFileName_(File, CryptExtension, #True)
   	  EndIf
   	  
   	  If FileSize(File) <= 0
   	    qAES\Error = #ERROR_FILE_NOT_EXIST
   	    ProcedureReturn #False
   	  EndIf
-  	  
+
+  	  If qAES\HashLength      = 0 : qAES\HashLength      = 256 : EndIf
+  	  If qAES\EnlargeBytes    = 0 : qAES\EnlargeBytes    = 128 : EndIf
+  	  If qAES\RandomizeBytes  = 0 : qAES\RandomizeBytes  = 256 : EndIf 
   	  If qAES\CryptMarker     = 0 : qAES\CryptMarker     = 415628580943792148170 : EndIf
-  	  If qAES\HashLength      = 0 : qAES\HashLength      = 256    : EndIf
   	  If qAES\ProtectedMarker = 0 : qAES\ProtectedMarker = 275390641757985374251 : EndIf
-  	  If qAES\Salt = ""           : qAES\Salt            = "59#ö#3:_,.45ß$/($(/=)?=JjB$§/(&=$?=)((/&)%WE/()T&%z#'" : EndIf
+  	  If qAES\Salt = "" 
+  	    Salt$ = "59#ö#3:_,.45ß$/($(/=)?=JjB$§/(&=$?=)((/&)%WE/()T&%z#'"
+  	  Else  
+  	    Salt$ = qAES\Salt + "59#ö#3:_,.45ß$/($(/=)?=JjB$§/(&=$?=)((/&)%WE/()T&%z#'"
+  	  EndIf
   	  
-  	  qAES\CryptExtLength = 8 + 8 + qAES\HashLength >> 3
+  	  qAES\CryptExtLength = 8 + 8 + 8 + qAES\HashLength >> 3
   	  Dim Hash.q(qAES\HashLength >> 3 - 1)
   	  
-  	  If ProtectionMode ;{ Counter / Magic
-  	    
-        Counter = ProtectionMode
+  	  If Mode = #Protect Or (Mode = #Auto And ProtectCounter)
+  	    ;{ Protect File
+  	    If ProtectCounter
+  	      Counter = ProtectCounter
+  	    Else
+  	      Counter = #ProtectCounter
+  	    EndIf
+  	    ProtectMode = #True
         Magic   = qAES\ProtectedMarker
-        
+        ;}
+      ElseIf Mode = #Unprotect
+        ;{ Unprotect File
+        ProtectMode = #True
+        Magic   = qAES\ProtectedMarker
+        ;}
       Else
-        
-        If OpenCryptRandom()
-          CryptRandom = #True
-          CryptRandomData(@Counter, 8)
-        Else
-          CryptRandom = #False
-          RandomData(@Counter, 8)
-        EndIf
+        ;{ Encrypt / Decrypt File
+        Counter = GetCounter_()
         
         Magic = qAES\CryptMarker
         
@@ -539,21 +934,22 @@ Module qAES
         ;}
       EndIf
       
+      ;{ ___ ProgressBar ___
       If IsGadget(ProgressBar)
         Timer = ElapsedMilliseconds()
         SetGadgetState(ProgressBar, 0)
         While WindowEvent() : Wend
-      EndIf
+      EndIf ;}
       
       If Len(Fingerprint(@Magic, 8, #PB_Cipher_SHA3, qAES\HashLength)) <> qAES\HashLength >> 2 ; Check Fingerprint
         qAES\Error = #ERROR_FINGERPRINT_FAILS
         ProcedureReturn #False
       EndIf
       
-      Key$  = ReverseString(qAES\Salt) + Key + qAES\Salt + ReverseString(Key)
+      Key$  = ReverseString(Salt$) + Key + Salt$ + ReverseString(Key)
       Key$  = Fingerprint(@Key$, StringByteLength(Key$), #PB_Cipher_SHA3, 512)
       
-      SmartCoder(#Binary, @Magic, @Magic, 8, qAES\Salt + ReverseString(Key$) + Str(Magic) + Key$)
+      SmartCoder(#Binary, @Magic, @Magic, 8, Salt$ + ReverseString(Key$) + Str(Magic) + Key$)
   
       FileID = OpenFile(#PB_Any, File)
       If FileID
@@ -566,29 +962,62 @@ Module qAES
         *Buffer = AllocateMemory(BlockSize)
         If *Buffer
           
-          FileSeek(FileID, FileSize - qAES\CryptExtLength)
-          
-          ;{ Read file footer
-          ReadData(FileID, @fCounter, 8)
-          ReadData(FileID, @fMagic, 8)
-          ReadData(FileID, @Hash(0), qAES\HashLength >> 3)
-          FileSeek(FileID, 0)
-          ;}
-          
-          ;{ Decrypt file footer
-          SmartCoder(#Binary, @fCounter, @fCounter, 8, ReverseString(Key$) + Key$ + qAES\Salt)
-          SmartCoder(#Binary, @fMagic, @fMagic, 8, ReverseString(Key$) + Key$, fCounter)
-          SmartCoder(#Binary, @Hash(0), @Hash(0), qAES\HashLength >> 3, Key$ + ReverseString(Key$), fCounter)
-          ;}
+          If FileSize - qAES\CryptExtLength >= 0
+            
+            FileSeek(FileID, FileSize - qAES\CryptExtLength)
+            
+            ;{ ___ Read & decrypt file footer ___
+            ReadData(FileID, @fFakeLength, 8)
+            ReadData(FileID, @fCounter, 8)
+            ReadData(FileID, @fMagic, 8)
+            ReadData(FileID, @Hash(0), qAES\HashLength >> 3)
+            FileSeek(FileID, 0)
+  
+            SmartCoder(#Binary, @fFakeLength, @fFakeLength, 8, Key$ + ReverseString(Key$))
+            SmartCoder(#Binary, @fCounter, @fCounter, 8, ReverseString(Key$) + Key$ + Salt$)
+            SmartCoder(#Binary, @fMagic, @fMagic, 8, ReverseString(Key$) + Key$, fCounter)
+            SmartCoder(#Binary, @Hash(0), @Hash(0), qAES\HashLength >> 3, Key$ + ReverseString(Key$), fCounter)
+            ;}
+            
+          EndIf
           
           If fMagic = Magic ;{ File encrypted?
-          
-            cCounter = fCounter
+            
+            If Mode = #Encrypt Or Mode = #Protect
+              qAES\Error = #ERROR_ALREADY_ENCRYPTED
+              FreeMemory(*Buffer)
+              CloseFile(FileID)
+              ProcedureReturn #False
+            EndIf
+            
             EncryptedFileFound = #True
             
+            For i = 0 To qAES\HashLength >> 3 - 1
+              fHash$ + RSet(Hex(PeekA(@Hash(0) + i)), 2, "0")
+            Next i
+            fHash$ = LCase(fHash$)
+            
+            If fFakeLength < 0 Or fFakeLength >= FileSize - qAES\CryptExtLength
+              qAES\Error = #ERROR_INCORRECT_DATA
+              FreeMemory(*Buffer)
+              CloseFile(FileID)
+              ProcedureReturn #False
+            EndIf
+            
+            qAES\CryptExtLength + fFakeLength
+            
+            cCounter = fCounter
           Else
-    
+            
+            If Mode = #Decrypt Or Mode = #Unprotect
+              qAES\Error = #ERROR_NOT_ENCRYPTED
+              FreeMemory(*Buffer)
+              CloseFile(FileID)
+              ProcedureReturn #False
+            EndIf
+            
             SmartCoder(#Binary, @Magic, @Magic, 8, ReverseString(Key$) + Key$, Counter) ; Encrypt magic
+            
             cCounter = Counter
             ;}
           EndIf
@@ -607,7 +1036,8 @@ Module qAES
               HashBytes = ReadBytes - qAES\CryptExtLength
           
               If ReadBytes = BlockSize : HashBytes = ReadBytes : EndIf
-  
+              
+              ;{ ___ Calculate Hash ___
               If HashBytes > 0
                 
                 BlockCounter + 1
@@ -623,47 +1053,58 @@ Module qAES
                 Hash$  = Fingerprint(@Hash$, StringByteLength(Hash$), #PB_Cipher_SHA3, qAES\HashLength)
                 cHash$ = Hash$
                 
-              EndIf
+              EndIf ;}
   
-              If Not ProtectionMode
-                SmartCoder(#Binary, *Buffer, *Buffer, BlockSize, Key$, cCounter, spCounter) ; QAES crypter
+              If ProtectMode = #False
+                SmartCoder(#Binary, *Buffer, *Buffer, BlockSize, Key$, cCounter, spCounter) ; decrypt block
               EndIf
+              
               ;}
             Else                  ;{ File not encrypted
               
-              If Not ProtectionMode
-                SmartCoder(#Binary, *Buffer, *Buffer, BlockSize, Key$, cCounter, spCounter) ; QAES crypter
+              If ProtectMode = #False
+                SmartCoder(#Binary, *Buffer, *Buffer, BlockSize, Key$, cCounter, spCounter) ; encrypt block
               EndIf
               
+              ;{ ___ Calculate Hash ___
               If ReadBytes > 0
                 Hash$  = Fingerprint(*Buffer, ReadBytes, #PB_Cipher_SHA3, qAES\HashLength)
                 Hash$ + Key$ + cHash$ + Str(cCounter)
                 Hash$  = Fingerprint(@Hash$, StringByteLength(Hash$), #PB_Cipher_SHA3, qAES\HashLength)
                 cHash$ = Hash$ 
-              EndIf
+              EndIf ;}
+              
               ;}
             EndIf
             
             FileSeek(FileID, -ReadBytes, #PB_Relative)
             WritenBytes + WriteData(FileID, *Buffer, ReadBytes)
             
+            ;{ ___ ProgressBar ___
             If IsGadget(ProgressBar)
               If ElapsedMilliseconds() > Timer + 30
                 SetGadgetState(ProgressBar, 100 * WritenBytes / FileSize)
                 Timer = ElapsedMilliseconds()
                 While WindowEvent() : Wend
               EndIf
-            EndIf
+            EndIf ;}
             
             cCounter  + 1
             spCounter + 1
             
           Until ReadBytes = 0
           
-          Hash$ + Key$ + qAES\Salt ; Finishing fingerprint
+          Hash$ + Key$ + Salt$ ; Finishing fingerprint
           Hash$ = LCase(Fingerprint(@Hash$, StringByteLength(Hash$), #PB_Cipher_SHA3, qAES\HashLength))
           
           If EncryptedFileFound ;{ File encrypted
+            
+            ;{ ___ Check file integrity
+            If Hash$ = fHash$ 
+              qAES\Hash = Hash$
+            Else
+              FileBroken = #True
+            EndIf ;}
             
             FileSeek(FileID, -qAES\CryptExtLength, #PB_Relative)
             TruncateFile(FileID)
@@ -671,40 +1112,84 @@ Module qAES
             ;}
           Else                  ;{ File not encrypted
             
+            ;{ ___ Enlarge file with random data ___
+            FakeLength = 0
+            
+            If Flags & #EnlargeSize
+              FakeLength + qAES\EnlargeBytes
+              EnlargeFile = #True
+            EndIf
+            
+            If Flags & #RandomizeSize
+              If OpenCryptRandom()
+                FakeLength + CryptRandom(qAES\RandomizeBytes)
+              Else
+                FakeLength + Random(qAES\RandomizeBytes)
+              EndIf  
+              EnlargeFile = #True
+            EndIf
+            
+            If EnlargeFile And FakeLength
+              
+              *Enlarge = AllocateMemory(FakeLength)
+              If *Enlarge
+                
+                If OpenCryptRandom()
+                  CryptRandomData(*Enlarge, FakeLength)
+                Else
+                  RandomData(*Enlarge, FakeLength)
+                EndIf
+                
+                WritenBytes + WriteData(FileID, *Enlarge, FakeLength)
+                
+                FreeMemory(*Enlarge)
+              EndIf
+              
+            EndIf ;}
+            
             For i=0 To qAES\HashLength >> 3 - 1
               PokeA(@Hash(0) + i, Val("$" + PeekS(@Hash$ + i *SizeOf(character) << 1, 2)))
             Next
             
-            ;{ Crypt file footer
+            ;{ ___ Encrypt & write file footer ___
+            SmartCoder(#Binary, @FakeLength, @FakeLength, 8, Key$ + ReverseString(Key$))
             SmartCoder(#Binary, @Hash(0), @Hash(0), qAES\HashLength >> 3, Key$ + ReverseString(Key$), Counter)
-            SmartCoder(#Binary, @Counter, @Counter, 8, ReverseString(Key$) + Key$ + qAES\Salt)
-            ;}
+            SmartCoder(#Binary, @Counter, @Counter, 8, ReverseString(Key$) + Key$ + Salt$)
             
+            WritenBytes + WriteData(FileID, @FakeLength, 8)
             WritenBytes + WriteData(FileID, @Counter, 8)
             WritenBytes + WriteData(FileID, @Magic, 8)
             WritenBytes + WriteData(FileID, @Hash(0), qAES\HashLength >> 3)
+            ;}
             
             ;}
           EndIf
           
+          ;{ ___ ProgressBar ___
           If IsGadget(ProgressBar)
             SetGadgetState(ProgressBar, 100)
             While WindowEvent() : Wend
-          EndIf
+          EndIf ;}
           
           FreeMemory(*Buffer)
         EndIf
         
         CloseFile(FileID)
         
-        If CryptExtension
-          
+        If CryptExtension  ;{ Rename File
           If EncryptedFileFound
             RenameFile(File, RemoveString(File, CryptExtension))
           Else
-            RenameFile(File, GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + CryptExtension + "." + GetExtensionPart(File))
-          EndIf
-
+            RenameFile(File, ExtendedFileName_(File, CryptExtension))
+          EndIf ;}
+        EndIf
+        
+        If FileBroken      ;{ Integrity corrupted
+          qAES\Error = #ERROR_FILE_HASH_BROKEN
+          ProcedureReturn #False
+        Else
+          ProcedureReturn #True
+          ;}
         EndIf
         
       Else 
@@ -714,19 +1199,19 @@ Module qAES
       
   	EndProcedure
   	
-    Procedure.i CheckIntegrity(File.s, Key.s, CryptExtension.s="", ProtectionMode.i=#False)
-  	  Define.q FileSize, Counter, fCounter, cCounter, spCounter, ReadBytes, WritenBytes, Magic, fMagic
+  	
+    Procedure.i CheckIntegrity(File.s, Key.s, CryptExtension.s="", ProtectCounter.i=#False)
+  	  Define.q FileSize, fCounter, cCounter, spCounter, ReadBytes, WritenBytes, Magic, fMagic, fFakeLength
   	  Define.i FileID, CryptRandom, EncryptedFileFound, CheckIntegrity, FileBroken
   	  Define.i i, Blocks, BlockSize, Remaining, HashBytes, BlockCounter
-  	  Define.s Key$, Hash$, fHash$, cHash$
+  	  Define.s Key$, Hash$, fHash$, cHash$, Salt$
   	  Define   *Buffer
   	  
-  	  If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
+  	  qAES\Hash  = ""
+  	  qAES\Error = #False
   	  
-  	  If CryptExtension ;{
-  	    If FileSize(GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + CryptExtension + "." + GetExtensionPart(File)) > 0
-  	      File = GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + CryptExtension + "." + GetExtensionPart(File)
-  	    EndIf ;}
+  	  If CryptExtension
+  	    File = ExtendedFileName_(File, CryptExtension, #True)
   	  EndIf
   	  
   	  If FileSize(File) <= 0
@@ -737,32 +1222,19 @@ Module qAES
   	  If qAES\CryptMarker     = 0 : qAES\CryptMarker     = 415628580943792148170 : EndIf
   	  If qAES\ProtectedMarker = 0 : qAES\ProtectedMarker = 275390641757985374251 : EndIf
   	  If qAES\HashLength      = 0 : qAES\HashLength      = 256    : EndIf
-  	  If qAES\Salt = "" : qAES\Salt = #Salt$ : EndIf
+  	  If qAES\Salt = "" 
+  	    Salt$ = "59#ö#3:_,.45ß$/($(/=)?=JjB$§/(&=$?=)((/&)%WE/()T&%z#'"
+  	  Else  
+  	    Salt$ = qAES\Salt + "59#ö#3:_,.45ß$/($(/=)?=JjB$§/(&=$?=)((/&)%WE/()T&%z#'"
+  	  EndIf
   	  
-  	  qAES\CryptExtLength = 8 + 8 + qAES\HashLength >> 3
+  	  qAES\CryptExtLength = 8 + 8 + 8 + qAES\HashLength >> 3
   	  Dim Hash.q(qAES\HashLength >> 3 - 1)
   	  
-  	  If ProtectionMode ;{ Counter / Magic
-  	    
-        Counter = ProtectionMode
+  	  If ProtectCounter ;{ Counter / Magic
         Magic   = qAES\ProtectedMarker
-        
       Else
-        
-        If OpenCryptRandom()
-          CryptRandom = #True
-          CryptRandomData(@Counter, 8)
-        Else
-          CryptRandom = #False
-          RandomData(@Counter, 8)
-        EndIf
-        
         Magic = qAES\CryptMarker
-        
-        If Not Counter 
-          qAES\Error = #ERROR_CAN_NOT_CREATE_COUNTER
-          ProcedureReturn #False
-        EndIf
         ;}
       EndIf
       
@@ -771,10 +1243,10 @@ Module qAES
         ProcedureReturn #False
       EndIf
       
-      Key$  = ReverseString(qAES\Salt) + Key + qAES\Salt + ReverseString(Key)
+      Key$  = ReverseString(Salt$) + Key + Salt$ + ReverseString(Key)
       Key$  = Fingerprint(@Key$, StringByteLength(Key$), #PB_Cipher_SHA3, 512)
       
-      SmartCoder(#Binary, @Magic, @Magic, 8, qAES\Salt + ReverseString(Key$) + Str(Magic) + Key$)
+      SmartCoder(#Binary, @Magic, @Magic, 8, Salt$ + ReverseString(Key$) + Str(Magic) + Key$)
       
   	  FileID = ReadFile(#PB_Any, File)
   	  If FileID
@@ -786,21 +1258,27 @@ Module qAES
         
         *Buffer = AllocateMemory(BlockSize)
         If *Buffer
-  	    
-    	    FileSeek(FileID, FileSize - qAES\CryptExtLength)
-    	    
-    	    ;{ Read file footer
-    	    ReadData(FileID, @fCounter, 8)
-    	    ReadData(FileID, @fMagic, 8)
-    	    ReadData(FileID, @Hash(0), qAES\HashLength >> 3)
-          FileSeek(FileID, 0)
-          ;}
-  
-          ;{ Decrypt file footer
-    	    SmartCoder(#Binary, @fCounter, @fCounter, 8, ReverseString(Key$) + Key$ + qAES\Salt)
-          SmartCoder(#Binary, @fMagic,   @fMagic,   8, ReverseString(Key$) + Key$, fCounter)
-          SmartCoder(#Binary, @Hash(0),  @Hash(0), qAES\HashLength >> 3, Key$ + ReverseString(Key$), fCounter)
-          ;}
+          
+          If FileSize - qAES\CryptExtLength > 0
+            
+      	    FileSeek(FileID, FileSize - qAES\CryptExtLength)
+      	    
+      	    ;{ Read file footer
+      	    ReadData(FileID, @fFakeLength, 8)
+      	    ReadData(FileID, @fCounter, 8)
+      	    ReadData(FileID, @fMagic, 8)
+      	    ReadData(FileID, @Hash(0), qAES\HashLength >> 3)
+            FileSeek(FileID, 0)
+            ;}
+    
+            ;{ Decrypt file footer
+            SmartCoder(#Binary, @fFakeLength, @fFakeLength, 8, Key$ + ReverseString(Key$))
+      	    SmartCoder(#Binary, @fCounter, @fCounter, 8, ReverseString(Key$) + Key$ + Salt$)
+            SmartCoder(#Binary, @fMagic,   @fMagic,   8, ReverseString(Key$) + Key$, fCounter)
+            SmartCoder(#Binary, @Hash(0),  @Hash(0), qAES\HashLength >> 3, Key$ + ReverseString(Key$), fCounter)
+            ;}
+            
+          EndIf
           
           If fMagic = Magic ;{ File encrypted
             
@@ -811,12 +1289,14 @@ Module qAES
               fHash$ + RSet(Hex(PeekA(@Hash(0) + i)), 2, "0")
             Next i
             fHash$ = LCase(fHash$)
-            ;}
-          Else              ;{ File not encrypted
             
-            SmartCoder(#Binary, @Magic, @Magic, 8, ReverseString(Key$) + Key$, Counter)
-            cCounter = Counter
-           
+            If fFakeLength < 0 Or fFakeLength >= FileSize - qAES\CryptExtLength
+              FreeMemory(*Buffer)
+              CloseFile(FileID)
+              ProcedureReturn #False
+            EndIf
+            
+            qAES\CryptExtLength + fFakeLength
             ;}
           EndIf    
           
@@ -852,13 +1332,13 @@ Module qAES
   
               EndIf
               
-              If Not ProtectionMode
+              If Not ProtectCounter
                 SmartCoder(#Binary, *Buffer, *Buffer, BlockSize, Key$, cCounter, spCounter) ; QAES crypter
               EndIf
               ;}
             Else                  ;{ File not encrypted  
               
-              If Not ProtectionMode
+              If Not ProtectCounter
                 SmartCoder(#Binary, *Buffer, *Buffer, BlockSize, Key$, cCounter, spCounter) ; QAES crypter
               EndIf
               
@@ -878,11 +1358,17 @@ Module qAES
             
           Until ReadBytes = 0
           
-          Hash$ + Key$ + qAES\Salt ; Finishing fingerprint
+          Hash$ + Key$ + Salt$ ; Finishing fingerprint
           Hash$ = LCase(Fingerprint(@Hash$, StringByteLength(Hash$), #PB_Cipher_SHA3, qAES\HashLength))
           
           If EncryptedFileFound
-            If Hash$ <> fHash$ : FileBroken = #True : EndIf
+            
+            If Hash$ = fHash$
+              qAES\Hash = Hash$
+            Else
+              FileBroken = #True
+            EndIf
+            
           EndIf
           
           FreeMemory(*Buffer)
@@ -902,17 +1388,29 @@ Module qAES
   	  
   	EndProcedure
   	
-  	Procedure.i IsEncrypted(File.s, Key.s, CryptExtension.s="", ProtectionMode.i=#False)
-  	  Define.q FileSize, Counter, fCounter, Magic, fMagic
-  	  Define.i FileID, CryptRandom, EncryptedFileFound
-  	  Define.s Key$
+  	Procedure.i IsEncrypted(File.s, Key.s, CryptExtension.s="")
+  	  qAES\Hash  = ""
+  	  qAES\Error = #False
+  	  ProcedureReturn IsEncrypted_(File, Key, CryptExtension)
+  	EndProcedure
+  	
+  	Procedure.i IsProtected(File.s, Key.s, ProtectExtension.s="", ProtectCounter.i=#ProtectCounter)
+  	  qAES\Error = #False
+  	  qAES\Hash  = ""
+  	  ProcedureReturn IsEncrypted_(File, Key, ProtectExtension, ProtectCounter)
+  	EndProcedure
+  	
+  	
+  	Procedure.i GetFileSize(File.s, Key.s, FileExtension.s="", ProtectCounter.i=#False)
+      Define.q fCounter, Magic, fMagic, fFakeLength
+  	  Define.i FileID, FileSize, RealFileSize
+  	  Define.s Key$, Salt$
   	  
-  	  If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
+  	  qAES\Error = #False
+  	  qAES\Hash  = ""
   	  
-  	  If CryptExtension
-  	    If FileSize(GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + CryptExtension + "." + GetExtensionPart(File)) > 0
-  	      File = GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + CryptExtension + "." + GetExtensionPart(File)
-  	    EndIf
+  	  If FileExtension
+  	    File = ExtendedFileName_(File, FileExtension, #True)
   	  EndIf
   	  
   	  If FileSize(File) <= 0
@@ -923,59 +1421,50 @@ Module qAES
   	  If qAES\CryptMarker     = 0 : qAES\CryptMarker     = 415628580943792148170 : EndIf
   	  If qAES\ProtectedMarker = 0 : qAES\ProtectedMarker = 275390641757985374251 : EndIf
   	  If qAES\HashLength      = 0 : qAES\HashLength      = 256    : EndIf
-  	  If qAES\Salt = "" : qAES\Salt = #Salt$ : EndIf
+  	  If qAES\Salt = "" 
+  	    Salt$ = "59#ö#3:_,.45ß$/($(/=)?=JjB$§/(&=$?=)((/&)%WE/()T&%z#'"
+  	  Else  
+  	    Salt$ = qAES\Salt + "59#ö#3:_,.45ß$/($(/=)?=JjB$§/(&=$?=)((/&)%WE/()T&%z#'"
+  	  EndIf
   	  
-  	  qAES\CryptExtLength = 8 + 8 + qAES\HashLength >> 3
+  	  qAES\CryptExtLength = 8 + 8 + 8 + qAES\HashLength >> 3
   	  
-  	  If ProtectionMode ;{ Counter / Magic
-  	    
-        Counter = ProtectionMode
-        Magic   = qAES\ProtectedMarker
-        
+  	  If ProtectCounter ;{ Counter / Magic
+        Magic = qAES\ProtectedMarker
       Else
-        
-        If OpenCryptRandom()
-          CryptRandom = #True
-          CryptRandomData(@Counter, 8)
-        Else
-          CryptRandom = #False
-          RandomData(@Counter, 8)
-        EndIf
-        
         Magic = qAES\CryptMarker
-        
-        If Not Counter 
-          qAES\Error = #ERROR_CAN_NOT_CREATE_COUNTER
-          ProcedureReturn #False
-        EndIf
         ;}
       EndIf
-      
-      If Len(Fingerprint(@Magic, 8, #PB_Cipher_SHA3, qAES\HashLength)) <> qAES\HashLength >> 2
-        qAES\Error = #ERROR_FINGERPRINT_FAILS
-        ProcedureReturn #False
-      EndIf
-      
-      Key$  = ReverseString(qAES\Salt) + Key + qAES\Salt + ReverseString(Key)
+
+      Key$  = ReverseString(Salt$) + Key + Salt$ + ReverseString(Key)
       Key$  = Fingerprint(@Key$, StringByteLength(Key$), #PB_Cipher_SHA3, 512)
       
-      SmartCoder(#Binary, @Magic, @Magic, 8, qAES\Salt + ReverseString(Key$) + Str(Magic) + Key$)
+      SmartCoder(#Binary, @Magic, @Magic, 8, Salt$ + ReverseString(Key$) + Str(Magic) + Key$)
       
   	  FileID = ReadFile(#PB_Any, File)
   	  If FileID
   	    
   	    FileSize = Lof(FileID)
   	    
-  	    FileSeek(FileID, FileSize - qAES\CryptExtLength)
-  	    
-  	    ReadData(FileID, @fCounter, 8)
-  	    ReadData(FileID, @fMagic, 8)
-  	    
-  	    SmartCoder(#Binary, @fCounter, @fCounter, 8, ReverseString(Key$) + Key$ + qAES\Salt)
-        SmartCoder(#Binary, @fMagic,   @fMagic,   8, ReverseString(Key$) + Key$, fCounter)
+  	    If FileSize - qAES\CryptExtLength > 0
+  	      
+    	    FileSeek(FileID, FileSize - qAES\CryptExtLength)
+    	    
+    	    ReadData(FileID, @fFakeLength, 8)
+    	    ReadData(FileID, @fCounter, 8)
+    	    ReadData(FileID, @fMagic, 8)
+    	    
+    	    SmartCoder(#Binary, @fFakeLength, @fFakeLength, 8, Key$ + ReverseString(Key$))
+    	    SmartCoder(#Binary, @fCounter, @fCounter, 8, ReverseString(Key$) + Key$ + Salt$)
+    	    SmartCoder(#Binary, @fMagic,   @fMagic,   8, ReverseString(Key$) + Key$, fCounter)
+    	    
+        EndIf
         
-        If fMagic = Magic 
-          EncryptedFileFound = #True
+        If fMagic = Magic
+          qAES\CryptExtLength + fFakeLength
+          RealFileSize = FileSize - qAES\CryptExtLength
+        Else
+          RealFileSize = FileSize
         EndIf    
      
         CloseFile(FileID)
@@ -984,135 +1473,373 @@ Module qAES
         ProcedureReturn #False  
   	  EndIf
   	  
-  	  ProcedureReturn EncryptedFileFound
-  	EndProcedure
-  	
-  	Procedure.i IsProtected(File.s, Key.s, CryptExtension.s="", ProtectionMode.i=#False)
-  	  
-  	  ProcedureReturn IsEncrypted(File, Key, CryptExtension, ProtectionMode)
-  	  
-  	EndProcedure
-  	
-	CompilerEndIf
-	
-	;- _____ Encode / Decode only _____
-	
-	CompilerIf #Enable_BasicCoders
-	  
-    Procedure.s String(String.s, Key.s) 
-      ; KeyStretching: number of loops for KeyStretching()
-      Define.i StrgSize
-      Define.s Output$
-      
-      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf     
-      
-      If String
-        
-        CompilerIf #PB_Compiler_Unicode
-    
-          SmartCoder(#Unicode, @String, @String, StringByteLength(String, #PB_Unicode) + 2, Key)
-          
-        CompilerElse
-  
-          SmartCoder(#Ascii, @String, @String, StringByteLength(String, #PB_Ascii) + 1, Key)
-          
-        CompilerEndIf
-        
-      EndIf
-      
-      ProcedureReturn String
+  	  ProcedureReturn RealFileSize
     EndProcedure
     
-    Procedure.i String2File(String.s, File.s, Key.s) 
-      Define   *Buffer
-      Define.q Counter, qAES_ID = #qAES
-      Define.i FileID, StrgSize, Result
-      
-      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
-      
-      Counter = GetCounter_()
-      
-      CompilerIf #PB_Compiler_Unicode
+    Procedure.i ReadProtectedFile(File.s, *Memory.Memory_Structure, Key.s, FileExtension.s="")
+      Define.q fCounter, Magic, fMagic, fFakeLength
+  	  Define.i FileID, FileSize, Result
+  	  Define.s Key$, Salt$
+  	  
+  	  qAES\Error = #False
+  	  qAES\Hash  = ""
+  	  
+  	  If FileExtension
+  	    File = ExtendedFileName_(File, FileExtension, #True)
+  	  EndIf
+  	  
+  	  If FileSize(File) <= 0
+  	    qAES\Error = #ERROR_FILE_NOT_EXIST
+  	    ProcedureReturn #False
+  	  EndIf
+  	  
+  	  If qAES\ProtectedMarker = 0 : qAES\ProtectedMarker = 275390641757985374251 : EndIf
+  	  If qAES\HashLength      = 0 : qAES\HashLength      = 256    : EndIf
+  	  If qAES\Salt = "" 
+  	    Salt$ = "59#ö#3:_,.45ß$/($(/=)?=JjB$§/(&=$?=)((/&)%WE/()T&%z#'"
+  	  Else  
+  	    Salt$ = qAES\Salt + "59#ö#3:_,.45ß$/($(/=)?=JjB$§/(&=$?=)((/&)%WE/()T&%z#'"
+  	  EndIf
+  	  
+  	  qAES\CryptExtLength = 8 + 8 + 8 + qAES\HashLength >> 3
+  	  
+      Magic = qAES\ProtectedMarker
 
-        StrgSize = StringByteLength(String, #PB_Unicode) + 2
-        If StrgSize
-  
-          *Buffer = AllocateMemory(StrgSize + 16)
-          If *Buffer
-            
-            SmartCoder(#Binary, @String, *Buffer, StrgSize, Key, Counter)
-            SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
-            
-            FileID = CreateFile(#PB_Any, File)
-            If FileID 
-              Result = WriteData(FileID, *Buffer, StrgSize)
-              WriteQuad(FileID, qAES_ID)
-              WriteQuad(FileID, Counter)
-              CloseFile(FileID)
-            EndIf
-            
-            FreeMemory(*Buffer)
-          EndIf
+      Key$  = ReverseString(Salt$) + Key + Salt$ + ReverseString(Key)
+      Key$  = Fingerprint(@Key$, StringByteLength(Key$), #PB_Cipher_SHA3, 512)
+      
+      SmartCoder(#Binary, @Magic, @Magic, 8, Salt$ + ReverseString(Key$) + Str(Magic) + Key$)
+      
+  	  FileID = ReadFile(#PB_Any, File)
+  	  If FileID
+  	    
+  	    FileSize = Lof(FileID)
+  	    
+  	    If FileSize - qAES\CryptExtLength > 0
+  	      
+    	    FileSeek(FileID, FileSize - qAES\CryptExtLength)
+    	    
+    	    ReadData(FileID, @fFakeLength, 8)
+    	    ReadData(FileID, @fCounter, 8)
+    	    ReadData(FileID, @fMagic, 8)
+    	    
+    	    SmartCoder(#Binary, @fFakeLength, @fFakeLength, 8, Key$ + ReverseString(Key$))
+    	    SmartCoder(#Binary, @fCounter, @fCounter, 8, ReverseString(Key$) + Key$ + Salt$)
+    	    SmartCoder(#Binary, @fMagic,   @fMagic,   8, ReverseString(Key$) + Key$, fCounter)
+    	    
+        EndIf
+        
+        If fMagic = Magic
+          qAES\CryptExtLength + fFakeLength
+          *Memory\Size = FileSize - qAES\CryptExtLength
+        Else
+          ProcedureReturn #False
+        EndIf    
+        
+        If *Memory\Size
+          
+          *Memory\Buffer = AllocateMemory(*Memory\Size)
+          If *Memory\Buffer
+            FileSeek(FileID, 0)
+            Result = ReadData(FileID, *Memory\Buffer, *Memory\Size)
+          EndIf 
           
         EndIf
         
-      CompilerElse  
+        CloseFile(FileID)
+      Else 
+        qAES\Error = #ERROR_CAN_NOT_OPEN_FILE
+        ProcedureReturn #False  
+  	  EndIf
+  	  
+  	  ProcedureReturn Result
+    EndProcedure
+    
+    
+  	Procedure.i CreateStringFile(String.s, File.s, Key.s, Flags.i=#False, ProtectCounter.i=#ProtectCounter)
+  	  ; Flags: #EnlargeSize | #RandomizeSize
+  	  Define.i FileID, StrgSize, Result
+      Define.q Counter
+      Define   *Buffer
+      
+      qAES\Error = #False
+      qAES\Hash  = ""
+      
+      Counter = GetCounter_()
+      
+      StrgSize = StringByteLength(String)
+      If StrgSize
         
-        ID = StringFingerprint("qAES", #PB_Cipher_SHA3, 256, #PB_Ascii)
-        
-        StrgSize = StringByteLength(String, #PB_Ascii) + 1
-        If StrgSize
+        *Buffer = AllocateMemory(StrgSize)
+        If *Buffer
           
-          *Buffer = AllocateMemory(StrgSize + 16)
-          If *Buffer
-            
-            SmartCoder(#Binary, @String, *Buffer, StrgSize, Key, Counter)
-            
-            FileID = CreateFile(#PB_Any, File)
-            If FileID 
-              Result = WriteData(FileID, *Buffer, StrgSize)
-              WriteQuad(FileID, qAES_ID)
-              WriteQuad(FileID, Counter)
-              CloseFile(FileID)
-            EndIf
-            
-            FreeMemory(*Buffer)
+          CopyMemory(@String, *Buffer, StrgSize)
+          SmartCoder(#Binary, *Buffer, *Buffer, MemorySize(*Buffer), Key, Counter)
+          
+          FileID = CreateFile(#PB_Any, File)
+          If FileID 
+            Result = WriteData(FileID, *Buffer, MemorySize(*Buffer))
+            WriteQuad(FileID, Counter)
+            CloseFile(FileID)
           EndIf
-  
-        EndIf  
+
+          FreeMemory(*Buffer)
+        EndIf
         
-      CompilerEndIf
+      EndIf
+      
+      If ProtectCounter
+        SmartFileCoder(#Protect, File, Key, "", Flags, ProtectCounter) ; Protect the File
+      EndIf  
       
       ProcedureReturn Result
     EndProcedure  
     
-    Procedure.s File2String(File.s, Key.s) 
-      Define.i FileID, FileSize, Result
-      Define.q Counter, qAES_ID
+    Procedure.s ReadStringFile(File.s, Key.s, ProtectCounter.i=#ProtectCounter)
+      Define.i Result
+      Define.q Counter
       Define.s String
+      Define   Memory.Memory_Structure
+      
+      qAES\Error = #False
+      qAES\Hash  = ""
+      
+      If ReadProtectedFile(File, @Memory, Key)
+        
+        If Memory\Buffer
+          
+          Counter = PeekQ(Memory\Buffer + Memory\Size - 8)
+          Memory\Size - 8
+          
+          String = Space(Memory\Size / SizeOf(character))
+          SmartCoder(#Binary, Memory\Buffer, @String, Memory\Size, Key, Counter)
+          
+          FreeMemory(Memory\Buffer)
+        EndIf
+
+      Else
+        qAES\Error = #ERROR_FILE_NOT_EXIST
+        ProcedureReturn ""
+      EndIf
+      
+      ProcedureReturn String
+    EndProcedure 
+    
+    
+    Procedure.i EncryptImage(File.s, Key.s, CryptExtension.s="", Flags.i=#False, ProtectCounter.i=#ProtectCounter)
+      ; Flags: #EnlargeSize | #RandomizeSize
+      Define.i FileID, FileSize, Result
+      Define.q Counter
       Define   *Buffer
       
-      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
+      qAES\Error = #False
+      qAES\Hash  = ""
+      
+      If ProtectCounter = 0 : ProtectCounter = #ProtectCounter : EndIf
+      
+      If IsEncrypted_(File, Key, CryptExtension, ProtectCounter) : ProcedureReturn #False : EndIf
+      
+      Counter = GetCounter_()
       
       FileID = ReadFile(#PB_Any, File)
       If FileID
         
         FileSize = Lof(FileID)
         
-        ;{ Read ID & Counter
-        FileSeek(FileID, FileSize - 16)
-        qAES_ID = ReadQuad(FileID)
-        Counter = ReadQuad(FileID)
-        SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
-        FileSeek(FileID, 0)
+        *Buffer = AllocateMemory(FileSize)
+        If *Buffer
+          
+          If ReadData(FileID, *Buffer, FileSize)
+            
+            CloseFile(FileID)
+            
+            SmartCoder(#Binary, *Buffer, *Buffer, FileSize, Key, Counter)
+
+            FileID = CreateFile(#PB_Any, File)
+            If FileID
+              Result = WriteData(FileID, *Buffer, FileSize)
+              WriteQuad(FileID, Counter)
+            EndIf
+            
+          EndIf
+          
+          FreeMemory(*Buffer)
+        EndIf
         
-        If qAES_ID = #qAES
-          FileSize - 16
-        Else
+        CloseFile(FileID)
+      Else
+        qAES\Error = #ERROR_FILE_NOT_EXIST
+        ProcedureReturn #False  
+      EndIf 
+      
+      If SmartFileCoder(#Protect, File, Key, "", Flags, ProtectCounter) ; Protect the File
+        If CryptExtension
+          RenameFile(File, ExtendedFileName_(File, CryptExtension))
+        EndIf
+      Else
+        Result = #False
+      EndIf  
+
+      ProcedureReturn Result
+  EndProcedure
+  
+    Procedure.i DecryptImage(File.s, Key.s, CryptExtension.s="", ProtectCounter.i=#ProtectCounter)
+      Define.i FileID, FileSize, Result
+      Define.q Counter
+      Define   *Buffer
+      
+      qAES\Error = #False
+      qAES\Hash  = ""
+      
+      If CryptExtension
+  	    File = ExtendedFileName_(File, CryptExtension, #True)
+  	  EndIf
+  	  
+  	  If ProtectCounter = 0 : ProtectCounter = #ProtectCounter : EndIf
+
+      If SmartFileCoder(#Unprotect, File, Key, "", #False, ProtectCounter) 
+      
+        FileID = ReadFile(#PB_Any, File)
+        If FileID
+          
+          FileSize = Lof(FileID)
+          
+          FileSeek(FileID, FileSize - 8)
+          Counter = ReadQuad(FileID)
+          FileSize - 8
+          FileSeek(FileID, 0)
+          
+          *Buffer = AllocateMemory(FileSize)
+          If *Buffer
+            
+            If ReadData(FileID, *Buffer, FileSize)
+              
+              CloseFile(FileID)
+              
+              SmartCoder(#Binary, *Buffer, *Buffer, FileSize, Key, Counter)
+              
+              FileID = CreateFile(#PB_Any, File)
+              If FileID
+                Result = WriteData(FileID, *Buffer, FileSize)
+              EndIf
+              
+            EndIf
+  
+            FreeMemory(*Buffer)
+          EndIf
+      
           CloseFile(FileID)
-          qAES\Error = #ERROR_NOT_QAES_ENCRYPTED
+        Else
+          qAES\Error = #ERROR_FILE_NOT_EXIST
+          ProcedureReturn #False 
+        EndIf 
+      
+        If Result And CryptExtension
+          RenameFile(File, RemoveString(File, CryptExtension))
+        EndIf
+        
+      EndIf
+      
+      ProcedureReturn Result
+    EndProcedure
+    
+    Procedure.i LoadEncryptedImage(File.s, Key.s, CryptExtension.s="", ProtectCounter.i=#ProtectCounter)
+      Define.i Image
+      Define.q Counter
+      Define   Memory.Memory_Structure
+      
+      qAES\Error = #False
+      qAES\Hash  = ""
+      
+      If CryptExtension
+  	    File = ExtendedFileName_(File, CryptExtension, #True)
+  	  EndIf
+  	  
+  	  If ReadProtectedFile(File, @Memory, Key)
+  	    
+  	    If Memory\Buffer
+          
+          Counter = PeekQ(Memory\Buffer + Memory\Size - 8)
+          Memory\Size - 8
+
+          SmartCoder(#Binary, Memory\Buffer, Memory\Buffer, Memory\Size, Key, Counter)
+          
+          Image = CatchImage(#PB_Any, Memory\Buffer, Memory\Size)
+          
+          FreeMemory(Memory\Buffer)
+        EndIf
+
+      Else
+        qAES\Error = #ERROR_FILE_NOT_EXIST
+        ProcedureReturn #False 
+      EndIf 
+      
+      ProcedureReturn Image
+    EndProcedure
+    
+  CompilerEndIf  
+  
+	;- _____ Encode / Decode only _____
+	
+	CompilerIf #Enable_BasicCoders
+	  
+    Procedure.s String(String.s, Key.s) 
+      Define.i StrgSize
+      Define.s Output$
+
+      If String
+        
+        SmartCoder(SizeOf(character), @String, @String, StringByteLength(String), Key)
+        
+      EndIf
+      
+      ProcedureReturn String
+    EndProcedure
+    
+    Procedure.i StringToFile(String.s, File.s, Key.s) 
+      Define   *Buffer
+      Define.i StrgSize, Result
+
+      StrgSize = StringByteLength(String)
+      If StrgSize
+
+        *Buffer = AllocateMemory(StrgSize)
+        If *Buffer
+          
+          CopyMemory(@String, *Buffer, StrgSize)
+          
+          Result = WriteEncryptedFile_(File, *Buffer, StrgSize, Key)
+          
+          FreeMemory(*Buffer)
+        EndIf
+        
+      EndIf
+
+      ProcedureReturn Result
+    EndProcedure  
+    
+    Procedure.s FileToString(File.s, Key.s) 
+      Define.i FileID, FileSize, Result
+      Define.s String
+      Define   Footer.Footer_Structure
+      Define   *Buffer
+
+      FileID = ReadFile(#PB_Any, File)
+      If FileID
+        
+        FileSize = Lof(FileID)
+        
+        ReadFileFooter_(FileID, FileSize, @Footer)
+
+        If Footer\ID = #qAES
+          FileSize - 48
+          qAES\Hash = Footer\Hash
+        Else  
+          qAES\Hash  = ""
+          qAES\Error = #ERROR_NOT_ENCRYPTED
+          CloseFile(FileID)
           ProcedureReturn ""
-        EndIf ;}
+        EndIf
         
         *Buffer  = AllocateMemory(FileSize)
         If *Buffer
@@ -1121,14 +1848,18 @@ Module qAES
             
             CloseFile(FileID)
             
-            SmartCoder(#Binary, *Buffer, *Buffer, FileSize, Key, Counter)
+            String = Space(FileSize / SizeOf(character))
             
-            CompilerIf #PB_Compiler_Unicode
-              String = PeekS(*Buffer, FileSize, #PB_Unicode)
-            CompilerElse
-              String = PeekS(*Buffer, FileSize, #PB_Ascii)
-            CompilerEndIf
-            
+            SmartCoder(#Binary, *Buffer, *Buffer, FileSize, Key, Footer\Counter)
+            CopyMemory(*Buffer, @String, FileSize)
+
+            If qAES\Hash <> Fingerprint(*Buffer, FileSize, #PB_Cipher_SHA3)
+              qAES\Error = #ERROR_INTEGRITY_CORRUPTED
+              qAES\Hash  = Fingerprint(*Buffer, FileSize, #PB_Cipher_SHA3)
+              FreeMemory(*Buffer)
+              ProcedureReturn ""
+            EndIf
+
           EndIf
           
           FreeMemory(*Buffer)
@@ -1142,15 +1873,11 @@ Module qAES
       ProcedureReturn String
     EndProcedure 
     
-    Procedure.i EncodeFile(File.s, Key.s, CryptExtension.s="") 
+    
+    Procedure.i EncodeFile(File.s, Key.s, CryptExtension.s="")  
       Define.i FileID, FileSize, Result
-      Define.q Counter, cCounter, checkID, qAES_ID = #qAES
       Define   *Buffer
-      
-      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
-      
-      Counter = GetCounter_()
-      
+
       FileID = ReadFile(#PB_Any, File)
       If FileID
         
@@ -1162,33 +1889,14 @@ Module qAES
           If ReadData(FileID, *Buffer, FileSize)
             
             CloseFile(FileID)
-            
-            ;{ Check file
-            checkID  = PeekQ(*Buffer + FileSize - 16)
-            cCounter = PeekQ(*Buffer + FileSize - 8)
-            SmartCoder(#Binary, @checkID, @checkID, 8, Str(cCounter))
-            If checkID = #qAES
-              FreeMemory(*Buffer)
-              ProcedureReturn #False
-            EndIf ;}
 
-            SmartCoder(#Binary, *Buffer, *Buffer, FileSize, Key, Counter)
-            SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
-            
-            If CryptExtension
-              FileID = CreateFile(#PB_Any, GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + CryptExtension + "." + GetExtensionPart(File))
-            Else
-              FileID = CreateFile(#PB_Any, File)
+            If NotEncrypted_(*Buffer, FileSize) 
+              Result = WriteEncryptedFile_(File, *Buffer, FileSize, Key)
+            EndIf 
+          
+            If Result And CryptExtension
+              RenameFile(File, ExtendedFileName_(File, CryptExtension))
             EndIf
-
-            If FileID 
-              Result = WriteData(FileID, *Buffer, FileSize)
-              WriteQuad(FileID, qAES_ID)
-              WriteQuad(FileID, Counter)
-              CloseFile(FileID)
-            EndIf
-            
-            If Result And CryptExtension : DeleteFile(File, #PB_FileSystem_Force) : EndIf
             
           EndIf
           
@@ -1203,19 +1911,13 @@ Module qAES
       ProcedureReturn Result
     EndProcedure  
     
-    Procedure.i DecodeFile(File.s, Key.s, CryptExtension.s="") 
+    Procedure.i DecodeFile(File.s, Key.s, CryptExtension.s="")
       Define.i FileID, FileSize, Encrypted, Result
-      Define.q Counter, qAES_ID
-      Define.s DeleteFile$
+      Define   Footer.Footer_Structure
       Define   *Buffer
-      
-      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
-      
+
       If CryptExtension
-  	    If FileSize(GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + CryptExtension + "." + GetExtensionPart(File)) > 0
-  	      File = GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + CryptExtension + "." + GetExtensionPart(File)
-  	    EndIf
-  	    DeleteFile$ = File
+  	    File = ExtendedFileName_(File, CryptExtension, #True)
   	  EndIf
       
       FileID = ReadFile(#PB_Any, File)
@@ -1223,20 +1925,18 @@ Module qAES
         
         FileSize = Lof(FileID)
         
-        ;{ Read Counter
-        FileSeek(FileID, FileSize - 16)
-        qAES_ID = ReadQuad(FileID) 
-        Counter = ReadQuad(FileID)
-        SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
-        FileSeek(FileID, 0)
-        
-        If qAES_ID = #qAES
-          FileSize - 16
+        ReadFileFooter_(FileID, FileSize, @Footer)
+
+        If Footer\ID = #qAES
+          FileSize - 48
+          qAES\Hash = Footer\Hash
+          Encrypted = #True
         Else  
+          qAES\Hash  = ""
+          qAES\Error = #ERROR_NOT_ENCRYPTED
           CloseFile(FileID)
-          qAES\Error = #ERROR_NOT_QAES_ENCRYPTED
           ProcedureReturn #False
-        EndIf ;}
+        EndIf
         
         *Buffer = AllocateMemory(FileSize)
         If *Buffer
@@ -1244,22 +1944,20 @@ Module qAES
           If ReadData(FileID, *Buffer, FileSize)
             
             CloseFile(FileID)
+            
+            If DecryptBuffer_(*Buffer, FileSize, Key, Footer\Counter)
 
-            SmartCoder(#Binary, *Buffer, *Buffer, FileSize, Key, Counter)
-            
-            If CryptExtension : File = RemoveString(File, CryptExtension) : EndIf
-            
-            FileID = CreateFile(#PB_Any, File)
-            If FileID 
-              Result = WriteData(FileID, *Buffer, FileSize)
-              CloseFile(FileID)
-            EndIf
-            
-            If Result And CryptExtension
-              If File <> DeleteFile$
-                DeleteFile(DeleteFile$, #PB_FileSystem_Force)
+              FileID = CreateFile(#PB_Any, File)
+              If FileID 
+                Result = WriteData(FileID, *Buffer, FileSize)
+                CloseFile(FileID)
               EndIf
-            EndIf  
+
+              If Result And CryptExtension
+                RenameFile(File, RemoveString(File, CryptExtension))
+              EndIf
+              
+            EndIf 
             
           EndIf
           
@@ -1270,18 +1968,17 @@ Module qAES
         qAES\Error = #ERROR_FILE_NOT_EXIST
         ProcedureReturn #False
       EndIf
-      
+
       ProcedureReturn Result
     EndProcedure 
     
-    Procedure.i IsCryptFile(File.s, CryptExtension.s="")   
-      Define.q Counter, qAES_ID
-      Define.i FileID, FileSize, Result
-      
+    Procedure.i FileCoder(File.s, Key.s, CryptExtension.s="")
+      Define.i FileID, FileSize, Encrypted, Result
+      Define   Footer.Footer_Structure
+      Define   *Buffer
+
       If CryptExtension
-  	    If FileSize(GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + CryptExtension + "." + GetExtensionPart(File)) > 0
-  	      File = GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + CryptExtension + "." + GetExtensionPart(File)
-  	    EndIf
+  	    File = ExtendedFileName_(File, CryptExtension, #True)
   	  EndIf
       
       FileID = ReadFile(#PB_Any, File)
@@ -1289,17 +1986,84 @@ Module qAES
         
         FileSize = Lof(FileID)
         
-        FileSeek(FileID, FileSize - 16)
-        qAES_ID = ReadQuad(FileID)
-        Counter = ReadQuad(FileID)
-        SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
-        
-        If qAES_ID = #qAES
-          Result = #True
-        Else
-          qAES\Error = #ERROR_NOT_QAES_ENCRYPTED
-          Result = #False
+        ReadFileFooter_(FileID, FileSize, @Footer)
+
+        If Footer\ID = #qAES
+          FileSize - 48
+          qAES\Hash = Footer\Hash
+          Encrypted = #True
+        Else  
+          qAES\Hash  = ""
         EndIf
+        
+        *Buffer = AllocateMemory(FileSize)
+        If *Buffer
+  
+          If ReadData(FileID, *Buffer, FileSize)
+            
+            CloseFile(FileID)
+
+            If Encrypted ;{ Decode file
+              
+              If DecryptBuffer_(*Buffer, FileSize, Key, Footer\Counter)
+
+                FileID = CreateFile(#PB_Any, File)
+                If FileID 
+                  Result = WriteData(FileID, *Buffer, FileSize)
+                  CloseFile(FileID)
+                EndIf
+                
+                If Result And CryptExtension
+                  RenameFile(File, RemoveString(File, CryptExtension))
+                EndIf
+                
+              EndIf 
+              ;}
+            Else         ;{ Encode file
+
+              Result = WriteEncryptedFile_(File, *Buffer, FileSize, Key)
+              
+              If Result And CryptExtension
+                RenameFile(File, ExtendedFileName_(File, CryptExtension))
+              EndIf
+              ;}
+            EndIf 
+            
+          EndIf
+          
+          FreeMemory(*Buffer)
+        EndIf
+        
+      Else
+        qAES\Error = #ERROR_FILE_NOT_EXIST
+        ProcedureReturn #False
+      EndIf
+
+      ProcedureReturn Result
+    EndProcedure 
+    
+    
+    Procedure.i IsCryptFile(File.s, CryptExtension.s="")
+      Define.i FileID, FileSize, Result
+      Define   Footer.Footer_Structure
+      
+      If CryptExtension
+  	    File = ExtendedFileName_(File, CryptExtension, #True)
+  	  EndIf
+      
+      FileID = ReadFile(#PB_Any, File)
+      If FileID
+        
+        FileSize = Lof(FileID)
+        
+        ReadFileFooter_(FileID, FileSize, @Footer)
+
+        If Footer\ID = #qAES
+          Result = #True
+        Else  
+          qAES\Error = #ERROR_NOT_ENCRYPTED
+          Result = #False
+        EndIf 
         
         CloseFile(FileID)
       EndIf
@@ -1307,37 +2071,58 @@ Module qAES
       ProcedureReturn Result
     EndProcedure
     
+    Procedure.s FileHash(File.s, CryptExtension.s="")
+      Define.i FileID, FileSize, Result
+      Define   Footer.Footer_Structure
+      Define   *Buffer
+      
+      If CryptExtension
+  	    File = ExtendedFileName_(File, CryptExtension, #True)
+  	  EndIf
+      
+      FileID = ReadFile(#PB_Any, File)
+      If FileID
+        
+        FileSize = Lof(FileID)
+        
+        ReadFileFooter_(FileID, FileSize, @Footer)
+
+        If Footer\ID = #qAES
+          qAES\Hash = Footer\Hash
+        Else  
+          *Buffer = AllocateMemory(FileSize)
+          If *Buffer
+            If ReadData(FileID, *Buffer, FileSize)
+              qAES\Hash = Fingerprint(*Buffer, FileSize, #PB_Cipher_SHA3)
+            EndIf
+            FreeMemory(*Buffer)
+          EndIf
+        EndIf 
+        
+        CloseFile(FileID)
+      EndIf
+      
+      ProcedureReturn qAES\Hash
+    EndProcedure
+    
   CompilerEndIf
+  
   
   CompilerIf #Enable_LoadSaveCrypt
   
     Procedure.i SaveCryptImage(Image.i, File.s, Key.s)
-      Define.i FileID, Size, Result
-      Define.q Counter, qAES_ID = #qAES
+      Define.i Size, Result
       Define   *Buffer
       
       If IsImage(Image)
-        
-        If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
-        
-        Counter = GetCounter_()
-        
+
         *Buffer = EncodeImage(Image)
         If *Buffer
      
           Size = MemorySize(*Buffer)
           
-          SmartCoder(#Binary, *Buffer, *Buffer, Size, Key, Counter)
-          SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
-          
-          FileID = CreateFile(#PB_Any, File)
-          If FileID 
-            Result = WriteData(FileID, *Buffer, Size)
-            WriteQuad(FileID, qAES_ID)
-            WriteQuad(FileID, Counter)
-            CloseFile(FileID)
-          EndIf
-  
+          Result = WriteEncryptedFile_(File, *Buffer, Size, Key)
+
           FreeMemory(*Buffer)
         EndIf
         
@@ -1347,31 +2132,25 @@ Module qAES
     EndProcedure
     
     Procedure.i LoadCryptImage(Image.i, File.s, Key.s) ; Use SaveCryptImage() or EncodeFile() to encrypt image
-      Define   *Buffer
-      Define.q Counter, qAES_ID
       Define.i FileID, FileSize, Encrypted, Result
-      
-      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
-      
+      Define   Footer.Footer_Structure
+      Define   *Buffer
+
       FileID = ReadFile(#PB_Any, File)
       If FileID
         
         FileSize = Lof(FileID)
         
-        ;{ Read ID & Counter
-        FileSeek(FileID, FileSize - 16)
-        qAES_ID = ReadQuad(FileID) 
-        Counter = ReadQuad(FileID)
-        SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
-        FileSeek(FileID, 0)
-        
-        If qAES_ID = #qAES
-          FileSize - 16
+        ReadFileFooter_(FileID, FileSize, @Footer)
+
+        If Footer\ID = #qAES
+          FileSize - 48
+          qAES\Hash = Footer\Hash
           Encrypted = #True
         Else  
-          qAES\Error = #ERROR_NOT_QAES_ENCRYPTED
+          qAES\Hash  = ""
+          qAES\Error = #ERROR_NOT_ENCRYPTED
         EndIf 
-        ;}
         
         *Buffer  = AllocateMemory(FileSize)
         If *Buffer
@@ -1379,12 +2158,14 @@ Module qAES
           If ReadData(FileID, *Buffer, FileSize)
             
             CloseFile(FileID)
-
+            
             If Encrypted
-              SmartCoder(#Binary, *Buffer, *Buffer, FileSize, Key, Counter)
+              If DecryptBuffer_(*Buffer, FileSize, Key, Footer\Counter)
+                Result = CatchImage(Image, *Buffer, FileSize)
+              EndIf
+            Else
+              Result = CatchImage(Image, *Buffer, FileSize)
             EndIf
-          
-            Result = CatchImage(Image, *Buffer, FileSize)
             
           EndIf
           
@@ -1395,22 +2176,16 @@ Module qAES
         qAES\Error = #ERROR_FILE_NOT_EXIST
         ProcedureReturn #False
       EndIf
-      
+  
       ProcedureReturn Result
-      
     EndProcedure
     
     
     Procedure.i SaveCryptXML(XML.i, File.s, Key.s)
-      Define.i FileID, Size, Result
-      Define.q Counter, qAES_ID = #qAES
+      Define.i Size, Result
       Define   *Buffer
       
       If IsXML(XML)
-        
-        If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
-        
-        Counter = GetCounter_()
         
         Size = ExportXMLSize(XML)
         If Size
@@ -1420,16 +2195,7 @@ Module qAES
             
             If ExportXML(XML, *Buffer, Size)
               
-              SmartCoder(#Binary, *Buffer, *Buffer, Size, Key, Counter)
-              SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
-              
-              FileID = CreateFile(#PB_Any, File)
-              If FileID 
-                Result = WriteData(FileID, *Buffer, Size)
-                WriteQuad(FileID, qAES_ID)
-                WriteQuad(FileID, Counter)
-                CloseFile(FileID)
-              EndIf
+              Result = WriteEncryptedFile_(File, *Buffer, Size, Key)
               
             EndIf
             
@@ -1444,30 +2210,25 @@ Module qAES
     EndProcedure
     
     Procedure.i LoadCryptXML(XML.i, File.s, Key.s)     ; Use SaveCryptXML() or EncodeFile() to encrypt XML
-      Define   *Buffer
-      Define.q Counter, qAES_ID
       Define.i FileID, FileSize, Encrypted, Result
-      
-      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
+      Define   Footer.Footer_Structure
+      Define   *Buffer
       
       FileID = ReadFile(#PB_Any, File)
       If FileID
         
         FileSize = Lof(FileID)
         
-        ;{ Read ID & Counter
-        FileSeek(FileID, FileSize - 16)
-        qAES_ID = ReadQuad(FileID)
-        Counter = ReadQuad(FileID)
-        SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
-        FileSeek(FileID, 0)
-        
-        If qAES_ID = #qAES
-          FileSize - 16
+        ReadFileFooter_(FileID, FileSize, @Footer)
+
+        If Footer\ID = #qAES
+          FileSize - 48
+          qAES\Hash = Footer\Hash
           Encrypted = #True
         Else  
-          qAES\Error = #ERROR_NOT_QAES_ENCRYPTED
-        EndIf ;}
+          qAES\Hash  = ""
+          qAES\Error = #ERROR_NOT_ENCRYPTED
+        EndIf 
         
         *Buffer  = AllocateMemory(FileSize)
         If *Buffer
@@ -1477,10 +2238,14 @@ Module qAES
             CloseFile(FileID)
             
             If Encrypted
-              SmartCoder(#Binary, *Buffer, *Buffer, FileSize, Key, Counter)
+              
+              If DecryptBuffer_(*Buffer, FileSize, Key, Footer\Counter) 
+                Result = CatchXML(XML, *Buffer, FileSize)
+              EndIf
+              
+            Else
+              Result = CatchXML(XML, *Buffer, FileSize)
             EndIf
-            
-            Result = CatchXML(XML, *Buffer, FileSize)
             
           EndIf
           
@@ -1491,22 +2256,16 @@ Module qAES
         qAES\Error = #ERROR_FILE_NOT_EXIST
         ProcedureReturn #False
       EndIf
-      
+  
       ProcedureReturn Result
-      
     EndProcedure
     
     
     Procedure.i SaveCryptJSON(JSON.i, File.s, Key.s)
-      Define.i FileID, Size, Result
-      Define.q Counter, qAES_ID = #qAES
+      Define.i Size, Result
       Define   *Buffer
       
       If IsJSON(JSON)
-        
-        If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
-        
-        Counter = GetCounter_()
         
         Size = ExportJSONSize(JSON)
         If Size
@@ -1516,16 +2275,7 @@ Module qAES
             
             If ExportJSON(JSON, *Buffer, Size)
               
-              SmartCoder(#Binary, *Buffer, *Buffer, Size, Key, Counter)
-              SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
-              
-              FileID = CreateFile(#PB_Any, File)
-              If FileID 
-                Result = WriteData(FileID, *Buffer, Size)
-                WriteQuad(FileID, qAES_ID)
-                WriteQuad(FileID, Counter)
-                CloseFile(FileID)
-              EndIf
+             Result = WriteEncryptedFile_(File, *Buffer, Size, Key)
               
             EndIf
             
@@ -1540,30 +2290,25 @@ Module qAES
     EndProcedure
     
     Procedure.i LoadCryptJSON(JSON.i, File.s, Key.s)   ; Use SaveCryptJSON() or EncodeFile() to encrypt XML
-      Define   *Buffer
-      Define.q Counter, qAES_ID
       Define.i FileID, FileSize, Encrypted, Result
-
-      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
+      Define   Footer.Footer_Structure
+      Define   *Buffer
       
       FileID = ReadFile(#PB_Any, File)
       If FileID
         
         FileSize = Lof(FileID)
         
-        ;{ Read ID & Counter
-        FileSeek(FileID, FileSize - 16)
-        qAES_ID = ReadQuad(FileID)
-        Counter = ReadQuad(FileID)
-        SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
-        FileSeek(FileID, 0)
-        
-        If qAES_ID = #qAES
-          FileSize - 16
+        ReadFileFooter_(FileID, FileSize, @Footer)
+
+        If Footer\ID = #qAES
+          FileSize - 48
+          qAES\Hash = Footer\Hash
           Encrypted = #True
         Else  
-          qAES\Error = #ERROR_NOT_QAES_ENCRYPTED
-        EndIf ;}
+          qAES\Hash  = ""
+          qAES\Error = #ERROR_NOT_ENCRYPTED
+        EndIf 
         
         *Buffer  = AllocateMemory(FileSize)
         If *Buffer
@@ -1573,11 +2318,15 @@ Module qAES
             CloseFile(FileID)
             
             If Encrypted
-              SmartCoder(#Binary, *Buffer, *Buffer, FileSize, Key, Counter)
-            EndIf             
-            
-            Result = CatchJSON(JSON, *Buffer, FileSize)
-            
+              
+              If DecryptBuffer_(*Buffer, FileSize, Key, Footer\Counter) 
+                Result = CatchJSON(JSON, *Buffer, FileSize)
+              EndIf
+              
+            Else
+              Result = CatchJSON(JSON, *Buffer, FileSize)
+            EndIf         
+
           EndIf
           
           FreeMemory(*Buffer)
@@ -1587,9 +2336,8 @@ Module qAES
         qAES\Error = #ERROR_FILE_NOT_EXIST
         ProcedureReturn #False
       EndIf
-      
+  
       ProcedureReturn Result
-      
     EndProcedure
     
   CompilerEndIf
@@ -1600,38 +2348,23 @@ Module qAES
 
     Procedure.i AddCryptPackFile(Pack.i, File.s, Key.s) 
       Define.i FileID, Size, Result
-      Define.q Counter, cCounter, checkID, qAES_ID = #qAES
       Define   *Buffer
-      
-      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
-      
-      Counter = GetCounter_()
       
       FileID = ReadFile(#PB_Any, File)
       If FileID
         
         Size = Lof(FileID)
         
-        *Buffer  = AllocateMemory(Size + 16)
+        *Buffer  = AllocateMemory(Size + 48)
         If *Buffer
           
           If ReadData(FileID, *Buffer, Size)
             
             CloseFile(FileID)
             
-            checkID  = PeekQ(*Buffer + Size - 16)
-            cCounter = PeekQ(*Buffer + Size - 8)
-            SmartCoder(#Binary, @checkID, @checkID, 8, Str(cCounter))
-            
-            If checkID <> #qAES
-              
-              SmartCoder(#Binary, *Buffer, *Buffer, Size, Key, Counter)
-              SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
-              
-              PokeQ(*Buffer + Size, qAES_ID)
-              PokeQ(*Buffer + Size + 8, Counter)
-              
-              Size + 16
+            If NotEncrypted_(*Buffer, Size) 
+              WriteEncryptedMemory_(*Buffer, Size, Key)
+              Size + 48
             EndIf
 
             Result = AddPackMemory(Pack, *Buffer, Size, GetFilePart(File))
@@ -1648,14 +2381,11 @@ Module qAES
       
       ProcedureReturn Result
     EndProcedure  
-    
+
     Procedure.i UncompressCryptPackFile(Pack.i, File.s, Key.s, PackedFileName.s="") 
-      Define.i FileID, Size, Result = -1
-      Define.q Counter, qAES_ID
+      Define.i Size, Result = -1
       Define   *Buffer
-      
-      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
-      
+
       If PackedFileName = "" : PackedFileName = GetFilePart(File) : EndIf
       
       If ExaminePack(Pack)
@@ -1671,25 +2401,8 @@ Module qAES
               
               If UncompressPackMemory(Pack, *Buffer, Size) <> -1
                 
-                qAES_ID = PeekQ(*Buffer + Size - 16)
-                Counter = PeekQ(*Buffer + Size - 8)
-                SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
-                
-                If qAES_ID = #qAES
-                  Size - 16
-                  SmartCoder(#Binary, *Buffer, *Buffer, Size, Key, Counter)
-                Else
-                  qAES\Error = #ERROR_NOT_QAES_ENCRYPTED
-                EndIf 
-
-                FileID = CreateFile(#PB_Any, File)
-                If FileID 
-                  If WriteData(FileID, *Buffer, Size)
-                    Result = Size
-                  EndIf
-                  CloseFile(FileID)
-                EndIf
-
+                Result = WriteDecryptedFile_(File, *Buffer, Size, Key)
+  
               EndIf
               
               FreeMemory(*Buffer)
@@ -1707,27 +2420,30 @@ Module qAES
     
     
     Procedure.i AddCryptPackMemory(Pack.i, *Buffer, Size.i, Key.s, PackedFileName.s)
-      Define   *Buffer, *Output
-      Define.q Counter, qAES_ID = #qAES
+      Define   *Buffer, *Hash, *Output
+      Define.q Counter,qAES_ID = #qAES
       Define.i Size, Result
-
-      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
-      
-      Counter = GetCounter_()
 
       If *Buffer
         
-        *Output = AllocateMemory(Size + 16)
+        *Output = AllocateMemory(Size + 48)
         If *Output
+          
+          qAES\Hash = Fingerprint(*Buffer, Size, #PB_Cipher_SHA3)
+          *Hash = AllocateMemory(32)
+          If *Hash : EncodeHash_(qAES\Hash, Counter, *Hash) : EndIf
           
           SmartCoder(#Binary, *Buffer, *Output, Size, Key, Counter)
           SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
           
-          PokeQ(*Output + Size, qAES_ID)
-          PokeQ(*Output + Size + 8, Counter)
+          CopyMemory(*Hash, *Output + Size, 32)
+          PokeQ(*Output + Size + 32, qAES_ID)
+          PokeQ(*Output + Size + 40, Counter)
           
-          Result = AddPackMemory(Pack, *Output, Size + 16, PackedFileName)
-
+          Result = AddPackMemory(Pack, *Output, Size + 48, PackedFileName)
+          
+          If *Hash : FreeMemory(*Hash) : EndIf
+          
           FreeMemory(*Output)
         EndIf
         
@@ -1737,28 +2453,31 @@ Module qAES
     EndProcedure
     
     Procedure.i UncompressCryptPackMemory(Pack.i, *Buffer, Size.i, Key.s, PackedFileName.s="")
-      Define   *Input, *Buffer
-      Define.q Counter, qAES_ID
       Define.i Size, Result
-
-      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
+      Define   Footer.Footer_Structure
+      Define   *Buffer
       
       If *Buffer
 
         If UncompressPackMemory(Pack, *Buffer, Size, PackedFileName) <> -1
           
-          qAES_ID = PeekQ(*Buffer + Size - 16)
-          Counter = PeekQ(*Buffer + Size - 8)
-          SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
-          
-          If qAES_ID = #qAES
-            Size - 16
-            SmartCoder(#Binary, *Buffer, *Buffer, Size, Key, Counter)
+          ReadMemoryFooter_(*Buffer, Size, @Footer)
+
+          If Footer\ID = #qAES
+            
+            Size - 48
+            
+            qAES\Hash = Footer\Hash
+            
+            DecryptBuffer_(*Buffer, Size, Key, Footer\Counter)  
+            
           Else
-            qAES\Error = #ERROR_NOT_QAES_ENCRYPTED
+            qAES\Hash = ""
+            qAES\Error = #ERROR_NOT_ENCRYPTED
           EndIf 
 
           Result = Size
+          
         EndIf
         
       EndIf
@@ -1769,30 +2488,21 @@ Module qAES
 
     Procedure.i AddCryptPackXML(Pack.i, XML.i, Key.s, PackedFileName.s)
       Define   *Buffer
-      Define.q Counter, qAES_ID = #qAES
       Define.i Size, Result
 
       If IsXML(XML)
-      
-        If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
-        
-        Counter = GetCounter_()
 
         Size = ExportXMLSize(XML)
         If Size
           
-          *Buffer = AllocateMemory(Size + 16)
+          *Buffer = AllocateMemory(Size + 48)
           If *Buffer
             
             If ExportXML(XML, *Buffer, Size)
               
-              SmartCoder(#Binary, *Buffer, *Buffer, Size, Key, Counter)
-              SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
+              WriteEncryptedMemory_(*Buffer, Size, Key)
               
-              PokeQ(*Buffer + Size, qAES_ID)
-              PokeQ(*Buffer + Size + 8, Counter)
-              
-              Result = AddPackMemory(Pack, *Buffer, Size + 16, PackedFileName)
+              Result = AddPackMemory(Pack, *Buffer, Size + 48, PackedFileName)
               
             EndIf
             
@@ -1807,12 +2517,10 @@ Module qAES
     EndProcedure  
     
     Procedure.i UncompressCryptPackXML(Pack.i, XML.i, Key.s, PackedFileName.s="")
-      Define   *Buffer
-      Define.q Counter, qAES_ID
       Define.i Size, Result
+      Define   Footer.Footer_Structure
+      Define   *Buffer
 
-      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
-    
       If ExaminePack(Pack)
         
         While NextPackEntry(Pack)
@@ -1826,19 +2534,24 @@ Module qAES
               
               If UncompressPackMemory(Pack, *Buffer, Size) <> -1
                 
-                qAES_ID = PeekQ(*Buffer + Size - 16)
-                Counter = PeekQ(*Buffer + Size - 8)
-                SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
+                ReadMemoryFooter_(*Buffer, Size, @Footer)
                 
-                If qAES_ID = #qAES
-                  Size - 16
-                  SmartCoder(#Binary, *Buffer, *Buffer, Size, Key, Counter)
+                If Footer\ID = #qAES
+                  
+                  Size - 48
+                  
+                  qAES\Hash = Footer\Hash
+                  
+                  If DecryptBuffer_(*Buffer, Size, Key, Footer\Counter) 
+                    Result = CatchXML(XML, *Buffer, Size)
+                  EndIf   
+                  
                 Else
-                  qAES\Error = #ERROR_NOT_QAES_ENCRYPTED
+                  qAES\Hash = ""
+                  qAES\Error = #ERROR_NOT_ENCRYPTED
+                  Result = CatchXML(XML, *Buffer, Size)
                 EndIf 
 
-                Result = CatchXML(XML, *Buffer, Size)
-    
               EndIf
               
               FreeMemory(*Buffer)
@@ -1857,30 +2570,21 @@ Module qAES
     
     Procedure.i AddCryptPackJSON(Pack.i, JSON.i, Key.s, PackedFileName.s)
       Define   *Buffer
-      Define.q Counter, qAES_ID = #qAES
       Define.i Size, Result
       
       If IsJSON(JSON)
-      
-        If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
-        
-        Counter = GetCounter_()
-        
+
         Size = ExportJSONSize(JSON)
         If Size
           
-          *Buffer = AllocateMemory(Size + 16)
+          *Buffer = AllocateMemory(Size + 48)
           If *Buffer
             
             If ExportJSON(JSON, *Buffer, Size)
               
-              SmartCoder(#Binary, *Buffer, *Buffer, Size, Key, Counter)
-              SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
+              WriteEncryptedMemory_(*Buffer, Size, Key)
               
-              PokeQ(*Buffer + Size, qAES_ID)
-              PokeQ(*Buffer + Size + 8, Counter)
-              
-              Result = AddPackMemory(Pack, *Buffer, Size + 16, PackedFileName)
+              Result = AddPackMemory(Pack, *Buffer, Size + 48, PackedFileName)
               
             EndIf
             
@@ -1895,12 +2599,11 @@ Module qAES
     EndProcedure  
     
     Procedure.i UncompressCryptPackJSON(Pack.i, JSON.i, Key.s, PackedFileName.s="")
-      Define   *Buffer
       Define.q Counter, qAES_ID
       Define.i Size, Result
-  
-      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
-    
+      Define   Footer.Footer_Structure
+      Define   *Buffer
+      
       If ExaminePack(Pack)
         
         While NextPackEntry(Pack)
@@ -1914,19 +2617,24 @@ Module qAES
               
               If UncompressPackMemory(Pack, *Buffer, Size) <> -1
                 
-                qAES_ID = PeekQ(*Buffer + Size - 16)
-                Counter = PeekQ(*Buffer + Size - 8)
-                SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
+                ReadMemoryFooter_(*Buffer, Size, @Footer)
                 
-                If qAES_ID = #qAES
-                  Size - 16
-                  SmartCoder(#Binary, *Buffer, *Buffer, Size, Key, Counter)
+                If Footer\ID = #qAES
+                  
+                  Size - 48
+                  
+                  qAES\Hash = Footer\Hash
+                  
+                  If DecryptBuffer_(*Buffer, Size, Key, Footer\Counter) 
+                    Result = CatchJSON(JSON, *Buffer, Size)
+                  EndIf   
+                  
                 Else
-                  qAES\Error = #ERROR_NOT_QAES_ENCRYPTED
-                EndIf 
+                  qAES\Hash = ""
+                  qAES\Error = #ERROR_NOT_ENCRYPTED
+                  Result = CatchJSON(JSON, *Buffer, Size)
+                EndIf
 
-                Result = CatchJSON(JSON, *Buffer, Size)
-    
               EndIf
               
               FreeMemory(*Buffer)
@@ -1944,33 +2652,23 @@ Module qAES
     
     
     Procedure.i AddCryptPackImage(Pack.i, Image.i, Key.s, PackedFileName.s)
-      Define   *Buffer, *Output
-      Define.q Counter, qAES_ID = #qAES
+      Define   *Buffer, *Hash
       Define.i Size, Result
  
       If IsImage(Image)
-      
-        If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
-        
-        Counter = GetCounter_()
 
         *Buffer = EncodeImage(Image)
         If *Buffer
      
           Size = MemorySize(*Buffer)
           
-          *Output = AllocateMemory(Size + 16)
-          If *Output
+          *Buffer = ReAllocateMemory(*Buffer, Size + 48)
+          If *Buffer
             
-            SmartCoder(#Binary, *Buffer, *Output, Size, Key, Counter)
-            SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
-            
-            PokeQ(*Output + Size, qAES_ID)
-            PokeQ(*Output + Size + 8, Counter)
+            WriteEncryptedMemory_(*Buffer, Size, Key)
            
-            Result = AddPackMemory(Pack, *Output, Size + 16, PackedFileName)
-            
-            FreeMemory(*Output)
+            Result = AddPackMemory(Pack, *Buffer, Size + 48, PackedFileName)
+
           EndIf
           
           FreeMemory(*Buffer)
@@ -1982,12 +2680,11 @@ Module qAES
     EndProcedure  
     
     Procedure.i UncompressCryptPackImage(Pack.i, Image.i, Key.s, PackedFileName.s="")
-      Define   *Buffer
       Define.q Counter, qAES_ID
       Define.i Size, Result
-
-      If qAES\KeyStretching : Key = KeyStretching(Key, qAES\Loops, qAES\ProgressBar) : EndIf
-    
+      Define   Footer.Footer_Structure
+      Define   *Buffer
+      
       If ExaminePack(Pack)
         
         While NextPackEntry(Pack)
@@ -2001,19 +2698,24 @@ Module qAES
               
               If UncompressPackMemory(Pack, *Buffer, Size) <> -1
                 
-                qAES_ID = PeekQ(*Buffer + Size - 16)
-                Counter = PeekQ(*Buffer + Size - 8)
-                SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
+                ReadMemoryFooter_(*Buffer, Size, @Footer)
                 
-                If qAES_ID = #qAES
-                  Size - 16
-                  SmartCoder(#Binary, *Buffer, *Buffer, Size, Key, Counter)
+                If Footer\ID = #qAES
+                  
+                  Size - 48
+                  
+                  qAES\Hash = Footer\Hash
+                  
+                  If DecryptBuffer_(*Buffer, Size, Key, Footer\Counter) 
+                    Result = CatchImage(Image, *Buffer, Size)
+                  EndIf   
+                  
                 Else
-                  qAES\Error = #ERROR_NOT_QAES_ENCRYPTED
-                EndIf 
+                  qAES\Hash = ""
+                  qAES\Error = #ERROR_NOT_ENCRYPTED
+                  Result = CatchImage(Image, *Buffer, Size)
+                EndIf
 
-                Result = CatchImage(Image, *Buffer, Size)
-    
               EndIf
               
               FreeMemory(*Buffer)
@@ -2030,11 +2732,12 @@ Module qAES
     EndProcedure
     
     
-    Procedure IsCryptPackFile(Pack.i, PackedFileName.s)
-      Define   *Buffer
+    Procedure.s PackFileHash(Pack.i, PackedFileName.s)
       Define.q Counter, qAES_ID
       Define.i Size, Result = -1
-
+      Define   Footer.Footer_Structure
+      Define   *Buffer
+      
       If ExaminePack(Pack)
         
         While NextPackEntry(Pack)
@@ -2048,15 +2751,55 @@ Module qAES
               
               If UncompressPackMemory(Pack, *Buffer, Size) <> -1
                 
-                qAES_ID = PeekQ(*Buffer + Size - 16)
-                Counter = PeekQ(*Buffer + Size - 8)
-                SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
+                ReadMemoryFooter_(*Buffer, Size, @Footer)
+
+                If Footer\ID = #qAES
+                  qAES\Hash = Footer\Hash
+                Else    
+                  qAES\Hash = Fingerprint(*Buffer, Size, #PB_Cipher_SHA3)
+                EndIf 
+              
+              EndIf
+              
+              FreeMemory(*Buffer)
+            EndIf
+            
+            Break
+          EndIf
+          
+        Wend
+  
+      EndIf
+      
+      ProcedureReturn qAES\Hash
+    EndProcedure
+
+    Procedure.i IsCryptPackFile(Pack.i, PackedFileName.s)
+      Define.q Counter, qAES_ID
+      Define.i Size, Result = -1
+      Define   Footer.Footer_Structure
+      Define   *Buffer
+
+      If ExaminePack(Pack)
+        
+        While NextPackEntry(Pack)
+          
+          If PackedFileName = PackEntryName(Pack)
+            
+            Size = PackEntrySize(Pack)
+            
+            *Buffer = AllocateMemory(Size)
+            If *Buffer
+              
+              If UncompressPackMemory(Pack, *Buffer, Size) <> -1
+
+                ReadMemoryFooter_(*Buffer, Size, @Footer)
                 
-                If qAES_ID = #qAES
+                If Footer\ID = #qAES
                   Result = #True
                 Else
                   Result     = #False
-                  qAES\Error = #ERROR_NOT_QAES_ENCRYPTED
+                  qAES\Error = #ERROR_NOT_ENCRYPTED
                 EndIf 
               
               EndIf
@@ -2084,20 +2827,29 @@ CompilerIf #PB_Compiler_IsMainFile
   
   #Example = 1
   
+  ; === BasicCoders ===
   ;  1: String
-  ;  2: File (only encrypt / decrypt)
-  ;  3: String to File
-  ;  4: SmartFileCoder
-  ;  5: SmartFileCoder with CryptExtension
-  ;  6: Check integrity
-  ;  7: Protected Mode
-  ;  8: Image
-  ;  9: XML
-  ; 10: JSON
-  ; 11: Packer
-  ; 12: Packer: XML
-  ; 13: Packer: JSON
-  ; 14: Packer: Image
+  ;  2: String to File
+  ;  3: EncodeFile() / DecodeFile()
+  ;  4: FileCoder()
+  ; === SmartFileCoder ===
+  ;  5: SmartFileCoder()
+  ;  6: SmartFileCoder() with CryptExtension
+  ;  7: CreateStringFile() & CreateStringFile()
+  ;  8: LoadEncryptedImage()
+  ;  9: Check integrity
+  ; 10: Protected Mode
+  ; === load/save crypted files ===
+  ; 11: Image
+  ; 12: XML
+  ; 13: JSON
+  ; === pack crypted files ===
+  ; 14: Packer
+  ; 15: Packer: XML
+  ; 16: Packer: JSON
+  ; 17: Packer: Image
+  ; === SmartFileCoder === 
+  ; 18: ReadProtectedFile()
   
   Enumeration 1
     #Window
@@ -2108,20 +2860,20 @@ CompilerIf #PB_Compiler_IsMainFile
   #ProtectExtension$ = " [protected]"
   #CryptExtension$   = " [encrypted]"
   
-  Key$  = "18qAES07PW67"
-  
-  If OpenWindow(#Window, 0, 0, 280, 50, "",  #PB_Window_ScreenCentered|#PB_Window_BorderLess|#PB_Window_SystemMenu)
+  If OpenWindow(#Window, 0, 0, 280, 50, "",  #PB_Window_ScreenCentered|#PB_Window_Invisible|#PB_Window_BorderLess|#PB_Window_SystemMenu)
     
     ProgressBarGadget(#ProgressBar, 10, 10, 260, 30, 0, 100, #PB_ProgressBar_Smooth)
     
-    ;qAES::EnableKeyStretching(2e4, #True, #ProgressBar)
+    ;Key$ = "18qAES07PW67"
+    Key$ = qAES::CreateSecureKey("18qAES07PW67")                     ; improves the security for Level 1 & Level 2
+    ;Key$ = qAES::CreateSecureKey("18qAES07PW67", 1e5, #ProgressBar) ; recommended for security Level 3
     
     CompilerSelect #Example
       CompilerCase 1 
         
         CompilerIf qAES::#Enable_BasicCoders
           
-          Text$ = "This is a test text for the qAES-Module."
+          Text$ = "• This is a test text for the qAES-Module. ( α )"
           
           Text$ = qAES::String(Text$, Key$) 
           Debug Text$
@@ -2131,75 +2883,142 @@ CompilerIf #PB_Compiler_IsMainFile
           
         CompilerEndIf
         
-      CompilerCase 2 
-        
-        CompilerIf qAES::#Enable_BasicCoders
-          
-          qAES::EncodeFile("PureBasic.jpg",  Key$) 
-          ;qAES::DecodeFile("PureBasic.jpg", Key$)
-          
-        CompilerEndIf
-        
-      CompilerCase 3  
+      CompilerCase 2  
         
         CompilerIf qAES::#Enable_BasicCoders
           
           Text$ = "This is a test text for the qAES-Module."
           
-          If qAES::String2File(Text$, "String.aes", Key$) 
-            String$ = qAES::File2String("String.aes", Key$)
+          If qAES::StringToFile(Text$, "String.aes", Key$) 
+            String$ = qAES::FileToString("String.aes", Key$)
             Debug String$
           EndIf
           
         CompilerEndIf
         
-      CompilerCase 4
+      CompilerCase 3 
         
-        CompilerIf qAES::#Enable_SmartFileCoder
-          qAES::SmartFileCoder("PureBasic.jpg", Key$)
+        CompilerIf qAES::#Enable_BasicCoders
+          
+          qAES::EncodeFile("PureBasic.jpg", Key$) 
+          Debug "Hash: " + qAES::GetHash()
+          
+          MessageRequester("qAES", "Decode file!")
+          
+          qAES::DecodeFile("PureBasic.jpg", Key$)
+          Debug "Hash: " + qAES::GetHash()
+
         CompilerEndIf
-      
+        
+      CompilerCase 4 
+        
+        CompilerIf qAES::#Enable_BasicCoders
+          
+          qAES::FileCoder("PureBasic.jpg", Key$, #CryptExtension$) ;
+          If qAES::IsCryptFile("PureBasic.jpg", #CryptExtension$) ;
+            Debug "File is encrypted"
+            Debug "Hash: " + qAES::GetHash()
+          Else
+            Debug "File is not encrypted"
+          EndIf
+          
+        CompilerEndIf
+        
       CompilerCase 5  
         
         CompilerIf qAES::#Enable_SmartFileCoder
-          qAES::SmartFileCoder("D:\Temp\PureBasic.jpg", Key$, #CryptExtension$)
-          If qAES::IsEncrypted("D:\Temp\PureBasic.jpg", Key$, #CryptExtension$)
+          qAES::SmartFileCoder(qAES::#Auto, "PureBasic.jpg", Key$)
+        CompilerEndIf
+      
+      CompilerCase 6  
+        
+        CompilerIf qAES::#Enable_SmartFileCoder
+          
+          qAES::SmartFileCoder(qAES::#Auto, "PureBasic.jpg", Key$, #CryptExtension$, qAES::#RandomizeSize|qAES::#EnlargeSize)
+          
+          If qAES::IsEncrypted("PureBasic.jpg", Key$, #CryptExtension$)
             Debug "File is encrypted"
           Else
             Debug "File is not encrypted"
           EndIf
+          
         CompilerEndIf
         
-      CompilerCase 6
+      CompilerCase 7  
         
         CompilerIf qAES::#Enable_SmartFileCoder
-          qAES::SmartFileCoder("PureBasic.jpg", Key$, #CryptExtension$)
+          
+          Text$ = "• This is a test text for the qAES-Module. ( α )"
+          
+          qAES::CreateStringFile(Text$, "String.aes", Key$, qAES::#RandomizeSize)
+          
+          String$ = qAES::ReadStringFile("String.aes", Key$)
+          Debug String$
+          
+        CompilerEndIf  
+        
+      CompilerCase 8  
+        
+        CompilerIf qAES::#Enable_SmartFileCoder
+          
+          UseJPEGImageDecoder()
+          
+          qAES::EncryptImage("PureBasic.jpg", Key$, #CryptExtension$, qAES::#EnlargeSize|qAES::#RandomizeSize)
+          
+          Image.i = qAES::LoadEncryptedImage("PureBasic.jpg", Key$, #CryptExtension$)
+          If IsImage(Image)
+            SaveImage(Image, "Decrypted.jpg")
+          EndIf
+          
+          qAES::DecryptImage("PureBasic.jpg", Key$, #CryptExtension$)
+
+        CompilerEndIf
+        
+      CompilerCase 9
+        
+        CompilerIf qAES::#Enable_SmartFileCoder
+          
+          qAES::SmartFileCoder(qAES::#Encrypt, "PureBasic.jpg", Key$, #CryptExtension$)
+          
           If qAES::CheckIntegrity("PureBasic.jpg", Key$, #CryptExtension$)
             Debug "File integrity succesfully checked"
           Else
             Debug "File hash not valid"
           EndIf 
+
         CompilerEndIf
         
-      CompilerCase 7
+      CompilerCase 10
         
         CompilerIf qAES::#Enable_SmartFileCoder
-          qAES::SmartFileCoder("PureBasic.jpg", Key$, #ProtectExtension$, 18)  
           
-          If qAES::IsEncrypted("PureBasic.jpg", Key$, #ProtectExtension$, 18)
+          qAES::SmartFileCoder(qAES::#Protect, "PureBasic.jpg", Key$, #ProtectExtension$, qAES::#RandomizeSize, qAES::#ProtectCounter)  
+
+          If qAES::IsProtected("PureBasic.jpg", Key$, #ProtectExtension$, qAES::#ProtectCounter)
             Debug "File is protected"
           Else
             Debug "File is not protected"
           EndIf
           
-          If qAES::CheckIntegrity("PureBasic.jpg", Key$, #ProtectExtension$, 18)
+          If qAES::CheckIntegrity("PureBasic.jpg", Key$, #ProtectExtension$, qAES::#ProtectCounter)
             Debug "File integrity succesfully checked"
           Else
             Debug "File hash not valid"
           EndIf
+          
+          MessageRequester("qAES", "Unprotect file!")
+          
+          qAES::SmartFileCoder(qAES::#Unprotect, "PureBasic.jpg", Key$, #ProtectExtension$)  
+          
+          If qAES::IsProtected("PureBasic.jpg", Key$, #ProtectExtension$, qAES::#ProtectCounter)
+            Debug "File is protected"
+          Else
+            Debug "File is not protected"
+          EndIf
+          
         CompilerEndIf
         
-      CompilerCase 8
+      CompilerCase 11
         
         CompilerIf  qAES::#Enable_LoadSaveCrypt
           
@@ -2211,7 +3030,7 @@ CompilerIf #PB_Compiler_IsMainFile
             qAES::SaveCryptImage(#Image, "PureBasic.jpg.aes", Key$)
           EndIf
           
-          If qAES::IsCryptFile("PureBasic.jpg")
+          If qAES::IsCryptFile("PureBasic.jpg.aes")
             Debug "File is encrypted."
           Else
             Debug "File is not encrypted."
@@ -2223,7 +3042,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
         CompilerEndIf
         
-      CompilerCase 9
+      CompilerCase 12
         
         CompilerIf  qAES::#Enable_LoadSaveCrypt
         
@@ -2248,7 +3067,7 @@ CompilerIf #PB_Compiler_IsMainFile
           
         CompilerEndIf
         
-      CompilerCase 10
+      CompilerCase 13
         
         CompilerIf  qAES::#Enable_LoadSaveCrypt
         
@@ -2270,7 +3089,7 @@ CompilerIf #PB_Compiler_IsMainFile
           
         CompilerEndIf
         
-      CompilerCase 11
+      CompilerCase 14
         
         CompilerIf qAES::#Enable_CryptPacker
           
@@ -2300,7 +3119,7 @@ CompilerIf #PB_Compiler_IsMainFile
         
         CompilerEndIf
         
-      CompilerCase 12
+      CompilerCase 15
         
         CompilerIf qAES::#Enable_CryptPacker
           
@@ -2340,7 +3159,7 @@ CompilerIf #PB_Compiler_IsMainFile
           
         CompilerEndIf
         
-      CompilerCase 13
+      CompilerCase 16
         
         CompilerIf qAES::#Enable_CryptPacker
           
@@ -2376,7 +3195,7 @@ CompilerIf #PB_Compiler_IsMainFile
           
         CompilerEndIf
         
-      CompilerCase 14
+      CompilerCase 17
         
         CompilerIf qAES::#Enable_CryptPacker
           
@@ -2405,7 +3224,36 @@ CompilerIf #PB_Compiler_IsMainFile
   
         CompilerEndIf
         
-    CompilerEndSelect
+      CompilerCase 18
+        
+        CompilerIf qAES::#Enable_SmartFileCoder
+          
+          Define Memory.qAES::Memory_Structure
+          
+          #JSON = 1
+          
+          If CreateJSON(#JSON)
+            Person.i = SetJSONObject(JSONValue(#JSON))
+            SetJSONString(AddJSONMember(Person, "FirstName"), "John")
+            SetJSONString(AddJSONMember(Person, "LastName"), "Smith")
+            SetJSONInteger(AddJSONMember(Person, "Age"), 42)
+            SaveJSON(#JSON, "Person.json")
+            FreeJSON(#JSON)
+          EndIf
+          
+          qAES::SmartFileCoder(qAES::#Protect, "Person.json", Key$)
+          
+          If qAES::ReadProtectedFile("Person.json", @Memory, Key$)
+            If CatchJSON(#JSON, Memory\Buffer, Memory\Size)
+              Debug ComposeJSON(#JSON, #PB_JSON_PrettyPrint)
+              FreeJSON(#JSON)
+            EndIf
+            FreeMemory(Memory\Buffer)
+          EndIf
+          
+        CompilerEndIf
+        
+      CompilerEndSelect
 
     CloseWindow(#Window)
   EndIf
@@ -2413,9 +3261,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 2084
-; FirstLine = 1484
-; Folding = 9HBYCOxtT63+-CAw
-; Markers = 601,822
+; CursorPosition = 2850
+; FirstLine = 213
+; Folding = SAEAARDHgEDABkABACgA9
+; Markers = 1030,1302
 ; EnableXP
 ; DPIAware
