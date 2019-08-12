@@ -1539,7 +1539,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 6
+  #Example = 1
   
   ; 1: normal
   ; 2: encrypted
@@ -1670,7 +1670,7 @@ CompilerIf #PB_Compiler_IsMainFile
       
       If PackEx::Open(#Pack, "TestImage.zip")
         If PackEx::DecompressImage(#Pack, #Image, "PureBasic.jpg", Key$)
-          AddImage(#Image, "DecryptedImage.jpg")
+          SaveImage(#Image, "DecryptedImage.jpg")
         EndIf
         PackEx::Close(#Pack) 
       EndIf
@@ -1680,9 +1680,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
   
 CompilerEndIf  
-; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 16
-; FirstLine = 60
-; Folding = IwHAAAQCMgy-
+; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x64)
+; CursorPosition = 1541
+; FirstLine = 155
+; Folding = KwHAAAQCMgz-
 ; EnableXP
 ; DPIAware
