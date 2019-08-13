@@ -10,23 +10,15 @@
 ;/
   
 
-; Last Update: 4.08.2019
+; Last Update: 13.08.2019
+;
+; - Bugfix: SetItemColor()
 ;
 ; - Bugfixes: #FitColumn
 ;
 ; - Added:   attribute '#Padding' for SetAttribute() to change padding if you use #FitColumn
 ; - Bugfixes
 ;
-; - Changed: tabulator jumps to the next/previous row, if it is the last/first cell
-; 
-; - Added:   individual colors for the columns of the header line
-;
-; - Added:   GetColumnLabel()
-; - Added:   AddCells() to adds a new row and inserts text in cells with label
-;
-; - Added:   CloseEdit() to close all open string gadgets, comboboxes and date gadgets
-;
-
 
 ;{ ===== MIT License =====
 ;
@@ -5335,13 +5327,15 @@ Module ListEx
             EndIf
           Else
             If SelectElement(ListEx()\Rows(), Row)
+              If Column = #PB_Ignore
                 ListEx()\Rows()\Color\Front = Value
-            Else
-              If SelectElement(ListEx()\Cols(), Column)
-                Key$ = ListEx()\Cols()\Key
-                ListEx()\Rows()\Column(Key$)\Color\Front = Value
-                ListEx()\Rows()\Column(Key$)\Flags | #FrontColor
-              EndIf
+              Else
+                If SelectElement(ListEx()\Cols(), Column)
+                  Key$ = ListEx()\Cols()\Key
+                  ListEx()\Rows()\Column(Key$)\Color\Front = Value
+                  ListEx()\Rows()\Column(Key$)\Flags | #FrontColor
+                EndIf
+              EndIf 
             EndIf
           EndIf ;}
         Case #BackColor  ;{ BackColor
@@ -5765,7 +5759,7 @@ CompilerIf #PB_Compiler_IsMainFile
     
     ListEx::SetColor(#List, ListEx::#FrontColor, $82004B, 2) ; front color for column 2
     
-    ListEx::SetItemColor(#List,  3, ListEx::#FrontColor, $228B22, 2)
+    ListEx::SetItemColor(#List,  5, ListEx::#FrontColor, $228B22, 2)
     ListEx::SetItemFont(#List, 0, FontID(#Font_Arial9B), 2)
     
     ListEx::SetAutoResizeFlags(#List, ListEx::#ResizeHeight)
@@ -5851,10 +5845,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 5715
-; FirstLine = 1169
-; Folding = OBEAAICBAAAAAAAUIAA2ACgD5AKAEAAAAAcAAoBAAAAAGAA9
-; Markers = 579
+; CursorPosition = 20
+; FirstLine = 2
+; Folding = eBEAAICBAAAAAAAUIAA1ACAD5AIAEAAAACcAAoBBAEAAjAQ9
+; Markers = 571
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
