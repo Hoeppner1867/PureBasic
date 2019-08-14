@@ -10,8 +10,9 @@
 ;/
   
 
-; Last Update: 13.08.2019
+; Last Update: 14.08.2019
 ;
+; - Added:  Flag for CountItems() [#Selected/#Checked/#Inbetween]
 ; - Bugfix: SetItemColor()
 ;
 ; - Bugfixes: #FitColumn
@@ -50,7 +51,7 @@
 ; ListEx::AddColumn()               - similar to 'AddGadgetColumn()'
 ; ListEx::AddComboBoxItems()        - add items to the comboboxes of the column (items seperated by #LF$)
 ; ListEx::AddItem()                 - similar to 'AddGadgetItem()'
-; ListEx::CountItems()              - similar to 'CountGadgetItems()'
+; ListEx::CountItems()              - similar to 'CountGadgetItems()' [#Selected/#Checked/#Inbetween]
 ; ListEx::ChangeCountrySettings()   - change default settings
 ; ListEx::ClearComboBoxItems()      - clear items of the comboboxes of the column
 ; ListEx::ClearItems()              - similar to 'ClearGadgetItems()'
@@ -71,9 +72,9 @@
 ; ListEx::GetColumnState()          - similar to 'GetGadgetItemState()' for a specific column
 ; ListEx::GetItemData()             - similar to 'GetGadgetItemData()'
 ; ListEx::GetItemID()               - similar to 'GetGadgetItemData()' but with string data
-; ListEx::GetItemState()            - similar to 'GetGadgetItemState()'
+; ListEx::GetItemState()            - similar to 'GetGadgetItemState()' [#Selected/#Checked/#Inbetween]
 ; ListEx::GetItemText()             - similar to 'GetGadgetItemText()'
-; ListEx::.GetState(GNum.i)         - similar to 'GetGadgetState()'
+; ListEx::GetState(GNum.i)         - similar to 'GetGadgetState()'
 ; ListEx::Refresh()                 - redraw gadget
 ; ListEx::RemoveColumn()            - similar to 'RemoveGadgetColumn()'
 ; ListEx::RemoveItem()              - similar to 'RemoveGadgetItem()'
@@ -99,7 +100,7 @@
 ; ListEx::SetItemFont()             - change font of row or header [#Header]
 ; ListEx::SetItemID()               - similar to 'SetGadgetItemData()' but with string data
 ; ListEx::SetItemImage( )           - add a image at row/column
-; ListEx::SetItemState()            - similar to 'SetGadgetItemState()'
+; ListEx::SetItemState()            - similar to 'SetGadgetItemState()' [#Selected/#Checked/#Inbetween]
 ; ListEx::SetItemText()             - similar to 'SetGadgetItemText()'
 ; ListEx::SetProgressBarAttribute() - set minimum or maximum value for progress bars
 ; ListEx::SetProgressBarFlags()     - set flags for progressbar (#ShowPercent)
@@ -297,13 +298,13 @@ DeclareModule ListEx
   Declare.i AddColumn(GNum.i, Column.i, Title.s, Width.f, Label.s="", Flags.i=#False)
   Declare.i AddComboBoxItems(GNum.i, Column.i, Text.s)
   Declare.i AddCells(GNum.i, Row.i=-1, Labels.s="", Text.s="", RowID.s="", Flags.i=#False) 
-  Declare.i AddItem(GNum.i, Row.i=-1, Text.s="", RowID.s="", Flags.i=#False)
+  Declare.i AddItem(GNum.i, Row.i=-1, Text.s="", Label.s="", Flags.i=#False)
   Declare   AttachPopupMenu(GNum.i, Popup.i)
   Declare   ChangeCountrySettings(GNum.i, CountryCode.s, Currency.s="", Clock.s="", DecimalSeperator.s="", TimeSeperator.s="", DateSeperator.s="")
   Declare   ClearComboBoxItems(GNum.i, Column.i)
   Declare   ClearItems(GNum.i)
   Declare   CloseEdit(GNum.i)
-  Declare.i CountItems(GNum.i)
+  Declare.i CountItems(GNum.i, Flag.i=#False)
   Declare   DisableEditing(GNum.i, State.i=#True)
   Declare   DisableReDraw(GNum.i, State.i=#False)
   Declare.i EventColumn(GNum)
@@ -323,6 +324,7 @@ DeclareModule ListEx
   Declare.s GetItemID(GNum.i, Row.i)
   Declare.i GetItemState(GNum.i, Row.i, Column.i=#PB_Ignore)
   Declare.s GetItemText(GNum.i, Row.i, Column.i)
+  Declare.s GetRowLabel(GNum.i, Row.i)
   Declare.i GetState(GNum.i)
   Declare   LoadColorTheme(GNum.i, File.s)
   Declare   Refresh(GNum.i)
@@ -4185,7 +4187,7 @@ Module ListEx
     ProcedureReturn ListIndex(ListEx()\Rows())
   EndProcedure
   
-  Procedure.i AddItem(GNum.i, Row.i=-1, Text.s="", RowID.s="", Flags.i=#False) 
+  Procedure.i AddItem(GNum.i, Row.i=-1, Text.s="", Label.s="", Flags.i=#False) 
     Define.i i, nc, FitColumn, Result
     
     If FindMapElement(ListEx(), Str(GNum))
@@ -4210,7 +4212,7 @@ Module ListEx
       If Result
         
         ListEx()\Row\Number    = ListSize(ListEx()\Rows())
-        ListEx()\Rows()\ID     = RowID
+        ListEx()\Rows()\ID     = Label
         ListEx()\Rows()\Height = ListEx()\Row\Height
         
         ListEx()\Rows()\FontID   = ListEx()\Row\FontID
@@ -4316,12 +4318,30 @@ Module ListEx
       
   EndProcedure
   
-  Procedure.i CountItems(GNum.i)
+  Procedure.i CountItems(GNum.i, Flag.i=#False) ; [#Selected/#Checked/#Inbetween]
+    Define.i Count
     
     If FindMapElement(ListEx(), Str(GNum))
       
-      ProcedureReturn ListEx()\Row\Number
-      
+      Select Flag
+        Case #Selected
+          ForEach ListEx()\Rows()
+            If ListEx()\Rows()\State & #Selected : Count + 1 : EndIf
+          Next
+          ProcedureReturn Count
+        Case #Checked
+          ForEach ListEx()\Rows()
+            If ListEx()\Rows()\State & #Checked : Count + 1 : EndIf
+          Next
+          ProcedureReturn Count
+        Case #Inbetween
+          ForEach ListEx()\Rows()
+            If ListEx()\Rows()\State & #Inbetween : Count + 1 : EndIf
+          Next
+          ProcedureReturn Count
+        Default
+          ProcedureReturn ListSize(ListEx()\Rows())
+      EndSelect
     EndIf  
  
   EndProcedure  
@@ -4776,7 +4796,11 @@ Module ListEx
     
   EndProcedure  
   
-  Procedure.i GetItemState(GNum.i, Row.i, Column.i=#PB_Ignore)
+  Procedure.s GetRowLabel(GNum.i, Row.i)
+    ProcedureReturn  GetItemID(GNum, Row)
+  EndProcedure
+  
+  Procedure.i GetItemState(GNum.i, Row.i, Column.i=#PB_Ignore) ; [#Selected/#Checked/#Inbetween]
     
     If FindMapElement(ListEx(), Str(GNum))
       
@@ -4785,7 +4809,11 @@ Module ListEx
           ProcedureReturn ListEx()\Rows()\State
         Else
           If SelectElement(ListEx()\Cols(), Column)
-            ProcedureReturn ListEx()\Rows()\Column(ListEx()\Cols()\Key)\State
+            If ListEx()\Flags & #CheckBoxes And Column = 0
+              ProcedureReturn ListEx()\Rows()\State
+            Else  
+              ProcedureReturn ListEx()\Rows()\Column(ListEx()\Cols()\Key)\State
+            EndIf
           EndIf 
         EndIf
       EndIf
@@ -5483,7 +5511,7 @@ Module ListEx
     
   EndProcedure
   
-  Procedure   SetItemState(GNum.i, Row.i, State.i, Column.i=#PB_Ignore)
+  Procedure   SetItemState(GNum.i, Row.i, State.i, Column.i=#PB_Ignore) ; [#Selected/#Checked/#Inbetween]
     
     If FindMapElement(ListEx(), Str(GNum))
 
@@ -5494,10 +5522,15 @@ Module ListEx
             ListEx()\Rows()\State = State
             If ListEx()\ReDraw : Draw_() : EndIf
           Else
-            If SelectElement(ListEx()\Cols(), Column)
-              ListEx()\Rows()\Column(ListEx()\Cols()\Key)\State = State
-              If ListEx()\ReDraw : Draw_() : EndIf
-            EndIf  
+            If ListEx()\Flags & #CheckBoxes And Column = 0
+              ListEx()\Rows()\State = State
+              If ListEx()\ReDraw : Draw_() : EndIf 
+            Else  
+              If SelectElement(ListEx()\Cols(), Column)
+                ListEx()\Rows()\Column(ListEx()\Cols()\Key)\State = State
+                If ListEx()\ReDraw : Draw_() : EndIf
+              EndIf 
+            EndIf
           EndIf
         EndIf
         
@@ -5845,10 +5878,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 20
-; FirstLine = 2
-; Folding = eBEAAICBAAAAAAAUIAA1ACAD5AIAEAAAACcAAoBBAEAAjAQ9
-; Markers = 571
+; CursorPosition = 116
+; FirstLine = 79
+; Folding = WBEAAICBCAAAAAAQIAAgECAD5AIAEAAAAE9ACoBAAAAAEAg6
+; Markers = 573
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
