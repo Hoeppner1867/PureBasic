@@ -9,19 +9,19 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
     
-; Last Update: 17.08.2019
+; Last Update: 18.08.2019
+;
+; - Added: SelectItems()
+; - Added: GetRowFromLabel()
+; - Bugfixes
 ;
 ; - Changed: SetItemImage() => ImageID -> Image
-; - Added: Cursor keys / PageUp & PageDown / Strg + Pos1 & Strg + End
+; - Added:   Cursor keys / PageUp & PageDown / Strg + Pos1 & Strg + End
+; - Added:   Shift-Select
 ;
 ; - Added:  HideColumn()
 ; - Added:  Flag for CountItems() [#Selected/#Checked/#Inbetween]
 ; - Bugfix: SetItemColor()
-;
-; - Bugfixes: #FitColumn
-;
-; - Added:   attribute '#Padding' for SetAttribute() to change padding if you use #FitColumn
-; - Bugfixes
 ;
 
 ;{ ===== MIT License =====
@@ -77,12 +77,15 @@
 ; ListEx::GetItemID()               - similar to 'GetGadgetItemData()' but with string data
 ; ListEx::GetItemState()            - similar to 'GetGadgetItemState()' [#Selected/#Checked/#Inbetween]
 ; ListEx::GetItemText()             - similar to 'GetGadgetItemText()'
+; ListEx::GetRowFromLabel()         - returns row number for this label
+; ListEx::GetRowLabel()             - returns the label of the row
 ; ListEx::GetState(GNum.i)          - similar to 'GetGadgetState()'
 ; ListEx::HideColumn()              - hides a column
 ; ListEx::Refresh()                 - redraw gadget
 ; ListEx::RemoveColumn()            - similar to 'RemoveGadgetColumn()'
 ; ListEx::RemoveItem()              - similar to 'RemoveGadgetItem()'
 ; ListEx::ResetChangedState()       - reset to not edited
+; ListEx::SelectItems()             - select all rows [#All/#None]
 ; ListEx::SetAttribute()            - similar to SetGadgetAttribute()  [#Padding] 
 ; ListEx::SetAutoResizeColumn()     - column that is reduced when the vertical scrollbar is displayed.
 ; ListEx::SetAutoResizeFlags()      - [#MoveX|#MoveY|#ResizeWidth|#ResizeHeight]
@@ -128,6 +131,9 @@ DeclareModule ListEx
   ;{ _____ Constants _____
   #FirstItem = 0
   #LastItem  = -1
+  
+  #All  = 1
+  #None = 0
   
   #Header   = -1
   #NotValid = -2 
@@ -312,7 +318,7 @@ DeclareModule ListEx
   Declare   CloseEdit(GNum.i)
   Declare.i CountItems(GNum.i, Flag.i=#False)
   Declare   DisableEditing(GNum.i, State.i=#True)
-  Declare   DisableReDraw(GNum.i, State.i=#False)
+  Declare   DisableReDraw(GNum.i, State.i=#True)
   Declare.i EventColumn(GNum)
   Declare.s EventID(GNum.i)
   Declare.i EventRow(GNum.i)
@@ -330,6 +336,7 @@ DeclareModule ListEx
   Declare.s GetItemID(GNum.i, Row.i)
   Declare.i GetItemState(GNum.i, Row.i, Column.i=#PB_Ignore)
   Declare.s GetItemText(GNum.i, Row.i, Column.i)
+  Declare.i GetRowFromLabel(GNum.i, Label.s)
   Declare.s GetRowLabel(GNum.i, Row.i)
   Declare.i GetState(GNum.i)
   Declare.i HideColumn(GNum.i, Column.i, State.i=#True)
@@ -339,6 +346,7 @@ DeclareModule ListEx
   Declare   RemoveItem(GNum.i, Row.i)
   Declare   ResetChangedState(GNum.i)
   Declare   SaveColorTheme(GNum.i, File.s)
+  Declare.i SelectItems(GNum.i, Flag.i=#All)
   Declare   SetAttribute(GNum.i, Attrib.i, Value.i)
   Declare   SetAutoResizeColumn(GNum.i, Column.i, minWidth.f=#PB_Default, maxWidth.f=#PB_Default)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
@@ -739,7 +747,7 @@ Module ListEx
     
     Cursor.i
     Focus.i
-    Strg.i
+    MultiSelect.i
     Changed.i
     FitCols.i
     Flags.i
@@ -1862,7 +1870,7 @@ Module ListEx
   
   CompilerIf #Enable_ProgressBar
     
-    Procedure   DrawProgressBar_(X.f, Y.f, Width.f, Height.f, State.i, Text.s, TextColor.i, Align.i)
+    Procedure   DrawProgressBar_(X.f, Y.f, Width.f, Height.f, State.i, Text.s, TextColor.i, Align.i, FontID.i)
       Define.f Factor
       Define.i pbWidth, pbHeight, textX, textY, Progress, Percent
       
@@ -1893,6 +1901,8 @@ Module ListEx
       
       If Text
         
+        DrawingFont(FontID)
+        
         Text  = ReplaceString(Text, #Progress$, Str(Percent) + "%")
         textX = GetAlignOffset_(Text, pbWidth, Align)
         textY = (Height - TextHeight(Text)) / 2
@@ -1901,6 +1911,8 @@ Module ListEx
         DrawText(X + textX, Y + textY, Text, TextColor)
         
       ElseIf ListEx()\ProgressBar\Flags & #ShowPercent
+        
+        DrawingFont(FontID)
         
         Text  = Str(Percent) + "%"
         textX = Progress - TextWidth(Text)
@@ -2037,7 +2049,7 @@ Module ListEx
   Procedure   Draw_()
     Define.f colX, rowY, textY, textX, colW0, colWidth, rowHeight, imgY, imgX, imgWidth
     Define.i Flags, imgFlags, Align, Mark, Row
-    Define.i FrontColor, FocusColor, RowColor, FontID
+    Define.i FrontColor, FocusColor, RowColor, FontID, RowFontID
     Define.s Key$, Text$
     
     AdjustScrollBars_()
@@ -2144,7 +2156,8 @@ Module ListEx
       EndIf ;}
       
       DrawingFont(ListEx()\Row\FontID)
-
+      FontID    = ListEx()\Row\FontID
+      
       ; _____ Rows _____
       ListEx()\Row\OffSetY = 0
 
@@ -2155,7 +2168,8 @@ Module ListEx
           Continue
         EndIf
         
-        If ListEx()\Rows()\FontID : DrawingFont(ListEx()\Rows()\FontID) : EndIf
+        If ListEx()\Rows()\FontID : FontID = ListEx()\Rows()\FontID : EndIf
+        RowFontID = FontID
         
         rowHeight + ListEx()\Rows()\Height
         
@@ -2167,7 +2181,7 @@ Module ListEx
 
         ;{ Focus row
         FocusColor = BlendColor_(ListEx()\Color\Focus, ListEx()\Color\Back, 10)
-        If ListEx()\Flags & #MultiSelect And ListEx()\Strg = #True
+        If ListEx()\Flags & #MultiSelect And ListEx()\MultiSelect = #True
           If ListEx()\Rows()\State & #Selected
             Box(colX, rowY, ListEx()\Size\Cols, ListEx()\Rows()\Height, FocusColor)
           EndIf
@@ -2192,16 +2206,13 @@ Module ListEx
           
           Flags = ListEx()\Rows()\Column(Key$)\Flags
           
-          If ListEx()\Cols()\FontID
-            FontID = ListEx()\Cols()\FontID
-          Else
-            FontID = ListEx()\Rows()\FontID
-          EndIf
-          DrawingFont(ListEx()\Rows()\FontID)
+          If ListEx()\Cols()\FontID : FontID = ListEx()\Cols()\FontID : EndIf
 
           If CurrentColumn_() = 0 And ListEx()\Flags & #NumberedColumn ;{ Numbering column 0
             
             If Flags & #CellFont : FontID = ListEx()\Rows()\Column(Key$)\FontID : EndIf
+            
+            DrawingFont(FontID)
             
             Text$    = Str(ListIndex(ListEx()\Rows()) + 1)
             textX    = GetAlignOffset_(Text$, ListEx()\Cols()\Width, #Right)
@@ -2217,7 +2228,7 @@ Module ListEx
             DrawingMode(#PB_2DDrawing_Outlined)
             Box(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height + dpiY(1), ListEx()\Color\HeaderGrid)
             
-            If Flags & #CellFont : DrawingFont(FontID) : EndIf
+            If Flags & #CellFont : DrawingFont(RowFontID) : EndIf
             ;}
           Else  
             
@@ -2291,7 +2302,7 @@ Module ListEx
                 
               EndIf
               
-              If Flags & #CellFont : DrawingFont(FontID) : EndIf
+              If Flags & #CellFont : DrawingFont(RowFontID) : EndIf
               
               CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
                 UnclipOutput()
@@ -2300,11 +2311,13 @@ Module ListEx
             ElseIf ListEx()\Cols()\Flags & #ProgressBar ;  ProgressBar
               CompilerIf #Enable_ProgressBar
                 
+                If Flags & #CellFont : FontID = ListEx()\Rows()\Column(Key$)\FontID : EndIf
+                
                 If ListEx()\Rows()\Column(Key$)\Flags & #CellFont : DrawingFont(ListEx()\Rows()\Column(Key$)\FontID) : EndIf
               
-                DrawProgressBar_(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height, ListEx()\Rows()\Column(Key$)\State, ListEx()\Rows()\Column(Key$)\Value, FrontColor, ListEx()\Cols()\Align)
+                DrawProgressBar_(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height, ListEx()\Rows()\Column(Key$)\State, ListEx()\Rows()\Column(Key$)\Value, FrontColor, ListEx()\Cols()\Align, FontID)
 
-                If Flags & #CellFont : DrawingFont(FontID) : EndIf
+                If Flags & #CellFont : DrawingFont(RowFontID) : EndIf
                 
               CompilerEndIf 
             ElseIf Flags & #Image                       ;{ Image
@@ -2324,15 +2337,17 @@ Module ListEx
               EndIf
               
               imgWidth = ListEx()\Rows()\Column(Key$)\Image\Width + dpiX(4)
-              
-              imgY  = (ListEx()\Rows()\Height - ListEx()\Rows()\Column(Key$)\Image\Height) / 2 + dpiY(1)
+              imgY     = (ListEx()\Rows()\Height - ListEx()\Rows()\Column(Key$)\Image\Height) / 2 + dpiY(1)
               
               DrawingMode(#PB_2DDrawing_AlphaBlend)
               DrawImage(ListEx()\Rows()\Column(Key$)\Image\ID, colX + imgX, rowY + imgY, ListEx()\Rows()\Column(Key$)\Image\Width, ListEx()\Rows()\Column(Key$)\Image\Height) 
+              
               Text$ = ListEx()\Rows()\Column(Key$)\Value
               If Text$ <> ""
                 
-                If Flags & #CellFont : DrawingFont(ListEx()\Rows()\Column(Key$)\FontID) : EndIf
+                If Flags & #CellFont : FontID = ListEx()\Rows()\Column(Key$)\FontID : EndIf
+                
+                DrawingFont(FontID)
                 
                 textY = (ListEx()\Rows()\Height - TextHeight("Abc")) / 2 + dpiY(1)
                 
@@ -2373,7 +2388,7 @@ Module ListEx
                 
                 DrawText(colX + textX, rowY + textY, Text$, FrontColor)
                 
-                If Flags & #CellFont : DrawingFont(FontID) : EndIf
+                If Flags & #CellFont : DrawingFont(RowFontID) : EndIf
                 
               EndIf  
               CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
@@ -2389,7 +2404,9 @@ Module ListEx
                   ClipOutput(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height) 
                 CompilerEndIf
                 
-                If Flags & #CellFont : DrawingFont(ListEx()\Rows()\Column(Key$)\FontID) : EndIf
+                If Flags & #CellFont : FontID = ListEx()\Rows()\Column(Key$)\FontID : EndIf
+                
+                DrawingFont(FontID)
                 
                 textY = (ListEx()\Rows()\Height - TextHeight("Abc")) / 2 + dpiY(1)
                 
@@ -2416,7 +2433,7 @@ Module ListEx
                 
                 DrawText(colX + textX, rowY + textY, Text$, FrontColor)
                 
-                If Flags & #CellFont : DrawingFont(FontID) : EndIf
+                If Flags & #CellFont : DrawingFont(RowFontID) : EndIf
                 
                 CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
                   UnclipOutput()
@@ -3155,12 +3172,10 @@ Module ListEx
       
       Select Key
         Case #PB_Shortcut_Left     ;{ Left
-          Debug ListEx()\HScroll\MinPos
           ListEx()\Col\OffsetX - 20
           SetHScrollPosition_()
           ;}
         Case #PB_Shortcut_Right    ;{ Right
-          Debug ListEx()\HScroll\MaxPos
           ListEx()\Col\OffsetX + 20
           SetHScrollPosition_()
           ;}
@@ -3182,7 +3197,6 @@ Module ListEx
           EndIf
           ListEx()\Row\Focus = ListEx()\Row\Current
           SetRowFocus_(ListEx()\Row\Focus)
-          Debug ListEx()\Row\Offset
           ;}
         Case #PB_Shortcut_PageUp   ;{ PageUp
           PageRows = GetPageRows_()
@@ -3193,7 +3207,6 @@ Module ListEx
             ListEx()\Row\Offset = ListEx()\Row\Focus
             If ListEx()\Row\Offset > ListSize(ListEx()\Rows()) - PageRows
               ListEx()\Row\Offset = ListSize(ListEx()\Rows()) - PageRows
-              Debug ListEx()\Row\Offset
             EndIf
             SetVScrollPosition_()
           EndIf ;}
@@ -3227,6 +3240,7 @@ Module ListEx
             EndIf
           EndIf ;}
         Case #PB_Shortcut_Return   ;{ Return
+          ;}
       EndSelect
       
       Draw_()
@@ -3269,7 +3283,7 @@ Module ListEx
 
   Procedure _LeftButtonDownHandler()
     Define.f X, Y, Width, Height
-    Define.i Flags, FontID
+    Define.i Flags, FontID, Row, StartRow, EndRow
     Define.s Key$, Value$
     Define   Image.Image_Structure
     Define   GNum.i = EventGadget()
@@ -3484,29 +3498,54 @@ Module ListEx
               DrawLink_(X, Y, ListEx()\Cols()\Width, ListEx()\Rows()\Height, Value$, ListEx()\Color\ActiveLink, ListEx()\Cols()\Align, FontID, @Image)
               ;}
             Else                                    ;{ Select row(s)
+              
               ListEx()\Focus = #True
-              ;{ Strg - Select
+              
+              ;{ MultiSelect
               If ListEx()\Flags & #MultiSelect And GetGadgetAttribute(GNum, #PB_Canvas_Modifiers) = #PB_Canvas_Control
-                If ListEx()\Strg = #False
+                If ListEx()\MultiSelect = #False
                   PushListPosition(ListEx()\Rows())
                   If SelectElement(ListEx()\Rows(), ListEx()\Row\Focus)
                     ListEx()\Rows()\State | #Selected
                   EndIf
                   PopListPosition(ListEx()\Rows())
-                  ListEx()\Strg = #True
+                  ListEx()\MultiSelect = #True
                 EndIf
                 ListEx()\Rows()\State ! #Selected
-              ElseIf ListEx()\Strg = #True
+              ElseIf ListEx()\Flags & #MultiSelect And GetGadgetAttribute(GNum, #PB_Canvas_Modifiers) = #PB_Canvas_Shift
+                If ListEx()\Row\Focus >= 0
+                  If ListEx()\Row\Current >= ListEx()\Row\Focus
+                    StartRow = ListEx()\Row\Focus
+                    EndRow   = ListEx()\Row\Current
+                  Else
+                    StartRow = ListEx()\Row\Current
+                    EndRow   = ListEx()\Row\Focus
+                  EndIf
+                  PushListPosition(ListEx()\Rows())
+                  ForEach ListEx()\Rows()
+                    Row = ListIndex(ListEx()\Rows())
+                    If Row >= StartRow And Row <= EndRow
+                      ListEx()\Rows()\State | #Selected
+                    Else
+                      ListEx()\Rows()\State & ~#Selected
+                    EndIf  
+                  Next
+                  PopListPosition(ListEx()\Rows())
+                  ListEx()\MultiSelect = #True
+                EndIf
+              ElseIf ListEx()\MultiSelect = #True
                 PushListPosition(ListEx()\Rows())
                 ForEach ListEx()\Rows()
                   ListEx()\Rows()\State & ~#Selected
                 Next
                 PopListPosition(ListEx()\Rows())
-                ListEx()\Strg = #False
+                ListEx()\MultiSelect = #False
               EndIf ;}
+              
               If SelectElement(ListEx()\Rows(), ListEx()\Row\Current)
                 ListEx()\Row\Focus = ListEx()\Row\Current
               EndIf
+              
               Draw_() ; Draw Focus
              ;}
             EndIf
@@ -4473,7 +4512,7 @@ Module ListEx
     
   EndProcedure  
   
-  Procedure   DisableReDraw(GNum.i, State.i=#False)
+  Procedure   DisableReDraw(GNum.i, State.i=#True)
     
     If FindMapElement(ListEx(), Str(GNum))
       
@@ -4912,6 +4951,23 @@ Module ListEx
     
   EndProcedure  
   
+  Procedure.i GetRowFromLabel(GNum.i, Label.s)
+    Define.i Row = #PB_Default
+    
+    PushListPosition(ListEx()\Rows())
+    
+    ForEach ListEx()\Rows()
+      If ListEx()\Rows()\ID = Label
+        Row = ListIndex(ListEx()\Rows())
+        Break
+      EndIf
+    Next
+    
+    PopListPosition(ListEx()\Rows())
+    
+    ProcedureReturn Row
+  EndProcedure
+  
   Procedure.s GetRowLabel(GNum.i, Row.i)
     ProcedureReturn GetItemID(GNum, Row)
   EndProcedure
@@ -5085,6 +5141,37 @@ Module ListEx
     
   EndProcedure  
   
+  Procedure.i SelectItems(GNum.i, Flag.i=#All)
+    ; #All / #None
+    
+    If FindMapElement(ListEx(), Str(GNum))
+      
+      If ListEx()\Flags & #MultiSelect
+        
+        PushListPosition(ListEx()\Rows())
+        
+        ForEach ListEx()\Rows()
+          If Flag = #All
+            ListEx()\Rows()\State | #Selected
+          Else
+            ListEx()\Rows()\State & ~#Selected
+          EndIf
+        Next
+        
+        PopListPosition(ListEx()\Rows())
+        
+        ListEx()\MultiSelect = Flag
+        
+      Else
+        ProcedureReturn #False
+      EndIf
+      
+      If ListEx()\ReDraw : Draw_() : EndIf
+      
+    EndIf  
+      
+  EndProcedure
+  
   Procedure   SetAttribute(GNum.i, Attrib.i, Value.i)
     ; Attrib: #Padding
     
@@ -5094,6 +5181,8 @@ Module ListEx
         Case #Padding
           ListEx()\Col\Padding = dpiX(Value)
       EndSelect
+      
+      If ListEx()\ReDraw : Draw_() : EndIf
       
     EndIf
     
@@ -5221,6 +5310,8 @@ Module ListEx
           ListEx()\Color\HeaderFront  = 4270875
           ListEx()\Color\HeaderBack   = 14599344
           ListEx()\Color\HeaderGrid   = 8750469
+          ListEx()\Color\ProgressBar  = 11369795
+          ListEx()\Color\Gradient     = 13874833
           ListEx()\Color\AlternateRow = ListEx()\Color\Back
           
         Case #Theme_Green
@@ -5229,8 +5320,10 @@ Module ListEx
           ListEx()\Color\Back         = 16383222
           ListEx()\Color\Grid         = 13092807
           ListEx()\Color\HeaderFront  = 2374163
-          ListEx()\Color\HeaderBack   = 9423456
+          ListEx()\Color\HeaderBack   = 6674533
           ListEx()\Color\HeaderGrid   = 8750469
+          ListEx()\Color\ProgressBar  = 2263842
+          ListEx()\Color\Gradient     = 7527538
           ListEx()\Color\AlternateRow = ListEx()\Color\Back
           
         Default
@@ -5764,13 +5857,13 @@ Module ListEx
         
         ListEx()\Focus = #False
         
-        If ListEx()\Strg = #True
+        If ListEx()\MultiSelect = #True
           PushListPosition(ListEx()\Rows())
           ForEach ListEx()\Rows()
             ListEx()\Rows()\State & ~#Selected
           Next
           PopListPosition(ListEx()\Rows())
-          ListEx()\Strg = #False
+          ListEx()\MultiSelect = #False
         EndIf
         
         ListEx()\Row\Focus = #NotValid
@@ -5887,7 +5980,7 @@ CompilerIf #PB_Compiler_IsMainFile
     ButtonGadget(#B_Green, 420,  80, 70, 20, "Green")
     ButtonGadget(#B_Blue,  420, 110, 70, 20, "Blue")
     
-    ListEx::Gadget(#List, 10, 10, 395, 230, "", 25, "", ListEx::#GridLines|ListEx::#CheckBoxes|ListEx::#AutoResize|ListEx::#ThreeState) ; ListEx::#NoRowHeader|ListEx::#MultiSelect|ListEx::#NumberedColumn|ListEx::#CheckBoxes|ListEx::#SingleClickEdit|ListEx::#AutoResize 
+    ListEx::Gadget(#List, 10, 10, 395, 230, "", 25, "", ListEx::#GridLines|ListEx::#CheckBoxes|ListEx::#AutoResize|ListEx::#MultiSelect|ListEx::#ThreeState) ; ListEx::#NoRowHeader|ListEx::#MultiSelect|ListEx::#NumberedColumn|ListEx::#CheckBoxes|ListEx::#SingleClickEdit|ListEx::#AutoResize 
     
     ListEx::DisableReDraw(#List, #True) 
     
@@ -5898,10 +5991,10 @@ CompilerIf #PB_Compiler_IsMainFile
     ListEx::AddColumn(#List, ListEx::#LastItem, "Buttons", 60, "button", ListEx::#Buttons) ; ListEx::#Hide
 
     ; --- Test ProgressBar ---
-    CompilerIf ListEx::#Enable_ProgressBar
-      ;ListEx::AddColumn(#List, ListEx::#LastItem, "Progress", 60, "progress", ListEx::#ProgressBar)
-      ;ListEx::SetProgressBarFlags(#List, ListEx::#ShowPercent)
-    CompilerEndIf
+    ;CompilerIf ListEx::#Enable_ProgressBar
+    ;  ListEx::AddColumn(#List, ListEx::#LastItem, "Progress", 60, "progress", ListEx::#ProgressBar)
+    ;  ListEx::SetProgressBarFlags(#List, ListEx::#ShowPercent)
+    ;CompilerEndIf
     
     ListEx::SetHeaderAttribute(#List, ListEx::#Align, ListEx::#Center)
     
@@ -5960,11 +6053,11 @@ CompilerIf #PB_Compiler_IsMainFile
     EndIf
     
     ; --- Test ProgressBar ---
-    CompilerIf ListEx::#Enable_ProgressBar
-      ;ListEx::SetCellState(#List, 1, "progress", 75) ; or SetItemState(#List, 1, 75, 5)
-      ;ListEx::SetCellState(#List, 2, "progress", 50) ; or SetItemState(#List, 2, 50, 5)
-      ;ListEx::SetCellState(#List, 3, "progress", 25) ; or SetItemState(#List, 3, 25, 5)
-    CompilerEndIf
+    ;CompilerIf ListEx::#Enable_ProgressBar
+    ;  ListEx::SetCellState(#List, 1, "progress", 100) ; or SetItemState(#List, 1, 75, 5)
+    ;  ListEx::SetCellState(#List, 2, "progress", 50) ; or SetItemState(#List, 2, 50, 5)
+    ;  ListEx::SetCellState(#List, 3, "progress", 25) ; or SetItemState(#List, 3, 25, 5)
+    ;CompilerEndIf
     
     ;ListEx::SetState(#List, 9)
     
@@ -6037,10 +6130,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 7
-; FirstLine = 3
-; Folding = WBAAAQCACAAAAAAYOAAIBEAAwBcgABAAAAACOABAAAAAAAElLH+
-; Markers = 581,3146
+; CursorPosition = 4959
+; FirstLine = 980
+; Folding = OBAAAACAAAAAAAAAAwAAAABAAAcDDxAAAAAAAAAEA5AwBAAgAU+
+; Markers = 589,3163
 ; EnableXP
 ; DPIAware
 ; EnableUnicode

@@ -7,11 +7,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 22.06.2019
+; Last Update: 18.08.2019
 ;
-; - Changed: SetAttribute() partially replaced by SetFlags()
-; - Added:   SetFlags() / RemoveFlag()
-; - Added:   #AutoResize
+; - Bugfixes: Cursor
 
 
 ;{ ===== MIT License =====
@@ -243,7 +241,6 @@ Module StringEx
     State.i
     Frequency.i
     Elapsed.i
-    ;Mutex.i
     Thread.i
     Pause.i
   EndStructure ;}
@@ -286,6 +283,7 @@ Module StringEx
     Flags.i
     Text.s
     Undo.s
+    CanvasCursor.i
     Mouse.i
     MaxLength.i
     Padding.i
@@ -716,7 +714,12 @@ Module StringEx
             EndIf
             
           CompilerEndIf
-  
+          
+        Else
+          
+          X = StrgEx()\Padding
+          Y = (Height - TextHeight("X")) / 2  
+          
         EndIf
         ;}
         
@@ -779,33 +782,29 @@ Module StringEx
     Define.i WindowNum = EventWindow()
     
     ForEach StrgEx()
-    
-      If StrgEx()\Window\Num = WindowNum
-        
-        If StrgEx()\Cursor\Pause = #False
+      
+      If StrgEx()\Cursor\Pause = #False
 
-          StrgEx()\Cursor\State ! #True
-        
-          If StartDrawing(CanvasOutput(StrgEx()\CanvasNum))
-            DrawingMode(#PB_2DDrawing_Default)
-            If StrgEx()\Cursor\State
-              Line(StrgEx()\Cursor\X - 1, StrgEx()\Cursor\Y, 1, StrgEx()\Cursor\Height, StrgEx()\Color\Cursor)
-            Else
-              Line(StrgEx()\Cursor\X - 1, StrgEx()\Cursor\Y, 1, StrgEx()\Cursor\Height, StrgEx()\Color\Back)
-            EndIf
-            StopDrawing()
-          EndIf
-          
-        ElseIf StrgEx()\Cursor\State
-          
-          If StartDrawing(CanvasOutput(StrgEx()\CanvasNum))
-            DrawingMode(#PB_2DDrawing_Default)
+        StrgEx()\Cursor\State ! #True
+      
+        If StartDrawing(CanvasOutput(StrgEx()\CanvasNum))
+          DrawingMode(#PB_2DDrawing_Default)
+          If StrgEx()\Cursor\State
+            Line(StrgEx()\Cursor\X - 1, StrgEx()\Cursor\Y, 1, StrgEx()\Cursor\Height, StrgEx()\Color\Cursor)
+          Else
             Line(StrgEx()\Cursor\X - 1, StrgEx()\Cursor\Y, 1, StrgEx()\Cursor\Height, StrgEx()\Color\Back)
-            StopDrawing()
           EndIf
-        
+          StopDrawing()
         EndIf
         
+      ElseIf StrgEx()\Cursor\State
+        
+        If StartDrawing(CanvasOutput(StrgEx()\CanvasNum))
+          DrawingMode(#PB_2DDrawing_Default)
+          Line(StrgEx()\Cursor\X - 1, StrgEx()\Cursor\Y, 1, StrgEx()\Cursor\Height, StrgEx()\Color\Back)
+          StopDrawing()
+        EndIf
+      
       EndIf
       
     Next
@@ -1233,11 +1232,24 @@ Module StringEx
           
           If X > StrgEx()\Button\X
             StrgEx()\Button\State | #Focus
+            If StrgEx()\CanvasCursor <> #PB_Cursor_Default
+              SetGadgetAttribute(StrgEx()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_Default)
+              StrgEx()\CanvasCursor = #PB_Cursor_Default
+            EndIf
           Else
             StrgEx()\Button\State & ~#Focus
+            If StrgEx()\CanvasCursor <> #PB_Cursor_IBeam
+              SetGadgetAttribute(StrgEx()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_IBeam)
+              StrgEx()\CanvasCursor = #PB_Cursor_IBeam
+            EndIf
           EndIf
         
-          Draw_(GNum) 
+          Draw_(GNum)
+        Else
+          If StrgEx()\CanvasCursor <> #PB_Cursor_IBeam
+            SetGadgetAttribute(StrgEx()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_IBeam)
+            StrgEx()\CanvasCursor = #PB_Cursor_IBeam
+          EndIf
         EndIf
         
         StrgEx()\Mouse = #Mouse_Move
@@ -1563,6 +1575,7 @@ Module StringEx
         StrgEx()\Size\Width  = Width
         StrgEx()\Size\Height = Height
         
+        StrgEx()\CanvasCursor = #PB_Cursor_Default
         StrgEx()\Cursor\Pause = #True
         StrgEx()\Cursor\State = #True
         
@@ -1619,7 +1632,7 @@ Module StringEx
           EndIf  
         EndIf
         
-        BindEvent(#Event_Cursor,         @_CursorDrawing(), StrgEx()\Window\Num)
+        BindEvent(#Event_Cursor,         @_CursorDrawing())
         BindEvent(#PB_Event_CloseWindow, @_CloseWindowHandler(), StrgEx()\Window\Num)
         
         Draw_(GNum)
@@ -1888,10 +1901,9 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x64)
-; CursorPosition = 1854
-; FirstLine = 601
-; Folding = OBgBBgAHAAAAsxZAAAA5
+; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
+; CursorPosition = 11
+; Folding = OBwBBgAH9AAAsxfAOAA5
 ; EnableThread
 ; EnableXP
 ; DPIAware

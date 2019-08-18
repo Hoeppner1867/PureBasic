@@ -19,8 +19,9 @@
 ; - Add sound, music or sprite files to the archiv and load them directly from the archive
 
 
-; Last Update: 
+; Last Update: 12.08.2019
 
+;- Added: ReadContent() => Map: PackEx::Content()
 
 ;{ ===== MIT License =====
 ;
@@ -49,25 +50,27 @@
 
 ;{ _____ PackEx - Commands _____
 
-; PackEx::AddFile()          - similar to AddPackFile()
-; PackEx::AddImage()         - similar to SaveImage(), but for archive
-; PackEx::AddJSON()          - similar to SaveJSON(), but for archive
-; PackEx::AddMemory()        - similar to AddPackMemory()
-; PackEx::AddXML()           - similar to SaveXML(), but for archive
-; PackEx::Close()            - similar to ClosePack()  [#MoveBack/#Update]
-; PackEx::Create()           - similar to CreatePack()
-; PackEx::DecompressFile()   - similar to UncompressPackFile()
-; PackEx::DecompressImage()  - similar to LoadImage(), but for archive
-; PackEx::DecompressJSON()   - similar to LoadJSON(), but for archive
-; PackEx::DecompressMemory() - similar to UncompressPackMemory()
-; PackEx::DecompressMusic()  - similar to LoadMusic(), but for archive
-; PackEx::DecompressSound()  - similar to LoadSound(), but for archive
-; PackEx::DecompressXML()    - similar to LoadXML(), but for archive
-; PackEx::IsEncrypted()      - checks if the packed file is encrypted
-; PackEx::Open()             - similar to OpenPack()
-; PackEx::RemoveFile()       - remove file from archive
-; PackEx::SetSalt()          - add your own salt
-; PackEx::CreateSecureKey()  - use secure keys to make brute force attacks more difficult
+; PackEx::AddFile()           - similar to AddPackFile()
+; PackEx::AddImage()          - similar to SaveImage(), but for archive
+; PackEx::AddJSON()           - similar to SaveJSON(), but for archive
+; PackEx::AddMemory()         - similar to AddPackMemory()
+; PackEx::AddXML()            - similar to SaveXML(), but for archive
+; PackEx::Close()             - similar to ClosePack()  [#MoveBack/#Update]
+; PackEx::Create()            - similar to CreatePack()
+; PackEx::DecompressFile()    - similar to UncompressPackFile()
+; PackEx::DecompressImage()   - similar to LoadImage(), but for archive
+; PackEx::DecompressJSON()    - similar to LoadJSON(), but for archive
+; PackEx::DecompressMemory()  - similar to UncompressPackMemory()
+; PackEx::DecompressMusic()   - similar to LoadMusic(), but for archive
+; PackEx::DecompressSound()   - similar to LoadSound(), but for archive
+; PackEx::DecompressXML()     - similar to LoadXML(), but for archive
+; PackEx::IsEncrypted()       - checks if the packed file is encrypted
+; PackEx::Open()              - similar to OpenPack()
+; PackEx::ProgressProcedure() - define a procedure to show progress
+; PackEx::ReadContent()       - Read archive content (-> Map: PackEx::Content_Structure)
+; PackEx::RemoveFile()        - remove file from archive
+; PackEx::SetSalt()           - add your own salt
+; PackEx::CreateSecureKey()   - use secure keys to make brute force attacks more difficult
 
 ;}
 
@@ -77,6 +80,9 @@ DeclareModule PackEx
   ;- ==================================
 	;-   DeclareModule - Constants
 	;- ==================================
+  
+  #SecureKey = 1
+  #Packer    = 2
   
   EnumerationBinary 
     #Create
@@ -108,25 +114,51 @@ DeclareModule PackEx
   EndEnumeration
   
   ;- ==================================
+	;-   DeclareModule - Structures
+  ;- ==================================
+  
+  Structure Progress_Structure
+    Gadget.i
+    State.i
+    Row.i
+    Index.i
+    Label.s
+    Flag.i
+  EndStructure
+  Global Progress.Progress_Structure
+  
+  Structure Content_Structure
+    FileName.s
+    Size.i
+    Compressed.i
+    Type.i
+    Encrypted.i
+  EndStructure
+  Global NewMap Content.Content_Structure()
+  
+  ;- ==================================
 	;-   DeclareModule
   ;- ==================================
   
-  Declare.i AddFile(Pack.i, File.s, PackedFileName.s, Key.s="")
-  Declare.i AddImage(Pack.i, Image.i, PackedFileName.s, Key.s="")
+  Declare.i AddFile(Pack.i, File.s, PackedFileName.s, Key.s="", ProgressBar.i=#False)
+  Declare.i AddImage(Pack.i, Image.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
   Declare.i AddJSON(Pack.i, JSON.i, PackedFileName.s, Key.s="")
   Declare.i AddMemory(Pack.i, *Buffer, Size.i, PackedFileName.s, Key.s="")
   Declare.i AddXML(Pack.i, XML.i, PackedFileName.s, Key.s="")
   Declare   Close(Pack.i, Flags.i=#False)
   Declare.i Create(Pack.i, File.s, Plugin.i=#PB_PackerPlugin_Zip, Level.i=9)
-  Declare.i DecompressFile(Pack.i, File.s, PackedFileName.s, Key.s="")
-  Declare.i DecompressImage(Pack.i, Image.i, PackedFileName.s, Key.s="")
+  Declare.i DecompressFile(Pack.i, File.s, PackedFileName.s, Key.s="", ProgressBar.i=#False)
+  Declare.i DecompressImage(Pack.i, Image.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
   Declare.i DecompressJSON(Pack.i, JSON.i, PackedFileName.s, Key.s="", Flags.i=#False)
   Declare.i DecompressMemory(Pack.i, *Buffer, Size.i, PackedFileName.s, Key.s="")
   Declare.i DecompressMusic(Pack.i, Music.i, PackedFileName.s, Key.s="", Flags.i=#False)
-  Declare.i DecompressSound(Pack.i, Sound.i, PackedFileName.s, Key.s="")
+  Declare.i DecompressSound(Pack.i, Sound.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
   Declare.i DecompressXML(Pack.i, XML.i, PackedFileName.s, Key.s="", Flags.i=#False, Encoding.i=#PB_UTF8)
+  Declare.s FormatBytes(Size.q)
   Declare.i IsEncrypted(Pack.i, PackedFileName.s)
   Declare.i Open(Pack.i, File.s, Plugin.i=#PB_PackerPlugin_Zip)
+  Declare   ProgressProcedure(*ProcAddress)
+  Declare   ReadContent(Pack.i)
   Declare.i RemoveFile(Pack.i, PackedFileName.s) 
   Declare   SetSalt(String.s)
   Declare.s CreateSecureKey(Key.s, Loops.i=2048, ProgressBar.i=#PB_Default)
@@ -163,6 +195,7 @@ Module PackEx
     KeyStretching.i
     Loops.i
     Hash.s
+    *ProcPtr
   EndStructure ;}
   Global qAES.AES_Structure
   
@@ -191,6 +224,17 @@ Module PackEx
   ;- ==================================
 	;-   Module - Internal Procedures
 	;- ==================================
+  
+  Procedure.s StrD_(Value.d)
+    If Value < 10
+      ProcedureReturn RTrim(RTrim(StrD(Value, 2), "0"), ".")
+    ElseIf Value < 100
+      ProcedureReturn RTrim(RTrim(StrD(Value, 1), "0"), ".")
+    Else
+      ProcedureReturn RTrim(RTrim(StrD(Value, 0), "0"), ".")
+    EndIf
+  EndProcedure 
+  
   
 	Procedure.q GetCounter_()
 	  Define.q Counter
@@ -245,6 +289,22 @@ Module PackEx
     EndIf
     
     ProcedureReturn Key
+  EndProcedure
+  
+  
+  Procedure   SetProgressState_(Gadget.i, State.i, Flag.i)
+
+    If qAES\ProcPtr
+      Progress\Gadget = Gadget
+      Progress\State  = State
+      Progress\Flag   = Flag
+      CallFunctionFast(qAES\ProcPtr)
+    Else
+      SetGadgetState(Gadget, State)
+    EndIf
+    
+    While WindowEvent() : Wend
+    
   EndProcedure
   
   
@@ -413,7 +473,50 @@ Module PackEx
 	  ProcedureReturn #True
 	EndProcedure
 	
-	
+  Procedure   CryptBlockwise(*Buffer, Size.i, Key.s, Counter.q, ProgressBar.i=#False)
+    Define.i BlockSize, Bytes
+    
+    Define.q Timer, CounterAES
+    BlockSize = 4096 << 2
+	  Bytes = 0
+	  
+    ;{ ___ ProgressBar ___
+    If IsGadget(ProgressBar)
+      Timer = ElapsedMilliseconds()
+      SetProgressState_(ProgressBar, 0, #Packer)
+    EndIf ;}
+	  
+	  Repeat
+	    
+	    If Bytes + BlockSize <= Size
+	      SmartCoder(#Binary, *Buffer + Bytes, *Buffer + Bytes, BlockSize, Key, Counter, CounterAES)
+	    Else
+	      SmartCoder(#Binary, *Buffer + Bytes, *Buffer + Bytes, Size - Bytes, Key, Counter, CounterAES)
+	    EndIf 
+	    
+	    ;{ ___ ProgressBar ___
+      If IsGadget(ProgressBar)
+        If ElapsedMilliseconds() > Timer + 30
+          SetProgressState_(ProgressBar, 100 * Bytes / Size, #Packer)
+          Timer = ElapsedMilliseconds()
+        EndIf
+      EndIf ;}
+	    
+	    Bytes + BlockSize
+	    
+	    Counter + 1
+	    CounterAES + 1
+	    
+	  Until Bytes >= Size
+	  
+	  ;{ ___ ProgressBar ___
+	  If IsGadget(ProgressBar)
+      SetProgressState_(ProgressBar, 100, #Packer)
+    EndIf ;}
+	  
+  EndProcedure	
+  
+  
 	Procedure   EncodeHash_(Hash.s, Counter.q, *Hash)
     Define.i i
     
@@ -448,7 +551,7 @@ Module PackEx
   EndProcedure
   
   
-	Procedure.i DecryptMemory_(*Buffer, Size.i, Key.s)
+	Procedure.i DecryptMemory_(*Buffer, Size.i, Key.s, ProgressBar.i=#False)
 	  Define.q Counter, qAES_ID
 	  
 	  Counter   = PeekQ(*Buffer + Size - 8)
@@ -461,7 +564,7 @@ Module PackEx
       
       Size - 48
       
-      SmartCoder(#Binary, *Buffer, *Buffer, Size, Key, Counter)
+      CryptBlockwise(*Buffer, Size, Key, Counter, ProgressBar)
       
       If qAES\Hash <> Fingerprint(*Buffer, Size, #PB_Cipher_SHA3)
         Error = #ERROR_INTEGRITY_CORRUPTED
@@ -476,7 +579,7 @@ Module PackEx
 	  ProcedureReturn #True
 	EndProcedure
 	
-	Procedure.i AddCryptMemory_(PackID, *Buffer, Size.i, PackedFileName.s, Key.s)
+	Procedure.i AddCryptMemory_(PackID, *Buffer, Size.i, PackedFileName.s, Key.s, ProgressBar.i=#False)
 	  Define.i Size, Result
 	  Define.q Counter,qAES_ID = #qAES
 	  Define   *Buffer, *Hash
@@ -487,7 +590,8 @@ Module PackEx
     *Hash = AllocateMemory(32)
     If *Hash : EncodeHash_(qAES\Hash, Counter, *Hash) : EndIf
     
-    SmartCoder(#Binary, *Buffer, *Buffer, Size, Key, Counter)
+    CryptBlockwise(*Buffer, Size, Key, Counter, ProgressBar)
+    
     SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
     
     CopyMemory(*Hash, *Buffer + Size, 32)
@@ -501,7 +605,7 @@ Module PackEx
     ProcedureReturn Result
 	EndProcedure
 	
-	Procedure.i AddCryptFile_(PackID, File.s, PackedFileName.s, Key.s) 
+	Procedure.i AddCryptFile_(PackID, File.s, PackedFileName.s, Key.s, ProgressBar.i=#False) 
 	  Define.i FileID, Size, Result
     Define.q Counter, cCounter, checkID, qAES_ID = #qAES
     Define   *Buffer, *Hash
@@ -531,7 +635,8 @@ Module PackEx
               *Hash = AllocateMemory(32)
               If *Hash : EncodeHash_(qAES\Hash, Counter, *Hash) : EndIf
               
-              SmartCoder(#Binary, *Buffer, *Buffer, Size, Key, Counter)
+              CryptBlockwise(*Buffer, Size, Key, Counter, ProgressBar)
+              
               SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
               
               CopyMemory(*Hash, *Buffer + Size, 32)
@@ -778,10 +883,68 @@ Module PackEx
 	EndProcedure
 	
 	
+	Procedure.i IsEncrypted_(FileName.s, Size.i)
+    Define.i Result = -1
+    Define.q Counter, qAES_ID
+    Define   *Buffer  
+    
+    If Size <= 0 : ProcedureReturn #False : EndIf 
+    
+    *Buffer = AllocateMemory(Size)
+    If *Buffer
+      
+      If UncompressPackMemory(PackEx()\ID, *Buffer, Size, FileName) <> -1
+       
+        qAES_ID = PeekQ(*Buffer + Size - 16)
+        Counter = PeekQ(*Buffer + Size - 8)
+        SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
+        
+        If qAES_ID = #qAES
+          Result = #True
+        Else
+          Result = #False
+        EndIf 
+       
+      EndIf
+      
+      FreeMemory(*Buffer)
+    EndIf
+      
+    ProcedureReturn Result
+  EndProcedure
+	
+	
   ;- ==================================
 	;-   Module - Declared Procedures
 	;- ==================================
-	
+  
+  Procedure.s FormatBytes(Size.q)
+    Define i.i, Calc.d
+    Define.s Units = "KB|MB|GB"
+    
+    If Size < 1024
+      ProcedureReturn Str(Size) + " Byte"  
+    EndIf
+    
+    Calc = Size / 1024
+    
+    For i=1 To 3
+      If Calc < 1024
+        ProcedureReturn StrD_(Calc) + " " + StringField(Units, i, "|")
+      EndIf
+      Calc / 1024
+    Next 
+    
+    ProcedureReturn StrD_(Calc) + " TB"
+  EndProcedure
+  
+  Procedure   ProgressProcedure(*ProcAddress)
+    
+    qAES\ProcPtr = *ProcAddress
+    
+  EndProcedure
+  
+  
   Procedure.s CreateSecureKey(Key.s, Loops.i=2048, ProgressBar.i=#PB_Default)
     ProcedureReturn KeyStretching_(Key, Loops, ProgressBar)
   EndProcedure
@@ -798,33 +961,45 @@ Module PackEx
         
         Size = PackEx()\Files()\Size
         
-        *Buffer = AllocateMemory(Size)
-        If *Buffer
+        If IsEncrypted_(PackedFileName, Size)
           
-          If UncompressPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName) <> -1
-           
-            qAES_ID = PeekQ(*Buffer + Size - 16)
-            Counter = PeekQ(*Buffer + Size - 8)
-            SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
-            
-            If qAES_ID = #qAES
-              Result = #True
-            Else
-              Result = #False
-            EndIf 
-           
-          EndIf
+          ProcedureReturn #True
           
-          FreeMemory(*Buffer)
         EndIf
         
       EndIf
       
     EndIf
     
-    ProcedureReturn Result
+    ProcedureReturn #False
   EndProcedure
   
+  Procedure   ReadContent(Pack.i)
+    Define Name.s, Size.i
+    
+    If FindMapElement(PackEx(), Str(Pack))
+    
+      ClearMap(Content())
+      
+  	  If PackEx()\Mode = #Create : ProcedureReturn #False : EndIf
+  	  
+      If ExaminePack(PackEx()\ID)
+        While NextPackEntry(PackEx()\ID)
+          Name = PackEntryName(PackEx()\ID)
+          Size = PackEntrySize(PackEx()\ID, #PB_Packer_UncompressedSize)
+          If AddMapElement(Content(), Name)
+            Content()\FileName   = Name
+            Content()\Size       = Size
+            Content()\Compressed = PackEntrySize(PackEx()\ID, #PB_Packer_CompressedSize)
+            Content()\Type       = PackEntryType(PackEx()\ID)
+            Content()\Encrypted  = IsEncrypted_(Name, Size)
+          EndIf
+        Wend
+      EndIf
+      
+    EndIf
+    
+	EndProcedure
   
 	Procedure.i Create(Pack.i, File.s, Plugin.i=#PB_PackerPlugin_Zip, Level.i=9)
 	  
@@ -870,7 +1045,7 @@ Module PackEx
   EndProcedure
   
 
-  Procedure.i AddFile(Pack.i, File.s, PackedFileName.s, Key.s="")
+  Procedure.i AddFile(Pack.i, File.s, PackedFileName.s, Key.s="", ProgressBar.i=#False)
     Define.i FileID, Size
     
     If FindMapElement(PackEx(), Str(Pack))
@@ -882,7 +1057,7 @@ Module PackEx
       Else    ; #Create
         
         If Key ; encrypt & pack file
-          Size = AddCryptFile_(PackEx()\ID, File, PackedFileName, Key)
+          Size = AddCryptFile_(PackEx()\ID, File, PackedFileName, Key,ProgressBar)
         Else   ; pack file
           If AddPackFile(PackEx()\ID, File, PackedFileName)
             Size = FileSize(File)
@@ -902,7 +1077,7 @@ Module PackEx
     ProcedureReturn Size
   EndProcedure
   
-  Procedure.i DecompressFile(Pack.i, File.s, PackedFileName.s, Key.s="")
+  Procedure.i DecompressFile(Pack.i, File.s, PackedFileName.s, Key.s="", ProgressBar.i=#False)
     Define.i FileID, Size, Result = -1
     Define   *Buffer
     
@@ -919,7 +1094,7 @@ Module PackEx
             
             If UncompressPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName) <> -1
               
-              If DecryptMemory_(*Buffer, Size, Key)
+              If DecryptMemory_(*Buffer, Size, Key, ProgressBar)
                 
                 Size - 48
               
@@ -1270,7 +1445,7 @@ Module PackEx
   EndProcedure
   
   
-  Procedure.i AddImage(Pack.i, Image.i, PackedFileName.s, Key.s="")
+  Procedure.i AddImage(Pack.i, Image.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
     Define   *Buffer
     Define.q Counter, Hash, qAES_ID = #qAES
     Define.i Size, Result
@@ -1292,7 +1467,7 @@ Module PackEx
               If PackEx()\Mode = #Open
                 Result = AddMemory2Pack_(*Buffer, Size, PackedFileName, Key)
               Else
-                Result = AddCryptMemory_(PackEx()\ID, *Buffer, Size, PackedFileName, Key)
+                Result = AddCryptMemory_(PackEx()\ID, *Buffer, Size, PackedFileName, Key, ProgressBar)
               EndIf
               
               Size + 48
@@ -1326,7 +1501,7 @@ Module PackEx
     ProcedureReturn Result
   EndProcedure
   
-  Procedure.i DecompressImage(Pack.i, Image.i, PackedFileName.s, Key.s="")
+  Procedure.i DecompressImage(Pack.i, Image.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
     Define   *Buffer
     Define.q Counter, Hash, qAES_ID
     Define.i Size, Result
@@ -1342,7 +1517,7 @@ Module PackEx
           
           If UncompressPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName) <> -1
             
-            If DecryptMemory_(*Buffer, Size, Key)
+            If DecryptMemory_(*Buffer, Size, Key, ProgressBar)
 
               Result = CatchImage(Image, *Buffer, Size - 48)
               
@@ -1368,7 +1543,7 @@ Module PackEx
   EndProcedure
   
   
-  Procedure.i DecompressSound(Pack.i, Sound.i, PackedFileName.s, Key.s="")
+  Procedure.i DecompressSound(Pack.i, Sound.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
     Define   *Buffer
     Define.q Counter, Hash, qAES_ID
     Define.i Size, Result
@@ -1384,7 +1559,7 @@ Module PackEx
             
             If UncompressPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName) <> -1
               
-              If DecryptMemory_(*Buffer, Size, Key)
+              If DecryptMemory_(*Buffer, Size, Key, ProgressBar)
 
                 Result = CatchSound(Sound, *Buffer, Size - 48)
                 
@@ -1539,7 +1714,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 1
+  #Example = 2
   
   ; 1: normal
   ; 2: encrypted
@@ -1547,6 +1722,7 @@ CompilerIf #PB_Compiler_IsMainFile
   ; 4: XML
   ; 5: JSON
   ; 6: Image
+  ; 7: Read Content
   
   UseZipPacker()
 
@@ -1596,11 +1772,18 @@ CompilerIf #PB_Compiler_IsMainFile
         PackEx::AddFile(#Pack, "Test.txt", "Test.txt")
         PackEx::Close(#Pack)
       EndIf
-      
+
       MessageRequester("PackEx", "Remove 'PureBasic.jpg'")
       
       If PackEx::Open(#Pack, "TestPack.zip")
+        
+        PackEx::ReadContent(#Pack)
+        ForEach PackEx::Content()
+          Debug ">> " + PackEx::Content()\FileName
+        Next
+        
         PackEx::RemoveFile(#Pack, "PureBasic.jpg")
+        
         PackEx::Close(#Pack)
       EndIf
       ;}
@@ -1674,15 +1857,35 @@ CompilerIf #PB_Compiler_IsMainFile
         EndIf
         PackEx::Close(#Pack) 
       EndIf
+      ;}
+    CompilerCase 7 ;{ ReadContent()
+      
+      If PackEx::Create(#Pack, "TestPack.zip")
+        PackEx::AddFile(#Pack, "PureBasic.jpg", "PureBasic.jpg")
+        PackEx::AddFile(#Pack, "Test.txt", "Test.txt", Key$)
+        PackEx::Close(#Pack)
+      EndIf
+
+      If PackEx::Open(#Pack, "TestPack.zip")
+        
+        PackEx::ReadContent(#Pack)
+        
+        ForEach PackEx::Content()
+          Entry$ = ">> " + PackEx::Content()\FileName + " (" +PackEx::FormatBytes(PackEx::Content()\Size) + ")"
+          If PackEx::Content()\Encrypted : Entry$ + " [Encrypted]" : EndIf
+          Debug Entry$
+        Next
+
+        PackEx::Close(#Pack)
+      EndIf
       
       ;}
   CompilerEndSelect    
   
-  
 CompilerEndIf  
-; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x64)
-; CursorPosition = 1541
-; FirstLine = 155
-; Folding = KwHAAAQCMgz-
+; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
+; CursorPosition = 1706
+; FirstLine = 317
+; Folding = cACHQTAwlADQA-
 ; EnableXP
 ; DPIAware
