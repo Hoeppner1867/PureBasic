@@ -6,6 +6,9 @@
 ;/
 ;/ Module by Thorsten1867 (04/2019)
 ;/
+;/ Algorithmus für Silbentrennung von Frankling Mark Liang (1983)
+;/ Pattern based on (http://tug.org/tex-hyphen/)
+;/
 
 ; Last Update: 
 
@@ -2739,10 +2742,9 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf
-; IDE Options = PureBasic 5.70 LTS (Windows - x86)
-; CursorPosition = 280
-; FirstLine = 195
-; Folding = PCQAgBAQCYAAAAAAAAAHCI5
-; Markers = 1785
+; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
+; CursorPosition = 8
+; Folding = OCQAgBAQCYAAAAAAAAAHCI5
+; Markers = 1788
 ; EnableXP
 ; DPIAware

@@ -6,8 +6,13 @@
 ;/
 ;/ Module by Thorsten1867 (11/2018)
 ;/
+;/ Algorithmus für Silbentrennung von Frankling Mark Liang (1983)
+;/ Pattern based on (http://tug.org/tex-hyphen/)
+;/
 
-; Last Update:  01.04.2019
+; Last Update:  01.07.2019
+;
+; Bugfix: Cursor
 
 ;{ ===== MIT License =====
 ;
@@ -152,6 +157,7 @@ DeclareModule EditEx
     #ReadOnly ; must be 1 (!)
     #WordWrap
     #Hyphenation
+    #MaxTextWidth
     #AutoHide
     #Borderless
     #CtrlChars
@@ -206,7 +212,7 @@ DeclareModule EditEx
     Enumeration #PB_Event_FirstCustomValue
       #Event_Cursor
     EndEnumeration
-    
+
   CompilerEndIf
   
   
@@ -277,6 +283,7 @@ DeclareModule EditEx
   Declare   InsertText(GNum.i, Text.s)
   Declare.i IsSelected(GNum.i) 
   Declare   Paste(GNum.i)
+  Declare.i Pixel(Value.i, Unit.s="mm")
   Declare   ReDraw_(GNum.i)
   Declare   RemoveGadget(GNum.i)
   Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
@@ -665,7 +672,11 @@ Module EditEx
   Procedure.f dpiY(Num.i)
     ProcedureReturn DesktopScaledY(Num)
   EndProcedure
- 
+  
+  Procedure.i Pixel_(pt.i)
+    ProcedureReturn Round((pt * 96) / 72, #PB_Round_Nearest)
+  EndProcedure
+  
   ; ----- Text / TextArea -----
   
   Procedure   IsTextArea_(X.i, Y.i)
@@ -847,16 +858,9 @@ Module EditEx
   Procedure   ChangeMouseCursor_(GNum.i, CursorX.i, CursorY.i) 
     
     If IsTextArea_(CursorX, CursorY)
-      If IsSelectedArea_(CursorX, CursorY)
-        If EditEx()\Mouse\Cursor <> #PB_Cursor_Default
-          SetGadgetAttribute(GNum, #PB_Canvas_Cursor, #PB_Cursor_Default)
-          EditEx()\Mouse\Cursor = #PB_Cursor_Default
-        EndIf
-      Else
-        If EditEx()\Mouse\Cursor <> #PB_Cursor_IBeam
-          SetGadgetAttribute(GNum, #PB_Canvas_Cursor, #PB_Cursor_IBeam)
-          EditEx()\Mouse\Cursor = #PB_Cursor_IBeam
-        EndIf
+      If EditEx()\Mouse\Cursor <> #PB_Cursor_IBeam
+        SetGadgetAttribute(GNum, #PB_Canvas_Cursor, #PB_Cursor_IBeam)
+        EditEx()\Mouse\Cursor = #PB_Cursor_IBeam
       EndIf
     Else
       If EditEx()\Mouse\Cursor <> #PB_Cursor_Default
@@ -1131,7 +1135,7 @@ Module EditEx
           If HScroll
             ResizeGadget(EditEx()\VScroll\ID, GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 1, 2, #Scroll_Width, GadgetHeight(EditEx()\CanvasNum) - #Scroll_Width - 2) 
           Else
-            ResizeGadget(EditEx()\VScroll\ID, GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 1, 2, #Scroll_Width, GadgetHeight(EditEx()\CanvasNum) - 2)
+            ResizeGadget(EditEx()\VScroll\ID, GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 1, 2, #Scroll_Width, GadgetHeight(EditEx()\CanvasNum) - 4)
           EndIf 
         ElseIf Not VScroll And Not EditEx()\VScroll\Hide
           HideGadget(EditEx()\VScroll\ID, #True)
@@ -2847,7 +2851,7 @@ Module EditEx
     If FindMapElement(EditEx(), Str(GNum))
       
       If StartDrawing(CanvasOutput(EditEx()\CanvasNum)) 
-
+        
         If EditEx()\FontID ;{ Drawing Font
         
           DrawingFont(EditEx()\FontID)
@@ -2885,17 +2889,17 @@ Module EditEx
         
         EditEx()\Text\Height = TextHeight("Abc")
         
+        EditEx()\Cursor\FrontColor = EditEx()\Color\Front
+        EditEx()\Cursor\BackColor  = EditEx()\Color\Back
+        EditEx()\Cursor\BackChar   = ""
+        
+        ;{ --- Draw Background ---
+        DrawingMode(#PB_2DDrawing_Default)
+        Box(0, 0, dpiX(GadgetWidth(EditEx()\CanvasNum)), dpiY(GadgetHeight(EditEx()\CanvasNum)), EditEx()\Color\Back)  
+        ;} ------------------
+        
         If ListSize(EditEx()\Items()) > 0
-          
-          EditEx()\Cursor\FrontColor = EditEx()\Color\Front
-          EditEx()\Cursor\BackColor  = EditEx()\Color\Back
-          EditEx()\Cursor\BackChar   = ""
-          
-          ;{ --- Draw Background ---
-          DrawingMode(#PB_2DDrawing_Default)
-          Box(0, 0, dpiX(GadgetWidth(EditEx()\CanvasNum)), dpiY(GadgetHeight(EditEx()\CanvasNum)), EditEx()\Color\Back)  
-          ;} ------------------
-          
+
           ; --- Hyphenation / WordWrap ---
           CompilerIf #Enable_Hyphenation
             
@@ -3161,18 +3165,17 @@ Module EditEx
             Box(dpiX(2), dpiY(GadgetHeight(EditEx()\CanvasNum) - #Scroll_Width - 1), dpiX(GadgetWidth(EditEx()\CanvasNum) - 2), dpiY(#Scroll_Width + 1), EditEx()\Color\ScrollBar)
           EndIf
           ;}
-          
-          ;{ _____ Border ____
-          If EditEx()\Flags & #Borderless = #False
-            DrawingMode(#PB_2DDrawing_Outlined)
-            Box(1, 1, dpiX(GadgetWidth(EditEx()\CanvasNum)) - 2, dpiY(GadgetHeight(EditEx()\CanvasNum)) - 2, EditEx()\Color\Back)
-            Box(0, 0, dpiX(GadgetWidth(EditEx()\CanvasNum)), dpiY(GadgetHeight(EditEx()\CanvasNum)), EditEx()\Color\Border)
-          EndIf
-          ;}
-          
-          AdjustScrolls_(#False)
-          
+
         EndIf  
+        
+        ;{ _____ Border ____
+        If EditEx()\Flags & #Borderless = #False
+          DrawingMode(#PB_2DDrawing_Outlined)
+          Box(1, 1, dpiX(GadgetWidth(EditEx()\CanvasNum)) - 2, dpiY(GadgetHeight(EditEx()\CanvasNum)) - 2, EditEx()\Color\Back)
+          Box(0, 0, dpiX(GadgetWidth(EditEx()\CanvasNum)), dpiY(GadgetHeight(EditEx()\CanvasNum)), EditEx()\Color\Border)
+        EndIf ;}
+        
+        AdjustScrolls_(#False)
         
         StopDrawing()
 
@@ -3188,17 +3191,20 @@ Module EditEx
   
   Procedure _CursorDrawing()
     Define.i WindowNum = EventWindow()
+    Define.i GadgetNum = EventGadget()
     
-    ForEach EditEx()
+    If EditEx()\Window\Num = WindowNum
       
-      If EditEx()\Window\Num = WindowNum
-
+      PushMapPosition(EditEx())
+      
+      If FindMapElement(EditEx(), Str(GadgetNum))
+        
         If EditEx()\Cursor\Pause = #False
           
           EditEx()\Cursor\State ! #True
           
           If StartDrawing(CanvasOutput(EditEx()\CanvasNum))
-            DrawingFont(EditEx()\FontID)
+            If EditEx()\FontID : DrawingFont(EditEx()\FontID) : EndIf 
             DrawingMode(#PB_2DDrawing_Default)
             If EditEx()\Cursor\State
               Line(EditEx()\Cursor\X, EditEx()\Cursor\Y, dpiX(1), EditEx()\Cursor\Height, EditEx()\Color\Cursor)
@@ -3217,7 +3223,7 @@ Module EditEx
         ElseIf EditEx()\Cursor\State
           
           If StartDrawing(CanvasOutput(EditEx()\CanvasNum))
-            DrawingFont(EditEx()\FontID)
+            If EditEx()\FontID : DrawingFont(EditEx()\FontID) : EndIf 
             DrawingMode(#PB_2DDrawing_Default)
             DrawText(EditEx()\Cursor\X, EditEx()\Cursor\Y, EditEx()\Cursor\BackChar, EditEx()\Cursor\FrontColor, EditEx()\Cursor\BackColor)
             If EditEx()\VScroll\Hide
@@ -3233,7 +3239,9 @@ Module EditEx
         
       EndIf
       
-    Next
+      PopMapPosition(EditEx())
+      
+    EndIf
     
   EndProcedure
   
@@ -3243,7 +3251,19 @@ Module EditEx
     Repeat
       
       If ElapsedTime >= Frequency
-        PostEvent(#Event_Cursor)
+        
+        PushMapPosition(EditEx())
+        
+        ForEach EditEx()
+          If IsGadget(EditEx()\CanvasNum)
+            If EditEx()\Cursor\Pause = #False Or EditEx()\Cursor\State = #True
+              PostEvent(#Event_Cursor, EditEx()\Window\Num, EditEx()\CanvasNum)
+            EndIf
+          EndIf
+        Next
+        
+        PopMapPosition(EditEx())
+        
         ElapsedTime = 0
       EndIf
       
@@ -3256,13 +3276,15 @@ Module EditEx
   EndProcedure
   
   
+  
   Procedure _FocusHandler()
     Define.i GNum = EventGadget()
     
     If FindMapElement(EditEx(), Str(GNum))
       
       EditEx()\Cursor\Pause = #False
-      EditEx()\Cursor\State = #True
+      EditEx()\Cursor\State = #False
+      ;_CursorDrawing()
       
     EndIf  
  
@@ -3274,7 +3296,8 @@ Module EditEx
     If FindMapElement(EditEx(), Str(GNum))
       
       EditEx()\Cursor\Pause = #True
-
+      _CursorDrawing()
+      
     EndIf
     
   EndProcedure  
@@ -3864,7 +3887,9 @@ Module EditEx
     
     
     If FindMapElement(EditEx(), Str(GNum))
-
+      
+      If ListSize(EditEx()\Items()) = #False : ProcedureReturn #False : EndIf
+      
       If IsMenu(EditEx()\PopupMenu)
 
         X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
@@ -3886,10 +3911,12 @@ Module EditEx
     
     If FindMapElement(EditEx(), Str(GNum))
       
+      If ListSize(EditEx()\Items()) = #False : ProcedureReturn #False : EndIf
+      
       CursorX   = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
       CursorY   = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
       CursorRow = GetRow_(CursorY)
-      
+
       If SelectElement(EditEx()\Items(), CursorRow)
         
         EditEx()\Cursor\Pos   = CursorPos_(CursorRow, CursorX)
@@ -3919,6 +3946,8 @@ Module EditEx
     
     If FindMapElement(EditEx(), Str(GNum))
       
+      If ListSize(EditEx()\Items()) = #False : ProcedureReturn #False : EndIf
+      
       CursorX   = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
       CursorY   = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
       CursorRow = GetRow_(CursorY)
@@ -3947,6 +3976,8 @@ Module EditEx
     Define.s Text$
     
     If FindMapElement(EditEx(), Str(GNum))
+      
+      If ListSize(EditEx()\Items()) = #False : ProcedureReturn #False : EndIf
       
       If ListIndex(EditEx()\Items()) >= 0
         
@@ -3985,6 +4016,8 @@ Module EditEx
     Define.i CursorPos, CursorX, CursorY, CursorRow, Flag, Result
     
     If FindMapElement(EditEx(), Str(GNum))
+      
+      If ListSize(EditEx()\Items()) = #False : ProcedureReturn #False : EndIf
       
       CursorX   = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
       CursorY   = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
@@ -4042,7 +4075,7 @@ Module EditEx
     Define.i Delta, ScrollPos
     
     If FindMapElement(EditEx(), Str(GNum))
-      
+
       Delta = GetGadgetAttribute(GNum, #PB_Canvas_WheelDelta)
       
       If IsGadget(EditEx()\VScroll\ID)
@@ -4118,7 +4151,7 @@ Module EditEx
       If EditEx()\Window\Num = Window
         
         CompilerIf Defined(ModuleEx, #PB_Module) = #False
-          If MapSize(EditEx()) = 1 And Thread\Active
+          If MapSize(EditEx()) = 1
             Thread\Exit = #True
             Delay(100)
             If IsThread(Thread\Num) : KillThread(Thread\Num) : EndIf
@@ -4134,9 +4167,32 @@ Module EditEx
     
   EndProcedure
   
+  
   ;- ==========================================================================
   ;-   Module - Declared Procedures
   ;- ========================================================================== 
+  
+  
+  Procedure.i Pixel(Value.i, Unit.s="mm")
+    Define.f ScaleFactor, Pt
+    
+    Select Unit
+      Case "pt"
+        ScaleFactor = 1
+      Case "mm"
+        ScaleFactor = 72 / 25.4
+      Case "cm"
+       ScaleFactor  = 72 / 2.54
+      Case "in"
+        ScaleFactor = 72
+      Default
+        ScaleFactor = 72 / 25.4
+    EndSelect
+    
+    pt = Value * ScaleFactor
+    
+    ProcedureReturn Pixel(Pt)
+  EndProcedure
   
   Procedure   ReDraw_(GNum.i)
     
@@ -4858,6 +4914,8 @@ Module EditEx
           EditEx()\WordWrap = Value
         Case #Hyphenation
           EditEx()\Hyphenation = Value
+        Case #MaxTextWidth  
+          EditEx()\Text\Width  = Value
         Case #AutoHide
           EditEx()\AutoHide = Value
           AdjustScrolls_()
@@ -4890,6 +4948,8 @@ Module EditEx
           ProcedureReturn EditEx()\AutoHide
         Case #CtrlChars
           ProcedureReturn EditEx()\Visible\CtrlChars
+        Case #MaxTextWidth  
+          ProcedureReturn EditEx()\Text\Width
       EndSelect
       
     EndIf
@@ -4938,17 +4998,16 @@ Module EditEx
     
   EndProcedure
   
-  
   Procedure   AttachPopup(GNum.i, PopUpMenu.i)           ; Attach 'PopUpMenu' to gadget 
     If FindMapElement(EditEx(), Str(GNum))
       EditEx()\PopupMenu = PopUpMenu
     EndIf
   EndProcedure  
   
-  ;- ===== EditEx::Gadget =====
+  ;- ===== Gadget =====
   
   Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
-    Define.i CanvasFlags, Result, txtNum
+    Define.i Result, txtNum
     
     If Flags & #Scrollbars ;{ Scrollbars
       Flags & ~#Scrollbars
@@ -4956,15 +5015,13 @@ Module EditEx
       Flags | #ScrollBar_Vertical
     EndIf ;}
     
-    CanvasFlags = #PB_Canvas_Keyboard|#PB_Canvas_Container|#PB_Canvas_ClipMouse
-    
-    Result = CanvasGadget(GNum, X, Y, Width, Height, CanvasFlags)
+    Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Keyboard|#PB_Canvas_Container|#PB_Canvas_ClipMouse)
     If Result
       
       If GNum = #PB_Any : GNum = Result : EndIf
       
       If AddMapElement(EditEx(), Str(GNum))
-        
+     
         EditEx()\CanvasNum = GNum
         
         CompilerIf Defined(ModuleEx, #PB_Module)
@@ -5003,7 +5060,7 @@ Module EditEx
             Thread\Exit   = #False
             Thread\Num    = CreateThread(@_CursorThread(), #CursorFrequency)
             Thread\Active = #True
-            
+
           EndIf
           
         CompilerEndIf
@@ -5034,7 +5091,7 @@ Module EditEx
           If Flags & #ScrollBar_Vertical   : Width  - dpiX(#Scroll_Width) - 1 : EndIf
           
           If Flags & #ScrollBar_Horizontal And Flags & #ScrollBar_Vertical
-            EditEx()\HScroll\ID = ScrollBarGadget(#PB_Any, 1, Height, Width-1, dpiY(#Scroll_Width), 0, 0, 0)
+            EditEx()\HScroll\ID = ScrollBarGadget(#PB_Any, 1, Height, Width - 1, #Scroll_Width, 0, 0, 0)
             EditEx()\VScroll\ID = ScrollBarGadget(#PB_Any, Width, 1, #Scroll_Width, Height - 1, 0, 0, 0, #PB_ScrollBar_Vertical)
             EditEx()\ScrollBars = #ScrollBar_Vertical | #ScrollBar_Horizontal
             SetGadgetData(EditEx()\VScroll\ID, GNum)
@@ -5042,12 +5099,12 @@ Module EditEx
             BindGadgetEvent(EditEx()\HScroll\ID, @_SynchronizeScrollPos(),  #PB_All)
             BindGadgetEvent(EditEx()\VScroll\ID, @_SynchronizeScrollRows(), #PB_All) 
           ElseIf Flags & #ScrollBar_Horizontal
-            EditEx()\HScroll\ID = ScrollBarGadget(#PB_Any, 1, Height, Width-1, dpiY(#Scroll_Width), 0, 0, 0)
+            EditEx()\HScroll\ID = ScrollBarGadget(#PB_Any, 1, Height, Width-1, #Scroll_Width, 0, 0, 0)
             EditEx()\ScrollBars = #ScrollBar_Horizontal
             SetGadgetData(EditEx()\HScroll\ID, GNum)
             BindGadgetEvent(EditEx()\HScroll\ID, @_SynchronizeScrollPos(), #PB_All)
           ElseIf Flags & #ScrollBar_Vertical
-            EditEx()\VScroll\ID = ScrollBarGadget(#PB_Any, Width, 1, #Scroll_Width, Height-1, 0, 0, 0, #PB_ScrollBar_Vertical)
+            EditEx()\VScroll\ID = ScrollBarGadget(#PB_Any, Width, 1, #Scroll_Width, Height - 1, 0, 0, 0, #PB_ScrollBar_Vertical)
             EditEx()\ScrollBars = #ScrollBar_Vertical
             SetGadgetData(EditEx()\VScroll\ID, GNum)
             BindGadgetEvent(EditEx()\VScroll\ID, @_SynchronizeScrollRows(), #PB_All)
@@ -5065,11 +5122,12 @@ Module EditEx
         
         SetGadgetData(EditEx()\CanvasNum, GNum)
         
-        CloseGadgetList()
+        AddElement(EditEx()\Items())
+        
       Else
         ProcedureReturn #False
       EndIf
-    
+      
       EditEx()\Size\X = dpiX(4)
       EditEx()\Size\Y = dpiY(2)
       EditEx()\Size\Width  = dpiX(Width  - 8)
@@ -5132,17 +5190,19 @@ Module EditEx
       BindGadgetEvent(GNum, @_MouseWheelHandler(),      #PB_EventType_MouseWheel)
       BindGadgetEvent(GNum, @_KeyDownHandler(),         #PB_EventType_KeyDown)
       BindGadgetEvent(GNum, @_InputHandler(),           #PB_EventType_Input)
-      
       BindGadgetEvent(GNum, @_LostFocusHandler(),       #PB_EventType_LostFocus)
       BindGadgetEvent(GNum, @_FocusHandler(),           #PB_EventType_Focus)
-      
       BindGadgetEvent(GNum, @_ResizeHandler(),          #PB_EventType_Resize)
       
-      BindEvent(#Event_Cursor, @_CursorDrawing(), EditEx()\Window\Num)
+      BindEvent(#Event_Cursor, @_CursorDrawing(), EditEx()\Window\Num, GNum)
+      BindEvent(#PB_Event_CloseWindow, @_CloseWindowHandler(), EditEx()\Window\Num)
       
-      AdjustScrolls_()
-      
+      CloseGadgetList()
     EndIf
+    
+    AdjustScrolls_()
+
+    Draw_(GNum)
     
     ProcedureReturn GNum
   EndProcedure
@@ -5337,11 +5397,10 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.70 LTS (Windows - x64)
-; CursorPosition = 5132
-; FirstLine = 825
-; Folding = wAKIAEABAAAAAAAAAAAAACBwBAkAAAVBgSAAAAAIAAAACAAWAAAAIUkAAw
-; Markers = 1057,2840,3282
+; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
+; CursorPosition = 11
+; Folding = 5BOIAIIZNAgggGAAAAAsMMCgDIoBAAHAAmAAAAAQAAoJxP5ABABAAwOCBA-
+; Markers = 1061,2844,3305
 ; EnableThread
 ; EnableXP
 ; DPIAware
