@@ -9,20 +9,15 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
     
-; Last Update: 18.08.2019
+; Last Update: 19.08.2019
+;
+; - Bugfix: MouseWheel 
 ;
 ; - Added: SelectItems()
 ; - Added: GetRowFromLabel()
 ; - Bugfixes
 ;
-; - Changed: SetItemImage() => ImageID -> Image
-; - Added:   Cursor keys / PageUp & PageDown / Strg + Pos1 & Strg + End
-; - Added:   Shift-Select
-;
-; - Added:  HideColumn()
-; - Added:  Flag for CountItems() [#Selected/#Checked/#Inbetween]
-; - Bugfix: SetItemColor()
-;
+
 
 ;{ ===== MIT License =====
 ;
@@ -3810,7 +3805,7 @@ Module ListEx
       
       Delta = GetGadgetAttribute(GadgetNum, #PB_Canvas_WheelDelta)
       
-      If IsGadget(ListEx()\VScrollNum)
+      If IsGadget(ListEx()\VScrollNum) And ListEx()\VScroll\Hide = #False
         
         ScrollPos = GetGadgetState(ListEx()\VScrollNum) - Delta
         
@@ -6130,10 +6125,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 4959
-; FirstLine = 980
-; Folding = OBAAAACAAAAAAAAAAwAAAABAAAcDDxAAAAAAAAAEA5AwBAAgAU+
-; Markers = 589,3163
+; CursorPosition = 13
+; Folding = OBAAAACAAAAAAAAAAwAAAABJAAYDAxAgAAAAAAAEA5AwBAAgAU+
+; Markers = 584,3158
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
