@@ -11,7 +11,7 @@
     
 ; Last Update: 19.08.2019
 ;
-; - Bugfix: MouseWheel 
+; - Bugfixes: MouseWheel / Hide vertical Scrollbar
 ;
 ; - Added: SelectItems()
 ; - Added: GetRowFromLabel()
@@ -2643,6 +2643,7 @@ Module ListEx
         ListEx()\Size\Width = dpiX(GadgetWidth(ListEx()\CanvasNum))
         ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - 1, #ScrollBar_Width - 2)
         HideGadget(ListEx()\VScrollNum, #True)
+        ListEx()\Row\Offset   = 0
         ListEx()\VScroll\Hide = #True
         
       EndIf
@@ -6126,8 +6127,9 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
 ; CursorPosition = 13
-; Folding = OBAAAACAAAAAAAAAAwAAAABJAAYDAxAgAAAAAAAEA5AwBAAgAU+
-; Markers = 584,3158
+; FirstLine = 6
+; Folding = MBAAAACAAAAAAAAAAQAAAARpAAYDAxAgBAAAAABGI9BwBAAgAU+
+; Markers = 584,3159
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
