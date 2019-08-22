@@ -19,9 +19,11 @@
 ; - Add sound, music or sprite files to the archiv and load them directly from the archive
 
 
-; Last Update: 12.08.2019
+; Last Update: 18.08.2019
 
-;- Added: ReadContent() => Map: PackEx::Content()
+; - ProgressBar for BasicCoders
+; - Added: ReadContent() => Map: PackEx::Content()
+
 
 ;{ ===== MIT License =====
 ;
@@ -81,8 +83,13 @@ DeclareModule PackEx
 	;-   DeclareModule - Constants
 	;- ==================================
   
-  #SecureKey = 1
-  #Packer    = 2
+  Enumeration 1 ; Progress\Flags
+    #SecureKey
+    #Compress
+    #Encrypt
+    #Finished
+    #Rebuild
+  EndEnumeration
   
   EnumerationBinary 
     #Create
@@ -123,7 +130,9 @@ DeclareModule PackEx
     Row.i
     Index.i
     Label.s
-    Flag.i
+    Compress.s
+    Encrypt.s
+    Flags.i
   EndStructure
   Global Progress.Progress_Structure
   
@@ -143,14 +152,14 @@ DeclareModule PackEx
   Declare.i AddFile(Pack.i, File.s, PackedFileName.s, Key.s="", ProgressBar.i=#False)
   Declare.i AddImage(Pack.i, Image.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
   Declare.i AddJSON(Pack.i, JSON.i, PackedFileName.s, Key.s="")
-  Declare.i AddMemory(Pack.i, *Buffer, Size.i, PackedFileName.s, Key.s="")
+  Declare.i AddMemory(Pack.i, *Buffer, Size.i, PackedFileName.s, Key.s="", ProgressBar.i=#False) 
   Declare.i AddXML(Pack.i, XML.i, PackedFileName.s, Key.s="")
   Declare   Close(Pack.i, Flags.i=#False)
   Declare.i Create(Pack.i, File.s, Plugin.i=#PB_PackerPlugin_Zip, Level.i=9)
   Declare.i DecompressFile(Pack.i, File.s, PackedFileName.s, Key.s="", ProgressBar.i=#False)
   Declare.i DecompressImage(Pack.i, Image.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
   Declare.i DecompressJSON(Pack.i, JSON.i, PackedFileName.s, Key.s="", Flags.i=#False)
-  Declare.i DecompressMemory(Pack.i, *Buffer, Size.i, PackedFileName.s, Key.s="")
+  Declare.i DecompressMemory(Pack.i, *Buffer, Size.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
   Declare.i DecompressMusic(Pack.i, Music.i, PackedFileName.s, Key.s="", Flags.i=#False)
   Declare.i DecompressSound(Pack.i, Sound.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
   Declare.i DecompressXML(Pack.i, XML.i, PackedFileName.s, Key.s="", Flags.i=#False, Encoding.i=#PB_UTF8)
@@ -159,7 +168,7 @@ DeclareModule PackEx
   Declare.i Open(Pack.i, File.s, Plugin.i=#PB_PackerPlugin_Zip)
   Declare   ProgressProcedure(*ProcAddress)
   Declare   ReadContent(Pack.i)
-  Declare.i RemoveFile(Pack.i, PackedFileName.s) 
+  Declare.i RemoveFile(Pack.i, PackedFileName.s, ProgressBar=#False)
   Declare   SetSalt(String.s)
   Declare.s CreateSecureKey(Key.s, Loops.i=2048, ProgressBar.i=#PB_Default)
   
@@ -292,19 +301,61 @@ Module PackEx
   EndProcedure
   
   
+  Procedure   CountPackFiles_()
+	  Define.i Count = 0
+	  
+	  If ExaminePack(PackEx()\ID)
+	    While NextPackEntry(PackEx()\ID)
+	      Count + 1
+	    Wend  
+	  EndIf
+	  
+	  ProcedureReturn Count
+	EndProcedure
+  
   Procedure   SetProgressState_(Gadget.i, State.i, Flag.i)
-
-    If qAES\ProcPtr
-      Progress\Gadget = Gadget
-      Progress\State  = State
-      Progress\Flag   = Flag
-      CallFunctionFast(qAES\ProcPtr)
-    Else
-      SetGadgetState(Gadget, State)
+    
+    If IsGadget(Gadget)
+      
+      If qAES\ProcPtr
+        Progress\Gadget = Gadget
+        Progress\State  = State
+        Progress\Flags   = Flag
+        CallFunctionFast(qAES\ProcPtr)
+      Else
+        SetGadgetState(Gadget, State)
+      EndIf
+    
+      While WindowEvent() : Wend
     EndIf
     
-    While WindowEvent() : Wend
+  EndProcedure
+  
+  Procedure   SetProgressText_(Gadget.i, Flags.i)
     
+    If IsGadget(Gadget) And (Progress\Compress Or Progress\Encrypt)
+      
+      If qAES\ProcPtr
+        
+        Progress\Gadget = Gadget
+        Progress\Flags  = Flags
+        CallFunctionFast(qAES\ProcPtr)
+        
+      Else
+        
+        If Flags & #Finished
+          SetGadgetText(Gadget, "")
+        ElseIf Flags & #Encrypt
+          SetGadgetText(Gadget, Progress\Encrypt)
+        Else
+          SetGadgetText(Gadget, Progress\Compress)
+        EndIf
+        
+      EndIf
+      
+      While WindowEvent() : Wend
+    EndIf
+
   EndProcedure
   
   
@@ -473,7 +524,7 @@ Module PackEx
 	  ProcedureReturn #True
 	EndProcedure
 	
-  Procedure   CryptBlockwise(*Buffer, Size.i, Key.s, Counter.q, ProgressBar.i=#False)
+  Procedure   CryptBlockwise(*Input, *Output, Size.i, Key.s, Counter.q, ProgressBar.i=#False)
     Define.i BlockSize, Bytes
     
     Define.q Timer, CounterAES
@@ -483,21 +534,21 @@ Module PackEx
     ;{ ___ ProgressBar ___
     If IsGadget(ProgressBar)
       Timer = ElapsedMilliseconds()
-      SetProgressState_(ProgressBar, 0, #Packer)
+      SetProgressState_(ProgressBar, 0, #Encrypt)
     EndIf ;}
 	  
 	  Repeat
 	    
 	    If Bytes + BlockSize <= Size
-	      SmartCoder(#Binary, *Buffer + Bytes, *Buffer + Bytes, BlockSize, Key, Counter, CounterAES)
+	      SmartCoder(#Binary, *Input + Bytes, *Output + Bytes, BlockSize, Key, Counter, CounterAES)
 	    Else
-	      SmartCoder(#Binary, *Buffer + Bytes, *Buffer + Bytes, Size - Bytes, Key, Counter, CounterAES)
+	      SmartCoder(#Binary, *Input + Bytes, *Output + Bytes, Size - Bytes, Key, Counter, CounterAES)
 	    EndIf 
 	    
 	    ;{ ___ ProgressBar ___
       If IsGadget(ProgressBar)
         If ElapsedMilliseconds() > Timer + 30
-          SetProgressState_(ProgressBar, 100 * Bytes / Size, #Packer)
+          SetProgressState_(ProgressBar, 100 * Bytes / Size, #Encrypt)
           Timer = ElapsedMilliseconds()
         EndIf
       EndIf ;}
@@ -511,7 +562,7 @@ Module PackEx
 	  
 	  ;{ ___ ProgressBar ___
 	  If IsGadget(ProgressBar)
-      SetProgressState_(ProgressBar, 100, #Packer)
+      SetProgressState_(ProgressBar, 100, #Encrypt)
     EndIf ;}
 	  
   EndProcedure	
@@ -564,7 +615,7 @@ Module PackEx
       
       Size - 48
       
-      CryptBlockwise(*Buffer, Size, Key, Counter, ProgressBar)
+      CryptBlockwise(*Buffer, *Buffer, Size, Key, Counter, ProgressBar)
       
       If qAES\Hash <> Fingerprint(*Buffer, Size, #PB_Cipher_SHA3)
         Error = #ERROR_INTEGRITY_CORRUPTED
@@ -590,7 +641,7 @@ Module PackEx
     *Hash = AllocateMemory(32)
     If *Hash : EncodeHash_(qAES\Hash, Counter, *Hash) : EndIf
     
-    CryptBlockwise(*Buffer, Size, Key, Counter, ProgressBar)
+    CryptBlockwise(*Buffer, *Buffer, Size, Key, Counter, ProgressBar)
     
     SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
     
@@ -600,8 +651,10 @@ Module PackEx
 
     Size + 48
     
+    SetProgressText_(ProgressBar, #Compress)
     Result = AddPackMemory(PackID, *Buffer, Size, PackedFileName)
-
+    SetProgressText_(ProgressBar, #Compress|#Finished)
+    
     ProcedureReturn Result
 	EndProcedure
 	
@@ -635,7 +688,7 @@ Module PackEx
               *Hash = AllocateMemory(32)
               If *Hash : EncodeHash_(qAES\Hash, Counter, *Hash) : EndIf
               
-              CryptBlockwise(*Buffer, Size, Key, Counter, ProgressBar)
+              CryptBlockwise(*Buffer, *Buffer, Size, Key, Counter, ProgressBar)
               
               SmartCoder(#Binary, @qAES_ID, @qAES_ID, 8, Str(Counter))
               
@@ -646,7 +699,9 @@ Module PackEx
               Size + 48
             EndIf
             
+            SetProgressText_(ProgressBar, #Compress)
             Result = AddPackMemory(PackID, *Buffer, Size, PackedFileName)
+            SetProgressText_(ProgressBar, #Compress|#Finished)
             
           EndIf
           
@@ -662,9 +717,9 @@ Module PackEx
 	  ProcedureReturn #False
 	EndProcedure
 	
-	
-	Procedure.i AddMemory2Pack_(*Buffer, Size.i, PackedFileName.s, Key.s) ; only OpenPack()
-	  Define.i PackID, PackEntrySize, Size, pResult, Result
+
+	Procedure.i AddMemory2Pack_(*Buffer, Size.i, PackedFileName.s, Key.s, ProgressBar=#False) ; only OpenPack()
+	  Define.i PackID, PackEntrySize, Size, pResult, Result, Files, Count
 	  Define.s PackFile, PackEntryName
 	  Define   *Buffer
 	  
@@ -673,9 +728,14 @@ Module PackEx
 	  PackID = CreatePack(#PB_Any, PackFile, PackEx()\Plugin, PackEx()\Level)
 	  If PackID
 	    
+	    If IsGadget(ProgressBar) : Files = CountPackFiles_() : EndIf
+	    
 	    If ExaminePack(PackEx()\ID)
 	      
 	      Result = #True
+	      
+	      SetProgressState_(ProgressBar, 0, #Rebuild)
+	      SetProgressText_(ProgressBar, #Rebuild)
 	      
 	      While NextPackEntry(PackEx()\ID)
 	        
@@ -697,22 +757,32 @@ Module PackEx
 	              Result = #False
                 Error  = #ERROR_CANT_UNCOMPRESS_PACKMEMORY
               EndIf
-              
+
 	            FreeMemory(*Buffer)
 	          EndIf
   	        ;}
 	        EndIf
 	        
+	        If Files
+            Count + 1
+            SetProgressState_(ProgressBar, 100 * Count / Files, #Rebuild)
+          EndIf  
+	        
 	      Wend
 	      
+	      SetProgressText_(ProgressBar, #Rebuild|#Finished)
+	      SetProgressState_(ProgressBar, 100, #Rebuild)
+
 	      ClosePack(PackEx()\ID)
 	    EndIf
 	    
 	    ; Add *Buffer to new pack
 	    If Key
-	      pResult = AddCryptMemory_(PackID, *Buffer, Size, PackedFileName, Key)
+	      pResult = AddCryptMemory_(PackID, *Buffer, Size, PackedFileName, Key, ProgressBar)
 	    Else
+	      SetProgressText_(ProgressBar, #Compress)
 	      pResult = AddPackMemory(PackID, *Buffer, Size, PackedFileName)
+	      SetProgressText_(ProgressBar, #Compress|#Finished)
 	    EndIf
 	    
 	    If Not pResult : Result = #False : EndIf
@@ -729,8 +799,8 @@ Module PackEx
 	  ProcedureReturn #False
 	EndProcedure
 	
-	Procedure.i AddFile2Pack_(File.s, PackedFileName.s, Key.s)            ; only OpenPack()
-	  Define.i PackID, PackEntrySize, Size, pResult, Result
+	Procedure.i AddFile2Pack_(File.s, PackedFileName.s, Key.s, ProgressBar=#False)     ; only OpenPack()
+	  Define.i PackID, PackEntrySize, Size, pResult, Result, Files, Count
 	  Define.s PackFile, PackEntryName
 	  Define   *Buffer
 	  
@@ -739,9 +809,14 @@ Module PackEx
 	  PackID = CreatePack(#PB_Any, PackFile, PackEx()\Plugin, PackEx()\Level)
 	  If PackID
 	    
+	    If IsGadget(ProgressBar) : Files = CountPackFiles_() : EndIf
+	    
 	    If ExaminePack(PackEx()\ID)
 	      
 	      Result = #True
+	      
+	      SetProgressState_(ProgressBar, 0, #Rebuild)
+	      SetProgressText_(ProgressBar, #Rebuild)
 	      
 	      While NextPackEntry(PackEx()\ID)
 	        
@@ -769,14 +844,22 @@ Module PackEx
   	        ;}
 	        EndIf
 	        
+	        If Files
+            Count + 1
+            SetProgressState_(ProgressBar, 100 * Count / Files, #Rebuild)
+          EndIf 
+	        
 	      Wend
+	      
+	      SetProgressText_(ProgressBar, #Rebuild|#Finished)
+	      SetProgressState_(ProgressBar, 100, #Rebuild)
 	      
 	      ClosePack(PackEx()\ID)
 	    EndIf
 	    
 	    ; Add file to new pack
 	    If Key
-	      pResult = AddCryptFile_(PackID, File, PackedFileName, Key)
+	      pResult = AddCryptFile_(PackID, File, PackedFileName, Key, ProgressBar)
 	      Size = pResult
 	    Else
 	      pResult = AddPackFile(PackID, File, PackedFileName)
@@ -797,8 +880,8 @@ Module PackEx
 	  ProcedureReturn #False
 	EndProcedure
 
-	Procedure.i RemoveFile_(PackedFileName.s)                             ; only OpenPack()
-	  Define.i PackID, PackEntrySize, Size, pResult, Result
+	Procedure.i RemoveFile_(PackedFileName.s, ProgressBar=#False)                      ; only OpenPack()
+	  Define.i PackID, PackEntrySize, Size, pResult, Result, Files, Count
 	  Define.s PackFile, PackEntryName
 	  Define   *Buffer
 	  
@@ -809,9 +892,14 @@ Module PackEx
 	  PackID = CreatePack(#PB_Any, PackFile, PackEx()\Plugin, PackEx()\Level)
 	  If PackID
 	    
+	    If IsGadget(ProgressBar) : Files = CountPackFiles_() : EndIf
+	    
 	    If ExaminePack(PackEx()\ID)
 	      
 	      Result = #True
+	      
+	      SetProgressState_(ProgressBar, 0, #Rebuild)
+	      SetProgressText_(ProgressBar, #Rebuild)
 	      
 	      While NextPackEntry(PackEx()\ID)
 	        
@@ -839,7 +927,15 @@ Module PackEx
   	        ;}
 	        EndIf
 	        
+	        If Files
+            Count + 1
+            SetProgressState_(ProgressBar, 100 * Count / Files, #Rebuild)
+          EndIf 
+	        
 	      Wend
+	      
+	      SetProgressText_(ProgressBar, #Rebuild|#Finished)
+	      SetProgressState_(ProgressBar, 100, #Rebuild)
 	      
 	      ClosePack(PackEx()\ID)
 	    EndIf
@@ -1052,16 +1148,18 @@ Module PackEx
       
       If PackEx()\Mode = #Open
         
-        Size = AddFile2Pack_(File, PackedFileName, Key)
+        Size = AddFile2Pack_(File, PackedFileName, Key, ProgressBar)
         
       Else    ; #Create
         
         If Key ; encrypt & pack file
-          Size = AddCryptFile_(PackEx()\ID, File, PackedFileName, Key,ProgressBar)
+          Size = AddCryptFile_(PackEx()\ID, File, PackedFileName, Key, ProgressBar)
         Else   ; pack file
+          SetProgressText_(ProgressBar, #Compress)
           If AddPackFile(PackEx()\ID, File, PackedFileName)
             Size = FileSize(File)
           EndIf
+          SetProgressText_(ProgressBar, #Compress|#Finished)
         EndIf
         
       EndIf
@@ -1092,7 +1190,11 @@ Module PackEx
           *Buffer = AllocateMemory(Size)
           If *Buffer
             
+            SetProgressText_(ProgressBar, #Compress)
+            
             If UncompressPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName) <> -1
+              
+              SetProgressText_(ProgressBar, #Compress|#Finished)
               
               If DecryptMemory_(*Buffer, Size, Key, ProgressBar)
                 
@@ -1114,6 +1216,8 @@ Module PackEx
               Error = #ERROR_CANT_UNCOMPRESS_PACKMEMORY  
             EndIf
             
+            SetProgressText_(ProgressBar, #Compress|#Finished)
+            
             FreeMemory(*Buffer)
           EndIf
 
@@ -1121,7 +1225,9 @@ Module PackEx
         ;}
       Else    ;{ pack file
         
+        SetProgressText_(ProgressBar, #Compress)
         Result = UncompressPackFile(PackEx()\ID, File, PackedFileName)
+        SetProgressText_(ProgressBar, #Compress|#Finished)
         ;}
       EndIf
       
@@ -1136,7 +1242,7 @@ Module PackEx
   EndProcedure
   
   
-  Procedure.i AddMemory(Pack.i, *Buffer, Size.i, PackedFileName.s, Key.s="") 
+  Procedure.i AddMemory(Pack.i, *Buffer, Size.i, PackedFileName.s, Key.s="", ProgressBar.i=#False) 
     Define.i Result
     Define.q Counter, Hash, qAES_ID = #qAES
     Define   *Buffer, *Output
@@ -1153,9 +1259,9 @@ Module PackEx
           If *Output
             
             If PackEx()\Mode = #Open
-              Result = AddMemory2Pack_(*Output, Size, PackedFileName, Key)
+              Result = AddMemory2Pack_(*Output, Size, PackedFileName, Key, ProgressBar)
             Else
-              Result = AddCryptMemory_(PackEx()\ID, *Output, Size, PackedFileName, Key)
+              Result = AddCryptMemory_(PackEx()\ID, *Output, Size, PackedFileName, Key, ProgressBar)
             EndIf
             
             Size + 48
@@ -1168,9 +1274,11 @@ Module PackEx
       Else    ;{ pack file
         
         If PackEx()\Mode = #Open 
-          Result = AddMemory2Pack_(*Buffer, Size, PackedFileName, "")
+          Result = AddMemory2Pack_(*Buffer, Size, PackedFileName, "", ProgressBar)
         Else
+          SetProgressText_(ProgressBar, #Compress)
           Result = AddPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName)
+          SetProgressText_(ProgressBar, #Compress|#Finished)
         EndIf
         ;}
       EndIf
@@ -1186,7 +1294,7 @@ Module PackEx
     ProcedureReturn Result
   EndProcedure
   
-  Procedure.i DecompressMemory(Pack.i, *Buffer, Size.i, PackedFileName.s, Key.s="")
+  Procedure.i DecompressMemory(Pack.i, *Buffer, Size.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
     Define.i MemSize, Result = -1
     Define.q Counter, qAES_ID
     Define   *Input, *Buffer
@@ -1202,8 +1310,12 @@ Module PackEx
           *Input = AllocateMemory(MemSize)
           If *Input
             
+            SetProgressText_(ProgressBar, #Compress)
+            
             If UncompressPackMemory(PackEx()\ID, *Input, MemSize, PackedFileName) <> -1
-
+              
+              SetProgressText_(ProgressBar, #Compress|#Finished)
+              
           	  Counter   = PeekQ(*Input + Size - 8)
               qAES_ID   = PeekQ(*Input + Size - 16)
               qAES\Hash = DecodeHash_(Counter, *Input + Size - 48, #False)
@@ -1213,8 +1325,7 @@ Module PackEx
               If qAES_ID = #qAES
                 
                 Size - 48
-                
-                SmartCoder(#Binary, *Input, *Buffer, Size, Key, Counter)
+                CryptBlockwise(*Input, *Buffer, Size, Key, Counter, ProgressBar)
                 
                 If qAES\Hash <> Fingerprint(*Buffer, Size, #PB_Cipher_SHA3)
                   Error = #ERROR_INTEGRITY_CORRUPTED
@@ -1233,13 +1344,17 @@ Module PackEx
               Error = #ERROR_CANT_UNCOMPRESS_PACKMEMORY
             EndIf
             
+            SetProgressText_(ProgressBar, #Compress|#Finished)
+            
             FreeMemory(*Input)  
           EndIf
           
         EndIf
         ;}
       Else    ;{ pack file
+        SetProgressText_(ProgressBar, #Compress)
         Result = UncompressPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName)
+        SetProgressText_(ProgressBar, #Compress|#Finished)
         ;}
       EndIf
       
@@ -1465,7 +1580,7 @@ Module PackEx
             If *Buffer
 
               If PackEx()\Mode = #Open
-                Result = AddMemory2Pack_(*Buffer, Size, PackedFileName, Key)
+                Result = AddMemory2Pack_(*Buffer, Size, PackedFileName, Key, ProgressBar)
               Else
                 Result = AddCryptMemory_(PackEx()\ID, *Buffer, Size, PackedFileName, Key, ProgressBar)
               EndIf
@@ -1477,9 +1592,11 @@ Module PackEx
           Else    ;{ pack file
             
             If PackEx()\Mode = #Open 
-              Result = AddMemory2Pack_(*Buffer, Size, PackedFileName, "")
+              Result = AddMemory2Pack_(*Buffer, Size, PackedFileName, "", ProgressBar)
             Else
+              SetProgressText_(ProgressBar, #Compress)
               Result = AddPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName)
+              SetProgressText_(ProgressBar, #Compress|#Finished)
             EndIf
             ;}
           EndIf
@@ -1515,7 +1632,11 @@ Module PackEx
         *Buffer = AllocateMemory(Size)
         If *Buffer
           
+          SetProgressText_(ProgressBar, #Compress)
+          
           If UncompressPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName) <> -1
+            
+            SetProgressText_(ProgressBar, #Compress|#Finished)
             
             If DecryptMemory_(*Buffer, Size, Key, ProgressBar)
 
@@ -1526,6 +1647,8 @@ Module PackEx
           Else
             Error = #ERROR_CANT_UNCOMPRESS_PACKMEMORY  
           EndIf
+          
+          SetProgressText_(ProgressBar, #Compress|#Finished)
           
           FreeMemory(*Buffer)
         EndIf
@@ -1557,7 +1680,11 @@ Module PackEx
           *Buffer = AllocateMemory(Size)
           If *Buffer
             
+            SetProgressText_(ProgressBar, #Compress|#Finished)
+            
             If UncompressPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName) <> -1
+              
+              SetProgressText_(ProgressBar, #Compress|#Finished)
               
               If DecryptMemory_(*Buffer, Size, Key, ProgressBar)
 
@@ -1568,6 +1695,8 @@ Module PackEx
             Else
               Error = #ERROR_CANT_UNCOMPRESS_PACKMEMORY  
             EndIf
+            
+            SetProgressText_(ProgressBar, #Compress|#Finished)
             
             FreeMemory(*Buffer)
           EndIf
@@ -1652,11 +1781,11 @@ Module PackEx
   EndProcedure
   
 
-  Procedure.i RemoveFile(Pack.i, PackedFileName.s) 
+  Procedure.i RemoveFile(Pack.i, PackedFileName.s, ProgressBar=#False) 
     
     If FindMapElement(PackEx(), Str(Pack))
       
-      RemoveFile_(PackedFileName)
+      RemoveFile_(PackedFileName, ProgressBar)
       
     EndIf
     
@@ -1884,8 +2013,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 1706
-; FirstLine = 317
-; Folding = cACHQTAwlADQA-
+; CursorPosition = 882
+; FirstLine = 243
+; Folding = MAIegdBA+GMEB9
 ; EnableXP
 ; DPIAware

@@ -9,8 +9,11 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
     
-; Last Update: 19.08.2019
+; Last Update: 22.08.2019
 ;
+; - Bugfix
+;
+; - Added:    RemoveItemState() 
 ; - Bugfixes: MouseWheel / Hide vertical Scrollbar
 ;
 ; - Added: SelectItems()
@@ -79,6 +82,7 @@
 ; ListEx::Refresh()                 - redraw gadget
 ; ListEx::RemoveColumn()            - similar to 'RemoveGadgetColumn()'
 ; ListEx::RemoveItem()              - similar to 'RemoveGadgetItem()'
+; ListEx::RemoveItemState()         - removes #Selected / #Checked / #Inbetween
 ; ListEx::ResetChangedState()       - reset to not edited
 ; ListEx::SelectItems()             - select all rows [#All/#None]
 ; ListEx::SetAttribute()            - similar to SetGadgetAttribute()  [#Padding] 
@@ -339,6 +343,7 @@ DeclareModule ListEx
   Declare   Refresh(GNum.i)
   Declare   RemoveColumn(GNum.i, Column.i)
   Declare   RemoveItem(GNum.i, Row.i)
+  Declare   RemoveItemState(GNum.i, Row.i, State.i, Column.i=#PB_Ignore)
   Declare   ResetChangedState(GNum.i)
   Declare   SaveColorTheme(GNum.i, File.s)
   Declare.i SelectItems(GNum.i, Flag.i=#All)
@@ -2073,9 +2078,7 @@ Module ListEx
         rowY = ListEx()\Size\Y
         
       Else
-        
-        textY = (ListEx()\Header\Height - TextHeight("Abc")) / 2 + 0.5
-        
+
         DrawingMode(#PB_2DDrawing_Default)
         Box(colX, rowY, ListEx()\Size\Cols, ListEx()\Header\Height, ListEx()\Color\HeaderBack)
         
@@ -2137,6 +2140,7 @@ Module ListEx
           
           If ListEx()\Cols()\Header\Titel
             textX = GetAlignOffset_(ListEx()\Cols()\Header\Titel, ListEx()\Cols()\Width, Align)
+            textY = (ListEx()\Header\Height - TextHeight("Abc")) / 2 + 0.5
             DrawingMode(#PB_2DDrawing_Transparent)
             DrawText(colX + textX, rowY + textY, ListEx()\Cols()\Header\Titel, FrontColor)
           EndIf
@@ -5114,7 +5118,39 @@ Module ListEx
     EndIf  
    
   EndProcedure  
+  
+  Procedure   RemoveItemState(GNum.i, Row.i, State.i, Column.i=#PB_Ignore) ; [#Selected/#Checked/#Inbetween]
+    
+    If FindMapElement(ListEx(), Str(GNum))
 
+      If Row >= 0
+        
+        If SelectElement(ListEx()\Rows(), Row)
+          If Column = #PB_Ignore
+            
+            ListEx()\Rows()\State & ~State
+            
+          Else
+            
+            If ListEx()\Flags & #CheckBoxes And Column = 0
+              ListEx()\Rows()\State & ~State
+              If ListEx()\ReDraw : Draw_() : EndIf 
+            Else  
+              If SelectElement(ListEx()\Cols(), Column)
+                ListEx()\Rows()\Column(ListEx()\Cols()\Key)\State & ~State
+              EndIf 
+            EndIf
+            
+          EndIf
+          
+          If ListEx()\ReDraw : Draw_() : EndIf
+        EndIf
+        
+      EndIf
+    EndIf
+    
+  EndProcedure
+  
   Procedure   ResetChangedState(GNum.i)
     
     If FindMapElement(ListEx(), Str(GNum))
@@ -6126,10 +6162,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 13
-; FirstLine = 6
-; Folding = MBAAAACAAAAAAAAAAQAAAARpAAYDAxAgBAAAAABGI9BwBAAgAU+
-; Markers = 584,3159
+; CursorPosition = 14
+; Folding = OBAAAACAAAAAAAAAAQAKAAxhAAYDAxAgBAAAAABGJ9BAAAAAAo9
+; Markers = 589,3163
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
