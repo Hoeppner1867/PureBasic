@@ -161,6 +161,7 @@ DeclareModule PackEx
   Declare.i DecompressJSON(Pack.i, JSON.i, PackedFileName.s, Key.s="", Flags.i=#False)
   Declare.i DecompressMemory(Pack.i, *Buffer, Size.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
   Declare.i DecompressMusic(Pack.i, Music.i, PackedFileName.s, Key.s="", Flags.i=#False)
+  Declare.s DecompressText(Pack.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
   Declare.i DecompressSound(Pack.i, Sound.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
   Declare.i DecompressXML(Pack.i, XML.i, PackedFileName.s, Key.s="", Flags.i=#False, Encoding.i=#PB_UTF8)
   Declare.s FormatBytes(Size.q)
@@ -1441,6 +1442,7 @@ Module PackEx
             If DecryptMemory_(*Buffer, Size, Key)
 
               Result = CatchXML(XML, *Buffer, Size - 48, Flags, Encoding)
+              If XML = #PB_Any : XML = Result : EndIf
               
             EndIf
           
@@ -1537,7 +1539,8 @@ Module PackEx
             If DecryptMemory_(*Buffer, Size, Key)
 
               Result = CatchJSON(JSON, *Buffer, Size - 48, Flags)
-            
+              If JSON = #PB_Any : JSON = Result : EndIf
+              
             EndIf
             
           Else
@@ -1639,9 +1642,8 @@ Module PackEx
             SetProgressText_(ProgressBar, #Compress|#Finished)
             
             If DecryptMemory_(*Buffer, Size, Key, ProgressBar)
-
               Result = CatchImage(Image, *Buffer, Size - 48)
-              
+              If Image = #PB_Any : Image = Result : EndIf
             EndIf 
           
           Else
@@ -1666,6 +1668,47 @@ Module PackEx
   EndProcedure
   
   
+  Procedure.s DecompressText(Pack.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
+    Define   *Buffer
+    Define.q Counter, Hash, qAES_ID
+    Define.i Size, Result
+    Define.s String
+    
+    If FindMapElement(PackEx(), Str(Pack))
+      
+      If FindMapElement(PackEx()\Files(), PackedFileName)
+          
+          Size = PackEx()\Files()\Size
+      
+          *Buffer = AllocateMemory(Size)
+          If *Buffer
+            
+            SetProgressText_(ProgressBar, #Compress|#Finished)
+            
+            If UncompressPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName) <> -1
+              
+              SetProgressText_(ProgressBar, #Compress|#Finished)
+              
+              If DecryptMemory_(*Buffer, Size, Key, ProgressBar)
+                String = PeekS(*Buffer, Size, #PB_UTF8)
+              EndIf
+            
+            Else
+              Error = #ERROR_CANT_UNCOMPRESS_PACKMEMORY  
+            EndIf
+            
+            SetProgressText_(ProgressBar, #Compress|#Finished)
+            
+            FreeMemory(*Buffer)
+          EndIf
+          
+      EndIf
+     
+    EndIf
+    
+    ProcedureReturn String
+  EndProcedure
+  
   Procedure.i DecompressSound(Pack.i, Sound.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
     Define   *Buffer
     Define.q Counter, Hash, qAES_ID
@@ -1689,6 +1732,7 @@ Module PackEx
               If DecryptMemory_(*Buffer, Size, Key, ProgressBar)
 
                 Result = CatchSound(Sound, *Buffer, Size - 48)
+                If Sound = #PB_Any : Sound = Result : EndIf
                 
               EndIf
             
@@ -1727,6 +1771,7 @@ Module PackEx
               If DecryptMemory_(*Buffer, Size, Key)
               
                 Result = CatchSprite(Sprite, *Buffer, Flags)
+                If Sprite = #PB_Any : Sprite = Result : EndIf
                 
               EndIf
             
@@ -1763,6 +1808,7 @@ Module PackEx
               If DecryptMemory_(*Buffer, Size, Key)
               
                 Result = CatchMusic(Music, *Buffer, Size - 48)
+                If Music = #PB_Any : Music = Result : EndIf
                 
               EndIf
               
@@ -1843,7 +1889,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 2
+  #Example = 6
   
   ; 1: normal
   ; 2: encrypted
@@ -1863,46 +1909,49 @@ CompilerIf #PB_Compiler_IsMainFile
     CompilerCase 1 ;{ pack normal file
       
       If PackEx::Create(#Pack, "TestPack.zip")
-        PackEx::AddFile(#Pack, "PureBasic.jpg", "PureBasic1.jpg")
+        PackEx::AddFile(#Pack, "Programmer.jpg", "Programmer1.jpg")
+        PackEx::AddFile(#Pack, "Test.txt", "Test.txt")
         PackEx::Close(#Pack)
       EndIf
       
       If PackEx::Open(#Pack, "TestPack.zip")
-        PackEx::DecompressFile(#Pack, "PureBasic1.jpg", "PureBasic1.jpg")
-        PackEx::AddFile(#Pack, "PureBasic.jpg", "PureBasic2.jpg")
         
-        MessageRequester("PackEx", "Close Pack")
+        ;Debug PackEx::DecompressText(#Pack, "Test.txt")
+        PackEx::DecompressFile(#Pack, "Programmer1.jpg", "Programmer1.jpg")
+        PackEx::AddFile(#Pack, "Programmer.jpg", "Programmer2.jpg")
         
-        PackEx::Close(#Pack, PackEx::#File|PackEx::#MoveBack) ; close pack & move uncompressed files (PureBasic1.jpg) back to pack
-        ;PackEx::Close(#Pack, PackEx::#File|PackEx::#Update) ; close pack & update uncompressed files (PureBasic1.jpg) in pack
+        ;MessageRequester("PackEx", "Close Pack")
+        
+        PackEx::Close(#Pack, PackEx::#File|PackEx::#MoveBack) ; close pack & move uncompressed files (Programmer1.jpg) back to pack
+        ;PackEx::Close(#Pack, PackEx::#File|PackEx::#Update) ; close pack & update uncompressed files (Programmer1.jpg) in pack
       EndIf
       ;}
     CompilerCase 2 ;{ pack encrypted file 
       
       If PackEx::Create(#Pack, "TestCryptPack.zip")
-        PackEx::AddFile(#Pack, "PureBasic.jpg", "PureBasic.jpg", Key$)
+        PackEx::AddFile(#Pack, "Programmer.jpg", "Programmer.jpg", Key$)
         PackEx::Close(#Pack)
       EndIf
       
       If PackEx::Open(#Pack, "TestCryptPack.zip")
-        If PackEx::IsEncrypted(#Pack, "PureBasic.jpg")
+        If PackEx::IsEncrypted(#Pack, "Programmer.jpg")
           Debug "Packed file is encrypted"
         Else
           Debug "Packed file is not encrypted"
         EndIf
-        PackEx::DecompressFile(#Pack, "Decrypted.jpg", "PureBasic.jpg", Key$)
+        PackEx::DecompressFile(#Pack, "Decrypted.jpg", "Programmer.jpg", Key$)
         PackEx::Close(#Pack)
       EndIf 
       ;}
     CompilerCase 3 ;{ delete packed file
       
       If PackEx::Create(#Pack, "TestPack.zip")
-        PackEx::AddFile(#Pack, "PureBasic.jpg", "PureBasic.jpg")
+        PackEx::AddFile(#Pack, "Programmer.jpg", "Programmer.jpg")
         PackEx::AddFile(#Pack, "Test.txt", "Test.txt")
         PackEx::Close(#Pack)
       EndIf
 
-      MessageRequester("PackEx", "Remove 'PureBasic.jpg'")
+      MessageRequester("PackEx", "Remove 'Programmer.jpg'")
       
       If PackEx::Open(#Pack, "TestPack.zip")
         
@@ -1911,7 +1960,7 @@ CompilerIf #PB_Compiler_IsMainFile
           Debug ">> " + PackEx::Content()\FileName
         Next
         
-        PackEx::RemoveFile(#Pack, "PureBasic.jpg")
+        PackEx::RemoveFile(#Pack, "Programmer.jpg")
         
         PackEx::Close(#Pack)
       EndIf
@@ -1973,15 +2022,15 @@ CompilerIf #PB_Compiler_IsMainFile
       
       #Image = 1
       
-      If LoadImage(#Image, "PureBasic.jpg")
+      If LoadImage(#Image, "Programmer.jpg")
         If PackEx::Create(#Pack, "TestImage.zip")
-          PackEx::AddImage(#Pack, #Image, "PureBasic.jpg", Key$)
+          PackEx::AddImage(#Pack, #Image, "Programmer.jpg", Key$)
           PackEx::Close(#Pack) 
         EndIf
       EndIf
       
       If PackEx::Open(#Pack, "TestImage.zip")
-        If PackEx::DecompressImage(#Pack, #Image, "PureBasic.jpg", Key$)
+        If PackEx::DecompressImage(#Pack, #Image, "Programmer.jpg", Key$)
           SaveImage(#Image, "DecryptedImage.jpg")
         EndIf
         PackEx::Close(#Pack) 
@@ -1990,7 +2039,7 @@ CompilerIf #PB_Compiler_IsMainFile
     CompilerCase 7 ;{ ReadContent()
       
       If PackEx::Create(#Pack, "TestPack.zip")
-        PackEx::AddFile(#Pack, "PureBasic.jpg", "PureBasic.jpg")
+        PackEx::AddFile(#Pack, "Programmer.jpg", "Programmer.jpg")
         PackEx::AddFile(#Pack, "Test.txt", "Test.txt", Key$)
         PackEx::Close(#Pack)
       EndIf
@@ -2012,9 +2061,9 @@ CompilerIf #PB_Compiler_IsMainFile
   CompilerEndSelect    
   
 CompilerEndIf  
-; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 882
-; FirstLine = 243
-; Folding = MAIegdBA+GMEB9
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 1891
+; FirstLine = 317
+; Folding = MAIegNBA3GMAa+
 ; EnableXP
 ; DPIAware

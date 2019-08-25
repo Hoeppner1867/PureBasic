@@ -9,16 +9,14 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
     
-; Last Update: 22.08.2019
+; Last Update: 23.08.2019
+;
+; - #PB_EventType_LeftClick / #PB_EventType_LeftDoubleClick / #PB_EventType_RightClick for rows
 ;
 ; - Bugfix
 ;
 ; - Added:    RemoveItemState() 
 ; - Bugfixes: MouseWheel / Hide vertical Scrollbar
-;
-; - Added: SelectItems()
-; - Added: GetRowFromLabel()
-; - Bugfixes
 ;
 
 
@@ -2857,6 +2855,9 @@ Module ListEx
          
           EndIf
           ;}
+        Else 
+          UpdateEventData_(#PB_EventType_LeftDoubleClick, Row, Column, ListEx()\Rows()\Column(Key$)\Value, ListEx()\Rows()\State, ListEx()\Rows()\ID)
+          PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #PB_EventType_LeftDoubleClick, Row)
         EndIf  
 
       EndIf
@@ -3269,9 +3270,12 @@ Module ListEx
             ListEx()\Row\Focus = ListEx()\Row\Current
             Draw_() ; Draw Focus
           EndIf
-          
+
           If IsWindow(ListEx()\Window\Num) And IsMenu(ListEx()\PopUpID)
             DisplayPopupMenu(ListEx()\PopUpID, WindowID(ListEx()\Window\Num))
+          Else
+            UpdateEventData_(#PB_EventType_RightClick, ListEx()\Row\Current, #NotValid, "", #NotValid, ListEx()\Rows()\ID)
+            PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #PB_EventType_RightClick, ListEx()\Row\Current)
           EndIf
           
         EndIf
@@ -3609,6 +3613,9 @@ Module ListEx
         Draw_()
         ;}
       EndIf
+      
+      UpdateEventData_(#PB_EventType_LeftClick, ListEx()\Row\Current, ListEx()\Col\Current, "", #NotValid, ListEx()\Rows()\ID)
+      PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #PB_EventType_LeftClick, ListEx()\Row\Current)
       
     EndIf
     
@@ -6053,7 +6060,7 @@ CompilerIf #PB_Compiler_IsMainFile
     
     ListEx::SetRowsHeight(#List, 22)
     
-    ListEx::AttachPopupMenu(#List, #PopupMenu)
+    ;ListEx::AttachPopupMenu(#List, #PopupMenu)
     
     ListEx::AddComboBoxItems(#List, 3, "male" + #LF$ + "female")
 
@@ -6078,7 +6085,7 @@ CompilerIf #PB_Compiler_IsMainFile
     ListEx::SetColorTheme(#List, ListEx::#Theme_Blue)
     ListEx::SetColor(#List, ListEx::#AlternateRowColor, $FBF7F5)
     
-    If LoadImage(#Image, "Test.png")
+    If LoadImage(#Image, "Delete.png")
       ListEx::SetItemImage(#List, 0, 1, 16, 16, #Image)
       ListEx::SetItemImage(#List, 1, 5, 14, 14, #Image, ListEx::#Center)
       ListEx::SetItemImage(#List, ListEx::#Header, 2, 14, 14, #Image, ListEx::#Right)
@@ -6097,9 +6104,12 @@ CompilerIf #PB_Compiler_IsMainFile
       Event = WaitWindowEvent()
       Select Event
         Case ListEx::#Event_Gadget ; works with or without EventType()
-          If EventType() = ListEx::#EventType_Row
-            Debug ">>> Row: " + Str(EventData())
-          EndIf
+          Select EventType()
+            Case #PB_EventType_RightClick 
+              Debug "RightClick: " + Str(EventData())
+            Case ListEx::#EventType_Row
+              Debug ">>> Row: " + Str(EventData())
+          EndSelect
         Case #PB_Event_Gadget
           Select EventGadget()
             Case #List      ;{ only in use with EventType()
@@ -6161,10 +6171,11 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 14
-; Folding = OBAAAACAAAAAAAAAAQAKAAxhAAYDAxAgBAAAAABGJ9BAAAAAAo9
-; Markers = 589,3163
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 6062
+; FirstLine = 892
+; Folding = EBAAAAAAAAAAAAAAAQAKAAxBAAYDBxBAAAAAAAAGJ9BAAAAAAI9
+; Markers = 587,3164
 ; EnableXP
 ; DPIAware
 ; EnableUnicode

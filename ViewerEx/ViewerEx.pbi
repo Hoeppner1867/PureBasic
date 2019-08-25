@@ -2261,7 +2261,7 @@ Module ViewerEx
 
   CompilerEndIf
   
-  ;- ___ ViewerEx::Gadget() ___
+  ;- ___ Gadget() ___
   
   Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
     Define.i Result, Num
@@ -2594,7 +2594,7 @@ CompilerIf #PB_Compiler_IsMainFile
     ViewerEx::UseFont("Arial", 11, #PB_Font_Underline, "Arial_11U") ; Default key: "Arial|11|4"
     ViewerEx::UseFont("Arial", 11, #False, "Arial_11")              ; Default key: "Arial|11|0"
     ViewerEx::UsePattern("english.pat", "english")                  ; Default key: "english"
-    ViewerEx::UseImage("PureBasicLogo.bmp", "IMG_PBLogo")           ; Default key: "PureBasicLogo.bmp"
+    ViewerEx::UseImage("Programmer.bmp", "IMG_Prog")              ; Default key: "PureBasicLogo.bmp"
   CompilerEndIf
   
   CompilerIf ViewerEx::#Enable_CreateViewerContent
@@ -2610,7 +2610,7 @@ CompilerIf #PB_Compiler_IsMainFile
       ViewerEx::StyleDefinition(#Content, "Link",    "Arial_11U", 0, $8B0000)
       
       ViewerEx::Spacing(#Content, 10)
-      ViewerEx::Image(#Content,  "IMG_PBLogo", #PB_Default, #PB_Default, 0, ViewerEx::#Center)
+      ViewerEx::Image(#Content,  "IMG_Prog", #PB_Default, #PB_Default, 0, ViewerEx::#Center)
       ViewerEx::Spacing(#Content, 30)
       ViewerEx::Text(#Content, "ViewerEx - Module", "Titel", 10, ViewerEx::#Center)
       ViewerEx::Text(#Content, "PureBasic V 5.7x (all OS / 64Bit / DPI)", "Version", 20, ViewerEx::#Center)
@@ -2678,7 +2678,7 @@ CompilerIf #PB_Compiler_IsMainFile
         
         ViewerEx::AddHeading(#Viewer, "Heading H1", "H1")
         ViewerEx::AddHeading(#Viewer, "Heading H2 (Image)", "H2")
-        ViewerEx::AddImage(#Viewer,   "IMG_PBLogo", #PB_Default, #PB_Default, 0, ViewerEx::#Center)
+        ViewerEx::AddImage(#Viewer,   "IMG_Prog", #PB_Default, #PB_Default, 0, ViewerEx::#Center)
         ViewerEx::AddSpacing(#Viewer, 5)
         ViewerEx::AddURL(#Viewer, "https://www.purebasic.com", "Link", "", 10, ViewerEx::#Center)  
         ViewerEx::AddHeading(#Viewer, "Heading H2 (#Left)", "H2")
@@ -2742,9 +2742,10 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 8
-; Folding = OCQAgBAQCYAAAAAAAAAHCI5
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 2695
+; FirstLine = 498
+; Folding = MCEAkBAACYAAAAAAAAAHC56
 ; Markers = 1788
 ; EnableXP
 ; DPIAware

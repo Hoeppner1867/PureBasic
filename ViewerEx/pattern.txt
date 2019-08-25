@@ -1,0 +1,52 @@
+[american.pat]
+License: Copying and distribution of this file, with or without modification, are permitted in any medium without royalty provided the copyright notice and this notice are preserved.
+Source:  https://github.com/hyphenation/tex-hyphen/blob/master/hyph-utf8/tex/generic/hyph-utf8/patterns/tex/hyph-en-us.tex
+
+[austrian.pat]
+License: MIT (http://opensource.org/licenses/mit-license.php)
+Source:  https://github.com/hyphenation/tex-hyphen/blob/master/hyph-utf8/tex/generic/hyph-utf8/patterns/tex/hyph-de-1996.tex
+
+[danish.pat]
+License: MIT (http://opensource.org/licenses/mit-license.php)
+Source:  https://github.com/hyphenation/tex-hyphen/blob/master/hyph-utf8/tex/generic/hyph-utf8/patterns/tex/hyph-da.tex
+
+[dutch.pat]
+License: LPPL (http://www.latex-project.org/lppl.txt)
+Source:  https://github.com/hyphenation/tex-hyphen/blob/master/hyph-utf8/tex/generic/hyph-utf8/patterns/tex/hyph-nl.tex 
+
+[english.pat]
+License: MIT (http://opensource.org/licenses/mit-license.php)
+Source:  https://github.com/hyphenation/tex-hyphen/blob/master/hyph-utf8/tex/generic/hyph-utf8/patterns/tex/hyph-en-gb.tex
+
+[french.pat]
+License: MIT (http://opensource.org/licenses/mit-license.php)
+Source:  https://github.com/hyphenation/tex-hyphen/blob/master/hyph-utf8/tex/generic/hyph-utf8/patterns/tex/hyph-fr.tex
+
+[german.pat]
+License: MIT (http://opensource.org/licenses/mit-license.php)
+Source:  https://github.com/hyphenation/tex-hyphen/blob/master/hyph-utf8/tex/generic/hyph-utf8/patterns/tex/hyph-de-1996.tex
+
+[italian.pat]
+License: LPPL (http://www.latex-project.org/lppl.txt)
+License: MIT (http://opensource.org/licenses/mit-license.php)
+Source:  https://github.com/hyphenation/tex-hyphen/blob/master/hyph-utf8/tex/generic/hyph-utf8/patterns/tex/hyph-it.tex
+
+[norwegian.pat]
+License: Copying and distribution of this file, with or without modification, is permitted in any medium without royalty provided the copyright notice and this notice are preserved.
+Source:  https://github.com/hyphenation/tex-hyphen/blob/master/hyph-utf8/tex/generic/hyph-utf8/patterns/tex/hyph-no.tex
+
+[portuguese.pat]
+License: BSD 3-clause (https://opensource.org/licenses/BSD-3-Clause)
+Source:  https://github.com/hyphenation/tex-hyphen/blob/master/hyph-utf8/tex/generic/hyph-utf8/patterns/tex/hyph-pt.tex
+
+[spanish.pat]
+License: MIT/X11 (https://opensource.org/licenses/MIT)
+Source:  https://github.com/hyphenation/tex-hyphen/blob/master/hyph-utf8/tex/generic/hyph-utf8/patterns/tex/hyph-es.tex
+
+[swedish.pat]
+License: LPPL 1.2
+Source:  https://github.com/hyphenation/tex-hyphen/blob/master/hyph-utf8/tex/generic/hyph-utf8/patterns/tex/hyph-sv.tex
+
+[swiss.pat]
+License: MIT (http://opensource.org/licenses/mit-license.php)
+Source:  https://github.com/hyphenation/tex-hyphen/blob/master/hyph-utf8/tex/generic/hyph-utf8/patterns/tex/hyph-de-ch-1901.tex

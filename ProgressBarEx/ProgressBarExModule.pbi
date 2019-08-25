@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (06/2019)
 ;/
 
-; Last Update: 16.5.2019
+; Last Update: 24.8.2019
 
 ;{ ===== MIT License =====
 ;
@@ -76,8 +76,8 @@ DeclareModule ProgressEx
   EnumerationBinary 
     #MoveX
     #MoveY
-    #ResizeWidth
-    #ResizeHeight
+    #Width
+    #Height
   EndEnumeration  
   
   Enumeration 1
@@ -223,7 +223,7 @@ Module ProgressEx
         Width = PBarEx()\Size\Width
       EndIf
       
-      If PBarEx()\State > PBarEx()\Minimum
+      If PBarEx()\State >= PBarEx()\Minimum
         
         ;{ Draw Progressbar 
         If PBarEx()\State = PBarEx()\Maximum
@@ -246,9 +246,8 @@ Module ProgressEx
         Else
          
           DrawingMode(#PB_2DDrawing_Gradient)
-          FrontColor(PBarEx()\Color\ProgressBar)
-          BackColor(PBarEx()\Color\Gradient)
-          LinearGradient(0, 0, Progress, PBarEx()\Size\Height)
+          FrontColor(PBarEx()\Color\Gradient)
+          BackColor(PBarEx()\Color\ProgressBar)
           
           If PBarEx()\Flags & #Vertical
             LinearGradient(0, PBarEx()\Size\Height - Progress, PBarEx()\Size\Width, Progress)
@@ -388,8 +387,8 @@ Module ProgressEx
               
               If PBarEx()\Size\Flags & #MoveX : X = GadgetX(PBarEx()\CanvasNum) + OffSetX : EndIf
               If PBarEx()\Size\Flags & #MoveY : Y = GadgetY(PBarEx()\CanvasNum) + OffSetY : EndIf
-              If PBarEx()\Size\Flags & #ResizeWidth  : Width  = GadgetWidth(PBarEx()\CanvasNum)  + OffSetX : EndIf
-              If PBarEx()\Size\Flags & #ResizeHeight : Height = GadgetHeight(PBarEx()\CanvasNum) + OffSetY : EndIf
+              If PBarEx()\Size\Flags & #Width  : Width  = GadgetWidth(PBarEx()\CanvasNum)  + OffSetX : EndIf
+              If PBarEx()\Size\Flags & #Height : Height = GadgetHeight(PBarEx()\CanvasNum) + OffSetY : EndIf
               
               ResizeGadget(PBarEx()\CanvasNum, X, Y, Width, Height)
               
@@ -631,9 +630,9 @@ CompilerIf #PB_Compiler_IsMainFile
   If OpenWindow(#Window, 0, 0, 180, 75, "Example", #PB_Window_SystemMenu|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
     
     ProgressEx::Gadget(#PBar, 10, 10, 160, 25, 0, 100, ProgressEx::#Border|ProgressEx::#ShowPercent|ProgressEx::#AutoResize, #Window)
-    ProgressEx::SetAutoResizeFlags(#PBar, ProgressEx::#ResizeWidth)
+    ProgressEx::SetAutoResizeFlags(#PBar, ProgressEx::#Width)
     ;ProgressEx::Gadget(#PBar, 100, 10, 30, 60, 0, 100, ProgressEx::#Border|ProgressEx::#Vertical|ProgressEx::#ShowPercent)
-    ;ProgressEx::SetAutoResizeFlags(#PBar, ProgressEx::#ResizeHeight)
+    ;ProgressEx::SetAutoResizeFlags(#PBar, ProgressEx::#Height)
     
     ProgressEx::SetState(#PBar, 60)
 
@@ -663,9 +662,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 
-; IDE Options = PureBasic 5.70 LTS (Windows - x86)
-; CursorPosition = 284
-; FirstLine = 181
-; Folding = OCPM36
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 11
+; Folding = OCPMSw
 ; EnableXP
 ; DPIAware
