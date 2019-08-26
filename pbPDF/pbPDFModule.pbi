@@ -31,12 +31,9 @@
 ; SOFTWARE.
 ;}
 
-; Last Update: 11.08.2019
+; Last Update: 26.08.2019
 ; 
-; [26.06.2019] Bugfix: AddPage (Fonts)
-; [26.06.2019] Bugfix: Preferences for footer
-; [25.06.2019] Bugfix: AutoPageBreak
-; [20.06.2019] Bugfix: PNG-Images
+; [26.08.2019] Bugfix: PDF::Image()
 
 
 ; ----- Description -----
@@ -935,6 +932,8 @@ Module PDF
   Structure PDF_Image_Structure      ;{ PDF()\objImages(FileName)\... | PDF()\objFonts()\... | PDF()\objFiles()\... | PDF()\objJavaScript()\...
     Number.i
     Object.s
+    Width.f
+    Height.f
     File.s
   EndStructure ;}
   
@@ -2360,9 +2359,7 @@ Module PDF
         ; Read image file header
         Select Format
           Case #Image_PNG      ;{ PNG-Image
-            Debug "MemorySize: " + Str(Size)
             If HeaderPNG_(*Memory, Size, @Header)
-              Debug "HeaderPNG"
               Filter = "FlateDecode"
               Select Header\ColorSpace
                 Case 0
@@ -2438,24 +2435,27 @@ Module PDF
         objStrg + "/Length "+Str(Header\Size) + #LF$
         objOutDictionary_(objStrg, #LF$)
         objOutStream_(Header\Memory, Header\Size)
- 
+        
+        ; ===== Automatic width and height calculation if needed
+        
+        If Width = 0 And Height = 0 ;{ Put image at 72 dpi
+          Width  = Header\Width  / PDF()\ScaleFactor
+          Height = Header\Height / PDF()\ScaleFactor
+          ;}
+        EndIf
+        
+        If Width  = 0 : Width  = Height * Header\Width  / Header\Height : EndIf
+        If Height = 0 : Height = Width  * Header\Height / Header\Width  : EndIf
+        
+        PDF()\objImages()\Width  = Width
+        PDF()\objImages()\Height = Height
+       
       EndIf
 
-      ; ===== Automatic width and height calculation if needed
-      
-      If Width = 0 And Height = 0 ;{ Put image at 72 dpi
-        Width  = Header\Width  / PDF()\ScaleFactor
-        Height = Header\Height / PDF()\ScaleFactor
-        ;}
-      EndIf
-      
-      If Width  = 0 : Width  = Height * Header\Width  / Header\Height : EndIf
-      If Height = 0 : Height = Width  * Header\Height / Header\Width  : EndIf
-  
-      objOutPage_("q " + strF_(Width * PDF()\ScaleFactor, 2) + " 0 0 " + strF_(Height * PDF()\ScaleFactor, 2) + " " + strF_(X * PDF()\ScaleFactor, 2) + " " + strF_((PDF()\Page\Height - (Y + Height)) * PDF()\ScaleFactor, 2) + " cm /I" + Str(PDF()\objImages()\Number) + " Do Q")
+      objOutPage_("q " + strF_(PDF()\objImages()\Width * PDF()\ScaleFactor, 2) + " 0 0 " + strF_(PDF()\objImages()\Height * PDF()\ScaleFactor, 2) + " " + strF_(X * PDF()\ScaleFactor, 2) + " " + strF_((PDF()\Page\Height - (Y + PDF()\objImages()\Height)) * PDF()\ScaleFactor, 2) + " cm /I" + Str(PDF()\objImages()\Number) + " Do Q")
       
       CompilerIf #Enable_Annotations
-        If Link > #NoLink : AddAnnot_(Link, X, Y, Width, Height) : EndIf
+        If Link > #NoLink : AddAnnot_(Link, X, Y, PDF()\objImages()\Width, PDF()\objImages()\Height) : EndIf
       CompilerEndIf
       
     EndIf
@@ -6945,10 +6945,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf 
 
 ;- ========================
-; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 33
-; Folding = MAIBAEAPQAIAAAAAgAAAACBAAACAAAAAAACAAZQBAgREAAAADAAKIACAAAIQYCMHAgABAA+
-; Markers = 572,1001,2352,3761,3826
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 35
+; Folding = MAIBAEAPQAIAEgAAgAAAACBAAAhAAAAAAACAgZQAAgREAAAADAAKIACAAAIYYCMHA9ABAA+
+; Markers = 569,1000,2351,2455,3761,3826
 ; EnableXP
 ; DPIAware
 ; EnablePurifier
