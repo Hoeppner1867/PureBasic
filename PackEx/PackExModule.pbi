@@ -19,8 +19,9 @@
 ; - Add sound, music or sprite files to the archiv and load them directly from the archive
 
 
-; Last Update: 18.08.2019
+; Last Update: 27.08.2019
 
+; - AddText() / DecompressText()
 ; - ProgressBar for BasicCoders
 ; - Added: ReadContent() => Map: PackEx::Content()
 
@@ -56,6 +57,7 @@
 ; PackEx::AddImage()          - similar to SaveImage(), but for archive
 ; PackEx::AddJSON()           - similar to SaveJSON(), but for archive
 ; PackEx::AddMemory()         - similar to AddPackMemory()
+; PackEx::AddText()           - adds text as file to the archiv
 ; PackEx::AddXML()            - similar to SaveXML(), but for archive
 ; PackEx::Close()             - similar to ClosePack()  [#MoveBack/#Update]
 ; PackEx::Create()            - similar to CreatePack()
@@ -65,6 +67,7 @@
 ; PackEx::DecompressMemory()  - similar to UncompressPackMemory()
 ; PackEx::DecompressMusic()   - similar to LoadMusic(), but for archive
 ; PackEx::DecompressSound()   - similar to LoadSound(), but for archive
+; PackEx::DecompressText()    - decompress text file from archive as string
 ; PackEx::DecompressXML()     - similar to LoadXML(), but for archive
 ; PackEx::IsEncrypted()       - checks if the packed file is encrypted
 ; PackEx::Open()              - similar to OpenPack()
@@ -153,6 +156,7 @@ DeclareModule PackEx
   Declare.i AddImage(Pack.i, Image.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
   Declare.i AddJSON(Pack.i, JSON.i, PackedFileName.s, Key.s="")
   Declare.i AddMemory(Pack.i, *Buffer, Size.i, PackedFileName.s, Key.s="", ProgressBar.i=#False) 
+  Declare.i AddText(ID.i, String.s, PackedFileName.s, Key.s="", ProgressBar.i=#False)
   Declare.i AddXML(Pack.i, XML.i, PackedFileName.s, Key.s="")
   Declare   Close(Pack.i, Flags.i=#False)
   Declare.i Create(Pack.i, File.s, Plugin.i=#PB_PackerPlugin_Zip, Level.i=9)
@@ -1245,7 +1249,7 @@ Module PackEx
   
   Procedure.i AddMemory(Pack.i, *Buffer, Size.i, PackedFileName.s, Key.s="", ProgressBar.i=#False) 
     Define.i Result
-    Define.q Counter, Hash, qAES_ID = #qAES
+    Define.q Counter
     Define   *Buffer, *Output
     
     If FindMapElement(PackEx(), Str(Pack))
@@ -1371,7 +1375,6 @@ Module PackEx
   
   Procedure.i AddXML(Pack.i, XML.i, PackedFileName.s, Key.s="")
     Define   *Buffer
-    Define.q Counter, Hash, qAES_ID = #qAES
     Define.i Size, Result
         
     If FindMapElement(PackEx(), Str(Pack))
@@ -1425,7 +1428,6 @@ Module PackEx
   
   Procedure.i DecompressXML(Pack.i, XML.i, PackedFileName.s, Key.s="", Flags.i=#False, Encoding.i=#PB_UTF8)
     Define   *Buffer
-    Define.q Counter, Hash, qAES_ID
     Define.i Size, Result 
     
     If FindMapElement(PackEx(), Str(Pack))
@@ -1468,7 +1470,6 @@ Module PackEx
   
   Procedure.i AddJSON(Pack.i, JSON.i, PackedFileName.s, Key.s="")
     Define   *Buffer
-    Define.q Counter, Hash, qAES_ID = #qAES
     Define.i Size, Result
     
     If FindMapElement(PackEx(), Str(Pack))
@@ -1522,7 +1523,6 @@ Module PackEx
   
   Procedure.i DecompressJSON(Pack.i, JSON.i, PackedFileName.s, Key.s="", Flags.i=#False)
     Define   *Buffer
-    Define.q Counter, Hash, qAES_ID
     Define.i Size, Result
     
     If FindMapElement(PackEx(), Str(Pack))
@@ -1565,7 +1565,6 @@ Module PackEx
   
   Procedure.i AddImage(Pack.i, Image.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
     Define   *Buffer
-    Define.q Counter, Hash, qAES_ID = #qAES
     Define.i Size, Result
     
     If FindMapElement(PackEx(), Str(Pack))
@@ -1623,7 +1622,6 @@ Module PackEx
   
   Procedure.i DecompressImage(Pack.i, Image.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
     Define   *Buffer
-    Define.q Counter, Hash, qAES_ID
     Define.i Size, Result
     
     If FindMapElement(PackEx(), Str(Pack))
@@ -1668,10 +1666,59 @@ Module PackEx
   EndProcedure
   
   
+  Procedure.i AddText(ID.i, String.s, PackedFileName.s, Key.s="", ProgressBar.i=#False)
+    Define.i Size, Result
+    Define   *Buffer
+    
+    If FindMapElement(PackEx(), Str(ID))
+      
+      If String
+        
+        Size = StringByteLength(String)
+        If Size
+
+          *Buffer = AllocateMemory(Size)
+          If *Buffer
+            
+            CopyMemory(@String, *Buffer, Size)
+            
+            If Key  ;{ encrypt & pack file
+
+              If PackEx()\Mode = #Open
+                Result = AddMemory2Pack_(*Buffer, Size, PackedFileName, Key, ProgressBar)
+              Else
+                Result = AddCryptMemory_(PackEx()\ID, *Buffer, Size, PackedFileName, Key, ProgressBar)
+              EndIf
+              
+              Size + 48  
+              ;}
+            Else    ;{ pack file
+              
+              If PackEx()\Mode = #Open 
+                Result = AddMemory2Pack_(*Buffer, Size, PackedFileName, "", ProgressBar)
+              Else
+                SetProgressText_(PackEx()\ProgressBar, #Compress)
+                Result = AddPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName)
+                SetProgressText_(PackEx()\ProgressBar, #Compress|#Finished)
+              EndIf
+              ;}
+            EndIf
+
+            FreeMemory(*Buffer)
+          EndIf
+          
+        EndIf
+        
+      EndIf
+      
+    EndIf
+    
+    ProcedureReturn Result
+  EndProcedure
+  
   Procedure.s DecompressText(Pack.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
     Define   *Buffer
-    Define.q Counter, Hash, qAES_ID
-    Define.i Size, Result
+    Define.i Size
     Define.s String
     
     If FindMapElement(PackEx(), Str(Pack))
@@ -1690,7 +1737,8 @@ Module PackEx
               SetProgressText_(ProgressBar, #Compress|#Finished)
               
               If DecryptMemory_(*Buffer, Size, Key, ProgressBar)
-                String = PeekS(*Buffer, Size, #PB_UTF8)
+                String = Space(Size / SizeOf(character))
+                CopyMemory(*Buffer, @String, Size)
               EndIf
             
             Else
@@ -1709,9 +1757,9 @@ Module PackEx
     ProcedureReturn String
   EndProcedure
   
+  
   Procedure.i DecompressSound(Pack.i, Sound.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
     Define   *Buffer
-    Define.q Counter, Hash, qAES_ID
     Define.i Size, Result
     
     If FindMapElement(PackEx(), Str(Pack))
@@ -1754,7 +1802,6 @@ Module PackEx
   
   Procedure.i DecompressSprite(Pack.i, Sprite.i, PackedFileName.s, Key.s="", Flags.i=#False)
     Define   *Buffer
-    Define.q Counter, Hash, qAES_ID
     Define.i Size, Result
     
     If FindMapElement(PackEx(), Str(Pack))
@@ -1791,7 +1838,6 @@ Module PackEx
 
   Procedure.i DecompressMusic(Pack.i, Music.i, PackedFileName.s, Key.s="", Flags.i=#False)
     Define   *Buffer
-    Define.q Counter, Hash, qAES_ID
     Define.i Size, Result
     
     If FindMapElement(PackEx(), Str(Pack))
@@ -1889,7 +1935,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 6
+  #Example = 5
   
   ; 1: normal
   ; 2: encrypted
@@ -1901,7 +1947,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UseZipPacker()
 
-  #Pack = 1
+  #Pack = 5
   
   Key$  = "18qAES07PW67"
   
@@ -1946,7 +1992,7 @@ CompilerIf #PB_Compiler_IsMainFile
     CompilerCase 3 ;{ delete packed file
       
       If PackEx::Create(#Pack, "TestPack.zip")
-        PackEx::AddFile(#Pack, "Programmer.jpg", "Programmer.jpg")
+        PackEx::AddFile(#Pack, "Programmer.jpg", "Programmer.jpg", Key$)
         PackEx::AddFile(#Pack, "Test.txt", "Test.txt")
         PackEx::Close(#Pack)
       EndIf
@@ -1987,6 +2033,7 @@ CompilerIf #PB_Compiler_IsMainFile
       If PackEx::Open(#Pack, "TestXML.zip")
         If PackEx::DecompressXML(#Pack, #XML, "Shapes.xml", Key$)
           Debug ComposeXML(#XML)
+          SaveXML(#XML, "Test.xml")
           FreeXML(#XML)
         EndIf
         PackEx::Close(#Pack) 
@@ -2011,6 +2058,7 @@ CompilerIf #PB_Compiler_IsMainFile
       If PackEx::Open(#Pack, "TestJSON.zip")
         If PackEx::DecompressJSON(#Pack, #JSON, "Person.json", Key$)
           Debug ComposeJSON(#JSON, #PB_JSON_PrettyPrint)
+          SaveJSON(#JSON, "Test.json")
           FreeJSON(#JSON)
         EndIf
         PackEx::Close(#Pack) 
@@ -2061,9 +2109,8 @@ CompilerIf #PB_Compiler_IsMainFile
   CompilerEndSelect    
   
 CompilerEndIf  
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1891
-; FirstLine = 317
-; Folding = MAIegNBA3GMAa+
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 20
+; Folding = KAIQgNhA3GMDQI-
 ; EnableXP
 ; DPIAware
