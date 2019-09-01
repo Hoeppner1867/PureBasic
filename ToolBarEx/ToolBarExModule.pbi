@@ -9,9 +9,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 15.7.2019
+; Last Update: 1.09.2019
 ;
-; Bugfix: DPI
+; Added: Flag #TextInside
 
 
 ;{ ===== MIT License =====
@@ -103,6 +103,7 @@ DeclareModule ToolBar
     #Border
     #PopupArrows
     #ToolTips
+    #TextInside
   EndEnumeration
   
   Enumeration Attribute 1
@@ -491,13 +492,14 @@ Module ToolBar
   
   Procedure   DrawSingleButton_(btIndex.i, Flags.i)
     Define.i ImageID
-    Define.f X, Y, btY, imgY, imgX, txtHeight
+    Define.f X, Y, btY, imgY, imgX, txtX, txtY, txtHeight, TextInside
     
     If StartDrawing(CanvasOutput(TBEx()\CanvasNum))
       
       If TBEx()\FontID : DrawingFont(TBEx()\FontID) : EndIf
       If TBEx()\Flags & #ButtonText : txtHeight = TextHeight("ABC") : EndIf
-     
+      If TBEx()\Flags & #TextInside : TextInside = txtHeight : EndIf
+      
       btY  = (TBEx()\Size\Height - TBEx()\Buttons\Height - txtHeight)   / 2
       imgY = (TBEx()\Buttons\Height - TBEx()\Images\Height) / 2 + btY
       
@@ -510,18 +512,18 @@ Module ToolBar
           If Flags & #Click
             If TBEx()\Flags & #RoundFocus
               DrawingMode(#PB_2DDrawing_Default)
-              RoundBox(X, btY, TBEx()\Items()\Width, TBEx()\Buttons\Height, #Round, #Round, BlendColor_(TBEx()\Color\Focus, TBEx()\Color\Back, 32))
+              RoundBox(X, btY, TBEx()\Items()\Width, TBEx()\Buttons\Height + TextInside, #Round, #Round, BlendColor_(TBEx()\Color\Focus, TBEx()\Color\Back, 32))
               DrawingMode(#PB_2DDrawing_Outlined)
-              RoundBox(X, btY, TBEx()\Items()\Width, TBEx()\Buttons\Height, #Round, #Round, BlendColor_(TBEx()\Color\Focus, TBEx()\Color\Back))
+              RoundBox(X, btY, TBEx()\Items()\Width, TBEx()\Buttons\Height + TextInside, #Round, #Round, BlendColor_(TBEx()\Color\Focus, TBEx()\Color\Back))
             Else
               DrawingMode(#PB_2DDrawing_Default)
-              Box(X, btY,  TBEx()\Items()\Width, TBEx()\Buttons\Height, BlendColor_(TBEx()\Color\Focus, TBEx()\Color\Back, 32))
+              Box(X, btY,  TBEx()\Items()\Width, TBEx()\Buttons\Height + TextInside, BlendColor_(TBEx()\Color\Focus, TBEx()\Color\Back, 32))
               DrawingMode(#PB_2DDrawing_Outlined)
-              Box(X, btY,  TBEx()\Items()\Width, TBEx()\Buttons\Height, BlendColor_(TBEx()\Color\Focus, TBEx()\Color\Back))
+              Box(X, btY,  TBEx()\Items()\Width, TBEx()\Buttons\Height + TextInside, BlendColor_(TBEx()\Color\Focus, TBEx()\Color\Back))
             EndIf
           ElseIf Flags & #FocusLost 
             DrawingMode(#PB_2DDrawing_Default)
-            Box(X, btY,  TBEx()\Items()\Width, TBEx()\Buttons\Height, TBEx()\Color\Back)
+            Box(X, btY,  TBEx()\Items()\Width, TBEx()\Buttons\Height + TextInside, TBEx()\Color\Back)
           EndIf 
           
           imgX = (TBEx()\Items()\Width - TBEx()\Images\Width) / 2
@@ -544,7 +546,21 @@ Module ToolBar
               Arrow_(X, btY, TBEx()\Items()\Width, TBEx()\Buttons\Height, #PopupClosed)
             EndIf 
           EndIf
-         
+          
+          If TBEx()\Flags & #TextInside And TBEx()\Flags & #ButtonText
+            txtY = btY + TBEx()\Buttons\Height
+            txtX = (TBEx()\Items()\Width - TextWidth(TBEx()\Items()\Text)) / 2
+            If txtX < 0 : txtX = 0 : EndIf
+            CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS : ClipOutput(X, txtY, TBEx()\Items()\Width, TBEx()\Buttons\txtHeight) : CompilerEndIf
+            DrawingMode(#PB_2DDrawing_Transparent)
+            If TBEx()\Items()\Flags & #Disable
+              DrawText(X + txtX, txtY, TBEx()\Items()\Text, BlendColor_(TBEx()\Color\Front, TBEx()\Color\Back))
+            Else
+              DrawText(X + txtX, txtY, TBEx()\Items()\Text, TBEx()\Color\Front)
+            EndIf
+            CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS : UnclipOutput() : CompilerEndIf
+          EndIf
+          
         EndIf  
           
       EndIf 
@@ -556,7 +572,7 @@ Module ToolBar
   
   Procedure   Draw_(Flags.i=#False)
     Define.f X, Y, btY, btX, imgY, imgX, txtX, txtY, cbY
-    Define.i Width, Height, btHeight
+    Define.i Width, Height, btHeight, TextInside
     Define.i ImageID
     
     If StartDrawing(CanvasOutput(TBEx()\CanvasNum))
@@ -600,16 +616,22 @@ Module ToolBar
         ;}
       EndIf
       
-      If TBEx()\Flags & #ButtonText : TBEx()\Buttons\txtHeight = TextHeight("ABC") : EndIf
+      If TBEx()\Flags & #ButtonText
+        TBEx()\Buttons\txtHeight = TextHeight("ABC") 
+      EndIf
+      
+      If TBEx()\Flags & #TextInside
+        TextInside = TBEx()\Buttons\txtHeight
+      EndIf
       
       X    = TBEx()\Size\Spacing
       btY  = (TBEx()\Size\Height - TBEx()\Buttons\Height - TBEx()\Buttons\txtHeight) / 2
       imgY = (TBEx()\Buttons\Height - TBEx()\Images\Height) / 2 + btY
-      
+
       If TBEx()\Flags & #ButtonText
         txtY = btY + TBEx()\Buttons\Height
       EndIf
-      
+
       ;{ _____ Background _____
       DrawingMode(#PB_2DDrawing_Default)
       Box(0, 0, TBEx()\Size\Width, TBEx()\Size\Height, TBEx()\Color\Back)
@@ -622,14 +644,14 @@ Module ToolBar
           If TBEx()\Buttons\Focus = ListIndex(TBEx()\Items())
             If TBEx()\Flags & #RoundFocus
               DrawingMode(#PB_2DDrawing_Default)
-              RoundBox(X, btY, TBEx()\Items()\Width, TBEx()\Buttons\Height, #Round, #Round, BlendColor_(TBEx()\Color\Focus, TBEx()\Color\Back, 20))
+              RoundBox(X, btY, TBEx()\Items()\Width, TBEx()\Buttons\Height + TextInside, #Round, #Round, BlendColor_(TBEx()\Color\Focus, TBEx()\Color\Back, 20))
               DrawingMode(#PB_2DDrawing_Outlined)
-              RoundBox(X, btY, TBEx()\Items()\Width, TBEx()\Buttons\Height, #Round, #Round, BlendColor_(TBEx()\Color\Focus, TBEx()\Color\Back))
+              RoundBox(X, btY, TBEx()\Items()\Width, TBEx()\Buttons\Height + TextInside, #Round, #Round, BlendColor_(TBEx()\Color\Focus, TBEx()\Color\Back))
             Else
               DrawingMode(#PB_2DDrawing_Default)
-              Box(X, btY,  TBEx()\Items()\Width, TBEx()\Buttons\Height, BlendColor_(TBEx()\Color\Focus, TBEx()\Color\Back, 20))
+              Box(X, btY,  TBEx()\Items()\Width, TBEx()\Buttons\Height + TextInside, BlendColor_(TBEx()\Color\Focus, TBEx()\Color\Back, 20))
               DrawingMode(#PB_2DDrawing_Outlined)
-              Box(X, btY,  TBEx()\Items()\Width, TBEx()\Buttons\Height, BlendColor_(TBEx()\Color\Focus, TBEx()\Color\Back))
+              Box(X, btY,  TBEx()\Items()\Width, TBEx()\Buttons\Height + TextInside, BlendColor_(TBEx()\Color\Focus, TBEx()\Color\Back))
             EndIf
           EndIf
         EndIf
@@ -662,7 +684,7 @@ Module ToolBar
                 DrawingMode(#PB_2DDrawing_Default)
                 Arrow_(X, btY, TBEx()\Items()\Width, TBEx()\Buttons\Height, #PopupClosed)
               EndIf
-              
+
               If TBEx()\Flags & #ButtonText
                 txtX = (TBEx()\Items()\Width - TextWidth(TBEx()\Items()\Text)) / 2
                 If txtX < 0 : txtX = 0 : EndIf
@@ -675,7 +697,7 @@ Module ToolBar
                 EndIf
                 CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS : UnclipOutput() : CompilerEndIf
               EndIf
-              
+
               X + TBEx()\Items()\Width + TBEx()\Buttons\Spacing
               ;}
             Case #ComboBox, #SpinGadget, #TextButton ;{ ComboBox / SpinGadget / TextButton
@@ -1420,7 +1442,7 @@ Module ToolBar
   
   
   Procedure.i Gadget(GNum.i, X.i=#PB_Ignore, Y.i=#PB_Ignore, Width.i=#PB_Ignore, Height.i=#PB_Ignore, Flags.i=#False, WindowNum.i=#PB_Default)
-    ; #ImageSize_16|#ImageSize_24|#ImageSize_32|#ButtonText|#Border|#PopupArrows
+    ; #ImageSize_16|#ImageSize_24|#ImageSize_32|#ButtonText|#Border|#PopupArrows|#ImageText
     ; #AutoResize|#AdjustButtons|#AdjustAllButtons|#AdjustHeight
     Define Result.i, ImageSize .f
     
@@ -1898,6 +1920,7 @@ CompilerIf #PB_Compiler_IsMainFile
     EndIf
     
     ToolBar::Gadget(#ToolBar, #PB_Ignore, #PB_Ignore, #PB_Ignore, #PB_Ignore, ToolBar::#Border|ToolBar::#AutoResize|ToolBar::#ButtonText|ToolBar::#AdjustButtons|ToolBar::#AdjustHeight|ToolBar::#RoundFocus|ToolBar::#PopupArrows|ToolBar::#ToolTips, #Window)
+    ; |ToolBar::#TextInside
     
     ToolBar::DisableRedraw(#ToolBar, #True)
     
@@ -2001,8 +2024,9 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf  
-; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 13
-; Folding = 9BJAG9w-OBAAmhAqs0
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 1923
+; FirstLine = 1005
+; Folding = 9BJAewD-8EABYOCpy3
 ; EnableXP
 ; DPIAware
