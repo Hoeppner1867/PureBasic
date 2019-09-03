@@ -7,10 +7,11 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 18.08.2019
+; Last Update: 3.09.2019
 ;
-; - Bugfixes: Cursor
-
+; Changed: #ResizeWidth -> #Width / #ResizeHeight -> #Height
+; Added:   SetDynamicFont() / FitText() / SetFitText()       [needs ModuleEx.pbi]
+; Added:   Flags '#FitText' & '#FixPadding' for Autoresize   [needs ModuleEx.pbi]
 
 ;{ ===== MIT License =====
 ;
@@ -54,7 +55,7 @@
 ; StringEx::Paste()              - paste clipboard
 ; StringEx::RemoveFlag()         - removes a flag
 ; StringEx::SetAttribute()       - similar to 'SetGadgetAttribute()'
-; StringEx::SetAutoResizeFlags() - [#MoveX|#MoveY|#ResizeWidth|#ResizeHeight]
+; StringEx::SetAutoResizeFlags() - [#MoveX|#MoveY|#Width|#Height]
 ; StringEx::SetColor()           - similar to 'SetGadgetColor()'
 ; StringEx::SetFlags()           - sets one or more flags
 ; StringEx::SetText()            - similar to 'SetGadgetText()'
@@ -63,7 +64,7 @@
 ;}
 
 
-;XIncludeFile "ModuleEx.pbi"
+XIncludeFile "ModuleEx.pbi"
 
 DeclareModule StringEx
   
@@ -89,6 +90,8 @@ DeclareModule StringEx
     #Left
     #Right
     #Center
+    #FitText
+    #FixPadding
   EndEnumeration
   
   Enumeration Attribute 1
@@ -109,8 +112,8 @@ DeclareModule StringEx
   EnumerationBinary 
     #MoveX
     #MoveY
-    #ResizeWidth
-    #ResizeHeight
+    #Width
+    #Height
   EndEnumeration  
   
   CompilerIf Defined(ModuleEx, #PB_Module)
@@ -165,6 +168,14 @@ DeclareModule StringEx
   Declare   SetText(GNum.i, Text.s) 
   Declare   Undo(GNum.i)
   
+  CompilerIf Defined(ModuleEx, #PB_Module)
+	  
+	  Declare.i FitText(GNum.i, PaddingX.i=#PB_Default, PaddingY.i=#PB_Default)
+	  Declare.i SetDynamicFont(GNum.i, Name.s, Size.i, Style.i=#False)
+	  Declare.i SetFitText(GNum.i, Text.s, PaddingX.i=#PB_Default, PaddingY.i=#PB_Default)
+	  
+	CompilerEndIf
+  
 EndDeclareModule
 
 Module StringEx
@@ -206,6 +217,13 @@ Module StringEx
   ;- ============================================================================
   ;-   Module - Structures
   ;- ============================================================================
+  
+  Structure StrgEx_Font_Structure    ;{ StrgEx()\Font\...
+	  Num.i
+	  Name.s
+	  Size.i
+	  Style.i
+	EndStructure ;}
   
   Structure Cursor_Thread_Structure  ;{
     Num.i
@@ -262,6 +280,7 @@ Module StringEx
     Y.f
     Width.f
     Height.f
+    Text.i
     Flags.i
   EndStructure ;} 
   
@@ -276,8 +295,7 @@ Module StringEx
     PopupNum.i
     
     Thread.i
-    ;Signal.i
-    
+
     FontID.i
     State.i
     Flags.i
@@ -287,6 +305,13 @@ Module StringEx
     Mouse.i
     MaxLength.i
     Padding.i
+    
+    ; Fit Text
+    PaddingX.i
+    PaddingY.i
+    PFactor.f
+    
+    Font.StrgEx_Font_Structure
     
     Button.StrgEx_Button_Structure
     Color.StrgEx_Color_Structure
@@ -339,13 +364,17 @@ Module StringEx
   CompilerEndIf
   
   
-  Procedure.f dpiX(Num.i)
-    ProcedureReturn DesktopScaledX(Num)
-  EndProcedure
-  
-  Procedure.f dpiY(Num.i)
-    ProcedureReturn DesktopScaledY(Num)
-  EndProcedure
+	Procedure.f dpiX(Num.i)
+	  If Num > 0  
+	    ProcedureReturn DesktopScaledX(Num)
+	  EndIf   
+	EndProcedure
+
+	Procedure.f dpiY(Num.i)
+	  If Num > 0  
+	    ProcedureReturn DesktopScaledY(Num)
+	  EndIf  
+	EndProcedure
   
   
   CompilerIf #Enable_AutoComplete
@@ -651,126 +680,124 @@ Module StringEx
     
   EndProcedure
 
-  Procedure   Draw_(GNum.i)
+  Procedure   Draw_()
     Define.f X, Y, Height, Width, startX
     Define.s Text, Word, strgPart
     Define.i TextColor, BackColor, BorderColor
-    
-    If FindMapElement(StrgEx(), Str(GNum))
       
-      If StrgEx()\MaxLength <> #PB_Default
-        If Len(StrgEx()\Text) > StrgEx()\MaxLength
-          StrgEx()\Text = Left(StrgEx()\Text, StrgEx()\MaxLength)
-        EndIf
+    If StrgEx()\MaxLength <> #PB_Default
+      If Len(StrgEx()\Text) > StrgEx()\MaxLength
+        StrgEx()\Text = Left(StrgEx()\Text, StrgEx()\MaxLength)
+      EndIf
+    EndIf
+    
+    If StartDrawing(CanvasOutput(StrgEx()\CanvasNum))
+      
+      BackColor   = StrgEx()\Color\Back
+      BorderColor = StrgEx()\Color\Border
+      TextColor   = StrgEx()\Color\Front
+      
+      If StrgEx()\State & #Focus
+        BorderColor = StrgEx()\Color\Focus
       EndIf
       
-      If StartDrawing(CanvasOutput(StrgEx()\CanvasNum))
-        
-        BackColor   = StrgEx()\Color\Back
-        BorderColor = StrgEx()\Color\Border
-        TextColor   = StrgEx()\Color\Front
-        
-        If StrgEx()\State & #Focus
-          BorderColor = StrgEx()\Color\Focus
-        EndIf
-        
-        Height = dpiY(GadgetHeight(StrgEx()\CanvasNum))
-        Width  = dpiX(GadgetWidth(StrgEx()\CanvasNum))
+      Height = dpiY(GadgetHeight(StrgEx()\CanvasNum))
+      Width  = dpiX(GadgetWidth(StrgEx()\CanvasNum))
 
-        ;{ _____ Background _____
-        DrawingMode(#PB_2DDrawing_Default)
-        Box(0, 0, Width, Height, BackColor)
-        ;}
-        
-        If StrgEx()\Flags & #ShowButton Or StrgEx()\Flags & #EventButton
-          Width - dpiX(#ButtonWidth - 1)
-        EndIf
-        
-        DrawingFont(StrgEx()\FontID)
+      ;{ _____ Background _____
+      DrawingMode(#PB_2DDrawing_Default)
+      Box(0, 0, Width, Height, BackColor)
+      ;}
+      
+      If StrgEx()\Flags & #ShowButton Or StrgEx()\Flags & #EventButton
+        Width - dpiX(#ButtonWidth - 1)
+      EndIf
+      
+      StrgEx()\Size\Text = Width
+      
+      DrawingFont(StrgEx()\FontID)
 
-        ;{ _____ Text _____
-        If StrgEx()\Text
-          Text = StrgEx()\Text
-          If StrgEx()\Flags & #Password And StrgEx()\Button\State & #Click = #False
-            Text = LSet("", Len(StrgEx()\Text), #PWChar)
-          Else
-            Text = StrgEx()\Text
-          EndIf
-          
-          X = GetOffsetX_(Text, Width, StrgEx()\Padding)
-          Y = (Height - TextHeight(Text)) / 2
-          
-          DrawingMode(#PB_2DDrawing_Transparent)
-          DrawText(X, Y, Text, StrgEx()\Color\Front)
-          
-          CompilerIf #Enable_AutoComplete
-            
-            If StrgEx()\Flags & #AutoComplete And StrgEx()\Flags & #Password = #False
-              If ListIndex(StrgEx()\AutoComplete()) <> -1
-                Word = Mid(StrgEx()\AutoComplete()\Word, Len(Text) + 1)
-                DrawingMode(#PB_2DDrawing_Default)
-                DrawText(X + TextWidth(Text) + dpiX(1), Y, Word, StrgEx()\Color\WordColor, BlendColor_(StrgEx()\Color\Highlight, $FFFFFF, 3))
-              EndIf
-            EndIf
-            
-          CompilerEndIf
-          
+      ;{ _____ Text _____
+      If StrgEx()\Text
+        Text = StrgEx()\Text
+        If StrgEx()\Flags & #Password And StrgEx()\Button\State & #Click = #False
+          Text = LSet("", Len(StrgEx()\Text), #PWChar)
         Else
-          
-          X = StrgEx()\Padding
-          Y = (Height - TextHeight("X")) / 2  
-          
+          Text = StrgEx()\Text
         EndIf
-        ;}
         
-        ;{ _____ Selection ______
-        If StrgEx()\Selection\Flag = #Selected
+        X = GetOffsetX_(Text, Width, StrgEx()\Padding)
+        Y = (Height - TextHeight(Text)) / 2
+        
+        DrawingMode(#PB_2DDrawing_Transparent)
+        DrawText(X, Y, Text, StrgEx()\Color\Front)
+        
+        CompilerIf #Enable_AutoComplete
           
-          If StrgEx()\Selection\Pos1 >  StrgEx()\Selection\Pos2
-            startX   = CursorX_(StrgEx()\Selection\Pos2)
-            strgPart = StringSegment_(Text, StrgEx()\Selection\Pos2 + 1, StrgEx()\Selection\Pos1)
-          Else
-            startX   = CursorX_(StrgEx()\Selection\Pos1)
-            strgPart = StringSegment_(Text, StrgEx()\Selection\Pos1 + 1, StrgEx()\Selection\Pos2)
+          If StrgEx()\Flags & #AutoComplete And StrgEx()\Flags & #Password = #False
+            If ListIndex(StrgEx()\AutoComplete()) <> -1
+              Word = Mid(StrgEx()\AutoComplete()\Word, Len(Text) + 1)
+              DrawingMode(#PB_2DDrawing_Default)
+              DrawText(X + TextWidth(Text) + dpiX(1), Y, Word, StrgEx()\Color\WordColor, BlendColor_(StrgEx()\Color\Highlight, $FFFFFF, 3))
+            EndIf
           EndIf
           
-          StrgEx()\Cursor\Pos = StrgEx()\Selection\Pos2
-          
-          DrawingMode(#PB_2DDrawing_Default)
-          DrawText(startX, Y, strgPart, StrgEx()\Color\HighlightText, StrgEx()\Color\Highlight)
-  
-        EndIf 
-        ;}
-        
-        ;{ _____ Cursor _____
-        If StrgEx()\Cursor\Pos
-          X + TextWidth(Left(Text, StrgEx()\Cursor\Pos))
-        EndIf
-        StrgEx()\Cursor\Height = TextHeight("X")
-        StrgEx()\Cursor\X = X
-        StrgEx()\Cursor\Y = Y
-        ;}
-        
-        CompilerIf #Enable_ShowPasswordButton
-          If StrgEx()\Flags & #ShowButton
-            Button_(BorderColor)
-          EndIf
         CompilerEndIf
         
-        If StrgEx()\Flags & #EventButton
+      Else
+        
+        X = StrgEx()\Padding
+        Y = (Height - TextHeight("X")) / 2  
+        
+      EndIf
+      ;}
+      
+      ;{ _____ Selection ______
+      If StrgEx()\Selection\Flag = #Selected
+        
+        If StrgEx()\Selection\Pos1 >  StrgEx()\Selection\Pos2
+          startX   = CursorX_(StrgEx()\Selection\Pos2)
+          strgPart = StringSegment_(Text, StrgEx()\Selection\Pos2 + 1, StrgEx()\Selection\Pos1)
+        Else
+          startX   = CursorX_(StrgEx()\Selection\Pos1)
+          strgPart = StringSegment_(Text, StrgEx()\Selection\Pos1 + 1, StrgEx()\Selection\Pos2)
+        EndIf
+        
+        StrgEx()\Cursor\Pos = StrgEx()\Selection\Pos2
+        
+        DrawingMode(#PB_2DDrawing_Default)
+        DrawText(startX, Y, strgPart, StrgEx()\Color\HighlightText, StrgEx()\Color\Highlight)
+
+      EndIf 
+      ;}
+      
+      ;{ _____ Cursor _____
+      If StrgEx()\Cursor\Pos
+        X + TextWidth(Left(Text, StrgEx()\Cursor\Pos))
+      EndIf
+      StrgEx()\Cursor\Height = TextHeight("X")
+      StrgEx()\Cursor\X = X
+      StrgEx()\Cursor\Y = Y
+      ;}
+      
+      CompilerIf #Enable_ShowPasswordButton
+        If StrgEx()\Flags & #ShowButton
           Button_(BorderColor)
         EndIf
-        
-        ;{ _____ Border ____
-        If StrgEx()\Flags & #Borderless = #False
-          DrawingMode(#PB_2DDrawing_Outlined)
-          Box(0, 0, dpiX(GadgetWidth(StrgEx()\CanvasNum)), Height, BorderColor)
-        EndIf
-        ;}
-        
-        StopDrawing()
+      CompilerEndIf
+      
+      If StrgEx()\Flags & #EventButton
+        Button_(BorderColor)
       EndIf
       
+      ;{ _____ Border ____
+      If StrgEx()\Flags & #Borderless = #False
+        DrawingMode(#PB_2DDrawing_Outlined)
+        Box(0, 0, dpiX(GadgetWidth(StrgEx()\CanvasNum)), Height, BorderColor)
+      EndIf
+      ;}
+      
+      StopDrawing()
     EndIf
     
   EndProcedure
@@ -835,7 +862,7 @@ Module StringEx
     If FindMapElement(StrgEx(), Str(GNum))
 
       StrgEx()\State | #Focus
-      Draw_(GNum)
+      Draw_()
       
       StrgEx()\Cursor\State = #False
       StrgEx()\Cursor\Pause = #False
@@ -854,7 +881,7 @@ Module StringEx
       StrgEx()\State & ~#Focus
       StrgEx()\Button\State & ~#Focus
       ResetList(StrgEx()\AutoComplete())
-      Draw_(GNum)
+      Draw_()
   
     EndIf
     
@@ -902,7 +929,7 @@ Module StringEx
             
           EndIf
           
-          Draw_(GNum)
+          Draw_()
         EndIf
         
       EndIf
@@ -1090,7 +1117,7 @@ Module StringEx
             ;}
         EndSelect
         
-       Draw_(GNum)
+       Draw_()
       EndIf
       
     EndIf
@@ -1133,7 +1160,7 @@ Module StringEx
         RemoveSelection_()
       EndIf
       
-      Draw_(GNum)
+      Draw_()
     EndIf
     
   EndProcedure 
@@ -1158,7 +1185,7 @@ Module StringEx
         StrgEx()\Mouse = #Mouse_Move
       EndIf
       
-      Draw_(GNum)
+      Draw_()
     EndIf
     
   EndProcedure 
@@ -1183,7 +1210,7 @@ Module StringEx
       StrgEx()\Selection\Flag = #Selected
       StrgEx()\Cursor\Pos     = StrgEx()\Selection\Pos2
 
-      Draw_(GNum)
+      Draw_()
     EndIf
     
   EndProcedure
@@ -1196,7 +1223,7 @@ Module StringEx
       StrgEx()\Button\State & ~#Focus
       ResetList(StrgEx()\AutoComplete())
       
-      Draw_(GNum)
+      Draw_()
     EndIf
     
   EndProcedure
@@ -1218,12 +1245,12 @@ Module StringEx
               StrgEx()\Selection\Pos2 = CursorPos_(X)
               StrgEx()\Selection\Flag = #Selected
               StrgEx()\Mouse = #Mouse_Select
-              Draw_(GNum)
+              Draw_()
             EndIf ;}
           Case #Mouse_Select ;{ Continue selection
             StrgEx()\Selection\Pos2 = CursorPos_(X)
             StrgEx()\Cursor\Pos     = StrgEx()\Selection\Pos2
-            Draw_(GNum) ;}
+            Draw_() ;}
         EndSelect
         ;}
       Else
@@ -1244,7 +1271,7 @@ Module StringEx
             EndIf
           EndIf
         
-          Draw_(GNum)
+          Draw_()
         Else
           If StrgEx()\CanvasCursor <> #PB_Cursor_IBeam
             SetGadgetAttribute(StrgEx()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_IBeam)
@@ -1274,17 +1301,14 @@ Module StringEx
   Procedure _ResizeHandler()
     Define.i GadgetID = EventGadget()
     
-    If FindMapElement(StrgEx(), Str(GadgetID))
-      
-      StrgEx()\Size\Width  = dpiX(GadgetWidth(GadgetID))
-      StrgEx()\Size\Height = dpiY(GadgetHeight(GadgetID))
-      
-      Draw_(StrgEx()\CanvasNum)
+    If FindMapElement(StrgEx(), Str(GadgetID))      
+      Draw_()
     EndIf  
  
   EndProcedure
   
   Procedure _ResizeWindowHandler()
+    Define.i FontSize
     Define.f X, Y, Width, Height
     Define.f OffSetX, OffSetY
     
@@ -1299,27 +1323,51 @@ Module StringEx
             OffSetX = WindowWidth(StrgEx()\Window\Num)  - StrgEx()\Window\Width
             OffsetY = WindowHeight(StrgEx()\Window\Num) - StrgEx()\Window\Height
 
-            StrgEx()\Window\Width  = WindowWidth(StrgEx()\Window\Num)
-            StrgEx()\Window\Height = WindowHeight(StrgEx()\Window\Num)
-            
             If StrgEx()\Size\Flags
               
               X = #PB_Ignore : Y = #PB_Ignore : Width = #PB_Ignore : Height = #PB_Ignore
               
               If StrgEx()\Size\Flags & #MoveX : X = GadgetX(StrgEx()\CanvasNum) + OffSetX : EndIf
               If StrgEx()\Size\Flags & #MoveY : Y = GadgetY(StrgEx()\CanvasNum) + OffSetY : EndIf
-              If StrgEx()\Size\Flags & #ResizeWidth  : Width  = GadgetWidth(StrgEx()\CanvasNum)  + OffSetX : EndIf
-              If StrgEx()\Size\Flags & #ResizeHeight : Height = GadgetHeight(StrgEx()\CanvasNum) + OffSetY : EndIf
+              If StrgEx()\Size\Flags & #Width  : Width  = StrgEx()\Size\Width  + OffSetX : EndIf
+              If StrgEx()\Size\Flags & #Height : Height = StrgEx()\Size\Height + OffSetY : EndIf
               
               ResizeGadget(StrgEx()\CanvasNum, X, Y, Width, Height)
               
             Else
-              ResizeGadget(StrgEx()\CanvasNum, #PB_Ignore, #PB_Ignore, GadgetWidth(StrgEx()\CanvasNum) + OffSetX, GadgetHeight(StrgEx()\CanvasNum) + OffsetY)
+              ResizeGadget(StrgEx()\CanvasNum, #PB_Ignore, #PB_Ignore, StrgEx()\Size\Width + OffSetX, StrgEx()\Size\Height + OffsetY)
             EndIf
-          
-            Draw_(StrgEx()\CanvasNum)
+            
+            CompilerIf Defined(ModuleEx, #PB_Module)
+			
+        		  If StrgEx()\Size\Flags & #FitText
+        		    
+        		    If StrgEx()\Size\Flags & #FixPadding
+        		      Width  = StrgEx()\Size\Text - StrgEx()\PaddingX
+                  Height = GadgetHeight(StrgEx()\CanvasNum) - StrgEx()\PaddingY
+        		    Else
+        		      Width  = StrgEx()\Size\Text - StrgEx()\PaddingX
+                  Height = GadgetHeight(StrgEx()\CanvasNum) - (GadgetHeight(StrgEx()\CanvasNum) * StrgEx()\PFactor)
+        		    EndIf
+        		    
+        		    If Height < 0 : Height = 0 : EndIf 
+        		    If Width  < 0 : Width  = 0 : EndIf
+        		    
+        		    FontSize = ModuleEx::RequiredFontSize(StrgEx()\Text, Width, Height, StrgEx()\Font\Num)
+        		    
+        		    If FontSize <> StrgEx()\Font\Size
+                  StrgEx()\Font\Size = FontSize
+                  StrgEx()\Font\Num  = ModuleEx::Font(StrgEx()\Font\Name, FontSize, StrgEx()\Font\Style)
+                  If IsFont(StrgEx()\Font\Num) : StrgEx()\FontID = FontID(StrgEx()\Font\Num) : EndIf
+                EndIf  
+        		    
+        		  EndIf  
+  		  
+  		      CompilerEndIf 
+            
+            Draw_()
           EndIf
-          
+
         EndIf
         
       EndIf
@@ -1418,7 +1466,7 @@ Module StringEx
           StrgEx()\Button\Height = dpiY(Height)
         EndIf
         StrgEx()\Button\Event = Event
-        Draw_(GNum)
+        Draw_()
       EndIf
       
     EndIf
@@ -1429,7 +1477,7 @@ Module StringEx
     
     If FindMapElement(StrgEx(), Str(GNum))
       StrgEx()\Text = ""
-      Draw_(GNum)
+      Draw_()
     EndIf
     
   EndProcedure
@@ -1446,7 +1494,7 @@ Module StringEx
     
     If FindMapElement(StrgEx(), Str(GNum))
       Cut_()
-      Draw_(GNum)
+      Draw_()
     EndIf
     
   EndProcedure
@@ -1455,7 +1503,7 @@ Module StringEx
     
     If FindMapElement(StrgEx(), Str(GNum))
       Paste_()
-      Draw_(GNum)
+      Draw_()
     EndIf
     
   EndProcedure
@@ -1464,7 +1512,7 @@ Module StringEx
     
     If FindMapElement(StrgEx(), Str(GNum))
       DeleteSelection_()
-      Draw_(GNum)
+      Draw_()
     EndIf
     
   EndProcedure
@@ -1623,8 +1671,12 @@ Module StringEx
         BindGadgetEvent(GNum, @_LeftDoubleClickHandler(), #PB_EventType_LeftDoubleClick)
         BindGadgetEvent(GNum, @_CursorDrawing(),          #PB_EventType_Change)
         BindGadgetEvent(GNum, @_ResizeHandler(),          #PB_EventType_Resize)
-        
+
         If Flags & #AutoResize
+          
+          If Flags & #FitText    : StrgEx()\Size\Flags | #FitText    : EndIf
+          If Flags & #FixPadding : StrgEx()\Size\Flags | #FixPadding : EndIf
+          
           If IsWindow(WindowNum)
             StrgEx()\Window\Width  = WindowWidth(WindowNum)
             StrgEx()\Window\Height = WindowHeight(WindowNum)
@@ -1635,7 +1687,7 @@ Module StringEx
         BindEvent(#Event_Cursor,         @_CursorDrawing())
         BindEvent(#PB_Event_CloseWindow, @_CloseWindowHandler(), StrgEx()\Window\Num)
         
-        Draw_(GNum)
+        Draw_()
         
       EndIf
       
@@ -1710,13 +1762,13 @@ Module StringEx
       Select Attribute
         Case #MaximumLength
           StrgEx()\MaxLength = Value
-          Draw_(GNum)
+          Draw_()
         Case #Padding
           If Value < 2 : Value = 2 : EndIf 
           StrgEx()\Padding = dpiX(Value)
       EndSelect
       
-      Draw_(GNum)
+      Draw_()
     EndIf
     
   EndProcedure
@@ -1742,7 +1794,7 @@ Module StringEx
           StrgEx()\Color\HighlightText = Color
       EndSelect
       
-      Draw_(GNum)
+      Draw_()
     EndIf
     
   EndProcedure
@@ -1771,7 +1823,7 @@ Module StringEx
         StrgEx()\FontID = FontID(FontNum)
       EndIf
       
-      Draw_(GNum)
+      Draw_()
     EndIf
     
   EndProcedure
@@ -1780,7 +1832,7 @@ Module StringEx
     
     If FindMapElement(StrgEx(), Str(GNum))
       StrgEx()\Text = Text
-      Draw_(GNum)
+      Draw_()
     EndIf
     
   EndProcedure
@@ -1790,25 +1842,125 @@ Module StringEx
     
     If FindMapElement(StrgEx(), Str(GNum))
       Undo_()
-      Draw_(GNum)
+      Draw_()
     EndIf
     
   EndProcedure  
+  
+  
+  CompilerIf Defined(ModuleEx, #PB_Module)
+	  
+	  Procedure.i SetDynamicFont(GNum.i, Name.s, Size.i, Style.i=#False)
+	    Define.i FontNum
+	    Define   Padding.ModuleEx::Padding_Structure
+	    
+	    If FindMapElement(StrgEx(), Str(GNum))
+	      
+	      FontNum = ModuleEx::Font(Name, Size, Style)
+	      If IsFont(FontNum)
+	        
+	        StrgEx()\Font\Num   = FontNum
+	        StrgEx()\Font\Name  = Name
+	        StrgEx()\Font\Size  = Size
+	        StrgEx()\Font\Style = Style
+	        StrgEx()\FontID     = FontID(FontNum)
+
+	        ModuleEx::CalcPadding(StrgEx()\Text, GadgetHeight(GNum), FontNum, Size, @Padding)
+	        StrgEx()\PaddingX = Padding\X
+	        StrgEx()\PaddingY = Padding\Y
+	        StrgEx()\PFactor  = Padding\Factor
+  	      
+	        Draw_()
+	      EndIf
+	      
+	    EndIf
+	    
+	    ProcedureReturn FontNum
+	  EndProcedure
+	  
+	  Procedure.i FitText(GNum.i, PaddingX.i=#PB_Default, PaddingY.i=#PB_Default)
+	    Define.i Width, Height, FontSize
+	    
+	    If FindMapElement(StrgEx(), Str(GNum))
+	      
+	      If IsFont(StrgEx()\Font\Num) = #False : ProcedureReturn #False : EndIf 
+	      
+	      If PaddingX <> #PB_Default : StrgEx()\PaddingX = PaddingX * 2 : EndIf 
+	      If PaddingY <> #PB_Default : StrgEx()\PaddingY = PaddingY * 2 : EndIf 
+	      
+	      If StrgEx()\Size\Flags & #FixPadding Or PaddingY <> #PB_Default
+		      Width  = StrgEx()\Size\Text - StrgEx()\PaddingX
+          Height = GadgetHeight(StrgEx()\CanvasNum) - StrgEx()\PaddingY
+		    Else
+		      Width  = StrgEx()\Size\Text - StrgEx()\PaddingX
+          Height = GadgetHeight(StrgEx()\CanvasNum) - (GadgetHeight(StrgEx()\CanvasNum) * StrgEx()\PFactor)
+		    EndIf
+		    
+		    FontSize = ModuleEx::RequiredFontSize(StrgEx()\Text, Width, Height, StrgEx()\Font\Num)
+		    If FontSize <> StrgEx()\Font\Size
+          StrgEx()\Font\Size = FontSize
+          StrgEx()\Font\Num  = ModuleEx::Font(StrgEx()\Font\Name, FontSize, StrgEx()\Font\Style)
+          StrgEx()\FontID    = FontID(StrgEx()\Font\Num)
+        EndIf  
+        
+        Draw_()
+      EndIf
+      
+	    ProcedureReturn StrgEx()\Font\Num
+	  EndProcedure  
+	  
+	  Procedure.i SetFitText(GNum.i, Text.s, PaddingX.i=#PB_Default, PaddingY.i=#PB_Default)
+	    Define.i Width, Height, FontSize
+	    
+	    If FindMapElement(StrgEx(), Str(GNum))
+	      
+	      If IsFont(StrgEx()\Font\Num) = #False : ProcedureReturn #False : EndIf 
+	      
+	      If PaddingX <> #PB_Default : StrgEx()\PaddingX = PaddingX : EndIf 
+	      If PaddingY <> #PB_Default : StrgEx()\PaddingY = PaddingY : EndIf 
+	      
+	      StrgEx()\Text = Text
+	      
+	      If StrgEx()\Size\Flags & #FixPadding
+		      Width  = StrgEx()\Size\Text - StrgEx()\PaddingX
+          Height = GadgetHeight(StrgEx()\CanvasNum) - StrgEx()\PaddingY
+		    Else
+		      Width  = StrgEx()\Size\Text - StrgEx()\PaddingX
+          Height = GadgetHeight(StrgEx()\CanvasNum) - (GadgetHeight(StrgEx()\CanvasNum) * StrgEx()\PFactor)
+		    EndIf
+		    
+		    FontSize = ModuleEx::RequiredFontSize(StrgEx()\Text, Width, Height, StrgEx()\Font\Num)
+		    If FontSize <> StrgEx()\Font\Size
+          StrgEx()\Font\Size = FontSize
+          StrgEx()\Font\Num  = ModuleEx::Font(StrgEx()\Font\Name, FontSize, StrgEx()\Font\Style)
+          StrgEx()\FontID = FontID(StrgEx()\Font\Num)
+        EndIf 
+        
+        Draw_()
+      EndIf
+      
+	    ProcedureReturn StrgEx()\Font\Num
+	  EndProcedure  
+	  
+	CompilerEndIf 
+  
   
   CompilerIf #Enable_ShowPasswordButton  
 
     DataSection
       ImgShow:
-      Data.q $0A1A0A0D474E5089,$524448490D000000,$0A00000010000000,$DEBEBD0000000608,$4144495B0100009C,$F802C06463DA7854,
-             $592C78787939F9F9,$7FBFDFFC41955959,$1F0FF1EBF5FAFDDF,$11CC88CB57477C3E,$16166AE201931313,$97ED4D0797201896,
-             $75FAFD792CFE7F3F,$A018609F2F97CBEB,$61D9C9C9C39EAEAE,$160F2F2F2DC86868,$0DC52057C361B0DB,$3E1F18020203FFC4,
-             $3FAFF9FCFE70C87C,$14C6E371B8A8FC7E,$2A2A29B2A74001B0,$B24A020E6666602E,$BD58106100606D03,$77FF1D9810C8357A,
-             $8E8E8B9208C5DAED,$1E0F75DFEFF7F9FE,$94075CDA8460483C,$8646C6C686020514,$5D0030066C50D0D0,$CDC0B60F5F5F50C1,
-             $B09BDFEFF7F5EDCD,$1998A817F4D4001A,$B8035626F647FF48,$905C06005EC1B9B9,$480545457B139393,$7FBFDC2F2E234512,
-             $872D4D4D48AE013F,$828282881C0B8B8B,$3FE43643EDF6FB0C,$0383DFEFF7C670D0,$A7379BCDC5736811,$B88C888888A34460,
-             $2346B1FE303578B8,$2B55EAF5792C3D30,$F8F80C88D19815D0,$462427035E8138F8,$13817EBF5F864646,$001212309F4FA7D2,
-             $2E555A3424B6D6DD,$444E454900000000
-      Data.b $AE,$42,$60,$82
+  Data.q $0A1A0A0D474E5089,$524448490D000000,$0A00000010000000,$DEBEBD0000000608,$414449BE0100009C,$42483D5275DA7854,
+         $40BE66A7D7BE1451,$0F2A0617950F9E85,$5CDA9B5CDC9C1C1C,$DD06C706A9A1C9A2,$0D71239A9A5C1104,$12106B7271712687,
+         $3F98A21F5114A091,$A232BD1EF7DBD3E9,$CE77EE73DEF7396F,$E380260764A1CEF9,$C588F9E790E003B8,$EBF5EBD7DED23962,
+         $66CAA74E9A7F3E7C,$1C6A1FC602DF79B3,$8410592E5CBBCC10,$5615294276CD9B73,$5C3FC2A315F715AB,$468DDCA28A8F972E,
+         $58800274CE9067A3,$FBF33BE7CFB756AD,$71451240408117FD,$903ED5AB5255555F,$B219468D127E0F75,$EDDB701BE6CD9B2F,
+         $A74E9D406091EF76,$3E7CD3E5965AE1F6,$162C590704D9822F,$7142A54AB32E5CA4,$A269D3A49BB76E67,$3D6AD5BF42850B9D,
+         $5783060D2C83060C,$50A1C78F12E78F1E,$2B2196044A952B88,$82448964AAD021DD,$A937B76ED2499326,$22FCDDEBD7A5EA54,
+         $D56458B15CBD7AF0,$9D7AF54C8A8B756A,$0E1C097FD5BD05A0,$58B1A7492482DE87,$91CB9734E3C78C4C,$20CD086B95A264C9,
+         $F7E85ABF3264C92E,$888BAC28445D59FB,$5B07412224488BA0,$384884C6B0A0D1A3,$E74E9D88BAB0661C,$8799B3668C634447,
+         $082988C7D2C432A0,$E31F5F855B97F3DA,$633FC78F1BBC3870,$01E0426354245DDC,$A459FFB76ED0E896,$F6319DF880A66CD9,
+         $4B7702BA279F48BD,$490000000005D3EF
+  Data.b $45,$4E,$44,$AE,$42,$60,$82
       ImgShowend:
     EndDataSection
 
@@ -1867,7 +2019,17 @@ CompilerIf #PB_Compiler_IsMainFile
     
     StringEx::Gadget(#StringDel, 340, 19, 100, 20, "Delete this", StringEx::#Center|StringEx::#AutoResize, #Window)
     StringEx::AddButton(#StringDel, #Image)
-    StringEx::SetAutoResizeFlags(#StringDel, StringEx::#ResizeWidth)
+    StringEx::SetAutoResizeFlags(#StringDel, StringEx::#Width)
+    
+    CompilerIf Defined(ModuleEx, #PB_Module)
+	
+  	  StringEx::SetDynamicFont(#StringDel, "Arial", 8)
+  	  StringEx::FitText(#StringDel, 3, 3)
+  	  
+  	  StringEx::SetAutoResizeFlags(#StringDel, StringEx::#Width|StringEx::#FitText)
+  	  
+    CompilerEndIf
+    
     
     Repeat
       Event = WaitWindowEvent()
@@ -1900,9 +2062,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 1812
-; FirstLine = 629
-; Folding = OBwBBggBBAAAAAeAOAA9
+; CursorPosition = 47
+; FirstLine = 8
+; Folding = OHAEAAAAAAAAA5sBgAAgw-
 ; EnableThread
 ; EnableXP
 ; DPIAware

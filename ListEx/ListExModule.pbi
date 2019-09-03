@@ -8,15 +8,12 @@
 ;/
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
-    
-; Last Update: 23.08.2019
+ 
+; Last Update: 3.09.2019
+;
+; - Bugfixes
 ;
 ; - #PB_EventType_LeftClick / #PB_EventType_LeftDoubleClick / #PB_EventType_RightClick for rows
-;
-; - Bugfix
-;
-; - Added:    RemoveItemState() 
-; - Bugfixes: MouseWheel / Hide vertical Scrollbar
 ;
 
 
@@ -2648,6 +2645,11 @@ Module ListEx
         ListEx()\Row\Offset   = 0
         ListEx()\VScroll\Hide = #True
         
+        If ListSize(ListEx()\Rows()) = 0
+          SetGadgetAttribute(ListEx()\VScrollNum, #PB_ScrollBar_Maximum,    0)
+          SetGadgetAttribute(ListEx()\VScrollNum, #PB_ScrollBar_PageLength, 0)
+        EndIf 
+        
       EndIf
       ;}
     EndIf
@@ -4449,8 +4451,14 @@ Module ListEx
   Procedure   ClearItems(GNum.i)
     
     If FindMapElement(ListEx(), Str(GNum))
+      
       ClearList(ListEx()\Rows())
-      If ListEx()\ReDraw : Draw_() : EndIf
+      
+      ListEx()\Row\Number = 0
+      UpdateRowY_()
+      AdjustScrollBars_()
+      
+      Draw_()
     EndIf
     
   EndProcedure    
@@ -5986,6 +5994,7 @@ CompilerIf #PB_Compiler_IsMainFile
     #List
     #Button
     #PopupMenu
+    #MenuItem0
     #MenuItem1
     #MenuItem2
     #MenuItem3
@@ -6007,6 +6016,8 @@ CompilerIf #PB_Compiler_IsMainFile
   If OpenWindow(#Window, 0, 0, 500, 250, "Window", #PB_Window_SystemMenu|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
     
     If CreatePopupMenu(#PopupMenu)
+      MenuItem(#MenuItem0, "Clear List")
+      MenuBar()
       MenuItem(#MenuItem1, "Theme 'Blue'")
       MenuItem(#MenuItem2, "Theme 'Green'")
       MenuItem(#MenuItem3, "Theme 'Grey'")
@@ -6060,7 +6071,7 @@ CompilerIf #PB_Compiler_IsMainFile
     
     ListEx::SetRowsHeight(#List, 22)
     
-    ;ListEx::AttachPopupMenu(#List, #PopupMenu)
+    ListEx::AttachPopupMenu(#List, #PopupMenu)
     
     ListEx::AddComboBoxItems(#List, 3, "male" + #LF$ + "female")
 
@@ -6149,6 +6160,8 @@ CompilerIf #PB_Compiler_IsMainFile
           EndSelect
         Case #PB_Event_Menu ;{ PopupMenu
           Select EventMenu()
+            Case #MenuItem0 
+              ListEx::ClearItems(#List)
             Case #MenuItem1
               ListEx::LoadColorTheme(#List, "Theme_Blue.json")
             Case #MenuItem2
@@ -6172,10 +6185,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 6062
-; FirstLine = 892
-; Folding = EBAAAAAAAAAAAAAAAQAKAAxBAAYDBxBAAAAAAAAGJ9BAAAAAAI9
-; Markers = 587,3164
+; CursorPosition = 14
+; Folding = EBAAAAAEAAAAAAACAQAgAAxJAAYDBxBAAgABAAAABAAAAAAAAI+
+; Markers = 584,3166
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
