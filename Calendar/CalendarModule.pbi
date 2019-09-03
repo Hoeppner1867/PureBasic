@@ -11,13 +11,7 @@
 
 ; Last Update: 20.07.2019
 ;
-; BugFixes
-;
-; Changed: AddEntry() -> colors and tooltip mask removed
-; Added:   SetEntryColor() / SetEntryMask() / CountEntries() / GetEntries()
-; Added:   Calendar entry flags (#FullDay/#StartTime/#Duration)
-; 
-; Added: Import/export of calendar entries as files in iCal-format
+; Changed: #ResizeWidth -> #Width / #ResizeHeight -> #Height
 ;
 
 ;{ ===== MIT License =====
@@ -67,7 +61,7 @@
 ; Calendar::MonthName()          - defines name of the month
 ; Calendar::RemoveEntry()        - removes an entry form the calendar
 ; Calendar::SetAttribute()       - similar to SetGadgetAttribute()
-; Calendar::SetAutoResizeFlags() - [#MoveX|#MoveY|#ResizeWidth|#ResizeHeight]
+; Calendar::SetAutoResizeFlags() - [#MoveX|#MoveY|#Width|#Height]
 ; Calendar::SetDate()            - similar to SetGadgetState()
 ; Calendar::SetEntryColor(GNum.i, Label.s, ColorType.i, Value.i)
 ; Calendar::SetEntryMask(GNum.i, Label.s, String.s)
@@ -81,7 +75,7 @@
 ; Calendar::UpdatePopupText()    - update menu item text with this mask
 ;}
 
-
+XIncludeFile "ModuleEx.pbi"
 XIncludeFile "CanvasTooltipModule.pbi"
 XIncludeFile "Date64Module.pbi"
 
@@ -125,6 +119,8 @@ DeclareModule Calendar
     #GreyedDays    ; Show days of the previous month
     #PostEvent     ; Send PostEvents
     #ToolTips      ; Show tooltips
+    #FitText
+    #FixPadding
   EndEnumeration ;}
   
   Enumeration 1     ;{ Attribute
@@ -156,8 +152,8 @@ DeclareModule Calendar
   EnumerationBinary ;{ AutoResize
     #MoveX
     #MoveY
-    #ResizeWidth
-    #ResizeHeight
+    #Width
+    #Height
   EndEnumeration ;} 
   
   Enumeration 1     ;{ Color
@@ -181,6 +177,7 @@ DeclareModule Calendar
     #EventType_Day        = ModuleEx::#EventType_Day
     #EventType_Month      = ModuleEx::#EventType_Month
     #EventType_Year       = ModuleEx::#EventType_Year
+    #EventType_Focus      = ModuleEx::#EventType_Focus
     #EventType_RightClick = ModuleEx::#EventType_RightClick
   CompilerElse
     
@@ -244,6 +241,13 @@ DeclareModule Calendar
   Declare   WeekDayName(WeekDay.i, Name.s)
   Declare   UpdatePopupText(GNum.i, MenuItem.i, Text.s)
   
+  CompilerIf Defined(ModuleEx, #PB_Module)
+	  
+	  Declare.i FitText(GNum.i, PaddingX.i=#PB_Default, PaddingY.i=#PB_Default)
+	  Declare.i SetDynamicFont(GNum.i, Name.s, Size.i, Style.i=#False)
+	  
+	CompilerEndIf
+  
   CompilerIf #Enable_iCalFormat
     Declare.i ExportDay(GNum.i, DayOfMonth.i, File.s)
     Declare.i ExportLabel(GNum.i, Label.s, File.s)
@@ -295,6 +299,13 @@ Module Calendar
   
   Structure UUID_Structure               ;{ UID
     Byte.b[16]
+  EndStructure ;}
+  
+  Structure Font_Structure ;{ \Font\...
+    Num.i
+    Name.s
+    Size.i
+    Style.i
   EndStructure ;}
   
   Structure Color_Structure              ;{ ...\Color\...
@@ -437,6 +448,8 @@ Module Calendar
   Structure Calendar_Size_Structure      ;{ Calendar()\Size\...
     X.f
     Y.f
+    colWidth.i
+    colHeight.i
     Width.f
     Height.f
     Flags.i
@@ -462,6 +475,12 @@ Module Calendar
     ToolTip.i
     ToolTipText.s
     ToolTipTitle.s
+    
+    PaddingX.i
+    PaddingY.i
+    PFactor.f
+    
+    Font.Font_Structure
     
     Color.Calendar_Color_Structure
     Current.Calendar_Current_Structure
@@ -590,13 +609,17 @@ Module Calendar
     
   CompilerEndIf
 
-  Procedure.f dpiX(Num.i)
-    ProcedureReturn DesktopScaledX(Num)
-  EndProcedure
-  
-  Procedure.f dpiY(Num.i)
-    ProcedureReturn DesktopScaledY(Num)
-  EndProcedure
+	Procedure.f dpiX(Num.i)
+	  If Num > 0  
+	    ProcedureReturn DesktopScaledX(Num)
+	  EndIf   
+	EndProcedure
+
+	Procedure.f dpiY(Num.i)
+	  If Num > 0  
+	    ProcedureReturn DesktopScaledY(Num)
+	  EndIf  
+	EndProcedure
   
   Procedure.s GetPopUpText_(Text.s)
     Define.i Date
@@ -805,9 +828,9 @@ Module Calendar
 	Procedure   SetFont_(FontNum.i)
 	  
 	  If IsFont(FontNum)
-	     DrawingFont(FontID(FontNum))
+	    DrawingFont(FontID(FontNum))
 	  Else
-	     DrawingFont(Calendar()\FontID)
+	    DrawingFont(Calendar()\FontID)
 	  EndIf
 	  
 	EndProcedure
@@ -976,16 +999,18 @@ Module Calendar
     Define.i FrontColor, BackColor, CurrentDate, Entries
     Define.s Text$, Month$, Year$, ToolTipMask$
     
-    X = Calendar()\Margin\Left
-    Y = Calendar()\Margin\Top
+    X = dpiX(Calendar()\Margin\Left)
+    Y = dpiY(Calendar()\Margin\Top)
     
-    Width  = Calendar()\Size\Width  - Calendar()\Margin\Left - Calendar()\Margin\Right
-    Height = Calendar()\Size\Height - Calendar()\Margin\Top  - Calendar()\Margin\Bottom
+    Width  = dpiX(GadgetWidth(Calendar()\CanvasNum))  - Calendar()\Margin\Left - Calendar()\Margin\Right
+    Height = dpiY(GadgetHeight(Calendar()\CanvasNum)) - Calendar()\Margin\Top  - Calendar()\Margin\Bottom
 
     If StartDrawing(CanvasOutput(Calendar()\CanvasNum))
       
       ColumnWidth = Round(Width  / 7, #PB_Round_Down)  ; Days of week
       Width       = ColumnWidth *  7
+      
+      Calendar()\Size\colWidth = Width
       
       ;{ Calc Height
       If Calendar()\Month\defHeight = #PB_Default And Calendar()\Week\defHeight = #PB_Default
@@ -1024,12 +1049,14 @@ Module Calendar
       
       Calendar()\Month\Height + Difference
       
+      Calendar()\Size\colHeight = RowHeight
+      
       ;{ _____ Background _____
       DrawingMode(#PB_2DDrawing_Default)
-      Box(0, 0, Calendar()\Size\Width, Calendar()\Size\Height, Calendar()\Color\Gadget)
-      Box(0, 0, Width, Height, Calendar()\Color\Back) 
+      Box(0, 0, dpiX(GadgetWidth(Calendar()\CanvasNum)), dpiY(GadgetHeight(Calendar()\CanvasNum)), Calendar()\Color\Gadget)
+      Box(0, 0, Width, Height, Calendar()\Color\Back)
       ;}
-      
+
       DrawingFont(Calendar()\FontID)
       
       Month = Calendar()\Current\Month
@@ -1113,7 +1140,11 @@ Module Calendar
               DrawText(PosX + txtX, PosY + txtY, Text$, FrontColor)
               
               DrawingMode(#PB_2DDrawing_Outlined) 
-              Box(PosX, PosY, ColumnWidth + dpiX(1), Calendar()\Week\Height + dpiY(1), Calendar()\Color\Line)
+              If c =  7
+                Box(PosX, PosY, ColumnWidth, Calendar()\Week\Height + dpiY(1), Calendar()\Color\Line)
+              Else
+                Box(PosX, PosY, ColumnWidth + dpiX(1), Calendar()\Week\Height + dpiY(1), Calendar()\Color\Line)
+              EndIf   
               
               PosX + ColumnWidth
             Next
@@ -1277,7 +1308,11 @@ Module Calendar
                 
                 If Calendar()\Flags & #GreyedDays = #False
                   DrawingMode(#PB_2DDrawing_Outlined) 
-                  Box(PosX, PosY, ColumnWidth + dpiX(1), RowHeight + dpiY(1), Calendar()\Color\Line)
+                  If c = 7
+                    Box(PosX, PosY, ColumnWidth, RowHeight + dpiY(1), Calendar()\Color\Line)
+                  Else  
+                    Box(PosX, PosY, ColumnWidth + dpiX(1), RowHeight + dpiY(1), Calendar()\Color\Line)
+                  EndIf  
                 EndIf
                 
                 Calendar()\Day(Str(Day))\X      = PosX
@@ -1308,7 +1343,11 @@ Module Calendar
               
               If Calendar()\Flags & #GreyedDays
                 DrawingMode(#PB_2DDrawing_Outlined) 
-                Box(PosX, PosY, ColumnWidth + dpiX(1), RowHeight + dpiY(1), Calendar()\Color\Line)
+                If c = 7
+                  Box(PosX, PosY, ColumnWidth, RowHeight + dpiY(1), Calendar()\Color\Line)
+                Else
+                  Box(PosX, PosY, ColumnWidth + dpiX(1), RowHeight + dpiY(1), Calendar()\Color\Line)
+                EndIf   
               EndIf
               
               PosX + ColumnWidth
@@ -1338,7 +1377,7 @@ Module Calendar
       DrawingMode(#PB_2DDrawing_Outlined)
       Box(0, 0, Width, Height, Calendar()\Color\Line)
       If Calendar()\Flags & #Border
-        Box(0, 0, Calendar()\Size\Width, Calendar()\Size\Height, Calendar()\Color\Border)
+        Box(0, 0, dpiX(GadgetWidth(Calendar()\CanvasNum)), dpiY(GadgetHeight(Calendar()\CanvasNum)), Calendar()\Color\Border)
       EndIf ;}
       
       StopDrawing()
@@ -1432,7 +1471,7 @@ Module Calendar
       If State
         X      = DesktopUnscaledX(Calendar()\PostEvent\MonthX)
         Y      = DesktopUnscaledX(Calendar()\PostEvent\Y + Calendar()\PostEvent\Height) + 1
-        Height = DesktopUnscaledX(Calendar()\Size\Height - Calendar()\Month\Height) - 5
+        Height = DesktopUnscaledX(GadgetHeight(Calendar()\CanvasNum) - Calendar()\Month\Height) - 5
         
         SetGadgetState(Calendar()\ListNum, Calendar()\Current\Month - 1)
         
@@ -1713,7 +1752,6 @@ Module Calendar
                 If ListSize(Calendar()\Day()\Entry())
                 
                   CompilerIf Defined(ToolTip, #PB_Module)
-                    Debug "Calendar: " + Str(Calendar()\Day()\X) +" / "+ Str(Calendar()\Day()\Y) + " / "+Str(Calendar()\Day()\Width) + " / "+Str(Calendar()\Day()\Height)
                     ToolTip::SetContent(GadgetNum, Calendar()\Day()\ToolTip, Calendar()\Day()\ToolTipTitle, DesktopUnscaledX(Calendar()\Day()\X), DesktopUnscaledY(Calendar()\Day()\Y), DesktopUnscaledX(Calendar()\Day()\Width), DesktopUnscaledY(Calendar()\Day()\Height))
                   CompilerElse
 
@@ -1752,16 +1790,13 @@ Module Calendar
     Define.i GadgetID = EventGadget()
     
     If FindMapElement(Calendar(), Str(GadgetID))
-      
-      Calendar()\Size\Width  = dpiX(GadgetWidth(GadgetID))
-      Calendar()\Size\Height = dpiY(GadgetHeight(GadgetID))
-      
       Draw_()
     EndIf  
  
   EndProcedure
   
   Procedure _ResizeWindowHandler()
+    Define.i FontSize, FontNum
     Define.f X, Y, Width, Height
     Define.f OffSetX, OffSetY
     
@@ -1776,24 +1811,50 @@ Module Calendar
             OffSetX = WindowWidth(Calendar()\Window\Num)  - Calendar()\Window\Width
             OffsetY = WindowHeight(Calendar()\Window\Num) - Calendar()\Window\Height
 
-            Calendar()\Window\Width  = WindowWidth(Calendar()\Window\Num)
-            Calendar()\Window\Height = WindowHeight(Calendar()\Window\Num)
-            
             If Calendar()\Size\Flags
               
               X = #PB_Ignore : Y = #PB_Ignore : Width = #PB_Ignore : Height = #PB_Ignore
               
-              If Calendar()\Size\Flags & #MoveX : X = GadgetX(Calendar()\CanvasNum) + OffSetX : EndIf
-              If Calendar()\Size\Flags & #MoveY : Y = GadgetY(Calendar()\CanvasNum) + OffSetY : EndIf
-              If Calendar()\Size\Flags & #ResizeWidth  : Width  = GadgetWidth(Calendar()\CanvasNum)  + OffSetX : EndIf
-              If Calendar()\Size\Flags & #ResizeHeight : Height = GadgetHeight(Calendar()\CanvasNum) + OffSetY : EndIf
+              If Calendar()\Size\Flags & #MoveX : X = Calendar()\Size\X + OffSetX : EndIf
+              If Calendar()\Size\Flags & #MoveY : Y = Calendar()\Size\Y + OffSetY : EndIf
+              If Calendar()\Size\Flags & #Width  : Width  = Calendar()\Size\Width   + OffSetX : EndIf
+              If Calendar()\Size\Flags & #Height : Height = Calendar()\Size\Height  + OffSetY : EndIf
               
               ResizeGadget(Calendar()\CanvasNum, X, Y, Width, Height)
               
             Else
-              ResizeGadget(Calendar()\CanvasNum, #PB_Ignore, #PB_Ignore, GadgetWidth(Calendar()\CanvasNum) + OffSetX, GadgetHeight(Calendar()\CanvasNum) + OffsetY)
+              ResizeGadget(Calendar()\CanvasNum, #PB_Ignore, #PB_Ignore, Calendar()\Size\Width + OffSetX, Calendar()\Size\Height + OffsetY)
             EndIf
-          
+            
+            CompilerIf Defined(ModuleEx, #PB_Module)
+			
+        		  If Calendar()\Size\Flags & #FitText
+        		    
+        		    If Calendar()\Size\Flags & #FixPadding
+        		      Width  = Calendar()\Size\colWidth  - Calendar()\PaddingX
+                  Height = Calendar()\Size\colHeight - Calendar()\PaddingY
+        		    Else
+        		      Width  = Calendar()\Size\colWidth  - Calendar()\PaddingX
+                  Height = Calendar()\Size\colHeight - (Calendar()\Size\colHeight * Calendar()\PFactor)
+        		    EndIf
+        		    
+        		    If Height < 0 : Height = 0 : EndIf 
+        		    If Width  < 0 : Width  = 0 : EndIf
+        		    
+        		    FontSize = ModuleEx::RequiredFontSize("33", Width, Height, Calendar()\Font\Num)
+        		    
+        		    If FontSize <> Calendar()\Font\Size
+                  Calendar()\Font\Size = FontSize
+                  Calendar()\Font\Num  = ModuleEx::Font(Calendar()\Font\Name, FontSize, Calendar()\Font\Style)
+                  If IsFont(Calendar()\Font\Num) : Calendar()\FontID = FontID(Calendar()\Font\Num) : EndIf
+                  FontNum = ModuleEx::Font(Calendar()\Font\Name, FontSize, #PB_Font_Bold)
+                  If IsFont(FontNum) : Calendar()\EntryFontID = FontID(FontNum) : EndIf
+                EndIf  
+        		    
+        		  EndIf  
+        		  
+        		CompilerEndIf 
+            
             Draw_()
           EndIf
           
@@ -1835,7 +1896,7 @@ Module Calendar
       Define   UUID.UUID_Structure
       
       If FindMapElement(Calendar(), Str(GNum))
-        Debug "Day: "+Str(DayOfMonth)
+        
         If FindMapElement(Calendar()\Day(), Str(DayOfMonth))
         
           FileID = CreateFile(#PB_Any, File, #PB_UTF8)
@@ -2085,12 +2146,7 @@ Module Calendar
     If Result
       
       If GNum = #PB_Any : GNum = Result : EndIf
-      
-      X      = dpiX(X)
-      Y      = dpiY(Y)
-      Width  = dpiX(Width)
-      Height = dpiY(Height)
-      
+
       If AddMapElement(Calendar(), Str(GNum))
         
         Calendar()\CanvasNum = GNum
@@ -2153,7 +2209,7 @@ Module Calendar
         Calendar()\Margin\Top    = 0
         Calendar()\Margin\Bottom = 0
         
-        Calendar()\Month\Spacing     = dpiY(5)
+        Calendar()\Month\Spacing     = dpiY(8)
         Calendar()\Month\defHeight   = #PB_Default
         Calendar()\Month\Color\Front = #PB_Default
         Calendar()\Month\Color\Back  = #PB_Default
@@ -2166,6 +2222,9 @@ Module Calendar
         Calendar()\DateMask = "%dd/%mm/%yyyy"
         
         Calendar()\Flags  = Flags
+        
+        If Flags & #FitText    : Calendar()\Size\Flags | #FitText    : EndIf
+        If Flags & #FixPadding : Calendar()\Size\Flags | #FixPadding : EndIf
         
         If Calendar()\Flags & #PostEvent
           Calendar()\Month\Flags | #PostEvent
@@ -2566,6 +2625,77 @@ Module Calendar
     EndIf
   EndProcedure
   
+  
+  CompilerIf Defined(ModuleEx, #PB_Module)
+	  
+	  Procedure.i SetDynamicFont(GNum.i, Name.s, Size.i, Style.i=#False)
+	    Define.i FontNum
+	    Define   Padding.ModuleEx::Padding_Structure
+	    
+	    If FindMapElement(Calendar(), Str(GNum))
+	      
+	      FontNum = ModuleEx::Font(Name, Size, Style)
+	      If IsFont(FontNum)
+	        
+	        Calendar()\Font\Num   = FontNum
+	        Calendar()\Font\Name  = Name
+	        Calendar()\Font\Size  = Size
+	        Calendar()\Font\Style = Style
+	        Calendar()\FontID     = FontID(FontNum)
+	        
+	        ModuleEx::CalcPadding("33", Calendar()\Size\colHeight, FontNum, Size, @Padding)
+	        Calendar()\PaddingX = Padding\X
+	        Calendar()\PaddingY = Padding\Y
+	        Calendar()\PFactor  = Padding\Factor
+	        
+	        FontNum = ModuleEx::Font(Name, Size, #PB_Font_Bold)
+	        Calendar()\EntryFontID = FontID(FontNum)
+	        
+	        Draw_()
+	      EndIf
+	      
+	    EndIf
+	    
+	    ProcedureReturn FontNum
+	  EndProcedure
+	  
+	  Procedure.i FitText(GNum.i, PaddingX.i=#PB_Default, PaddingY.i=#PB_Default)
+	    Define.i Width, Height, FontSize, FontNum
+	    
+	    If FindMapElement(Calendar(), Str(GNum))
+	      
+	      If IsFont(Calendar()\Font\Num) = #False : ProcedureReturn #False : EndIf 
+	      
+	      If PaddingX <> #PB_Default : Calendar()\PaddingX = PaddingX * 2 : EndIf 
+	      If PaddingY <> #PB_Default : Calendar()\PaddingY = PaddingY * 2 : EndIf 
+	      
+	      If Calendar()\Size\Flags & #FixPadding Or PaddingY <> #PB_Default
+		      Width  = Calendar()\Size\colWidth  - Calendar()\PaddingX
+          Height = Calendar()\Size\colHeight - Calendar()\PaddingY
+		    Else
+		      Width  = Calendar()\Size\colWidth  - Calendar()\PaddingX
+          Height = Calendar()\Size\colHeight - (Calendar()\Size\colHeight * Calendar()\PFactor)
+		    EndIf
+		    
+		    FontSize = ModuleEx::RequiredFontSize("33", Width, Height, Calendar()\Font\Num)
+		    If FontSize <> Calendar()\Font\Size
+          Calendar()\Font\Size = FontSize
+          Calendar()\Font\Num  = ModuleEx::Font(Calendar()\Font\Name, FontSize, Calendar()\Font\Style)
+          Calendar()\FontID    = FontID(Calendar()\Font\Num)
+        EndIf  
+        
+        FontNum = ModuleEx::Font(Calendar()\Font\Name, FontSize, #PB_Font_Bold)
+	      Calendar()\EntryFontID = FontID(FontNum)
+        
+        Draw_()
+      EndIf
+      
+	    ProcedureReturn Calendar()\Font\Num
+	  EndProcedure  
+
+	CompilerEndIf 
+  
+  
 EndModule
 
 
@@ -2573,7 +2703,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 0
+  #Example =1
   
   ; Example 1: Default 
   ; Example 2: #GreyedDays
@@ -2608,7 +2738,7 @@ CompilerIf #PB_Compiler_IsMainFile
       MenuItem(#ShowEntries, "Show calendar entries")
     EndIf
     
-    If Calendar::Gadget(#Calendar, 10, 10, 280, 180, #False, #Window) ; Calendar::#PostEvent|Calendar::#FixDayOfMonth|Calendar::#FixMonth|Calendar::#FixYear
+    If Calendar::Gadget(#Calendar, 10, 10, 280, 180, Calendar::#AutoResize, #Window) ; Calendar::#PostEvent|Calendar::#FixDayOfMonth|Calendar::#FixMonth|Calendar::#FixYear
       
       Calendar::AttachPopupMenu(#Calendar, #PopUpMenu)
       
@@ -2622,6 +2752,15 @@ CompilerIf #PB_Compiler_IsMainFile
       Calendar::UpdatePopupText(#Calendar, #ShowEntries, "Show calendar entries for '"   + Calendar::#Date$ + "'.")
       
       Calendar::SetState(#Calendar, Date())
+      
+      
+     CompilerIf Defined(ModuleEx, #PB_Module)
+       
+        Calendar::SetAutoResizeFlags(#Calendar, Calendar::#Width|Calendar::#Height|Calendar::#FitText)
+    	  Calendar::SetDynamicFont(#Calendar, "Arial", 9)
+    	  Calendar::FitText(#Calendar, 4, 4)
+    	
+      CompilerEndIf
       
       CompilerSelect #Example
         CompilerCase 2
@@ -2646,14 +2785,14 @@ CompilerIf #PB_Compiler_IsMainFile
           Calendar::SetMask(#Calendar, Calendar::#ToolTipText, Calendar::#Summary$ + ": " + Calendar::#Label$)
           Calendar::SetMask(#Calendar, Calendar::#Date, "%dd.%mm.%yyyy")
           
-          Calendar::AddEntry(#Calendar, "Thorsten", "Birthday", "", "", Calendar::GetDate(18, 7, 2019))
-          Calendar::AddEntry(#Calendar, "Entry 2",  "2nd appointment",  "", "", Calendar::GetDate(18, 7, 2019, 8), Calendar::GetDate(18, 7, 2019, 11, 15), Calendar::#Duration)
-          Calendar::AddEntry(#Calendar, "Entry 3",  "3rd appointment",  "", "", Calendar::GetDate(18, 7, 2019, 15, 30), #PB_Default, Calendar::#StartTime)
+          Calendar::AddEntry(#Calendar, "Thorsten", "Birthday",        "", "", Calendar::GetDate(18, 7, 2019))
+          Calendar::AddEntry(#Calendar, "Entry 2",  "2nd appointment", "", "", Calendar::GetDate(18, 7, 2019, 8), Calendar::GetDate(18, 7, 2019, 11, 15), Calendar::#Duration)
+          Calendar::AddEntry(#Calendar, "Entry 3",  "3rd appointment", "", "", Calendar::GetDate(18, 7, 2019, 15, 30), #PB_Default, Calendar::#StartTime)
 
-          Calendar::AddEntry(#Calendar, "Holidy", "Holiday: Summer", "", "", Calendar::GetDate(27, 7, 2019), Calendar::GetDate(9, 8, 2019))
+          Calendar::AddEntry(#Calendar,      "Holidy", "Holiday: Summer", "", "", Calendar::GetDate(27, 7, 2019), Calendar::GetDate(9, 8, 2019))
           Calendar::SetEntryColor(#Calendar, "Holidy", Calendar::#FrontColor, $008000)
           Calendar::SetEntryColor(#Calendar, "Holidy", Calendar::#BackColor,  $61FFC1)
-          Calendar::SetEntryMask(#Calendar, "Holidy",  "Holiday: " + Calendar::#StartDate$ + " - " + Calendar::#EndDate$)
+          Calendar::SetEntryMask(#Calendar,  "Holidy",  "Holiday: " + Calendar::#StartDate$ + " - " + Calendar::#EndDate$)
           
       CompilerEndSelect
 
@@ -2707,9 +2846,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 2571
-; FirstLine = 1092
-; Folding = MADAA5--CBQC-FuMXCA5HAABq
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 2211
+; FirstLine = 659
+; Folding = soHAAwEAoBBIhTQQsTAA2AAMwX-
 ; EnableXP
 ; DPIAware

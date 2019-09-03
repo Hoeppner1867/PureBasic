@@ -726,8 +726,8 @@ Module ModuleEx
       If StartVectorDrawing(ImageVectorOutput(ImgNum))
         
         VectorFont(FontID(FontNum), Pixel_(FontSize))
-
-        *Padding\X = ModuleEx\Gadget()\PaddingX
+        *Padding\X = 8
+        If MapSize(ModuleEx\Gadget()) :*Padding\X = ModuleEx\Gadget()\PaddingX : EndIf 
         If *Padding\X < 0 : *Padding\X = 0 : EndIf 
         *Padding\Y = Height - VectorTextHeight(Text, #PB_VectorText_Default)
         If *Padding\Y < 0 : *Padding\Y = 0 : EndIf 
@@ -859,7 +859,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 19
-; Folding = UCYHAIAA9
+; CursorPosition = 729
+; FirstLine = 271
+; Folding = UCYHAIAE9
 ; EnableXP
 ; DPIAware

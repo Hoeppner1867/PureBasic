@@ -150,7 +150,9 @@ DeclareModule ButtonEx
 EndDeclareModule
 
 Module ButtonEx
-
+  
+  EnableExplicit
+  
 	;- ===========================================================================
 	;- Module - Constants
 	;- ===========================================================================
@@ -185,6 +187,7 @@ Module ButtonEx
 	Structure ButtonEx_Size_Structure    ;{ ButtonEx()\Size\...
 		X.f
 		Y.f
+		Text.i
 		Width.f
 		Height.f
 		Flags.i
@@ -351,7 +354,8 @@ Module ButtonEx
 		If StartDrawing(CanvasOutput(BtEx()\CanvasNum))
 
 			If BtEX()\Flags & #DropDownButton
-				Width = dpiX(GadgetWidth(BtEx()\CanvasNum)) - dpiX(#DropDownWidth)
+			  Width = dpiX(GadgetWidth(BtEx()\CanvasNum)) - dpiX(#DropDownWidth)
+			  BtEx()\Size\Text = Width
 			Else
 				Width = dpiX(GadgetWidth(BtEx()\CanvasNum))
 			EndIf
@@ -436,14 +440,18 @@ Module ButtonEx
 					Else
 						DrawText(X + BtEx()\Image\Width + dpiX(4), Y, BtEx()\Text, BtEx()\Color\Front)
 					EndIf
-
+					
+					BtEx()\Size\Text = Width - BtEx()\Image\Width
+					
 				Else
 
 					X = (Width - BtEx()\Image\Width) / 2
 					Y = (dpiY(GadgetHeight(BtEx()\CanvasNum)) - BtEx()\Image\Height) / 2
 					DrawingMode(#PB_2DDrawing_AlphaBlend)
 					DrawImage(ImageID(BtEx()\Image\Num), X, Y, BtEx()\Image\Width, BtEx()\Image\Height)
-
+					
+					BtEx()\Size\Text = 0
+					
 				EndIf
 				;}
 			Else ;{ Text
@@ -564,6 +572,8 @@ Module ButtonEx
   					DrawText(X, Y, BtEx()\Text, BtEx()\Color\Front)
   					
   				EndIf
+  				
+  				BtEx()\Size\Text = Width
   				
 				EndIf
 				;}
@@ -717,14 +727,12 @@ Module ButtonEx
 						  If BtEx()\Size\Flags & #FitText
 						    
 						    If BtEx()\Size\Flags & #FixPadding
-						      Width  = GadgetWidth(BtEx()\CanvasNum)  - BtEx()\PaddingX
+						      Width  = BtEx()\Size\Text - BtEx()\PaddingX
                   Height = GadgetHeight(BtEx()\CanvasNum) - BtEx()\PaddingY
 						    Else
-						      Width  = GadgetWidth(BtEx()\CanvasNum)  - BtEx()\PaddingX
+						      Width  = BtEx()\Size\Text - BtEx()\PaddingX
                   Height = GadgetHeight(BtEx()\CanvasNum) - (GadgetHeight(BtEx()\CanvasNum) * BtEx()\PFactor)
 						    EndIf
-						    
-						    Debug "PaddingY: " + Str(GadgetHeight(BtEx()\CanvasNum) * BtEx()\PFactor)
 						    
 						    If Height < 0 : Height = 0 : EndIf 
 						    If Width  < 0 : Width  = 0 : EndIf
@@ -1001,19 +1009,20 @@ Module ButtonEx
 	  EndProcedure
 	  
 	  Procedure.i FitText(GNum.i, PaddingX.i=#PB_Default, PaddingY.i=#PB_Default)
+	    Define.i Width, Height, FontSize
 	    
 	    If FindMapElement(BtEx(), Str(GNum))
 	      
 	      If IsFont(BtEx()\Font\Num) = #False : ProcedureReturn #False : EndIf 
 	      
-	      If PaddingX <> #PB_Default : BtEx()\PaddingX = PaddingX : EndIf 
-	      If PaddingY <> #PB_Default : BtEx()\PaddingY = PaddingY : EndIf 
+	      If PaddingX <> #PB_Default : BtEx()\PaddingX = PaddingX * 2 : EndIf 
+	      If PaddingY <> #PB_Default : BtEx()\PaddingY = PaddingY * 2 : EndIf 
 	      
-	      If BtEx()\Size\Flags & #FixPadding
-		      Width  = GadgetWidth(BtEx()\CanvasNum)  - BtEx()\PaddingX
+	      If BtEx()\Size\Flags & #FixPadding Or PaddingY <> #PB_Default
+		      Width  = BtEx()\Size\Text - BtEx()\PaddingX
           Height = GadgetHeight(BtEx()\CanvasNum) - BtEx()\PaddingY
 		    Else
-		      Width  = GadgetWidth(BtEx()\CanvasNum)  - BtEx()\PaddingX
+		      Width  = BtEx()\Size\Text - BtEx()\PaddingX
           Height = GadgetHeight(BtEx()\CanvasNum) - (GadgetHeight(BtEx()\CanvasNum) * BtEx()\PFactor)
 		    EndIf
 		    
@@ -1031,6 +1040,7 @@ Module ButtonEx
 	  EndProcedure  
 	  
 	  Procedure.i SetFitText(GNum.i, Text.s, PaddingX.i=#PB_Default, PaddingY.i=#PB_Default)
+	    Define.i Width, Height, FontSize
 	    
 	    If FindMapElement(BtEx(), Str(GNum))
 	      
@@ -1042,10 +1052,10 @@ Module ButtonEx
 	      BtEx()\Text = Text
 	      
 	      If BtEx()\Size\Flags & #FixPadding
-		      Width  = GadgetWidth(BtEx()\CanvasNum)  - BtEx()\PaddingX
+		      Width  = BtEx()\Size\Text - BtEx()\PaddingX
           Height = GadgetHeight(BtEx()\CanvasNum) - BtEx()\PaddingY
 		    Else
-		      Width  = GadgetWidth(BtEx()\CanvasNum)  - BtEx()\PaddingX
+		      Width  = BtEx()\Size\Text - BtEx()\PaddingX
           Height = GadgetHeight(BtEx()\CanvasNum) - (GadgetHeight(BtEx()\CanvasNum) * BtEx()\PFactor)
 		    EndIf
 		    
@@ -1117,6 +1127,9 @@ CompilerIf #PB_Compiler_IsMainFile
 		
 		CompilerIf Defined(ModuleEx, #PB_Module)
 		  
+		  ButtonEx::SetDynamicFont(#ButtonEx, "Arial", 9)
+		  ButtonEx::FitText(#ButtonEx, 4, 4)
+		  
 		  ButtonEx::SetText(#ButtonML, "MultiLine1" + #LF$ + "MultiLine2")
 		  ButtonEx::SetDynamicFont(#ButtonML, "Arial", 9, #PB_Font_Bold)
 		  ButtonEx::SetAutoResizeFlags(#ButtonML, ButtonEx::#Width|ButtonEx::#Height|ButtonEx::#FitText) ; |ButtonEx::#FixPadding
@@ -1163,7 +1176,8 @@ CompilerIf #PB_Compiler_IsMainFile
 
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 1125
-; Folding = gBIAABMAg6
+; CursorPosition = 691
+; FirstLine = 146
+; Folding = kBIAEEMAA+
 ; EnableXP
 ; DPIAware

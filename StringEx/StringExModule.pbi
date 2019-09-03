@@ -1327,8 +1327,8 @@ Module StringEx
               
               X = #PB_Ignore : Y = #PB_Ignore : Width = #PB_Ignore : Height = #PB_Ignore
               
-              If StrgEx()\Size\Flags & #MoveX : X = GadgetX(StrgEx()\CanvasNum) + OffSetX : EndIf
-              If StrgEx()\Size\Flags & #MoveY : Y = GadgetY(StrgEx()\CanvasNum) + OffSetY : EndIf
+              If StrgEx()\Size\Flags & #MoveX  : X = StrgEx()\Size\X + OffSetX : EndIf
+              If StrgEx()\Size\Flags & #MoveY  : Y = StrgEx()\Size\Y + OffSetY : EndIf
               If StrgEx()\Size\Flags & #Width  : Width  = StrgEx()\Size\Width  + OffSetX : EndIf
               If StrgEx()\Size\Flags & #Height : Height = StrgEx()\Size\Height + OffSetY : EndIf
               
@@ -1544,12 +1544,7 @@ Module StringEx
     If Result
       
       If GNum = #PB_Any : GNum = Result : EndIf
-      
-      X      = dpiX(X)
-      Y      = dpiY(Y)
-      Width  = dpiX(Width)
-      Height = dpiY(Height)
-      
+
       If AddMapElement(StrgEx(), Str(GNum))
         
         StrgEx()\CanvasNum = GNum
@@ -2062,9 +2057,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 47
+; CursorPosition = 65
 ; FirstLine = 8
-; Folding = OHAEAAAAAAAAA5sBgAAgw-
+; Folding = MHAEAAAAAAAAA5sBgAAgw-
 ; EnableThread
 ; EnableXP
 ; DPIAware
