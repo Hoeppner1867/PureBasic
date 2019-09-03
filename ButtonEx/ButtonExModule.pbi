@@ -7,10 +7,12 @@
 ;/ Â© 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 31.7.2019
+; Last Update: 2.09.2019
 ;
-; Bugfixes
-; Added: Support of #LF$ for multiline - buttons
+; Changed: #ResizeWidth -> #Width / #ResizeHeight -> #Height
+; Added:   SetDynamicFont() / FitText() / SetFitText()       [needs ModuleEx.pbi]
+; Added:   Flags '#FitText' & '#FixPadding' for Autoresize   [needs ModuleEx.pbi]
+
 
 ;{ ===== MIT License =====
 ;
@@ -38,15 +40,27 @@
 
 ;{ _____ ButtonEx - Commands _____
 
-; Button::AddDropDown() - adds a dropdown menue to the button
-; Button::AddImage() - adds an image to the button
-; Button::Gadget() - similar to 'ButtonGadget()'
-; Button::GetState() - similar to 'GetGadgetState()'
-; Button::SetState() - similar to 'SetGadgetState()'
-; Button::SetFont() - similar to 'SetGadgetFont()'
-; Button::SetColor() - similar to 'SetGadgetColor()'
-; SetAutoResizeFlags() - [#MoveX|#MoveY|#ResizeWidth|#ResizeHeight]
+; Button::AddDropDown()        - adds a dropdown menue to the button
+; Button::AddImage()           - adds an image to the button
+; Button::Gadget()             - similar to 'ButtonGadget()'
+; Button::GetState()           - similar to 'GetGadgetState()'
+; Button::SetState()           - similar to 'SetGadgetState()'
+; Button::SetFont()            - similar to 'SetGadgetFont()'
+; Button::SetColor()           - similar to 'SetGadgetColor()'
+; Button::SetText()            - similar to 'SetGadgetText()'
+; Button::SetAutoResizeFlags() - [#MoveX|#MoveY|#Width|#Height]
+
+; _____ ModuleEx.pbi _____
+
+; Button::FitTextEx()          - fits text size                  [needs SetFontEx() before]
+; Button::SetFontEx()          - sets a font that can be fitted  
+; Button::SetTextEx()          - change text and fit its size    [needs SetFontEx() before]
+
 ;}
+
+
+XIncludeFile "ModuleEx.pbi"
+
 
 DeclareModule ButtonEx
 
@@ -63,10 +77,10 @@ DeclareModule ButtonEx
 	EndEnumeration
 
 	EnumerationBinary Flags
-		#Default = #PB_Button_Default
-		#Left = #PB_Button_Left
-		#Right = #PB_Button_Right
-		#Toggle = #PB_Button_Toggle
+		#Default   = #PB_Button_Default
+		#Left      = #PB_Button_Left
+		#Right     = #PB_Button_Right
+		#Toggle    = #PB_Button_Toggle
 		#MultiLine = #PB_Button_MultiLine
 		#Center
 		#DropDownButton
@@ -76,20 +90,22 @@ DeclareModule ButtonEx
 		#MacOS
 		#Borderless
 		#AutoResize
+		#FitText
+    #FixPadding
 	EndEnumeration
 
 	EnumerationBinary
 		#MoveX
 		#MoveY
-		#ResizeWidth
-		#ResizeHeight
+		#Width
+		#Height
 	EndEnumeration
 
 	CompilerIf Defined(ModuleEx, #PB_Module)
 
-		#EventType_Button = ModuleEx::#EventType_Button
+		#EventType_Button   = ModuleEx::#EventType_Button
 		#EventType_DropDown = ModuleEx::#EventType_DropDown
-		#Event_Gadget = ModuleEx::#Event_Gadget
+		#Event_Gadget       = ModuleEx::#Event_Gadget
 
 	CompilerElse
 
@@ -104,20 +120,33 @@ DeclareModule ButtonEx
 
 	CompilerEndIf
 	;}
-
+	
+	
 	;- ===========================================================================
 	;- DeclareModule
 	;- ===========================================================================
 
-	Declare AddDropDown(GNum.i, PopupNum.i)
-	Declare AddImage(GNum.i, ImageNum.i, Width.i=#PB_Default, Height.i=#PB_Default, Flags.i=#Left)
+	Declare   AddDropDown(GNum.i, PopupNum.i)
+	Declare   AddImage(GNum.i, ImageNum.i, Width.i=#PB_Default, Height.i=#PB_Default, Flags.i=#Left)
+	
 	Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Text.s, Flags.i, WindowNum.i=#PB_Default)
-	Declare SetAutoResizeFlags(GNum.i, Flags.i)
+	
 	Declare.i GetState(GNum.i)
-	Declare SetState(GNum.i, State.i)
-	Declare SetColor(GNum.i, ColorType.i, Color.i)
-	Declare SetFont(GNum.i, FontNum.i)
+	
+	Declare   SetAutoResizeFlags(GNum.i, Flags.i)
+	Declare   SetColor(GNum.i, ColorType.i, Color.i)
+	Declare   SetFont(GNum.i, FontNum.i)
+	Declare   SetState(GNum.i, State.i)
+	Declare   SetText(GNum.i, Text.s)
 
+	CompilerIf Defined(ModuleEx, #PB_Module)
+	  
+	  Declare.i FitText(GNum.i, PaddingX.i=#PB_Default, PaddingY.i=#PB_Default)
+	  Declare.i SetDynamicFont(GNum.i, Name.s, Size.i, Style.i=#False)
+	  Declare.i SetFitText(GNum.i, Text.s, PaddingX.i=#PB_Default, PaddingY.i=#PB_Default)
+	  
+	CompilerEndIf
+	
 EndDeclareModule
 
 Module ButtonEx
@@ -137,15 +166,15 @@ Module ButtonEx
 	;- ============================================================================
 	;- Module - Structures
 	;- ============================================================================
-
-	Structure ButtonEx_Image_Structure ;{ ButtonEx()\Image\...
+	
+	Structure ButtonEx_Image_Structure   ;{ ButtonEx()\Image\...
 		Num.i
 		Width.i
 		Height.i
 		Flags.i
 	EndStructure ;}
 
-	Structure ButtonEx_Color_Structure ;{ ButtonEx()\Color\...
+	Structure ButtonEx_Color_Structure   ;{ ButtonEx()\Color\...
 		Front.i
 		Back.i
 		Focus.i
@@ -153,7 +182,7 @@ Module ButtonEx
 		Gadget.i
 	EndStructure ;}
 
-	Structure ButtonEx_Size_Structure ;{ ButtonEx()\Size\...
+	Structure ButtonEx_Size_Structure    ;{ ButtonEx()\Size\...
 		X.f
 		Y.f
 		Width.f
@@ -161,13 +190,20 @@ Module ButtonEx
 		Flags.i
 	EndStructure ;}
 
-	Structure ButtonEx_Window_Structure ;{ ButtonEx()\Window\...
+	Structure ButtonEx_Window_Structure  ;{ ButtonEx()\Window\...
 		Num.i
 		Width.f
 		Height.f
 	EndStructure ;}
-
-	Structure ButtonEx_Structure ;{ ButtonEx()\...
+	
+	Structure ButtonEx_Font_Structure    ;{ ButtonEx()\Font\...
+	  Num.i
+	  Name.s
+	  Size.i
+	  Style.i
+	EndStructure ;}
+	
+	Structure ButtonEx_Structure         ;{ ButtonEx()\...
 		CanvasNum.i
 		PopupNum.i
 
@@ -176,7 +212,14 @@ Module ButtonEx
 		FontID.i
 		State.i
 		Flags.i
-
+		
+		; Fit Text
+    PaddingX.i
+    PaddingY.i
+    PFactor.f
+    
+    Font.ButtonEx_Font_Structure
+    
 		Color.ButtonEx_Color_Structure
 		Image.ButtonEx_Image_Structure
 		Size.ButtonEx_Size_Structure
@@ -184,7 +227,7 @@ Module ButtonEx
 
 	EndStructure ;}
 	Global NewMap BtEx.ButtonEx_Structure()
-
+	
 	;- ============================================================================
 	;- Module - Internal
 	;- ============================================================================
@@ -223,11 +266,15 @@ Module ButtonEx
 	CompilerEndIf
 
 	Procedure.f dpiX(Num.i)
-		ProcedureReturn DesktopScaledX(Num)
+	  If Num > 0  
+	    ProcedureReturn DesktopScaledX(Num)
+	  EndIf   
 	EndProcedure
 
 	Procedure.f dpiY(Num.i)
-		ProcedureReturn DesktopScaledY(Num)
+	  If Num > 0  
+	    ProcedureReturn DesktopScaledY(Num)
+	  EndIf  
 	EndProcedure
 
 	;- __________ Drawing __________
@@ -242,7 +289,7 @@ Module ButtonEx
 		ProcedureReturn RGB((R1*Blend) + (R2 * (1-Blend)), (G1*Blend) + (G2 * (1-Blend)), (B1*Blend) + (B2 * (1-Blend)))
 	EndProcedure
 
-	Procedure Box_(X.i, Y.i, Width.i, Height.i, Color.i)
+	Procedure   Box_(X.i, Y.i, Width.i, Height.i, Color.i)
 		If BtEX()\Flags & #MacOS
 			Box(X, Y, Width, Height, BtEx()\Color\Gadget)
 			RoundBox(X, Y, Width, Height, 7, 7, Color)
@@ -292,8 +339,8 @@ Module ButtonEx
 		ProcedureReturn Offset
 	EndProcedure
 
-	Procedure Draw_()
-		Define.f X, Y, Width, Height
+	Procedure   Draw_()
+		Define.f X, Y, Width, Height, txtWidth
 		Define.s Text, Row
 		Define.i lf, s, CountLF, idx, BackColor, BorderColor
 
@@ -308,7 +355,7 @@ Module ButtonEx
 			Else
 				Width = dpiX(GadgetWidth(BtEx()\CanvasNum))
 			EndIf
-
+      
 			;{ _____ Background _____
 			DrawingMode(#PB_2DDrawing_Default)
 			If BtEx()\State & #Click And BtEx()\State & #DropDown ;{ DropDown-Button - Click
@@ -404,7 +451,9 @@ Module ButtonEx
 				If BtEx()\Text
           
 				  If BtEx()\Flags & #MultiLine
-          
+				    
+				    txtWidth = Width - dpiX(8)
+				    
 				    CountLF = CountString(BtEx()\Text, #LF$)
 				    If CountLF: BtEx()\Text = ReplaceString(BtEx()\Text, #CRLF$, #LF$) : EndIf
 				    
@@ -414,16 +463,22 @@ Module ButtonEx
 				        
 				        For lf=1 To CountLF + 1
 
-				          Row  = StringField(BtEx()\Text, lf, #LF$)
+				          Row  = Trim(StringField(BtEx()\Text, lf, #LF$))
 				          Text = ""
 				          
-				          If TextWidth(Row) > Width - dpiX(8)
+				          If TextWidth(Row) > txtWidth
 				            
 				            For s=1 To CountString(Row, " ") + 1
-				              If TextWidth(Text + " " + StringField(Row, s, " ")) < Width - dpiX(8)
-        								Text + " " + StringField(Row, s, " ")
-        							Else
-        								If AddElement(Rows())
+				              
+				              If TextWidth(StringField(Row, s, " ")) >=  txtWidth
+				                If AddElement(Rows())
+				                  Rows() = StringField(Row, s, " ")
+				                  Break
+				                EndIf
+				              ElseIf TextWidth(Text + " " + StringField(Row, s, " ")) < txtWidth
+				                Text + " " + StringField(Row, s, " ")  
+				              Else
+        							  If AddElement(Rows())
         									Rows() = Text
         									Text   = StringField(Row, s, " ")
         								EndIf
@@ -445,10 +500,10 @@ Module ButtonEx
     					Else
     					  
     					  For s=1 To CountString(BtEx()\Text, " ") + 1
-    							If TextWidth(Text + " " + StringField(BtEx()\Text, s, " ")) < Width - dpiX(8)
+    							If TextWidth(Text + " " + StringField(BtEx()\Text, s, " ")) < txtWidth
     								Text + " " + StringField(BtEx()\Text, s, " ")
     							Else
-    								If AddElement(Rows())
+    							  If AddElement(Rows())
     									Rows() = Text
     									Text = StringField(BtEx()\Text, s, " ")
     								EndIf
@@ -463,7 +518,10 @@ Module ButtonEx
           
   						Height = ListSize(Rows()) * TextHeight(BtEx()\Text)
   						Y = (dpiY(GadgetHeight(BtEx()\CanvasNum)) - Height) / 2
-          
+  						If Y < 0
+  						  Debug "Height: " + Str(Height) + " / Y: " + Str(Y)
+  						  Debug "Rows: "   + Str(ListSize(Rows())) + " / " + Str(CountLF+1)
+  						EndIf  
   						ForEach Rows()
   							X = GetAlignOffset_(Rows(), Width, BtEx()\Flags)
   							DrawingMode(#PB_2DDrawing_Transparent)
@@ -533,7 +591,7 @@ Module ButtonEx
 		EndIf
 
 	EndProcedure
-
+	
 	;- __________ Events __________
 
 	Procedure _LeftButtonDownHandler()
@@ -616,17 +674,14 @@ Module ButtonEx
 		Define.i GadgetID = EventGadget()
 
 		If FindMapElement(BtEx(), Str(GadgetID))
-
-			BtEx()\Size\Width = dpiX(GadgetWidth(GadgetID))
-			BtEx()\Size\Height = dpiY(GadgetHeight(GadgetID))
-
 			Draw_()
 		EndIf
 
 	EndProcedure
 
 	Procedure _ResizeWindowHandler()
-		Define.f X, Y, Width, Height
+	  Define.f X, Y, Width, Height
+	  Define.i FontSize
 		Define.f OffSetX, OffSetY
 
 		ForEach BtEx()
@@ -637,27 +692,55 @@ Module ButtonEx
 
 					If IsWindow(BtEx()\Window\Num)
 
-						OffSetX = WindowWidth(BtEx()\Window\Num) - BtEx()\Window\Width
+						OffSetX = WindowWidth(BtEx()\Window\Num)  - BtEx()\Window\Width
 						OffsetY = WindowHeight(BtEx()\Window\Num) - BtEx()\Window\Height
-
-						BtEx()\Window\Width = WindowWidth(BtEx()\Window\Num)
-						BtEx()\Window\Height = WindowHeight(BtEx()\Window\Num)
 
 						If BtEx()\Size\Flags
 
 							X = #PB_Ignore : Y = #PB_Ignore : Width = #PB_Ignore : Height = #PB_Ignore
 
-							If BtEx()\Size\Flags & #MoveX : X = GadgetX(BtEx()\CanvasNum) + OffSetX : EndIf
-							If BtEx()\Size\Flags & #MoveY : Y = GadgetY(BtEx()\CanvasNum) + OffSetY : EndIf
-							If BtEx()\Size\Flags & #ResizeWidth : Width = GadgetWidth(BtEx()\CanvasNum) + OffSetX : EndIf
-							If BtEx()\Size\Flags & #ResizeHeight : Height = GadgetHeight(BtEx()\CanvasNum) + OffSetY : EndIf
-
+							If BtEx()\Size\Flags & #MoveX  : X = BtEx()\Size\X + OffSetX : EndIf
+							If BtEx()\Size\Flags & #MoveY  : Y = BtEx()\Size\Y + OffSetY : EndIf
+							If BtEx()\Size\Flags & #Width  : Width  = BtEx()\Size\Width  + OffSetX : EndIf
+							If BtEx()\Size\Flags & #Height : Height = BtEx()\Size\Height + OffSetY : EndIf
+							
 							ResizeGadget(BtEx()\CanvasNum, X, Y, Width, Height)
 
 						Else
-							ResizeGadget(BtEx()\CanvasNum, #PB_Ignore, #PB_Ignore, GadgetWidth(BtEx()\CanvasNum) + OffSetX, GadgetHeight(BtEx()\CanvasNum) + OffsetY)
+						  
+						  ResizeGadget(BtEx()\CanvasNum, #PB_Ignore, #PB_Ignore, BtEx()\Size\Width + OffSetX, BtEx()\Size\Height + OffsetY)
+						  
 						EndIf
-
+						
+						CompilerIf Defined(ModuleEx, #PB_Module)
+						  
+						  If BtEx()\Size\Flags & #FitText
+						    
+						    If BtEx()\Size\Flags & #FixPadding
+						      Width  = GadgetWidth(BtEx()\CanvasNum)  - BtEx()\PaddingX
+                  Height = GadgetHeight(BtEx()\CanvasNum) - BtEx()\PaddingY
+						    Else
+						      Width  = GadgetWidth(BtEx()\CanvasNum)  - BtEx()\PaddingX
+                  Height = GadgetHeight(BtEx()\CanvasNum) - (GadgetHeight(BtEx()\CanvasNum) * BtEx()\PFactor)
+						    EndIf
+						    
+						    Debug "PaddingY: " + Str(GadgetHeight(BtEx()\CanvasNum) * BtEx()\PFactor)
+						    
+						    If Height < 0 : Height = 0 : EndIf 
+						    If Width  < 0 : Width  = 0 : EndIf
+						    
+						    FontSize = ModuleEx::RequiredFontSize(BtEx()\Text, Width, Height, BtEx()\Font\Num)
+						    
+						    If FontSize <> BtEx()\Font\Size
+                  BtEx()\Font\Size = FontSize
+                  BtEx()\Font\Num  = ModuleEx::Font(BtEx()\Font\Name, FontSize, BtEx()\Font\Style)
+                  If IsFont(BtEx()\Font\Num) : BtEx()\FontID = FontID(BtEx()\Font\Num) : EndIf
+                EndIf  
+						    
+						  EndIf  
+						  
+						CompilerEndIf 
+						
 						Draw_()
 					EndIf
 
@@ -668,12 +751,13 @@ Module ButtonEx
 		Next
 
 	EndProcedure
-
+	
+	
 	;- ==========================================================================
 	;- Module - Declared Procedures
 	;- ==========================================================================
 
-	Procedure AddDropDown(GNum.i, PopupNum.i)
+	Procedure   AddDropDown(GNum.i, PopupNum.i)
 
 		If FindMapElement(BtEx(), Str(GNum))
 
@@ -687,7 +771,7 @@ Module ButtonEx
 
 	EndProcedure
 
-	Procedure AddImage(GNum.i, ImageNum.i, Width.i=#PB_Default, Height.i=#PB_Default, Flags.i=#Left)
+	Procedure   AddImage(GNum.i, ImageNum.i, Width.i=#PB_Default, Height.i=#PB_Default, Flags.i=#Left)
 
 		If FindMapElement(BtEx(), Str(GNum))
 
@@ -705,7 +789,8 @@ Module ButtonEx
 		EndIf
 
 	EndProcedure
-
+	
+	
 	Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Text.s, Flags.i, WindowNum.i=#PB_Default)
 		Define Result.i, txtNum
 
@@ -734,13 +819,19 @@ Module ButtonEx
 
 				CompilerIf Defined(ModuleEx, #PB_Module)
 					If ModuleEx::AddWindow(BtEx()\Window\Num, ModuleEx::#Tabulator)
-						ModuleEx::AddGadget(GNum, BtEx()\Window\Num)
+					  ModuleEx::AddGadget(GNum, BtEx()\Window\Num)
 					EndIf
 				CompilerEndIf
-
+				
+				BtEx()\PaddingX = 8
+				BtEx()\PaddingY = 8
+				
 				BtEx()\Text = Text
 				BtEx()\Flags = Flags
-
+				
+				If Flags & #FitText    : BtEx()\Size\Flags | #FitText    : EndIf
+				If Flags & #FixPadding : BtEx()\Size\Flags | #FixPadding : EndIf
+				
 				CompilerSelect #PB_Compiler_OS ;{ Font
 					CompilerCase #PB_OS_Windows
 						BtEx()\FontID = GetGadgetFont(#PB_Default)
@@ -756,12 +847,12 @@ Module ButtonEx
 
 				BtEx()\Size\X = X
 				BtEx()\Size\Y = Y
-				BtEx()\Size\Width = Width
+				BtEx()\Size\Width  = Width
 				BtEx()\Size\Height = Height
 
-				BtEx()\Color\Front = $000000
-				BtEx()\Color\Back = $E3E3E3
-				BtEx()\Color\Focus = $D77800
+				BtEx()\Color\Front  = $000000
+				BtEx()\Color\Back   = $E3E3E3
+				BtEx()\Color\Focus  = $D77800
 				BtEx()\Color\Border = $A0A0A0
 				BtEx()\Color\Gadget = $F0F0F0
 
@@ -782,11 +873,11 @@ Module ButtonEx
 
 				CompilerEndSelect ;}
 
-				BindGadgetEvent(BtEx()\CanvasNum, @_MouseEnterHandler(), #PB_EventType_MouseEnter)
-				BindGadgetEvent(BtEx()\CanvasNum, @_MouseLeaveHandler(), #PB_EventType_MouseLeave)
+				BindGadgetEvent(BtEx()\CanvasNum, @_MouseEnterHandler(),     #PB_EventType_MouseEnter)
+				BindGadgetEvent(BtEx()\CanvasNum, @_MouseLeaveHandler(),     #PB_EventType_MouseLeave)
 				BindGadgetEvent(BtEx()\CanvasNum, @_LeftButtonDownHandler(), #PB_EventType_LeftButtonDown)
-				BindGadgetEvent(BtEx()\CanvasNum, @_LeftButtonUpHandler(), #PB_EventType_LeftButtonUp)
-				BindGadgetEvent(BtEx()\CanvasNum, @_ResizeHandler(), #PB_EventType_Resize)
+				BindGadgetEvent(BtEx()\CanvasNum, @_LeftButtonUpHandler(),   #PB_EventType_LeftButtonUp)
+				BindGadgetEvent(BtEx()\CanvasNum, @_ResizeHandler(),         #PB_EventType_Resize)
 
 				If IsWindow(BtEx()\Window\Num)
 					BtEx()\Window\Width = WindowWidth(BtEx()\Window\Num)
@@ -802,7 +893,8 @@ Module ButtonEx
 
 		ProcedureReturn BtEx()\CanvasNum
 	EndProcedure
-
+	
+	
 	Procedure.i GetState(GNum.i)
 
 		If FindMapElement(BtEx(), Str(GNum))
@@ -814,8 +906,9 @@ Module ButtonEx
 		EndIf
 
 	EndProcedure
-
-	Procedure SetAutoResizeFlags(GNum.i, Flags.i)
+	
+	
+	Procedure   SetAutoResizeFlags(GNum.i, Flags.i)
 
 		If FindMapElement(BtEx(), Str(GNum))
 
@@ -825,16 +918,7 @@ Module ButtonEx
 
 	EndProcedure
 
-
-	Procedure SetState(GNum.i, State.i)
-
-		If FindMapElement(BtEx(), Str(GNum))
-			BtEx()\Toggle = State
-		EndIf
-
-	EndProcedure
-
-	Procedure SetColor(GNum.i, ColorType.i, Color.i)
+	Procedure   SetColor(GNum.i, ColorType.i, Color.i)
 
 		If FindMapElement(BtEx(), Str(GNum))
 
@@ -854,8 +938,8 @@ Module ButtonEx
 		EndIf
 
 	EndProcedure
-
-	Procedure SetFont(GNum.i, FontNum.i)
+	
+	Procedure   SetFont(GNum.i, FontNum.i)
 
 		If FindMapElement(BtEx(), Str(GNum))
 
@@ -866,8 +950,120 @@ Module ButtonEx
 
 		EndIf
 
-	EndProcedure
+	EndProcedure	
+	
+	Procedure   SetState(GNum.i, State.i)
 
+		If FindMapElement(BtEx(), Str(GNum))
+		  BtEx()\Toggle = State
+		  Draw_()
+		EndIf
+
+	EndProcedure
+	
+	Procedure   SetText(GNum.i, Text.s)
+	  
+		If FindMapElement(BtEx(), Str(GNum))
+		  BtEx()\Text = Text
+		  Draw_()
+		EndIf
+
+	EndProcedure
+	
+	CompilerIf Defined(ModuleEx, #PB_Module)
+	  
+	  Procedure.i SetDynamicFont(GNum.i, Name.s, Size.i, Style.i=#False)
+	    Define.i FontNum
+	    Define   Padding.ModuleEx::Padding_Structure
+	    
+	    If FindMapElement(BtEx(), Str(GNum))
+	      
+	      FontNum = ModuleEx::Font(Name, Size, Style)
+	      If IsFont(FontNum)
+	        
+	        BtEx()\Font\Num   = FontNum
+	        BtEx()\Font\Name  = Name
+	        BtEx()\Font\Size  = Size
+	        BtEx()\Font\Style = Style
+	        BtEx()\FontID     = FontID(FontNum)
+
+	        ModuleEx::CalcPadding(BtEx()\Text, GadgetHeight(GNum), FontNum, Size, @Padding)
+	        BtEx()\PaddingX = Padding\X
+	        BtEx()\PaddingY = Padding\Y
+	        BtEx()\PFactor  = Padding\Factor
+  	      
+	        Draw_()
+	      EndIf
+	      
+	    EndIf
+	    
+	    ProcedureReturn FontNum
+	  EndProcedure
+	  
+	  Procedure.i FitText(GNum.i, PaddingX.i=#PB_Default, PaddingY.i=#PB_Default)
+	    
+	    If FindMapElement(BtEx(), Str(GNum))
+	      
+	      If IsFont(BtEx()\Font\Num) = #False : ProcedureReturn #False : EndIf 
+	      
+	      If PaddingX <> #PB_Default : BtEx()\PaddingX = PaddingX : EndIf 
+	      If PaddingY <> #PB_Default : BtEx()\PaddingY = PaddingY : EndIf 
+	      
+	      If BtEx()\Size\Flags & #FixPadding
+		      Width  = GadgetWidth(BtEx()\CanvasNum)  - BtEx()\PaddingX
+          Height = GadgetHeight(BtEx()\CanvasNum) - BtEx()\PaddingY
+		    Else
+		      Width  = GadgetWidth(BtEx()\CanvasNum)  - BtEx()\PaddingX
+          Height = GadgetHeight(BtEx()\CanvasNum) - (GadgetHeight(BtEx()\CanvasNum) * BtEx()\PFactor)
+		    EndIf
+		    
+		    FontSize = ModuleEx::RequiredFontSize(BtEx()\Text, Width, Height, BtEx()\Font\Num)
+		    If FontSize <> BtEx()\Font\Size
+          BtEx()\Font\Size = FontSize
+          BtEx()\Font\Num  = ModuleEx::Font(BtEx()\Font\Name, FontSize, BtEx()\Font\Style)
+          BtEx()\FontID    = FontID(BtEx()\Font\Num)
+        EndIf  
+        
+        Draw_()
+      EndIf
+      
+	    ProcedureReturn BtEx()\Font\Num
+	  EndProcedure  
+	  
+	  Procedure.i SetFitText(GNum.i, Text.s, PaddingX.i=#PB_Default, PaddingY.i=#PB_Default)
+	    
+	    If FindMapElement(BtEx(), Str(GNum))
+	      
+	      If IsFont(BtEx()\Font\Num) = #False : ProcedureReturn #False : EndIf 
+	      
+	      If PaddingX <> #PB_Default : BtEx()\PaddingX = PaddingX : EndIf 
+	      If PaddingY <> #PB_Default : BtEx()\PaddingY = PaddingY : EndIf 
+	      
+	      BtEx()\Text = Text
+	      
+	      If BtEx()\Size\Flags & #FixPadding
+		      Width  = GadgetWidth(BtEx()\CanvasNum)  - BtEx()\PaddingX
+          Height = GadgetHeight(BtEx()\CanvasNum) - BtEx()\PaddingY
+		    Else
+		      Width  = GadgetWidth(BtEx()\CanvasNum)  - BtEx()\PaddingX
+          Height = GadgetHeight(BtEx()\CanvasNum) - (GadgetHeight(BtEx()\CanvasNum) * BtEx()\PFactor)
+		    EndIf
+		    
+		    FontSize = ModuleEx::RequiredFontSize(BtEx()\Text, Width, Height, BtEx()\Font\Num)
+		    If FontSize <> BtEx()\Font\Size
+          BtEx()\Font\Size = FontSize
+          BtEx()\Font\Num  = ModuleEx::Font(BtEx()\Font\Name, FontSize, BtEx()\Font\Style)
+          BtEx()\FontID = FontID(BtEx()\Font\Num)
+        EndIf 
+        
+        Draw_()
+      EndIf
+      
+	    ProcedureReturn BtEx()\Font\Num
+	  EndProcedure  
+	  
+	CompilerEndIf  
+	
 EndModule
 
 ;- ======== Module - Example ========
@@ -893,9 +1089,9 @@ CompilerIf #PB_Compiler_IsMainFile
 
 	LoadFont(#Font, "Arial", 9, #PB_Font_Bold)
   LoadFont(#Font11, "Arial", 11)
-	LoadImage(#Image, "Test.png")
+	LoadImage(#Image, "Delete.png")
 
-	If OpenWindow(#Window, 0, 0, 450, 80, "Window", #PB_Window_SystemMenu|#PB_Window_ScreenCentered|#PB_Window_SizeGadget) ; 450, 80
+	If OpenWindow(#Window, 0, 0, 450, 80, "Window", #PB_Window_SystemMenu|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
 
 		If CreatePopupMenu(#DropDown)
 			MenuItem(#DropDown_Item1, "Item 1")
@@ -917,7 +1113,15 @@ CompilerIf #PB_Compiler_IsMainFile
 		;ButtonEx::SetColor(#ButtonImg, ButtonEx::#BorderColor, $0000FF)
 
 		ButtonEx::Gadget(#ButtonML, 345, 20, 90, 40, "MultiLine1 MultiLine2", ButtonEx::#MultiLine|ButtonEx::#AutoResize, #Window) ; ButtonEx::#MacOS
-		ButtonEx::SetAutoResizeFlags(#ButtonML, ButtonEx::#ResizeWidth)
+		ButtonEx::SetAutoResizeFlags(#ButtonML, ButtonEx::#Width|ButtonEx::#Height)
+		
+		CompilerIf Defined(ModuleEx, #PB_Module)
+		  
+		  ButtonEx::SetText(#ButtonML, "MultiLine1" + #LF$ + "MultiLine2")
+		  ButtonEx::SetDynamicFont(#ButtonML, "Arial", 9, #PB_Font_Bold)
+		  ButtonEx::SetAutoResizeFlags(#ButtonML, ButtonEx::#Width|ButtonEx::#Height|ButtonEx::#FitText) ; |ButtonEx::#FixPadding
+		  
+		CompilerEndIf
 		
 		;ButtonEx::SetColor(#ButtonML, ButtonEx::#BackColor, $008000)
 		;ButtonEx::SetColor(#ButtonML, ButtonEx::#FrontColor, $00D7FF)
@@ -958,8 +1162,8 @@ CompilerIf #PB_Compiler_IsMainFile
 	EndIf
 
 CompilerEndIf
-; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 11
-; Folding = 8--HR+---
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 1125
+; Folding = gBIAABMAg6
 ; EnableXP
 ; DPIAware
