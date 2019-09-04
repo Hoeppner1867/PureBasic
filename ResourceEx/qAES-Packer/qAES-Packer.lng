@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<map>
+  <element key="English">
+    <Strg>
+	  <element key="Archive">Archive</element>
+      <element key="Compressing">Compressing</element>
+      <element key="Win_Preview">Preview</element>
+      <element key="Tip_Attention">Attention! You have to use the same settings to decrypt the file.</element>
+      <element key="Size">Size</element>
+      <element key="SecureKey">Secure Key</element>
+      <element key="Files">Files</element>
+      <element key="Menu_SelectAll">Select all</element>
+      <element key="Tip_CreateArchive">Create an archive with all files</element>
+      <element key="Menu_Remove">Remove File</element>
+      <element key="Progress">Progress</element>
+      <element key="Tip_EncryptFile">Encrypt selected file(s)</element>
+      <element key="Tip_RemoveFile">Remove selected file(s) from archive</element>
+      <element key="Msg_CloseProgram">Should the program really be closed?</element>
+      <element key="Tip_ExtractFile">Extract all selected files</element>
+      <element key="Tip_NumberLoops">Number of loops (e.g. normal: 2048 or paranoid: 1e5)</element>
+      <element key="Msg_NotSaved">The changes have not yet been saved.</element>
+      <element key="Msg_AddFile">Add File(s)</element>
+      <element key="Win_EnterKey">Enter the key</element>
+      <element key="Tip_AddFile">Add file(s) to archive</element>
+      <element key="Msg_CreatArchiv">Create archiv file</element>
+      <element key="Win_OpenAs">Open as</element>
+      <element key="Msg_CloseWindow">Close Window</element>
+      <element key="Menu_SelectNone">Select nothing</element>
+      <element key="Win_OpenArchive">Open archive file</element>
+    </Strg>
+  </element>
+  <element key="Français">
+    <Strg>
+	  <element key="Archive">Archives</element>
+      <element key="Compressing">Compresser</element>
+      <element key="Win_Preview">Avant-première</element>
+      <element key="Tip_Attention">Attention ! Vous devez utiliser les mêmes paramètres pour déchiffrer le fichier.</element>
+      <element key="Size">Taille</element>
+      <element key="SecureKey">Clé sécurisée</element>
+      <element key="Files">Fichiers</element>
+      <element key="Menu_SelectAll">Sélectionner tout</element>
+      <element key="Tip_CreateArchive">Créer une archive avec tous les fichiers</element>
+      <element key="Menu_Remove">Supprimer le fichier</element>
+      <element key="Progress">Progrès réalisés</element>
+      <element key="Tip_EncryptFile">Chiffrer le(s) fichier(s) sélectionné(s)</element>
+      <element key="Tip_RemoveFile">Supprimer le(s) fichier(s) sélectionné(s) de l'archive</element>
+      <element key="Msg_CloseProgram">Le programme devrait-il vraiment être fermé ?</element>
+      <element key="Tip_ExtractFile">Extraire tous les fichiers sélectionnés</element>
+      <element key="Tip_NumberLoops">Nombre de boucles (par ex. normale : 2048 ou paranoïaque : 1e5)</element>
+      <element key="Msg_NotSaved">Les modifications n'ont pas encore été sauvegardées.</element>
+      <element key="Msg_AddFile">Ajouter fichier(s)</element>
+      <element key="Win_EnterKey">Veuillez entrer votre clé</element>
+      <element key="Tip_AddFile">Ajouter fichier(s) à archiver</element>
+      <element key="Msg_CreatArchiv">Créer un fichier d'archives</element>
+      <element key="Win_OpenAs">Ouvert comme</element>
+      <element key="Msg_CloseWindow">Fermer la fenêtre</element>
+      <element key="Menu_SelectNone">Ne rien sélectionner</element>
+      <element key="Win_OpenArchive">Ouvrir le fichier d'archive</element>
+    </Strg>
+  </element>
+  <element key="Deutsch">
+    <Strg>
+	  <element key="Archive">Archiv</element>
+      <element key="Compressing">Komprimieren</element>
+      <element key="Win_Preview">Vorschau</element>
+      <element key="Tip_Attention">Achtung! Sie müssen zum Entschlüsseln der Datei die gleichen Einstellungen verwenden!</element>
+      <element key="Size">Größe</element>
+      <element key="SecureKey">Sicherer Schlüssel</element>
+      <element key="Files">Dateien</element>
+      <element key="Menu_SelectAll">Alles auswählen</element>
+      <element key="Tip_CreateArchive">Erzeuge mit allen Dateien ein Archiv</element>
+      <element key="Menu_Remove">Datei entfernen</element>
+      <element key="Progress">Fortschritt</element>
+      <element key="Tip_EncryptFile">Entschlüssele die ausgewählten Dateien</element>
+      <element key="Tip_RemoveFile">Entferne die ausgewählten Dateien aus dem Archiv</element>
+      <element key="Msg_CloseProgram">Soll das Programm wirklich geschlossen werden?</element>
+      <element key="Tip_ExtractFile">Entpacke die ausgewählten Dateien</element>
+      <element key="Tip_NumberLoops">Anzahl der Durchgänge (z.B. normal: 2048 oder paranoid: 1e5)</element>
+      <element key="Msg_NotSaved">Die Änderungen wurden noch nicht gesichert.</element>
+      <element key="Msg_AddFile">Datei(en) hinzufügen</element>
+      <element key="Win_EnterKey">Schlüssel eingeben</element>
+      <element key="Tip_AddFile">Datei(en) zum Archiv hinzufügen</element>
+      <element key="Msg_CreatArchiv">Archiv-Datei erzeugen</element>
+      <element key="Win_OpenAs">Öffnen als</element>
+      <element key="Msg_CloseWindow">Fenster schließen</element>
+      <element key="Menu_SelectNone">Nichts auswählen</element>
+      <element key="Win_OpenArchive">Öffne Archiv-Datei</element>
+    </Strg>
+  </element>
+</map>
