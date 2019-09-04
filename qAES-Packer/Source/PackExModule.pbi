@@ -19,8 +19,10 @@
 ; - Add sound, music or sprite files to the archiv and load them directly from the archive
 
 
-; Last Update: 27.08.2019
-
+; Last Update: 4.09.2019
+;
+; - Workaround: umlauts
+;
 ; - AddText() / DecompressText()
 ; - ProgressBar for BasicCoders
 ; - Added: ReadContent() => Map: PackEx::Content()
@@ -249,6 +251,31 @@ Module PackEx
       ProcedureReturn RTrim(RTrim(StrD(Value, 0), "0"), ".")
     EndIf
   EndProcedure 
+  
+  
+  Procedure.s EscapeStrg_(String.s)
+    
+    String = ReplaceString(String, "ä", "a'")
+    String = ReplaceString(String, "ö", "o'")
+    String = ReplaceString(String, "ü", "u'")
+    String = ReplaceString(String, "Ä", "A'")
+    String = ReplaceString(String, "Ö", "O'")
+    String = ReplaceString(String, "Ü", "U'")
+    
+    ProcedureReturn ReplaceString(String, "ß", "!3")
+  EndProcedure
+  
+  Procedure.s UnEscapeStrg_(String.s)
+    
+    String = ReplaceString(String, "a'", "ä")
+    String = ReplaceString(String, "o'", "ö")
+    String = ReplaceString(String, "u'", "ü")
+    String = ReplaceString(String, "A'", "Ä")
+    String = ReplaceString(String, "O'", "Ö")
+    String = ReplaceString(String, "U'", "Ü")
+    
+    ProcedureReturn ReplaceString(String, "!3", "ß")
+  EndProcedure  
   
   
 	Procedure.q GetCounter_()
@@ -889,6 +916,7 @@ Module PackEx
 	Procedure.i RemoveFile_(PackedFileName.s, ProgressBar=#False)                      ; only OpenPack()
 	  Define.i PackID, PackEntrySize, Size, pResult, Result, Files, Count
 	  Define.s PackFile, PackEntryName
+	  Define.s EscapeName = EscapeStrg_(PackedFileName)
 	  Define   *Buffer
 	  
 	  If PackEx()\Mode = #Create : ProcedureReturn #False : EndIf 
@@ -911,7 +939,7 @@ Module PackEx
 	        
 	        PackEntryName = PackEntryName(PackEx()\ID)
 
-	        If PackEntryName = PackedFileName ;{ Ignore PackedFileName
+	        If PackEntryName = EscapeName    ;{ Ignore PackedFileName
 	          Continue ;}
 	        Else                              ;{ Copy other files
 	          
@@ -960,12 +988,14 @@ Module PackEx
 	
 	
 	Procedure   ReadContent_()
+	  Define.s PackedFileName
 	  
 	  ClearMap(PackEx()\Files())
     
     If ExaminePack(PackEx()\ID)
       While NextPackEntry(PackEx()\ID)
-        If AddMapElement(PackEx()\Files(), PackEntryName(PackEx()\ID))
+        PackedFileName = UnEscapeStrg_(PackEntryName(PackEx()\ID))
+        If AddMapElement(PackEx()\Files(), PackedFileName)
           PackEx()\Files()\Size       = PackEntrySize(PackEx()\ID, #PB_Packer_UncompressedSize)
           PackEx()\Files()\Compressed = PackEntrySize(PackEx()\ID, #PB_Packer_CompressedSize)
           PackEx()\Files()\Type       = PackEntryType(PackEx()\ID)
@@ -985,9 +1015,10 @@ Module PackEx
 	EndProcedure
 	
 	
-	Procedure.i IsEncrypted_(FileName.s, Size.i)
+	Procedure.i IsEncrypted_(PackedFileName.s, Size.i)
     Define.i Result = -1
     Define.q Counter, qAES_ID
+    Define.s EscapeName = EscapeStrg_(PackedFileName)
     Define   *Buffer  
     
     If Size <= 0 : ProcedureReturn #False : EndIf 
@@ -995,7 +1026,7 @@ Module PackEx
     *Buffer = AllocateMemory(Size)
     If *Buffer
       
-      If UncompressPackMemory(PackEx()\ID, *Buffer, Size, FileName) <> -1
+      If UncompressPackMemory(PackEx()\ID, *Buffer, Size, EscapeName) <> -1
        
         qAES_ID = PeekQ(*Buffer + Size - 16)
         Counter = PeekQ(*Buffer + Size - 8)
@@ -1064,9 +1095,7 @@ Module PackEx
         Size = PackEx()\Files()\Size
         
         If IsEncrypted_(PackedFileName, Size)
-          
           ProcedureReturn #True
-          
         EndIf
         
       EndIf
@@ -1077,7 +1106,7 @@ Module PackEx
   EndProcedure
   
   Procedure   ReadContent(Pack.i)
-    Define Name.s, Size.i
+    Define PackedFileName.s, Size.i
     
     If FindMapElement(PackEx(), Str(Pack))
     
@@ -1087,14 +1116,14 @@ Module PackEx
   	  
       If ExaminePack(PackEx()\ID)
         While NextPackEntry(PackEx()\ID)
-          Name = PackEntryName(PackEx()\ID)
+          PackedFileName = PackEntryName(PackEx()\ID)
           Size = PackEntrySize(PackEx()\ID, #PB_Packer_UncompressedSize)
-          If AddMapElement(Content(), Name)
-            Content()\FileName   = Name
+          If AddMapElement(Content(), UnEscapeStrg_(PackedFileName))
+            Content()\FileName   = UnEscapeStrg_(PackedFileName)
             Content()\Size       = Size
             Content()\Compressed = PackEntrySize(PackEx()\ID, #PB_Packer_CompressedSize)
             Content()\Type       = PackEntryType(PackEx()\ID)
-            Content()\Encrypted  = IsEncrypted_(Name, Size)
+            Content()\Encrypted  = IsEncrypted_(PackedFileName, Size)
           EndIf
         Wend
       EndIf
@@ -1149,20 +1178,21 @@ Module PackEx
 
   Procedure.i AddFile(Pack.i, File.s, PackedFileName.s, Key.s="", ProgressBar.i=#False)
     Define.i FileID, Size
+    Define.s EscapeName = EscapeStrg_(PackedFileName) 
     
     If FindMapElement(PackEx(), Str(Pack))
       
       If PackEx()\Mode = #Open
         
-        Size = AddFile2Pack_(File, PackedFileName, Key, ProgressBar)
+        Size = AddFile2Pack_(File, EscapeName, Key, ProgressBar)
         
       Else    ; #Create
         
         If Key ; encrypt & pack file
-          Size = AddCryptFile_(PackEx()\ID, File, PackedFileName, Key, ProgressBar)
+          Size = AddCryptFile_(PackEx()\ID, File, EscapeName, Key, ProgressBar)
         Else   ; pack file
           SetProgressText_(ProgressBar, #Compress)
-          If AddPackFile(PackEx()\ID, File, PackedFileName)
+          If AddPackFile(PackEx()\ID, File, EscapeName)
             Size = FileSize(File)
           EndIf
           SetProgressText_(ProgressBar, #Compress|#Finished)
@@ -1183,6 +1213,7 @@ Module PackEx
   
   Procedure.i DecompressFile(Pack.i, File.s, PackedFileName.s, Key.s="", ProgressBar.i=#False)
     Define.i FileID, Size, Result = -1
+    Define.s EscapeName = EscapeStrg_(PackedFileName)
     Define   *Buffer
     
     If FindMapElement(PackEx(), Str(Pack))
@@ -1198,7 +1229,7 @@ Module PackEx
             
             SetProgressText_(ProgressBar, #Compress)
             
-            If UncompressPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName) <> -1
+            If UncompressPackMemory(PackEx()\ID, *Buffer, Size, EscapeName) <> -1
               
               SetProgressText_(ProgressBar, #Compress|#Finished)
               
@@ -1228,7 +1259,7 @@ Module PackEx
       Else    ;{ pack file
         
         SetProgressText_(ProgressBar, #Compress)
-        Result = UncompressPackFile(PackEx()\ID, File, PackedFileName)
+        Result = UncompressPackFile(PackEx()\ID, File, EscapeName)
         SetProgressText_(ProgressBar, #Compress|#Finished)
         ;}
       EndIf
@@ -1247,6 +1278,7 @@ Module PackEx
   Procedure.i AddMemory(Pack.i, *Buffer, Size.i, PackedFileName.s, Key.s="", ProgressBar.i=#False) 
     Define.i Result
     Define.q Counter
+    Define.s EscapeName = EscapeStrg_(PackedFileName)
     Define   *Buffer, *Output
     
     If FindMapElement(PackEx(), Str(Pack))
@@ -1261,9 +1293,9 @@ Module PackEx
           If *Output
             
             If PackEx()\Mode = #Open
-              Result = AddMemory2Pack_(*Output, Size, PackedFileName, Key, ProgressBar)
+              Result = AddMemory2Pack_(*Output, Size, EscapeName, Key, ProgressBar)
             Else
-              Result = AddCryptMemory_(PackEx()\ID, *Output, Size, PackedFileName, Key, ProgressBar)
+              Result = AddCryptMemory_(PackEx()\ID, *Output, Size, EscapeName, Key, ProgressBar)
             EndIf
             
             Size + 48
@@ -1276,10 +1308,10 @@ Module PackEx
       Else    ;{ pack file
         
         If PackEx()\Mode = #Open 
-          Result = AddMemory2Pack_(*Buffer, Size, PackedFileName, "", ProgressBar)
+          Result = AddMemory2Pack_(*Buffer, Size, EscapeName, "", ProgressBar)
         Else
           SetProgressText_(ProgressBar, #Compress)
-          Result = AddPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName)
+          Result = AddPackMemory(PackEx()\ID, *Buffer, Size, EscapeName)
           SetProgressText_(ProgressBar, #Compress|#Finished)
         EndIf
         ;}
@@ -1299,6 +1331,7 @@ Module PackEx
   Procedure.i DecompressMemory(Pack.i, *Buffer, Size.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
     Define.i MemSize, Result = -1
     Define.q Counter, qAES_ID
+    Define.s EscapeName = EscapeStrg_(PackedFileName)
     Define   *Input, *Buffer
     
     If FindMapElement(PackEx(), Str(Pack))
@@ -1314,7 +1347,7 @@ Module PackEx
             
             SetProgressText_(ProgressBar, #Compress)
             
-            If UncompressPackMemory(PackEx()\ID, *Input, MemSize, PackedFileName) <> -1
+            If UncompressPackMemory(PackEx()\ID, *Input, MemSize, EscapeName) <> -1
               
               SetProgressText_(ProgressBar, #Compress|#Finished)
               
@@ -1355,7 +1388,7 @@ Module PackEx
         ;}
       Else    ;{ pack file
         SetProgressText_(ProgressBar, #Compress)
-        Result = UncompressPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName)
+        Result = UncompressPackMemory(PackEx()\ID, *Buffer, Size, EscapeName)
         SetProgressText_(ProgressBar, #Compress|#Finished)
         ;}
       EndIf
@@ -1372,8 +1405,9 @@ Module PackEx
   
   Procedure.i AddXML(Pack.i, XML.i, PackedFileName.s, Key.s="")
     Define   *Buffer
+    Define.s EscapeName = EscapeStrg_(PackedFileName)
     Define.i Size, Result
-        
+   
     If FindMapElement(PackEx(), Str(Pack))
       
       If IsXML(XML)
@@ -1387,17 +1421,15 @@ Module PackEx
             If ExportXML(XML, *Buffer, Size)
               
               If PackEx()\Mode = #Open
-                
-                Result = AddMemory2Pack_(*Buffer, Size, PackedFileName, Key)
+                Result = AddMemory2Pack_(*Buffer, Size, EscapeName, Key)
                 If Result And Key : Size + 48 : EndIf
-                
               Else
                 
                 If Key
-                  Result = AddCryptMemory_(PackEx()\ID, *Buffer, Size, PackedFileName, Key)
+                  Result = AddCryptMemory_(PackEx()\ID, *Buffer, Size, EscapeName, Key)
                   If Result : Size + 48 : EndIf
                 Else
-                  Result = AddPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName)
+                  Result = AddPackMemory(PackEx()\ID, *Buffer, Size, EscapeName)
                 EndIf
               
               EndIf
@@ -1423,10 +1455,11 @@ Module PackEx
     ProcedureReturn Result
   EndProcedure
   
-  Procedure.i DecompressXML(Pack.i, XML.i, PackedFileName.s, Key.s="", Flags.i=#False, Encoding.i=#PB_UTF8)
-    Define   *Buffer
+  Procedure.i DecompressXML(Pack.i, XML.i, PackedFileName.s, Key.s="", Flags.i=#False, Encoding.i=#PB_UTF8)  
     Define.i Size, Result 
-    
+    Define.s EscapeName = EscapeStrg_(PackedFileName)
+    Define   *Buffer
+ 
     If FindMapElement(PackEx(), Str(Pack))
       
       If FindMapElement(PackEx()\Files(), PackedFileName)
@@ -1436,10 +1469,9 @@ Module PackEx
         *Buffer = AllocateMemory(Size)
         If *Buffer
           
-          If UncompressPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName) <> -1
+          If UncompressPackMemory(PackEx()\ID, *Buffer, Size, EscapeName) <> -1
             Size = DecryptMemory_(*Buffer, Size, Key)
             Result = CatchXML(XML, *Buffer, Size, Flags, Encoding)
-            If XML = #PB_Any : XML = Result : EndIf
           Else
             Error = #ERROR_CANT_UNCOMPRESS_PACKMEMORY
           EndIf
@@ -1461,8 +1493,9 @@ Module PackEx
   
   
   Procedure.i AddJSON(Pack.i, JSON.i, PackedFileName.s, Key.s="")
-    Define   *Buffer
     Define.i Size, Result
+    Define.s EscapeName = EscapeStrg_(PackedFileName)
+    Define   *Buffer
     
     If FindMapElement(PackEx(), Str(Pack))
       
@@ -1477,17 +1510,15 @@ Module PackEx
             If ExportJSON(JSON, *Buffer, Size)
               
               If PackEx()\Mode = #Open
-                
-                Result = AddMemory2Pack_(*Buffer, Size, PackedFileName, Key)
+                Result = AddMemory2Pack_(*Buffer, Size, EscapeName, Key)
                 If Result And Key : Size + 48 : EndIf
-                
               Else
                 
                 If Key
-                  Result = AddCryptMemory_(PackEx()\ID, *Buffer, Size, PackedFileName, Key)
+                  Result = AddCryptMemory_(PackEx()\ID, *Buffer, Size, EscapeName, Key)
                   If Result : Size + 48 : EndIf
                 Else
-                  Result = AddPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName)
+                  Result = AddPackMemory(PackEx()\ID, *Buffer, Size, EscapeName)
                 EndIf
               
               EndIf
@@ -1514,8 +1545,9 @@ Module PackEx
   EndProcedure
   
   Procedure.i DecompressJSON(Pack.i, JSON.i, PackedFileName.s, Key.s="", Flags.i=#False)
-    Define   *Buffer
     Define.i Size, Result
+    Define.s EscapeName = EscapeStrg_(PackedFileName)
+    Define   *Buffer
     
     If FindMapElement(PackEx(), Str(Pack))
       
@@ -1526,7 +1558,7 @@ Module PackEx
         *Buffer = AllocateMemory(Size)
         If *Buffer
           
-          If UncompressPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName) <> -1
+          If UncompressPackMemory(PackEx()\ID, *Buffer, Size, EscapeName) <> -1
             Size = DecryptMemory_(*Buffer, Size, Key)
             Result = CatchJSON(JSON, *Buffer, Size, Flags)
             If JSON = #PB_Any : JSON = Result : EndIf
@@ -1551,9 +1583,10 @@ Module PackEx
   
   
   Procedure.i AddImage(Pack.i, Image.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
-    Define   *Buffer
     Define.i Size, Result
-    
+    Define.s EscapeName = EscapeStrg_(PackedFileName)
+    Define   *Buffer
+
     If FindMapElement(PackEx(), Str(Pack))
       
       If IsImage(Image)
@@ -1569,9 +1602,9 @@ Module PackEx
             If *Buffer
 
               If PackEx()\Mode = #Open
-                Result = AddMemory2Pack_(*Buffer, Size, PackedFileName, Key, ProgressBar)
+                Result = AddMemory2Pack_(*Buffer, Size, EscapeName, Key, ProgressBar)
               Else
-                Result = AddCryptMemory_(PackEx()\ID, *Buffer, Size, PackedFileName, Key, ProgressBar)
+                Result = AddCryptMemory_(PackEx()\ID, *Buffer, Size, EscapeName, Key, ProgressBar)
               EndIf
               
               Size + 48
@@ -1581,10 +1614,10 @@ Module PackEx
           Else    ;{ pack file
             
             If PackEx()\Mode = #Open 
-              Result = AddMemory2Pack_(*Buffer, Size, PackedFileName, "", ProgressBar)
+              Result = AddMemory2Pack_(*Buffer, Size, EscapeName, "", ProgressBar)
             Else
               SetProgressText_(ProgressBar, #Compress)
-              Result = AddPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName)
+              Result = AddPackMemory(PackEx()\ID, *Buffer, Size, EscapeName)
               SetProgressText_(ProgressBar, #Compress|#Finished)
             EndIf
             ;}
@@ -1608,8 +1641,9 @@ Module PackEx
   EndProcedure
   
   Procedure.i DecompressImage(Pack.i, Image.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
-    Define   *Buffer
     Define.i Size, Result
+    Define.s EscapeName = EscapeStrg_(PackedFileName)
+    Define   *Buffer
     
     If FindMapElement(PackEx(), Str(Pack))
       
@@ -1622,7 +1656,7 @@ Module PackEx
           
           SetProgressText_(ProgressBar, #Compress)
           
-          If UncompressPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName) <> -1
+          If UncompressPackMemory(PackEx()\ID, *Buffer, Size, EscapeName) <> -1
             SetProgressText_(ProgressBar, #Compress|#Finished)
             Size = DecryptMemory_(*Buffer, Size, Key, ProgressBar)
             Result = CatchImage(Image, *Buffer, Size)
@@ -1651,6 +1685,7 @@ Module PackEx
   
   Procedure.i AddText(ID.i, String.s, PackedFileName.s, Key.s="", ProgressBar.i=#False)
     Define.i Size, Result
+    Define.s EscapeName = EscapeStrg_(PackedFileName)
     Define   *Buffer
     
     If FindMapElement(PackEx(), Str(ID))
@@ -1668,9 +1703,9 @@ Module PackEx
             If Key  ;{ encrypt & pack file
 
               If PackEx()\Mode = #Open
-                Result = AddMemory2Pack_(*Buffer, Size, PackedFileName, Key, ProgressBar)
+                Result = AddMemory2Pack_(*Buffer, Size, EscapeName, Key, ProgressBar)
               Else
-                Result = AddCryptMemory_(PackEx()\ID, *Buffer, Size, PackedFileName, Key, ProgressBar)
+                Result = AddCryptMemory_(PackEx()\ID, *Buffer, Size, EscapeName, Key, ProgressBar)
               EndIf
               
               Size + 48  
@@ -1678,10 +1713,10 @@ Module PackEx
             Else    ;{ pack file
               
               If PackEx()\Mode = #Open 
-                Result = AddMemory2Pack_(*Buffer, Size, PackedFileName, "", ProgressBar)
+                Result = AddMemory2Pack_(*Buffer, Size, EscapeName, "", ProgressBar)
               Else
                 SetProgressText_(PackEx()\ProgressBar, #Compress)
-                Result = AddPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName)
+                Result = AddPackMemory(PackEx()\ID, *Buffer, Size, EscapeName)
                 SetProgressText_(PackEx()\ProgressBar, #Compress|#Finished)
               EndIf
               ;}
@@ -1700,9 +1735,9 @@ Module PackEx
   EndProcedure
   
   Procedure.s DecompressText(Pack.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
-    Define   *Buffer
     Define.i Size
-    Define.s String
+    Define.s String, EscapeName = EscapeStrg_(PackedFileName)
+    Define   *Buffer
     
     If FindMapElement(PackEx(), Str(Pack))
       
@@ -1715,7 +1750,7 @@ Module PackEx
             
             SetProgressText_(ProgressBar, #Compress|#Finished)
             
-            If UncompressPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName) <> -1
+            If UncompressPackMemory(PackEx()\ID, *Buffer, Size, EscapeName) <> -1
               SetProgressText_(ProgressBar, #Compress|#Finished)
               Size = DecryptMemory_(*Buffer, Size, Key, ProgressBar)
               String = Space(Size / SizeOf(character))
@@ -1738,8 +1773,9 @@ Module PackEx
   
   
   Procedure.i DecompressSound(Pack.i, Sound.i, PackedFileName.s, Key.s="", ProgressBar.i=#False)
-    Define   *Buffer
     Define.i Size, Result
+    Define.s EscapeName = EscapeStrg_(PackedFileName)
+    Define   *Buffer
     
     If FindMapElement(PackEx(), Str(Pack))
       
@@ -1752,7 +1788,7 @@ Module PackEx
             
             SetProgressText_(ProgressBar, #Compress|#Finished)
             
-            If UncompressPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName) <> -1
+            If UncompressPackMemory(PackEx()\ID, *Buffer, Size, EscapeName) <> -1
               SetProgressText_(ProgressBar, #Compress|#Finished)
               Size = DecryptMemory_(*Buffer, Size, Key, ProgressBar)
               Result = CatchSound(Sound, *Buffer, Size)
@@ -1774,8 +1810,9 @@ Module PackEx
   EndProcedure
   
   Procedure.i DecompressSprite(Pack.i, Sprite.i, PackedFileName.s, Key.s="", Flags.i=#False)
-    Define   *Buffer
     Define.i Size, Result
+    Define.s EscapeName = EscapeStrg_(PackedFileName)
+    Define   *Buffer
     
     If FindMapElement(PackEx(), Str(Pack))
       
@@ -1786,7 +1823,7 @@ Module PackEx
           *Buffer = AllocateMemory(Size)
           If *Buffer
             
-            If UncompressPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName) <> -1
+            If UncompressPackMemory(PackEx()\ID, *Buffer, Size, EscapeName) <> -1
               
               If DecryptMemory_(*Buffer, Size, Key)
               
@@ -1810,8 +1847,9 @@ Module PackEx
   EndProcedure
 
   Procedure.i DecompressMusic(Pack.i, Music.i, PackedFileName.s, Key.s="", Flags.i=#False)
-    Define   *Buffer
     Define.i Size, Result
+    Define.s EscapeName = EscapeStrg_(PackedFileName)
+    Define   *Buffer
     
     If FindMapElement(PackEx(), Str(Pack))
       
@@ -1822,7 +1860,7 @@ Module PackEx
           *Buffer = AllocateMemory(Size)
           If *Buffer
             
-            If UncompressPackMemory(PackEx()\ID, *Buffer, Size, PackedFileName) <> -1
+            If UncompressPackMemory(PackEx()\ID, *Buffer, Size, EscapeName) <> -1
               Size = DecryptMemory_(*Buffer, Size, Key)
               Result = CatchMusic(Music, *Buffer, Size)
               If Music = #PB_Any : Music = Result : EndIf
@@ -1843,10 +1881,9 @@ Module PackEx
 
   Procedure.i RemoveFile(Pack.i, PackedFileName.s, ProgressBar=#False) 
     
+    
     If FindMapElement(PackEx(), Str(Pack))
-      
       RemoveFile_(PackedFileName, ProgressBar)
-      
     EndIf
     
   EndProcedure
@@ -1903,7 +1940,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 5
+  #Example = 1
   
   ; 1: normal
   ; 2: encrypted
@@ -1915,7 +1952,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UseZipPacker()
 
-  #Pack = 5
+  #Pack = 1
   
   Key$  = "18qAES07PW67"
   
@@ -1923,7 +1960,7 @@ CompilerIf #PB_Compiler_IsMainFile
     CompilerCase 1 ;{ pack normal file
       
       If PackEx::Create(#Pack, "TestPack.zip")
-        PackEx::AddFile(#Pack, "Programmer.jpg", "Programmer1.jpg")
+        PackEx::AddFile(#Pack, "Test.jpg", "Test1.jpg")
         PackEx::AddFile(#Pack, "Test.txt", "Test.txt")
         PackEx::Close(#Pack)
       EndIf
@@ -1931,41 +1968,41 @@ CompilerIf #PB_Compiler_IsMainFile
       If PackEx::Open(#Pack, "TestPack.zip")
         
         ;Debug PackEx::DecompressText(#Pack, "Test.txt")
-        PackEx::DecompressFile(#Pack, "Programmer1.jpg", "Programmer1.jpg")
-        PackEx::AddFile(#Pack, "Programmer.jpg", "Programmer2.jpg")
+        PackEx::DecompressFile(#Pack, "Test1.jpg", "Test1.jpg")
+        PackEx::AddFile(#Pack, "Test.jpg", "Test2.jpg")
         
         ;MessageRequester("PackEx", "Close Pack")
         
-        PackEx::Close(#Pack, PackEx::#File|PackEx::#MoveBack) ; close pack & move uncompressed files (Programmer1.jpg) back to pack
-        ;PackEx::Close(#Pack, PackEx::#File|PackEx::#Update) ; close pack & update uncompressed files (Programmer1.jpg) in pack
+        PackEx::Close(#Pack, PackEx::#File|PackEx::#MoveBack) ; close pack & move uncompressed files (Test1.jpg) back to pack
+        ;PackEx::Close(#Pack, PackEx::#File|PackEx::#Update) ; close pack & update uncompressed files (Test1.jpg) in pack
       EndIf
       ;}
     CompilerCase 2 ;{ pack encrypted file 
       
       If PackEx::Create(#Pack, "TestCryptPack.zip")
-        PackEx::AddFile(#Pack, "Programmer.jpg", "Programmer.jpg", Key$)
+        PackEx::AddFile(#Pack, "Test.jpg", "Test.jpg", Key$)
         PackEx::Close(#Pack)
       EndIf
       
       If PackEx::Open(#Pack, "TestCryptPack.zip")
-        If PackEx::IsEncrypted(#Pack, "Programmer.jpg")
+        If PackEx::IsEncrypted(#Pack, "Test.jpg")
           Debug "Packed file is encrypted"
         Else
           Debug "Packed file is not encrypted"
         EndIf
-        PackEx::DecompressFile(#Pack, "Decrypted.jpg", "Programmer.jpg", Key$)
+        PackEx::DecompressFile(#Pack, "Decrypted.jpg", "Test.jpg", Key$)
         PackEx::Close(#Pack)
       EndIf 
       ;}
     CompilerCase 3 ;{ delete packed file
       
       If PackEx::Create(#Pack, "TestPack.zip")
-        PackEx::AddFile(#Pack, "Programmer.jpg", "Programmer.jpg", Key$)
+        PackEx::AddFile(#Pack, "Test.jpg", "Test.jpg", Key$)
         PackEx::AddFile(#Pack, "Test.txt", "Test.txt")
         PackEx::Close(#Pack)
       EndIf
 
-      MessageRequester("PackEx", "Remove 'Programmer.jpg'")
+      MessageRequester("PackEx", "Remove 'Test.jpg'")
       
       If PackEx::Open(#Pack, "TestPack.zip")
         
@@ -1974,7 +2011,7 @@ CompilerIf #PB_Compiler_IsMainFile
           Debug ">> " + PackEx::Content()\FileName
         Next
         
-        PackEx::RemoveFile(#Pack, "Programmer.jpg")
+        PackEx::RemoveFile(#Pack, "Test.jpg")
         
         PackEx::Close(#Pack)
       EndIf
@@ -2038,15 +2075,15 @@ CompilerIf #PB_Compiler_IsMainFile
       
       #Image = 1
       
-      If LoadImage(#Image, "Programmer.jpg")
+      If LoadImage(#Image, "Test.jpg")
         If PackEx::Create(#Pack, "TestImage.zip")
-          PackEx::AddImage(#Pack, #Image, "Programmer.jpg", Key$)
+          PackEx::AddImage(#Pack, #Image, "Test.jpg", Key$)
           PackEx::Close(#Pack) 
         EndIf
       EndIf
       
       If PackEx::Open(#Pack, "TestImage.zip")
-        If PackEx::DecompressImage(#Pack, #Image, "Programmer.jpg", Key$)
+        If PackEx::DecompressImage(#Pack, #Image, "Test.jpg", Key$)
           SaveImage(#Image, "DecryptedImage.jpg")
         EndIf
         PackEx::Close(#Pack) 
@@ -2055,7 +2092,7 @@ CompilerIf #PB_Compiler_IsMainFile
     CompilerCase 7 ;{ ReadContent()
       
       If PackEx::Create(#Pack, "TestPack.zip")
-        PackEx::AddFile(#Pack, "Programmer.jpg", "Programmer.jpg")
+        PackEx::AddFile(#Pack, "Test.jpg", "Test.jpg")
         PackEx::AddFile(#Pack, "Test.txt", "Test.txt", Key$)
         PackEx::Close(#Pack)
       EndIf
@@ -2078,8 +2115,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 1306
-; FirstLine = 192
-; Folding = qBIQgNBAGEMDQI-
+; CursorPosition = 23
+; Folding = IMAAAAmQCAAAAB+
 ; EnableXP
 ; DPIAware
