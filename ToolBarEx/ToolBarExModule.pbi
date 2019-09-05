@@ -11,6 +11,9 @@
 
 ; Last Update: 1.09.2019
 ;
+; Added:   TrackBarGadget
+; Changed: unification of procedure names for external gadgets
+;
 ; Added: Flag #TextInside
 
 
@@ -56,8 +59,8 @@
 ; ToolBar::GetIndex()             - returns item index of the corresponding event number
 ; ToolBar::GetIndexFromID()       - returns item index of the corresponding event ID
 ; ToolBar::GetGadgetNumber()      - returns the gadget number of the gadget at index position
-; ToolBar::GetState()             - similar to 'GetGadgetState()'
-; ToolBar::GetText()              - similar to 'GetGadgetText()'
+; ToolBar::GetItemState()             - similar to 'GetGadgetState()'
+; ToolBar::GetItemText()              - similar to 'GetGadgetText()'
 ; ToolBar::ImageButton()          - similar to 'ToolBarImageButton()'
 ; ToolBar::HideButton()           - hide button
 ; ToolBar::Height()               - similar to 'ToolBarHeight()'
@@ -65,11 +68,11 @@
 ; ToolBar::SetAttribute()         - similar to 'SetGadgetColor()'
 ; ToolBar::SetColor()             - similar to 'SetGadgetAttribute()'
 ; ToolBar::SetFont()              - similar to 'SetGadgetFont()'
-; ToolBar::SetGadgetFlags()       - [#Top/#Bottom]
+; ToolBar::SetItemFlags()       - [#Top/#Bottom]
 ; ToolBar::SetPostEvent()         - changes PostEvent [#PB_Event_Gadget/#PB_Event_Menu]
 ; ToolBar::SetSpinAttribute()     - similar to 'SetGadgetAttribute()' for the SpinGadget [#PB_Spin_Minimum/#PB_Spin_Maximum]
-; ToolBar::SetState()             - similar to 'SetGadgetState()'
-; ToolBar::SetText()              - similar to 'SetGadgetText()'
+; ToolBar::SetItemState()             - similar to 'SetGadgetState()'
+; ToolBar::SetItemText()              - similar to 'SetGadgetText()'
 ; ToolBar::Spacer()               - inserts available space between buttons
 ; ToolBar::SpinBox()              - adds a SpinGadget to the toolbar
 ; ToolBar::ToolTip()              - similar to 'ToolBarToolTip()'
@@ -138,6 +141,7 @@ DeclareModule ToolBar
     #EventType_ComboBox    = ModuleEx::#EventType_ComboBox
     #EventType_SpinBox     = ModuleEx::#EventType_SpinBox
     #EventType_Button      = ModuleEx::#EventType_Button
+    #EventType_TrackBar    = ModuleEx::#EventType_TrackBar
     #Event_Gadget          = ModuleEx::#Event_Gadget
     
   CompilerElse
@@ -151,6 +155,7 @@ DeclareModule ToolBar
       #EventType_ComboBox
       #EventType_SpinBox
       #EventType_Button
+      #EventType_TrackBar
     EndEnumeration
     
   CompilerEndIf
@@ -189,14 +194,15 @@ DeclareModule ToolBar
     Declare   AddItem(GNum.i, TB_Index.i, Position, Text.s, ImageID.i=#False)
     Declare   ButtonText(GNum.i, TB_Index.i, Text.s)
     Declare   ComboBox(GNum.i, Width.i, Height.i, EventNum.i=#PB_Ignore, Text.s="", EventID.s="", Flags.i=#False)
-    Declare.i GetState(GNum.i, TB_Index.i)
-    Declare.s GetText(GNum.i, TB_Index.i)
-    Declare   SetGadgetFlags(GNum.i, TB_Index.i, Flags.i)
-    Declare   SetSpinAttribute(GNum.i, TB_Index.i, Attribute.i, Value.i)
-    Declare   SetState(GNum.i, TB_Index.i, State.i)
-    Declare   SetText(GNum.i, TB_Index.i, Text.s)
+    Declare.i GetItemState(GNum.i, TB_Index.i)
+    Declare.s GetItemText(GNum.i, TB_Index.i)
+    Declare   SetItemFlags(GNum.i, TB_Index.i, Flags.i)
+    Declare   SetItemAttribute(GNum.i, TB_Index.i, Attribute.i, Value.i)
+    Declare   SetItemState(GNum.i, TB_Index.i, State.i)
+    Declare   SetItemText(GNum.i, TB_Index.i, Text.s)
     Declare.i SpinBox(GNum.i, Width.i, Height.i, Minimum.i, Maximum.i, EventNum.i=#PB_Ignore, Text.s="", EventID.s="", Flags.i=#False)
     Declare.i TextButton(GNum.i, Width.i, Height.i, Text.s, EventNum.i=#PB_Ignore, EventID.s="", Flags.i=#False)
+    Declare.i TrackBar(GNum.i, Width.i, Height.i, Minimum.i, Maximum.i, EventNum.i=#PB_Ignore, EventID.s="", Flags.i=#False)
     
   CompilerEndIf
   
@@ -237,6 +243,7 @@ Module ToolBar
     #Spacer
     #SpinGadget
     #TextButton
+    #TrackBar
   EndEnumeration
   
   Structure TBEx_Event_Structure     ;{ TBEx()\Event\...
@@ -700,7 +707,7 @@ Module ToolBar
 
               X + TBEx()\Items()\Width + TBEx()\Buttons\Spacing
               ;}
-            Case #ComboBox, #SpinGadget, #TextButton ;{ ComboBox / SpinGadget / TextButton
+            Case #ComboBox, #SpinGadget, #TextButton, #TrackBar ;{ ComboBox / SpinGadget / TextButton / TrackBar
  
               If IsGadget(TBEx()\Items()\Num)
                 
@@ -833,6 +840,23 @@ Module ToolBar
                     PostEvent(#Event_Gadget, TBEx()\Window\Num, TBEx()\Items()\Event, #EventType_Button, TBEx()\Event\State)
                   EndIf
                   ;}
+                Case #TrackBar   ;{ TrackBarGadget changed
+                  
+                  If TBEx()\Event\State <> GetGadgetState(GadgetNum)
+                    
+                    TBEx()\Event\Type  = #EventType_TrackBar
+                    TBEx()\Event\State = GetGadgetState(GadgetNum)
+                    
+                    If TBEx()\Items()\Event = #PB_Ignore
+                      PostEvent(#PB_Event_Gadget, TBEx()\Window\Num, TBEx()\CanvasNum, #EventType_TrackBar, ListIndex(TBEx()\Items()))
+                      PostEvent(#Event_Gadget, TBEx()\Window\Num, TBEx()\CanvasNum, #EventType_TrackBar, ListIndex(TBEx()\Items()))
+                    Else
+                      PostEvent(#PB_Event_Gadget, TBEx()\Window\Num, TBEx()\Items()\Event, #EventType_TrackBar, TBEx()\Event\State)
+                      PostEvent(#Event_Gadget, TBEx()\Window\Num, TBEx()\Items()\Event, #EventType_TrackBar, TBEx()\Event\State)
+                    EndIf
+                    
+                  EndIf
+                  ;}  
               EndSelect
               
             EndIf
@@ -1220,9 +1244,41 @@ Module ToolBar
       EndIf   
       
     EndProcedure
-
     
-    Procedure.i GetState(GNum.i, TB_Index.i)
+    Procedure.i TrackBar(GNum.i, Width.i, Height.i, Minimum.i, Maximum.i, EventNum.i=#PB_Ignore, EventID.s="", Flags.i=#False)
+      Define.i GadgetList
+      
+      If FindMapElement(TBEx(), Str(GNum))
+        
+        If AddElement(TBEx()\Items())
+          
+          OpenGadgetList(TBEx()\CanvasNum)
+
+          TBEx()\Items()\Type    = #TrackBar
+          TBEx()\Items()\Num     = TrackBarGadget(#PB_Any, 0, 0, Width, Height, Minimum, Maximum, Flags)
+          TBEx()\Items()\Event   = EventNum
+          TBEx()\Items()\EventID = EventID
+          TBEx()\Items()\Width   = dpiX(Width)
+          TBEx()\Items()\Height  = dpiY(Height)
+  
+          CloseGadgetList()
+          
+          If IsGadget(TBEx()\Items()\Num)
+            SetGadgetData(TBEx()\Items()\Num, TBEx()\CanvasNum)
+            BindGadgetEvent(TBEx()\Items()\Num, @_GadgetHandler())
+          EndIf
+  
+          If TBEx()\ReDraw : Draw_() : EndIf
+          
+          ProcedureReturn TBEx()\Items()\Num
+        EndIf
+        
+      EndIf   
+      
+    EndProcedure
+    
+    
+    Procedure.i GetItemState(GNum.i, TB_Index.i)
     
       If FindMapElement(TBEx(), Str(GNum))
         
@@ -1238,7 +1294,7 @@ Module ToolBar
       
     EndProcedure
     
-    Procedure.s GetText(GNum.i, TB_Index.i)
+    Procedure.s GetItemText(GNum.i, TB_Index.i)
       
       If FindMapElement(TBEx(), Str(GNum))
         
@@ -1254,7 +1310,7 @@ Module ToolBar
       
     EndProcedure
     
-    Procedure   SetGadgetFlags(GNum.i, TB_Index.i, Flags.i)
+    Procedure   SetItemFlags(GNum.i, TB_Index.i, Flags.i)
       ; #Top / #Bottom 
       
       If FindMapElement(TBEx(), Str(GNum))
@@ -1271,7 +1327,7 @@ Module ToolBar
       
     EndProcedure
     
-    Procedure   SetSpinAttribute(GNum.i, TB_Index.i, Attribute.i, Value.i)
+    Procedure   SetItemAttribute(GNum.i, TB_Index.i, Attribute.i, Value.i)
     
       If FindMapElement(TBEx(), Str(GNum))
         
@@ -1287,7 +1343,7 @@ Module ToolBar
       
     EndProcedure
 
-    Procedure   SetState(GNum.i, TB_Index.i, State.i)
+    Procedure   SetItemState(GNum.i, TB_Index.i, State.i)
     
       If FindMapElement(TBEx(), Str(GNum))
         
@@ -1311,7 +1367,7 @@ Module ToolBar
       
     EndProcedure
   
-    Procedure   SetText(GNum.i, TB_Index.i, Text.s)
+    Procedure   SetItemText(GNum.i, TB_Index.i, Text.s)
       
       If FindMapElement(TBEx(), Str(GNum))
         
@@ -1852,7 +1908,7 @@ Module ToolBar
     If FindMapElement(TBEx(), Str(GNum))
       
       If SelectElement(TBEx()\Items(), TB_Index)
-        If TBEx()\Items()\Type = #ComboBox Or TBEx()\Items()\Type = #SpinGadget Or TBEx()\Items()\Type = #TextButton
+        If TBEx()\Items()\Type = #ComboBox Or TBEx()\Items()\Type = #SpinGadget Or TBEx()\Items()\Type = #TextButton Or TBEx()\Items()\Type = #TrackBar
           If IsGadget(TBEx()\Items()\Num) : GadgetToolTip(TBEx()\Items()\Num, Text) : EndIf
         Else
           TBEx()\Items()\ToolTip = Text
@@ -1877,6 +1933,7 @@ CompilerIf #PB_Compiler_IsMainFile
     #ComboBox
     #SpinBox
     #TextButton
+    #TrackBar
   EndEnumeration
   
   Enumeration 1
@@ -1937,6 +1994,7 @@ CompilerIf #PB_Compiler_IsMainFile
       ToolBar::SpinBox(#ToolBar,  40, 24, 1, 18, #SpinBox, "", "spinID", #PB_Spin_ReadOnly)
       ToolBar::Separator(#ToolBar)
       ToolBar::TextButton(#ToolBar, 60, 24, "Button", #TextButton, "buttonID", #PB_Button_Toggle)
+      ToolBar::TrackBar(#ToolBar, 100, 34, 0, 10, #TrackBar, "trackID", #PB_TrackBar_Ticks)
     CompilerEndIf
     ToolBar::Spacer(#ToolBar)
     ToolBar::ImageButton(#ToolBar, #IMG_Help,  #TB_Help,  "Help",  "helpID")
@@ -1947,9 +2005,9 @@ CompilerIf #PB_Compiler_IsMainFile
     ToolBar::ToolTip(#ToolBar, 9, "SpinBox")
     ToolBar::ToolTip(#ToolBar, 11, "TextButton")
     
-    ;ToolBar::SetGadgetFlags(#ToolBar, 7, ToolBar::#Bottom)
-    ;ToolBar::SetGadgetFlags(#ToolBar, 9, ToolBar::#Bottom)
-    ;ToolBar::SetGadgetFlags(#ToolBar, 11, ToolBar::#Bottom)
+    ;ToolBar::SetItemFlags(#ToolBar, 7, ToolBar::#Bottom)
+    ;ToolBar::SetItemFlags(#ToolBar, 9, ToolBar::#Bottom)
+    ;ToolBar::SetItemFlags(#ToolBar, 11, ToolBar::#Bottom)
     
     ToolBar::DisableRedraw(#ToolBar, #False)
     
@@ -1969,10 +2027,10 @@ CompilerIf #PB_Compiler_IsMainFile
       ToolBar::AddItem(#ToolBar, 7, -1, "Item 1")
       ToolBar::AddItem(#ToolBar, 7, -1, "Item 2")
       ToolBar::AddItem(#ToolBar, 7, -1, "Item 3")
-      ToolBar::SetState(#ToolBar, 7, 0)
+      ToolBar::SetItemState(#ToolBar, 7, 0)
       
       ; --- SpinBox ---
-      ToolBar::SetState(#ToolBar, 9, 9)
+      ToolBar::SetItemState(#ToolBar, 9, 9)
     CompilerEndIf
   
     Repeat
@@ -1991,7 +2049,7 @@ CompilerIf #PB_Compiler_IsMainFile
                 Case ToolBar::#EventType_Button
                   Debug "TextButton clicked: " + Str(EventData()) + " [ Number: " +Str(ToolBar::EventNumber(#ToolBar))+" / ID: '"+ToolBar::EventID(#ToolBar)+ "' ]"  
               EndSelect ;}
-            Case #ComboBox   ;{ ComboBox (Toolbar)
+            Case #ComboBox   ;{ Gadget (Toolbar)
               Debug "ComboBox State: " + Str(EventData())
             Case #SpinBox  
               Debug "SpinBox State: " + Str(EventData())
@@ -2001,6 +2059,8 @@ CompilerIf #PB_Compiler_IsMainFile
               Else
                 Debug "Textbutton: not pressed" 
               EndIf 
+            Case #TrackBar
+              Debug "TrackBar State: " + Str(EventData())  
               ;}
           EndSelect
         Case #PB_Event_Menu  ;{ Menu Events
@@ -2025,8 +2085,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 1923
-; FirstLine = 1005
-; Folding = 9BJAewD-8EABYOCpy3
+; CursorPosition = 711
+; FirstLine = 298
+; Folding = +BAAcQHPkPFAAZAgqf-
 ; EnableXP
 ; DPIAware
+; Executable = Test.exe

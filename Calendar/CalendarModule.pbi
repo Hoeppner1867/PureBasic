@@ -9,7 +9,9 @@
 ;/ © 2019 Thorsten1867 (07/2019)
 ;/
 
-; Last Update: 20.07.2019
+; Last Update: 5.09.2019
+;
+; Bugfix:  Resize
 ;
 ; Changed: #ResizeWidth -> #Width / #ResizeHeight -> #Height
 ;
@@ -994,7 +996,7 @@ Module Calendar
 	
   Procedure   Draw_()
     Define.i X, Y, Width, Height, PosX, PosY, txtX, txtY, txtHeight
-    Define.i c, r, Column, Row, ColumnWidth, RowHeight, Difference
+    Define.i c, r, Column, Row, ColumnWidth, RowHeight, bWidth, bHeight, Difference
     Define.i Date, Month, Year, Day, GreyDay, FirstWeekDay, LastDay, FocusDay, FocusX, FocusY
     Define.i FrontColor, BackColor, CurrentDate, Entries
     Define.s Text$, Month$, Year$, ToolTipMask$
@@ -1018,7 +1020,6 @@ Module Calendar
         RowHeight = Round(Height / 8, #PB_Round_Down) ; Month + Weekdays + Rows
         Calendar()\Month\Height = RowHeight
         Calendar()\Week\Height  = RowHeight
-
         Difference = Height - (RowHeight * 8)
         
       ElseIf Calendar()\Month\defHeight = #PB_Default
@@ -1047,7 +1048,7 @@ Module Calendar
         
       EndIf ;}
       
-      Calendar()\Month\Height + Difference
+      Height - Difference
       
       Calendar()\Size\colHeight = RowHeight
       
@@ -1076,7 +1077,13 @@ Module Calendar
       PushMapPosition(Calendar()\Day())
       
       For r=1 To 8
-
+        
+        If r < 8
+          bHeight = RowHeight + dpiY(1)
+        Else
+          bHeight = RowHeight
+        EndIf 
+        
         Select r
           Case #MonthOfYear ;{ Month & Year
             
@@ -1157,6 +1164,12 @@ Module Calendar
 
             For c=1 To 7
               
+              If c < 7 
+                bWidth = ColumnWidth + dpiX(1)
+              Else
+                bWidth = ColumnWidth
+              EndIf   
+              
               Entries = ListSize(Calendar()\Day(Str(Day))\Entry())
               If Entries
                 DrawingFont(Calendar()\EntryFontID)
@@ -1166,7 +1179,7 @@ Module Calendar
 
               txtHeight = TextHeight("Abc")
               txtY      = (RowHeight - txtHeight) / 2
-              
+
               If Day = 1 And c <> FirstWeekDay ;{ Skip weekdays < day 
 
                 If Calendar()\Flags & #GreyedDays
@@ -1308,11 +1321,7 @@ Module Calendar
                 
                 If Calendar()\Flags & #GreyedDays = #False
                   DrawingMode(#PB_2DDrawing_Outlined) 
-                  If c = 7
-                    Box(PosX, PosY, ColumnWidth, RowHeight + dpiY(1), Calendar()\Color\Line)
-                  Else  
-                    Box(PosX, PosY, ColumnWidth + dpiX(1), RowHeight + dpiY(1), Calendar()\Color\Line)
-                  EndIf  
+                  Box(PosX, PosY, bWidth, bHeight, Calendar()\Color\Line)  
                 EndIf
                 
                 Calendar()\Day(Str(Day))\X      = PosX
@@ -1343,11 +1352,7 @@ Module Calendar
               
               If Calendar()\Flags & #GreyedDays
                 DrawingMode(#PB_2DDrawing_Outlined) 
-                If c = 7
-                  Box(PosX, PosY, ColumnWidth, RowHeight + dpiY(1), Calendar()\Color\Line)
-                Else
-                  Box(PosX, PosY, ColumnWidth + dpiX(1), RowHeight + dpiY(1), Calendar()\Color\Line)
-                EndIf   
+                Box(PosX, PosY, bWidth, bHeight, Calendar()\Color\Line)   
               EndIf
               
               PosX + ColumnWidth
@@ -2847,8 +2852,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 2211
-; FirstLine = 659
-; Folding = soHAAwEAoBBIhTQQsTAA2AAMwX-
+; CursorPosition = 11
+; Folding = soHAAwEAoBB5gTQQsTAA2AAMwX-
 ; EnableXP
 ; DPIAware

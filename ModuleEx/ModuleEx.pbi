@@ -102,6 +102,7 @@ DeclareModule ModuleEx
     #EventType_Year
     #EventType_Focus
     #EventType_RightClick
+    #EventType_TrackBar
   EndEnumeration ;}
   
   #Event_Tabulator      = 64000
@@ -859,8 +860,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 729
-; FirstLine = 271
-; Folding = UCYHAIAE9
+; CursorPosition = 104
+; FirstLine = 39
+; Folding = kDYHAIAA9
 ; EnableXP
 ; DPIAware
