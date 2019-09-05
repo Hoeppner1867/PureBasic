@@ -169,7 +169,7 @@ Module iCal
   EndProcedure
   
   Procedure.s DateICal(Date.q)
-    ProcedureReturn FormatDate("%yyyy%mm%ddT%hh%ii%ssZ", Date)
+    ProcedureReturn FormatDate("%yyyy%mm%ddT%hh%ii%ss", Date)
   EndProcedure
   
   
@@ -360,11 +360,11 @@ Module iCal
                           iCal()\Event()\Class = #Public
                         EndIf
                       Case "DTSTART"
-                        iCal()\Event()\StartDate = ParseDate("%yyyy%mm%ddT%hh%ii%ssZ", StringField(String, 2, ":")) 
+                        iCal()\Event()\StartDate = ParseDate("%yyyy%mm%ddT%hh%ii%ss", RTrim(StringField(String, 2, ":"), "Z")) 
                       Case "DTEND"
-                        iCal()\Event()\EndDate   = ParseDate("%yyyy%mm%ddT%hh%ii%ssZ", StringField(String, 2, ":")) 
+                        iCal()\Event()\EndDate   = ParseDate("%yyyy%mm%ddT%hh%ii%ss", RTrim(StringField(String, 2, ":"), "Z")) 
                       Case "DTSTAMP"
-                        iCal()\Event()\DateStamp = ParseDate("%yyyy%mm%ddT%hh%ii%ssZ", StringField(String, 2, ":"))  
+                        iCal()\Event()\DateStamp = ParseDate("%yyyy%mm%ddT%hh%ii%ss", RTrim(StringField(String, 2, ":"), "Z"))  
                     EndSelect
                   Until String = "END:VEVENT" Or Eof(FileID)
                   
@@ -418,15 +418,14 @@ CompilerIf #PB_Compiler_IsMainFile
       Debug "Event: " + Events()\Summary + " " + FormatDate("%dd/%mm/%yyyy", Events()\StartDate)
     Next
     
-    ;iCal::ImportFile(#Date, "iCal_Import.ics")
-    iCal::ExportFile(#Date, "iCal_Export.ics")
+    iCal::ImportFile(#Date, "iCal_Import.ics")
+    ;iCal::ExportFile(#Date, "iCal_Export.ics")
   EndIf
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 421
-; FirstLine = 146
-; Folding = 3AEw
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 368
+; Folding = 11Z1
 ; EnableXP
 ; DPIAware
