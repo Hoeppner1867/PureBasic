@@ -9,7 +9,7 @@
 ;/ © 2019 by Thorsten Hoeppner (07/2019)
 ;/
 
-; Last Update:
+; Last Update: 7.09.2019
 
 
 ;{ ===== MIT License =====
@@ -172,6 +172,37 @@ Module iCal
     ProcedureReturn FormatDate("%yyyy%mm%ddT%hh%ii%ss", Date)
   EndProcedure
   
+   Procedure.s EscapeText(Text.s)
+    Define.i i, Pos, Length
+    
+    Text = ReplaceString(Text, ",", "\,")
+    Text = ReplaceString(Text, ";", "\;")
+    Text = ReplaceString(Text, #CRLF$, #LF$)
+    Text = ReplaceString(Text, #LF$, "\n")
+   
+    Length = Len(Text)
+    If Length > 75
+      Pos = 74
+      For i=1 To Length / 74
+        Text = InsertString(Text, #LF$, Pos)
+        Pos + 75
+      Next
+    EndIf
+    
+    ProcedureReturn Text
+  EndProcedure
+  
+  Procedure.s UnEscapeText(Text.s)
+    Define.i i, Pos, Length
+    
+    Text = ReplaceString(Text, #CRLF$, #LF$)
+    Text = ReplaceString(Text, #LF$, "")
+    Text = ReplaceString(Text, "\,", ",")
+    Text = ReplaceString(Text, "\;", ";")
+    Text = ReplaceString(Text, "\n", #LF$)
+
+    ProcedureReturn Text
+  EndProcedure
   
   ;- ==========================================================================
 	;-   Module - Declared Procedures
@@ -264,6 +295,8 @@ Module iCal
       FileID = CreateFile(#PB_Any, File, #PB_UTF8)
       If FileID
         
+        WriteStringFormat(FileID, #PB_UTF8)
+        
         WriteStringN(FileID, #iCal_BeginCalendar, #PB_UTF8)
         WriteStringN(FileID, #iCal_Version,       #PB_UTF8)
         WriteStringN(FileID, #iCal_ProID + iCal()\ProducerID, #PB_UTF8)
@@ -278,9 +311,9 @@ Module iCal
           
           WriteStringN(FileID, #iCal_BeginEvent, #PB_UTF8)
           WriteStringN(FileID, #iCal_UID         + iCal()\Event()\UID,         #PB_UTF8)
-          WriteStringN(FileID, #iCal_Location    + iCal()\Event()\Location,    #PB_UTF8)
-          WriteStringN(FileID, #iCal_Summary     + iCal()\Event()\Summary,     #PB_UTF8)
-          WriteStringN(FileID, #iCal_Description + iCal()\Event()\Description, #PB_UTF8)
+          WriteStringN(FileID, #iCal_Location    + EscapeText(iCal()\Event()\Location),    #PB_UTF8)
+          WriteStringN(FileID, #iCal_Summary     + EscapeText(iCal()\Event()\Summary),     #PB_UTF8)
+          WriteStringN(FileID, #iCal_Description + EscapeText(iCal()\Event()\Description), #PB_UTF8)
           
           If iCal()\Event()\Class = #Private
             WriteStringN(FileID, #iCal_Private, #PB_UTF8)
@@ -316,6 +349,8 @@ Module iCal
       
       FileID = ReadFile(#PB_Any, File, #PB_UTF8)
       If FileID
+        
+        ReadStringFormat(FileID)
 
         While Eof(FileID) = #False
           
@@ -348,11 +383,11 @@ Module iCal
                       Case "UID"
                         iCal()\Event()\UID         = StringField(String, 2, ":")
                       Case "LOCATION"
-                        iCal()\Event()\Location    = StringField(String, 2, ":")
+                        iCal()\Event()\Location    = UnEscapeText(StringField(String, 2, ":"))
                       Case "SUMMARY"
-                        iCal()\Event()\Summary     = StringField(String, 2, ":")
+                        iCal()\Event()\Summary     = UnEscapeText(StringField(String, 2, ":"))
                       Case "DESCRIPTION"
-                        iCal()\Event()\Description = StringField(String, 2, ":")
+                        iCal()\Event()\Description = UnEscapeText(StringField(String, 2, ":"))
                       Case "CLASS"
                         If StringField(String, 2, ":") = "PRIVATE"
                           iCal()\Event()\Class = #Private
@@ -418,14 +453,14 @@ CompilerIf #PB_Compiler_IsMainFile
       Debug "Event: " + Events()\Summary + " " + FormatDate("%dd/%mm/%yyyy", Events()\StartDate)
     Next
     
-    iCal::ImportFile(#Date, "iCal_Import.ics")
-    ;iCal::ExportFile(#Date, "iCal_Export.ics")
+    ;iCal::ImportFile(#Date, "iCal_Import.ics")
+    iCal::ExportFile(#Date, "iCal_Export.ics")
   EndIf
   
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 368
-; Folding = 11Z1
+; CursorPosition = 12
+; Folding = 11BR-
 ; EnableXP
 ; DPIAware
