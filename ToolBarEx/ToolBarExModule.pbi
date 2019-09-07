@@ -9,13 +9,14 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 1.09.2019
+; Last Update: 7.09.2019
+;
+; Bugfixes
 ;
 ; Added:   TrackBarGadget
 ; Changed: unification of procedure names for external gadgets
-;
 ; Added: Flag #TextInside
-
+; 
 
 ;{ ===== MIT License =====
 ;
@@ -79,6 +80,7 @@
 ; ToolBar::TextButton()           - similar to 'ButtonGadget()'
 
 ;} -----------------------------
+
 
 DeclareModule ToolBar
   
@@ -398,14 +400,10 @@ Module ToolBar
     ForEach TBEx()\Items()
       
       Select TBEx()\Items()\Type
-        Case #ImageButton
+        Case #ImageButton 
           Space + TBEx()\Items()\Width + TBEx()\Buttons\Spacing
-        Case #ComboBox
+        Case #TextButton, #ComboBox, #SpinGadget, #TrackBar
           Space + TBEx()\Items()\Width + dpiX(8) + TBEx()\Buttons\Spacing
-        Case #SpinGadget
-          Space + TBEx()\Items()\Width + dpiX(8) + TBEx()\Buttons\Spacing
-        Case #TextButton
-          Space + TBEx()\Items()\Width + dpiX(8) + TBEx()\Buttons\Spacing  
         Case #Separator
           Space + TBEx()\Items()\Width + TBEx()\Buttons\Spacing
       EndSelect    
@@ -1989,12 +1987,12 @@ CompilerIf #PB_Compiler_IsMainFile
     ToolBar::ImageButton(#ToolBar, #IMG_Paste, #TB_Paste, "Paste", "pasteID")
     ToolBar::Separator(#ToolBar)
     CompilerIf ToolBar::#EnableToolBarGadgets
-      ToolBar::ComboBox(#ToolBar, 80, 24, #ComboBox, "", "comboID")
+      ToolBar::ComboBox(#ToolBar, 60, 24, #ComboBox, "", "comboID")
       ToolBar::Separator(#ToolBar)
-      ToolBar::SpinBox(#ToolBar,  40, 24, 1, 18, #SpinBox, "", "spinID", #PB_Spin_ReadOnly)
+      ToolBar::SpinBox(#ToolBar,  40, 22, 1, 18, #SpinBox, "", "spinID", #PB_Spin_ReadOnly)
       ToolBar::Separator(#ToolBar)
       ToolBar::TextButton(#ToolBar, 60, 24, "Button", #TextButton, "buttonID", #PB_Button_Toggle)
-      ToolBar::TrackBar(#ToolBar, 100, 34, 0, 10, #TrackBar, "trackID", #PB_TrackBar_Ticks)
+      ToolBar::TrackBar(#ToolBar, 95, 34, 0, 10, #TrackBar, "trackID", #PB_TrackBar_Ticks)
     CompilerEndIf
     ToolBar::Spacer(#ToolBar)
     ToolBar::ImageButton(#ToolBar, #IMG_Help,  #TB_Help,  "Help",  "helpID")
@@ -2085,9 +2083,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 711
-; FirstLine = 298
-; Folding = +BAAcQHPkPFAAZAgqf-
+; CursorPosition = 1994
+; FirstLine = 700
+; Folding = 9BAEcQHPkPFAAZAgqf-
 ; EnableXP
 ; DPIAware
 ; Executable = Test.exe
