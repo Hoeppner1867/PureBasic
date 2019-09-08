@@ -10,7 +10,9 @@
 ;/
 
 
-; Last Update:
+; Last Update: 8.09.2019
+
+; - Bugfixes
 
 
 ;{ ===== MIT License =====
@@ -134,7 +136,7 @@ Module PreView
 	;- ============================================================================
 
   #ScrollBarSize = 16
-  #Attr3432 = Chr(34) + " "
+  #Attr3432      = Chr(34) + " "
   
 	;- ============================================================================
 	;-   Module - Structures
@@ -163,6 +165,7 @@ Module PreView
 	  Height.i
 	  Flags.i
 	EndStructure ;}
+	
 	
 	Structure PreView_Color_Structure     ;{ PreView()\Color\...
 		Front.i
@@ -408,13 +411,13 @@ Module PreView
 	  Define.d Factor
 	  
 	  If ResizeHandler
-	    Height = PreView()\Size\Height
-	    Width  = PreView()\Size\Width
+	    Height = GadgetHeight(PreView()\CanvasNum)
+	    Width  = GadgetWidth(PreView()\CanvasNum)
 	  Else
 	    Height = PreView()\Size\maxHeight
 	    If Height > PreView()\Content\Height : Height = PreView()\Content\Height : EndIf 
 	    Width  = PreView()\Size\maxWidth
-	    If Width > PreView()\Content\Width   : Width = PreView()\Content\Width   : EndIf 
+	    If Width > PreView()\Content\Width   : Width  = PreView()\Content\Width  : EndIf 
 	  EndIf
     
 	  Select PreView()\Mode
@@ -510,15 +513,15 @@ Module PreView
 	  If PreView()\Flags & #ResizeWindow ;{ Resize parent window
 	    
 	    If ResizeHandler And PreView()\Mode <> #Image
-	      WinWidth  = DesktopUnscaledX(PreView()\Size\Width)  + PreView()\Window\OffsetX
-	      WinHeight = DesktopUnscaledY(PreView()\Size\Height) + PreView()\Window\OffsetY
+	      WinWidth  = GadgetWidth(PreView()\CanvasNum)  + PreView()\Window\OffsetX
+	      WinHeight = GadgetHeight(PreView()\CanvasNum) + PreView()\Window\OffsetY
 	    Else
 	      WinWidth  = DesktopUnscaledX(PreView()\Resize\Width)  + PreView()\Window\OffsetX
 	      WinHeight = DesktopUnscaledY(PreView()\Resize\Height) + PreView()\Window\OffsetY
 	    EndIf
-	    
+
 	    ResizeWindow(PreView()\Window\Num, #PB_Ignore, #PB_Ignore, WinWidth, WinHeight)
-	    
+
 	    If PreView()\Resize\Flags & #FixHeight And PreView()\Resize\Flags & #FixWidth
 	      WindowBounds(PreView()\Window\Num, WinWidth, WinHeight, WinWidth, WinHeight)
 	    ElseIf PreView()\Resize\Flags = #FixHeight
@@ -724,11 +727,11 @@ Module PreView
 	  Define.d imgWidth, imgHeight, Factor
 	  Define.s String, First$, Last$
 	  
-		X = PreView()\Margin\Left - PreView()\Size\OffsetH
-		Y = PreView()\Margin\Top  - PreView()\Size\OffsetV
+		X = dpiX(PreView()\Margin\Left - PreView()\Size\OffsetH)
+		Y = dpiY(PreView()\Margin\Top  - PreView()\Size\OffsetV)
     
-		Width  = PreView()\Size\Width  - PreView()\Margin\Left - PreView()\Margin\Right
-		Height = PreView()\Size\Height - PreView()\Margin\Top  - PreView()\Margin\Bottom
+		Width  = dpiX(GadgetWidth(PreView()\CanvasNum)  - PreView()\Margin\Left - PreView()\Margin\Right)
+		Height = dpiY(GadgetHeight(PreView()\CanvasNum) - PreView()\Margin\Top  - PreView()\Margin\Bottom)
 		
 		If PreView()\VScrollBar\Hide = #False : Width  - dpiX(#ScrollBarSize) : EndIf
 		If PreView()\VScrollBar\Hide = #False : Height - dpiY(#ScrollBarSize) : EndIf
@@ -737,24 +740,18 @@ Module PreView
 		  
 		  ;{ _____ Background _____
 		  DrawingMode(#PB_2DDrawing_Default)
-		  If PreView()\Flags & #Border
-		    Box(1, 1, PreView()\Size\Width - 2, PreView()\Size\Height - 2, PreView()\Color\Back)
-		  Else
-		    Box(0, 0, PreView()\Size\Width, PreView()\Size\Height, PreView()\Color\Back)
-		  EndIf 
-			;}
-			
+		  Box(0, 0, dpiX(GadgetWidth(PreView()\CanvasNum)), dpiY(GadgetHeight(PreView()\CanvasNum)), PreView()\Color\Back)
+		  ;}
+		 
+		  If PreView()\Mode = #Image
+		    DrawingMode(#PB_2DDrawing_AlphaBlend)
+		    DrawImage(ImageID(PreView()\ImageNum), 0, 0, dpiX(GadgetWidth(PreView()\CanvasNum)), dpiY(GadgetHeight(PreView()\CanvasNum)))
+		  EndIf   
+		  
 		  StopDrawing()
 		EndIf
 		
 	  Select PreView()\Mode
-	    Case #Image ;{ Draw Image
-	      If StartVectorDrawing(CanvasVectorOutput(PreView()\CanvasNum))
-			    MovePathCursor(X, Y)
-			    DrawVectorImage(ImageID(PreView()\ImageNum), 255, PreView()\Size\Width, PreView()\Size\Height)
-			    StopVectorDrawing()
-	      EndIf
-		    ;}
 	    Case #Text  ;{ Draw Text
 	      
 		    If StartVectorDrawing(CanvasVectorOutput(PreView()\CanvasNum))
@@ -872,7 +869,7 @@ Module PreView
 	    
 			If PreView()\Flags & #Border
 				DrawingMode(#PB_2DDrawing_Outlined)
-				Box(0, 0, PreView()\Size\Width, PreView()\Size\Height, PreView()\Color\Border)
+				Box(0, 0, dpiX(GadgetWidth(PreView()\CanvasNum)), dpiY(GadgetHeight(PreView()\CanvasNum)), PreView()\Color\Border)
 			EndIf ;}
 
 			StopDrawing()
@@ -1020,10 +1017,6 @@ Module PreView
 		Define.i GadgetID = EventGadget()
 
 		If FindMapElement(PreView(), Str(GadgetID))
-
-			PreView()\Size\Width  = dpiX(GadgetWidth(GadgetID))
-			PreView()\Size\Height = dpiY(GadgetHeight(GadgetID))
-
 			Draw_()
 		EndIf
 
@@ -1049,24 +1042,21 @@ Module PreView
 						OffSetX = WindowWidth(PreView()\Window\Num)  - PreView()\Window\Width
 						OffsetY = WindowHeight(PreView()\Window\Num) - PreView()\Window\Height
 
-						PreView()\Window\Width  = WindowWidth(PreView()\Window\Num)
-						PreView()\Window\Height = WindowHeight(PreView()\Window\Num)
-
 						If PreView()\Size\Flags
 
 							X = #PB_Ignore : Y = #PB_Ignore : Width = #PB_Ignore : Height = #PB_Ignore
 
-							If PreView()\Size\Flags & #MoveX : X = GadgetX(PreView()\CanvasNum) + OffSetX : EndIf
-							If PreView()\Size\Flags & #MoveY : Y = GadgetY(PreView()\CanvasNum) + OffSetY : EndIf
-							If PreView()\Size\Flags & #ResizeWidth  : Width  = GadgetWidth(PreView()\CanvasNum)  + OffSetX : EndIf
-							If PreView()\Size\Flags & #ResizeHeight : Height = GadgetHeight(PreView()\CanvasNum) + OffSetY : EndIf
+							If PreView()\Size\Flags & #MoveX        : X      = PreView()\Size\X + OffSetX      : EndIf
+							If PreView()\Size\Flags & #MoveY        : Y      = PreView()\Size\Y + OffSetY      : EndIf
+							If PreView()\Size\Flags & #ResizeWidth  : Width  = PreView()\Size\Width  + OffSetX : EndIf
+							If PreView()\Size\Flags & #ResizeHeight : Height = PreView()\Size\Height + OffSetY : EndIf
 							
 							ResizeGadget(PreView()\CanvasNum, X, Y, Width, Height)
 							ResizeContent_(#True)
 							
 						Else
 						  
-						  ResizeGadget(PreView()\CanvasNum, #PB_Ignore, #PB_Ignore, GadgetWidth(PreView()\CanvasNum) + OffSetX, GadgetHeight(PreView()\CanvasNum) + OffsetY)
+						  ResizeGadget(PreView()\CanvasNum, #PB_Ignore, #PB_Ignore, PreView()\Size\Width + OffSetX, PreView()\Size\Height + OffsetY)
 						  ResizeContent_(#True)
 						  
 						EndIf
@@ -1291,12 +1281,12 @@ Module PreView
 						PreView()\FontID = GetGadgetFont(#PB_Default)
 				CompilerEndSelect ;}
 
-				PreView()\Size\X         = dpiX(X)
-				PreView()\Size\Y         = dpiY(Y)
-				PreView()\Size\Width     = dpiX(Width)
-				PreView()\Size\Height    = dpiY(Height)
-				PreView()\Size\maxWidth  = dpiX(Width)
-				PreView()\Size\maxHeight = dpiY(Height)
+				PreView()\Size\X         = X
+				PreView()\Size\Y         = Y
+				PreView()\Size\Width     = Width
+				PreView()\Size\Height    = Height
+				PreView()\Size\maxWidth  = Width
+				PreView()\Size\maxHeight = Height
 
 				PreView()\Margin\Left   = 0
 				PreView()\Margin\Right  = 0
@@ -1361,7 +1351,7 @@ Module PreView
     EndIf  
    
   EndProcedure
-  
+
   Procedure   SetColor(GNum.i, ColorTyp.i, Value.i)
     
     If FindMapElement(PreView(), Str(GNum))
@@ -1617,9 +1607,8 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf 
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1536
-; FirstLine = 171
-; Folding = EEACAAgQAABk
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 16
+; Folding = MEBCzIQAEkAy
 ; EnableXP
 ; DPIAware
