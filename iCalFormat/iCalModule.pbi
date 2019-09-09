@@ -9,7 +9,7 @@
 ;/ © 2019 by Thorsten Hoeppner (07/2019)
 ;/
 
-; Last Update: 7.09.2019
+; Last Update: 9.09.2019
 
 
 ;{ ===== MIT License =====
@@ -177,14 +177,14 @@ Module iCal
     
     Text = ReplaceString(Text, ",", "\,")
     Text = ReplaceString(Text, ";", "\;")
-    Text = ReplaceString(Text, #CRLF$, #LF$)
+    Text = ReplaceString(Text, #CR$, "\r")
     Text = ReplaceString(Text, #LF$, "\n")
    
     Length = Len(Text)
     If Length > 75
-      Pos = 74
-      For i=1 To Length / 74
-        Text = InsertString(Text, #LF$, Pos)
+      Pos = 72
+      For i=1 To Length / 72
+        Text = InsertString(Text, #CRLF$ + #TAB$, Pos)
         Pos + 75
       Next
     EndIf
@@ -195,10 +195,11 @@ Module iCal
   Procedure.s UnEscapeText(Text.s)
     Define.i i, Pos, Length
     
-    Text = ReplaceString(Text, #CRLF$, #LF$)
+    Text = ReplaceString(Text, #CR$, "")
     Text = ReplaceString(Text, #LF$, "")
     Text = ReplaceString(Text, "\,", ",")
     Text = ReplaceString(Text, "\;", ";")
+    Text = ReplaceString(Text, "\r", #CR$)
     Text = ReplaceString(Text, "\n", #LF$)
 
     ProcedureReturn Text
@@ -460,7 +461,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 12
+; CursorPosition = 11
 ; Folding = 11BR-
 ; EnableXP
 ; DPIAware
