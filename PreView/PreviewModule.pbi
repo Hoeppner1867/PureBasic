@@ -10,9 +10,9 @@
 ;/
 
 
-; Last Update: 8.09.2019
+; Last Update: 9.09.2019
 
-; - Bugfixes
+; - many Bugfixes
 
 
 ;{ ===== MIT License =====
@@ -317,9 +317,9 @@ Module PreView
 			      MaxHeight + VectorParagraphHeight(PreView()\Text(), Width, Height)
 			    Next 
 			    
-			    PreView()\Content\Width  = DesktopUnscaledX(Width)
-			    PreView()\Content\Height = DesktopUnscaledY(MaxHeight) + (PreView()\Margin\Top + PreView()\Margin\Bottom) * 4
-			    
+			    PreView()\Content\Width  = Width
+			    PreView()\Content\Height = MaxHeight + (PreView()\Margin\Top + PreView()\Margin\Bottom) * 4
+			   
 			    PreView()\Resize\Width  = PreView()\Content\Width
 			    PreView()\Resize\Height = PreView()\Content\Height
 
@@ -411,21 +411,30 @@ Module PreView
 	EndProcedure
 	
 	Procedure   ResizeContent_(ResizeHandler.i=#False)
+	  
 	  Define.i Width, Height, WinWidth, WinHeight
 	  Define.d FactorS, FactorP
 	  
-	  If ResizeHandler
-	    Height = GadgetHeight(PreView()\CanvasNum)
-	    Width  = GadgetWidth(PreView()\CanvasNum)
-	  Else
-	    Height = PreView()\Size\maxHeight
-	    If Height > PreView()\Content\Height : Height = PreView()\Content\Height : EndIf 
-	    Width  = PreView()\Size\maxWidth
-	    If Width > PreView()\Content\Width   : Width  = PreView()\Content\Width  : EndIf 
-	  EndIf
-
+	  If PreView()\Mode = #Image
+	    
+	    If ResizeHandler
+  	    Height = GadgetHeight(PreView()\CanvasNum)
+  	    Width  = GadgetWidth(PreView()\CanvasNum)
+  	  Else
+  	    Height = PreView()\Size\maxHeight
+  	    If Height > PreView()\Content\Height : Height = PreView()\Content\Height : EndIf 
+  	    Width  = PreView()\Size\maxWidth
+  	    If Width > PreView()\Content\Width   : Width  = PreView()\Content\Width  : EndIf 
+  	  EndIf
+	  
+  	Else 
+  	  
+  	  CalcDrawSize_()
+  	  
+  	EndIf   
+	  
 	  Select PreView()\Mode
-	    Case #Image   ;{ Image
+	    Case #Image ;{ Image
 
 	      If PreView()\Content\Width > PreView()\Content\Height
 	        FactorS = Height / PreView()\Content\Height
@@ -441,21 +450,21 @@ Module PreView
         EndIf
         
         If PreView()\Resize\Height <> GadgetHeight(PreView()\CanvasNum) Or PreView()\Resize\Width <> GadgetWidth(PreView()\CanvasNum)
-          ResizeGadget(PreView()\CanvasNum, #PB_Ignore, #PB_Ignore, PreView()\Resize\Width, PreView()\Resize\Height)
+          If PreView()\Resize\Width And PreView()\Resize\Height
+            ResizeGadget(PreView()\CanvasNum, #PB_Ignore, #PB_Ignore, PreView()\Resize\Width, PreView()\Resize\Height)
+          EndIf   
         EndIf  
         
         ;}
-      Default    ;{ Text / XML / JSON
+      Default     ;{ Text / XML / JSON
         
         If ResizeHandler = #False
           
-          CalcDrawSize_()
-
           ;{ --- Show/Hide ScrollBar ---
           If PreView()\Content\Width > PreView()\Resize\Width
             PreView()\HScrollBar\Hide  = #False
             HideGadget(PreView()\HScrollBar\Num, #False)
-            PreView()\Resize\Height + #ScrollBarSize
+            PreView()\Resize\Height + #ScrollBarSize + 4
           Else
             PreView()\HScrollBar\Hide = #True
           EndIf 
@@ -463,16 +472,27 @@ Module PreView
           If PreView()\Content\Height > PreView()\Resize\Height
             PreView()\VScrollBar\Hide = #False
             HideGadget(PreView()\VScrollBar\Num, #False)
-            PreView()\Resize\Width + #ScrollBarSize
+            PreView()\Resize\Width + #ScrollBarSize + 4
           Else
             PreView()\VScrollBar\Hide = #True
           EndIf ;}
-          
-        Else
 
+          If PreView()\Resize\Height <> GadgetHeight(PreView()\CanvasNum) Or PreView()\Resize\Width <> GadgetWidth(PreView()\CanvasNum)
+            If PreView()\Resize\Width And PreView()\Resize\Height
+              ResizeGadget(PreView()\CanvasNum, #PB_Ignore, #PB_Ignore, PreView()\Resize\Width, PreView()\Resize\Height)
+            EndIf   
+          EndIf
+          
+          Height = GadgetHeight(PreView()\CanvasNum)
+	        Width  = GadgetWidth(PreView()\CanvasNum)
+          
+        Else ; ResizeWindowHandler_
+          
+          Height = GadgetHeight(PreView()\CanvasNum)
+	        Width  = GadgetWidth(PreView()\CanvasNum)
+          
           ;{ --- Show/Hide ScrollBar ---
           If PreView()\Content\Width > Width
-            Debug ""
             If PreView()\HScrollBar\Hide = #True
               PreView()\HScrollBar\Hide  = #False
               HideGadget(PreView()\HScrollBar\Num, #False)
@@ -502,17 +522,20 @@ Module PreView
         If PreView()\HScrollBar\Hide = #False And PreView()\VScrollBar\Hide = #False
           ResizeGadget(PreView()\HScrollBar\Num, 2, Height - #ScrollBarSize - 2, Width - #ScrollBarSize - 4, #ScrollBarSize)
           ResizeGadget(PreView()\VScrollBar\Num, Width - #ScrollBarSize - 2, 2, #ScrollBarSize, Height - #ScrollBarSize - 4)
+          SetGadgetAttribute(PreView()\HScrollBar\Num, #PB_ScrollBar_Maximum,    PreView()\Content\Width)
+          SetGadgetAttribute(PreView()\HScrollBar\Num, #PB_ScrollBar_PageLength, Width - #ScrollBarSize - 4)
+          SetGadgetAttribute(PreView()\VScrollBar\Num, #PB_ScrollBar_Maximum,    PreView()\Content\Height)
+          SetGadgetAttribute(PreView()\VScrollBar\Num, #PB_ScrollBar_PageLength, Height - #ScrollBarSize - 4)
         ElseIf PreView()\HScrollBar\Hide = #False
           ResizeGadget(PreView()\HScrollBar\Num, 2, Height - #ScrollBarSize - 2, Width - 4, #ScrollBarSize)
+          SetGadgetAttribute(PreView()\HScrollBar\Num, #PB_ScrollBar_Maximum,    PreView()\Content\Width)
+          SetGadgetAttribute(PreView()\HScrollBar\Num, #PB_ScrollBar_PageLength, Width - 4)
         ElseIf PreView()\VScrollBar\Hide = #False
           ResizeGadget(PreView()\VScrollBar\Num, Width - #ScrollBarSize - 2, 2, #ScrollBarSize, Height - 4)
+          SetGadgetAttribute(PreView()\VScrollBar\Num, #PB_ScrollBar_Maximum,    PreView()\Content\Height)
+          SetGadgetAttribute(PreView()\VScrollBar\Num, #PB_ScrollBar_PageLength, Height - 4)
         EndIf 
-        
-        SetGadgetAttribute(PreView()\HScrollBar\Num, #PB_ScrollBar_Maximum,    PreView()\Content\Width)
-        SetGadgetAttribute(PreView()\HScrollBar\Num, #PB_ScrollBar_PageLength, Width - #ScrollBarSize - 2)
-        SetGadgetAttribute(PreView()\VScrollBar\Num, #PB_ScrollBar_Maximum,    PreView()\Content\Height)
-        SetGadgetAttribute(PreView()\VScrollBar\Num, #PB_ScrollBar_PageLength, Height - #ScrollBarSize - 2)
-        
+
         PreView()\HScrollBar\MaxPos = PreView()\Content\Width
         PreView()\VScrollBar\MaxPos = PreView()\Content\Height
         ;}
@@ -727,11 +750,11 @@ Module PreView
 	  Define.d imgWidth, imgHeight, Factor
 	  Define.s String, First$, Last$
 	  
-		X = dpiX(PreView()\Margin\Left - PreView()\Size\OffsetH)
-		Y = dpiY(PreView()\Margin\Top  - PreView()\Size\OffsetV)
+		X = dpiX(PreView()\Margin\Left) - dpiX(PreView()\Size\OffsetH)
+		Y = dpiY(PreView()\Margin\Top)  - dpiY(PreView()\Size\OffsetV)
     
-		Width  = dpiX(GadgetWidth(PreView()\CanvasNum)  - PreView()\Margin\Left - PreView()\Margin\Right)
-		Height = dpiY(GadgetHeight(PreView()\CanvasNum) - PreView()\Margin\Top  - PreView()\Margin\Bottom)
+		Width  = dpiX(GadgetWidth(PreView()\CanvasNum))  - dpiX(PreView()\Margin\Left + PreView()\Margin\Right)
+		Height = dpiY(GadgetHeight(PreView()\CanvasNum)) - dpiY(PreView()\Margin\Top  + PreView()\Margin\Bottom)
 		
 		If PreView()\VScrollBar\Hide = #False : Width  - dpiX(#ScrollBarSize) : EndIf
 		If PreView()\VScrollBar\Hide = #False : Height - dpiY(#ScrollBarSize) : EndIf
@@ -773,8 +796,10 @@ Module PreView
 		      MovePathCursor(X, Y)
 		      
 		      ForEach PreView()\Text()
-			      DrawVectorParagraph(PreView()\Text(), Width, Height)
-			      VectorParagraphHeight(PreView()\Text(), Width, Height)
+		        If Width And Height
+			        DrawVectorParagraph(PreView()\Text(), Width, Height)
+			        VectorParagraphHeight(PreView()\Text(), Width, Height)
+			      EndIf 
 			    Next 
 			    
 			    StopVectorDrawing()
@@ -995,9 +1020,9 @@ Module PreView
       If ScrollPos <> PreView()\VScrollBar\Pos
         
         If ScrollPos < PreView()\VScrollBar\Pos
-          PreView()\Size\OffSetV = ScrollPos - dpiY(10)
+          PreView()\Size\OffSetV = ScrollPos - 10
         ElseIf ScrollPos > PreView()\VScrollBar\Pos
-          PreView()\Size\OffSetV = ScrollPos + dpiY(10)
+          PreView()\Size\OffSetV = ScrollPos + 10
         EndIf
         
         If PreView()\Size\OffSetV < 0 : PreView()\Size\OffSetV = 0 : EndIf
@@ -1210,7 +1235,7 @@ Module PreView
             PreView()\Text() = StringField(Text$, r, #LF$)
           EndIf 
         Next  
-        
+
         ResizeContent_()
         
         Draw_()
@@ -1436,6 +1461,7 @@ Module PreView
             PreView()\Text() = StringField(Text, r, #LF$)
           EndIf 
         Next  
+        
         ResizeContent_()
         
         Draw_()
@@ -1607,9 +1633,8 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf 
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 433
-; FirstLine = 204
-; Folding = 9EB4wOQAZk5z
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 14
+; Folding = 9EB4TPQJEkA+
 ; EnableXP
 ; DPIAware
