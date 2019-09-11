@@ -9,12 +9,11 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 3.09.2019
+; Last Update: 11.09.2019
 ;
 ; - Bugfixes
 ;
-; - #PB_EventType_LeftClick / #PB_EventType_LeftDoubleClick / #PB_EventType_RightClick for rows
-;
+
 
 
 ;{ ===== MIT License =====
@@ -2156,7 +2155,7 @@ Module ListEx
       ListEx()\Row\OffSetY = 0
 
       ForEach ListEx()\Rows()
-
+        
         If ListIndex(ListEx()\Rows()) < ListEx()\Row\Offset
           ListEx()\Row\OffSetY + ListEx()\Rows()\Height
           Continue
@@ -3267,6 +3266,8 @@ Module ListEx
           
           ListEx()\Row\Current = GetRow_(Y)
           
+          If ListEx()\Row\Current < 0 : ProcedureReturn #False : EndIf
+          
           If SelectElement(ListEx()\Rows(), ListEx()\Row\Current)
             ListEx()\Focus = #True
             ListEx()\Row\Focus = ListEx()\Row\Current
@@ -3314,7 +3315,7 @@ Module ListEx
       ListEx()\Row\Current = GetRow_(GetGadgetAttribute(GNum, #PB_Canvas_MouseY))
       ListEx()\Col\Current = GetColumn_(GetGadgetAttribute(GNum, #PB_Canvas_MouseX))
 
-      If ListEx()\Row\Current = #NotValid Or ListEx()\Col\Current = #NotValid : ProcedureReturn #False : EndIf
+      If ListEx()\Row\Current < 0 Or ListEx()\Col\Current < 0 : ProcedureReturn #False : EndIf
       
       If ListEx()\Row\Current = #Header ;{ Header clicked
         
@@ -3578,7 +3579,7 @@ Module ListEx
       ListEx()\Row\Current = GetRow_(GetGadgetAttribute(GNum, #PB_Canvas_MouseY))
       ListEx()\Col\Current = GetColumn_(GetGadgetAttribute(GNum, #PB_Canvas_MouseX))
       
-      If ListEx()\Row\Current = #NotValid Or ListEx()\Col\Current = #NotValid : ProcedureReturn #False : EndIf
+      If ListEx()\Row\Current < 0 Or ListEx()\Col\Current < 0 : ProcedureReturn #False : EndIf
       
       If ListEx()\Button\Pressed ;{ Button pressed
         
@@ -3644,7 +3645,7 @@ Module ListEx
       ListEx()\Row\Current = GetRow_(GetGadgetAttribute(GNum, #PB_Canvas_MouseY))
       ListEx()\Col\Current = GetColumn_(GetGadgetAttribute(GNum, #PB_Canvas_MouseX))
       
-      If ListEx()\Row\Current = #NotValid Or ListEx()\Col\Current = #NotValid : ProcedureReturn #False : EndIf
+      If ListEx()\Row\Current < 0 Or ListEx()\Col\Current < 0 : ProcedureReturn #False : EndIf
       
       If ListEx()\Row\Current = #Header
         
@@ -4652,6 +4653,8 @@ Module ListEx
         ListEx()\ProgressBar\Minimum = 0
         ListEx()\ProgressBar\Maximum = 100
         
+        ListEx()\PopUpID = -1
+        
         ;{ Country defaults
         ListEx()\Country\Code     = #DefaultCountry
         ListEx()\Country\Currency = #DefaultCurrency
@@ -4736,8 +4739,8 @@ Module ListEx
         Else  
           ListEx()\Header\Height = dpiY(20)
         EndIf
-        ListEx()\Header\FontID  = FontID(LoadFont(#PB_Any, "Arial", 9))  
-        ListEx()\Header\Align = #False
+        ListEx()\Header\FontID   = FontID(LoadFont(#PB_Any, "Arial", 9))  
+        ListEx()\Header\Align    = #False
         ;}
         
         ;{ Rows
@@ -4749,6 +4752,7 @@ Module ListEx
         
         ;{ Column
         ListEx()\Col\Padding = 5
+        
         If AddElement(ListEx()\Cols())
           ListEx()\Cols()\Header\Titel      = ColTitle
           ListEx()\Cols()\Header\Align      = #PB_Default
@@ -4761,6 +4765,7 @@ Module ListEx
           ListEx()\Cols()\BackColor         = #PB_Default
           ListEx()\Col\Number = 1      ; Number of columns
         EndIf
+        
         ListEx()\Size\Cols           = ListEx()\Cols()\Width ; Width of all columns
         ListEx()\Sort\Column         = #NotValid
         ListEx()\AutoResize\MinWidth = ListEx()\Col\Width
@@ -4835,7 +4840,7 @@ Module ListEx
         
         BindGadgetEvent(ListEx()\HScrollNum, @_SynchronizeScrollCols(),  #PB_All)
         BindGadgetEvent(ListEx()\VScrollNum, @_SynchronizeScrollRows(),  #PB_All) 
-
+        
         Draw_()
         
       EndIf 
@@ -6185,9 +6190,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 14
-; Folding = EBAAAAAEAAAAAAACAQAgAAxJAAYDBxBAAgABAAAABAAAAAAAAI+
-; Markers = 584,3166
+; CursorPosition = 4655
+; FirstLine = 873
+; Folding = EBAAAACGAAAAAAACAQAqAAxJAAYDAxIAAgAEAABAAAAAAAAAAI+
+; Markers = 583,3165
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
