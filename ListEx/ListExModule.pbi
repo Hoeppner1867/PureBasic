@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 11.09.2019
+; Last Update: 18.09.2019
 ;
 ; - Bugfixes
 ;
@@ -683,6 +683,7 @@ Module ListEx
     Offset.i
     OffSetY.f
     Focus.i
+    StartSelect.i
     Color.Color_Structure ; Default colors
   EndStructure ;}  
   
@@ -2171,7 +2172,18 @@ Module ListEx
         DrawingMode(#PB_2DDrawing_Default)
         
         Row = ListIndex(ListEx()\Rows())
-
+        
+        ;{ Alternate Color
+        If ListEx()\Color\Back <> ListEx()\Color\AlternateRow
+          If Mod(ListIndex(ListEx()\Rows()), 2)
+            Box(colX, rowY, ListEx()\Size\Cols, ListEx()\Rows()\Height, ListEx()\Color\AlternateRow)
+          Else
+            Box(colX, rowY, ListEx()\Size\Cols, ListEx()\Rows()\Height, ListEx()\Color\Back)
+          EndIf
+        Else
+          Box(colX, rowY, ListEx()\Size\Cols, ListEx()\Rows()\Height, ListEx()\Color\Back)  
+        EndIf ;}
+        
         ;{ Focus row
         FocusColor = BlendColor_(ListEx()\Color\Focus, ListEx()\Color\Back, 10)
         If ListEx()\Flags & #MultiSelect And ListEx()\MultiSelect = #True
@@ -2180,14 +2192,6 @@ Module ListEx
           EndIf
         ElseIf ListEx()\Focus And ListIndex(ListEx()\Rows()) = ListEx()\Row\Focus
           Box(colX, rowY, ListEx()\Size\Cols, ListEx()\Rows()\Height, FocusColor)
-        ElseIf ListEx()\Color\Back <> ListEx()\Color\AlternateRow
-          If Mod(ListIndex(ListEx()\Rows()), 2)
-            Box(colX, rowY, ListEx()\Size\Cols, ListEx()\Rows()\Height, ListEx()\Color\AlternateRow)
-          Else
-            Box(colX, rowY, ListEx()\Size\Cols, ListEx()\Rows()\Height, ListEx()\Color\Back)
-          EndIf 
-        Else
-          Box(colX, rowY, ListEx()\Size\Cols, ListEx()\Rows()\Height, ListEx()\Color\Back)
         EndIf ;}
 
         ForEach ListEx()\Cols() ;{ Columns of current row
@@ -3509,44 +3513,65 @@ Module ListEx
               ListEx()\Focus = #True
               
               ;{ MultiSelect
-              If ListEx()\Flags & #MultiSelect And GetGadgetAttribute(GNum, #PB_Canvas_Modifiers) = #PB_Canvas_Control
-                If ListEx()\MultiSelect = #False
-                  PushListPosition(ListEx()\Rows())
-                  If SelectElement(ListEx()\Rows(), ListEx()\Row\Focus)
-                    ListEx()\Rows()\State | #Selected
-                  EndIf
-                  PopListPosition(ListEx()\Rows())
-                  ListEx()\MultiSelect = #True
-                EndIf
-                ListEx()\Rows()\State ! #Selected
-              ElseIf ListEx()\Flags & #MultiSelect And GetGadgetAttribute(GNum, #PB_Canvas_Modifiers) = #PB_Canvas_Shift
-                If ListEx()\Row\Focus >= 0
-                  If ListEx()\Row\Current >= ListEx()\Row\Focus
-                    StartRow = ListEx()\Row\Focus
-                    EndRow   = ListEx()\Row\Current
-                  Else
-                    StartRow = ListEx()\Row\Current
-                    EndRow   = ListEx()\Row\Focus
-                  EndIf
-                  PushListPosition(ListEx()\Rows())
-                  ForEach ListEx()\Rows()
-                    Row = ListIndex(ListEx()\Rows())
-                    If Row >= StartRow And Row <= EndRow
+              If ListEx()\Flags & #MultiSelect
+                
+                If GetGadgetAttribute(GNum, #PB_Canvas_Modifiers) = #PB_Canvas_Control
+                
+                  If ListEx()\MultiSelect = #False
+                    PushListPosition(ListEx()\Rows())
+                    If SelectElement(ListEx()\Rows(), ListEx()\Row\Focus)
                       ListEx()\Rows()\State | #Selected
+                    EndIf
+                    PopListPosition(ListEx()\Rows())
+                    ListEx()\MultiSelect = #True
+                  EndIf
+                  
+                  ListEx()\Rows()\State ! #Selected
+                  ListEx()\Row\StartSelect = #PB_Default
+                  
+                ElseIf GetGadgetAttribute(GNum, #PB_Canvas_Modifiers) = #PB_Canvas_Shift
+                  
+                  If ListEx()\Row\StartSelect = #PB_Default :  ListEx()\Row\StartSelect = ListEx()\Row\Focus : EndIf
+                  
+                  If ListEx()\Row\Focus >= 0
+                    
+                    If ListEx()\Row\Current >= ListEx()\Row\StartSelect
+                      StartRow = ListEx()\Row\StartSelect
+                      EndRow   = ListEx()\Row\Current
                     Else
-                      ListEx()\Rows()\State & ~#Selected
-                    EndIf  
+                      StartRow = ListEx()\Row\Current
+                      EndRow   = ListEx()\Row\StartSelect
+                    EndIf
+                    
+                    PushListPosition(ListEx()\Rows())
+                    ForEach ListEx()\Rows()
+                      Row = ListIndex(ListEx()\Rows())
+                      If Row >= StartRow And Row <= EndRow
+                        ListEx()\Rows()\State | #Selected
+                      Else
+                        ListEx()\Rows()\State & ~#Selected
+                      EndIf  
+                    Next
+                    PopListPosition(ListEx()\Rows())
+                    
+                    ListEx()\MultiSelect = #True
+                  EndIf
+                  
+                Else
+                  
+                  PushListPosition(ListEx()\Rows())
+                  
+                  ForEach ListEx()\Rows()
+                    ListEx()\Rows()\State & ~#Selected
                   Next
+                  
                   PopListPosition(ListEx()\Rows())
-                  ListEx()\MultiSelect = #True
+                  
+                  ListEx()\MultiSelect     = #False
+                  ListEx()\Row\StartSelect = #PB_Default
+
                 EndIf
-              ElseIf ListEx()\MultiSelect = #True
-                PushListPosition(ListEx()\Rows())
-                ForEach ListEx()\Rows()
-                  ListEx()\Rows()\State & ~#Selected
-                Next
-                PopListPosition(ListEx()\Rows())
-                ListEx()\MultiSelect = #False
+                
               EndIf ;}
               
               If SelectElement(ListEx()\Rows(), ListEx()\Row\Current)
@@ -4493,19 +4518,23 @@ Module ListEx
       
       Select Flag
         Case #Selected
-          ForEach ListEx()\Rows()
-            If ListEx()\Rows()\State & #Selected : Count + 1 : EndIf
-          Next
+          If ListEx()\MultiSelect
+            ForEach ListEx()\Rows()
+              If ListEx()\Rows()\State & #Selected : Count + 1 : EndIf
+            Next
+          ElseIf ListEx()\Focus 
+            Count = 1
+          EndIf  
           ProcedureReturn Count
         Case #Checked
           ForEach ListEx()\Rows()
             If ListEx()\Rows()\State & #Checked : Count + 1 : EndIf
-          Next
+          Next  
           ProcedureReturn Count
         Case #Inbetween
           ForEach ListEx()\Rows()
             If ListEx()\Rows()\State & #Inbetween : Count + 1 : EndIf
-          Next
+          Next   
           ProcedureReturn Count
         Default
           ProcedureReturn ListSize(ListEx()\Rows())
@@ -4744,8 +4773,9 @@ Module ListEx
         ;}
         
         ;{ Rows
-        ListEx()\Row\Focus   = #NotValid
-        ListEx()\Row\Current = #NoFocus
+        ListEx()\Row\Focus       = #NotValid
+        ListEx()\Row\Current     = #NoFocus
+        ListEx()\Row\StartSelect = #PB_Default
         ListEx()\Row\FontID  = ListEx()\Header\FontID
         ListEx()\Size\Rows   = ListEx()\Row\Height ; Height of all rows
         ;}
@@ -6190,10 +6220,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 4655
-; FirstLine = 873
-; Folding = EBAAAACGAAAAAAACAQAqAAxJAAYDAxIAAgAEAABAAAAAAAAAAI+
-; Markers = 583,3165
+; CursorPosition = 11
+; Folding = MBAAAECGAAAAAAACAQAiBAiTAAIGEiRAAABIgACgCAAAAAAAAQ9
+; Markers = 583,3169
 ; EnableXP
 ; DPIAware
 ; EnableUnicode

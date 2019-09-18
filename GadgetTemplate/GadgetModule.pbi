@@ -59,8 +59,8 @@ DeclareModule {Gadget}
 	EnumerationBinary ;{ AutoResize
 		#MoveX
 		#MoveY
-		#ResizeWidth
-		#ResizeHeight
+		#Width
+		#Height
 	EndEnumeration ;}
 
 	Enumeration 1     ;{ Color
@@ -90,7 +90,9 @@ DeclareModule {Gadget}
   Declare   DisableReDraw(GNum.i, State.i=#False)
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
-
+  Declare   SetColor(GNum.i, ColorTyp.i, Value.i)
+  Declare   SetFont(GNum.i, FontID.i) 
+  
 EndDeclareModule
 
 Module {Gadget}
@@ -152,7 +154,7 @@ Module {Gadget}
 		Margin.{Gadget}_Margins_Structure
 		Window.{Gadget}_Window_Structure
 		Size.{Gadget}_Size_Structure
-
+		
 		Map  PopUpItem.s()
 
 	EndStructure ;}
@@ -163,6 +165,7 @@ Module {Gadget}
 	;- ============================================================================
 
 	CompilerIf #PB_Compiler_OS = #PB_OS_MacOS
+	  
 		; Addition of mk-soft
 
 		Procedure OSX_NSColorToRGBA(NSColor)
@@ -194,13 +197,17 @@ Module {Gadget}
 		EndProcedure
 
 	CompilerEndIf
-
-	Procedure.f dpiX(Num.i)
-		ProcedureReturn DesktopScaledX(Num)
+	
+  Procedure.f dpiX(Num.i)
+	  If Num > 0  
+	    ProcedureReturn DesktopScaledX(Num)
+	  EndIf   
 	EndProcedure
 
 	Procedure.f dpiY(Num.i)
-		ProcedureReturn DesktopScaledY(Num)
+	  If Num > 0  
+	    ProcedureReturn DesktopScaledY(Num)
+	  EndIf  
 	EndProcedure
 
 
@@ -224,7 +231,7 @@ Module {Gadget}
 		Next
 
 	EndProcedure
-
+	
 	;- __________ Drawing __________
 
 	Procedure.i BlendColor_(Color1.i, Color2.i, Factor.i=50)
@@ -240,17 +247,17 @@ Module {Gadget}
 	Procedure   Draw_()
 		Define.i X, Y, Width, Height
 
-		X = {Gadget}()\Margin\Left
-		Y = {Gadget}()\Margin\Top
+		X = dpiX({Gadget}()\Margin\Left)
+		Y = dpiY({Gadget}()\Margin\Top)
 
-		Width  = {Gadget}()\Size\Width  - {Gadget}()\Margin\Left - {Gadget}()\Margin\Right
-		Height = {Gadget}()\Size\Height - {Gadget}()\Margin\Top  - {Gadget}()\Margin\Bottom
+		Width  = dpiX({Gadget}()\Size\Width)  - dpiX({Gadget}()\Margin\Left) - dpiX({Gadget}()\Margin\Right)
+		Height = dpiY({Gadget}()\Size\Height) - dpiY({Gadget}()\Margin\Top)  - dpiY({Gadget}()\Margin\Bottom)
 
 		If StartDrawing(CanvasOutput({Gadget}()\CanvasNum))
 
 			;{ _____ Background _____
 			DrawingMode(#PB_2DDrawing_Default)
-			Box(0, 0, {Gadget}()\Size\Width, {Gadget}()\Size\Height, {Gadget}()\Color\Back)
+			Box(0, 0, dpiX({Gadget}()\Size\Width), dpiY({Gadget}()\Size\Height), {Gadget}()\Color\Back)
 			;}
 
 			DrawingFont({Gadget}()\FontID)
@@ -258,7 +265,7 @@ Module {Gadget}
 			;{ _____ Border ____
 			If {Gadget}()\Flags & #Border
 				DrawingMode(#PB_2DDrawing_Outlined)
-				Box(0, 0, {Gadget}()\Size\Width, {Gadget}()\Size\Height, {Gadget}()\Color\Border)
+				Box(0, 0, dpiX({Gadget}()\Size\Width), dpiY({Gadget}()\Size\Height), {Gadget}()\Color\Border)
 			EndIf ;}
 
 			StopDrawing()
@@ -270,9 +277,9 @@ Module {Gadget}
 
 	Procedure _LeftDoubleClickHandler()
 		Define.i X, Y
-		Define.i GadgetNum = EventGadget()
+		Define.i GNum = EventGadget()
 
-		If FindMapElement({Gadget}(), Str(GadgetNum))
+		If FindMapElement({Gadget}(), Str(GNum))
 
 			X = GetGadgetAttribute({Gadget}()\CanvasNum, #PB_Canvas_MouseX)
 			Y = GetGadgetAttribute({Gadget}()\CanvasNum, #PB_Canvas_MouseY)
@@ -283,9 +290,9 @@ Module {Gadget}
 
 	Procedure _RightClickHandler()
 		Define.i X, Y
-		Define.i GadgetNum = EventGadget()
+		Define.i GNum = EventGadget()
 
-		If FindMapElement({Gadget}(), Str(GadgetNum))
+		If FindMapElement({Gadget}(), Str(GNum))
 
 			X = GetGadgetAttribute({Gadget}()\CanvasNum, #PB_Canvas_MouseX)
 			Y = GetGadgetAttribute({Gadget}()\CanvasNum, #PB_Canvas_MouseY)
@@ -308,9 +315,9 @@ Module {Gadget}
 
 	Procedure _LeftButtonDownHandler()
 		Define.i X, Y
-		Define.i GadgetNum = EventGadget()
+		Define.i GNum = EventGadget()
 
-		If FindMapElement({Gadget}(), Str(GadgetNum))
+		If FindMapElement({Gadget}(), Str(GNum))
 
 			X = GetGadgetAttribute({Gadget}()\CanvasNum, #PB_Canvas_MouseX)
 			Y = GetGadgetAttribute({Gadget}()\CanvasNum, #PB_Canvas_MouseY)
@@ -322,9 +329,9 @@ Module {Gadget}
 
 	Procedure _LeftButtonUpHandler()
 		Define.i X, Y, Angle
-		Define.i GadgetNum = EventGadget()
+		Define.i GNum = EventGadget()
 
-		If FindMapElement({Gadget}(), Str(GadgetNum))
+		If FindMapElement({Gadget}(), Str(GNum))
 
 			X = GetGadgetAttribute({Gadget}()\CanvasNum, #PB_Canvas_MouseX)
 			Y = GetGadgetAttribute({Gadget}()\CanvasNum, #PB_Canvas_MouseY)
@@ -336,19 +343,19 @@ Module {Gadget}
 
 	Procedure _MouseMoveHandler()
 		Define.i X, Y
-		Define.i GadgetNum = EventGadget()
+		Define.i GNum = EventGadget()
 
-		If FindMapElement({Gadget}(), Str(GadgetNum))
+		If FindMapElement({Gadget}(), Str(GNum))
 
-			X = GetGadgetAttribute(GadgetNum, #PB_Canvas_MouseX)
-			Y = GetGadgetAttribute(GadgetNum, #PB_Canvas_MouseY)
+			X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
+			Y = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
 
 
 
 			{Gadget}()\ToolTip = #False
-			GadgetToolTip(GadgetNum, "")
+			GadgetToolTip(GNum, "")
 
-			SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Default)
+			SetGadgetAttribute(GNum, #PB_Canvas_Cursor, #PB_Cursor_Default)
 
 		EndIf
 
@@ -359,10 +366,6 @@ Module {Gadget}
 		Define.i GadgetID = EventGadget()
 
 		If FindMapElement({Gadget}(), Str(GadgetID))
-
-			{Gadget}()\Size\Width  = dpiX(GadgetWidth(GadgetID))
-			{Gadget}()\Size\Height = dpiY(GadgetHeight(GadgetID))
-
 			Draw_()
 		EndIf
 
@@ -383,17 +386,14 @@ Module {Gadget}
 						OffSetX = WindowWidth({Gadget}()\Window\Num)  - {Gadget}()\Window\Width
 						OffsetY = WindowHeight({Gadget}()\Window\Num) - {Gadget}()\Window\Height
 
-						{Gadget}()\Window\Width  = WindowWidth({Gadget}()\Window\Num)
-						{Gadget}()\Window\Height = WindowHeight({Gadget}()\Window\Num)
-
 						If {Gadget}()\Size\Flags
 
 							X = #PB_Ignore : Y = #PB_Ignore : Width = #PB_Ignore : Height = #PB_Ignore
 
-							If {Gadget}()\Size\Flags & #MoveX : X = GadgetX({Gadget}()\CanvasNum) + OffSetX : EndIf
-							If {Gadget}()\Size\Flags & #MoveY : Y = GadgetY({Gadget}()\CanvasNum) + OffSetY : EndIf
-							If {Gadget}()\Size\Flags & #ResizeWidth  : Width  = GadgetWidth({Gadget}()\CanvasNum)  + OffSetX : EndIf
-							If {Gadget}()\Size\Flags & #ResizeHeight : Height = GadgetHeight({Gadget}()\CanvasNum) + OffSetY : EndIf
+							If {Gadget}()\Size\Flags & #MoveX  : X = {Gadget}()\Size\X + OffSetX : EndIf
+							If {Gadget}()\Size\Flags & #MoveY  : Y = {Gadget}()\Size\Y + OffSetY : EndIf
+							If {Gadget}()\Size\Flags & #Width  : Width  = {Gadget}()\Size\Width + OffSetX : EndIf
+							If {Gadget}()\Size\Flags & #Height : Height = {Gadget}()\Size\Height + OffSetY : EndIf
 
 							ResizeGadget({Gadget}()\CanvasNum, X, Y, Width, Height)
 
@@ -446,11 +446,6 @@ Module {Gadget}
 		If Result
 
 			If GNum = #PB_Any : GNum = Result : EndIf
-
-			X      = dpiX(X)
-			Y      = dpiY(Y)
-			Width  = dpiX(Width)
-			Height = dpiY(Height)
 
 			If AddMapElement({Gadget}(), Str(GNum))
 
@@ -548,7 +543,36 @@ Module {Gadget}
     EndIf  
    
   EndProcedure
-	
+  
+  Procedure   SetColor(GNum.i, ColorTyp.i, Value.i)
+    
+    If FindMapElement({Gadget}(), Str(GNum))
+    
+      Select ColorTyp
+        Case #FrontColor
+          {Gadget}()\Color\Front  = Value
+        Case #BackColor
+          {Gadget}()\Color\Back   = Value
+        Case #BorderColor
+          {Gadget}()\Color\Border = Value
+      EndSelect
+      
+      If {Gadget}()\ReDraw : Draw_() : EndIf
+    EndIf
+    
+  EndProcedure
+  
+  Procedure   SetFont(GNum.i, FontID.i) 
+    
+    If FindMapElement({Gadget}(), Str(GNum))
+      
+      {Gadget}()\FontID = FontID
+      
+      If {Gadget}()\ReDraw : Draw_() : EndIf
+    EndIf
+    
+  EndProcedure  
+  
 EndModule
 
 ;- ========  Module - Example ========
@@ -557,12 +581,12 @@ CompilerIf #PB_Compiler_IsMainFile
   
   Enumeration 
     #Window
-    #Chart
+    #{Gadget}
   EndEnumeration
   
   If OpenWindow(#Window, 0, 0, 300, 200, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
     
-    If {Gadget}::Gadget(10, 10, 280, 180)
+    If {Gadget}::Gadget(#{Gadget}, 10, 10, 280, 180, {Gadget}::#Border)
       
     EndIf
     
@@ -571,7 +595,7 @@ CompilerIf #PB_Compiler_IsMainFile
       Select Event
         Case {Gadget}::#Event_Gadget ;{ Module Events
           Select EventGadget()  
-            Case #Chart
+            Case #{Gadget}
               Select EventType()
                 Case #PB_EventType_LeftClick       ;{ Left mouse click
                   Debug "Left Click"
@@ -592,9 +616,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 593
-; FirstLine = 90
-; Folding = AEAAAAQ-
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 559
+; FirstLine = 203
+; Folding = 9EgxBCwh
 ; EnableXP
 ; DPIAware
