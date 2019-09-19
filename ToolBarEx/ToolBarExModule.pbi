@@ -9,14 +9,10 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 7.09.2019
+; Last Update: 18.09.2019
 ;
-; Bugfixes
+; Bugfix: Focus
 ;
-; Added:   TrackBarGadget
-; Changed: unification of procedure names for external gadgets
-; Added: Flag #TextInside
-; 
 
 ;{ ===== MIT License =====
 ;
@@ -986,7 +982,7 @@ Module ToolBar
     
   EndProcedure    
   
-  Procedure _LostFocusHandler()
+  Procedure _MouseLeaveHandler()
     Define.i GNum = EventGadget()
     
     If FindMapElement(TBEx(), Str(GNum))
@@ -1605,7 +1601,7 @@ Module ToolBar
         BindGadgetEvent(GNum,  @_LeftButtonDownHandler(), #PB_EventType_LeftButtonDown)
         BindGadgetEvent(GNum,  @_LeftButtonUpHandler(),   #PB_EventType_LeftButtonUp)
         BindGadgetEvent(GNum,  @_ResizeHandler(),         #PB_EventType_Resize)
-        BindGadgetEvent(GNum,  @_LostFocusHandler(),      #PB_EventType_LostFocus)
+        BindGadgetEvent(GNum,  @_MouseLeaveHandler(),     #PB_EventType_MouseLeave)
         
         TBEx()\ReDraw = #True
         
@@ -2083,9 +2079,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 1994
-; FirstLine = 700
-; Folding = 9BAEcQHPkPFAAZAgqf-
+; CursorPosition = 15
+; Folding = 9BAEcQHPsJFAgZAgqf-
 ; EnableXP
 ; DPIAware
 ; Executable = Test.exe

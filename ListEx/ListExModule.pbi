@@ -9,12 +9,10 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 18.09.2019
+; Last Update: 19.09.2019
 ;
-; - Bugfixes
+; - Bugfix
 ;
-
-
 
 ;{ ===== MIT License =====
 ;
@@ -3562,7 +3560,11 @@ Module ListEx
                   PushListPosition(ListEx()\Rows())
                   
                   ForEach ListEx()\Rows()
-                    ListEx()\Rows()\State & ~#Selected
+                    If ListIndex(ListEx()\Rows()) = ListEx()\Row\Current
+                      ListEx()\Rows()\State | #Selected
+                    Else  
+                      ListEx()\Rows()\State & ~#Selected
+                    EndIf
                   Next
                   
                   PopListPosition(ListEx()\Rows())
@@ -6221,8 +6223,8 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
 ; CursorPosition = 11
-; Folding = MBAAAECGAAAAAAACAQAiBAiTAAIGEiRAAABIgACgCAAAAAAAAQ9
-; Markers = 583,3169
+; Folding = MBAAAECGAAAAAAACAQAiBAiTAAAAEiBAAABIgACgCAAAAAAAAQ9
+; Markers = 581,3167
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
