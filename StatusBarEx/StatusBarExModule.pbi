@@ -9,9 +9,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
   
-; Last Update: 15.07.2019
+; Last Update: 19.07.2019
 ;
-; Bugfixes (DPI)
+; Added: ClearItems() / Disable()
 ;
 
 ;{ ===== MIT License =====
@@ -43,7 +43,9 @@
 ; StatusBar::AddField()           - similar to 'AddStatusBarField()'
 ; StatusBar::AddItem()            - similar to 'AddGadgetItem()'
 ; StatusBar::AttachPopupMenu()    - attachs a popup menu to the field
+; StatusBar::ClearItems()         - similar to 'ClearGadgetItems()'
 ; StatusBar::ComboBox()           - similar to 'ComboBoxGadget()'
+; StatusBar::Disable()            - similar to 'DisableGadget()'
 ; StatusBar::DisableRedraw()      - stops redrawing gadget
 ; StatusBar::EventNumber()        - returns the event number (integer)
 ; StatusBar::EventID()            - returns the event ID (string)
@@ -67,6 +69,7 @@
 ; StatusBar::ToolTip()            - similar to 'GadgetToolTip()'
 
 ;}
+
 
 DeclareModule StatusBar
   
@@ -111,7 +114,9 @@ DeclareModule StatusBar
   Declare   AddField(GNum.i, Width.i=#PB_Ignore, Flags.i=#False)
   Declare   AddItem(GNum.i, Field.i, Position.i, Text.s, ImageID.i=#False)
   Declare   AttachPopupMenu(GNum.i, Field.i, MenuNum.i) 
+  Declare   ClearItems(GNum.i, Field.i)
   Declare.i ComboBox(GNum.i, Field.i, EventNum.i=#PB_Ignore, EventID.s="", Flags.i=#False)
+  Declare.i Disable(GNum.i, Field.i, State.i=#True)
   Declare   DisableRedraw(GNum.i, State.i=#False)
   Declare.i EventNumber(GNum.i)
   Declare.s EventID(GNum.i)
@@ -758,6 +763,24 @@ Module StatusBar
     ProcedureReturn StBEx()\Fields()\GadgetNum
   EndProcedure
   
+  Procedure   ClearItems(GNum.i, Field.i) 
+
+    If FindMapElement(StBEx(), Str(GNum))
+      
+      If SelectElement(StBEx()\Fields(), Field)
+        
+        If IsGadget(StBEx()\Fields()\GadgetNum) 
+          ClearGadgetItems(StBEx()\Fields()\GadgetNum) 
+        EndIf  
+        
+      EndIf  
+      
+      If StBEx()\ReDraw : Draw_() : EndIf
+      
+    EndIf  
+   
+  EndProcedure
+
   Procedure   DisableRedraw(GNum.i, State.i=#False)
     
     If FindMapElement(StBEx(), Str(GNum))
@@ -773,6 +796,22 @@ Module StatusBar
     
   EndProcedure  
   
+  Procedure   Disable(GNum.i, Field.i, State.i=#True)
+ 
+    If FindMapElement(StBEx(), Str(GNum))
+     
+      If SelectElement(StBEx()\Fields(), Field)
+       
+        If IsGadget(StBEx()\Fields()\GadgetNum)
+          DisableGadget(StBEx()\Fields()\GadgetNum, State)
+        EndIf
+       
+      EndIf
+
+    EndIf
+   
+  EndProcedure
+
   Procedure.i EventNumber(GNum.i)
     
     If FindMapElement(StBEx(), Str(GNum))
@@ -1364,8 +1403,8 @@ CompilerEndIf
   
 
 
-; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
 ; CursorPosition = 13
-; Folding = eAAgQEIAMEA5
+; Folding = cAAAQEAggAAg
 ; EnableXP
 ; DPIAware
