@@ -9,9 +9,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
   
-; Last Update: 19.07.2019
+; Last Update: 22.09.2019
 ;
-; Added: ClearItems() / Disable()
+; Bugfix: ToolTips
 ;
 
 ;{ ===== MIT License =====
@@ -248,7 +248,7 @@ Module StatusBar
     List Fields.StBEx_Fields_Structure()
     Map  Gadget.Gadget_Structure()
     Map  Image.Image_Structure()
-    
+
     ReDraw.i
     Flags.i
   EndStructure ;}
@@ -588,23 +588,25 @@ Module StatusBar
     If FindMapElement(StBEx(), Str(GNum))
       
       X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
+      
       ForEach StBEx()\Fields()
         
         If X > StBEx()\Fields()\X And X < StBEx()\Fields()\endX
           
           If StBEx()\Focus <> ListIndex(StBEx()\Fields())
+            
             StBEx()\Focus = ListIndex(StBEx()\Fields())
-            If StBEx()\Fields()\ToolTip
-              If StBEx()\Fields()\Flags & #Gadget
-                GadgetToolTip(StBEx()\Fields()\GadgetNum, StBEx()\Fields()\ToolTip)
-              Else
-                GadgetToolTip(StBEx()\CanvasNum, StBEx()\Fields()\ToolTip)
-              EndIf
+            
+            If StBEx()\Fields()\Flags & #Gadget
+              GadgetToolTip(StBEx()\Fields()\GadgetNum, StBEx()\Fields()\ToolTip)
             Else
-              DisableToolTip_()
+              GadgetToolTip(StBEx()\CanvasNum, StBEx()\Fields()\ToolTip)
             EndIf
+            
+          Else
+            DisableToolTip_()  
           EndIf
-          
+        
         EndIf
         
       Next
@@ -1401,10 +1403,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
   
-
-
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
 ; CursorPosition = 13
-; Folding = cAAAQEAggAAg
+; Folding = UACAQEEggAA5
 ; EnableXP
 ; DPIAware
