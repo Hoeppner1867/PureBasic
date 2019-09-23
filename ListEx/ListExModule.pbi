@@ -9,9 +9,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 20.09.2019
+; Last Update: 23.09.2019
 ;
-; - Bugfix
+; - Right Click
 ;
 
 ;{ ===== MIT License =====
@@ -3265,38 +3265,7 @@ Module ListEx
       
       If X < ListEx()\Size\Width And X < ListEx()\Size\Cols 
         If Y > ListEx()\Header\Height And Y < (ListEx()\Size\Rows + ListEx()\Header\Height)
-          
-          ListEx()\Row\Current = GetRow_(Y)
-          
-          If ListEx()\Row\Current < 0 : ProcedureReturn #False : EndIf
-          
-          If SelectElement(ListEx()\Rows(), ListEx()\Row\Current)
-            
-            ListEx()\Focus = #True
-            ListEx()\Row\Focus = ListEx()\Row\Current
-            
-            Draw_() ; Draw Focus
-          EndIf
-          
-          If ListEx()\Flags & #MultiSelect
-           
-            PushListPosition(ListEx()\Rows())
-    
-            ForEach ListEx()\Rows()
-              If ListIndex(ListEx()\Rows()) = ListEx()\Row\Current
-                ListEx()\Rows()\State | #Selected
-              Else  
-                ListEx()\Rows()\State & ~#Selected
-              EndIf
-            Next
-            
-            PopListPosition(ListEx()\Rows())
-            
-            ListEx()\MultiSelect     = #False
-            ListEx()\Row\StartSelect = #PB_Default
 
-          EndIf
-          
           If IsWindow(ListEx()\Window\Num) And IsMenu(ListEx()\PopUpID)
             DisplayPopupMenu(ListEx()\PopUpID, WindowID(ListEx()\Window\Num))
           Else
@@ -6243,8 +6212,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 11
-; Folding = IBAAAECGAAAAAAACAQAiBAiTAAAAGiBAAABIgACoCAAAAAAAAQ0
+; CursorPosition = 3267
+; FirstLine = 549
+; Folding = IBAAAECGAAAAAAACAQAiBAiTAAAAAiBAAABIgACoCAAAAAAAAQ0
 ; Markers = 581,3167
 ; EnableXP
 ; DPIAware
