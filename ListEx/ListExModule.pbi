@@ -9,9 +9,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 23.09.2019
+; Last Update: 24.09.2019
 ;
-; - Right Click
+; - Right Click & Multiselect
 ;
 
 ;{ ===== MIT License =====
@@ -3265,7 +3265,40 @@ Module ListEx
       
       If X < ListEx()\Size\Width And X < ListEx()\Size\Cols 
         If Y > ListEx()\Header\Height And Y < (ListEx()\Size\Rows + ListEx()\Header\Height)
+          
+          ListEx()\Row\Current = GetRow_(GetGadgetAttribute(GNum, #PB_Canvas_MouseY))
+          
+          If ListEx()\Flags & #MultiSelect
+           
+            If GetGadgetAttribute(GNum, #PB_Canvas_Modifiers) <> #PB_Canvas_Control And GetGadgetAttribute(GNum, #PB_Canvas_Modifiers) <> #PB_Canvas_Shift
 
+              ForEach ListEx()\Rows()
+                If ListIndex(ListEx()\Rows()) = ListEx()\Row\Current
+                  ListEx()\Rows()\State | #Selected
+                Else  
+                  ListEx()\Rows()\State & ~#Selected
+                EndIf
+              Next
+
+              ListEx()\MultiSelect     = #False
+              ListEx()\Row\StartSelect = #PB_Default
+              
+              ListEx()\Focus = #True
+              If SelectElement(ListEx()\Rows(), ListEx()\Row\Current)
+                ListEx()\Row\Focus = ListEx()\Row\Current
+              EndIf
+              
+            EndIf
+            
+          Else
+           
+            ListEx()\Focus = #True
+            If SelectElement(ListEx()\Rows(), ListEx()\Row\Current)
+              ListEx()\Row\Focus = ListEx()\Row\Current
+            EndIf
+            
+          EndIf
+          
           If IsWindow(ListEx()\Window\Num) And IsMenu(ListEx()\PopUpID)
             DisplayPopupMenu(ListEx()\PopUpID, WindowID(ListEx()\Window\Num))
           Else
@@ -6212,9 +6245,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 3267
-; FirstLine = 549
-; Folding = IBAAAECGAAAAAAACAQAiBAiTAAAAAiBAAABIgACoCAAAAAAAAQ0
+; CursorPosition = 13
+; Folding = IBAAAECGAAAAAAACAQAiBAiDAAAAGiBAAABIgACoCAAAAAAAAQ0
 ; Markers = 581,3167
 ; EnableXP
 ; DPIAware
