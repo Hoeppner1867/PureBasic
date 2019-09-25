@@ -9,8 +9,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 24.09.2019
+; Last Update: 25.09.2019
 ;
+; - SetItemText() -> only redraw if text has changed
 ; - Right Click & Multiselect
 ;
 
@@ -2042,9 +2043,9 @@ Module ListEx
   Procedure   Draw_()
     Define.f colX, rowY, textY, textX, colW0, colWidth, rowHeight, imgY, imgX, imgWidth
     Define.i Flags, imgFlags, Align, Mark, Row
-    Define.i FrontColor, FocusColor, RowColor, FontID, RowFontID
+    Define.i FrontColor, FocusColor, RowColor, FontID, RowFontID, Time
     Define.s Key$, Text$
-    
+
     AdjustScrollBars_()
 
     If StartDrawing(CanvasOutput(ListEx()\CanvasNum))
@@ -2487,7 +2488,7 @@ Module ListEx
 
       StopDrawing()
     EndIf  
-  
+    
   EndProcedure
   
   
@@ -3728,6 +3729,7 @@ Module ListEx
       Focus$ = Str(Row)+"|"+Str(Column)
       
       If ListEx()\Button\Focus And ListEx()\Button\Focus <> Focus$
+        ListEx()\Button\Focus = ""
         Draw_()
       EndIf
       
@@ -3768,7 +3770,6 @@ Module ListEx
               
               Y = ListEx()\Rows()\Y - ListEx()\Row\OffsetY
               X = ListEx()\Cols()\X - ListEx()\Col\OffsetX
-              
               
               Key$   = ListEx()\Cols()\Key
               Flags  = ListEx()\Rows()\Column(Key$)\Flags
@@ -4295,7 +4296,6 @@ Module ListEx
         
         If ListEx()\ReDraw
           UpdateColumnX_()
-          AdjustScrollBars_()
           Draw_()
         EndIf
         
@@ -4390,7 +4390,6 @@ Module ListEx
       
       If ListEx()\ReDraw
         UpdateRowY_()
-        AdjustScrollBars_()
         Draw_()
       EndIf
 
@@ -4450,7 +4449,6 @@ Module ListEx
         
         If ListEx()\ReDraw
           UpdateRowY_()
-          AdjustScrollBars_()
           Draw_()
         EndIf
         
@@ -4507,7 +4505,6 @@ Module ListEx
       
       ListEx()\Row\Number = 0
       UpdateRowY_()
-      AdjustScrollBars_()
       
       Draw_()
     EndIf
@@ -4592,7 +4589,6 @@ Module ListEx
         ListEx()\ReDraw = #True
         UpdateRowY_()
         UpdateColumnX_()
-        AdjustScrollBars_()
         Draw_()
       EndIf
       
@@ -5112,7 +5108,6 @@ Module ListEx
       
       If ListEx()\ReDraw
         UpdateColumnX_()
-        AdjustScrollBars_()
         Draw_()
       EndIf
       
@@ -5142,7 +5137,6 @@ Module ListEx
       ListEx()\ReDraw = #True
       UpdateRowY_()
       UpdateColumnX_()
-      AdjustScrollBars_()
       If ListEx()\FitCols : FitColumns_() : EndIf
       Draw_()
       
@@ -5326,9 +5320,13 @@ Module ListEx
     If FindMapElement(ListEx(), Str(GNum))
       
       If SelectElement(ListEx()\Rows(), Row)
-        ListEx()\Rows()\Column(Label)\Value = Text
-        If ListEx()\FitCols : FitColumns_() : EndIf
-        If ListEx()\ReDraw  : Draw_() : EndIf
+        
+        If ListEx()\Rows()\Column(Label)\Value <> Text
+          ListEx()\Rows()\Column(Label)\Value = Text
+          If ListEx()\FitCols : FitColumns_() : EndIf
+          If ListEx()\ReDraw  : Draw_() : EndIf
+        EndIf
+        
       EndIf
       
     EndIf
@@ -5890,25 +5888,37 @@ Module ListEx
   
   Procedure   SetItemText(GNum.i, Row.i, Text.s , Column.i)
     
+    ;Define.i Time = ElapsedMilliseconds()
+    
     If FindMapElement(ListEx(), Str(GNum))
       
       If Row = #Header
         If SelectElement(ListEx()\Cols(), Column)
-          ListEx()\Cols()\Header\Titel = Text
+          
+          If ListEx()\Cols()\Header\Titel <> Text
+            ListEx()\Cols()\Header\Titel = Text
+            If ListEx()\Cols()\Flags & #FitColumn : FitColumns_() : EndIf
+            If ListEx()\ReDraw : Draw_() : EndIf
+          EndIf
+          
         EndIf
       Else  
         If SelectElement(ListEx()\Rows(), Row)
           If SelectElement(ListEx()\Cols(), Column)
-            ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Value = Text
+            
+            If ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Value <> Text
+              ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Value = Text
+              If ListEx()\Cols()\Flags & #FitColumn : FitColumns_() : EndIf
+              If ListEx()\ReDraw : Draw_() : EndIf
+            EndIf
+            
           EndIf
         EndIf
       EndIf
-      
-      If ListEx()\Cols()\Flags & #FitColumn : FitColumns_() : EndIf
-      
-      If ListEx()\ReDraw : Draw_() : EndIf
-      
+
     EndIf
+    
+    ;Debug Str(ElapsedMilliseconds() - Time)+"ms"
     
   EndProcedure  
   
@@ -6244,10 +6254,11 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 13
-; Folding = IBAAAECGAAAAAAACAQAiBAiDAAAAGiBAAABIgACoCAAAAAAAAQ0
-; Markers = 581,3167
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 1559
+; FirstLine = 295
+; Folding = IBAAAECGAAAAAAACAQAiBAiBAAAAAiBYAAAAAAAoCAAAAAAAEQ0
+; Markers = 582,3168
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
