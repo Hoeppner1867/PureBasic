@@ -9,7 +9,10 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 25.09.2019
+; Last Update: 1.10.2019
+;
+; - Bugfixes: header sort
+; - #ResizeWidth -> #Width / #ResizeHeight -> #Height / #Width -> ColumnWidth
 ;
 ; - SetItemText() -> only redraw if text has changed
 ; - Right Click & Multiselect
@@ -80,12 +83,12 @@
 ; ListEx::SelectItems()             - select all rows [#All/#None]
 ; ListEx::SetAttribute()            - similar to SetGadgetAttribute()  [#Padding] 
 ; ListEx::SetAutoResizeColumn()     - column that is reduced when the vertical scrollbar is displayed.
-; ListEx::SetAutoResizeFlags()      - [#MoveX|#MoveY|#ResizeWidth|#ResizeHeight]
+; ListEx::SetAutoResizeFlags()      - [#MoveX|#MoveY|#Width|#Height]
 ; ListEx::SetCellState()            - similar to 'SetGadgetItemState()' with labels
 ; ListEx::SetCellText()             - similar to 'SetGadgetItemText()' with labels
 ; ListEx::SetColor()                - similar to 'SetGadgetColor()'
 ; ListEx::SetColorTheme()           - change the color theme
-; ListEx::SetColumnAttribute()      - [#Align/#Width/#Font]
+; ListEx::SetColumnAttribute()      - [#Align/#ColumnWidth/#Font]
 ; ListEx::SetColumnState()          - similar to 'SetGadgetItemState()' for a specific column
 ; ListEx::SetDateMask()             - similar to 'SetGadgetText()' and 'DateGadget()'
 ; ListEx::SetDateAttribute()        - similar to 'SetGadgetAttribute()' and 'DateGadget()'
@@ -172,8 +175,8 @@ DeclareModule ListEx
     #Align
     #Font
     #FontID
-    #Width
-    #Height
+    #ColumnWidth
+    #HeaderHeight
     #Padding
     #Gadget
     #StringFont
@@ -245,8 +248,8 @@ DeclareModule ListEx
   EnumerationBinary
     #MoveX
     #MoveY
-    #ResizeWidth
-    #ResizeHeight
+    #Width
+    #Height
   EndEnumeration 
   
   Enumeration 1
@@ -3340,8 +3343,8 @@ Module ListEx
       
       ListEx()\Row\Current = GetRow_(GetGadgetAttribute(GNum, #PB_Canvas_MouseY))
       ListEx()\Col\Current = GetColumn_(GetGadgetAttribute(GNum, #PB_Canvas_MouseX))
-
-      If ListEx()\Row\Current < 0 Or ListEx()\Col\Current < 0 : ProcedureReturn #False : EndIf
+      
+      If ListEx()\Col\Current < 0 : ProcedureReturn #False : EndIf
       
       If ListEx()\Row\Current = #Header ;{ Header clicked
         
@@ -3744,22 +3747,24 @@ Module ListEx
         
         If Row = #Header ;{ Header
           
-          If ListEx()\Cols()\Header\Sort & #HeaderSort
-            
-            If ListEx()\Cursor <> #Cursor_Sort
-              ListEx()\Cursor = #Cursor_Sort
-              SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\Cursor)
-            EndIf
-            
-          Else
-            
-            If ListEx()\Cursor <> #Cursor_Default
-              ListEx()\Cursor = #Cursor_Default
-              SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\Cursor)
+          If SelectElement(ListEx()\Cols(), Column)
+            If ListEx()\Cols()\Header\Sort & #HeaderSort
+              
+              If ListEx()\Cursor <> #Cursor_Sort
+                ListEx()\Cursor = #Cursor_Sort
+                SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\Cursor)
+              EndIf
+              
+            Else
+              
+              If ListEx()\Cursor <> #Cursor_Default
+                ListEx()\Cursor = #Cursor_Default
+                SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\Cursor)
+              EndIf
+              
             EndIf
             
           EndIf
-          
           ;}
         Else             ;{ Rows
           
@@ -3959,8 +3964,8 @@ Module ListEx
               
               If ListEx()\Size\Flags & #MoveX : X = GadgetX(ListEx()\CanvasNum) + OffSetX : EndIf
               If ListEx()\Size\Flags & #MoveY : Y = GadgetY(ListEx()\CanvasNum) + OffSetY : EndIf
-              If ListEx()\Size\Flags & #ResizeWidth  : Width  = GadgetWidth(ListEx()\CanvasNum)  + OffSetX : EndIf
-              If ListEx()\Size\Flags & #ResizeHeight : Height = GadgetHeight(ListEx()\CanvasNum) + OffSetY : EndIf
+              If ListEx()\Size\Flags & #Width  : Width  = GadgetWidth(ListEx()\CanvasNum)  + OffSetX : EndIf
+              If ListEx()\Size\Flags & #Height : Height = GadgetHeight(ListEx()\CanvasNum) + OffSetY : EndIf
               
               ResizeGadget(ListEx()\CanvasNum, X, Y, Width, Height)
               
@@ -4951,7 +4956,7 @@ Module ListEx
   EndProcedure
   
   Procedure.i GetColumnAttribute(GNum.i, Column.i, Attribute.i)
-    ; Attrib: #Align / #Width / #FontID
+    ; Attrib: #Align / #ColumnWidth / #FontID
     
     If FindMapElement(ListEx(), Str(GNum))
       
@@ -4962,7 +4967,7 @@ Module ListEx
             ProcedureReturn ListEx()\Cols()\Align 
           Case #FontID
             ProcedureReturn ListEx()\Cols()\FontID 
-          Case #Width
+          Case #ColumnWidth
             ProcedureReturn ListEx()\Cols()\Width
         EndSelect
       
@@ -5467,7 +5472,7 @@ Module ListEx
   EndProcedure  
   
   Procedure   SetColumnAttribute(GNum.i, Column.i, Attrib.i, Value.i)
-    ; Attrib: #Align (#Left/#Right/#Center) / #Width / #Font
+    ; Attrib: #Align (#Left/#Right/#Center) / #ColumnWidth / #Font
     
     If FindMapElement(ListEx(), Str(GNum))
       
@@ -5476,7 +5481,7 @@ Module ListEx
         Select Attrib
           Case #Align
             ListEx()\Cols()\Align  = Value
-          Case #Width
+          Case #ColumnWidth
             ListEx()\Cols()\Width  = dpiX(Value)
             UpdateColumnX_()
           Case #FontID
@@ -5595,7 +5600,7 @@ Module ListEx
   EndProcedure  
   
   Procedure   SetHeaderAttribute(GNum.i, Attrib.i, Value.i, Column.i=#PB_Ignore)
-    ; Attrib: #Align / #Width / #FontID / #Font
+    ; Attrib: #Align / #ColumnWidth / #FontID / #Font
     ; Value:  #Left / #Right / #Center
     
     If FindMapElement(ListEx(), Str(GNum))
@@ -5609,7 +5614,7 @@ Module ListEx
               ListEx()\Cols()\Header\Align = Value
             EndIf
           EndIf
-        Case #Height
+        Case #HeaderHeight
           ListEx()\Header\Height = dpiY(Value)
           UpdateRowY_()
         Case #FontID
@@ -6157,7 +6162,7 @@ CompilerIf #PB_Compiler_IsMainFile
     ListEx::SetItemColor(#List,  5, ListEx::#FrontColor, $228B22, 2)
     ListEx::SetItemFont(#List, 0, FontID(#Font_Arial9B), 2)
     
-    ListEx::SetAutoResizeFlags(#List, ListEx::#ResizeHeight)
+    ListEx::SetAutoResizeFlags(#List, ListEx::#Height)
     
     CompilerIf ListEx::#Enable_MarkContent
       ListEx::MarkContent(#List, 1, "CHOICE{male|female}[C3]", $D30094, $9314FF, FontID(#Font_Arial9B))
@@ -6254,11 +6259,10 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1559
-; FirstLine = 295
-; Folding = IBAAAECGAAAAAAACAQAiBAiBAAAAAiBYAAAAAAAoCAAAAAAAEQ0
-; Markers = 582,3168
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 13
+; Folding = MBAAAECmBAAAAAACAQAiBAiBAAAAEgBcACAAAAAAAAAAAAAAAQ0
+; Markers = 585,3171
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
