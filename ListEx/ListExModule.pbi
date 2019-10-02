@@ -3343,10 +3343,10 @@ Module ListEx
       
       ListEx()\Row\Current = GetRow_(GetGadgetAttribute(GNum, #PB_Canvas_MouseY))
       ListEx()\Col\Current = GetColumn_(GetGadgetAttribute(GNum, #PB_Canvas_MouseX))
-      
-      If ListEx()\Col\Current < 0 : ProcedureReturn #False : EndIf
-      
+
       If ListEx()\Row\Current = #Header ;{ Header clicked
+        
+        If ListEx()\Col\Current < 0 : ProcedureReturn #False : EndIf
         
         If SelectElement(ListEx()\Cols(), ListEx()\Col\Current)
           
@@ -3389,6 +3389,8 @@ Module ListEx
         If ListEx()\Flags & #SingleClickEdit
           ManageEditGadgets_(ListEx()\Row\Current, ListEx()\Col\Current)
         EndIf
+        
+        If ListEx()\Row\Current < 0  Or ListEx()\Col\Current < 0 : ProcedureReturn #False : EndIf
         
         If SelectElement(ListEx()\Rows(), ListEx()\Row\Current)
           If SelectElement(ListEx()\Cols(), ListEx()\Col\Current)
@@ -6129,7 +6131,7 @@ CompilerIf #PB_Compiler_IsMainFile
     ListEx::SetFont(#List, FontID(#Font_Arial9B), ListEx::#HeaderFont)
     
     ListEx::AddItem(#List, ListEx::#LastItem, "Image"    + #LF$ + "no Image" + #LF$ + #LF$ + #LF$ + "Push")
-    ListEx::AddItem(#List, ListEx::#LastItem, "Thorsten" + #LF$ + "Hoeppner" + #LF$ + "male" + #LF$ + "18.07.1967" + #LF$ + "", "PureBasic")
+    ListEx::AddItem(#List, ListEx::#LastItem, "Thorsten" + #LF$ + "" + #LF$ + "male" + #LF$ + "18.07.1967" + #LF$ + "", "PureBasic") ; Hoeppner
     ListEx::AddItem(#List, ListEx::#LastItem, "Amelia"   + #LF$ + "Smith"    + #LF$ + "female"+ #LF$ + #LF$ + "Push")
     ListEx::AddItem(#List, ListEx::#LastItem, "Jack"     + #LF$ + "Jones"    + #LF$ + #LF$ + #LF$ + "Push")
     ListEx::AddItem(#List, ListEx::#LastItem, "Isla"     + #LF$ + "Williams" + #LF$ + #LF$ + #LF$ + "Push")
@@ -6260,8 +6262,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 13
-; Folding = MBAAAECmBAAAAAACAQAiBAiBAAAAEgBcACAAAAAAAAAAAAAAAQ0
+; CursorPosition = 3394
+; FirstLine = 761
+; Folding = MBAAAECmBAAAAAACAQAiBAiBAAAAEABYAAAAAAAAAAAAAAAAAQ0
 ; Markers = 585,3171
 ; EnableXP
 ; DPIAware
