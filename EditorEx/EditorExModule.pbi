@@ -2304,7 +2304,7 @@ Module EditEx
     ForEach EditEx()
       
       If EditEx()\Cursor\Pause = #False
-        Debug "_CursorDrawing() : " + Str(EditEx()\CanvasNum)
+        
         EditEx()\Cursor\State ! #True
       
         If StartDrawing(CanvasOutput(EditEx()\CanvasNum)) 
@@ -4675,7 +4675,7 @@ CompilerIf #PB_Compiler_IsMainFile
     CompilerEndIf
     
     ; --- Add Text ---
-    ;EditEx::SetText(#EditEx, Text)
+    EditEx::SetText(#EditEx, Text)
     ; ----------------
     
     CompilerIf EditEx::#Enable_SpellChecking
@@ -4739,8 +4739,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 1626
-; FirstLine = 1605
+; CursorPosition = 4677
+; FirstLine = 4520
 ; Folding = +--------------------f---------------------H7---
 ; EnableXP
 ; DPIAware
