@@ -1438,7 +1438,11 @@ Module EditEx
   
           If Left(Dictionary()\Stem, 2) <> FirstChars : Break : EndIf
           
-          If UCase Or Dictionary()\Flag
+          If Dictionary()\Flag = 1 And UCase = #False
+            Continue
+          EndIf
+          
+          If UCase
             dicWord$ = UCase_(Dictionary()\Stem)
           Else
             dicWord$ = Dictionary()\Stem
@@ -2300,7 +2304,7 @@ Module EditEx
     ForEach EditEx()
       
       If EditEx()\Cursor\Pause = #False
-
+        Debug "_CursorDrawing() : " + Str(EditEx()\CanvasNum)
         EditEx()\Cursor\State ! #True
       
         If StartDrawing(CanvasOutput(EditEx()\CanvasNum)) 
@@ -2309,7 +2313,11 @@ Module EditEx
             Line(EditEx()\Cursor\X, EditEx()\Cursor\Y, 1, EditEx()\Cursor\Height, EditEx()\Color\Cursor)
           Else
             If EditEx()\FontID : DrawingFont(EditEx()\FontID) : EndIf
-            DrawText(EditEx()\Cursor\X, EditEx()\Cursor\Y, EditEx()\Cursor\BackChar, EditEx()\Cursor\FrontColor, EditEx()\Cursor\BackColor)
+            If EditEx()\Cursor\BackChar
+              DrawText(EditEx()\Cursor\X, EditEx()\Cursor\Y, EditEx()\Cursor\BackChar, EditEx()\Cursor\FrontColor, EditEx()\Cursor\BackColor)
+            Else
+              Line(EditEx()\Cursor\X, EditEx()\Cursor\Y, 1, EditEx()\Cursor\Height, EditEx()\Color\Back)
+            EndIf   
           EndIf
           StopDrawing()
         EndIf
@@ -3035,8 +3043,7 @@ Module EditEx
             If EditEx()\Flags & #Suggestions : EditEx()\Mistake(Word$) = Word$ : EndIf 
             
             EditEx()\Syntax(Word$) = EditEx()\Color\SyntaxHighlight
-          Else
-            EditEx()\Syntax(Word$) = $008000
+            
           EndIf
           
           Draw_()
@@ -3257,10 +3264,10 @@ Module EditEx
         ElseIf ScrollPos > EditEx()\Visible\PosOffset
           EditEx()\Visible\PosOffset = ScrollPos + 30
         EndIf
-        ;Debug "ScrollPos1: " + Str(EditEx()\Visible\PosOffset)
+        
         If EditEx()\Visible\PosOffset < EditEx()\HScroll\MinPos : EditEx()\Visible\PosOffset = EditEx()\HScroll\MinPos : EndIf
         If EditEx()\Visible\PosOffset > EditEx()\HScroll\MaxPos : EditEx()\Visible\PosOffset = EditEx()\HScroll\MaxPos : EndIf
-        ;Debug "ScrollPos2: " + Str(EditEx()\HScroll\MaxPos)
+        
         SetGadgetState(ScrollID, EditEx()\Visible\PosOffset)
         
         SetHScrollPosition_()
@@ -4314,7 +4321,7 @@ Module EditEx
   ;- ===== Gadget =====
   
   Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
-    Define.i Result, txtNum, WNum 
+    Define.i Result, txtNum, WNum, GadgetList
     
     If Flags & #WordWrap Or Flags & #Hyphenation
       Flags | #ScrollBar_Vertical
@@ -4509,19 +4516,26 @@ Module EditEx
       CompilerIf #Enable_SpellChecking ; ListView
        
         If IsWindow(WindowNum)
-          WNum = OpenWindow(#PB_Any, X, Y, 100, 60, "Suggestions", #PB_Window_BorderLess|#PB_Window_Invisible, WindowID(WindowNum))
+          WNum = OpenWindow(#PB_Any, X, Y, 100, 60, "Suggestions", #PB_Window_BorderLess|#PB_Window_Invisible|#PB_Window_NoGadgets, WindowID(WindowNum))
         Else
-          WNum = OpenWindow(#PB_Any, X, Y, 100, 60, "Suggestions", #PB_Window_BorderLess|#PB_Window_Invisible)
+          WNum = OpenWindow(#PB_Any, X, Y, 100, 60, "Suggestions", #PB_Window_BorderLess|#PB_Window_Invisible|#PB_Window_NoGadgets)
         EndIf
         
-	      If WNum
+        If WNum
+
 	        StickyWindow(WNum, #True) 
 	        EditEx()\WinNum  = WNum
+	        
+	        GadgetList = UseGadgetList(WindowID(WNum))
+	        
           EditEx()\ListNum = ListViewGadget(#PB_Any, 0, 0, 100, 60)
           If IsGadget(EditEx()\ListNum)
             SetGadgetData(EditEx()\ListNum, GNum)
             BindGadgetEvent(EditEx()\ListNum, @_ListViewHandler(), #PB_EventType_LeftDoubleClick)
           EndIf
+          
+          UseGadgetList(GadgetList)
+          
           HideWindow(EditEx()\WinNum, #True)
         EndIf
         
@@ -4725,8 +4739,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 53
-; Folding = c9HAAAAAAAAAIEAICAAAgAwQAAAAAAvoDocgFCAAAEAEkQDg
-; EnableThread
+; CursorPosition = 1626
+; FirstLine = 1605
+; Folding = +--------------------f---------------------H7---
 ; EnableXP
 ; DPIAware
