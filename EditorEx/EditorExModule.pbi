@@ -2893,9 +2893,10 @@ Module EditEx
     Define.i GNum = EventGadget()
     Define.i Char, SpellCheck
     
-    If EditEx()\Flags & #ReadOnly = #False
+    
+    If FindMapElement(EditEx(), Str(GNum))
       
-      If FindMapElement(EditEx(), Str(GNum))
+      If EditEx()\Flags & #ReadOnly = #False
 
         Char = GetGadgetAttribute(GNum, #PB_Canvas_Input)
         
@@ -4463,7 +4464,7 @@ Module EditEx
           EditEx()\Color\Border        = GetSysColor_(#COLOR_ACTIVEBORDER)
         CompilerCase #PB_OS_MacOS  
           EditEx()\Color\Front         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
-          EditEx()\Color\Back          = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
+          EditEx()\Color\Back          = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 97)
           EditEx()\Color\ReadOnly      = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
           EditEx()\Color\HighlightText = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedTextColor"))
           EditEx()\Color\Highlight     = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedTextBackgroundColor"))
@@ -4739,8 +4740,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 4677
-; FirstLine = 4520
+; CursorPosition = 2897
+; FirstLine = 2854
 ; Folding = +--------------------f---------------------H7---
 ; EnableXP
 ; DPIAware
