@@ -2,17 +2,19 @@
 ;/ =     EditExModule.pbi     =
 ;/ ============================
 ;/
-;/ [ PB V5.7x / All OS ]
+;/ [ PB V5.7x / 64Bit / all OS / DPI ]
 ;/
-;/ Module by Thorsten1867 (11/2018)
-;/
-;/ Algorithmus für Silbentrennung von Frankling Mark Liang (1983)
-;/ Pattern based on (http://tug.org/tex-hyphen/)
+;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update:  01.07.2019
+; Last Update: 3.10.2019
 ;
-; Bugfix: Cursor
+; New:   Completely revised with a new approach to text handling
+; Added: Correction suggestions for spell-checking (right click on wrong (red) words)
+; Added: Right douple click: spell-checking and, if necessary, correction suggestions
+; Added: CountItems()
+; Bugfix: SetText()
+
 
 ;{ ===== MIT License =====
 ;
@@ -37,27 +39,18 @@
 ; SOFTWARE.
 ;}
 
+
 ; ----- Description ------------------------------------------------------------------------------
 ; - WordWrap & Hyphenation          | Automatischer Zeilenumbruch & Silbentrennung (Ctrl-Minus)
 ; - Soft-Hyphen (Ctrl-Minus)        | 'Weiches' Trennzeichen bzw. bedingter Trennstrich
 ; - Automatic hiding of scrollbars  | Automatisches Ausblenden der Scrollbars
+; - Automatic resizing              | Automatische Größenanpassung
 ; - Undo/Redo - function            | Undo/Redo - Funktion
 ; - Simple syntax highlighting      | Einfache Syntax-Hervorhebung (z.B. für Rechtschreibkontrolle)
 ; - Automatic spell checking        | automatische Rechtschreibkorrektur
+; - Suggested corrections           | Korrekturvorschläge
 ; -------------------------------------------------------------------------------------------------
 
-;{ ----- History -----
-; [23/11/18] Spellchecking & Bugfixes
-; [24/11/18] WordWrap and Hyphenation revised & Bugfixes
-; [02/12/18] Continuous text for hyphenation and wordwrap & Resize Handler & many Bugfixes
-; [03/12/18] Syntax highlighting revised & Bugfixes
-; [05/12/18] Undo/Redo feature & Copy / Cut / Paste & Bugfixes
-; [06/12/18] Bugfixes (e.g. Undo) & IsUndo() / IsRedo()
-; [09/12/18] Scroll and drawing routines completely revised & flashing cursor & mouse wheel & Shortcuts added & Bugfixes
-; [11/12/18] Fixed fundamental problem in selection & Bugfixes
-; [12/12/18] Automatic spell checking & Bugfixes
-; [01/04/19] DPI
-;} -------------------
 
 ;{ -----ShortCuts -----
 ; Home         - Move cursor to start of row
@@ -80,6 +73,7 @@
 ; Crtl-Up      - Move the cursor to the beginning of the previous paragraph.
 ;}
 
+
 ;{ _____ EditEx Commands _____ 
 
   ; EditEx::AddItem()                - Add text row at 'Position' (or #FirstRow / #LastRow)
@@ -90,13 +84,15 @@
   ; EditEx::ClearUndo()              - Delete the list with Undo/Redo steps
   ; EditEx::Copy()                   - Copy selected text to clipboard
   ; EditEx::Cut()                    - Cut the selected text and copy it to the clipboard
+  ; EditEx::CorrectionSuggestions()  - Retruns a list of suggested corrections
+  ; EditEx::CountItems()             - Returns number of rows
   ; EditEx::DeleteSelection()        - Delete selected text (Remove selection: #True/#False)
   ; EditEx::DeleteWord()             - Delete word from syntax highlighting
   ; EditEx::EnableAutoSpellCheck()   - Activate automatic spelling correction
   ; EditEx::EnableSyntaxHighlight()  - Enable syntax highlighting (#False/#CaseSensitiv/#NoCase)
   ; EditEx::EnableUndoRedo()         - Enable 'Undo/Redo' function (#True/#False)
   ; EditEx::FreeDictionary()         - Removes the loaded dictionary from memory
-  ; EditEx::GetAttribute()           - Returns value of attribute (#ReadOnly/#WordWrap/#Hyphenation/#AutoHide/#Border/#CtrlChars)
+  ; EditEx::GetAttribute()           - Returns value of attribute (#ReadOnly/#WordWrap/#Hyphenation/#Border/#CtrlChars)
   ; EditEx::GetColor()               - Returns color of attribute (#FrontColor/#BackColor/#SyntaxColor/#SelectionColor)
   ; EditEx::GetItemText()            - Returns text row at 'Position'
   ; EditEx::GetSelection()           - Returns selected text (Remove selection: #True/#False)
@@ -108,15 +104,18 @@
   ; EditEx::LoadDictionary()         - Load the dictionary for spell checking
   ; EditEx::LoadHyphenationPattern() - Load hyphenation pattern for selected language (#Deutsch/#English/#French)
   ; EditEx::Redo()                   - Perform Redo
-  ; EditEx::ReDraw_()                 - Redraw the gadget
+  ; EditEx::ReDraw()                 - Redraw the gadget
   ; EditEx::RemoveGadget()           - Releases the used memory and deletes the cursor thread
   ; EditEx::Paste()                  - Inserting text from the clipboard
   ; EditEx::SaveUserDictionary()     - Save user dictionary
-  ; EditEx::SetAttribute()           - Enable/Disable attribute (#ReadOnly/#WordWrap/#Hyphenation/#AutoHide/#Border/#CtrlChars)
+  ; EditEx::SetAutoResizeFlags()     - [#MoveX|#MoveY|#Width|#Height]
+  ; EditEx::SetAttribute()           - Enable/Disable attribute (#ReadOnly/#WordWrap/#Hyphenation/#Border/#CtrlChars)
   ; EditEx::SetColor()               - Set or change color of attribute (#FrontColor/#BackColor/#SyntaxColor/#SelectionColor)
   ; EditEx::SetFont()                - Set or change font FontID(#Font)
+  ; EditEx::SetFlags()               - Set gadget flags
   ; EditEx::SetItemText()            - Replace text row at 'Position'
   ; EditEx::SetText()                - Set or replace all text rows
+  ; EditEx::SetTextWidth()           - Set text width for wordwrap and hyphenation (pt/px/in/cm/mm)
   ; EditEx::SpellCheck()             - Checks the spelling of the word (returns: #True/#False)
   ; EditEx::SpellChecking()          - Check the spelling in the editor gadget (#Highlight/#WrongWords)
   ; EditEx::Undo()                   - Perform Undo
@@ -125,6 +124,7 @@
   ; -----------------------
   
 ;} ===========================
+
 
 DeclareModule EditEx
   
@@ -153,19 +153,27 @@ DeclareModule EditEx
     #French
   EndEnumeration
   
-  EnumerationBinary GadgetFlags
-    #ReadOnly ; must be 1 (!)
+  EnumerationBinary
+    #ReadOnly
+    #ReadWrite
+    #AutoResize
     #WordWrap
     #Hyphenation
     #MaxTextWidth
-    #AutoHide
     #Borderless
     #CtrlChars
+    #AutoSpellCheck
+    #Suggestions
     #SyntaxHighlight
-    #ScrollBars
+    #UndoRedo
     #ScrollBar_Vertical
     #ScrollBar_Horizontal
   EndEnumeration
+  
+  EnumerationBinary SpellCheck
+    #Highlight
+    #WrongWords
+  EndEnumeration 
   
   Enumeration Color 1
     #FrontColor
@@ -174,12 +182,7 @@ DeclareModule EditEx
     #SelectTextColor
     #SelectionColor
   EndEnumeration
-  
-  EnumerationBinary SpellCheck
-    #Highlight
-    #WrongWords
-  EndEnumeration 
-  
+
   EnumerationBinary
     #CaseSensitiv ; must be 1
     #NoCase       ; must be 2
@@ -189,18 +192,23 @@ DeclareModule EditEx
     #WordOnly
     #Parse
   EndEnumeration
-
+  
+  EnumerationBinary
+    #MoveX
+    #MoveY
+    #Width
+    #Height
+  EndEnumeration 
+  
   ; --- UTF-8 ---
-  #Space$      = Chr(184)
+  #Space$      = "·"
   #SoftHyphen$ = Chr(173)
-  #LineBreak$  = #LF$
   #Paragraph$  = Chr(182)
   #Hyphen$     = Chr(8722)
-  #NbSp$       = Chr(160)
   #BlockChar$  = "·/·"
   
   ; --- AddItem ---
-  #FirstRow = 0
+  #FirstRow =  0
   #LastRow  = -1
   
   CompilerIf Defined(ModuleEx, #PB_Module)
@@ -238,10 +246,10 @@ DeclareModule EditEx
   ;- ============================================================================
   
   CompilerIf #Enable_SyntaxHighlight
-    Declare   AddWord(GNum.i, Word.s, Color.i=#False)                   ; Add word to syntax highlighting
-    Declare   ClearWords(GNum.i)                                        ; Delete the list with the words for syntax highlighting
-    Declare   DeleteWord(GNum.i, Word.s)                                ; Delete word from syntax highlighting
-    Declare   EnableSyntaxHighlight(GNum.i, Flag.i=#True)               ; Enable syntax highlighting ((#False/#CaseSensitiv/#NoCase)
+    Declare   AddWord(GNum.i, Word.s, Color.i=#False)                            ; Add word to syntax highlighting
+    Declare   ClearWords(GNum.i)                                                 ; Delete the list with the words for syntax highlighting
+    Declare   DeleteWord(GNum.i, Word.s)                                         ; Delete word from syntax highlighting
+    Declare   EnableSyntaxHighlight(GNum.i, State.i=#True, Flag.i=#CaseSensitiv) ; Enable syntax highlighting ((#False/#CaseSensitiv/#NoCase)
   CompilerEndIf
   
   CompilerIf #Enable_Hyphenation
@@ -249,20 +257,21 @@ DeclareModule EditEx
   CompilerEndIf
   
   CompilerIf #Enable_SpellChecking
-    Declare LoadDictionary(DicFile.s, AddDicFile.s="")                      ; Load the dictionary for spell checking (ALL gadgets)
-    Declare EnableAutoSpellCheck(GNum.i, Flag.i=#True)                  ; Activate automatic spelling correction
-    Declare SpellCheck(Word.s)                                              ; Checks the spelling of the word (returns: #True/#False)
-    Declare SpellChecking(GNum.i, Flag.i=#Highlight)                    ; Check the spelling in the editor gadget
-    Declare AddToUserDictionary(Word.s)                                     ; Add a new word to user dictionary
-    Declare SaveUserDictionary()                                            ; Save user dictionary
-    Declare FreeDictionary()                                                ; Removes the loaded dictionary from memory
+    Declare   LoadDictionary(DicFile.s, AddDicFile.s="")                      ; Load the dictionary for spell checking (ALL gadgets)
+    Declare   EnableAutoSpellCheck(GNum.i, State.i=#True, Flag.i=#False)      ; Activate automatic spelling correction
+    Declare   SpellCheck(Word.s)                                              ; Checks the spelling of the word (returns: #True/#False)
+    Declare   SpellChecking(GNum.i, Flag.i=#Highlight)                        ; Check the spelling in the editor gadget
+    Declare   CorrectionSuggestions(GNum.i, Word.s, List Suggestions.s())
+    Declare   AddToUserDictionary(GNum.i, Word.s)                             ; Add a new word to user dictionary
+    Declare   SaveUserDictionary()                                            ; Save user dictionary
+    Declare   FreeDictionary()                                                ; Removes the loaded dictionary from memory
     Global NewList WrongWords.s()                                           ; <= SpellChecking(GNum, #WrongWords)
   CompilerEndIf
   
   CompilerIf #Enable_UndoRedo
     
     Declare ClearUndo(GNum.i)
-    Declare EnableUndoRedo(GNum.i, Flag.i=#True, MaxSteps.i=#False)
+    Declare EnableUndoRedo(GNum.i, State.i=#True, MaxSteps.i=#False)
     Declare Undo(GNum.i)
     Declare Redo(GNum.i)
     Declare IsUndo(GNum.i)
@@ -274,23 +283,26 @@ DeclareModule EditEx
   Declare   AttachPopup(GNum.i, PopUpMenu.i)
   Declare   Copy(GNum.i)
   Declare   Cut(GNum.i)
+  Declare.i CountItems(GNum.i)
   Declare   DeleteSelection(GNum.i, Remove.i=#True)
   Declare.i GetAttribute(GNum.i, Attribute.i)
   Declare.i GetColor(GNum.i, Attribute.i)
   Declare.s GetItemText(GNum.i, Position.i)
   Declare.s GetSelection(GNum.i, Remove.i=#True)
-  Declare.s GetText(GNum.i, Seperator.s=#NL$)
+  Declare.s GetText(GNum.i, Flags.i=#False)
   Declare   InsertText(GNum.i, Text.s)
   Declare.i IsSelected(GNum.i) 
   Declare   Paste(GNum.i)
-  Declare.i Pixel(Value.i, Unit.s="mm")
-  Declare   ReDraw_(GNum.i)
+  Declare   ReDraw(GNum.i)
   Declare   RemoveGadget(GNum.i)
   Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
+  Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetColor(GNum.i, Attribute.i, Color.i)
+  Declare   SetFlags(GNum.i, Flags.i)
   Declare   SetFont(GNum.i, FontID.i)
   Declare   SetItemText(GNum.i, Position.i, Text.s)
-  Declare   SetText(GNum.i, Text.s, Seperator.s=#NL$)
+  Declare   SetText(GNum.i, Text.s)
+  Declare   SetTextWidth(GNum.i, Value.f, unit.s="px")
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
   
 EndDeclareModule
@@ -308,48 +320,24 @@ Module EditEx
   ;-_____ OS specific definitions _____
   CompilerSelect #PB_Compiler_OS
     CompilerCase #PB_OS_Windows
-      #Scroll_Width     = 17
+      #Scroll_Width = 17
     CompilerCase #PB_OS_MacOS
-      #Scroll_Width     = 18
+      #Scroll_Width = 18
     CompilerCase #PB_OS_Linux
-      #Scroll_Width     = 18
+      #Scroll_Width = 18
   CompilerEndSelect
   
   ;{ _____ Constants _____
   #CursorFrequency = 600
-  #File = 0
-  
+
   Enumeration Cursor 1
-    #Cursor_Left
-    #Cursor_Right
     #Cursor_Up
     #Cursor_Down
-    #Cursor_PageUp
-    #Cursor_PageDown
-    #Cursor_Home
-    #Cursor_End
-    #Cursor_Back
-    #Cursor_CtrlHome
-    #Cursor_CtrlEnd
-    #Cursor_CtrlLeft
-    #Cursor_CtrlRight
-    #Cursor_CtrlUp
-    #Cursor_CtrlDown
-    #Cursor_Return
-    #Left
-    #Right
-  EndEnumeration
-  
-  EnumerationBinary 
-    #Move_Up
-    #Move_Down
-    #Move_Left
-    #Move_Right
   EndEnumeration
   
   Enumeration MouseMove
-    #Mouse_Move ; just changing the cursor ...
-    #Mouse_Select  ; selecting
+    #Mouse_Move   ; just changing the cursor ...
+    #Mouse_Select ; selecting
   EndEnumeration
   
   Enumeration Selection
@@ -363,11 +351,8 @@ Module EditEx
     #Horizontal
   EndEnumeration
   
-  #NoElement     = -1
   #CurrentCursor = -1
-  #LastCursorX   = -2
-  
-  #Scroll_Max   = 10000
+  #Scroll_Max    = 10000
   
   #PB_Shortcut_Hyphen = 189
   ;}
@@ -415,21 +400,18 @@ Module EditEx
     
     Structure Redo_Structure
       CursorPos.i
-      CursorRow.i
       Text.s
     EndStructure
     
-    Structure Undo_Diff_Structure ;{ EditEx()\Undo\Item()\DiffText()\..
+    Structure Undo_Diff_Structure    ;{ EditEx()\Undo\Item()\DiffText()\..
       CursorPos.i
-      CursorRow.i
       Text.s
       Length.i
       CRC32.s
     EndStructure ;}
     
-    Structure Undo_Item_Structure ;{ EditEx()\Undo\Item()\...
+    Structure Undo_Item_Structure    ;{ EditEx()\Undo\Item()\...
       CursorPos.i
-      CursorRow.i
       Text_1.s
       Length_1.i
       CRC32_1.s
@@ -439,9 +421,8 @@ Module EditEx
       List DiffText.Undo_Diff_Structure()
     EndStructure ;}
     
-    Structure Undo_Structure ;{ EditEx()\Undo\...
+    Structure Undo_Structure         ;{ EditEx()\Undo\...
       CursorPos.i
-      CursorRow.i
       Redo.Redo_Structure
       List Item.Undo_Item_Structure()
       MaxSteps.i
@@ -449,19 +430,15 @@ Module EditEx
     
   CompilerEndIf
   
-  Structure Font_Structure           ;{ Font(#Font)\...
-    ID.i                             ; FontID(#Font)
-    Height.i
-    Map Char.i()
-  EndStructure ;}
-  Global NewMap Font.Font_Structure()
-  
   Structure Select_Structure         ;{ Selection
-    Row1.i
-    Row2.i
     Pos1.i
     Pos2.i
     Flag.i
+  EndStructure ;}
+  
+  Structure Paragraph_Structure      ;{ ...\Paragraph\...
+    Pos.i
+    Len.i
   EndStructure ;}
   
   ; ------------------------------
@@ -478,23 +455,18 @@ Module EditEx
   EndStructure ;}
   Global Path.Path_Structure
   
-  Structure Words_List_Structure     ;{ EditEx()\Words()\Item()\...
-    X.i
-    Row.i
-    Pos.i
-    String.s
-  EndStructure ;}
-  
-  Structure EditEx_Words_Structure   ;{ EditEx()\Words()\...
-    ; Color.i
-    List Item.Words_List_Structure()
-    ; Flags.i
+  Structure EditEx_Mistake_Structure ;{ EditEx()\Mistake\...
+    List Pos.i()
+    Len.i
   EndStructure ;}
   
   Structure EditEx_Visible_Structure ;{ EditEx()\Visible\...
     RowOffset.i
     PosOffset.i
     CtrlChars.i
+    Width.i
+    Height.i
+    WordList.i
   EndStructure ;}
   
   Structure EditEx_Scroll_Structure  ;{ EditEx()\VScroll\...
@@ -504,29 +476,15 @@ Module EditEx
     Position.i ; TopCell
     Hide.i
   EndStructure ;}
-
-  Structure EditEx_Item_Structure    ;{ EditEx()\Items()\...
-    String.s
-    Y.i
-  EndStructure ;}
   
   Structure EditEx_Text_Structure    ;{ EditEx()\Text\...
-    X.i
-    Y.i
     Width.i       ; maximum width for hyphenation
     Height.i      ; text height of rows
-    Hyphen.i      ; character width
-    Space.i       ; character width
-    Rows.i
-    RowOffset.i
-    PosOffset.i
     MaxRowWidth.i ; maximum length of rows 
-    Complete.i
+    Len.i
   EndStructure ;}
   
   Structure EditEx_Mouse_Structure   ;{ EditEx()\Mouse\...
-    ;X.i
-    ;Y.i
     DeltaX.i ; will be used to relativise absolute X,Y
     DeltaY.i
     Cursor.i
@@ -563,35 +521,41 @@ Module EditEx
   
   Structure EditEx_Window_Structure  ;{ EditEx()\Window\...
     Num.i
-    Width.f
-    Height.f
-  EndStructure ;}
-  
-  Structure EditEx_Size_Structure    ;{ EditEx()\Size\...
-    X.f
-    Y.f
     Width.i
     Height.i
   EndStructure ;}
   
+  Structure EditEx_Size_Structure    ;{ EditEx()\Size\...
+    X.i
+    Y.i
+    Width.i
+    Height.i
+    PaddingX.i
+    PaddingY.i
+    Flags.i
+  EndStructure ;}
+  
+  Structure EditEx_Row_Structure     ;{ EditEx()\Row()\...
+    X.i
+    Y.i
+    Pos.i
+    Len.i
+    Width.i
+    WordWrap.s
+  EndStructure ;}
+  
   ; ----- EditEx - Structure -----
   
-  Structure EditEx_Structure        ;{ EditEx(#gadget)\...
-    gData.i
+  Structure EditEx_Structure         ;{ EditEx(#gadget)\...
     CanvasNum.i
-    FontID.i
+    ListNum.i
+    WinNum.i
     PopupMenu.i
-    ; --- Flags ---
-    Border.i
-    ScrollBars.i 
-    WordWrap.i
-    SpellCheck.i
-    AutoSpellCheck.i
-    Hyphenation.i
-    UndoRedo.i
-    ReadOnly.i
-    AutoHide.i
+    FontID.i
+    
     SyntaxHighlight.i
+    
+    Text$
     Flags.i
     ; ----------------
     Window.EditEx_Window_Structure
@@ -609,10 +573,10 @@ Module EditEx
     CompilerEndIf
     ; ---------------
     Map  Syntax.i()
-    Map  WordXY.EditEx_Words_Structure()
-    List Items.EditEx_Item_Structure()
+    Map  Mistake.s()
+    List Suggestions.s()
+    List Row.EditEx_Row_Structure()
   EndStructure ;}
-  
   Global NewMap EditEx.EditEx_Structure()
   
   Global Thread.Cursor_Thread_Structure
@@ -625,12 +589,10 @@ Module EditEx
   ;-   Module - Internal   [ -> Selected EditEx() map element required ]
   ;- ============================================================================
   
-  Declare   IsSelectedArea_(X.i, Y.i)
-  Declare.i CursorRow_() 
   Declare   UpdateScrollBar_()
-  Declare   Draw_(GNum.i)
+  Declare   Draw_()
   Declare.s DeleteStringPart(String.s, Position.i, Length.i=1)
-  Declare.i GetWordStart(String.s, Position.i, Flags.i=#WordOnly)
+  Declare.i WordStart_(String.s, Position.i, Flags.i=#WordOnly)
   
   CompilerIf #PB_Compiler_OS = #PB_OS_MacOS
     ; Addition of mk-soft
@@ -665,189 +627,95 @@ Module EditEx
     
   CompilerEndIf
   
-  Procedure.f dpiX(Num.i)
-    ProcedureReturn DesktopScaledX(Num)
-  EndProcedure
-  
-  Procedure.f dpiY(Num.i)
-    ProcedureReturn DesktopScaledY(Num)
-  EndProcedure
-  
-  Procedure.i Pixel_(pt.i)
-    ProcedureReturn Round((pt * 96) / 72, #PB_Round_Nearest)
+	Procedure.f dpiX(Num.i)
+	  If Num > 0  
+	    ProcedureReturn DesktopScaledX(Num)
+	  EndIf   
+	EndProcedure
+
+	Procedure.f dpiY(Num.i)
+	  If Num > 0  
+	    ProcedureReturn DesktopScaledY(Num)
+	  EndIf  
+	EndProcedure
+   
+  ;- ----- Strings -----
+ 
+  Procedure.s StringSegment(String.s, Pos1.i, Pos2.i=#PB_Ignore)
+    ; Return String from Pos1 to Pos2 
+    Define.i Length
+    
+    Length = Pos2 - Pos1
+    
+    If Pos2 = #PB_Ignore
+      ProcedureReturn Mid(String, Pos1 , Len(String) - Pos1)
+    Else
+      ProcedureReturn Mid(String, Pos1, Pos2 - Pos1)
+    EndIf
+    
+  EndProcedure 
+
+  Procedure.s DeleteStringPart(String.s, Position.i, Length.i=1)
+    ; Delete string part at Position (with Length)
+    
+    If Position <= 0 : Position = 1 : EndIf
+    If Position > Len(String) : Position = Len(String) : EndIf
+    
+    ProcedureReturn Left(String, Position - 1) + Mid(String, Position + Length)
   EndProcedure
   
   ; ----- Text / TextArea -----
   
   Procedure   IsTextArea_(X.i, Y.i)
   
-    If X <= EditEx()\Size\X Or X > EditEx()\Size\X + EditEx()\Size\Width
+    If X <= EditEx()\Size\PaddingX Or X > EditEx()\Size\PaddingX + EditEx()\Visible\Width
       ProcedureReturn #False
-    ElseIf Y <= EditEx()\Size\Y Or Y > EditEx()\Size\Y + EditEx()\Size\Height
+    ElseIf Y <= EditEx()\Size\PaddingY Or Y > EditEx()\Size\PaddingY + EditEx()\Visible\Height
       ProcedureReturn #False
     EndIf
     
     ProcedureReturn #True
   EndProcedure
-  
-  Procedure.i TextAreaWidth_()
-    Define.i Width
-    
-    Width = dpiX(GadgetWidth(EditEx()\CanvasNum) - 8)
-    If EditEx()\ScrollBars & #ScrollBar_Vertical And EditEx()\VScroll\Hide = #False
-      Width - dpiX(#Scroll_Width + 1)
-    EndIf
-    
-    ProcedureReturn Width - 4
-  EndProcedure  
-  
-  Procedure.i TextAreaHeight_()
-    Define.i Height
-    
-    Height = dpiY(GadgetHeight(EditEx()\CanvasNum) - 2)
-    If EditEx()\ScrollBars & #ScrollBar_Horizontal And EditEx()\HScroll\Hide = #False
-      Height - dpiY(#Scroll_Width + 1)
-    EndIf
-    
-    ProcedureReturn Height - 4
-  EndProcedure 
-  
-  Procedure.i TextWidth_(Text.s, Position.i=#PB_Default)
-    Define.i p, Width, CharW
-    
-    If FindMapElement(Font(), Str(EditEx()\FontID))
+
+  Procedure.i Paragraph_(Direction.i)
+    ; cursor pos of previeous/next paragraph
+    Define.i p, Pos, lfPos, Count
+
+    Pos = 1
+
+    Count = CountString(EditEx()\Text$, #LF$) + 1
+    For p=1 To Count
       
-      If Position = #PB_Default : Position = Len(Text) : EndIf
+      lfPos = FindString(EditEx()\Text$, #LF$, Pos + 1)
+      If lfPos = 0 : lfPos = EditEx()\Text\Len : EndIf
+
+      Select Direction
+        Case #Cursor_Up
+          If EditEx()\Cursor\Pos > Pos And EditEx()\Cursor\Pos <= lfPos + 1
+            ProcedureReturn Pos
+          EndIf  
+        Case #Cursor_Down  
+          If EditEx()\Cursor\Pos >= Pos And EditEx()\Cursor\Pos <= lfPos
+            ProcedureReturn lfPos + 1
+          EndIf  
+      EndSelect 
       
-      If Position > 0
+      Pos = lfPos + 1
       
-        For p=1 To Position
-          Width + Font()\Char(Mid(Text, p, 1))
-        Next
-        
-        ProcedureReturn Width
-      EndIf
-    EndIf
-    
-    ProcedureReturn #False
-  EndProcedure  
- 
-  Procedure.i CharPosX_(Flag.i, Position.i=#CurrentCursor, Row.i=#CurrentCursor, Offset.i=#True) ; Determine character X position based on position (Flag: #Left/#Right)
-    Define.i p, CharX, X, Width
-    Define.s Text$
-    
-    If ListSize(EditEx()\Items()) > 0
-      
-      If Row      = #CurrentCursor : Row      = EditEx()\Cursor\Row : EndIf
-      If Position = #CurrentCursor : Position = EditEx()\Cursor\Pos : EndIf
-      
-      If FindMapElement(Font(), Str(EditEx()\FontID))
-        
-        PushListPosition(EditEx()\Items())
-  
-        If SelectElement(EditEx()\Items(), Row)
-          
-          If Offset
-            X = EditEx()\Size\X - EditEx()\Visible\PosOffset
-          Else
-            X = EditEx()\Size\X
-          EndIf
-          
-          Width = X
-          Text$ = EditEx()\Items()\String
-          
-          For p = 1 To Position + 1
-            CharX = Font()\Char(Mid(Text$, p, 1))
-            Width + CharX
-          Next
-          
-          If Flag & #Left : Width - CharX : EndIf
-          
-        EndIf
-        
-        PopListPosition(EditEx()\Items())
-        
-      EndIf
-      
-    EndIf
-    
-    ProcedureReturn Width
-  EndProcedure
-  
-  Procedure.s TrimRow(Text.s)
-    Text = RTrim(Text, #LineBreak$)
-    ProcedureReturn RTrim(Text, #Hyphen$)
-  EndProcedure
-  
-  Procedure.i GetNextSpace(String.s, Position.i)
-    Define.i p
-    
-    For p = Position To Len(String)
-      Select Mid(String, p, 1)
-        Case " "
-          ProcedureReturn p
-        Case "{", "[", "(", "<"
-          ProcedureReturn p + 1
-        Case Chr(34), "'", "»", "«"
-          ProcedureReturn p + 1 
-      EndSelect
     Next
     
-    If p >= Len(String) : p = Position : EndIf
-    
-    ProcedureReturn p
+    ProcedureReturn Pos
   EndProcedure
   
-  Procedure.i GetNextParagraph_(Row.i)
-    Define.i ParaRow
-    
-    PushListPosition(EditEx()\Items())
-    
-    If SelectElement(EditEx()\Items(), Row)
-      Repeat
-        If Right(EditEx()\Items()\String, 1) = #LineBreak$
-          ParaRow = ListIndex(EditEx()\Items()) + 1
-          Break
-        EndIf 
-      Until NextElement(EditEx()\Items()) = #False
-    EndIf
-    
-    PopListPosition(EditEx()\Items())
-    
-    If ParaRow > ListSize(EditEx()\Items())-1 : ParaRow = #NoElement : EndIf
-    
-    ProcedureReturn ParaRow
-  EndProcedure
-  
-  Procedure.i GetPrevParagraph_(Row.i)
-    Define.i ParaRow
-    
-    PushListPosition(EditEx()\Items())
-    
-    If SelectElement(EditEx()\Items(), Row)
-      While PreviousElement(EditEx()\Items())
-        If Right(EditEx()\Items()\String, 1) = #LineBreak$
-          ParaRow = ListIndex(EditEx()\Items())
-          Break
-        EndIf
-      Wend
-    EndIf
-    
-    PopListPosition(EditEx()\Items())
-    
-    If ParaRow = Row : ParaRow = 0 : EndIf
-    
-    ProcedureReturn ParaRow
-  EndProcedure
-  
-  Procedure.i GetPageRows_(ScrollBar = #True)
+  Procedure.i PageRows_(ScrollBar = #True)
+    ; Number of visible rows
     Define.i Rows
     
     If EditEx()\Text\Height
       If ScrollBar
-        ProcedureReturn EditEx()\Size\Height / EditEx()\Text\Height
+        ProcedureReturn EditEx()\Visible\Height / EditEx()\Text\Height
       Else
-        ProcedureReturn dpiY(GadgetHeight(EditEx()\CanvasNum) - 4) / EditEx()\Text\Height
+        ProcedureReturn (GadgetHeight(EditEx()\CanvasNum) - (EditEx()\Size\PaddingY * 2)) / EditEx()\Text\Height
       EndIf 
     EndIf
 
@@ -855,7 +723,7 @@ Module EditEx
   
   ;- ----- Mouse -----
   
-  Procedure   ChangeMouseCursor_(GNum.i, CursorX.i, CursorY.i) 
+  Procedure   ChangeMouseCursor_(GNum.i, CursorX.i, CursorY.i)
     
     If IsTextArea_(CursorX, CursorY)
       If EditEx()\Mouse\Cursor <> #PB_Cursor_IBeam
@@ -870,232 +738,173 @@ Module EditEx
     EndIf
     
   EndProcedure  
-  
-  ;- ----- Position (X) / Row (Y)  -----
-  
-  Procedure.i LastVisibleX_()
-    ProcedureReturn EditEx()\Size\X + EditEx()\Size\Width
-  EndProcedure
-  
-  Procedure.i LastVisibleY_()
-    ProcedureReturn EditEx()\Size\Y + EditEx()\Size\Height
-  EndProcedure    
-  
-  Procedure.i IsRowVisible_(Row.i)
-    Define.i Y1, Y2
-    
-    Y1 = EditEx()\Size\Y + (Row * EditEx()\Text\Height) ; Top of row
-    Y2 = Y1 + EditEx()\Text\Height - 1                ; Bottom of Row
-    
-    If Y1 >= EditEx()\Size\Y And Y2 <= LastVisibleY_()
-      ProcedureReturn #True
-    EndIf
-    
-    ProcedureReturn #False
-  EndProcedure 
-  
-  Procedure.i LastRow_()
-    ProcedureReturn ListSize(EditEx()\Items()) - 1
-  EndProcedure  
-  
-  Procedure.i GetRow_(Y.i, Offset.i=#True) ; Row at Y-Position
-    Define.i Row
-    If Offset
-      Row = Int((Y - EditEx()\Size\Y) / EditEx()\Text\Height) + EditEx()\Visible\RowOffset
-    Else
-      Row = Int((Y - EditEx()\Size\Y) / EditEx()\Text\Height)
-    EndIf
-    If Row < 0 : Row = 0 : EndIf
-    If Row >= ListSize(EditEx()\Items()) : Row = ListSize(EditEx()\Items()) - 1 : EndIf
-    ProcedureReturn Row
-  EndProcedure
-  
-  Procedure   GetY_(Row.i)
-    
-    ProcedureReturn  EditEx()\Size\Y + (Row * EditEx()\Text\Height)
-    
-  EndProcedure
-  
+
   ;- ----- Cursor -----
   
-  Procedure.i CursorRow_()                                                 ; Current row = ListIndex()
-    Define.i Row
+  Procedure.i CursorUpDown_(Direction.i)
+    ; Change cursor row (up/down)
+    Define.i Row, c, CursorPos 
     
-    Row = ListIndex(EditEx()\Items())
-    If Row = #NoElement
-      LastElement(EditEx()\Items())
-      Row = ListSize(EditEx()\Items()) - 1
-    EndIf 
-  
-    ProcedureReturn Row
-  EndProcedure 
-  
-  Procedure.i CursorPos_(Row.i=#CurrentCursor, CursorX.i=#CurrentCursor)   ; Determine cursor position based on X position (#CurrentCursor / #LastCursorX)
-    Define.i p, X, CharX, Width, Position = 0
-    Define.s Text$
-    
-    If ListSize(EditEx()\Items()) > 0
+    Select Direction
+      Case #Cursor_Up
+        Row = EditEx()\Cursor\Row - 1
+      Case #Cursor_Down
+        Row = EditEx()\Cursor\Row + 1
+    EndSelect
+
+    If Row >= 0 And Row < ListSize(EditEx()\Row())
       
-      If FindMapElement(Font(), Str(EditEx()\FontID))
+      If SelectElement(EditEx()\Row(), Row)
         
-        If Row = #CurrentCursor : Row = CursorRow_() : EndIf
-        
-        If CursorX = #CurrentCursor ;{ CursorX
-          CursorX = EditEx()\Cursor\X
-        ElseIf CursorX = #LastCursorX
-          CursorX = EditEx()\Cursor\LastX
-          ;}
-        EndIf 
-        
-        PushListPosition(EditEx()\Items())
-        
-        If SelectElement(EditEx()\Items(), Row)
-  
-          Text$ = EditEx()\Items()\String
-          Width = EditEx()\Size\X - EditEx()\Visible\PosOffset
+        If StartDrawing(CanvasOutput(EditEx()\CanvasNum))
           
-          If CursorX >= Width
-          
-            For p = 1 To Len(Text$)
-              
-              CharX = Font()\Char(Mid(Text$, p, 1))
+          If EditEx()\Cursor\X < EditEx()\Row()\X + EditEx()\Row()\Width
   
-              If Width + CharX >= CursorX : Break : EndIf
+            If EditEx()\FontID : DrawingFont(EditEx()\FontID) : EndIf
+            
+            For c=0 To EditEx()\Row()\Len - 1
               
-              Width + CharX
+              If TextWidth(Mid(EditEx()\Text$, EditEx()\Row()\Pos, c + 1)) >= EditEx()\Cursor\X
+                CursorPos =  EditEx()\Row()\Pos + c
+                EditEx()\Cursor\X   = EditEx()\Row()\X + TextWidth(Mid(EditEx()\Text$, EditEx()\Row()\Pos, c))
+                EditEx()\Cursor\Y   = EditEx()\Row()\Y
+                EditEx()\Cursor\Pos = CursorPos
+                EditEx()\Cursor\Row = ListIndex(EditEx()\Row())
+                Break
+              EndIf  
               
-              Position = p ; Cursor to the left of the letter
             Next
-        
-            If CursorX - Width > (Width + CharX) - CursorX
-              Position + 1 ; Cursor to the right of the letter
-            EndIf
-            
-            Text$ = RTrim(Text$, #LineBreak$)
-            If Position > Len(Text$) : Position = Len(Text$) : EndIf
-            
+  
           Else
             
-            Position = 0
+            CursorPos =  EditEx()\Row()\Pos + EditEx()\Row()\Len - 1
+            EditEx()\Cursor\X   = EditEx()\Row()\X + TextWidth(Mid(EditEx()\Text$, EditEx()\Row()\Pos, CursorPos))
+            EditEx()\Cursor\Y   = EditEx()\Row()\Y
+            EditEx()\Cursor\Pos = CursorPos
+            EditEx()\Cursor\Row = ListIndex(EditEx()\Row())
             
-          EndIf  
-          
-        EndIf
-  
-        PopListPosition(EditEx()\Items())
+          EndIf
         
+          StopDrawing()
+        EndIf
+      
       EndIf
       
     EndIf
-    
-    ProcedureReturn Position  
-  EndProcedure
-  
-  Procedure.i CursorX_(Row.i=#CurrentCursor, Position.i=#CurrentCursor, Offset.i=#True)    ; #CurrentCursor
-    ; Pos 0: '|abc' / Pos1: 'a|bc'
-    Define.i X, Width
-    Define.s Text$ 
-    
-    If ListSize(EditEx()\Items()) > 0
-      
-      If Row      = #CurrentCursor : Row      = EditEx()\Cursor\Row      : EndIf
-      If Position = #CurrentCursor : Position = EditEx()\Cursor\Pos : EndIf
-      
-      If Offset
-        X = EditEx()\Size\X - EditEx()\Visible\PosOffset
-      Else
-        X = EditEx()\Size\X
-      EndIf
-      
-      PushListPosition(EditEx()\Items())
-      
-      If SelectElement(EditEx()\Items(), Row) 
-        Width = TextWidth_(Left(EditEx()\Items()\String, Position))
-      EndIf
-      
-      PopListPosition(EditEx()\Items())
-      
-      ProcedureReturn Width + X
-    EndIf
-    
-  EndProcedure
 
-  Procedure.i CursorY_(Row.i=#CurrentCursor, Offset.i=#True) 
-    Define.i CursorY
-    
-    If Row = #CurrentCursor : Row = CursorRow_() : EndIf
-    
-    If Offset
-      Row - EditEx()\Visible\RowOffset
-    EndIf
-    
-    CursorY = EditEx()\Size\Y + (Row * EditEx()\Text\Height)
+    ProcedureReturn CursorPos
+  EndProcedure 
 
-    ProcedureReturn CursorY
-  EndProcedure  
+  Procedure.i CursorPos_(CursorX.i=#CurrentCursor, CursorY.i=#CurrentCursor, Change.i=#True)
+    ; Determine cursor position based on X/Y position
+    Define.i c, CursorPos
+    
+    If CursorX = #CurrentCursor : CursorX = EditEx()\Cursor\X : EndIf
+    If CursorY = #CurrentCursor : CursorY = EditEx()\Cursor\Y : EndIf
+    
+    ForEach EditEx()\Row()
+      
+      If CursorY >= EditEx()\Row()\Y And CursorY < EditEx()\Row()\Y + EditEx()\Text\Height
+        
+        If StartDrawing(CanvasOutput(EditEx()\CanvasNum)) 
+        
+          If EditEx()\FontID : DrawingFont(EditEx()\FontID) : EndIf
+          
+          For c=0 To EditEx()\Row()\Len - 1
+            
+            If TextWidth(Mid(EditEx()\Text$, EditEx()\Row()\Pos, c + 1)) >= CursorX
+              
+              CursorPos =  EditEx()\Row()\Pos + c
+              
+              If Change
+                EditEx()\Cursor\X   = EditEx()\Row()\X + TextWidth(Mid(EditEx()\Text$, EditEx()\Row()\Pos, c))
+                EditEx()\Cursor\Y   = EditEx()\Row()\Y
+                EditEx()\Cursor\Pos = CursorPos
+                EditEx()\Cursor\Row = ListIndex(EditEx()\Row())
+                EditEx()\Cursor\BackChar = Mid(EditEx()\Text$, EditEx()\Cursor\Pos, 1)
+              EndIf
+              
+              Break
+            EndIf  
+            
+          Next
+          
+          StopDrawing()
+        EndIf
+        
+        Break
+      EndIf
+      
+    Next
+    
+    ProcedureReturn CursorPos
+  EndProcedure
   
   ;- ----- Scrolling -----
   
-  Procedure.i GetTextSize_(Flag.i)        ; Get the size of of the (visible and invisible) text
+  Procedure.i GetScrollStateMax_(Flag.i)
+    ; Maximum state of the scrollbar
+    
     Select  Flag
       Case #Vertical
-        ProcedureReturn ListSize(EditEx()\Items()) * EditEx()\Text\Height
+        ProcedureReturn ListSize(EditEx()\Row()) - PageRows_()
       Case #Horizontal
-        ProcedureReturn EditEx()\Text\MaxRowWidth
-    EndSelect  
-  EndProcedure
-  
-  Procedure.i GetScrollStateMax_(Flag.i)  ; Maximum state of the scrollbar
-    Define.i PageSize
-    Select  Flag
-      Case #Vertical
-        
-        ProcedureReturn LastRow_() - GetPageRows_() + 1
-        
-      Case #Horizontal
-        
-        ProcedureReturn GetTextSize_(#Horizontal) - EditEx()\Size\Width + 1
-        
+        ProcedureReturn EditEx()\Text\maxRowWidth - EditEx()\Visible\Width + 1
     EndSelect
+    
   EndProcedure
   
   Procedure.i AdjustScrolls_(ReDraw.i=#True)
-    Define.i GNum, PageSize, TextSize, PageRows, MaxRows, MaxPos
-    Define.i HScroll, VScroll
+    ; hide/show scrollbars
+    Define.i GNum, PageSize, PageRows, Rows, MaxPos
+    Define.i HScroll, VScroll, Changed
     
-    TextSize = EditEx()\Text\MaxRowWidth
-    MaxRows  = ListSize(EditEx()\Items())
-    If MaxRows < 0 : MaxRows = 0 : EndIf
+    EditEx()\Text\maxRowWidth = 0
+    ForEach EditEx()\Row()
+      If EditEx()\Row()\Width > EditEx()\Text\maxRowWidth
+        EditEx()\Text\maxRowWidth = EditEx()\Row()\Width
+      EndIf   
+    Next
+
+    Rows = ListSize(EditEx()\Row())
     
     If EditEx()\Flags & #ScrollBar_Horizontal : HScroll = #True : EndIf
     If EditEx()\Flags & #ScrollBar_Vertical   : VScroll = #True : EndIf
-
-    If TextSize <= dpiX(GadgetWidth(EditEx()\CanvasNum) - 8) : HScroll = #False : EndIf
-    If MaxRows  <= GetPageRows_(#False) : VScroll = #False : EndIf
     
-    If VScroll And HScroll ;{ Both scrollbars necessary
-      EditEx()\Size\Width  = dpiX(GadgetWidth(EditEx()\CanvasNum)  - #Scroll_Width - 8) 
-      EditEx()\Size\Height = dpiY(GadgetHeight(EditEx()\CanvasNum) - #Scroll_Width - 4)
-      ;}
-    ElseIf HScroll         ;{ Horizontal scrollbar necessary
-      EditEx()\Size\Height = dpiY(GadgetHeight(EditEx()\CanvasNum) - #Scroll_Width - 4)
-      If MaxRows > GetPageRows_()
-        EditEx()\Size\Width = dpiX(GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 8) 
-        VScroll = #True 
-      EndIf ;}
-    ElseIf VScroll         ;{ Vertical scrollbar necessary
-      EditEx()\Size\Width = dpiX(GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 8)
-      If TextSize > EditEx()\Size\Width
-        EditEx()\Size\Height = dpiY(GadgetHeight(EditEx()\CanvasNum) - #Scroll_Width - 4)
-        HScroll = #True
-      EndIf ;}
-    Else                   ;{ No scrollbars necessary
-      
-      EditEx()\Size\Width  = dpiX(GadgetWidth(EditEx()\CanvasNum)  - 8) 
-      EditEx()\Size\Height = dpiY(GadgetHeight(EditEx()\CanvasNum) - 4)
-      ;}
+    If EditEx()\Text\maxRowWidth <= dpiX(GadgetWidth(EditEx()\CanvasNum)) - dpiX(EditEx()\Size\PaddingX * 2)
+      HScroll = #False
+    EndIf
+
+    If Rows <= PageRows_(#False)
+      VScroll = #False
     EndIf
     
+    If VScroll And HScroll ;{ Both scrollbars necessary
+      EditEx()\Visible\Width  = GadgetWidth(EditEx()\CanvasNum)  - (EditEx()\Size\PaddingX * 2) - #Scroll_Width - 1
+      EditEx()\Visible\Height = GadgetHeight(EditEx()\CanvasNum) - (EditEx()\Size\PaddingY * 2) - #Scroll_Width - 1
+      ;}
+    ElseIf HScroll         ;{ Horizontal scrollbar necessary
+      EditEx()\Visible\Height = GadgetHeight(EditEx()\CanvasNum) - (EditEx()\Size\PaddingY * 2) - #Scroll_Width - 1
+      If EditEx()\Flags & #ScrollBar_Vertical And Rows > PageRows_()
+        EditEx()\Visible\Width = GadgetWidth(EditEx()\CanvasNum) - (EditEx()\Size\PaddingX * 2) - #Scroll_Width - 1
+        VScroll = #True 
+      Else
+        EditEx()\Visible\Width = GadgetWidth(EditEx()\CanvasNum) - (EditEx()\Size\PaddingX * 2)
+      EndIf ;}
+    ElseIf VScroll         ;{ Vertical scrollbar necessary
+      EditEx()\Visible\Width = GadgetWidth(EditEx()\CanvasNum)  - (EditEx()\Size\PaddingX * 2) - #Scroll_Width - 1
+      If EditEx()\Flags & #ScrollBar_Horizontal And EditEx()\Text\maxRowWidth > EditEx()\Visible\Width
+        EditEx()\Visible\Height = GadgetHeight(EditEx()\CanvasNum) - (EditEx()\Size\PaddingY * 2) - #Scroll_Width - 1
+        HScroll = #True
+      Else
+        EditEx()\Visible\Height = GadgetHeight(EditEx()\CanvasNum) - (EditEx()\Size\PaddingY * 2)
+      EndIf ;}
+    Else                   ;{ No scrollbars necessary
+      EditEx()\Visible\Width  = GadgetWidth(EditEx()\CanvasNum)  - (EditEx()\Size\PaddingX * 2) - 1
+      EditEx()\Visible\Height = GadgetHeight(EditEx()\CanvasNum) - (EditEx()\Size\PaddingY * 2) - 1
+      ;}
+    EndIf
+
     If IsGadget(EditEx()\HScroll\ID) ;{ Horizontal Scrollbar
       
       GNum = GetGadgetData(EditEx()\HScroll\ID)
@@ -1103,22 +912,32 @@ Module EditEx
       If GetScrollStateMax_(#Horizontal) <= #Scroll_Max
         
         If HScroll And EditEx()\HScroll\Hide
+          
           HideGadget(EditEx()\HScroll\ID, #False)
+          
           If VScroll
-            ResizeGadget(EditEx()\HScroll\ID, 2, GadgetHeight(EditEx()\CanvasNum) - #Scroll_Width - 1, GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 2, #Scroll_Width)
+            ResizeGadget(EditEx()\HScroll\ID, 2, GadgetHeight(EditEx()\CanvasNum) - #Scroll_Width - 1, GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 4, #Scroll_Width)
           Else
-            ResizeGadget(EditEx()\HScroll\ID, 2, GadgetHeight(EditEx()\CanvasNum) - #Scroll_Width - 1, GadgetWidth(EditEx()\CanvasNum) - 2, #Scroll_Width)
+            ResizeGadget(EditEx()\HScroll\ID, 2, GadgetHeight(EditEx()\CanvasNum) - #Scroll_Width - 1, GadgetWidth(EditEx()\CanvasNum) - 4, #Scroll_Width)
           EndIf
-        ElseIf Not HScroll And Not EditEx()\HScroll\Hide
-          HideGadget(EditEx()\HScroll\ID, #True)
-        EndIf
 
-        SetGadgetAttribute(EditEx()\HScroll\ID, #PB_ScrollBar_Minimum,    0)
-        SetGadgetAttribute(EditEx()\HScroll\ID, #PB_ScrollBar_PageLength, EditEx()\Size\Width)
-        SetGadgetAttribute(EditEx()\HScroll\ID, #PB_ScrollBar_Maximum,    TextSize)
+          Changed = #True
+          
+        ElseIf Not HScroll  And Not EditEx()\HScroll\Hide
+          
+          HideGadget(EditEx()\HScroll\ID, #True)
+
+          EditEx()\Visible\PosOffset = 0
+          Changed = #True
+          
+        EndIf
         
-        EditEx()\HScroll\MinPos   = 1
-        EditEx()\HScroll\MaxPos   = GetScrollStateMax_(#Horizontal)
+        SetGadgetAttribute(EditEx()\HScroll\ID, #PB_ScrollBar_Minimum,    0)
+        SetGadgetAttribute(EditEx()\HScroll\ID, #PB_ScrollBar_Maximum,    EditEx()\Text\maxRowWidth)
+        SetGadgetAttribute(EditEx()\HScroll\ID, #PB_ScrollBar_PageLength, EditEx()\Visible\Width)
+        
+        EditEx()\HScroll\MinPos = 1
+        EditEx()\HScroll\MaxPos = GetScrollStateMax_(#Horizontal)
         
       EndIf
       ;}
@@ -1130,20 +949,29 @@ Module EditEx
       
       MaxPos = GetScrollStateMax_(#Vertical)
       If MaxPos <= #Scroll_Max
+        
         If VScroll And EditEx()\VScroll\Hide
+          
           HideGadget(EditEx()\VScroll\ID, #False)
+          
           If HScroll
-            ResizeGadget(EditEx()\VScroll\ID, GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 1, 2, #Scroll_Width, GadgetHeight(EditEx()\CanvasNum) - #Scroll_Width - 2) 
+            ResizeGadget(EditEx()\VScroll\ID, GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 1, 2, #Scroll_Width, GadgetHeight(EditEx()\CanvasNum) - #Scroll_Width - 4) 
           Else
             ResizeGadget(EditEx()\VScroll\ID, GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 1, 2, #Scroll_Width, GadgetHeight(EditEx()\CanvasNum) - 4)
           EndIf 
-        ElseIf Not VScroll And Not EditEx()\VScroll\Hide
+          
+          Changed = #True
+          
+        ElseIf VScroll = #False And EditEx()\VScroll\Hide = #False
+          
           HideGadget(EditEx()\VScroll\ID, #True)
+          EditEx()\Visible\RowOffset = 0
+          Changed = #True
         EndIf
         
         SetGadgetAttribute(EditEx()\VScroll\ID, #PB_ScrollBar_Minimum,    0)
-        SetGadgetAttribute(EditEx()\VScroll\ID, #PB_ScrollBar_PageLength, GetPageRows_() + 1)
-        SetGadgetAttribute(EditEx()\VScroll\ID, #PB_ScrollBar_Maximum,    MaxRows)
+        SetGadgetAttribute(EditEx()\VScroll\ID, #PB_ScrollBar_Maximum,    Rows)
+        SetGadgetAttribute(EditEx()\VScroll\ID, #PB_ScrollBar_PageLength, PageRows_() + 1)
         
         EditEx()\VScroll\MinPos = 0
         EditEx()\VScroll\MaxPos = MaxPos
@@ -1155,8 +983,10 @@ Module EditEx
     If VScroll : EditEx()\VScroll\Hide = #False :  Else : EditEx()\VScroll\Hide = #True : EndIf 
     If HScroll : EditEx()\HScroll\Hide = #False :  Else : EditEx()\HScroll\Hide = #True : EndIf
     
-    If IsGadget(GNum) And ReDraw : Draw_(GNum) : EndIf
+    If Redraw And Changed : Draw_() : EndIf
+    
   EndProcedure
+  
   
   Procedure   SetHScrollPosition_()
     Define.i ScrollPos
@@ -1182,25 +1012,45 @@ Module EditEx
     
   EndProcedure  
   
+  
   Procedure   UpdateScrollBar_()
-    ; Pos 0: '|abc' / Pos1: 'a|bc'
-    Define.i fvX, lvX, CharX
-    Define.i ScrollBarPos, CursorRow, PageRows, CharX
-    Define.s Text
+    ; Adjust offset and scrollbar to new cursor position
+    Define.i CharW, PageRows
+    
+    ;{ Changed cursor position
+    If StartDrawing(CanvasOutput(EditEx()\CanvasNum)) 
+      
+      If EditEx()\FontID : DrawingFont(EditEx()\FontID) : EndIf
+      
+      ForEach EditEx()\Row()
+        
+        If EditEx()\Cursor\Pos >= EditEx()\Row()\Pos And EditEx()\Cursor\Pos < EditEx()\Row()\Pos + EditEx()\Row()\Len
+          
+          EditEx()\Cursor\X   = EditEx()\Row()\X + TextWidth(StringSegment(EditEx()\Text$, EditEx()\Row()\Pos, EditEx()\Cursor\Pos))
+          EditEx()\Cursor\Y   = EditEx()\Row()\Y
+          EditEx()\Cursor\Row = ListIndex(EditEx()\Row())
+          
+          CharW = TextWidth(StringSegment(EditEx()\Text$, EditEx()\Cursor\Pos, EditEx()\Cursor\Pos + 1))
+
+          Break
+        EndIf
+        
+      Next
+      
+      StopDrawing()
+    EndIf ;}
+    
+    EditEx()\Cursor\BackChar = Mid(EditEx()\Text$, EditEx()\Cursor\Pos, 1)
     
     If IsGadget(EditEx()\HScroll\ID) ;{ Horizontal Scrollbar
 
-      CharX = CharPosX_(#Left, #CurrentCursor, #CurrentCursor, #False)
-      If CharX - EditEx()\Visible\PosOffset <= EditEx()\Size\X
-        EditEx()\Visible\PosOffset = CharX - EditEx()\Size\X
+      If EditEx()\Cursor\X - EditEx()\Visible\PosOffset < EditEx()\Size\PaddingX
+        EditEx()\Visible\PosOffset = EditEx()\Cursor\X - EditEx()\Size\PaddingX
         SetGadgetState(EditEx()\HScroll\ID, EditEx()\Visible\PosOffset)
-      EndIf
-      
-      CharX = CharPosX_(#Right, #CurrentCursor, #CurrentCursor, #False)
-      If CharX >= LastVisibleX_()
-        EditEx()\Visible\PosOffset = CharX - LastVisibleX_()
+      ElseIf EditEx()\Cursor\X + CharW >= EditEx()\Visible\Width + EditEx()\Size\PaddingX
+        EditEx()\Visible\PosOffset = EditEx()\Cursor\X + CharW - (EditEx()\Visible\Width + EditEx()\Size\PaddingX)
         SetGadgetState(EditEx()\HScroll\ID, EditEx()\Visible\PosOffset)
-      EndIf
+      EndIf  
 
       SetHScrollPosition_()
       ;}
@@ -1208,315 +1058,56 @@ Module EditEx
   
     If IsGadget(EditEx()\VScroll\ID) ;{ Vertical Scrollbar
       
-      CursorRow = EditEx()\Cursor\Row
-      PageRows  = GetPageRows_() - 1
-      
-      If CursorRow < EditEx()\Visible\RowOffset
-        EditEx()\Visible\RowOffset = CursorRow
+      PageRows  = PageRows_() - 1
+
+      If EditEx()\Cursor\Row < EditEx()\Visible\RowOffset
+        EditEx()\Visible\RowOffset = EditEx()\Cursor\Row
         If EditEx()\Visible\RowOffset < 0 : EditEx()\Visible\RowOffset = 0 : EndIf
         SetGadgetState(EditEx()\VScroll\ID, EditEx()\VScroll\Position)
       EndIf
      
-      If CursorRow > PageRows
-        EditEx()\Visible\RowOffset = CursorRow - PageRows
+      If EditEx()\Cursor\Row > PageRows
+        EditEx()\Visible\RowOffset = EditEx()\Cursor\Row - PageRows
         SetGadgetState(EditEx()\VScroll\ID, EditEx()\VScroll\Position)
       EndIf
  
       SetVScrollPosition_()
       ;}
     EndIf
+    
+  EndProcedure
 
-    AdjustScrolls_(#False)
-    
-  EndProcedure
-  
-  ;- ----- Strings -----
-  
-  Procedure.s StringSegment(String.s, Pos1.i, Pos2.i=#PB_Ignore) ; Return String from Pos1 to Pos2 
-    Define.i Length = Pos2 - Pos1
-    If Pos2 = #PB_Ignore
-      ProcedureReturn Mid(String, Pos1 + 1 , Len(String) - Pos1)
-    Else
-      ProcedureReturn Mid(String, Pos1 + 1, Pos2 - Pos1)
-    EndIf
-  EndProcedure 
-
-  Procedure.s DeleteStringPart(String.s, Position.i, Length.i=1) ; Delete string part at Position (with Length)
-    
-    If Position <= 0 : Position = 1 : EndIf
-    If Position > Len(String) : Position = Len(String) : EndIf
-    
-    ProcedureReturn Left(String, Position - 1) + Mid(String, Position + Length)
-  EndProcedure
- 
-  Procedure.i FindNextSpace(Text.s)
-    Define.i c
-    
-    For c = Len(Text) To 1 Step -1
-      If Mid(Text, c, 1) = " "
-        ProcedureReturn c
-      EndIf
-    Next
-    
-  EndProcedure
-  
   ;- ----- Selection -----
   
-  Procedure   IsSelectedChar(Row.i, Pos.i)
-    ; Pos 0: '|abc' / Pos1: 'a|bc'
-    Define.i Row1, Row2
-    Define.i Result = #False
-
-    If EditEx()\Selection\Flag = #Selected
-      
-      If EditEx()\Selection\Row1 > EditEx()\Selection\Row2
-        Row1 = EditEx()\Selection\Row2
-        Row2 = EditEx()\Selection\Row1
-      Else
-        Row1 = EditEx()\Selection\Row1
-        Row2 = EditEx()\Selection\Row2
-      EndIf
-      
-      If Row >= Row1 And Row <= Row2
-        
-        PushListPosition(EditEx()\Items())
-        
-        If SelectElement(EditEx()\Items(), Row)
-          
-          If Row1 = Row2 ;{ Single Row
-            If EditEx()\Selection\Pos1 > EditEx()\Selection\Pos2
-              If Pos >= EditEx()\Selection\Pos2 And Pos < EditEx()\Selection\Pos1
-                Result = #True
-              EndIf
-            Else
-              If Pos >= EditEx()\Selection\Pos1 And Pos < EditEx()\Selection\Pos2
-                Result = #True
-              EndIf
-            EndIf
-            ;}
-          Else           ;{ Multiple Rows
-            Select Row
-              Case Row1
-                If EditEx()\Selection\Row1 > EditEx()\Selection\Row2
-                  If Pos >= EditEx()\Selection\Pos2
-                    Result = #True
-                  EndIf
-                Else
-                  If Pos >= EditEx()\Selection\Pos1
-                    Result = #True
-                  EndIf
-                EndIf
-              Case Row2
-                If EditEx()\Selection\Row1 > EditEx()\Selection\Row2
-                  If Pos < EditEx()\Selection\Pos1
-                    Result = #True
-                  EndIf
-                Else
-                  If Pos < EditEx()\Selection\Pos2
-                    Result = #True
-                  EndIf
-                EndIf
-              Default
-                Result = #True
-            EndSelect ;}
-          EndIf  
-          
-        EndIf
-
-        PopListPosition(EditEx()\Items())  
-  
-      EndIf
-      
-    EndIf
-    
-    ProcedureReturn Result
-  EndProcedure
- 
-  Procedure   IsSelectedArea_(X.i, Y.i)
-    Define.i Row, Pos, Row1, Row2
-    Define.i Result = #False
-    
-    If EditEx()\Selection\Flag = #Selected
-      
-      Row = GetRow_(Y)
-      
-      If EditEx()\Selection\Row1 > EditEx()\Selection\Row2
-        Row1 = EditEx()\Selection\Row2
-        Row2 = EditEx()\Selection\Row1
-      Else
-        Row1 = EditEx()\Selection\Row1
-        Row2 = EditEx()\Selection\Row2
-      EndIf
-      
-      If Row >= Row1 And Row <= Row2
-        
-        PushListPosition(EditEx()\Items())
-        
-        If SelectElement(EditEx()\Items(), Row)
-          
-          Pos = CursorPos_(Row, X)
-          
-          If Row1 = Row2 ;{ Single Row
-            If EditEx()\Selection\Pos1 > EditEx()\Selection\Pos2
-              If Pos >= EditEx()\Selection\Pos2 And Pos <= EditEx()\Selection\Pos1
-                Result = #True
-              EndIf
-            Else
-              If Pos >= EditEx()\Selection\Pos1 And Pos <= EditEx()\Selection\Pos2
-                Result = #True
-              EndIf
-            EndIf
-            ;}
-          Else           ;{ Multiple Rows
-            Select Row
-              Case Row1
-                If EditEx()\Selection\Row1 > EditEx()\Selection\Row2
-                  If Pos >= EditEx()\Selection\Pos2
-                    Result = #True
-                  EndIf
-                Else
-                  If Pos >= EditEx()\Selection\Pos1
-                    Result = #True
-                  EndIf
-                EndIf
-              Case Row2
-                If EditEx()\Selection\Row1 > EditEx()\Selection\Row2
-                  If Pos <= EditEx()\Selection\Pos1
-                    Result = #True
-                  EndIf
-                Else
-                  If Pos <= EditEx()\Selection\Pos2
-                    Result = #True
-                  EndIf
-                EndIf
-              Default
-                Result = #True
-            EndSelect ;}
-          EndIf  
-          
-        EndIf
-
-        PopListPosition(EditEx()\Items())  
-  
-      EndIf
-      
-    EndIf
-    
-    ProcedureReturn Result
-  EndProcedure
-  
-  Procedure   RemoveSelection_()               ; Remove & Reset Selection 
+  Procedure   RemoveSelection_()
+    ; Remove & Reset Selection 
     
     If EditEx()\Selection\Flag = #Selected
       EditEx()\Selection\Flag = #NoSelection
-      EditEx()\Selection\Row1 = #False
       EditEx()\Selection\Pos1 = #False
-      EditEx()\Selection\Row2 = #False
       EditEx()\Selection\Pos2 = #False
-      EditEx()\Text\Complete  = #True
-    EndIf
-    
-  EndProcedure
-
-  Procedure   ReFormat_()
-    Define.s Text$
-    
-    If EditEx()\WordWrap = #False And EditEx()\Hyphenation = #False
-      
-      PushListPosition(EditEx()\Items())
-      
-      If FirstElement(EditEx()\Items())
-        
-        Repeat
-          
-          If Right(EditEx()\Items()\String, 1) <> #LF$
-            
-            If NextElement(EditEx()\Items())
-              Text$ = EditEx()\Items()\String
-              If DeleteElement(EditEx()\Items())
-                EditEx()\Items()\String = RTrim(EditEx()\Items()\String, #LineBreak$)
-                EditEx()\Cursor\Pos = Len(EditEx()\Items()\String)
-                EditEx()\Items()\String = EditEx()\Items()\String + Text$
-              EndIf
-            EndIf  
-            
-            
-          EndIf
-          
-        Until NextElement(EditEx()\Items()) = #False
-        
-      EndIf
-      
-      PopListPosition(EditEx()\Items())
-      
-      EditEx()\Text\Complete = #True
+      EditEx()\Mouse\Status   = #False
     EndIf
     
   EndProcedure
   
-  Procedure.i DeleteSelection_(Remove.i=#True) ; Delete selected text (Remove selection: #True/#False)
-    Define.i r, Row1, Row2, CurrentRow 
-    Define.s Text
+  Procedure.i DeleteSelection_(Remove.i=#True)
+    ; Delete selected text (Remove selection: #True/#False)
+    Define.i Pos1, Pos2
 
     If EditEx()\Selection\Flag = #Selected
       
-      If EditEx()\Selection\Row1 > EditEx()\Selection\Row2
-        Row1 = EditEx()\Selection\Row2
-        Row2 = EditEx()\Selection\Row1
+      If EditEx()\Selection\Pos1 > EditEx()\Selection\Pos2
+        Pos1 = EditEx()\Selection\Pos2
+        Pos2 = EditEx()\Selection\Pos1
       Else
-        Row1 = EditEx()\Selection\Row1
-        Row2 = EditEx()\Selection\Row2
-      EndIf
+        Pos1 = EditEx()\Selection\Pos1
+        Pos2 = EditEx()\Selection\Pos2
+      EndIf 
       
-      If Row1 = Row2 ;{ Single row
-        If SelectElement(EditEx()\Items(), Row1)
-          Text = EditEx()\Items()\String
-          If EditEx()\Selection\Pos1 > EditEx()\Selection\Pos2
-            EditEx()\Items()\String = Left(Text, EditEx()\Selection\Pos2) + Mid(Text, EditEx()\Selection\Pos1 + 1)
-          Else
-            EditEx()\Items()\String = Left(Text, EditEx()\Selection\Pos1) + Mid(Text, EditEx()\Selection\Pos2 + 1)
-          EndIf 
-        EndIf ;}
-      Else                                             ;{ Multiple rows
-        CurrentRow = Row1
-        For r = Row1 To Row2
-          If SelectElement(EditEx()\Items(), CurrentRow)
-            Select r
-              Case Row1
-                If EditEx()\Selection\Row1 > EditEx()\Selection\Row2
-                  EditEx()\Items()\String = Left(EditEx()\Items()\String, EditEx()\Selection\Pos2)
-                Else
-                  EditEx()\Items()\String = Left(EditEx()\Items()\String, EditEx()\Selection\Pos1)
-                EndIf
-              Case Row2
-                If EditEx()\Selection\Row1 > EditEx()\Selection\Row2
-                  Text = Mid(EditEx()\Items()\String, EditEx()\Selection\Pos1 + 1)
-                Else
-                  Text = Mid(EditEx()\Items()\String, EditEx()\Selection\Pos2 + 1)
-                EndIf
-                If DeleteElement(EditEx()\Items())
-                  EditEx()\Items()\String + Text
-                EndIf
-              Default
-                If DeleteElement(EditEx()\Items())
-                  CurrentRow - 1
-                EndIf
-            EndSelect
-          EndIf 
-          CurrentRow + 1
-        Next ;}
-      EndIf
+      EditEx()\Text$ = Left(EditEx()\Text$, Pos1 - 1) + Mid(EditEx()\Text$, Pos2)
+      EditEx()\Cursor\Pos = Pos1
       
-      ReFormat_()
-      
-      If SelectElement(EditEx()\Items(), Row1)
-        If EditEx()\Selection\Pos1 > EditEx()\Selection\Pos2
-          EditEx()\Cursor\Pos = EditEx()\Selection\Pos2
-        Else
-          EditEx()\Cursor\Pos = EditEx()\Selection\Pos1
-        EndIf
-      EndIf
-
       If Remove : RemoveSelection_() : EndIf
       
       ProcedureReturn #True
@@ -1525,177 +1116,44 @@ Module EditEx
     ProcedureReturn #False
   EndProcedure
   
-  Procedure.s GetSelection_(Remove.i=#True)    ; Return selected text (Remove selection: #True/#False)
-    Define.i r, Row1, Row2
-    Define.s Text.s
+  Procedure.s GetSelection_(Remove.i=#True)
+    ; Return selected text (Remove selection: #True/#False)
+    Define.i Pos1, Pos2
+    Define.s Text$
     
     If EditEx()\Selection\Flag = #Selected      
       
-      PushListPosition(EditEx()\Items())
-      
-      If EditEx()\Selection\Row1 > EditEx()\Selection\Row2
-        Row1 = EditEx()\Selection\Row2
-        Row2 = EditEx()\Selection\Row1
+      If EditEx()\Selection\Pos1 > EditEx()\Selection\Pos2
+        Pos1 = EditEx()\Selection\Pos2
+        Pos2 = EditEx()\Selection\Pos1
       Else
-        Row1 = EditEx()\Selection\Row1
-        Row2 = EditEx()\Selection\Row2
+        Pos1 = EditEx()\Selection\Pos1
+        Pos2 = EditEx()\Selection\Pos2
       EndIf
       
-      If Row1 = Row2 ;{ Single row
-        If SelectElement(EditEx()\Items(), Row1)
-          If EditEx()\Selection\Pos1 > EditEx()\Selection\Pos2
-            Text = StringSegment(EditEx()\Items()\String, EditEx()\Selection\Pos2, EditEx()\Selection\Pos1)
-          Else
-            Text = StringSegment(EditEx()\Items()\String, EditEx()\Selection\Pos1, EditEx()\Selection\Pos2)
-          EndIf
-        EndIf ;}
-      Else  ;{ Multiple rows
-        
-        
-        For r = Row1 To Row2
-          If SelectElement(EditEx()\Items(), r)
-            Select r
-              Case Row1
-                If EditEx()\Selection\Row1 > EditEx()\Selection\Row2
-                  Text = StringSegment(EditEx()\Items()\String, EditEx()\Selection\Pos2, #PB_Ignore)
-                Else
-                  Text = StringSegment(EditEx()\Items()\String, EditEx()\Selection\Pos1, #PB_Ignore)
-                EndIf 
-                If Right(Text, 1) <> #LineBreak$ And Right(Text, 1) <> " " : Text + " " : EndIf
-              Case Row2
-                If EditEx()\Selection\Row1 > EditEx()\Selection\Row2
-                  Text + StringSegment(EditEx()\Items()\String, 0, EditEx()\Selection\Pos1)
-                Else
-                  Text + StringSegment(EditEx()\Items()\String, 0, EditEx()\Selection\Pos2)
-                EndIf
-              Default
-                Text + EditEx()\Items()\String
-                If Right(Text, 1) <> #LineBreak$ And Right(Text, 1) <> " " : Text + " " : EndIf
-            EndSelect
-          EndIf
-        Next ;}
-      EndIf
-      
-      PopListPosition(EditEx()\Items())
+      Text$ = StringSegment(EditEx()\Text$, Pos1, Pos2)
       
       If Remove : RemoveSelection_() : EndIf
       
-      ProcedureReturn Text
+      ProcedureReturn Text$
     EndIf
   
   EndProcedure
   
-  ;- ----- Text / Words -----
+  ;- ----- Words etc. -----
   
   Procedure   AddItem_(Position.i, Text.s)
     
-    Select Position
-      Case 0
-        ResetList(EditEx()\Items())
-        If AddElement(EditEx()\Items())
-          EditEx()\Items()\String = Text
-          ProcedureReturn #True
-        EndIf
-      Case -1
-        LastElement(EditEx()\Items())
-        If AddElement(EditEx()\Items())
-          EditEx()\Items()\String = Text
-          ProcedureReturn #True
-        EndIf
-      Default
-        If Position < ListSize(EditEx()\Items())
-          If SelectElement(EditEx()\Items(), Position)
-            If InsertElement(EditEx()\Items())
-              EditEx()\Items()\String = Text
-              ProcedureReturn #True
-            EndIf
-          EndIf
-        EndIf
-    EndSelect
-    
-    ProcedureReturn #False
-  EndProcedure
+    EditEx()\Text$ = InsertString(EditEx()\Text$, Text, Position)
 
-  Procedure.i GetWordStart(String.s, Position.i, Flags.i=#WordOnly) ; Position of the first letter of the word
-    Define.i p
-    
-    For p = Position To 1 Step -1
-      Select Mid(String, p, 1)
-        Case " ", #CR$, #LF$, #LineBreak$
-          ProcedureReturn p
-        Case ".", ":", ",", ";", "!", "?"
-          If Flags & #Punctation Or Flags & #WordOnly
-            ProcedureReturn p
-          EndIf
-        Case "{", "[", "(", "<"
-          If Flags & #Brackets Or Flags & #WordOnly
-            ProcedureReturn p
-          EndIf
-        Case Chr(34), "'", "«", "»"
-          If Flags & #QuotationMarks Or Flags & #WordOnly
-            ProcedureReturn p
-          EndIf
-      EndSelect
-    Next
-    
-    ProcedureReturn 1
   EndProcedure
   
-  Procedure.i GetWordEnd(String.s, Position.i, Flags.i=#WordOnly)   ; Position of the last letter of the word
-    Define.i p
+  Procedure.s GetWord_(Word.s, Flags.i=#WordOnly)
+    ; word with or without punctuation etc.
+    Define.i i 
+    Define.s Char$, Diff1$, Diff2$
     
-    For p = Position To Len(String)
-      Select Mid(String, p, 1)
-        Case " ", #CR$, #LF$, #LineBreak$
-          ProcedureReturn p-1
-        Case ".", ":", ",", ";", "!", "?"
-          If Flags & #Punctation Or Flags & #WordOnly
-            ProcedureReturn p-1
-          EndIf
-        Case ")", "]", "}", ">"
-          If Flags & #Brackets Or Flags & #WordOnly
-            ProcedureReturn p-1
-          EndIf
-        Case Chr(34), "'", "»", "«"
-          If Flags & #QuotationMarks Or Flags & #WordOnly
-            ProcedureReturn p-1
-          EndIf  
-      EndSelect
-    Next
-    
-    ProcedureReturn p
-  EndProcedure
-  
-  Procedure.i GetSpaceStart(String.s, Position.i) 
-    Define.i p
-    
-    For p = Position To 1 Step -1
-      If Mid(String, p, 1) <> " "
-        ProcedureReturn p
-      EndIf 
-    Next
-    
-    ProcedureReturn 1
-  EndProcedure  
-  
-  Procedure.i GetSpaceEnd(String.s, Position.i)
-    Define.i p
-    
-    For p = Position To Len(String)
-      
-      If Mid(String, p, 1) <> " "
-        ProcedureReturn p-1
-      EndIf
-      
-    Next
-    
-    ProcedureReturn p
-  EndProcedure
-  
-  Procedure.s GetWord(Word.s, Flags.i=#WordOnly)
-    Define i.i, Char$, Diff1$, Diff2$
-
-    Word = RTrim(Trim(Word), #LineBreak$)
+    Word = RTrim(Trim(Word), #LF$)
     If EditEx()\Visible\CtrlChars : Word = RTrim(Word, #Paragraph$) : EndIf
     
     For i=1 To 2
@@ -1711,7 +1169,7 @@ Module EditEx
             Word = LTrim(Word, Char$)
             Diff1$ + Char$
           EndIf
-        Case #SoftHyphen$, #LineBreak$, #Paragraph$
+        Case #SoftHyphen$, #LF$, #Paragraph$
           Word = LTrim(Word, Char$)
         Default
           Break
@@ -1736,7 +1194,7 @@ Module EditEx
             Word = RTrim(Word, Char$)
             Diff2$ + Char$
           EndIf  
-        Case " ", #SoftHyphen$, #LineBreak$
+        Case " ", #SoftHyphen$, #LF$
           Word = LTrim(Word, Char$)
         Default
           Break
@@ -1749,299 +1207,292 @@ Module EditEx
     EndIf
   EndProcedure
   
-  Procedure   GetWordXY_()
-    Define.i i, Spaces, StartRow, EndRow
-    Define.s Text$, Word$, LWord$, Draw$, SplitWord$, Parse$, Diff$
-    Define SplitWord.Words_List_Structure
+  
+  Procedure.i WordStart_(String.s, Position.i, Flags.i=#WordOnly)
+    ; Position of the first letter of the word
+    Define.i p
     
-    ClearMap(EditEx()\WordXY())
-    
-    StartRow = EditEx()\Visible\RowOffset
-    EndRow   = GetPageRows_() + EditEx()\Visible\RowOffset
-    
-    If SelectElement(EditEx()\Items(), StartRow)
-
-      Repeat
-      
-        Text$  = EditEx()\Items()\String
-        
-        If EditEx()\Visible\CtrlChars
-          Text$ = ReplaceString(Text$, #LineBreak$, #Paragraph$)
-        Else
-          Text$ = RemoveString(Text$, #SoftHyphen$)
-        EndIf
-        
-        Draw$  = ""
-        Spaces = CountString(Text$, " ")
-        
-        For i = 1 To Spaces + 1
-          
-          Word$  = GetWord(StringField(Text$, i, " "), #Punctation)
-          LWord$ = Word$
-          Parse$ = GetWord(Word$, #WordOnly|#Parse)
-          Diff$  = StringField(Parse$, 1, "|")
-          
-          If EditEx()\SyntaxHighlight & #NoCase : LWord$ = LCase(LWord$) : EndIf
-      
-          If Right(LWord$, 1) = #Hyphen$ And i = Spaces + 1 ;{ Hyphenated word
-            
-            SplitWord\String = Word$
-            SplitWord\X      = TextWidth(Draw$)  
-            SplitWord\Row    = ListIndex(EditEx()\Items())
-            
-          ElseIf SplitWord\String <> "" And i = 1
-            
-            SplitWord$ = RTrim(SplitWord\String, #Hyphen$) + LWord$
-            
-            LWord$ = SplitWord$
-            If EditEx()\SyntaxHighlight & #NoCase : LWord$ = LCase(LWord$) : EndIf
-            
-            If AddElement(EditEx()\WordXY(LWord$)\Item()) ;{ word part 1
-              EditEx()\WordXY(LWord$)\Item()\String = SplitWord\String
-              EditEx()\WordXY(LWord$)\Item()\X      = SplitWord\X
-              EditEx()\WordXY(LWord$)\Item()\Row    = SplitWord\Row
-              ;}
-            EndIf
-            
-            If AddElement(EditEx()\WordXY(LWord$)\Item()) ;{ word part 2
-              EditEx()\WordXY(LWord$)\Item()\String = Word$
-              EditEx()\WordXY(LWord$)\Item()\X      = TextWidth(Draw$)
-              EditEx()\WordXY(LWord$)\Item()\Row    = ListIndex(EditEx()\Items())
-              ;}
-            EndIf
-            
-            Parse$ = GetWord(SplitWord$, #WordOnly|#Parse)
-            Diff$  = StringField(Parse$, 1, "|")
-            If Diff$ <> ""
-              
-              LWord$ = StringField(Parse$, 2, "|")
-              If EditEx()\SyntaxHighlight = #NoCase : LWord$ = LCase(LWord$) : EndIf
-              
-              If AddElement(EditEx()\WordXY(LWord$)\Item()) ;{ word part 1
-                EditEx()\WordXY(LWord$)\Item()\String = GetWord(SplitWord\String)
-                EditEx()\WordXY(LWord$)\Item()\X      = SplitWord\X  + TextWidth(Diff$)
-                EditEx()\WordXY(LWord$)\Item()\Row    = SplitWord\Row
-                ;}
-              EndIf
-              
-              If AddElement(EditEx()\WordXY(LWord$)\Item()) ;{ word part 2
-                EditEx()\WordXY(LWord$)\Item()\String = GetWord(Word$)
-                EditEx()\WordXY(LWord$)\Item()\X      = TextWidth(Draw$)
-                EditEx()\WordXY(LWord$)\Item()\Row    = ListIndex(EditEx()\Items())
-                ;}
-              EndIf
-              
-            EndIf
-            
-            SplitWord\String = ""
-            ;}
-          Else                                              ;{ Complete word   
-            
-            If AddElement(EditEx()\WordXY(LWord$)\Item())
-              EditEx()\WordXY(LWord$)\Item()\String = Word$
-              EditEx()\WordXY(LWord$)\Item()\X      = TextWidth(Draw$)
-              EditEx()\WordXY(LWord$)\Item()\Pos    = Len(Draw$) + 1
-              EditEx()\WordXY(LWord$)\Item()\Row    = ListIndex(EditEx()\Items())
-            EndIf
-            
-            Parse$ = GetWord(Word$, #WordOnly|#Parse)
-            Diff$  = StringField(Parse$, 1, "|")
-            If Diff$ <> ""
-              Word$  = StringField(Parse$, 2, "|")
-              LWord$ = Word$
-              If EditEx()\SyntaxHighlight = #NoCase : LWord$ = LCase(Word$) : EndIf
-              If AddElement(EditEx()\WordXY(LWord$)\Item())
-                EditEx()\WordXY(LWord$)\Item()\X      = TextWidth(Draw$ + Diff$)
-                EditEx()\WordXY(LWord$)\Item()\Row    = ListIndex(EditEx()\Items())
-                EditEx()\WordXY(LWord$)\Item()\Pos    = Len(Draw$ + Diff$) + 1
-                EditEx()\WordXY(LWord$)\Item()\String = Word$
-              EndIf
-            EndIf
-            ;}
+    For p = Position To 1 Step -1
+      Select Mid(String, p, 1)
+        Case " ", #CR$, #LF$, #LF$
+          ProcedureReturn p + 1
+        Case ".", ":", ",", ";", "!", "?"
+          If Flags & #Punctation Or Flags & #WordOnly
+            ProcedureReturn p + 1
           EndIf
-          
-          Draw$ = Draw$ + StringField(Text$, i, " ") + " "
-          
-        Next
-        
-        If EditEx()\Visible\CtrlChars ;{
-          If Right(Text$, 1) = #Paragraph$
-            If AddElement(EditEx()\WordXY(#Paragraph$)\Item())
-              EditEx()\WordXY(#Paragraph$)\Item()\String = #Paragraph$
-              EditEx()\WordXY(#Paragraph$)\Item()\X      = TextWidth(RTrim(Text$, #Paragraph$))
-              EditEx()\WordXY(#Paragraph$)\Item()\Pos    = Len(RTrim(Text$, #Paragraph$))
-              EditEx()\WordXY(#Paragraph$)\Item()\Row    = ListIndex(EditEx()\Items())
-            EndIf
-          EndIf ;}
-        EndIf
-        
-        If ListIndex(EditEx()\Items()) > EndRow : Break : EndIf
-        
-      Until NextElement(EditEx()\Items()) = 0
-
-    EndIf 
-    
-  EndProcedure
-  
-  Procedure.s GetText_(Split.i=#False)
-    Define CursorRow.i, CursorPos.i, Text$
-    
-    CursorRow = ListIndex(EditEx()\Items())
-    CursorPos = EditEx()\Cursor\Pos
-    
-    PushListPosition(EditEx()\Items())
-
-    ForEach EditEx()\Items()
-      If ListIndex(EditEx()\Items()) = ListSize(EditEx()\Items()) - 1
-        If Split And ListIndex(EditEx()\Items()) = CursorRow
-          Text$ + InsertString(EditEx()\Items()\String, Chr(30), CursorPos+1)
-        Else
-          Text$ + EditEx()\Items()\String
-        EndIf 
-      Else
-        If Split And ListIndex(EditEx()\Items()) = CursorRow
-          Text$ + InsertString(EditEx()\Items()\String, Chr(30), CursorPos+1)
-        Else
-          Text$ + EditEx()\Items()\String
-        EndIf   
-      EndIf
-    Next
-
-    PopListPosition(EditEx()\Items())
-    
-    ProcedureReturn Text$
-    
-  EndProcedure
-  
-  Procedure   UpdateWordList_()
-    Define.i s, ParaCount, ParaPos, HyphPos, Spaces, LastPos
-    Define.s Word$, Text$
-    NewMap Paragraph.s()
-    
-    If EditEx()\SpellCheck = #True
-      
-      ParaCount = 0
-  
-      ;{ ----- Determine text paragraphs -----
-      PushListPosition(EditEx()\Items())
-      
-      ForEach EditEx()\Items()
-        Text$ = EditEx()\Items()\String
-        ParaPos = FindString(Text$, #LineBreak$)
-        If ParaPos 
-          Paragraph(Str(ParaCount)) + Left(Text$, ParaPos)
-          ParaCount + 1
-          Paragraph(Str(ParaCount)) = Mid(Text$, ParaPos + 1)
-        Else
-          HyphPos = FindString(Text$, #Hyphen$)
-          If HyphPos Or ListIndex(EditEx()\Items()) = ListSize(EditEx()\Items()) - 1
-            Paragraph(Str(ParaCount)) + Text$
-          Else
-            Paragraph(Str(ParaCount)) + Text$ + " "
+        Case "{", "[", "(", "<"
+          If Flags & #Brackets Or Flags & #WordOnly
+            ProcedureReturn p + 1
           EndIf
-        EndIf
-      Next
-    
-      PopListPosition(EditEx()\Items())
-      ;}
-  
-      ;{ ----- Determine the words -----
-      ForEach Paragraph()
-        Paragraph()  = RemoveString(Paragraph(), #Hyphen$)
-        Paragraph()  = RemoveString(Paragraph(), #SoftHyphen$)
-        Spaces = CountString(Paragraph(), " ")
-        For s = 0 To Spaces
-          Word$ = GetWord(StringField(Paragraph(), s+1, " "))
-          If Word$
-            If FindMapElement(Words(), Word$) = #False
-              AddMapElement(Words(), Word$)
-            EndIf
+        Case Chr(34), "'", "«", "»"
+          If Flags & #QuotationMarks Or Flags & #WordOnly
+            ProcedureReturn p + 1
           EndIf
-        Next
-      Next ;}
-      
-    EndIf
-    
-  EndProcedure
-
-  Procedure   GetFlowText_(*Text.Text_Structure, Flag.i=#False)
-    Define.i s, ParaCount, ParaPos, HyphPos, CursorMove, CursorRow, CursorPos, Spaces, LastPos
-    Define.s Word$, Text$
-
-    ParaCount = 0
-    
-    *Text\CursorRow = CursorRow_()
-    *Text\CursorPos = EditEx()\Cursor\Pos
-    
-    ;{ ----- Determine text paragraphs -----
-    ClearMap(*Text\Paragraph())
-    
-    PushListPosition(EditEx()\Items())
-    
-    CursorPos = *Text\CursorPos
-    
-    ForEach EditEx()\Items()
-      
-      Text$ = EditEx()\Items()\String
-      
-      If ListIndex(EditEx()\Items()) = *Text\CursorRow
-        CursorPos + Len(*Text\Paragraph(Str(ParaCount))) ; Letters in front of the line with the cursor
-        CursorRow = ParaCount
-      EndIf
-      
-      ParaPos = FindString(Text$, #LineBreak$)
-      If ParaPos ;{ Line break found
-        *Text\Paragraph(Str(ParaCount)) + Left(Text$, ParaPos)
-        ParaCount + 1
-        *Text\Paragraph(Str(ParaCount)) = Mid(Text$, ParaPos + 1)
-        ;}
-      Else       ;{ Add to paragraph
-        HyphPos = FindString(Text$, #Hyphen$)
-        If HyphPos Or ListIndex(EditEx()\Items()) = ListSize(EditEx()\Items()) - 1
-          *Text\Paragraph(Str(ParaCount)) + Text$
-        Else
-          *Text\Paragraph(Str(ParaCount)) + Text$ + " "
-        EndIf
-        ;}
-      EndIf
-
+      EndSelect
     Next
     
-    PopListPosition(EditEx()\Items())
-    
-    *Text\CursorPos = CursorPos
-    *Text\CursorRow = CursorRow
-    ;Debug "=> "+InsertString(*Text\Paragraph(Str(*Text\CursorRow)), "|", *Text\CursorPos + 1) + " ("+Str(*Text\CursorRow)+"/"+Str(*Text\CursorPos)+")"
-    ;}
-
-    ;{ ----- Determine the words -----
-    If Flag = #True Or (EditEx()\AutoSpellCheck = #True And EditEx()\SpellCheck = #True)
-      
-      ForEach *Text\Paragraph()
-        Text$  = RemoveString(*Text\Paragraph(), #Hyphen$)
-        Text$  = RemoveString(Text$, #SoftHyphen$)
-        Spaces = CountString(Text$, " ")
-        For s = 0 To Spaces
-          Word$ = GetWord(StringField(Text$, s+1, " "))
-          If Word$
-            If FindMapElement(Words(), Word$) = #False
-              AddMapElement(Words(), Word$)
-            EndIf
-          EndIf
-        Next
-      Next
-      
-    EndIf ;}
-    
+    ProcedureReturn 1
   EndProcedure
+  
+  Procedure.i WordEnd_(String.s, Position.i, Flags.i=#WordOnly)
+    ; Position of the last letter of the word
+    Define.i p
+    
+    For p = Position To Len(String)
+      Select Mid(String, p, 1)
+        Case " ", #CR$, #LF$, #LF$
+          ProcedureReturn p
+        Case ".", ":", ",", ";", "!", "?"
+          If Flags & #Punctation Or Flags & #WordOnly
+            ProcedureReturn p
+          EndIf
+        Case ")", "]", "}", ">"
+          If Flags & #Brackets Or Flags & #WordOnly
+            ProcedureReturn p
+          EndIf
+        Case Chr(34), "'", "»", "«"
+          If Flags & #QuotationMarks Or Flags & #WordOnly
+            ProcedureReturn p
+          EndIf  
+      EndSelect
+    Next
+    
+    ProcedureReturn p
+  EndProcedure
+  
+  
+  Procedure.i SpaceStart_(String.s, Position.i)
+    ; start position of multiple space
+    Define.i p
+    
+    For p = Position To 1 Step -1
+      If Mid(String, p, 1) <> " "
+        ProcedureReturn p + 1
+      EndIf 
+    Next
+    
+    ProcedureReturn 1
+  EndProcedure  
+  
+  Procedure.i SpaceEnd_(String.s, Position.i)
+    ; end position of multiple space
+    Define.i p
+    
+    For p = Position To Len(String)
+      
+      If Mid(String, p, 1) <> " "
+        ProcedureReturn p
+      EndIf
+      
+    Next
+    
+    ProcedureReturn p
+  EndProcedure
+  
   
   ;----------------------------------------------------------------------------- 
   ;-   SpellChecking
   ;-----------------------------------------------------------------------------  
   
   CompilerIf #Enable_SpellChecking
+
+    Procedure ResizeList_(Pos.i)
+      Define.i X, Y, sX, sY
+      
+      If StartDrawing(CanvasOutput(EditEx()\CanvasNum)) 
+      
+        If EditEx()\FontID : DrawingFont(EditEx()\FontID) : EndIf
+        
+        ForEach EditEx()\Row()
+          
+          If Pos >= EditEx()\Row()\Pos And Pos < EditEx()\Row()\Pos + EditEx()\Row()\Len
+            
+            X = EditEx()\Row()\X + TextWidth(StringSegment(EditEx()\Text$, EditEx()\Row()\Pos, Pos))
+            Y = EditEx()\Row()\Y + EditEx()\Text\Height
+
+            Break
+          EndIf
+          
+        Next
+        
+        StopDrawing()
+      EndIf
+      
+      sX = GadgetX(EditEx()\CanvasNum, #PB_Gadget_ScreenCoordinate)
+    	sY = GadgetY(EditEx()\CanvasNum, #PB_Gadget_ScreenCoordinate)
+    	
+    	ResizeWindow(EditEx()\WinNum, sX + X, sY + Y, #PB_Ignore, #PB_Ignore)
+    	
+    EndProcedure
     
-    Procedure SpellCheckEndings(Position.i, Word.s, Length.i=4)
+    Procedure.s UCase_(Word.s)
+      ProcedureReturn UCase(Left(Word, 1)) + Mid(Word, 2)
+    EndProcedure
+    
+    Procedure.i SearchFirstLetters(Word.s)
+      Define.i ListPos, StartPos, EndPos
+      Define.s Chars
+      
+      StartPos = 0
+      EndPos   = ListSize(Dictionary()) - 1
+      
+      Chars = LCase(Left(Word, 2))
+      
+      Repeat
+        ListPos = StartPos + Round((EndPos - StartPos)  / 2, #PB_Round_Up)
+        If SelectElement(Dictionary(), ListPos)
+          If Chars = Left(Dictionary()\Stem, 2)
+            Break
+          ElseIf Chars < Left(Dictionary()\Stem, 2)
+            EndPos   = ListPos - 1
+          ElseIf Chars > Left(Dictionary()\Stem, 2)
+            StartPos = ListPos + 1
+          EndIf  
+        EndIf
+      Until (EndPos - StartPos) < 0
+      
+      While PreviousElement(Dictionary())
+        If Chars <> Left(Dictionary()\Stem, 2)
+          ProcedureReturn ListIndex(Dictionary()) + 1
+        EndIf
+      Wend
+      
+      ProcedureReturn ListIndex(Dictionary())
+    EndProcedure
+    
+    Macro D(i,j) ; DamerauLevenshteinDistance
+      D_(i+1,j+1)
+    EndMacro
+
+    Procedure   DamerauLevenshteinDistance(String1$, String2$)
+      Define.i m, n, i, j, k, l, db, min, value, cost, maxDist
+      
+      NewMap DA.i()
+      
+      m = Len(String1$)
+      n = Len(String2$)
+      
+      Dim D_(m+1,n+1)
+      
+      maxDist = m + n
+      D(-1,-1) = maxDist 
+    
+      For i=0 To m
+        D( i,-1) = maxDist
+        D( i, 0) = i
+      Next
+    
+      For j=0 To n
+        D(-1, j) = maxDist
+        D( 0, j) = j
+      Next
+      
+      For i=1 To m
+        
+        db = 0
+        
+        For j=1 To n
+          
+          k = DA(Mid(String2$, j, 1))
+          l = db
+          
+          If Mid(String1$, i, 1) = Mid(String2$, j, 1)
+            cost = 0
+            db = j
+          Else
+            cost = 1
+          EndIf
+          
+          min   = D(i-1,j-1) + cost ; a substitution
+          value = D(i  ,j-1) + 1    ; an insertion
+          If value < min : min = value : EndIf
+          value = D(i-1,j  ) + 1    ; a deletion
+          If value < min : min = value : EndIf
+          value = D(k-1,l-1) + (i-k-1) + 1 + (j-l-1) ; transposition
+          If value < min : min = value : EndIf
+          D(i,j) = min
+          
+        Next
+        
+        DA(Mid(String1$, i, 1)) = i
+        
+      Next  
+      
+      ProcedureReturn D(m,n)
+    EndProcedure
+
+    Procedure.i CorrectionSuggestions_(Word.s)
+      Define.i i, Index, UCase, Count
+      Define.s FirstChars, dicWord$
+      
+      FirstChars = LCase(Left(Word, 2))
+      
+      If Left(Word, 1) = UCase(Left(Word, 1)) : UCase = #True : EndIf
+      
+      ClearList(EditEx()\Suggestions())
+      
+      Index = SearchFirstLetters(Word)
+      If SelectElement(Dictionary(), Index)
+        
+        Repeat
+  
+          If Left(Dictionary()\Stem, 2) <> FirstChars : Break : EndIf
+          
+          If UCase Or Dictionary()\Flag
+            dicWord$ = UCase_(Dictionary()\Stem)
+          Else
+            dicWord$ = Dictionary()\Stem
+          EndIf
+          
+          If DamerauLevenshteinDistance(Word, dicWord$) = 1
+            AddElement(EditEx()\Suggestions())
+            EditEx()\Suggestions() = dicWord$
+          EndIf  
+          
+          If Dictionary()\Endings
+            
+            Count = CountString(Dictionary()\Endings, "|") + 1
+            
+            For i=1 To Count
+              
+              If DamerauLevenshteinDistance(Word, dicWord$ + StringField(Dictionary()\Endings, i, "|")) = 1
+                AddElement(EditEx()\Suggestions())
+                EditEx()\Suggestions() = dicWord$ + StringField(Dictionary()\Endings, i, "|")
+              EndIf
+              
+            Next
+            
+          EndIf
+          
+        Until NextElement(Dictionary()) = #False
+        
+      EndIf
+
+      ProcedureReturn ListSize(EditEx()\Suggestions())
+    EndProcedure
+    
+    
+    Procedure   UpdateWordList_()
+      Define.i s, Spaces
+      Define.s Word$, Text$
+ 
+      Text$ = RemoveString(EditEx()\Text$, #Hyphen$)
+      Text$ = RemoveString(Text$, #SoftHyphen$)
+      Text$ = ReplaceString(Text$, #LF$, " ")
+      
+      Spaces = CountString(Text$, " ")
+      For s=1 To Spaces + 1
+        Word$ = GetWord_(StringField(Text$, s, " "))
+        If Word$
+          If FindMapElement(Words(), Word$) = #False
+            AddMapElement(Words(), Word$)
+          EndIf
+        EndIf
+      Next
+      
+    EndProcedure
+    
+    Procedure   SpellCheckEndings_(Position.i, Word.s, Length.i=4)
       Define.i i, StartPos, Count
       Define.s Pattern$ = LCase(Left(Word, Length))
       NewMap CheckWords.i()
@@ -2080,10 +1531,50 @@ Module EditEx
       ProcedureReturn #False
     EndProcedure
     
-    Procedure SpellChecking_(Flag.i = #True)
+    Procedure   SpellCheck_(Word.s)
+      Define.i ListPos, StartPos, EndPos
+      Define.s LWord$ = LCase(Word)
+      
+      StartPos = 0
+      EndPos   = ListSize(Dictionary()) - 1
+      
+      Repeat
+        ListPos = StartPos + Round((EndPos - StartPos)  / 2, #PB_Round_Up)
+        If SelectElement(Dictionary(), ListPos)
+          If Dictionary()\Stem  = LWord$                      ;{ direct hit
+            If Dictionary()\Flag ; Upper case required
+              If Left(Word, 1) = UCase(Left(Word, 1))
+                ProcedureReturn #True
+              Else
+                ProcedureReturn #False
+              EndIf
+            Else           ; No capitalization required
+              ProcedureReturn #True
+            EndIf ;}
+          ElseIf Left(LWord$, 4) < Left(Dictionary()\Stem, 4) ;{ word smaller than current word
+            EndPos   = ListPos - 1
+            ;}
+          ElseIf Left(LWord$, 4) > Left(Dictionary()\Stem, 4) ;{ word greater than current word
+            StartPos = ListPos + 1
+            ;}
+          Else                                          ;{ Search by word endings
+            If SpellCheckEndings_(ListPos, Word)
+              ProcedureReturn #True
+            Else
+              ProcedureReturn #False
+            EndIf ;}
+          EndIf
+        EndIf
+      Until (EndPos - StartPos) < 0
+      
+      ProcedureReturn #False
+    EndProcedure
+    
+    
+    Procedure   SpellChecking_(Highlight.i = #True)
       Define.s Word$
       
-      If Flag : ClearMap(EditEx()\Syntax()) : EndIf
+      ClearMap(EditEx()\Mistake())
       
       If MapSize(Words()) > 0
         
@@ -2098,8 +1589,12 @@ Module EditEx
             Words()\checked = #True
           EndIf
           
-          If Flag And Words()\misspelled = #True
-            EditEx()\Syntax(Word$) = EditEx()\Color\SyntaxHighlight
+          If Words()\misspelled = #True
+            
+            If EditEx()\Flags & #Suggestions : EditEx()\Mistake(Word$) = Word$ : EndIf 
+            
+            If Highlight : EditEx()\Syntax(Word$) = EditEx()\Color\SyntaxHighlight : EndIf
+            
           EndIf
           
         Next
@@ -2190,422 +1685,7 @@ Module EditEx
       ProcedureReturn Word
     EndProcedure
     
-    Procedure   Hyphenation_()
-      Define.i CharW, TextWidth, LastSpaceWidth, MaxTextWidth
-      Define.i c, CharPos, StartPos, LastPos, LastSpace, LastHyphen, HyphenPos
-      Define.i WordStart, WordEnd, WordLen
-      Define.s Char$, Word$, HyphenWord$, Text$
-      Define.i p, CursorPos, CursorRow
-      Define   Text.Text_Structure
-      
-      If EditEx()\Hyphenation
-        
-        GetFlowText_(@Text, #False)
-
-        CursorPos = Text\CursorPos
-        
-        If FindMapElement(Font(), Str(EditEx()\FontID))
-        
-          MaxTextWidth = EditEx()\Text\Width
-          If MaxTextWidth = #False
-            MaxTextWidth = TextAreaWidth_()
-          EndIf
-          
-          ClearList(EditEx()\Items())
-          
-          For p=0 To MapSize(Text\Paragraph()) - 1 ; Process all text paragraphs
-            
-            If FindMapElement(Text\Paragraph(), Str(p))
-              
-              CharPos   = 1
-              LastSpace = 1
-              StartPos  = 1
-              LastPos   = Len(Text\Paragraph())
-              
-              TextWidth      = EditEx()\Size\Y
-              LastSpaceWidth = TextWidth
-
-              Repeat                               ; Get line breaks in this paragraph
-                
-                Char$ = Mid(Text\Paragraph(), CharPos, 1)
-                CharW = Font()\Char(Char$)
-                
-                Select Char$
-                  Case #LineBreak$  ;{ Line break
-                    
-                    If AddElement(EditEx()\Items())
-                      
-                      Text$ = Mid(Text\Paragraph(), StartPos, CharPos - StartPos + 1)
-
-                      HyphenPos = FindString(Text$, #Hyphen$) ;{ Remove hyphen and adjust cursor position
-                      If HyphenPos <> 0
-                        Text$ = RemoveString(Text$, #Hyphen$)
-                        If p = Text\CursorRow And HyphenPos + CharPos < Text\CursorPos : CursorPos - 1 : EndIf
-                      EndIf ;}
-                      
-                      EditEx()\Items()\String = Text$
-
-                      If p < Text\CursorRow ;{ Adjust cursor position
-                        CursorRow + 1
-                      ElseIf p = Text\CursorRow And StartPos <=  Text\CursorPos + 1
-                        CursorPos = Text\CursorPos - StartPos + 1
-                      EndIf ;}
-                      
-                      StartPos = CharPos + 1
-                      
-                      Break
-                    EndIf 
-                    
-                    Continue ;}
-                  Case #SoftHyphen$ ;{ Last soft hyphen (­) before line break
-                    If TextWidth + Font()\Char(#Hyphen$) < MaxTextWidth
-                      LastSpace = CharPos
-                      LastSpaceWidth = TextWidth
-                    EndIf ;}
-                  Case " "          ;{ Last space before line break
-                    If TextWidth < MaxTextWidth ; TextWidth + CharW
-                      LastSpace      = CharPos
-                      LastSpaceWidth = TextWidth
-                    EndIf
-                    ;}
-                EndSelect
-                
-                If TextWidth + CharW > MaxTextWidth ;{ Line break necessary
-                  
-                  WordStart = LastSpace + 1
-                  WordEnd   = GetWordEnd(Text\Paragraph(), WordStart)
-                  Word$     = Mid(Text\Paragraph(), WordStart, WordEnd - WordStart + 1) 
-                  Word$     = RemoveString(Word$, #Hyphen$)
-                  
-                  If Word$ = " " Or Word$ = ""    ;{ No word to separate available
-                    If AddElement(EditEx()\Items())
-                      
-                      EditEx()\Items()\String = Mid(Text\Paragraph(), StartPos, LastSpace - StartPos)
-                      
-                      HyphenPos = FindString(Text$, #Hyphen$) ;{ Remove hyphen and adjust cursor position
-                      If HyphenPos <> 0
-                        Text$ = RemoveString(Text$, #Hyphen$)
-                        If p = Text\CursorRow And HyphenPos + LastSpace < Text\CursorPos : CursorPos - 1 : EndIf
-                      EndIf ;}
-                      
-                      If Mid(Text\Paragraph(), LastSpace, 1) = #SoftHyphen$
-                        EditEx()\Items()\String + #Hyphen$
-                      EndIf
-                      
-                      StartPos = LastSpace + 1
-                      
-                      If p < Text\CursorRow ;{ Adjust cursor position
-                        CursorRow + 1
-                      ElseIf p = Text\CursorRow And LastSpace < Text\CursorPos
-                        CursorRow + 1
-                        CursorPos - LastSpace
-                      EndIf ;}
-                      
-                    EndIf ;}
-                  Else                            ;{ Check if hyphenation is possible
-                    
-                    HyphenWord$ = HyphenateWord(Word$, #Hyphen$)
-                    WordLen     = 1
-                    LastHyphen  = 0
-                    
-                    For c = 1 To Len(HyphenWord$) ;{ Search separator
-                      Char$ = Mid(HyphenWord$, c, 1)
-                      CharW = Font()\Char(Char$)
-                      If LastSpaceWidth + CharW > MaxTextWidth : Break : EndIf
-                      If Char$ = #Hyphen$
-                        If LastSpaceWidth + CharW < MaxTextWidth
-                          LastHyphen = WordLen
-                        EndIf
-                      Else
-                        WordLen + 1
-                        LastSpaceWidth + CharW
-                      EndIf ;}
-                    Next
-                   
-                    If LastHyphen = #False        ;{ No hyphenation possible
-                      If AddElement(EditEx()\Items())
-                        
-                        Text$ = Mid(Text\Paragraph(), StartPos, LastSpace - StartPos)
-                        
-                        HyphenPos = FindString(Text$, #Hyphen$) ;{ Remove hyphen and adjust cursor position
-                        If HyphenPos <> 0
-                          Text$ = RemoveString(Text$, #Hyphen$)
-                          If p = Text\CursorRow And HyphenPos + LastSpace < Text\CursorPos : CursorPos - 1 : EndIf
-                        EndIf ;}
-                        
-                        EditEx()\Items()\String = Text$
-                        
-                        If Mid(Text\Paragraph(), LastSpace, 1) = #SoftHyphen$
-                          EditEx()\Items()\String + #Hyphen$
-                          If p = Text\CursorRow And LastSpace < Text\CursorPos : CursorPos + 1 : EndIf
-                        EndIf
-                        
-                        If p < Text\CursorRow ;{ Adjust cursor position
-                          CursorRow + 1
-                        ElseIf p = Text\CursorRow
-                          If LastSpace < Text\CursorPos + 1
-                            CursorRow + 1
-                            CursorPos - LastSpace
-                          EndIf
-                        EndIf ;}
-                        
-                        StartPos = LastSpace + 1
-                        CharPos  = LastSpace + 1
-                        
-                      EndIf ;}
-                    Else                          ;{ Hyphenation
-                      If AddElement(EditEx()\Items())
-                        CharPos = LastSpace + LastHyphen
-                        
-                        Text$ = Mid(Text\Paragraph(), StartPos, CharPos - StartPos)
-                        
-                        If Mid(Text\Paragraph(), CharPos, 1) = #Hyphen$
-                          CharPos + 1
-                        EndIf
-                        
-                        HyphenPos = FindString(Text$, #Hyphen$) ;{ Remove hyphen and adjust cursor position
-                        If HyphenPos <> 0
-                          Text$ = RemoveString(Text$, #Hyphen$)
-                          If p = Text\CursorRow And HyphenPos + CharPos < Text\CursorPos : CursorPos - 1 : EndIf
-                        EndIf ;}
-                        
-                        EditEx()\Items()\String = Text$ + #Hyphen$ 
-                        
-                        If p < Text\CursorRow ;{ Adjust cursor position
-                          CursorRow + 1
-                        ElseIf p = Text\CursorRow
-                          If StartPos <  Text\CursorPos + 1 : CursorPos = Text\CursorPos - StartPos + 1 : EndIf
-                          If CharPos  <= Text\CursorPos + 1 : CursorRow + 1 : EndIf
-                        EndIf ;}
-                        
-                        StartPos  = CharPos
-                        TextWidth + CharW
-                        
-                      EndIf ;}
-                    EndIf
-                    ;}
-                  EndIf
-                  
-                  ; Reset for the next line
-                  LastSpace      = StartPos
-                  CharW          = 0
-                  TextWidth      = EditEx()\Size\Y
-                  LastSpaceWidth = TextWidth
-                  ;}
-                EndIf  
-
-                CharPos   + 1
-                TextWidth + CharW
-                
-              Until CharPos > LastPos
-              
-            EndIf
-            
-            If StartPos < CharPos
-              
-              If AddElement(EditEx()\Items())
-              
-                Text$ = Mid(Text\Paragraph(), StartPos, CharPos - StartPos)
-                
-                HyphenPos = FindString(Text$, #Hyphen$) ;{ Remove hyphen and adjust cursor position
-                If HyphenPos <> 0
-                  Text$ = RemoveString(Text$, #Hyphen$)
-                  If p = Text\CursorRow And HyphenPos + CharPos < Text\CursorPos + 1 : CursorPos - 1 : EndIf
-                EndIf ;}
-                
-                EditEx()\Items()\String = Text$
-                
-                If p < Text\CursorRow ;{ Adjust cursor position
-                  CursorRow + 1
-                ElseIf p = Text\CursorRow 
-                  If StartPos <= Text\CursorPos + 1
-                    CursorPos = Text\CursorPos - StartPos + 1
-                  EndIf
-                  If CharPos < Text\CursorPos + 1 : CursorRow + 1 : EndIf
-                EndIf ;}
-
-              EndIf
-              
-            EndIf
-            
-          Next
-
-          If SelectElement(EditEx()\Items(), CursorRow)
-            EditEx()\Cursor\Pos = CursorPos
-          EndIf
-
-        EndIf
-        
-      EndIf
-      
-    EndProcedure
-
   CompilerEndIf
-  
-  Procedure WordWrap_()
-    Define.i CharW, TextWidth, MaxTextWidth, LastSpaceWidth
-    Define.i CharPos, LastPos, StartPos, LastPos, HyphenPos, LastSpace
-    Define.i p, CursorPos, CursorRow
-    Define.s Char$, Text$, TruncText$
-    Define Text.Text_Structure
-    
-    If EditEx()\WordWrap
-      
-      GetFlowText_(@Text, #False)
-
-      CursorPos = Text\CursorPos
-      
-      If FindMapElement(Font(), Str(EditEx()\FontID))
-      
-        MaxTextWidth = EditEx()\Text\Width
-        If MaxTextWidth = #False
-          MaxTextWidth = TextAreaWidth_()
-        EndIf
-        
-        ClearList(EditEx()\Items())
-        
-        For p=0 To MapSize(Text\Paragraph()) - 1 ; Process all text paragraphs
-          
-          If FindMapElement(Text\Paragraph(), Str(p))
-            
-            CharPos   = 1
-            LastSpace = 1
-            StartPos  = 1
-            LastPos   = Len(Text\Paragraph())
-            
-            TextWidth      = EditEx()\Size\Y
-            LastSpaceWidth = TextWidth
-
-            Repeat                               ; Get line breaks in this paragraph
-              
-              Char$ = Mid(Text\Paragraph(), CharPos, 1)
-              CharW = Font()\Char(Char$)
-              
-              Select Char$
-                Case #LineBreak$  ;{ Line break
-                  
-                  If AddElement(EditEx()\Items())
-                    
-                    Text$ = Mid(Text\Paragraph(), StartPos, CharPos - StartPos + 1)
-
-                    HyphenPos = FindString(Text$, #Hyphen$) ;{ Remove hyphen and adjust cursor position
-                    If HyphenPos <> 0
-                      Text$ = RemoveString(Text$, #Hyphen$)
-                      If p = Text\CursorRow And HyphenPos + CharPos < Text\CursorPos : CursorPos - 1 : EndIf
-                    EndIf ;}
-                    
-                    EditEx()\Items()\String = Text$
-                    
-                    If p < Text\CursorRow ;{ Adjust cursor position
-                      CursorRow + 1
-                    ElseIf p = Text\CursorRow And StartPos <=  Text\CursorPos + 1
-                      CursorPos = Text\CursorPos - StartPos + 1
-                    EndIf ;}
-                    
-                    StartPos = CharPos + 1
-                    Break
-                    
-                  EndIf 
-                  
-                  Continue ;}
-                Case #SoftHyphen$ ;{ Last soft hyphen (­) before line break
-                  If TextWidth + Font()\Char(#Hyphen$) < MaxTextWidth
-                    LastSpace = CharPos
-                    LastSpaceWidth = TextWidth
-                  EndIf ;}
-                Case " "          ;{ Last space before line break
-                  If TextWidth < MaxTextWidth
-                    LastSpace      = CharPos
-                    LastSpaceWidth = TextWidth
-                  EndIf ;}
-              EndSelect
-              
-              If TextWidth + CharW > MaxTextWidth ;{ Line break necessary
-
-                If AddElement(EditEx()\Items())
-
-                  Text$ = Mid(Text\Paragraph(), StartPos, LastSpace - StartPos)
-                  
-                  HyphenPos = FindString(Text$, #Hyphen$) ;{ Remove hyphen and adjust cursor position
-                  If HyphenPos <> 0
-                    Text$ = RemoveString(Text$, #Hyphen$)
-                    If p = Text\CursorRow And HyphenPos + LastSpace < Text\CursorPos : CursorPos - 1 : EndIf
-                  EndIf ;}
-                  
-                  EditEx()\Items()\String = Text$
-                  
-                  If Mid(Text\Paragraph(), LastSpace, 1) = #SoftHyphen$
-                    EditEx()\Items()\String + #Hyphen$
-                  EndIf
-                  
-                  If p < Text\CursorRow ;{ Adjust cursor position
-                    CursorRow + 1
-                  ElseIf p = Text\CursorRow
-                    ;Debug " ( "+Str(StartPos)+" / "+Str(LastSpace)+" / "+Str(Text\CursorPos)+" )"
-                    If StartPos <= Text\CursorPos + 1
-                      CursorPos = Text\CursorPos - StartPos + 1
-                    EndIf
-                    If LastSpace < Text\CursorPos + 1 : CursorRow + 1 : EndIf
-                  EndIf ;}
-                  
-                  StartPos = LastSpace + 1
-                  
-                EndIf
-            
-                ; Reset for the next line
-                LastSpace      = StartPos
-                CharW          = 0
-                TextWidth      = EditEx()\Size\Y
-                LastSpaceWidth = TextWidth
-              
-              EndIf ;}  
-
-              CharPos   + 1
-              TextWidth + CharW
-              
-            Until CharPos > LastPos
-            
-            If StartPos < CharPos ;{ Remaining text
-              If AddElement(EditEx()\Items())
-                Text$ = Mid(Text\Paragraph(), StartPos, CharPos - StartPos)
-             
-                HyphenPos = FindString(Text$, #Hyphen$) ;{ Remove hyphen and adjust cursor position
-                If HyphenPos <> 0
-                  Text$ = RemoveString(Text$, #Hyphen$)
-                  If p = Text\CursorRow And HyphenPos + CharPos < Text\CursorPos : CursorPos - 1 : EndIf
-                EndIf ;}
-                
-                EditEx()\Items()\String = Text$
-                ;Debug "3: "+Text$
-                If Mid(Text\Paragraph(), CharPos, 1) = #SoftHyphen$
-                  EditEx()\Items()\String + #Hyphen$
-                EndIf
-                
-                If p < Text\CursorRow ;{ Adjust cursor position
-                  CursorRow + 1
-                ElseIf p = Text\CursorRow
-                  If StartPos <= Text\CursorPos + 1
-                    CursorPos = Text\CursorPos - StartPos + 1
-                  EndIf
-                  If CharPos < Text\CursorPos + 1 : CursorRow + 1 : EndIf
-                EndIf ;}
-
-              EndIf ;}
-            EndIf
-            
-          EndIf
-          
-        Next
-
-        If SelectElement(EditEx()\Items(), CursorRow)
-          EditEx()\Cursor\Pos = CursorPos
-        EndIf 
-        
-      EndIf
-      
-    EndIf
-    
-  EndProcedure
   
   ;----------------------------------------------------------------------------- 
   ;-   Undo / Redo
@@ -2614,60 +1694,46 @@ Module EditEx
   CompilerIf #Enable_UndoRedo
     
     Procedure.s GetCRC32(Text.s) 
-      Text = ReplaceString(Text, #LF$, " ")
       ProcedureReturn StringFingerprint(Text, #PB_Cipher_CRC32)
     EndProcedure
     
     Procedure   AddRedo_()
-      Define.s Text$
       
-      If EditEx()\UndoRedo
-        
-        Text$ = GetText_()
-        
-        EditEx()\Undo\Redo\CursorPos = EditEx()\Cursor\Pos
-        EditEx()\Undo\Redo\CursorRow = CursorRow_()
-        EditEx()\Undo\Redo\Text      = Text$
-        
-      EndIf
+      EditEx()\Undo\Redo\CursorPos = EditEx()\Cursor\Pos
+      EditEx()\Undo\Redo\Text      = EditEx()\Text$
       
     EndProcedure
     
     Procedure.s GetLastRedo_()
       
-      If EditEx()\UndoRedo
-        
+      If EditEx()\Undo\Redo\Text
         EditEx()\Undo\CursorPos = EditEx()\Undo\Redo\CursorPos
-        EditEx()\Undo\CursorRow = EditEx()\Undo\Redo\CursorRow
-
         ProcedureReturn EditEx()\Undo\Redo\Text
       EndIf
       
+      EditEx()\Undo\CursorPos = EditEx()\Cursor\Pos
+      
+      ProcedureReturn EditEx()\Text$
     EndProcedure
     
     Procedure   ClearRedo_()
       
       EditEx()\Undo\Redo\CursorPos = 0
-      EditEx()\Undo\Redo\CursorRow = 0
       EditEx()\Undo\Redo\Text      = ""
       
     EndProcedure
     
     Procedure   ChangeUndoCursor_()
       
-      If EditEx()\UndoRedo
+      If LastElement(EditEx()\Undo\Item())
         
-        If LastElement(EditEx()\Undo\Item())
-          
-          If LastElement(EditEx()\Undo\Item()\DiffText())
-            EditEx()\Undo\Item()\DiffText()\CursorPos = EditEx()\Cursor\Pos
-            EditEx()\Undo\Item()\DiffText()\CursorRow = CursorRow_()
-          Else
-            EditEx()\Undo\Item()\CursorPos = EditEx()\Cursor\Pos
-            EditEx()\Undo\Item()\CursorRow = CursorRow_()
-          EndIf
-          
+        If LastElement(EditEx()\Undo\Item()\DiffText())
+          EditEx()\Undo\Item()\DiffText()\CursorPos = EditEx()\Cursor\Pos
+        Else
+          EditEx()\Undo\Item()\CursorPos = EditEx()\Cursor\Pos
         EndIf
+        
+        EditEx()\Cursor\BackChar = Mid(EditEx()\Text$, EditEx()\Cursor\Pos, 1)
         
       EndIf 
 
@@ -2675,155 +1741,130 @@ Module EditEx
     
     Procedure   AddUndo_()
       Define.i Lenght_1, Lenght_2
-      Define.s Text$, SplitText$, Diff$, CRC32_1$, CRC32_2$
+      Define.s Diff$, CRC32_1$, CRC32_2$
       
-      If EditEx()\UndoRedo
+      ;{ MaxSteps
+      
+      If EditEx()\Undo\MaxSteps And ListSize(EditEx()\Undo\Item()) >= EditEx()\Undo\MaxSteps
+        If FirstElement(EditEx()\Undo\Item())
+          DeleteElement(EditEx()\Undo\Item())
+        EndIf
+      EndIf ;}
+      
+      If LastElement(EditEx()\Undo\Item())
         
-        ;{ MaxSteps
-        
-        If EditEx()\Undo\MaxSteps And ListSize(EditEx()\Undo\Item()) >= EditEx()\Undo\MaxSteps
-          If FirstElement(EditEx()\Undo\Item())
-            DeleteElement(EditEx()\Undo\Item())
-          EndIf
-        EndIf ;}
-        
-        SplitText$ = GetText_(#True)
-        Text$      = RemoveString(SplitText$, Chr(30))
-        
-        If LastElement(EditEx()\Undo\Item())
-          ;{ Compare with last entry
-          If Trim(Text$)
-            
-            If LastElement(EditEx()\Undo\Item()\DiffText())
-              Lenght_1 = EditEx()\Undo\Item()\DiffText()\Length
-              CRC32_1$ = EditEx()\Undo\Item()\DiffText()\CRC32
-            Else
-              Lenght_1 = EditEx()\Undo\Item()\Length_1
-              CRC32_1$ = EditEx()\Undo\Item()\CRC32_1
-            EndIf
-            
-            Lenght_2 = EditEx()\Undo\Item()\Length_2
-            CRC32_2$ = EditEx()\Undo\Item()\CRC32_2
-            
-            If CRC32_1$ = GetCRC32(Left(Text$, Lenght_1)) And CRC32_2$ = GetCRC32(Right(Text$, Lenght_2))
-              ;{ Remember differential text
-              Diff$ = Mid(Text$, Lenght_1 + 1, Len(Text$) - Lenght_1 - Lenght_2)
-              If Diff$
-                If AddElement(EditEx()\Undo\Item()\DiffText())
-                  EditEx()\Undo\Item()\DiffText()\CursorPos = EditEx()\Cursor\Pos
-                  EditEx()\Undo\Item()\DiffText()\CursorRow = CursorRow_()
-                  EditEx()\Undo\Item()\DiffText()\Text      = Diff$
-                  EditEx()\Undo\Item()\DiffText()\Length    = Lenght_1 + Len(Diff$)
-                  EditEx()\Undo\Item()\DiffText()\CRC32     = GetCRC32(Left(Text$, EditEx()\Undo\Item()\DiffText()\Length))
-                EndIf 
-              EndIf ;}
-            Else
-              ;{ Remember full text
-              If AddElement(EditEx()\Undo\Item())
-                EditEx()\Undo\Item()\CursorPos = EditEx()\Cursor\Pos
-                EditEx()\Undo\Item()\CursorRow = CursorRow_()
-                EditEx()\Undo\Item()\Text_1    = StringField(SplitText$, 1, Chr(30))
-                EditEx()\Undo\Item()\Length_1  = Len(EditEx()\Undo\Item()\Text_1)
-                EditEx()\Undo\Item()\CRC32_1   = GetCRC32(EditEx()\Undo\Item()\Text_1)
-                EditEx()\Undo\Item()\Text_2    = StringField(SplitText$, 2, Chr(30))
-                EditEx()\Undo\Item()\Length_2  = Len(EditEx()\Undo\Item()\Text_2)
-                EditEx()\Undo\Item()\CRC32_2   = GetCRC32(EditEx()\Undo\Item()\Text_2)
-              EndIf ;}
-            EndIf
-            
-          EndIf
-          ;}
+        ;{ Compare with last entry    
+        If LastElement(EditEx()\Undo\Item()\DiffText())
+          Lenght_1 = EditEx()\Undo\Item()\DiffText()\Length
+          CRC32_1$ = EditEx()\Undo\Item()\DiffText()\CRC32
         Else
-          ;{ First entry
-          If Trim(Text$)
-            If AddElement(EditEx()\Undo\Item())
-              EditEx()\Undo\Item()\CursorPos = EditEx()\Cursor\Pos
-              EditEx()\Undo\Item()\CursorRow = CursorRow_()
-              EditEx()\Undo\Item()\Text_1    = StringField(SplitText$, 1, Chr(30))
-              EditEx()\Undo\Item()\Length_1  = Len(EditEx()\Undo\Item()\Text_1)
-              EditEx()\Undo\Item()\CRC32_1   = GetCRC32(EditEx()\Undo\Item()\Text_1)
-              EditEx()\Undo\Item()\Text_2    = StringField(SplitText$, 2, Chr(30))
-              EditEx()\Undo\Item()\Length_2  = Len(EditEx()\Undo\Item()\Text_2)
-              EditEx()\Undo\Item()\CRC32_2   = GetCRC32(EditEx()\Undo\Item()\Text_2)
-            EndIf
-          EndIf
-          ;}
+          Lenght_1 = EditEx()\Undo\Item()\Length_1
+          CRC32_1$ = EditEx()\Undo\Item()\CRC32_1
         EndIf
         
+        Lenght_2 = EditEx()\Undo\Item()\Length_2
+        CRC32_2$ = EditEx()\Undo\Item()\CRC32_2
+        
+        If CRC32_1$ = GetCRC32(Left(EditEx()\Text$, Lenght_1)) And CRC32_2$ = GetCRC32(Right(EditEx()\Text$, Lenght_2))
+          
+          ;{ Remember differential text
+          Diff$ = Mid(EditEx()\Text$, Lenght_1 + 1, EditEx()\Text\Len - Lenght_1 - Lenght_2)
+          If Diff$
+            
+            If AddElement(EditEx()\Undo\Item()\DiffText())
+              EditEx()\Undo\Item()\DiffText()\CursorPos = EditEx()\Cursor\Pos
+              EditEx()\Undo\Item()\DiffText()\Text      = Diff$
+              EditEx()\Undo\Item()\DiffText()\Length    = Lenght_1 + Len(Diff$)
+              EditEx()\Undo\Item()\DiffText()\CRC32     = GetCRC32(Left(EditEx()\Text$, EditEx()\Undo\Item()\DiffText()\Length))
+            EndIf 
+            
+          EndIf ;}
+          
+        Else
+          
+          If AddElement(EditEx()\Undo\Item()) ;{ Remember full text
+            EditEx()\Undo\Item()\CursorPos = EditEx()\Cursor\Pos
+            EditEx()\Undo\Item()\Text_1    = Left(EditEx()\Text$, EditEx()\Cursor\Pos - 1)
+            EditEx()\Undo\Item()\Length_1  = Len(EditEx()\Undo\Item()\Text_1)
+            EditEx()\Undo\Item()\CRC32_1   = GetCRC32(EditEx()\Undo\Item()\Text_1)
+            EditEx()\Undo\Item()\Text_2    = Mid(EditEx()\Text$, EditEx()\Cursor\Pos)
+            EditEx()\Undo\Item()\Length_2  = Len(EditEx()\Undo\Item()\Text_2)
+            EditEx()\Undo\Item()\CRC32_2   = GetCRC32(EditEx()\Undo\Item()\Text_2)
+          EndIf ;}
+          
+        EndIf ;}
+        
+      Else
+      
+        If AddElement(EditEx()\Undo\Item()) ;{ First entry
+          EditEx()\Undo\Item()\CursorPos = EditEx()\Cursor\Pos
+          EditEx()\Undo\Item()\Text_1    = Left(EditEx()\Text$, EditEx()\Cursor\Pos - 1)
+          EditEx()\Undo\Item()\Length_1  = Len(EditEx()\Undo\Item()\Text_1)
+          EditEx()\Undo\Item()\CRC32_1   = GetCRC32(EditEx()\Undo\Item()\Text_1)
+          EditEx()\Undo\Item()\Text_2    = Mid(EditEx()\Text$, EditEx()\Cursor\Pos)
+          EditEx()\Undo\Item()\Length_2  = Len(EditEx()\Undo\Item()\Text_2)
+          EditEx()\Undo\Item()\CRC32_2   = GetCRC32(EditEx()\Undo\Item()\Text_2)
+        EndIf ;}
+      
       EndIf
+
       
     EndProcedure
     
     Procedure.s GetLastUndo_(Redo.i=#False)
-      Define.i ListIdx
       Define.s Text1$, Text2$, LastDiff$
-      
-      If EditEx()\UndoRedo
-       
-        AddRedo_()
-        
-        If LastElement(EditEx()\Undo\Item())
-          
-          Text1$ = EditEx()\Undo\Item()\Text_1
-          Text2$ = EditEx()\Undo\Item()\Text_2
-          
-          If LastElement(EditEx()\Undo\Item()\DiffText()) ; Differential text
-            
-            EditEx()\Undo\CursorPos = EditEx()\Undo\Item()\DiffText()\CursorPos
-            EditEx()\Undo\CursorRow = EditEx()\Undo\Item()\DiffText()\CursorRow
-            
-            LastDiff$ = EditEx()\Undo\Item()\DiffText()\Text
-            DeleteElement(EditEx()\Undo\Item()\DiffText())
-            
-            If FirstElement(EditEx()\Undo\Item()\DiffText())
-              Repeat
-                Text1$ + EditEx()\Undo\Item()\DiffText()\Text
-              Until NextElement(EditEx()\Undo\Item()\DiffText()) = #False
-            EndIf
-            
-            ProcedureReturn Text1$ + LastDiff$ + Text2$
-          Else ; Complete text
-            
-            EditEx()\Undo\CursorPos = EditEx()\Undo\Item()\CursorPos
-            EditEx()\Undo\CursorRow = EditEx()\Undo\Item()\CursorRow
-            
-            If ListSize(EditEx()\Undo\Item()) > 1 : DeleteElement(EditEx()\Undo\Item()) : EndIf
-            
-            ProcedureReturn Text1$ + Text2$
-          EndIf  
 
-        EndIf
+      AddRedo_()
+      
+      If LastElement(EditEx()\Undo\Item())
         
+        Text1$ = EditEx()\Undo\Item()\Text_1
+        Text2$ = EditEx()\Undo\Item()\Text_2
+        
+        If LastElement(EditEx()\Undo\Item()\DiffText()) ; Differential text
+          
+          EditEx()\Undo\CursorPos = EditEx()\Undo\Item()\DiffText()\CursorPos
+          
+          LastDiff$ = EditEx()\Undo\Item()\DiffText()\Text
+          
+          DeleteElement(EditEx()\Undo\Item()\DiffText())
+          
+          If FirstElement(EditEx()\Undo\Item()\DiffText())
+            
+            Repeat
+              Text1$ + EditEx()\Undo\Item()\DiffText()\Text
+            Until NextElement(EditEx()\Undo\Item()\DiffText()) = #False
+            
+          EndIf
+          
+          ProcedureReturn Text1$ + LastDiff$ + Text2$
+        Else ; Complete text
+          
+          EditEx()\Undo\CursorPos = EditEx()\Undo\Item()\CursorPos
+          
+          If ListSize(EditEx()\Undo\Item()) > 1 : DeleteElement(EditEx()\Undo\Item()) : EndIf
+          
+          ProcedureReturn Text1$ + Text2$
+        EndIf  
+
       EndIf
       
+      EditEx()\Undo\CursorPos = EditEx()\Cursor\Pos
+      
+      ProcedureReturn EditEx()\Text$
     EndProcedure
     
     Procedure   Undo_()
-      Define r.i, Text$
+      Define.s Text$
     
       Text$ = GetLastUndo_()
-      
-      If Trim(Text$)
-        
-        If Trim(GetText_()) = Trim(Text$)
-          Text$ = GetLastUndo_()
-          If Trim(Text$) = "" : ProcedureReturn #False : EndIf
-        EndIf 
-        
-        ClearList(EditEx()\Items())
-        
-        For r=0 To CountString(Text$, #LineBreak$)
-        
-          If AddElement(EditEx()\Items())
-            EditEx()\Items()\String = StringField(Text$, r+1, #LineBreak$) + #LineBreak$
-          EndIf
-          
-        Next
-        
-        If SelectElement(EditEx()\Items(), EditEx()\Undo\CursorRow)
-          EditEx()\Cursor\Pos = EditEx()\Undo\CursorPos
-        EndIf
-        
+
+      If Trim(Text$) = Trim(EditEx()\Text$)
+        EditEx()\Text$      = GetLastUndo_()
+        EditEx()\Cursor\Pos = EditEx()\Undo\CursorPos
+      Else  
+        EditEx()\Text$      = Text$
+        EditEx()\Cursor\Pos = EditEx()\Undo\CursorPos
       EndIf
       
     EndProcedure
@@ -2842,428 +1883,458 @@ Module EditEx
     ProcedureReturn RGB((R1*Blend) + (R2 * (1-Blend)), (G1*Blend) + (G2 * (1-Blend)), (B1*Blend) + (B2 * (1-Blend)))
   EndProcedure
   
-  Procedure Draw_(GNum.i)
-    Define.f X, Y, TextWidth, MaxTextWidth, MaxRowWidth
-    Define.i StartX, EndX, StartY, EndY, RowY, StartRow, EndRow, CursorRow, a, r
-    Define.i sRow1, sRow2
-    Define.s FontID, Text$, Word$
+  
+  Procedure   CurserXY_()
     
-    If FindMapElement(EditEx(), Str(GNum))
+    If EditEx()\Cursor\Pos >= EditEx()\Row()\Pos And EditEx()\Cursor\Pos <= EditEx()\Row()\Pos + EditEx()\Row()\Len
+      EditEx()\Cursor\X   = EditEx()\Row()\X + TextWidth(StringSegment(EditEx()\Text$, EditEx()\Row()\Pos, EditEx()\Cursor\Pos))
+      EditEx()\Cursor\Y   = EditEx()\Row()\Y
+      EditEx()\Cursor\Row = ListIndex(EditEx()\Row())
+    EndIf
+    
+  EndProcedure 
+
+  Procedure.i AddRow_(Pos.i, X.i, Y.i) 
+
+    If AddElement(EditEx()\Row())
+      EditEx()\Row()\Pos = Pos
+      EditEx()\Row()\X   = X
+      EditEx()\Row()\Y   = Y
+      ProcedureReturn #True
+    EndIf
+  
+    ProcedureReturn #False    
+  EndProcedure
+  
+  CompilerIf #Enable_SyntaxHighlight
+    
+    Procedure   DrawSyntaxHighlight_(Word$, Pos, X, Y)
+      Define.i wPos, Result, DiffW
+      Define.s sWord$
       
-      If StartDrawing(CanvasOutput(EditEx()\CanvasNum)) 
+      sWord$ = GetWord_(Word$)
+      If EditEx()\SyntaxHighlight = #NoCase : sWord$ = LCase(sWord$) :  EndIf
+
+      If FindMapElement(EditEx()\Syntax(), sWord$)
+
+        DrawingMode(#PB_2DDrawing_Default)
         
-        If EditEx()\FontID ;{ Drawing Font
+        If EditEx()\Syntax() = #False : EditEx()\Syntax() = EditEx()\Color\SyntaxHighlight : EndIf
         
-          DrawingFont(EditEx()\FontID)
+        wPos = FindString(Word$, sWord$)
+        If wPos > 1 : X + TextWidth(Left(Word$, wPos - 1)) : EndIf
         
-          If FindMapElement(Font(), Str(EditEx()\FontID)) = #False
-            ;{ --- Pixel width of the characters ---
-            If AddMapElement(Font(), Str(EditEx()\FontID))
-              Font()\Height = TextHeight("Abc")
-              For a = 32 To 255
-                Font()\Char(Chr(a)) = TextWidth(Chr(a))
-              Next
-              Font()\Char(#Hyphen$)    = TextWidth(#Hyphen$)
-              Font()\Char(#NbSp$)      = TextWidth(#NbSp$)
-              Font()\Char(#BlockChar$) = TextWidth(#BlockChar$)
-            EndIf
-            ;} -------------------------
-          EndIf
+        DrawText(X, Y, RTrim(sWord$, #LF$), EditEx()\Syntax(), EditEx()\Color\Back)
         
-          If EditEx()\Visible\CtrlChars = #True ;{ Control Characters
-            Font()\Char(#CR$) = TextWidth(#CR$)
-            Font()\Char(#LF$) = TextWidth(#LF$)
-            Font()\Char(#LineBreak$)  = TextWidth(#LineBreak$)
-            Font()\Char(#SoftHyphen$) = TextWidth(#SoftHyphen$)
-          Else
-            Font()\Char(#CR$) = 0
-            Font()\Char(#LF$) = 0
-            Font()\Char(#LineBreak$)  = 0
-            Font()\Char(#SoftHyphen$) = 0
-            ;}
-          EndIf
-          
-          EditEx()\Text\Space  = Font()\Char(" ")
-          ;} 
+        DrawingMode(#PB_2DDrawing_Transparent)
+        
+        If EditEx()\Cursor\Pos >= Pos + wPos - 1 And EditEx()\Cursor\Pos < Pos + wPos + Len(sWord$)
+          EditEx()\Cursor\FrontColor = EditEx()\Syntax()
+          EditEx()\Cursor\BackColor  = EditEx()\Color\Back
         EndIf
         
-        EditEx()\Text\Height = TextHeight("Abc")
+      EndIf
+      
+      If EditEx()\Flags & #CtrlChars
         
-        EditEx()\Cursor\FrontColor = EditEx()\Color\Front
-        EditEx()\Cursor\BackColor  = EditEx()\Color\Back
-        EditEx()\Cursor\BackChar   = ""
-        
-        ;{ --- Draw Background ---
         DrawingMode(#PB_2DDrawing_Default)
-        Box(0, 0, dpiX(GadgetWidth(EditEx()\CanvasNum)), dpiY(GadgetHeight(EditEx()\CanvasNum)), EditEx()\Color\Back)  
-        ;} ------------------
+
+        wPos = FindString(Word$, " ")
+        If wPos
+          If FindMapElement(EditEx()\Syntax(), #Space$)  
+            DiffW = (TextWidth(" ") - TextWidth(#Space$)) / 2
+            DrawText(X + TextWidth(Left(Word$, wPos - 1)) + DiffW, Y, #Space$, EditEx()\Syntax(), EditEx()\Color\Back)
+          EndIf
+        EndIf
+
+        wPos = FindString(Word$, #Paragraph$)
+        If wPos
+          If FindMapElement(EditEx()\Syntax(), #Paragraph$)  
+            DrawText(X + TextWidth(Left(Word$, wPos - 1)), Y, #Paragraph$, EditEx()\Syntax(), EditEx()\Color\Back)
+          EndIf
+        EndIf
         
-        If ListSize(EditEx()\Items()) > 0
-
-          ; --- Hyphenation / WordWrap ---
-          CompilerIf #Enable_Hyphenation
-            
-            If EditEx()\Hyphenation
-              Hyphenation_()
-            ElseIf EditEx()\WordWrap
-              WordWrap_()
-            Else
-              If EditEx()\AutoSpellCheck And EditEx()\SpellCheck
-                UpdateWordList_()
-              EndIf
-            EndIf
-            
-          CompilerElse
-            
-            If EditEx()\WordWrap
-              WordWrap_()
-            Else
-              If EditEx()\AutoSpellCheck And EditEx()\SpellCheck
-                UpdateWordList_()
-              EndIf
-            EndIf
-            
-          CompilerEndIf
-          
-          ; --- AutoSpellCheck -----
-          CompilerIf #Enable_SpellChecking
-            
-            If EditEx()\AutoSpellCheck And EditEx()\SpellCheck
-              SpellChecking_(#True)
-              EditEx()\SpellCheck = #False
-            EndIf
-            
-          CompilerEndIf
-          
-          X = EditEx()\Size\X - EditEx()\Visible\PosOffset
-          Y = EditEx()\Size\Y
-          
-          CursorRow = CursorRow_()
-          
-          PushListPosition(EditEx()\Items())
-          
-          ;{ ===== Draw Text =====
-          MaxRowWidth = 0
-          
-          DrawingMode(#PB_2DDrawing_Transparent)
-
-          StartRow = EditEx()\Visible\RowOffset
-          EndRow   = GetPageRows_() + EditEx()\Visible\RowOffset
-
-          If SelectElement(EditEx()\Items(), StartRow)
-
-            Repeat
-              
-              Text$ = EditEx()\Items()\String
-              
-              If ListIndex(EditEx()\Items()) = EditEx()\Cursor\Row
-                If EditEx()\Cursor\Pos < Len(RTrim(Text$, #LineBreak$))
-                  EditEx()\Cursor\BackChar = Mid(Text$, EditEx()\Cursor\Pos + 1, 1)
-                Else
-                  EditEx()\Cursor\BackChar = " "
-                EndIf
-              EndIf  
-                
-                If EditEx()\Visible\CtrlChars
-                  Text$ = ReplaceString(Text$, #LineBreak$, #Paragraph$)
-                Else
-                  Text$ = RemoveString(Text$, #SoftHyphen$)
-                EndIf
-                
-                DrawText(X, Y, RTrim(Text$, #LineBreak$), EditEx()\Color\Front)
-                
-                EditEx()\Items()\Y      = Y
-                
-              Y + EditEx()\Text\Height
-
-              TextWidth = TextWidth(Text$)
-              If TextWidth > MaxRowWidth ;{ Find maximum text width
-                MaxRowWidth = TextWidth
-                ;} 
-              EndIf
-              
-              If ListIndex(EditEx()\Items()) > EndRow : Break : EndIf
-              
-            Until NextElement(EditEx()\Items()) = 0
-
+        wPos = FindString(Word$, #SoftHyphen$)
+        If wPos
+          If FindMapElement(EditEx()\Syntax(), #SoftHyphen$)
+          ;Line(X + TextWidth(Left(Word$, wPos - 1)), Y, dpiX(1), EditEx()\Text\Height, EditEx()\Syntax())
+          DrawText(X + TextWidth(Left(Word$, wPos - 1)), Y, #SoftHyphen$, EditEx()\Syntax(), EditEx()\Color\Back)
           EndIf
-          ;}
-          
-          ;DrawingMode(#PB_2DDrawing_Outlined)
-          ;Box(EditEx()\Size\X, EditEx()\Size\Y, EditEx()\Size\Width, EditEx()\Size\Height, #Blue)
-          
-          ; --- Syntax Highlightning ---
-          CompilerIf #Enable_SyntaxHighlight
-            
-            If EditEx()\SyntaxHighlight
-              
-              GetWordXY_() 
-              
-              DrawingMode(#PB_2DDrawing_Default)
-              
-              ForEach EditEx()\Syntax()
-                
-                Word$ = MapKey(EditEx()\Syntax())
-                
-                If EditEx()\SyntaxHighlight = #NoCase : Word$ = LCase(Word$) :  EndIf
-                If EditEx()\Syntax() = #False : EditEx()\Syntax() = EditEx()\Color\SyntaxHighlight : EndIf
-                
-                If FindMapElement(EditEx()\WordXY(), Word$)
-                  ForEach EditEx()\WordXY()\Item()
-                    If EditEx()\WordXY()\Item()\Row >= StartRow And EditEx()\WordXY()\Item()\Row <= EndRow
-                      RowY = GetY_(EditEx()\WordXY()\Item()\Row - EditEx()\Visible\RowOffset)
-                      DrawText(EditEx()\WordXY()\Item()\X + X, RowY, EditEx()\WordXY()\Item()\String, EditEx()\Syntax(), EditEx()\Color\Back)
-                      If EditEx()\WordXY()\Item()\Row = EditEx()\Cursor\Row
-                        If EditEx()\Cursor\Pos >= EditEx()\WordXY()\Item()\Pos - 1 And EditEx()\Cursor\Pos <= EditEx()\WordXY()\Item()\Pos + Len(EditEx()\WordXY()\Item()\String) - 2
-                          EditEx()\Cursor\FrontColor = EditEx()\Syntax()
-                          EditEx()\Cursor\BackColor  = EditEx()\Color\Back
-                        EndIf
-                      EndIf
-                    EndIf
-                  Next
-                EndIf
-                
-              Next
-              
-              If EditEx()\Visible\CtrlChars ;{ Control character
-                If FindMapElement(EditEx()\WordXY(), #Paragraph$)
-                  ForEach EditEx()\WordXY()\Item()
-                    If EditEx()\WordXY()\Item()\Row >= StartRow And EditEx()\WordXY()\Item()\Row <= EndRow
-                      RowY = GetY_(EditEx()\WordXY()\Item()\Row - EditEx()\Visible\RowOffset)
-                      DrawText(EditEx()\WordXY()\Item()\X + X, RowY, EditEx()\WordXY()\Item()\String, EditEx()\Color\Front, EditEx()\Color\Back)
-                    EndIf
-                  Next
-                EndIf ;}
-              EndIf
-              
-            EndIf
-            
-          CompilerEndIf
-          
-          If IsSelectedChar(EditEx()\Cursor\Row, EditEx()\Cursor\Pos)
-            EditEx()\Cursor\FrontColor = EditEx()\Color\HighlightText
-            EditEx()\Cursor\BackColor  = EditEx()\Color\Highlight
-          EndIf
-          
-          ;{ --- Draw Selection ---
-          If EditEx()\Selection\Flag = #Selected
-            DrawingMode(#PB_2DDrawing_Default)
-            
-            If EditEx()\Selection\Row1 = EditEx()\Selection\Row2 ;{ Single Row
+        EndIf
 
-              If SelectElement(EditEx()\Items(), EditEx()\Selection\Row1)
-                
-                Text$  = EditEx()\Items()\String
-                StartY = CursorY_(EditEx()\Selection\Row1)
-                
-                If EditEx()\Selection\Pos1 > EditEx()\Selection\Pos2
-                  StartX = CursorX_(EditEx()\Selection\Row1, EditEx()\Selection\Pos2)
-                  Text$  = StringSegment(Text$, EditEx()\Selection\Pos2, EditEx()\Selection\Pos1)
-                Else
-                  StartX = CursorX_(EditEx()\Selection\Row1, EditEx()\Selection\Pos1)
-                  Text$  = StringSegment(Text$, EditEx()\Selection\Pos1, EditEx()\Selection\Pos2)
-                EndIf
-                Text$  = ReplaceString(Text$, #LineBreak$, #NbSp$)
-                DrawText(StartX, StartY, Text$, EditEx()\Color\HighlightText, EditEx()\Color\Highlight)
-                
-              EndIf
-              ;}
-            Else                                                 ;{ Multiple rows
-              
-              If EditEx()\Selection\Row1 > EditEx()\Selection\Row2
-                sRow1 = EditEx()\Selection\Row2
-                sRow2 = EditEx()\Selection\Row1
-              Else
-                sRow1 = EditEx()\Selection\Row1
-                sRow2 = EditEx()\Selection\Row2
-              EndIf
-              
-              For r = sRow1 To sRow2
-                If SelectElement(EditEx()\Items(), r)
-                  Text$  = EditEx()\Items()\String
-                  StartY = CursorY_(r)
-                  Select r
-                    Case sRow1
-                      If EditEx()\Selection\Row1 > EditEx()\Selection\Row2
-                        StartX = CursorX_(sRow1, EditEx()\Selection\Pos2)
-                        Text$  = StringSegment(Text$, EditEx()\Selection\Pos2, #PB_Ignore)
-                      Else
-                        StartX = CursorX_(sRow1, EditEx()\Selection\Pos1)
-                        Text$  = StringSegment(Text$, EditEx()\Selection\Pos1, #PB_Ignore)
-                      EndIf
-                      Text$  = RTrim(Text$, #LineBreak$)
-                      DrawText(StartX, StartY, Text$, EditEx()\Color\HighlightText, EditEx()\Color\Highlight)
-                    Case sRow2
-                      If EditEx()\Selection\Row1 > EditEx()\Selection\Row2
-                        Text$ = StringSegment(Text$, 0, EditEx()\Selection\Pos1)
-                      Else
-                        Text$ = StringSegment(Text$, 0, EditEx()\Selection\Pos2)
-                      EndIf  
-                      Text$  = RTrim(Text$, #LineBreak$)
-                      DrawText(X, StartY, Text$, EditEx()\Color\HighlightText, EditEx()\Color\Highlight)
-                    Default
-                      Text$  = RTrim(Text$, #LineBreak$)
-                      DrawText(X, StartY, Text$, EditEx()\Color\HighlightText, EditEx()\Color\Highlight)
-                  EndSelect
-                EndIf
-              Next ;}
-            EndIf            
-            
-          EndIf
-          ;} ----------------------
-          
-          PopListPosition(EditEx()\Items())
-          
-          EditEx()\Text\Rows      = ListSize(EditEx()\Items())
-          EditEx()\Text\RowOffset = EditEx()\Visible\RowOffset
-          EditEx()\Text\PosOffset = EditEx()\Visible\PosOffset
-
-          ;{ --- Draw Cursor ---
-          EditEx()\Cursor\Y = CursorY_()
-          EditEx()\Cursor\X = CursorX_()
-          EditEx()\Cursor\Height = EditEx()\Text\Height
-          If EditEx()\Cursor\X < EditEx()\Size\X And EditEx()\Visible\PosOffset = 0 : EditEx()\Cursor\X = EditEx()\Size\X : EndIf
-
-          If EditEx()\Cursor\State
-            Line(EditEx()\Cursor\X, EditEx()\Cursor\Y, dpiX(1), EditEx()\Cursor\Height, EditEx()\Color\Cursor)
-          Else
-            DrawText(EditEx()\Cursor\X, EditEx()\Cursor\Y, EditEx()\Cursor\BackChar, EditEx()\Cursor\FrontColor, EditEx()\Cursor\BackColor)
-          EndIf
-          ;}
-          
-          ;{ --- Maximum text width ---
-          If MaxRowWidth <> EditEx()\Text\MaxRowWidth
-            EditEx()\Text\MaxRowWidth = MaxRowWidth
-          EndIf ;}
-          
-          ;{ --- Draw text-free borders ---
-          DrawingMode(#PB_2DDrawing_Default)
-          
-          If EditEx()\VScroll\Hide
-            Box(dpiX(GadgetWidth(EditEx()\CanvasNum) - 4), 0, dpiX(4), dpiY(GadgetHeight(EditEx()\CanvasNum)), EditEx()\Color\Back)
-          Else
-            Box(EditEx()\Size\Width + dpiX(6), 0, dpiX(2), dpiY(GadgetHeight(EditEx()\CanvasNum)), EditEx()\Color\Back)
-          EndIf
-          
-          If EditEx()\HScroll\Hide
-            Box(0, dpiX(GadgetHeight(EditEx()\CanvasNum) - 2), dpiY(GadgetWidth(EditEx()\CanvasNum)), dpiY(2), EditEx()\Color\Back)
-          Else
-            Box(0, EditEx()\Size\Height + dpiY(2), EditEx()\Size\Width + dpiX(6), dpiY(2), EditEx()\Color\Back)
-          EndIf
-          
-          Box(0, 0, dpiX(4), dpiY(GadgetHeight(EditEx()\CanvasNum)), EditEx()\Color\Back)
-          ;}
-         
-          ;{ --- Both ScrollBars ---
-          DrawingMode(#PB_2DDrawing_Default)
-          
-          If EditEx()\VScroll\Hide = #False
-            Box(dpiX(GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 1), dpiY(2), dpiX(#Scroll_Width), dpiY(GadgetHeight(EditEx()\CanvasNum) - 2), EditEx()\Color\ScrollBar)
-          EndIf
-       
-          If EditEx()\HScroll\Hide = #False
-            Box(dpiX(2), dpiY(GadgetHeight(EditEx()\CanvasNum) - #Scroll_Width - 1), dpiX(GadgetWidth(EditEx()\CanvasNum) - 2), dpiY(#Scroll_Width + 1), EditEx()\Color\ScrollBar)
-          EndIf
-          ;}
-
-        EndIf  
+        DrawingMode(#PB_2DDrawing_Transparent)
         
-        ;{ _____ Border ____
-        If EditEx()\Flags & #Borderless = #False
-          DrawingMode(#PB_2DDrawing_Outlined)
-          Box(1, 1, dpiX(GadgetWidth(EditEx()\CanvasNum)) - 2, dpiY(GadgetHeight(EditEx()\CanvasNum)) - 2, EditEx()\Color\Back)
-          Box(0, 0, dpiX(GadgetWidth(EditEx()\CanvasNum)), dpiY(GadgetHeight(EditEx()\CanvasNum)), EditEx()\Color\Border)
-        EndIf ;}
+      EndIf
+      
+    EndProcedure
+
+  CompilerEndIf
+  
+  Procedure   DrawSelection_(X, Pos.i, Len.i, Pos1.i, Pos2.i)
+    Define.i sPosX, sWidth
+    Define.s Text$
+
+    If Pos2 >= Pos And Pos1 <= Pos + Len
+
+      DrawingMode(#PB_2DDrawing_Default)
+      
+      If Pos1 <= Pos
         
-        AdjustScrolls_(#False)
+        sPosX = X
         
-        StopDrawing()
+        If Pos2 >= Pos + Len
+          Text$ = StringSegment(EditEx()\Text$, Pos, Pos + Len)
+        Else
+          Text$ = StringSegment(EditEx()\Text$, Pos, Pos2)
+        EndIf
+
+      Else
+        
+        sPosX = X + TextWidth(StringSegment(EditEx()\Text$, Pos, Pos1))
+        
+        If Pos2 >= Pos + Len
+          Text$ = StringSegment(EditEx()\Text$, Pos1, Pos + Len)
+        Else
+          Text$ = StringSegment(EditEx()\Text$, Pos1, Pos2)
+        EndIf
 
       EndIf
       
+      sWidth = TextWidth(Text$)
+      
+      DrawText(sPosX, EditEx()\Row()\Y, RTrim(Text$, #LF$), EditEx()\Color\HighlightText, EditEx()\Color\Highlight)
+      
+      DrawingMode(#PB_2DDrawing_Transparent)
+
+      If EditEx()\Cursor\Pos >= Pos1 And EditEx()\Cursor\Pos < Pos2
+        EditEx()\Cursor\FrontColor = EditEx()\Color\HighlightText
+        EditEx()\Cursor\BackColor  = EditEx()\Color\Highlight
+      EndIf
+      
+    EndIf 
+
+  EndProcedure  
+  
+  Procedure   Draw_() ; Draw Gadget
+    Define.i X, Y, Width, Height, PosX, PosY, WordLen, maxTextWidth
+    Define.i r, w, h, Rows, Words, Pos, wPos, Pos1, Pos2, sPosX, Hyphen
+    Define.s Row$, Word$, hWord$, WordOnly$, WordMask$, Part$
+    
+    ClearList(EditEx()\Row())
+    
+    If StartDrawing(CanvasOutput(EditEx()\CanvasNum)) 
+      
+      If EditEx()\FontID : DrawingFont(EditEx()\FontID) : EndIf
+
+      EditEx()\Text\Height = TextHeight("Abc")
+      
+      ;{ _____ Draw Background _____
+      DrawingMode(#PB_2DDrawing_Default)
+      Box(0, 0, dpiX(GadgetWidth(EditEx()\CanvasNum)), dpiY(GadgetHeight(EditEx()\CanvasNum)), EditEx()\Color\Back)  
+      ;}
+      
+      X = dpiX(EditEx()\Size\PaddingX) - dpiX(EditEx()\Visible\PosOffset)
+      Y = dpiY(EditEx()\Size\PaddingY) - (EditEx()\Visible\RowOffset * EditEx()\Text\Height)
+
+      If EditEx()\Text\Width
+        maxTextWidth = dpiX(EditEx()\Text\Width)
+      Else
+        maxTextWidth = dpiX(EditEx()\Visible\Width)
+      EndIf
+
+      If Not EditEx()\Cursor\Pos : EditEx()\Cursor\Pos = 1 : EndIf
+      
+      EditEx()\Text\Len = Len(EditEx()\Text$)
+      If EditEx()\Text\Len : Pos = 1 : EndIf
+      
+      EditEx()\Cursor\FrontColor = EditEx()\Color\Front
+      EditEx()\Cursor\BackColor  = EditEx()\Color\Back
+      
+      ;{ _____ Selection _____
+      If EditEx()\Selection\Pos1 > EditEx()\Selection\Pos2
+        Pos1 = EditEx()\Selection\Pos2
+        Pos2 = EditEx()\Selection\Pos1
+      Else
+        Pos1 = EditEx()\Selection\Pos1
+        Pos2 = EditEx()\Selection\Pos2
+      EndIf ;}
+    
+      ;{ _____ Draw Text _____
+      DrawingMode(#PB_2DDrawing_Transparent)
+      
+      Pos    = 1
+      PosY   = Y
+      
+      Rows = CountString(EditEx()\Text$, #LF$) + 1 
+      For r=1 To Rows
+
+        PosX = X
+        
+        Row$ = StringField(EditEx()\Text$, r, #LF$)
+        If r <> Rows : Row$ + #LF$ : EndIf
+        
+        If EditEx()\Flags & #CtrlChars : Row$ = ReplaceString(Row$, #LF$, #Paragraph$) : EndIf  
+        
+        If EditEx()\Flags & #WordWrap Or EditEx()\Flags & #Hyphenation ;{ WordWrap / Hyphenation
+          
+          AddRow_(Pos, PosX, PosY) 
+          
+          Words = CountString(Row$, " ") + 1
+          For w=1 To Words
+            
+            Word$ = StringField(Row$, w, " ")
+            If w <> Words : Word$ + " " : EndIf
+
+            If PosX + TextWidth(RTrim(Word$)) > maxTextWidth
+              
+              CompilerIf #Enable_Hyphenation
+                
+                If EditEx()\Flags & #Hyphenation
+                  
+                  WordOnly$ = GetWord_(Word$)
+                  
+                  If WordOnly$ <> Word$
+                    WordMask$ = ReplaceString(Word$, WordOnly$, "$")
+                  Else
+                    WordMask$ = ""
+                  EndIf
+                  
+                  hWord$ = HyphenateWord(WordOnly$)
+                  Hyphen = CountString(hWord$, #SoftHyphen$)
+                  
+                  If Hyphen
+                    
+                    Part$ = ""
+                    
+                    If WordMask$ : hWord$ = ReplaceString(WordMask$, "$", hWord$) : EndIf
+                  
+                    For h=1 To Hyphen + 1
+                      If PosX + TextWidth(RTrim(Part$ + StringField(hWord$, h, #SoftHyphen$))) > maxTextWidth
+                        Break
+                      Else
+                        Part$ + StringField(hWord$, h, #SoftHyphen$)
+                      EndIf  
+                    Next
+                    
+                    If Part$
+                      
+                      hWord$ = RemoveString(hWord$, #SoftHyphen$)
+                      
+                      DrawText(PosX, PosY, RTrim(Part$ + "-", #LF$), EditEx()\Color\Front)
+                      
+                      Word$ = Mid(hWord$, Len(Part$) + 1)
+                      
+                      If EditEx()\Flags & #SyntaxHighlight : DrawSyntaxHighlight_(Part$ + "-", Pos, PosX, PosY) : EndIf
+                      
+                      WordLen = Len(Part$)
+                      
+                      If EditEx()\Selection\Flag = #Selected : DrawSelection_(PosX, Pos, WordLen, Pos1, Pos2) : EndIf
+                      
+                      EditEx()\Row()\Len   + WordLen
+                      EditEx()\Row()\Width + TextWidth(Part$)
+                      EditEx()\Row()\WordWrap = "-" + #LF$
+                      
+                      Pos + WordLen
+                    EndIf
+                    
+                  EndIf
+
+                EndIf
+                
+              CompilerEndIf
+              
+              If EditEx()\Row()\WordWrap = "" : EditEx()\Row()\WordWrap = #LF$ : EndIf
+              
+              PosX = X
+              PosY + EditEx()\Text\Height
+              AddRow_(Pos, PosX, PosY)
+              
+            EndIf
+
+            sPosX = PosX
+            PosX  = DrawText(PosX, PosY, RTrim(Word$, #LF$), EditEx()\Color\Front)
+
+            CompilerIf #Enable_SyntaxHighlight
+            
+              If EditEx()\Flags & #SyntaxHighlight : DrawSyntaxHighlight_(Word$, Pos, sPosX, PosY) : EndIf
+              
+            CompilerElse
+              
+              If EditEx()\Flags & #CtrlChars
+                
+                If FindMapElement(EditEx()\Syntax(), #Space$)  
+                  wPos = FindString(Word$, " ")
+                  If wPos
+                    DiffW = (TextWidth(" ") - TextWidth(#Space$)) / 2
+                    DrawText(X + TextWidth(Left(Word$, wPos - 1)) + DiffW, Y, #Space$, $B48246)
+                  EndIf
+                EndIf
+                
+              EndIf
+              
+            CompilerEndIf 
+
+            WordLen = Len(Word$)
+            
+            If EditEx()\Selection\Flag = #Selected : DrawSelection_(sPosX, Pos, WordLen, Pos1, Pos2) : EndIf
+            
+            EditEx()\Row()\Len   + WordLen
+            EditEx()\Row()\Width + TextWidth(Word$)
+            
+            CurserXY_()
+            
+            Pos + WordLen
+          Next
+          
+          CurserXY_()
+          
+          PosY + EditEx()\Text\Height
+          ;}
+        Else                                                           ;{ no WordWrap
+          
+          AddRow_(Pos, PosX, PosY)
+          
+          Words = CountString(Row$, " ") + 1
+          For w=1 To Words
+            
+            Word$ = StringField(Row$, w, " ")
+            If w <> Words : Word$ + " " : EndIf
+
+            sPosX = PosX
+            PosX  = DrawText(PosX, PosY, RTrim(Word$, #LF$), EditEx()\Color\Front)
+            
+            CompilerIf #Enable_SyntaxHighlight
+            
+              If EditEx()\Flags & #SyntaxHighlight : DrawSyntaxHighlight_(Word$, Pos, sPosX, PosY) : EndIf
+              
+            CompilerElse
+              
+              If FindMapElement(EditEx()\Syntax(), #Space$)  
+                wPos = FindString(Word$, " ")
+                If wPos
+                  DiffW = (TextWidth(" ") - TextWidth(#Space$)) / 2
+                  DrawText(X + TextWidth(Left(Word$, wPos - 1)) + DiffW, Y, #Space$, $B48246)
+                EndIf
+              EndIf
+              
+            CompilerEndIf   
+            
+            WordLen = Len(Word$)
+            
+            If EditEx()\Selection\Flag = #Selected : DrawSelection_(sPosX, Pos, WordLen, Pos1, Pos2) : EndIf
+
+            EditEx()\Row()\Len   + WordLen
+            EditEx()\Row()\Width + TextWidth(Word$)
+            
+            Pos + WordLen
+          Next
+          
+          CurserXY_()
+          
+          PosY + EditEx()\Text\Height
+          ;}
+        EndIf
+
+      Next  
+      ;}
+
+      ;{ _____ Cursor _____
+      If EditEx()\Cursor\State
+        Line(EditEx()\Cursor\X, EditEx()\Cursor\Y, dpiX(1), EditEx()\Cursor\Height, EditEx()\Color\Cursor)
+      EndIf
+      EditEx()\Cursor\Height   = EditEx()\Text\Height
+      EditEx()\Cursor\BackChar = Mid(EditEx()\Text$, EditEx()\Cursor\Pos, 1)
+      ;}
+      
+      ;{ _____ Padding _____
+      DrawingMode(#PB_2DDrawing_Default)
+      Box(0, dpiY(GadgetHeight(EditEx()\CanvasNum) - EditEx()\Size\PaddingY), dpiX(GadgetWidth(EditEx()\CanvasNum)), dpiY(EditEx()\Size\PaddingY), EditEx()\Color\Back)
+      Box(dpiX(GadgetWidth(EditEx()\CanvasNum) - EditEx()\Size\PaddingX), 0, dpiX(EditEx()\Size\PaddingX), dpiY(GadgetHeight(EditEx()\CanvasNum)), EditEx()\Color\Back)
+      If EditEx()\VScroll\Hide = #False
+        Box(dpiX(GadgetWidth(EditEx()\CanvasNum)) - dpiX(#Scroll_Width + 1), dpiX(2), dpiX(#Scroll_Width), dpiY(GadgetHeight(EditEx()\CanvasNum)) - dpiY(4), EditEx()\Color\ScrollBar)
+      EndIf ;}
+      
+      ;{ _____ Border _____
+      If EditEx()\Flags & #Borderless = #False
+        DrawingMode(#PB_2DDrawing_Outlined)
+        Box(0, 0, dpiX(GadgetWidth(EditEx()\CanvasNum)), dpiY(GadgetHeight(EditEx()\CanvasNum)), EditEx()\Color\Border)
+      EndIf ;}
+
+      StopDrawing()
     EndIf
 
   EndProcedure
   
   ;- __________ Events __________
   
-  ; --- Cursor-Handler ---  
-  
-  Procedure _CursorDrawing()
-    Define.i WindowNum = EventWindow()
-    Define.i GadgetNum = EventGadget()
+  Procedure _ListViewHandler()
+    Define.i GNum, Selected
+    Define.i ListNum.i = EventGadget()
     
-    If EditEx()\Window\Num = WindowNum
+    If IsGadget(ListNum)
       
-      PushMapPosition(EditEx())
-      
-      If FindMapElement(EditEx(), Str(GadgetNum))
+      GNum = GetGadgetData(ListNum)
+      If FindMapElement(EditEx(), Str(GNum))
         
-        If EditEx()\Cursor\Pause = #False
-          
-          EditEx()\Cursor\State ! #True
-          
-          If StartDrawing(CanvasOutput(EditEx()\CanvasNum))
-            If EditEx()\FontID : DrawingFont(EditEx()\FontID) : EndIf 
-            DrawingMode(#PB_2DDrawing_Default)
-            If EditEx()\Cursor\State
-              Line(EditEx()\Cursor\X, EditEx()\Cursor\Y, dpiX(1), EditEx()\Cursor\Height, EditEx()\Color\Cursor)
-            Else
-              DrawText(EditEx()\Cursor\X, EditEx()\Cursor\Y, EditEx()\Cursor\BackChar, EditEx()\Cursor\FrontColor, EditEx()\Cursor\BackColor)
-              If EditEx()\VScroll\Hide
-                Box(dpiX(GadgetWidth(EditEx()\CanvasNum) - 4), dpiY(2), dpiX(4), EditEx()\Size\Height + dpiY(3), EditEx()\Cursor\BackColor)
-                Line(dpiX(GadgetWidth(EditEx()\CanvasNum) - 1), 0, dpiX(1), dpiY(GadgetHeight(EditEx()\CanvasNum)), EditEx()\Color\Border)
-              Else
-                Box(dpiX(GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 2), dpiY(2), dpiX(2), EditEx()\Size\Height + dpiY(3), EditEx()\Cursor\BackColor)
-              EndIf  
-            EndIf
-            StopDrawing()
-          EndIf
-          
-        ElseIf EditEx()\Cursor\State
-          
-          If StartDrawing(CanvasOutput(EditEx()\CanvasNum))
-            If EditEx()\FontID : DrawingFont(EditEx()\FontID) : EndIf 
-            DrawingMode(#PB_2DDrawing_Default)
-            DrawText(EditEx()\Cursor\X, EditEx()\Cursor\Y, EditEx()\Cursor\BackChar, EditEx()\Cursor\FrontColor, EditEx()\Cursor\BackColor)
-            If EditEx()\VScroll\Hide
-              Box(dpiX(GadgetWidth(EditEx()\CanvasNum)  - 4), dpiY(2), dpiX(4), dpiY(GadgetHeight(EditEx()\CanvasNum) - 2), EditEx()\Cursor\BackColor)
-              Line(dpiX(GadgetWidth(EditEx()\CanvasNum) - 1), 0, dpiX(2), dpiY(GadgetHeight(EditEx()\CanvasNum)), EditEx()\Color\Border)
-            Else
-              Box(dpiX(GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 2), dpiY(2), dpiX(2), EditEx()\Size\Height + dpiY(3), EditEx()\Cursor\BackColor)
-            EndIf
-            StopDrawing()
-          EndIf
-          
-        EndIf
+        HideWindow(EditEx()\WinNum, #True)
         
+        If GetGadgetState(ListNum) <> -1
+          EditEx()\Cursor\Pos = EditEx()\Selection\Pos1
+          DeleteSelection_()
+          EditEx()\Text$ = InsertString(EditEx()\Text$, GetGadgetText(ListNum), EditEx()\Cursor\Pos)
+          Draw_()
+        EndIf  
+        
+        EditEx()\Visible\WordList = #False
       EndIf
-      
-      PopMapPosition(EditEx())
       
     EndIf
     
   EndProcedure
   
+  ;- --- Cursor-Handler ---  
+  
+  Procedure _CursorDrawing() ; Trigger from Thread (PostEvent Change)
+    Define.i WindowNum = EventWindow()
+    
+    ForEach EditEx()
+      
+      If EditEx()\Cursor\Pause = #False
+
+        EditEx()\Cursor\State ! #True
+      
+        If StartDrawing(CanvasOutput(EditEx()\CanvasNum)) 
+          DrawingMode(#PB_2DDrawing_Default)
+          If EditEx()\Cursor\State
+            Line(EditEx()\Cursor\X, EditEx()\Cursor\Y, 1, EditEx()\Cursor\Height, EditEx()\Color\Cursor)
+          Else
+            If EditEx()\FontID : DrawingFont(EditEx()\FontID) : EndIf
+            DrawText(EditEx()\Cursor\X, EditEx()\Cursor\Y, EditEx()\Cursor\BackChar, EditEx()\Cursor\FrontColor, EditEx()\Cursor\BackColor)
+          EndIf
+          StopDrawing()
+        EndIf
+        
+      ElseIf EditEx()\Cursor\State
+        
+        If StartDrawing(CanvasOutput(EditEx()\CanvasNum))
+          DrawingMode(#PB_2DDrawing_Default)
+          Line(EditEx()\Cursor\X, EditEx()\Cursor\Y, 1, EditEx()\Cursor\Height, EditEx()\Color\Back)
+          StopDrawing()
+        EndIf
+      
+      EndIf
+      
+    Next
+    
+  EndProcedure 
+ 
   Procedure _CursorThread(Frequency.i)
     Define.i ElapsedTime
     
     Repeat
       
       If ElapsedTime >= Frequency
-        
-        PushMapPosition(EditEx())
-        
-        ForEach EditEx()
-          If IsGadget(EditEx()\CanvasNum)
-            If EditEx()\Cursor\Pause = #False Or EditEx()\Cursor\State = #True
-              PostEvent(#Event_Cursor, EditEx()\Window\Num, EditEx()\CanvasNum)
-            EndIf
-          EndIf
-        Next
-        
-        PopMapPosition(EditEx())
-        
+        PostEvent(#Event_Cursor)
         ElapsedTime = 0
       EndIf
       
@@ -3275,8 +2346,6 @@ Module EditEx
     
   EndProcedure
   
-  
-  
   Procedure _FocusHandler()
     Define.i GNum = EventGadget()
     
@@ -3284,8 +2353,7 @@ Module EditEx
       
       EditEx()\Cursor\Pause = #False
       EditEx()\Cursor\State = #False
-      ;_CursorDrawing()
-      
+
     EndIf  
  
   EndProcedure
@@ -3302,527 +2370,566 @@ Module EditEx
     
   EndProcedure  
   
+  ;- --- Key-Handler ---  
   
-  Procedure _KeyDownHandler()
+  Procedure _KeyDownHandler() ; Handle Shortcuts
     Define.i GNum = EventGadget()
-    Define.i Key, Modifier, Row, Rows, CursorRow, CursorPos
+    Define.i Key, Modifier, CursorRow, CursorPos, Pos1, Pos2, ReDraw
     Define.s Text$
     
     If FindMapElement(EditEx(), Str(GNum))
       
-      Key      = GetGadgetAttribute(GNum, #PB_Canvas_Key)
-      Modifier = GetGadgetAttribute(GNum, #PB_Canvas_Modifiers)
+      Key       = GetGadgetAttribute(GNum, #PB_Canvas_Key)
+      Modifier  = GetGadgetAttribute(GNum, #PB_Canvas_Modifiers)
       
       CursorPos = EditEx()\Cursor\Pos
       CursorRow = EditEx()\Cursor\Row
       
+      ;{ Selection
+      If EditEx()\Selection\Flag = #Selected
+        If EditEx()\Selection\Pos1 > EditEx()\Selection\Pos2
+          Pos1 = EditEx()\Selection\Pos2
+          Pos2 = EditEx()\Selection\Pos1
+        Else
+          Pos1 = EditEx()\Selection\Pos1
+          Pos2 = EditEx()\Selection\Pos2
+        EndIf 
+      EndIf ;}
+      
       Select Key
         Case #PB_Shortcut_Left     ;{ Left
-          If Modifier & #PB_Canvas_Shift       ;{ Selection left
-            
-            If CursorPos 
-              EditEx()\Cursor\Pos - 1
-            Else
-              If PreviousElement(EditEx()\Items())
-                EditEx()\Cursor\Pos = Len(EditEx()\Items()\String)
-                EditEx()\Cursor\Row = ListIndex(EditEx()\Items())
-              EndIf  
-            EndIf 
+          
+          If Modifier & #PB_Canvas_Shift And Modifier & #PB_Canvas_Control ;{ Selection up to the beginning of the word
+
+            EditEx()\Cursor\Pos = WordStart_(EditEx()\Text$, CursorPos)
             
             If EditEx()\Selection\Flag = #NoSelection
               EditEx()\Selection\Pos1 = CursorPos
-              EditEx()\Selection\Row1 = CursorRow
               EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
-              EditEx()\Selection\Row2 = EditEx()\Cursor\Row
               EditEx()\Selection\Flag = #Selected
             Else
               EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
-              EditEx()\Selection\Row2 = EditEx()\Cursor\Row
             EndIf
             ;}
-          ElseIf Modifier & #PB_Canvas_Control ;{ Start of word
-            EditEx()\Cursor\Pos = GetWordStart(EditEx()\Items()\String, CursorPos)
+          ElseIf Modifier & #PB_Canvas_Shift                               ;{ Selection left
+            
+            If EditEx()\Cursor\Pos > 1
+              
+              EditEx()\Cursor\Pos - 1 
+              
+              If EditEx()\Selection\Flag = #NoSelection
+                EditEx()\Selection\Pos1 = CursorPos
+                EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
+                EditEx()\Selection\Flag = #Selected
+              Else
+                EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
+              EndIf
+
+            EndIf
+            ;}
+          ElseIf Modifier & #PB_Canvas_Control                             ;{ Start of word
+            
+            EditEx()\Cursor\Pos = WordStart_(EditEx()\Text$, CursorPos)
+            
             If EditEx()\Selection\Flag = #Selected
               EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
             EndIf
             ;}
-          Else                                 ;{ Cursor left
-            If CursorPos
+          Else                                                             ;{ Cursor left
+            
+            If CursorPos > 1
               EditEx()\Cursor\Pos - 1
-            Else
-              If PreviousElement(EditEx()\Items())
-                EditEx()\Cursor\Pos = Len(EditEx()\Items()\String)
-                EditEx()\Cursor\Row = ListIndex(EditEx()\Items())
-              EndIf  
-            EndIf 
-            RemoveSelection_() ;}
-          EndIf 
-          UpdateScrollBar_() ;}
-        Case #PB_Shortcut_Right    ;{ Right
-          If Modifier & #PB_Canvas_Shift       ;{ Selection right
-            If CursorPos < Len(RTrim(EditEx()\Items()\String, #LineBreak$))
-              EditEx()\Cursor\Pos + 1
-            Else
-              If NextElement(EditEx()\Items())
-                EditEx()\Cursor\Pos = 0
-                EditEx()\Cursor\Row = ListIndex(EditEx()\Items())
-              EndIf  
             EndIf
             
-            If EditEx()\Selection\Flag = #NoSelection
-              EditEx()\Selection\Pos1 = CursorPos
-              EditEx()\Selection\Row1 = CursorRow
-              EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
-              EditEx()\Selection\Row2 = EditEx()\Cursor\Row
-              EditEx()\Selection\Flag = #Selected
-            Else
-              EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
-              EditEx()\Selection\Row2 = EditEx()\Cursor\Row
-            EndIf
+            RemoveSelection_()
             ;}
-          ElseIf Modifier & #PB_Canvas_Control ;{ End of word
-            EditEx()\Cursor\Pos = GetWordEnd(EditEx()\Items()\String, CursorPos)
-            ; EditEx()\Cursor\Pos = GetNextSpace(EditEx()\Items()\String, CursorPos)
-            If EditEx()\Selection\Flag = #Selected
-              EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
-            EndIf
-            ;}
-          Else                                 ;{ Cursor right
-            If CursorPos < Len(RTrim(EditEx()\Items()\String, #LineBreak$))
-              EditEx()\Cursor\Pos + 1
-            Else
-              If NextElement(EditEx()\Items())
-                EditEx()\Cursor\Pos = 0
-                EditEx()\Cursor\Row = ListIndex(EditEx()\Items())
-              EndIf  
-            EndIf
-            RemoveSelection_() ;}
           EndIf
-          UpdateScrollBar_() ;}
+          
+          ReDraw = #True
+          ;}
+        Case #PB_Shortcut_Right    ;{ Right
+          
+          If Modifier & #PB_Canvas_Shift And Modifier & #PB_Canvas_Control ;{ Selection up to the end of the word
+            
+            EditEx()\Cursor\Pos = WordEnd_(EditEx()\Text$, CursorPos)
+            
+            If EditEx()\Selection\Flag = #NoSelection
+              EditEx()\Selection\Pos1 = CursorPos
+              EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
+              EditEx()\Selection\Flag = #Selected
+            Else
+              EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
+            EndIf
+            ;}
+          ElseIf Modifier & #PB_Canvas_Shift                               ;{ Selection right
+            
+            If EditEx()\Cursor\Pos < EditEx()\Text\Len
+              
+              EditEx()\Cursor\Pos + 1 
+              
+              If EditEx()\Selection\Flag = #NoSelection
+                EditEx()\Selection\Pos1 = CursorPos
+                EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
+                EditEx()\Selection\Flag = #Selected
+              Else
+                EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
+              EndIf
+
+            EndIf
+            ;}
+          ElseIf Modifier & #PB_Canvas_Control                             ;{ End of word
+            
+            EditEx()\Cursor\Pos = WordEnd_(EditEx()\Text$, CursorPos)
+            
+            If EditEx()\Selection\Flag = #Selected
+              EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
+            EndIf
+            ;}
+          Else                                                             ;{ Cursor right
+            
+            If CursorPos <= EditEx()\Text\Len
+              EditEx()\Cursor\Pos + 1
+            EndIf
+            
+            RemoveSelection_()
+            ;}
+          EndIf
+          
+          ReDraw = #True
+          ;}
         Case #PB_Shortcut_Up       ;{ Up
+          
           If Modifier & #PB_Canvas_Shift       ;{ Selection up
             
-            If PreviousElement(EditEx()\Items())
-              EditEx()\Cursor\Row = ListIndex(EditEx()\Items())
-              EditEx()\Cursor\Pos = CursorPos_(EditEx()\Cursor\Row, EditEx()\Cursor\X)
-            EndIf
+            CursorUpDown_(#Cursor_Up)
             
             If EditEx()\Selection\Flag = #NoSelection
               EditEx()\Selection\Pos1 = CursorPos
-              EditEx()\Selection\Row1 = CursorRow
               EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
-              EditEx()\Selection\Row2 = EditEx()\Cursor\Row
               EditEx()\Selection\Flag = #Selected
             Else
               EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
-              EditEx()\Selection\Row2 = EditEx()\Cursor\Row
             EndIf
             ;}
           ElseIf Modifier & #PB_Canvas_Control ;{ Previous paragraph
             
-            Row = GetPrevParagraph_(CursorRow)
-            If SelectElement(EditEx()\Items(), Row)
-              EditEx()\Cursor\Pos = 0
-              EditEx()\Cursor\Row = ListIndex(EditEx()\Items())
-            EndIf
+            EditEx()\Cursor\Pos = Paragraph_(#Cursor_Up)
             
             RemoveSelection_() 
             ;}
           Else                                 ;{ Cursor  up
             
-            If PreviousElement(EditEx()\Items())
-              EditEx()\Cursor\Row = ListIndex(EditEx()\Items())
-              EditEx()\Cursor\Pos = CursorPos_(EditEx()\Cursor\Row, EditEx()\Cursor\X)
-            EndIf
-
-            RemoveSelection_() ;}
+            CursorUpDown_(#Cursor_Up)
+            
+            RemoveSelection_()
+            ;}
           EndIf
-          UpdateScrollBar_() ;}
+          
+          ReDraw = #True
+          ;}
         Case #PB_Shortcut_Down     ;{ Down
+          
           If Modifier & #PB_Canvas_Shift       ;{ Selection down
             
-            If NextElement(EditEx()\Items())
-              EditEx()\Cursor\Row = ListIndex(EditEx()\Items())
-              EditEx()\Cursor\Pos = CursorPos_(EditEx()\Cursor\Row, EditEx()\Cursor\X)
-            EndIf
+            CursorUpDown_(#Cursor_Down)
             
             If EditEx()\Selection\Flag = #NoSelection
               EditEx()\Selection\Pos1 = CursorPos
-              EditEx()\Selection\Row1 = CursorRow
               EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
-              EditEx()\Selection\Row2 = EditEx()\Cursor\Row
               EditEx()\Selection\Flag = #Selected
             Else
               EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
-              EditEx()\Selection\Row2 = EditEx()\Cursor\Row
             EndIf
             ;}
           ElseIf Modifier & #PB_Canvas_Control ;{ Next paragraph
             
-            Row = GetNextParagraph_(CursorRow)
-            If SelectElement(EditEx()\Items(), Row)
-              EditEx()\Cursor\Pos = 0
-              EditEx()\Cursor\Row = ListIndex(EditEx()\Items())
-            EndIf
+            EditEx()\Cursor\Pos = Paragraph_(#Cursor_Down)
             
-            RemoveSelection_() ;}
+            RemoveSelection_()
+            ;}
           Else                                 ;{ Cursor down
-            If NextElement(EditEx()\Items())
-              EditEx()\Cursor\Row = ListIndex(EditEx()\Items())
-              EditEx()\Cursor\Pos = CursorPos_(EditEx()\Cursor\Row, EditEx()\Cursor\X)
-            EndIf
-            RemoveSelection_() ;}
+
+            CursorUpDown_(#Cursor_Down)
+            
+            RemoveSelection_()
+            ;}
           EndIf
-          UpdateScrollBar_() ;}
+          
+          ReDraw = #True
+          ;}
         Case #PB_Shortcut_PageUp   ;{ PageUp
-          Rows = GetPageRows_() + 1
-          If CursorRow - Rows >= 0
-            If SelectElement(EditEx()\Items(), CursorRow - Rows)
-              EditEx()\Cursor\Pos = CursorPos_(CursorRow - Rows, EditEx()\Cursor\X)
-              EditEx()\Cursor\Row = ListIndex(EditEx()\Items())
-            EndIf
-          Else
-            If FirstElement(EditEx()\Items())
-              EditEx()\Cursor\Pos = CursorPos_(0, EditEx()\Cursor\X)
-              EditEx()\Cursor\Row = ListIndex(EditEx()\Items())
-            EndIf
-          EndIf
-          RemoveSelection_() 
-          UpdateScrollBar_() ;}
-        Case #PB_Shortcut_PageDown ;{ PageDown
-          Rows = GetPageRows_() + 1
-          If CursorRow + Rows <= LastRow_()
-            If SelectElement(EditEx()\Items(), CursorRow + Rows)
-              EditEx()\Cursor\Pos = CursorPos_(CursorRow + Rows, EditEx()\Cursor\X)
-              EditEx()\Cursor\Row = ListIndex(EditEx()\Items())
-            EndIf
-          Else
-            If LastElement(EditEx()\Items())
-              EditEx()\Cursor\Pos = CursorPos_(LastRow_(), EditEx()\Cursor\X)
-              EditEx()\Cursor\Row = ListIndex(EditEx()\Items())
-            EndIf
-          EndIf
+          
+          CursorRow = EditEx()\Cursor\Row - PageRows_() + 1
+          If CursorRow < 0 : CursorRow = 0 : EndIf
+          
+          If SelectElement(EditEx()\Row(), CursorRow)
+            EditEx()\Cursor\Pos = EditEx()\Row()\Pos
+          EndIf  
+          
           RemoveSelection_()
-          UpdateScrollBar_() ;}
-        Case #PB_Shortcut_Home     ;{ Home/Pos1
-          If Modifier & #PB_Canvas_Control
-            If FirstElement(EditEx()\Items())
-              EditEx()\Cursor\Pos = 0
-              EditEx()\Cursor\Row = ListIndex(EditEx()\Items())
-            EndIf
-            RemoveSelection_()
-          ElseIf Modifier & #PB_Canvas_Shift
-            EditEx()\Cursor\Pos = 0
-            If EditEx()\Selection\Flag = #NoSelection
-              EditEx()\Selection\Pos1 = CursorPos
-              EditEx()\Selection\Row1 = CursorRow
-              EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
-              EditEx()\Selection\Row2 = EditEx()\Cursor\Row
-              EditEx()\Selection\Flag = #Selected
-            Else
-              EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
-              EditEx()\Selection\Row2 = EditEx()\Cursor\Row
-            EndIf
-          Else
-            EditEx()\Cursor\Pos = 0
-            RemoveSelection_()
+          ReDraw = #True
+          ;}
+        Case #PB_Shortcut_PageDown ;{ PageDown
+          
+          CursorRow = EditEx()\Cursor\Row + PageRows_() + 1
+          If CursorRow >= ListSize(EditEx()\Row()) : CursorRow = ListSize(EditEx()\Row()) - 1 : EndIf
+          
+          If SelectElement(EditEx()\Row(), CursorRow)
+            EditEx()\Cursor\Pos = EditEx()\Row()\Pos
           EndIf 
-          UpdateScrollBar_() ;}
-        Case #PB_Shortcut_End      ;{ End
+          
+          RemoveSelection_()
+          ReDraw = #True
+          ;}
+        Case #PB_Shortcut_Home     ;{ Home / Pos1
+          
           If Modifier & #PB_Canvas_Control
-            If LastElement(EditEx()\Items())
-              EditEx()\Cursor\Pos = Len(RTrim(EditEx()\Items()\String, #LineBreak$))
-              EditEx()\Cursor\Row = ListIndex(EditEx()\Items())
-            EndIf 
+           
+            EditEx()\Cursor\Pos = 1
+
             RemoveSelection_()
+            
           ElseIf Modifier & #PB_Canvas_Shift
-            EditEx()\Cursor\Pos = Len(RTrim(EditEx()\Items()\String, #LineBreak$))
+            
+            If SelectElement(EditEx()\Row(), EditEx()\Cursor\Row)
+              EditEx()\Cursor\Pos = EditEx()\Row()\Pos
+            EndIf
+            
             If EditEx()\Selection\Flag = #NoSelection
               EditEx()\Selection\Pos1 = CursorPos
-              EditEx()\Selection\Row1 = CursorRow
               EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
-              EditEx()\Selection\Row2 = EditEx()\Cursor\Row
               EditEx()\Selection\Flag = #Selected
             Else
               EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
-              EditEx()\Selection\Row2 = EditEx()\Cursor\Row
             EndIf
+            
           Else
-            EditEx()\Cursor\Pos = Len(RTrim(EditEx()\Items()\String, #LineBreak$))
+            
+            If SelectElement(EditEx()\Row(), EditEx()\Cursor\Row)
+              EditEx()\Cursor\Pos = EditEx()\Row()\Pos
+            EndIf
+            
             RemoveSelection_()
           EndIf
-          UpdateScrollBar_() ;}
-        Case #PB_Shortcut_Return   ;{ Return
-          If EditEx()\ReadOnly = #False
+          
+          ReDraw = #True
+          ;}
+        Case #PB_Shortcut_End      ;{ End
+          
+          If Modifier & #PB_Canvas_Control
             
-            Text$ = EditEx()\Items()\String
-            If CursorPos > 0
-              
-              EditEx()\Items()\String = Left(Text$, CursorPos)
-              If CursorRow_() <= LastRow_()
-                EditEx()\Items()\String = RTrim(EditEx()\Items()\String, #LineBreak$) + #LineBreak$
-              EndIf
-              If AddElement(EditEx()\Items())
-                EditEx()\Items()\String = LTrim(Mid(Text$, CursorPos + 1))
-              EndIf
-              
-            Else
-              
-              EditEx()\Items()\String = #LineBreak$
-              If AddElement(EditEx()\Items())
-                EditEx()\Items()\String = Text$
-              EndIf
-              
+            EditEx()\Cursor\Pos = EditEx()\Text\Len + 1
+            
+            RemoveSelection_()
+            
+          ElseIf Modifier & #PB_Canvas_Shift
+            
+            If SelectElement(EditEx()\Row(), EditEx()\Cursor\Row)
+              EditEx()\Cursor\Pos = EditEx()\Row()\Pos + EditEx()\Row()\Len - 1
             EndIf
             
-            EditEx()\Cursor\Pos    = 0
-            EditEx()\Cursor\Row    = ListIndex(EditEx()\Items())
-            EditEx()\Text\Complete = #True
+            If EditEx()\Selection\Flag = #NoSelection
+              EditEx()\Selection\Pos1 = CursorPos
+              EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
+              EditEx()\Selection\Flag = #Selected
+            Else
+              EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
+            EndIf
+            
+          Else
+            
+            If SelectElement(EditEx()\Row(), EditEx()\Cursor\Row)
+              EditEx()\Cursor\Pos = EditEx()\Row()\Pos + EditEx()\Row()\Len - 1
+            EndIf
+
+            RemoveSelection_()
+          EndIf
+          
+          ReDraw = #True
+          ;}
+        Case #PB_Shortcut_Return   ;{ Return
+          
+          If EditEx()\Flags & #ReadOnly = #False
+            
+            EditEx()\Text$ = InsertString(EditEx()\Text$, #LF$, EditEx()\Cursor\Pos)
+            EditEx()\Cursor\Pos + 1
             
             RemoveSelection_()
             
             CompilerIf #Enable_SpellChecking
-              EditEx()\SpellCheck = #True
+              
+              If EditEx()\Flags & #AutoSpellCheck
+                UpdateWordList_()
+                SpellChecking_(#True)
+              EndIf
+              
             CompilerEndIf 
+            
             CompilerIf #Enable_UndoRedo
-              AddUndo_()
+              
+              If EditEx()\Flags & #UndoRedo : AddUndo_() : EndIf
+              
             CompilerEndIf
-
-            UpdateScrollBar_()
-          EndIf ;}
+            
+            ReDraw = #True
+          EndIf
+          ;}
         Case #PB_Shortcut_Delete   ;{ Delete / Cut (Shift)
-          If EditEx()\ReadOnly = #False
-            If Modifier & #PB_Canvas_Shift ;{ Cut selected text
+          
+          If EditEx()\Flags & #ReadOnly = #False
+            
+            If Modifier & #PB_Canvas_Shift ;{ Cut selected text to clipboard
+              
               If EditEx()\Selection\Flag = #Selected
-                Text$ = GetSelection_(#False)
+                SetClipboardText(GetSelection_(#False))
                 DeleteSelection_(#False)
-                SetClipboardText(Text$)
-                EditEx()\Text\Complete = #True
               EndIf
               ;}
-            Else
-              If EditEx()\Selection\Flag = #Selected And EditEx()\Cursor\Pos = EditEx()\Selection\Pos2 And EditEx()\Selection\Pos1 > EditEx()\Selection\Pos2
+            Else                           ;{ Delete text/character
+
+              If EditEx()\Selection\Flag = #Selected And (CursorPos >= Pos1 And CursorPos <= Pos2)
                 DeleteSelection_(#False)
-                EditEx()\Text\Complete = #True
-                EditEx()\Cursor\Pos = EditEx()\Selection\Pos2
-              Else                                   ;{ Delete character
-                If EditEx()\Cursor\Pos >= Len(RTrim(EditEx()\Items()\String, #LineBreak$))
-                  If EditEx()\WordWrap Or EditEx()\Hyphenation
-                    EditEx()\Items()\String = RTrim(EditEx()\Items()\String, #LineBreak$)
-                    EditEx()\Cursor\Pos = Len(EditEx()\Items()\String)
-                  Else
-                    If NextElement(EditEx()\Items())
-                      Text$ = EditEx()\Items()\String
-                      If DeleteElement(EditEx()\Items())
-                        EditEx()\Items()\String = RTrim(EditEx()\Items()\String, #LineBreak$)
-                        EditEx()\Cursor\Pos = Len(EditEx()\Items()\String)
-                        EditEx()\Items()\String = EditEx()\Items()\String + Text$
-                      EndIf
-                    EndIf  
-                  EndIf
-                  EditEx()\Text\Complete = #True
-                Else
-                  EditEx()\Items()\String = DeleteStringPart(EditEx()\Items()\String, EditEx()\Cursor\Pos + 1)
-                EndIf
-                ;}
+              Else 
+                EditEx()\Text$ = DeleteStringPart(EditEx()\Text$, EditEx()\Cursor\Pos)
               EndIf
+              ;}
             EndIf
+            
             RemoveSelection_()
-            UpdateScrollBar_()
-          EndIf ;}
+            
+            ReDraw = #True
+          EndIf
+          ;}
         Case #PB_Shortcut_Back     ;{ Back
-          If EditEx()\ReadOnly = #False
-            If EditEx()\Selection\Flag = #Selected And EditEx()\Cursor\Pos = EditEx()\Selection\Pos2 And EditEx()\Selection\Pos1 < EditEx()\Selection\Pos2
-              DeleteSelection_(#False)
-              EditEx()\Cursor\Pos = EditEx()\Selection\Pos1
-              EditEx()\Text\Complete = #True
-            Else
-              If EditEx()\Cursor\Pos = 0
-                If CursorRow > 0
-                  If EditEx()\WordWrap Or EditEx()\Hyphenation
-                    If PreviousElement(EditEx()\Items())
-                      Select Right(EditEx()\Items()\String, 1)
-                        Case #Hyphen$
-                          EditEx()\Cursor\Pos = Len(RTrim(EditEx()\Items()\String, #Hyphen$))
-                        Case #LineBreak$
-                          EditEx()\Items()\String = RTrim(EditEx()\Items()\String, #LineBreak$)
-                          EditEx()\Cursor\Pos = Len(EditEx()\Items()\String)
-                        Default
-                          EditEx()\Items()\String = Left(EditEx()\Items()\String, Len(EditEx()\Items()\String) - 1)
-                          EditEx()\Cursor\Pos = Len(EditEx()\Items()\String)
-                      EndSelect
-                    EndIf
-                  Else
-                    Text$ = EditEx()\Items()\String
-                    If DeleteElement(EditEx()\Items())
-                      If Right(EditEx()\Items()\String, 1)
-                        EditEx()\Items()\String = RTrim(EditEx()\Items()\String, #LineBreak$) + " "
-                        EditEx()\Cursor\Pos = Len(EditEx()\Items()\String)
-                      Else
-                        EditEx()\Items()\String = Left(EditEx()\Items()\String, Len(EditEx()\Items()\String) - 1)
-                        EditEx()\Cursor\Pos = Len(EditEx()\Items()\String)
-                      EndIf
-                      EditEx()\Items()\String + Text$
-                    EndIf
-                  EndIf
-                  EditEx()\Text\Complete = #True 
-                EndIf
+          
+          If EditEx()\Flags & #ReadOnly = #False
+            
+            If CursorPos > 1
+              
+              If EditEx()\Selection\Flag = #Selected And (CursorPos > Pos1 And CursorPos <= Pos2)
+                
+                DeleteSelection_(#False)
+                
               Else
-                EditEx()\Items()\String = DeleteStringPart(EditEx()\Items()\String, EditEx()\Cursor\Pos)
-                EditEx()\Cursor\Pos = EditEx()\Cursor\Pos - 1
+                
+                EditEx()\Text$ = DeleteStringPart(EditEx()\Text$, EditEx()\Cursor\Pos - 1)
+                
+                EditEx()\Cursor\Pos - 1
+                If EditEx()\Cursor\Pos < 1 : EditEx()\Cursor\Pos = 1 : EndIf
+                
               EndIf
+              
             EndIf
+            
             RemoveSelection_()
-            UpdateScrollBar_()
-          EndIf;}
+            
+            ReDraw = #True
+          EndIf
+          ;}
         Case #PB_Shortcut_C        ;{ Copy  (Ctrl)
+          
           If Modifier & #PB_Canvas_Control
+            
             If EditEx()\Selection\Flag = #Selected
-              Text$ = GetSelection_()
-              SetClipboardText(Text$)
+              SetClipboardText(GetSelection_())
             EndIf
-          EndIf ;}
+            
+          EndIf
+          ;}
         Case #PB_Shortcut_V        ;{ Paste (Ctrl)
-          If EditEx()\ReadOnly = #False
+          
+          If EditEx()\Flags & #ReadOnly = #False
+            
             If Modifier & #PB_Canvas_Control
+              
               Text$ = GetClipboardText()
+              
               If EditEx()\Selection\Flag = #Selected
                 DeleteSelection_(#False)
               EndIf
-              EditEx()\Items()\String = InsertString(EditEx()\Items()\String, Text$, EditEx()\Cursor\Pos + 1)
+              
+              EditEx()\Text$ = InsertString(EditEx()\Text$, Text$, EditEx()\Cursor\Pos)
               EditEx()\Cursor\Pos + Len(Text$)
+              
               CompilerIf #Enable_UndoRedo
-                AddUndo_()
+                
+                If EditEx()\Flags & #UndoRedo : AddUndo_() : EndIf
+                
               CompilerEndIf
-              EditEx()\Text\Complete = #True 
-              UpdateScrollBar_()
-            EndIf 
-          EndIf;}
+              
+              ReDraw = #True
+            EndIf
+            
+          EndIf
+          ;}
         Case #PB_Shortcut_X        ;{ Cut   (Ctrl)
-          If EditEx()\ReadOnly = #False
+          
+          If EditEx()\Flags & #ReadOnly = #False
+            
             If Modifier & #PB_Canvas_Control
+              
               If EditEx()\Selection\Flag = #Selected
-                Text$ = GetSelection_(#False)
+
+                SetClipboardText(GetSelection_(#False))
                 DeleteSelection_(#False)
-                SetClipboardText(Text$)
+                
                 CompilerIf #Enable_UndoRedo
-                  AddUndo_()
+                  
+                  If EditEx()\Flags & #UndoRedo : AddUndo_() : EndIf
+                  
                 CompilerEndIf
-                EditEx()\Text\Complete = #True 
+                
               EndIf
+              
               RemoveSelection_()
-              UpdateScrollBar_()
+              
+              ReDraw = #True
             EndIf 
-          EndIf ;}
+            
+          EndIf
+          ;}
         Case #PB_Shortcut_Insert   ;{ Copy  (Ctrl) / Paste (Shift)
-          If EditEx()\ReadOnly = #False
+          
+          If EditEx()\Flags & #ReadOnly = #False
+            
             If Modifier & #PB_Canvas_Shift
+              
               Text$ = GetClipboardText()
+              
               If EditEx()\Selection\Flag = #Selected
                 DeleteSelection_(#False)
               EndIf
-              EditEx()\Items()\String = InsertString(EditEx()\Items()\String, Text$, EditEx()\Cursor\Pos + 1)
+              
+              EditEx()\Text$ = InsertString(EditEx()\Text$, Text$, EditEx()\Cursor\Pos + 1)
               EditEx()\Cursor\Pos + Len(Text$)
-              EditEx()\Text\Complete = #True 
+              
               CompilerIf #Enable_UndoRedo
-                AddUndo_()
+                
+                If EditEx()\Flags & #UndoRedo : AddUndo_() : EndIf
+                
               CompilerEndIf
-              EditEx()\Text\Complete = #True 
+              
             ElseIf Modifier & #PB_Canvas_Control
+              
               If EditEx()\Selection\Flag = #Selected
+                
                 Text$ = GetSelection_()
+                
                 SetClipboardText(Text$)
+                
               EndIf
+              
             EndIf
+            
+            ReDraw = #True
           EndIf 
-          UpdateScrollBar_() ;}
-        Case #PB_Shortcut_Hyphen   ;{ Minus (Ctrl)           
+          ;}
+        Case #PB_Shortcut_Hyphen   ;{ Minus (Ctrl)   
+          
           If Modifier & #PB_Canvas_Control
+            
+            EditEx()\Text$ = InsertString(EditEx()\Text$, #SoftHyphen$, EditEx()\Cursor\Pos)
             EditEx()\Cursor\Pos + 1
-            EditEx()\Items()\String = InsertString(EditEx()\Items()\String, #SoftHyphen$, EditEx()\Cursor\Pos)
-          EndIf ;}
+            
+            ReDraw = #True
+          EndIf
+          ;}
         Case #PB_Shortcut_A        ;{ Ctrl-A (Select all)
+          
           If Modifier & #PB_Canvas_Control
-            If LastElement(EditEx()\Items())
-              EditEx()\Cursor\Pos = Len(RTrim(EditEx()\Items()\String, #LineBreak$))
-              EditEx()\Selection\Flag = #Selected
-              EditEx()\Selection\Row1 = 0
-              EditEx()\Selection\Row2 = LastRow_()
-              EditEx()\Selection\Pos1 = 1
-              EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
-            EndIf
-          EndIf ;}
+            
+            EditEx()\Cursor\Pos     = EditEx()\Text\Len + 1
+            EditEx()\Selection\Flag = #Selected
+            EditEx()\Selection\Pos1 = 1
+            EditEx()\Selection\Pos2 = EditEx()\Text\Len + 1
+            
+            ReDraw = #True
+          EndIf
+          ;}
         Case #PB_Shortcut_Z        ;{ Crtl-Z (Undo)
+          
           CompilerIf #Enable_UndoRedo
+            
             If Modifier & #PB_Canvas_Control
-              Undo_()
+              
+              If EditEx()\Flags & #UndoRedo
+                Undo_()
+                ReDraw = #True
+              EndIf
+              
             EndIf 
-            UpdateScrollBar_() ;}
+
           CompilerEndIf
+          ;}
         Case #PB_Shortcut_D        ;{ Ctrl-D (Delete selection)
+          
           If Modifier & #PB_Canvas_Control
             DeleteSelection_()
-            UpdateScrollBar_()
-          EndIf ;}
+            EditEx()\Cursor\Pos = Pos1
+            ReDraw = #True
+          EndIf
+          ;}
       EndSelect
-
-      UpdateScrollBar_()
       
-      Draw_(GNum)
-      
-      AdjustScrolls_()
+      If ReDraw
+        UpdateScrollBar_()
+        Draw_()
+        AdjustScrolls_()
+      EndIf
       
     EndIf
     
   EndProcedure
   
-  Procedure _InputHandler()
+  Procedure _InputHandler()   ; Input character
     Define.i GNum = EventGadget()
-    Define   Char.i
+    Define.i Char, SpellCheck
     
-    If EditEx()\ReadOnly = #False
+    If EditEx()\Flags & #ReadOnly = #False
       
       If FindMapElement(EditEx(), Str(GNum))
-        
-        If ListSize(EditEx()\Items()) = 0 ;{ Add first row
-          AddElement(EditEx()\Items())
-          EditEx()\Cursor\Pos = 0
-        EndIf ;}
-        
-        If ListIndex(EditEx()\Items()) = #NoElement : LastElement(EditEx()\Items()) : EndIf
-       
+
         Char = GetGadgetAttribute(GNum, #PB_Canvas_Input)
         
         DeleteSelection_(#False)
         
+        EditEx()\Text$ = InsertString(EditEx()\Text$, Chr(Char), EditEx()\Cursor\Pos)
         EditEx()\Cursor\Pos + 1
-        
-        EditEx()\Items()\String = InsertString(EditEx()\Items()\String, Chr(Char), EditEx()\Cursor\Pos)
-        
+
         RemoveSelection_()
         
         CompilerIf #Enable_UndoRedo
           
-          Select Char
-            Case 32, 33, 58, 59, 63
-              AddUndo_()
-          EndSelect
-          
-        CompilerEndIf
-        
-        CompilerIf #Enable_SpellChecking
-          If EditEx()\AutoSpellCheck
+          If EditEx()\Flags & #UndoRedo
             Select Char
-              Case 32, 33, 41, 44, 46
-                EditEx()\SpellCheck = #True
-              Case 58, 59, 63, 93, 125
-                EditEx()\SpellCheck = #True
+              Case 32, 33, 58, 59, 63
+                AddUndo_()
             EndSelect
           EndIf
           
         CompilerEndIf
         
-        Draw_(GNum)
+        CompilerIf #Enable_SpellChecking
+          
+          If EditEx()\Flags & #AutoSpellCheck
+            
+            Select Char
+              Case 32, 33, 41, 44, 46
+                SpellCheck = #True
+              Case 58, 59, 63, 93, 125
+                SpellCheck = #True
+            EndSelect
+            
+            If SpellCheck 
+              UpdateWordList_()
+              SpellChecking_(#True)
+            EndIf
+            
+          EndIf
+          
+        CompilerEndIf
+        
+        Draw_()
         
       EndIf
       
@@ -3830,139 +2937,168 @@ Module EditEx
     
   EndProcedure 
   
-  ; --- Scrollbar ---
-  
-  Procedure _SynchronizeScrollPos()
-    Define.i ScrollID = EventGadget()
-    Define.i GNum = GetGadgetData(ScrollID)
-    Define.i ScrollPos, OffSet
-    
-    If FindMapElement(EditEx(), Str(GNum))
-      
-      ScrollPos = GetGadgetState(ScrollID)
-      If ScrollPos <> EditEx()\HScroll\Position
-        
-        If ScrollPos < EditEx()\Visible\PosOffset
-          EditEx()\Visible\PosOffset = ScrollPos - EditEx()\Text\Space * 3
-        ElseIf ScrollPos > EditEx()\Visible\PosOffset
-          EditEx()\Visible\PosOffset = ScrollPos + EditEx()\Text\Space * 3
-        EndIf
-        
-        If EditEx()\Visible\PosOffset < EditEx()\HScroll\MinPos : EditEx()\Visible\PosOffset = EditEx()\HScroll\MinPos : EndIf
-        If EditEx()\Visible\PosOffset > EditEx()\HScroll\MaxPos : EditEx()\Visible\PosOffset = EditEx()\HScroll\MaxPos : EndIf
-        
-        SetGadgetState(ScrollID, EditEx()\Visible\PosOffset)
-        
-        SetHScrollPosition_()
-        Draw_(GNum)
-      EndIf
-      
-    EndIf
-    
-  EndProcedure
- 
-  Procedure _SynchronizeScrollRows()
-    Define.i ScrollID = EventGadget()
-    Define.i GNum = GetGadgetData(ScrollID)
-    Define   ScrollPos.i, OffSet.i, Calc.f
-    
-    If FindMapElement(EditEx(), Str(GNum))
-      
-      ScrollPos = GetGadgetState(ScrollID)
-      If ScrollPos <> EditEx()\VScroll\Position
-        EditEx()\Visible\RowOffset = ScrollPos
-        SetVScrollPosition_()
-        Draw_(GNum)
-      EndIf
-      
-    EndIf
-    
-  EndProcedure 
-  
-  ; --- Mouse-Handler ---
+  ;- --- Mouse-Handler ---
   
   Procedure _RightClickHandler()
     Define.i GNum = EventGadget()
-    Define.i X, Y
-    
+    Define.i X, Y, CursorPos, sWord, eWord
+    Define.s Word$
     
     If FindMapElement(EditEx(), Str(GNum))
-      
-      If ListSize(EditEx()\Items()) = #False : ProcedureReturn #False : EndIf
-      
-      If IsMenu(EditEx()\PopupMenu)
 
-        X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
-        Y = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
+      X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
+      Y = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
+      
+      CompilerIf #Enable_SpellChecking
         
+        If EditEx()\Visible\WordList = #True
+          HideWindow(EditEx()\WinNum, #True)
+          EditEx()\Visible\WordList = #False
+        EndIf 
+        
+        If EditEx()\Flags & #Suggestions
+          
+          CursorPos = CursorPos_(X, Y, #False)
+          If CursorPos
+            
+            sWord = WordStart_(EditEx()\Text$, CursorPos)
+            eWord = WordEnd_(EditEx()\Text$ , CursorPos)
+            Word$ = StringSegment(EditEx()\Text$, sWord, eWord)
+            
+            ForEach EditEx()\Mistake()
+              
+              If Word$ = EditEx()\Mistake()
+                
+                EditEx()\Selection\Pos1 = sWord
+                EditEx()\Selection\Pos2 = eWord
+                EditEx()\Selection\Flag = #Selected
+                Draw_()
+                
+                If CorrectionSuggestions_(Word$)
+                  ResizeList_(sWord)
+                  ClearGadgetItems(EditEx()\ListNum)
+                  ForEach EditEx()\Suggestions()
+                    AddGadgetItem(EditEx()\ListNum, -1, EditEx()\Suggestions())
+                  Next  
+                  EditEx()\Visible\WordList = #True
+                  HideWindow(EditEx()\WinNum, #False)
+                EndIf
+                
+                ProcedureReturn #True
+              EndIf   
+            Next
+            
+          EndIf
+          
+        EndIf
+        
+      CompilerEndIf
+      
+      If IsMenu(EditEx()\PopupMenu) 
         If IsTextArea_(X, Y)
           DisplayPopupMenu(EditEx()\PopupMenu, WindowID(EditEx()\Window\Num))
         EndIf
-        
       EndIf
       
     EndIf
     
   EndProcedure
   
-  Procedure _LeftButtonDownHandler()
-    Define.i GNum = EventGadget()
-    Define.i CursorX, CursorY, CursorRow
-    
-    If FindMapElement(EditEx(), Str(GNum))
+  CompilerIf #Enable_SpellChecking
+  
+    Procedure _RightDoubleClickHandler()
+      Define.i GNum = EventGadget()
+      Define.i X, Y, CursorPos, sWord, eWord
+      Define.s Word$
       
-      If ListSize(EditEx()\Items()) = #False : ProcedureReturn #False : EndIf
+      If FindMapElement(EditEx(), Str(GNum))
       
-      CursorX   = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
-      CursorY   = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
-      CursorRow = GetRow_(CursorY)
-
-      If SelectElement(EditEx()\Items(), CursorRow)
+        X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
+        Y = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
         
-        EditEx()\Cursor\Pos   = CursorPos_(CursorRow, CursorX)
-        EditEx()\Cursor\Row   = CursorRow
-        EditEx()\Cursor\LastX = CursorX_(CursorRow, EditEx()\Cursor\Pos)
-        
-        CompilerIf #Enable_UndoRedo
-          ChangeUndoCursor_()
-        CompilerEndIf
-        
-        RemoveSelection_()
-        
-        Delay(50)
-        
-        Draw_(GNum)
+        CursorPos = CursorPos_(X, Y)
+        If CursorPos
+         
+          sWord = WordStart_(EditEx()\Text$, CursorPos)
+          eWord = WordEnd_(EditEx()\Text$ , CursorPos)
+          Word$ = StringSegment(EditEx()\Text$, sWord, eWord)
+          
+          If Words(Word$)\checked = #False
+            If SpellCheck(Word$) = #False
+              Words(Word$)\misspelled = #True
+            EndIf
+            Words(Word$)\checked = #True
+          EndIf
+          
+          If Words(Word$)\misspelled = #True
+            
+            If EditEx()\Flags & #Suggestions : EditEx()\Mistake(Word$) = Word$ : EndIf 
+            
+            EditEx()\Syntax(Word$) = EditEx()\Color\SyntaxHighlight
+          Else
+            EditEx()\Syntax(Word$) = $008000
+          EndIf
+          
+          Draw_()
+        EndIf
         
       EndIf
       
+    EndProcedure
+    
+  CompilerEndIf
+
+  Procedure _LeftButtonDownHandler()
+    Define.i GNum = EventGadget()
+    Define.i CursorX, CursorY, CursorPos
+    
+    If FindMapElement(EditEx(), Str(GNum))
+      
+      CursorX   = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
+      CursorY   = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
+      
+      CompilerIf #Enable_SpellChecking
+        If EditEx()\Visible\WordList = #True
+          HideWindow(EditEx()\WinNum, #True)
+          EditEx()\Visible\WordList = #False
+        EndIf  
+      CompilerEndIf
+      
+      CursorPos = CursorPos_(CursorX, CursorY)
+      If CursorPos
+        EditEx()\Cursor\LastX = EditEx()\Cursor\X ; last cursor position for cursor up/down
+        RemoveSelection_()
+        Draw_()
+      EndIf
+    
+      CompilerIf #Enable_UndoRedo
+        
+        If EditEx()\Flags & #UndoRedo : ChangeUndoCursor_() : EndIf 
+        
+      CompilerEndIf
+
     EndIf
     
   EndProcedure
   
   Procedure _LeftButtonUpHandler()
     Define.i GNum = EventGadget()
-    Define.i CursorX, CursorY, CursorRow
-    Define.s Text$
+    Define.i CursorPos, CursorX, CursorY
     
     If FindMapElement(EditEx(), Str(GNum))
-      
-      If ListSize(EditEx()\Items()) = #False : ProcedureReturn #False : EndIf
-      
+
       CursorX   = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
       CursorY   = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
-      CursorRow = GetRow_(CursorY)
-      
-      If CursorRow <> CursorRow_() ;{ Button up in a another row
-        If SelectElement(EditEx()\Items(), CursorRow)
-          EditEx()\Cursor\Pos = CursorPos_(CursorRow, CursorX)
-          EditEx()\Cursor\Row = CursorRow
-          EditEx()\Cursor\LastX = CursorX_(CursorRow, EditEx()\Cursor\Pos)
-        EndIf
-      EndIf ;}
       
       If EditEx()\Mouse\Status = #Mouse_Select
-        EditEx()\Selection\Pos2 = CursorPos_(CursorRow, CursorX)
-        EditEx()\Selection\Row2 = CursorRow
+        
+        CursorPos = CursorPos_(CursorX, CursorY)
+        If CursorPos
+          EditEx()\Selection\Pos2 = CursorPos
+          EditEx()\Cursor\LastX   = EditEx()\Cursor\X ; last cursor position for cursor up/down
+          Draw_()
+        EndIf
+        
         EditEx()\Mouse\Status = #Mouse_Move
       EndIf
       
@@ -3972,39 +3108,41 @@ Module EditEx
   
   Procedure _LeftDoubleClickHandler()
     Define.i GNum = EventGadget()
-    Define.i CursorX, CursorY, CursorRow, CursorPos
+    Define.i CursorX, CursorY, CursorPos
     Define.s Text$
     
     If FindMapElement(EditEx(), Str(GNum))
       
-      If ListSize(EditEx()\Items()) = #False : ProcedureReturn #False : EndIf
+      CursorX   = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
+      CursorY   = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
+
+      CursorPos = CursorPos_(CursorX, CursorY)
       
-      If ListIndex(EditEx()\Items()) >= 0
-        
-        Text$ = EditEx()\Items()\String
-        
-        CursorX   = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
-        CursorY   = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
-        CursorRow = GetRow_(CursorY)
-        CursorPos = CursorPos_(CursorRow, CursorX)
-        
-        If Mid(Text$ , CursorPos, 1) = " "
-          EditEx()\Selection\Row1    = CursorRow
-          EditEx()\Selection\Pos1    = GetSpaceStart(Text$, CursorPos)
-          EditEx()\Selection\Row2    = CursorRow
-          EditEx()\Selection\Pos2    = GetSpaceEnd(Text$, CursorPos)
-        Else
-          EditEx()\Selection\Row1    = CursorRow
-          EditEx()\Selection\Pos1    = GetWordStart(Text$, CursorPos)
-          EditEx()\Selection\Row2    = CursorRow
-          EditEx()\Selection\Pos2    = GetWordEnd(Text$, CursorPos)
-        EndIf  
+      CompilerIf #Enable_SpellChecking
+        If EditEx()\Visible\WordList = #True
+          HideWindow(EditEx()\WinNum, #True)
+          EditEx()\Visible\WordList = #False
+        EndIf 
+      CompilerEndIf
       
-        If EditEx()\Selection\Pos1 <> EditEx()\Selection\Pos2
-          EditEx()\Selection\Flag = #Selected
-          EditEx()\Cursor\Pos = EditEx()\Selection\Pos2
-          Draw_(GNum)
-        EndIf
+      If Mid(EditEx()\Text$, CursorPos, 1) = " "
+        
+        EditEx()\Selection\Pos1 = SpaceStart_(EditEx()\Text$, CursorPos)
+        EditEx()\Selection\Pos2 = SpaceEnd_(EditEx()\Text$,   CursorPos)
+        
+      Else
+        
+        EditEx()\Selection\Pos1 = WordStart_(EditEx()\Text$, CursorPos)
+        EditEx()\Selection\Pos2 = WordEnd_(EditEx()\Text$,   CursorPos)
+        
+      EndIf  
+      
+      If EditEx()\Selection\Pos1 <> EditEx()\Selection\Pos2
+        
+        EditEx()\Selection\Flag = #Selected
+        EditEx()\Cursor\Pos     = EditEx()\Selection\Pos2
+        
+        Draw_()
       EndIf
       
     EndIf
@@ -4013,55 +3151,60 @@ Module EditEx
   
   Procedure _MouseMoveHandler()
     Define.i GNum = EventGadget()
-    Define.i CursorPos, CursorX, CursorY, CursorRow, Flag, Result
+    Define.i CursorPos, NewPos, CursorX, CursorY
     
     If FindMapElement(EditEx(), Str(GNum))
       
-      If ListSize(EditEx()\Items()) = #False : ProcedureReturn #False : EndIf
-      
       CursorX   = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
       CursorY   = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
-      CursorRow = GetRow_(CursorY)
-      
+      CursorPos = EditEx()\Cursor\Pos
+
       If GetGadgetAttribute(GNum, #PB_Canvas_Buttons) = #PB_Canvas_LeftButton ;{ Left Mouse Button
         
-        If ListIndex(EditEx()\Items()) >= 0
-          
-          If CursorRow <> CursorRow_()
-            Result = SelectElement(EditEx()\Items(), CursorRow)
-          Else  
-            Result = #True
-          EndIf
-          
-          If Result
-
-            Select EditEx()\Mouse\Status
-              Case #Mouse_Move   ;{ Start Selection
-                If EditEx()\Selection\Flag = #NoSelection
-                  EditEx()\Selection\Pos1 = EditEx()\Cursor\Pos
-                  EditEx()\Selection\Row1 = EditEx()\Cursor\Row
-                  EditEx()\Selection\Pos2 = CursorPos_(CursorRow, CursorX)
-                  EditEx()\Selection\Row2 = CursorRow
-                  EditEx()\Selection\Flag = #Selected
-                  EditEx()\Mouse\Status = #Mouse_Select
-                  Draw_(GNum)
-                EndIf
-                ;}
-              Case #Mouse_Select ;{ Continue Selection
-                EditEx()\Cursor\Pos = CursorPos_(CursorRow, CursorX)
-                EditEx()\Cursor\Row = CursorRow
-                EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
-                EditEx()\Selection\Row2 = EditEx()\Cursor\Row
-                Draw_(GNum)
-                ;}
-            EndSelect
+        Select EditEx()\Mouse\Status
+          Case #Mouse_Move   ;{ Start Selection
             
-          EndIf
+            If EditEx()\Selection\Flag = #NoSelection
+              
+              NewPos = CursorPos_(CursorX, CursorY)
+              If NewPos 
 
-        EndIf
+                If CursorPos <> EditEx()\Cursor\Pos
+                  
+                  EditEx()\Selection\Pos1 = CursorPos
+                  EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
+                  EditEx()\Selection\Flag = #Selected
+                  EditEx()\Mouse\Status   = #Mouse_Select
+                  
+                  Draw_()
+                EndIf
+                
+              EndIf
+              
+            EndIf  
+            ;}
+          Case #Mouse_Select ;{ Continue Selection
+            
+            If EditEx()\Selection\Flag = #Selected
+              
+              NewPos = CursorPos_(CursorX, CursorY)
+              If NewPos 
+                
+                EditEx()\Cursor\Pos = NewPos
+                
+                If CursorPos <> EditEx()\Cursor\Pos
+                  EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
+                  Draw_()
+                EndIf
+                
+              EndIf
+              
+            EndIf  
+            ;}
+        EndSelect
         ;}
       Else
-        EditEx()\Mouse\Status = #Mouse_Move
+        EditEx()\Mouse\Status = #Mouse_Move 
       EndIf
       
       ChangeMouseCursor_(GNum, CursorX, CursorY)
@@ -4088,7 +3231,7 @@ Module EditEx
         If ScrollPos <> EditEx()\VScroll\Position
           EditEx()\Visible\RowOffset = ScrollPos
           SetVScrollPosition_()
-          Draw_(GNum)
+          Draw_()
         EndIf
       
       EndIf
@@ -4097,51 +3240,130 @@ Module EditEx
     
   EndProcedure
   
-  ; --- Resize Gadget ---
+  ;- --- Scrollbar ---
+  
+  Procedure _SynchronizeScrollPos()
+    Define.i ScrollID = EventGadget()
+    Define.i GNum = GetGadgetData(ScrollID)
+    Define.i ScrollPos, OffSet
+    
+    If FindMapElement(EditEx(), Str(GNum))
+      
+      ScrollPos = GetGadgetState(ScrollID)
+      If ScrollPos <> EditEx()\HScroll\Position
+        
+        If ScrollPos < EditEx()\Visible\PosOffset
+          EditEx()\Visible\PosOffset = ScrollPos - 30
+        ElseIf ScrollPos > EditEx()\Visible\PosOffset
+          EditEx()\Visible\PosOffset = ScrollPos + 30
+        EndIf
+        ;Debug "ScrollPos1: " + Str(EditEx()\Visible\PosOffset)
+        If EditEx()\Visible\PosOffset < EditEx()\HScroll\MinPos : EditEx()\Visible\PosOffset = EditEx()\HScroll\MinPos : EndIf
+        If EditEx()\Visible\PosOffset > EditEx()\HScroll\MaxPos : EditEx()\Visible\PosOffset = EditEx()\HScroll\MaxPos : EndIf
+        ;Debug "ScrollPos2: " + Str(EditEx()\HScroll\MaxPos)
+        SetGadgetState(ScrollID, EditEx()\Visible\PosOffset)
+        
+        SetHScrollPosition_()
+        
+        Draw_()
+      EndIf
+      
+    EndIf
+    
+  EndProcedure
+ 
+  Procedure _SynchronizeScrollRows()
+    Define.i ScrollID = EventGadget()
+    Define.i GNum = GetGadgetData(ScrollID)
+    Define   ScrollPos.i, OffSet.i, Calc.f
+    
+    If FindMapElement(EditEx(), Str(GNum))
+      
+      ScrollPos = GetGadgetState(ScrollID)
+      If ScrollPos <> EditEx()\VScroll\Position
+        EditEx()\Visible\RowOffset = ScrollPos
+        SetVScrollPosition_()
+        Draw_()
+      EndIf
+      
+    EndIf
+    
+  EndProcedure 
+  
+  ;- --- Resize Gadget ---
   
   Procedure _ResizeHandler()
     Define.i GNum = EventGadget()
-    Define.f X, Y, Width, Height
     
     If FindMapElement(EditEx(), Str(GNum))
-      X      = GadgetX(GNum)
-      Y      = GadgetY(GNum)
-      Width  = GadgetWidth(GNum)
-      Height = GadgetHeight(GNum)
       
-      If EditEx()\Border
-        Width  = Width  - 4
-        Height = Height - 4
+      AdjustScrolls_(#False)
+      
+      If Not EditEx()\VScroll\Hide And Not EditEx()\HScroll\Hide
+        If IsGadget(EditEx()\HScroll\ID) And IsGadget(EditEx()\VScroll\ID)
+          ResizeGadget(EditEx()\HScroll\ID, 1, GadgetHeight(EditEx()\CanvasNum) - #Scroll_Width - 1,  GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 2, #Scroll_Width)
+          ResizeGadget(EditEx()\VScroll\ID, GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 1, 1, #Scroll_Width, GadgetHeight(EditEx()\CanvasNum) - #Scroll_Width - 2)
+        EndIf  
+      ElseIf Not EditEx()\VScroll\Hide 
+        If IsGadget(EditEx()\VScroll\ID)
+          ResizeGadget(EditEx()\VScroll\ID, GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 1, 1, #Scroll_Width, GadgetHeight(EditEx()\CanvasNum) - 2)
+        EndIf  
+      ElseIf Not EditEx()\HScroll\Hide
+        If IsGadget(EditEx()\HScroll\ID)
+          ResizeGadget(EditEx()\HScroll\ID, 1, GadgetHeight(EditEx()\CanvasNum) - #Scroll_Width - 1, GadgetWidth(EditEx()\CanvasNum) - 2, #Scroll_Width)
+        EndIf 
       EndIf
       
-      If EditEx()\ScrollBars & #ScrollBar_Vertical Or EditEx()\ScrollBars & #ScrollBar_Horizontal  ;{ Scrollbar Gadgets
-        
-        If EditEx()\ScrollBars & #ScrollBar_Horizontal : Height - #Scroll_Width - 1 : EndIf
-        If EditEx()\ScrollBars & #ScrollBar_Vertical   : Width  - #Scroll_Width - 1 : EndIf
-        
-        If EditEx()\ScrollBars & #ScrollBar_Horizontal And EditEx()\ScrollBars & #ScrollBar_Vertical
-          ResizeGadget(EditEx()\HScroll\ID, 1, Height, Width - 1, #Scroll_Width)
-          ResizeGadget(EditEx()\VScroll\ID, Width, 1, #Scroll_Width, Height - 1)
-        ElseIf EditEx()\ScrollBars & #ScrollBar_Horizontal  
-          ResizeGadget(EditEx()\HScroll\ID, 1, Height, Width - 1, #Scroll_Width)
-        ElseIf EditEx()\ScrollBars & #ScrollBar_Vertical
-          ResizeGadget(EditEx()\VScroll\ID, Width, 1, #Scroll_Width, Height - 1)
-        EndIf
- 
-      EndIf ;}
+      Draw_()
       
-      EditEx()\Size\Width  = dpiX(Width  - 4)
-      EditEx()\Size\Height = dpiY(Height - 4)
-      
-      EditEx()\HScroll\Hide = #False
-      EditEx()\VScroll\Hide = #False
-      
-      Draw_(GNum)
       AdjustScrolls_()
       
     EndIf
     
   EndProcedure
+  
+  Procedure _ResizeWindowHandler()
+    Define.f X, Y, Width, Height
+    Define.i  OffSetX, OffsetY
+
+    ForEach EditEx()
+      
+      If IsGadget(EditEx()\CanvasNum)
+        
+        If EditEx()\Flags & #AutoResize
+          
+          If IsWindow(EditEx()\Window\Num)
+            
+            OffSetX = WindowWidth(EditEx()\Window\Num)  - EditEx()\Window\Width
+            OffsetY = WindowHeight(EditEx()\Window\Num) - EditEx()\Window\Height
+            
+            If EditEx()\Size\Flags
+              
+              X = #PB_Ignore : Y = #PB_Ignore : Width  = #PB_Ignore : Height = #PB_Ignore
+              
+              If EditEx()\Size\Flags & #MoveX : X = EditEx()\Size\X + OffSetX : EndIf
+              If EditEx()\Size\Flags & #MoveY : Y = EditEx()\Size\Y + OffSetY : EndIf
+              If EditEx()\Size\Flags & #Width  : Width  = EditEx()\Size\Width  + OffSetX : EndIf
+              If EditEx()\Size\Flags & #Height : Height = EditEx()\Size\Height + OffSetY : EndIf
+
+              ResizeGadget(EditEx()\CanvasNum, X, Y, Width, Height)
+              
+            Else
+
+              ResizeGadget(EditEx()\CanvasNum, #PB_Ignore, #PB_Ignore, EditEx()\Size\Width + OffSetX,  EditEx()\Size\Height + OffSetY)
+              
+            EndIf
+
+          EndIf
+          
+        EndIf
+        
+      EndIf
+      
+    Next
+    
+  EndProcedure  
+  
   
   Procedure _CloseWindowHandler()
     Define.i Window = EventWindow()
@@ -4159,6 +3381,8 @@ Module EditEx
           EndIf
         CompilerEndIf
         
+        If IsWindow(EditEx()\WinNum) : CloseWindow(EditEx()\WinNum) : EndIf
+        
         DeleteMapElement(EditEx())
         
       EndIf
@@ -4171,67 +3395,23 @@ Module EditEx
   ;- ==========================================================================
   ;-   Module - Declared Procedures
   ;- ========================================================================== 
-  
-  
-  Procedure.i Pixel(Value.i, Unit.s="mm")
-    Define.f ScaleFactor, Pt
-    
-    Select Unit
-      Case "pt"
-        ScaleFactor = 1
-      Case "mm"
-        ScaleFactor = 72 / 25.4
-      Case "cm"
-       ScaleFactor  = 72 / 2.54
-      Case "in"
-        ScaleFactor = 72
-      Default
-        ScaleFactor = 72 / 25.4
-    EndSelect
-    
-    pt = Value * ScaleFactor
-    
-    ProcedureReturn Pixel(Pt)
-  EndProcedure
-  
-  Procedure   ReDraw_(GNum.i)
-    
-    If FindMapElement(EditEx(), Str(GNum))
-      Draw_(GNum)
-    EndIf
-    
-  EndProcedure
-  
-  Procedure   SetFont(GNum.i, FontID.i)
-    
-    If FindMapElement(EditEx(), Str(GNum))
-      
-      If FontID
-        EditEx()\FontID   = FontID
-      Else
-        EditEx()\FontID   = GetGadgetFont(GNum)
-      EndIf
-      
-      Draw_(GNum)
-      
-    EndIf
-    
-  EndProcedure  
-  
+
   ;- ===== Spell Checking =====
   
   CompilerIf #Enable_SpellChecking
     
     Procedure LoadDictionary(DicFile.s, AddDicFile.s="")
-      Define Word$, Path$
+      Define.i FileID
+      Define.s Word$, Path$
       
       ClearList(Dictionary())
       
       Path\Dictionary = GetPathPart(DicFile)
       
-      If ReadFile(#File, DicFile)
-        While Eof(#File) = #False
-          Word$ = ReadString(#File)
+      FileID = ReadFile(#PB_Any, DicFile)
+      If FileID
+        While Eof(FileID) = #False
+          Word$ = ReadString(FileID)
           AddElement(Dictionary())
           Dictionary()\Stem = StringField(Word$, 1, Chr(127))
           If CountString(Word$, Chr(127)) = 2
@@ -4242,14 +3422,15 @@ Module EditEx
             Dictionary()\Flag    = Val(StringField(Word$, 3, Chr(127)))
           EndIf
         Wend
-        CloseFile(#File)
+        CloseFile(FileID)
       EndIf
       
       If AddDicFile
         
-        If ReadFile(#File, AddDicFile)
-          While Eof(#File) = #False
-            Word$ = ReadString(#File)
+        FileID = ReadFile(#PB_Any, AddDicFile)
+        If FileID
+          While Eof(FileID) = #False
+            Word$ = ReadString(FileID)
             AddElement(Dictionary())
             Dictionary()\Stem = StringField(Word$, 1, Chr(127))
             If CountString(Word$, Chr(127)) = 2
@@ -4260,7 +3441,7 @@ Module EditEx
               Dictionary()\Flag    = Val(StringField(Word$, 3, Chr(127)))
             EndIf
           Wend
-          CloseFile(#File)
+          CloseFile(FileID)
         EndIf
       EndIf
       
@@ -4272,9 +3453,11 @@ Module EditEx
       
       ClearList(UserDic())
       
-      If ReadFile(#File, Path\Dictionary + "user.dic")
-        While Eof(#File) = #False
-          Word$ = ReadString(#File)
+      FileID = ReadFile(#PB_Any, Path\Dictionary + "user.dic")
+      If FileID
+        
+        While Eof(FileID) = #False
+          Word$ = ReadString(FileID)
           AddElement(UserDic())
           UserDic()\Stem = StringField(Word$, 1, Chr(127))
           If CountString(Word$, Chr(127)) = 2
@@ -4288,7 +3471,7 @@ Module EditEx
         
         MergeLists(UserDic(), Dictionary())
         
-        CloseFile(#File)
+        CloseFile(FileID)
       EndIf
       
       SortStructuredList(Dictionary(), #PB_Sort_Ascending, OffsetOf(Dictionary_Structure\Stem), TypeOf(Dictionary_Structure\Stem))  
@@ -4299,7 +3482,7 @@ Module EditEx
       ClearList(Dictionary())
     EndProcedure
     
-    Procedure EnableAutoSpellCheck(GNum.i, Flag.i=#True)
+    Procedure EnableAutoSpellCheck(GNum.i, State.i=#True, Flag.i=#False)
       
       ;{ Syntax highlighting is required
       If #Enable_SyntaxHighlight = #False
@@ -4313,51 +3496,27 @@ Module EditEx
         ProcedureReturn #False
       EndIf ;}
       
-      EditEx()\SyntaxHighlight = #CaseSensitiv
-      
       If FindMapElement(EditEx(), Str(GNum))
-        EditEx()\AutoSpellCheck = Flag
+        
+        EditEx()\SyntaxHighlight = #CaseSensitiv
+        
+        If State
+          EditEx()\Flags | #AutoSpellCheck
+          EditEx()\Flags | #SyntaxHighlight
+          If Flag = #Suggestions : EditEx()\Flags | #Suggestions : EndIf 
+        Else
+          EditEx()\Flags & ~#AutoSpellCheck
+          EditEx()\Flags & ~#SyntaxHighlight
+          EditEx()\Flags & ~#Suggestions
+        EndIf   
+        
       EndIf
+      
       
     EndProcedure
     
     Procedure SpellCheck(Word.s)
-      Define.i ListPos, StartPos, EndPos
-      Define.s LWord$ = LCase(Word)
-      
-      StartPos = 0
-      EndPos   = ListSize(Dictionary()) - 1
-      
-      Repeat
-        ListPos = StartPos + Round((EndPos - StartPos)  / 2, #PB_Round_Up)
-        If SelectElement(Dictionary(), ListPos)
-          If Dictionary()\Stem  = LWord$                      ;{ direct hit
-            If Dictionary()\Flag ; Upper case required
-              If Left(Word, 1) = UCase(Left(Word, 1))
-                ProcedureReturn #True
-              Else
-                ProcedureReturn #False
-              EndIf
-            Else           ; No capitalization required
-              ProcedureReturn #True
-            EndIf ;}
-          ElseIf Left(LWord$, 4) < Left(Dictionary()\Stem, 4) ;{ word smaller than current word
-            EndPos   = ListPos - 1
-            ;}
-          ElseIf Left(LWord$, 4) > Left(Dictionary()\Stem, 4) ;{ word greater than current word
-            StartPos = ListPos + 1
-            ;}
-          Else                                          ;{ Search by word endings
-            If SpellCheckEndings(ListPos, Word)
-              ProcedureReturn #True
-            Else
-              ProcedureReturn #False
-            EndIf ;}
-          EndIf
-        EndIf
-      Until (EndPos - StartPos) < 0
-      
-      ProcedureReturn #False
+      ProcedureReturn SpellCheck_(Word)
     EndProcedure
     
     Procedure SpellChecking(GNum.i, Flag.i=#Highlight)
@@ -4390,65 +3549,81 @@ Module EditEx
           ClearList(WrongWords())
           ForEach Words()
             If Words()\misspelled = #True
-              AddElement(WrongWords())
-              WrongWords() = MapKey(Words())
+              If AddElement(WrongWords())
+                WrongWords() = MapKey(Words())
+              EndIf  
               DeleteMapElement(Words())
             EndIf
           Next
         EndIf
-        
-        If Flag & #Highlight : Draw_(GNum) : EndIf
+
+        If Flag & #Highlight : Draw_() : EndIf
         
       EndIf
       
     EndProcedure
     
     Procedure SaveUserDictionary()
+      Define.i FileID
       Define.s File$, Word$
       
       File$ = Path\Dictionary + "user.dic"
       
       If ListSize(UserDic()) = 0 : ProcedureReturn #False : EndIf
       
-      If CreateFile(#File, File$)
+      FileID = CreateFile(#PB_Any, File$)
+      If FileID
         
         SortStructuredList(UserDic(), #PB_Sort_Ascending, OffsetOf(Dictionary_Structure\Stem), TypeOf(Dictionary_Structure\Stem))
         
         ForEach UserDic()
           Word$ = UserDic()\Stem + Chr(127) + UserDic()\Endings + Chr(127) + UserDic()\Flag
-          WriteStringN(#File, Word$, #PB_UTF8)
+          WriteStringN(FileID, Word$, #PB_UTF8)
         Next
         
-        CloseFile(#File)
+        CloseFile(FileID)
       EndIf
       
     EndProcedure
     
-    Procedure AddToUserDictionary(Word.s)
+    Procedure AddToUserDictionary(GNum.i, Word.s)
       
-      If SpellCheck(Word) = #False
+      If FindMapElement(EditEx(), Str(GNum))
         
-        If AddElement(UserDic())
-          UserDic()\Stem    = LCase(Word)
-          UserDic()\Endings = ""
-          If Left(Word, 1) = UCase(Left(Word, 1))
-            UserDic()\Flag  = #True
-          Else
-            UserDic()\Flag  = #False
+        If SpellCheck(Word) = #False
+          
+          DeleteMapElement(EditEx()\Syntax(), Word)
+          Words(Word)\misspelled = #False
+  
+          If AddElement(UserDic())
+            UserDic()\Stem    = LCase(Word)
+            UserDic()\Endings = ""
+            If Left(Word, 1)  = UCase(Left(Word, 1))
+              UserDic()\Flag  = #True
+            Else
+              UserDic()\Flag  = #False
+            EndIf
           EndIf
-        EndIf
-        
-        If AddElement(Dictionary())
-          Dictionary()\Stem    = LCase(Word)
-          Dictionary()\Endings = ""
-          If Left(Word, 1) = UCase(Left(Word, 1))
-            Dictionary()\Flag  = #True
-          Else
-            Dictionary()\Flag  = #False
+          
+          If AddElement(Dictionary())
+            Dictionary()\Stem    = LCase(Word)
+            Dictionary()\Endings = ""
+            If Left(Word, 1) = UCase(Left(Word, 1))
+              Dictionary()\Flag  = #True
+            Else
+              Dictionary()\Flag  = #False
+            EndIf
           EndIf
+          
+          SortStructuredList(Dictionary(), #PB_Sort_Ascending, OffsetOf(Dictionary_Structure\Stem), TypeOf(Dictionary_Structure\Stem))
+          
+          If EditEx()\Flags & #AutoSpellCheck
+            UpdateWordList_()
+            SpellChecking_(#True)
+            Draw_()
+          EndIf
+  
         EndIf
-        
-        SortStructuredList(Dictionary(), #PB_Sort_Ascending, OffsetOf(Dictionary_Structure\Stem), TypeOf(Dictionary_Structure\Stem))
         
       EndIf
       
@@ -4459,7 +3634,19 @@ Module EditEx
       ClearMap(Words())
       
     EndProcedure
-    
+
+    Procedure CorrectionSuggestions(GNum.i, Word.s, List Suggestions.s())
+      
+      If FindMapElement(EditEx(), Str(GNum))
+        
+        If CorrectionSuggestions_(Word)
+          CopyList(EditEx()\Suggestions(), Suggestions())
+        EndIf
+        
+      EndIf
+      
+    EndProcedure
+   
   CompilerEndIf  
   
   ;- ===== Hyphenation =====
@@ -4467,20 +3654,22 @@ Module EditEx
   CompilerIf #Enable_Hyphenation
   
     Procedure   LoadHyphenationPattern(File.s=#PAT_Deutsch) ; [ ALL gadgets ]
+      Define.i FileID
       Define.s Pattern 
       
       Path\Pattern = GetPathPart(File)
       
       ClearList(HyphPattern())
       
-      If ReadFile(#File, File)
-        While Eof(#File) = #False
-          Pattern = Trim(ReadString(#File, #PB_UTF8))
+      FileID = ReadFile(#PB_Any, File)
+      If FileID
+        While Eof(FileID) = #False
+          Pattern = Trim(ReadString(FileID, #PB_UTF8))
           AddElement(HyphPattern())
           HyphPattern()\chars   = StringField(Pattern, 1, ":")
           HyphPattern()\pattern = StringField(Pattern, 2, ":")
         Wend 
-        CloseFile(#File)
+        CloseFile(FileID)
         ProcedureReturn #True
       Else
         ProcedureReturn #False
@@ -4494,13 +3683,19 @@ Module EditEx
   
   CompilerIf #Enable_SyntaxHighlight
     
-    Procedure EnableSyntaxHighlight(GNum.i, Flag.i=#CaseSensitiv) ; #False/#CaseSensitiv/#NoCase
+    Procedure EnableSyntaxHighlight(GNum.i, State.i=#True, Flag.i=#CaseSensitiv) ; #False/#CaseSensitiv/#NoCase
       
       If FindMapElement(EditEx(), Str(GNum))
         
-        EditEx()\SyntaxHighlight = Flag
+        If State
+          EditEx()\Flags | #SyntaxHighlight
+          EditEx()\SyntaxHighlight = Flag
+        Else
+          EditEx()\Flags & ~#SyntaxHighlight
+          EditEx()\SyntaxHighlight = #False
+        EndIf
         
-        Draw_(GNum)
+        Draw_()
         
       EndIf
       
@@ -4542,11 +3737,16 @@ Module EditEx
   
   CompilerIf #Enable_UndoRedo
 
-    Procedure EnableUndoRedo(GNum.i, Flag.i=#True, MaxSteps.i=#False) ; #True / #False
+    Procedure EnableUndoRedo(GNum.i, State.i=#True, MaxSteps.i=#False) ; #True / #False
       
       If FindMapElement(EditEx(), Str(GNum))
         
-        EditEx()\UndoRedo      = Flag
+        If State
+          EditEx()\Flags | #UndoRedo
+        Else
+          EditEx()\Flags & ~#UndoRedo
+        EndIf
+        
         EditEx()\Undo\MaxSteps = MaxSteps
         
       EndIf
@@ -4558,41 +3758,37 @@ Module EditEx
       
       If FindMapElement(EditEx(), Str(GNum))
         
-        Undo_()
-       
-        Draw_(GNum)
-        AdjustScrolls_()
+        If EditEx()\Flags & #UndoRedo
+          
+          Undo_()
+          Draw_()
+          AdjustScrolls_()
+          
+        EndIf
         
       EndIf
       
     EndProcedure
     
     Procedure Redo(GNum.i)
-      Define r.i, Text$
+      Define Text$
       
       If FindMapElement(EditEx(), Str(GNum))
         
-        Text$ = GetLastRedo_()
-        If Trim(Text$)
+        If EditEx()\Flags & #UndoRedo
           
-          ClearList(EditEx()\Items())
-          
-          For r=0 To CountString(Text$, #LineBreak$)
-        
-            If AddElement(EditEx()\Items())
-              EditEx()\Items()\String = StringField(Text$, r+1, #LineBreak$) + #LineBreak$
-            EndIf
+          Text$ = GetLastRedo_()
+          If Text$
+  
+            ClearRedo_()
             
-          Next
-          
-          ClearRedo_()
-          
-          If SelectElement(EditEx()\Items(), EditEx()\Undo\CursorRow)
+            EditEx()\Text$ = Text$
             EditEx()\Cursor\Pos = EditEx()\Undo\CursorPos
+
+            Draw_()
+            AdjustScrolls_()
+            
           EndIf
-          
-          Draw_(GNum)
-          AdjustScrolls_()
           
         EndIf
         
@@ -4639,7 +3835,7 @@ Module EditEx
   
   ;- ===== Selection / Cursor =====
   
-  Procedure.i IsSelected(GNum.i)                      ; Returns whether a selection exists
+  Procedure.i IsSelected(GNum.i)                         ; Returns whether a selection exists
     
     If FindMapElement(EditEx(), Str(GNum))
       If EditEx()\Selection\Flag = #Selected
@@ -4650,15 +3846,15 @@ Module EditEx
     ProcedureReturn #False
   EndProcedure
   
-  Procedure   DeleteSelection(GNum.i, Remove.i=#True) ; Delete selected text (Remove selection: #True/#False)
+  Procedure   DeleteSelection(GNum.i, Remove.i=#True)    ; Delete selected text (Remove selection: #True/#False)
     Define row.i, CurrentRow, Text.s
     
-    If EditEx()\ReadOnly = #False
+    If EditEx()\Flags & #ReadOnly = #False
       
       If FindMapElement(EditEx(), Str(GNum))
         
         If DeleteSelection_(Remove)
-          Draw_(GNum)
+          Draw_()
         EndIf
       
       EndIf
@@ -4667,22 +3863,22 @@ Module EditEx
     
   EndProcedure
   
-  Procedure.s GetSelection(GNum.i, Remove.i=#True)    ; Return selected text (Remove selection: #True/#False)
+  Procedure.s GetSelection(GNum.i, Remove.i=#True)       ; Return selected text (Remove selection: #True/#False)
     Define row.i, Text.s
     
     If FindMapElement(EditEx(), Str(GNum))
       
       Text = GetSelection_(Remove)      
-      If Remove : Draw_(GNum) : EndIf
+      If Remove : Draw_() : EndIf
       
       ProcedureReturn Text
     EndIf
   
   EndProcedure
   
-  Procedure   InsertText(GNum.i, Text.s)              ; Insert text at cursor position (or replace selection)
+  Procedure   InsertText(GNum.i, Text.s)                 ; Insert text at cursor position (or replace selection)
     
-    If EditEx()\ReadOnly = #False
+    If EditEx()\Flags & #ReadOnly = #False
       
       If FindMapElement(EditEx(), Str(GNum))
         
@@ -4690,13 +3886,12 @@ Module EditEx
           DeleteSelection_()
         EndIf
         
-        EditEx()\Items()\String = InsertString(EditEx()\Items()\String, Text, EditEx()\Cursor\Pos + 1)
+        EditEx()\Text$ = InsertString(EditEx()\Text$, Text, EditEx()\Cursor\Pos + 1)
         EditEx()\Cursor\Pos + Len(Text)
-        
-        Draw_(GNum)
-        
-        AdjustScrolls_()
 
+        Draw_()
+        AdjustScrolls_()
+        
       EndIf
       
     EndIf
@@ -4714,7 +3909,7 @@ Module EditEx
         
         Text$ = GetSelection_()
         If Text$
-          Text$ = ReplaceString(Text$, #LineBreak$, #NL$)
+          Text$ = ReplaceString(Text$, #LF$, #NL$)
           SetClipboardText(Text$)
         EndIf
         
@@ -4733,13 +3928,13 @@ Module EditEx
         
         Text$ = GetSelection_(#False)
         If Text$
-          Text$ = ReplaceString(Text$, #LineBreak$, #NL$)
+          Text$ = ReplaceString(Text$, #LF$, #NL$)
           SetClipboardText(Text$)
           DeleteSelection_()
         EndIf
-        
-        Draw_(GNum)
+
         AdjustScrolls_()
+        Draw_()
         
       EndIf
       
@@ -4748,26 +3943,31 @@ Module EditEx
   EndProcedure
   
   Procedure  Paste(GNum.i)
-    Define.s Text$
+    Define.s Text
     
     If FindMapElement(EditEx(), Str(GNum))
       
-      If EditEx()\ReadOnly = #False
+      If EditEx()\Flags & #ReadOnly = #False
         
-        Text$ = ReplaceString(GetClipboardText(), #NL$, #LineBreak$)
+        Text = ReplaceString(GetClipboardText(), #NL$, #LF$)
 
         If EditEx()\Selection\Flag = #Selected
           DeleteSelection_()
         EndIf
         
-        EditEx()\Items()\String = InsertString(EditEx()\Items()\String, Text$, EditEx()\Cursor\Pos + 1)
-        EditEx()\Cursor\Pos + Len(Text$)
+        EditEx()\Text$ = InsertString(EditEx()\Text$, Text, EditEx()\Cursor\Pos + 1)
+        EditEx()\Cursor\Pos + Len(Text)
         
         CompilerIf #Enable_SpellChecking
-          EditEx()\SpellCheck = #True
+
+          If EditEx()\Flags & #AutoSpellCheck
+            UpdateWordList_()
+            SpellChecking_(#True)
+          EndIf 
+          
         CompilerEndIf
-        
-        Draw_(GNum)
+
+        Draw_()
         AdjustScrolls_()
         
       EndIf
@@ -4776,176 +3976,52 @@ Module EditEx
     
   EndProcedure
   
-  ;- ===== Text Handling =====
-  
-  Procedure   AddItem(GNum.i, Position.i, Text.s)       ; Add text row at 'Position' (or #FirstRow / #LastRow)
+  ;- =====================
+
+  Procedure   AddItem(GNum.i, Position.i, Text.s)        ; Add text row at 'Position' (or #FirstRow / #LastRow)
     
     If FindMapElement(EditEx(), Str(GNum))
       
-      AddItem_(Position.i, Text.s)
+      AddItem_(Position, Text)
       
       CompilerIf #Enable_SpellChecking
-        EditEx()\SpellCheck = #True
-      CompilerEndIf
-      
-      Draw_(GNum)
-      
-      AdjustScrolls_()
+        
+        If EditEx()\Flags & #AutoSpellCheck
+          UpdateWordList_()
+          SpellChecking_(#True)
+        EndIf
+        
+      CompilerEndIf 
 
+      Draw_()
+      AdjustScrolls_()
+      
     EndIf
     
-    ProcedureReturn ListIndex(EditEx()\Items())
+    ProcedureReturn ListSize(EditEx()\Row())
   EndProcedure
   
-  Procedure   SetItemText(GNum.i, Position.i, Text.s)   ; Replace text row at 'Position'
-    Define Count.i
+  Procedure   AttachPopup(GNum.i, PopUpMenu.i)           ; Attach 'PopUpMenu' to gadget 
+    If FindMapElement(EditEx(), Str(GNum))
+      EditEx()\PopupMenu = PopUpMenu
+    EndIf
+  EndProcedure   
+  
+  
+  Procedure.i CountItems(GNum.i)
     
     If FindMapElement(EditEx(), Str(GNum))
-      
-      Count = ListSize(EditEx()\Items())
-      If Count And Position < Count
-        If SelectElement(EditEx()\Items(), Position)
-          EditEx()\Items()\String = Text
-        EndIf
-      EndIf
-      
-      Draw_(GNum)
-      
-      CompilerIf #Enable_SpellChecking
-        EditEx()\SpellCheck = #True
-      CompilerEndIf
-      
-      CompilerIf #Enable_UndoRedo
-        If EditEx()\UndoRedo : AddUndo_() : EndIf
-      CompilerEndIf
-      
+      ProcedureReturn ListSize(EditEx()\Row())
     EndIf  
-
-  EndProcedure
-  
-  
-  Procedure.s GetItemText(GNum.i, Position.i)           ; Return text row from 'Position'
-    Define Count.i, Text.s
-    
-    If FindMapElement(EditEx(), Str(GNum))
-      
-      PushListPosition(EditEx()\Items())
-      
-      Count = ListSize(EditEx()\Items())
-      If Count And Position < Count
-        SelectElement(EditEx()\Items(), Position)
-        Text = EditEx()\Items()\String
-      EndIf
-      
-      PopListPosition(EditEx()\Items())
-      
-      ProcedureReturn Text
-    EndIf
     
   EndProcedure
   
-  Procedure   SetText(GNum.i, Text.s, Seperator.s=#NL$) ; Set/Replace all text rows
-    Define r.i
-    
-    If FindMapElement(EditEx(), Str(GNum))
-      
-      ClearList(EditEx()\Items())
-      
-      For r=0 To CountString(Text, Seperator)
-        
-        If AddElement(EditEx()\Items())
-          EditEx()\Items()\String = StringField(Text, r+1, Seperator) + #LineBreak$
-        EndIf
-        
-      Next
-
-      FirstElement(EditEx()\Items()) 
-
-      CompilerIf #Enable_SpellChecking
-        EditEx()\SpellCheck = #True
-      CompilerEndIf
-      
-      CompilerIf #Enable_UndoRedo
-        If EditEx()\UndoRedo : AddUndo_() : EndIf
-      CompilerEndIf
-      
-      Draw_(GNum)
-      
-      AdjustScrolls_()
-      
-    EndIf 
-    
-  EndProcedure
-  
-  Procedure.s GetText(GNum.i, Seperator.s=#NL$)         ; Get all text seperated by 'Seperator'
-    Define.s Text
-    
-    If FindMapElement(EditEx(), Str(GNum))
-      
-      PushListPosition(EditEx()\Items())
-      
-      ForEach EditEx()\Items()
-        If ListIndex(EditEx()\Items()) = ListSize(EditEx()\Items()) - 1
-          Text + EditEx()\Items()\String
-        Else
-          Text + EditEx()\Items()\String + Seperator
-        EndIf
-      Next
-      
-      Text = ReplaceString(Text, #LineBreak$, #NL$)
-      
-      PopListPosition(EditEx()\Items())
-      
-      ProcedureReturn Text
-    EndIf
-    
-  EndProcedure
-  
-  ;- ===== Customize Gadget =====
-  
-  Procedure   SetAttribute(GNum.i, Attribute.i, Value.i) ; Similar to SetGadgetAttribute()
-    
-    If FindMapElement(EditEx(), Str(GNum))
-      
-      Select Attribute
-        Case #ReadOnly, #PB_Editor_ReadOnly
-          EditEx()\ReadOnly = Value
-        Case #WordWrap, #PB_Editor_WordWrap
-          EditEx()\WordWrap = Value
-        Case #Hyphenation
-          EditEx()\Hyphenation = Value
-        Case #MaxTextWidth  
-          EditEx()\Text\Width  = Value
-        Case #AutoHide
-          EditEx()\AutoHide = Value
-          AdjustScrolls_()
-        Case #CtrlChars
-          EditEx()\Visible\CtrlChars = Value
-          If Value = #True
-            Font()\Char(#CR$) = 0
-            Font()\Char(#LF$) = 0
-            Font()\Char(#LineBreak$)  = 0
-            Font()\Char(#SoftHyphen$) = 0
-          EndIf
-      EndSelect
-      
-    EndIf
-    
-  EndProcedure
   
   Procedure.i GetAttribute(GNum.i, Attribute.i)          ; Similar to GetGadgetAttribute()
     
     If FindMapElement(EditEx(), Str(GNum))
       
       Select Attribute
-        Case #ReadOnly, #PB_Editor_ReadOnly
-          ProcedureReturn EditEx()\ReadOnly
-        Case #WordWrap, #PB_Editor_WordWrap
-          ProcedureReturn EditEx()\WordWrap
-        Case #Hyphenation
-          ProcedureReturn EditEx()\Hyphenation
-        Case #AutoHide
-          ProcedureReturn EditEx()\AutoHide
         Case #CtrlChars
           ProcedureReturn EditEx()\Visible\CtrlChars
         Case #MaxTextWidth  
@@ -4954,8 +4030,133 @@ Module EditEx
       
     EndIf
     
+  EndProcedure  
+  
+  Procedure.i GetColor(GNum.i, Attribute.i)
+    
+    If FindMapElement(EditEx(), Str(GNum))
+      
+      Select Attribute
+        Case #FrontColor
+          ProcedureReturn EditEx()\Color\Front
+        Case #BackColor
+          ProcedureReturn EditEx()\Color\Back
+        Case #SyntaxColor
+          ProcedureReturn EditEx()\Color\SyntaxHighlight
+        Case #SelectionColor
+          ProcedureReturn EditEx()\Color\Highlight
+        Case #SelectTextColor
+          ProcedureReturn EditEx()\Color\HighlightText
+      EndSelect
+      
+    EndIf
+    
+  EndProcedure 
+  
+  Procedure.s GetItemText(GNum.i, Row.i)                 ; Return text row from 'Position'
+    Define.i Count
+    Define.s Text$
+    
+    If FindMapElement(EditEx(), Str(GNum))
+      
+      If SelectElement(EditEx()\Row(), Row)
+        
+        If EditEx()\Flags & #Hyphenation Or EditEx()\Flags & #WordWrap
+          Text$ = Mid(EditEx()\Text$, EditEx()\Row()\Pos, EditEx()\Row()\Len) + EditEx()\Row()\WordWrap
+          ProcedureReturn ReplaceString(Text$, #LF$, #NL$)
+        Else  
+          Text$ = Mid(EditEx()\Text$, EditEx()\Row()\Pos, EditEx()\Row()\Len)
+          ProcedureReturn ReplaceString(Text$, #LF$, #NL$)
+        EndIf
+        
+      EndIf
+
+    EndIf
+    
+  EndProcedure  
+  
+  Procedure.s GetText(GNum.i, Flags.i=#False)
+    Define.s Text$
+    
+    If FindMapElement(EditEx(), Str(GNum))
+      
+      If Flags & #Hyphenation
+        
+        ForEach EditEx()\Row()
+          Text$ + Mid(EditEx()\Text$, EditEx()\Row()\Pos, EditEx()\Row()\Len) + EditEx()\Row()\WordWrap
+        Next  
+        
+        Text$ = RemoveString(Text$, #SoftHyphen$)
+        
+        ProcedureReturn ReplaceString(Text$, #LF$, #NL$)
+      Else
+        
+        Text$ = RemoveString(EditEx()\Text$, #SoftHyphen$)
+        
+        ProcedureReturn ReplaceString(Text$, #LF$, #NL$)
+      EndIf  
+      
+    EndIf
+    
   EndProcedure
   
+  
+  Procedure   ReDraw(GNum.i)
+    
+    If FindMapElement(EditEx(), Str(GNum))
+      Draw_()
+    EndIf
+    
+  EndProcedure  
+  
+  
+  Procedure   SetAttribute(GNum.i, Attribute.i, Value.i) ; Similar to SetGadgetAttribute()
+    
+    If FindMapElement(EditEx(), Str(GNum))
+      
+      Select Attribute
+        Case #WordWrap, #PB_Editor_WordWrap
+          If Value
+            EditEx()\Flags | #WordWrap
+            EditEx()\Flags & ~#ScrollBar_Horizontal
+          Else
+            EditEx()\Flags & ~#WordWrap
+          EndIf  
+        Case #ReadOnly, #PB_Editor_ReadOnly
+          If Value
+            EditEx()\Flags | #ReadOnly
+          Else
+            EditEx()\Flags & ~#ReadOnly
+          EndIf  
+        Case #MaxTextWidth  
+          EditEx()\Text\Width = Value
+        Case #CtrlChars
+          If Value
+            EditEx()\Flags | #CtrlChars
+            CompilerIf #Enable_SyntaxHighlight
+              EditEx()\Flags | #SyntaxHighlight
+              EditEx()\Syntax(#Paragraph$)  = $578B2E
+              EditEx()\Syntax(#Space$)      = $B48246
+              EditEx()\Syntax(#SoftHyphen$) = $7280FA
+            CompilerEndIf  
+          Else
+            EditEx()\Flags & ~#CtrlChars
+          EndIf  
+      EndSelect
+      
+    EndIf
+    
+  EndProcedure
+  
+  Procedure   SetAutoResizeFlags(GNum.i, Flags.i)
+    
+    If FindMapElement(EditEx(), Str(GNum))
+      
+      EditEx()\Size\Flags = Flags
+      
+    EndIf  
+   
+  EndProcedure  
   
   Procedure   SetColor(GNum.i, Attribute.i, Color.i)
     
@@ -4977,43 +4178,155 @@ Module EditEx
     
   EndProcedure
   
-  Procedure.i GetColor(GNum.i, Attribute.i)
+  Procedure   SetFlags(GNum.i, Flags.i)
     
     If FindMapElement(EditEx(), Str(GNum))
       
-      Select Attribute
-        Case #FrontColor
-          ProcedureReturn EditEx()\Color\Front
-        Case #BackColor
-          ProcedureReturn EditEx()\Color\Back
-        Case #SyntaxColor
-          ProcedureReturn EditEx()\Color\SyntaxHighlight
-        Case #SelectionColor
-          ProcedureReturn EditEx()\Color\Highlight
-        Case #SelectTextColor
-          ProcedureReturn EditEx()\Color\HighlightText
-      EndSelect
+      If Flags & #WordWrap
+        EditEx()\Flags | #WordWrap
+        EditEx()\Flags & ~#ScrollBar_Horizontal
+      EndIf  
       
-    EndIf
+      If Flags & #Hyphenation
+        EditEx()\Flags | #Hyphenation
+        EditEx()\Flags & ~#ScrollBar_Horizontal
+      EndIf
+      
+      If Flags & #ReadOnly
+        EditEx()\Flags | #ReadOnly
+      ElseIf Flags & #ReadWrite
+        EditEx()\Flags & ~#ReadOnly
+      EndIf
+      
+    EndIf  
     
   EndProcedure
   
-  Procedure   AttachPopup(GNum.i, PopUpMenu.i)           ; Attach 'PopUpMenu' to gadget 
+  Procedure   SetFont(GNum.i, FontID.i)
+    
     If FindMapElement(EditEx(), Str(GNum))
-      EditEx()\PopupMenu = PopUpMenu
+      
+      If FontID
+        EditEx()\FontID   = FontID
+      Else
+        EditEx()\FontID   = GetGadgetFont(GNum)
+      EndIf
+      
+      Draw_()
+      
     EndIf
+    
   EndProcedure  
   
+  Procedure   SetItemText(GNum.i, Row.i, Text.s) ; Replace text row at 'Position'
+    Define.i Count, Pos1, Pos2
+    
+    If FindMapElement(EditEx(), Str(GNum))
+
+      Count = ListSize(EditEx()\Row())
+      If Count And Row < Count
+
+        If SelectElement(EditEx()\Row(), Row)
+          
+          Pos1 = EditEx()\Row()\Pos - 1
+          If Pos1 < 1 : Pos1 = 1 : EndIf
+          
+          Pos2 = EditEx()\Row()\Pos + EditEx()\Row()\Len + 1
+          If Pos2 > EditEx()\Text\Len + 1 : Pos2 = EditEx()\Text\Len + 1 : EndIf
+          
+          EditEx()\Text$ = Left(EditEx()\Text$, Pos1) + Text + Mid(EditEx()\Text$, Pos2)
+          
+        EndIf
+        
+      EndIf
+      
+      Draw_()
+      
+      CompilerIf #Enable_SpellChecking
+        
+        If EditEx()\Flags & #AutoSpellCheck
+          UpdateWordList_()
+          SpellChecking_(#True)
+        EndIf
+      
+      CompilerEndIf
+      
+      CompilerIf #Enable_UndoRedo
+        If EditEx()\Flags & #UndoRedo : AddUndo_() : EndIf
+      CompilerEndIf
+      
+    EndIf  
+
+  EndProcedure
+  
+  Procedure   SetText(GNum.i, Text.s)
+    Define.i r, Rows
+    
+    If FindMapElement(EditEx(), Str(GNum))
+      
+      EditEx()\Text$ = Text
+
+      CompilerIf #Enable_SpellChecking
+        
+        If EditEx()\Flags & #AutoSpellCheck
+          UpdateWordList_()
+          SpellChecking_(#True)
+        EndIf
+        
+      CompilerEndIf
+      
+      CompilerIf #Enable_UndoRedo
+        
+        If EditEx()\Flags & #UndoRedo : AddUndo_() : EndIf
+        
+      CompilerEndIf
+
+      Draw_()
+      AdjustScrolls_()
+      
+    EndIf 
+    
+  EndProcedure
+  
+  Procedure   SetTextWidth(GNum.i, Value.f, unit.s="px")
+    Define.f ScaleFactor
+    Define.i Pixel
+    
+    If FindMapElement(EditEx(), Str(GNum))
+    
+      Select Unit
+        Case "pt"
+          EditEx()\Text\Width = Round((Value * 96) / 72, #PB_Round_Nearest)
+        Case "mm"
+          EditEx()\Text\Width = Round(Value * (72 / 25.4), #PB_Round_Nearest)
+        Case "cm"
+          EditEx()\Text\Width = Round(Value * (72 / 2.54), #PB_Round_Nearest)
+        Case "in"
+          EditEx()\Text\Width = Round(Value * 96, #PB_Round_Nearest)
+        Default
+          EditEx()\Text\Width = Value
+      EndSelect
+
+    EndIf
+    
+  EndProcedure
+
   ;- ===== Gadget =====
   
   Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
-    Define.i Result, txtNum
+    Define.i Result, txtNum, WNum 
     
-    If Flags & #Scrollbars ;{ Scrollbars
-      Flags & ~#Scrollbars
+    If Flags & #WordWrap Or Flags & #Hyphenation
+      Flags | #ScrollBar_Vertical
+    ElseIf Flags & #ScrollBar_Horizontal = #False And  Flags & #ScrollBar_Vertical = #False
       Flags | #ScrollBar_Horizontal
       Flags | #ScrollBar_Vertical
-    EndIf ;}
+    EndIf
+    
+    If Flags & #PB_Editor_WordWrap
+      Flags | #WordWrap
+      Flags & ~#PB_Editor_WordWrap
+    EndIf
     
     Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Keyboard|#PB_Canvas_Container|#PB_Canvas_ClipMouse)
     If Result
@@ -5023,6 +4336,15 @@ Module EditEx
       If AddMapElement(EditEx(), Str(GNum))
      
         EditEx()\CanvasNum = GNum
+        
+        EditEx()\Size\X = X
+        EditEx()\Size\Y = Y
+        EditEx()\Size\Width     = Width
+        EditEx()\Size\Height    = Height
+        EditEx()\Size\PaddingX  = 4
+        EditEx()\Size\PaddingY  = 2
+        EditEx()\Visible\Width  = Width  - 8
+        EditEx()\Visible\Height = Height - 4
         
         CompilerIf Defined(ModuleEx, #PB_Module)
           
@@ -5041,12 +4363,7 @@ Module EditEx
           EndIf
         
         CompilerEndIf
-        
-        If IsWindow(EditEx()\Window\Num)
-          EditEx()\Window\Width  = WindowWidth(EditEx()\Window\Num)
-          EditEx()\Window\Height = WindowHeight(EditEx()\Window\Num)
-        EndIf
-        
+
         CompilerIf Defined(ModuleEx, #PB_Module)
           
           If ModuleEx::AddWindow(EditEx()\Window\Num, ModuleEx::#Tabulator|ModuleEx::#CursorEvent)
@@ -5079,69 +4396,48 @@ Module EditEx
           CompilerCase #PB_OS_Linux
             EditEx()\FontID = GetGadgetFont(#PB_Default)
         CompilerEndSelect ;}
-
-        If Flags & #WordWrap Or Flags & #PB_Editor_WordWrap
-          EditEx()\WordWrap = #True
-          Flags & ~#ScrollBar_Horizontal
-        EndIf
-    
-        If Flags & #ScrollBar_Vertical Or Flags & #ScrollBar_Horizontal  ;{ Scrollbar Gadgets
-          
-          If Flags & #ScrollBar_Horizontal : Height - dpiY(#Scroll_Width) - 1 : EndIf
-          If Flags & #ScrollBar_Vertical   : Width  - dpiX(#Scroll_Width) - 1 : EndIf
-          
-          If Flags & #ScrollBar_Horizontal And Flags & #ScrollBar_Vertical
-            EditEx()\HScroll\ID = ScrollBarGadget(#PB_Any, 1, Height, Width - 1, #Scroll_Width, 0, 0, 0)
-            EditEx()\VScroll\ID = ScrollBarGadget(#PB_Any, Width, 1, #Scroll_Width, Height - 1, 0, 0, 0, #PB_ScrollBar_Vertical)
-            EditEx()\ScrollBars = #ScrollBar_Vertical | #ScrollBar_Horizontal
-            SetGadgetData(EditEx()\VScroll\ID, GNum)
-            SetGadgetData(EditEx()\HScroll\ID, GNum)
-            BindGadgetEvent(EditEx()\HScroll\ID, @_SynchronizeScrollPos(),  #PB_All)
-            BindGadgetEvent(EditEx()\VScroll\ID, @_SynchronizeScrollRows(), #PB_All) 
-          ElseIf Flags & #ScrollBar_Horizontal
-            EditEx()\HScroll\ID = ScrollBarGadget(#PB_Any, 1, Height, Width-1, #Scroll_Width, 0, 0, 0)
-            EditEx()\ScrollBars = #ScrollBar_Horizontal
-            SetGadgetData(EditEx()\HScroll\ID, GNum)
-            BindGadgetEvent(EditEx()\HScroll\ID, @_SynchronizeScrollPos(), #PB_All)
-          ElseIf Flags & #ScrollBar_Vertical
-            EditEx()\VScroll\ID = ScrollBarGadget(#PB_Any, Width, 1, #Scroll_Width, Height - 1, 0, 0, 0, #PB_ScrollBar_Vertical)
-            EditEx()\ScrollBars = #ScrollBar_Vertical
-            SetGadgetData(EditEx()\VScroll\ID, GNum)
-            BindGadgetEvent(EditEx()\VScroll\ID, @_SynchronizeScrollRows(), #PB_All)
-          EndIf
-          
-        Else
-          EditEx()\HScroll\Hide = #True
-          EditEx()\VScroll\Hide = #True
-          EditEx()\HScroll\ID = #PB_Default
-          EditEx()\VScroll\ID = #PB_Default
-          EditEx()\ScrollBars = #False
-        EndIf ;}
         
+        ;{ Scrollbars
+        If Flags & #ScrollBar_Horizontal And Flags & #ScrollBar_Vertical
+          EditEx()\HScroll\ID = ScrollBarGadget(#PB_Any, 2, Height - #Scroll_Width - 1, Width - #Scroll_Width - 4, #Scroll_Width, 0, 0, 0)
+          EditEx()\VScroll\ID = ScrollBarGadget(#PB_Any, Width - #Scroll_Width - 1, 2, #Scroll_Width, Height - #Scroll_Width - 4, 0, 0, 0, #PB_ScrollBar_Vertical)
+          SetGadgetData(EditEx()\VScroll\ID, GNum)
+          SetGadgetData(EditEx()\HScroll\ID, GNum)
+          HideGadget(EditEx()\HScroll\ID, #True)
+          HideGadget(EditEx()\VScroll\ID, #True)
+          BindGadgetEvent(EditEx()\HScroll\ID, @_SynchronizeScrollPos(),  #PB_All)
+          BindGadgetEvent(EditEx()\VScroll\ID, @_SynchronizeScrollRows(), #PB_All) 
+        ElseIf Flags & #ScrollBar_Horizontal
+          EditEx()\HScroll\ID = ScrollBarGadget(#PB_Any, 2, Height - #Scroll_Width - 1, Width - #Scroll_Width - 4, #Scroll_Width, 0, 0, 0)
+          EditEx()\VScroll\ID = #PB_Default
+          SetGadgetData(EditEx()\HScroll\ID, GNum)
+          HideGadget(EditEx()\HScroll\ID, #True)
+          BindGadgetEvent(EditEx()\HScroll\ID, @_SynchronizeScrollPos(), #PB_All)
+        ElseIf Flags & #ScrollBar_Vertical
+          EditEx()\VScroll\ID = ScrollBarGadget(#PB_Any, Width - #Scroll_Width - 1, 2, #Scroll_Width, Height - #Scroll_Width - 4, 0, 0, 0, #PB_ScrollBar_Vertical)
+          EditEx()\HScroll\ID = #PB_Default
+          SetGadgetData(EditEx()\VScroll\ID, GNum)
+          HideGadget(EditEx()\VScroll\ID, #True)
+          BindGadgetEvent(EditEx()\VScroll\ID, @_SynchronizeScrollRows(), #PB_All)
+        EndIf
+
+        EditEx()\HScroll\Hide = #True
+        EditEx()\VScroll\Hide = #True
+        ;}
+
         EditEx()\Flags = Flags
         
         SetGadgetData(EditEx()\CanvasNum, GNum)
-        
-        AddElement(EditEx()\Items())
-        
+
       Else
         ProcedureReturn #False
       EndIf
-      
-      EditEx()\Size\X = dpiX(4)
-      EditEx()\Size\Y = dpiY(2)
-      EditEx()\Size\Width  = dpiX(Width  - 8)
-      EditEx()\Size\Height = dpiY(Height - 4)
-      
-      If Flags & #ReadOnly Or Flags & #PB_Editor_ReadOnly
-        EditEx()\ReadOnly = #True
-      EndIf
-    
+
       ;{ ----- Set colors -------------------------
       
       EditEx()\Color\Front         = $000000
       EditEx()\Color\Back          = $FFFFFF
-      EditEx()\Color\ReadOnly      = $FEFEFE
+      EditEx()\Color\ReadOnly      = $F5F5F5
       EditEx()\Color\Cursor        = $000000
       EditEx()\Color\HighlightText = $FFFFFF
       EditEx()\Color\Highlight     = $D77800
@@ -5169,45 +4465,76 @@ Module EditEx
           EditEx()\Color\Border        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
         CompilerCase #PB_OS_Linux
       
-      CompilerEndSelect ;}
+      CompilerEndSelect
       
-      If EditEx()\ReadOnly
+      If EditEx()\Flags & #ReadOnly
         EditEx()\Color\Back = EditEx()\Color\ReadOnly
       EndIf
       
       EditEx()\Color\SyntaxHighlight = $0000E6
-    
-      ; -----------------------------------------
-      
+      ;}
+
       EditEx()\Visible\RowOffset = 0
       EditEx()\Visible\PosOffset = 0
       
-      BindGadgetEvent(GNum, @_RightClickHandler(),      #PB_EventType_RightClick)
-      BindGadgetEvent(GNum, @_LeftDoubleClickHandler(), #PB_EventType_LeftDoubleClick)
-      BindGadgetEvent(GNum, @_LeftButtonDownHandler(),  #PB_EventType_LeftButtonDown)
-      BindGadgetEvent(GNum, @_LeftButtonUpHandler(),    #PB_EventType_LeftButtonUp)
-      BindGadgetEvent(GNum, @_MouseMoveHandler(),       #PB_EventType_MouseMove)
-      BindGadgetEvent(GNum, @_MouseWheelHandler(),      #PB_EventType_MouseWheel)
-      BindGadgetEvent(GNum, @_KeyDownHandler(),         #PB_EventType_KeyDown)
-      BindGadgetEvent(GNum, @_InputHandler(),           #PB_EventType_Input)
-      BindGadgetEvent(GNum, @_LostFocusHandler(),       #PB_EventType_LostFocus)
-      BindGadgetEvent(GNum, @_FocusHandler(),           #PB_EventType_Focus)
-      BindGadgetEvent(GNum, @_ResizeHandler(),          #PB_EventType_Resize)
+      BindGadgetEvent(GNum, @_RightClickHandler(),       #PB_EventType_RightClick)
+      BindGadgetEvent(GNum, @_RightDoubleClickHandler(), #PB_EventType_RightDoubleClick)
+      BindGadgetEvent(GNum, @_LeftDoubleClickHandler(),  #PB_EventType_LeftDoubleClick)
+      BindGadgetEvent(GNum, @_LeftButtonDownHandler(),   #PB_EventType_LeftButtonDown)
+      BindGadgetEvent(GNum, @_LeftButtonUpHandler(),     #PB_EventType_LeftButtonUp)
+      BindGadgetEvent(GNum, @_MouseMoveHandler(),        #PB_EventType_MouseMove)
+      BindGadgetEvent(GNum, @_MouseWheelHandler(),       #PB_EventType_MouseWheel)
+      BindGadgetEvent(GNum, @_KeyDownHandler(),          #PB_EventType_KeyDown)
+      BindGadgetEvent(GNum, @_InputHandler(),            #PB_EventType_Input)
+      BindGadgetEvent(GNum, @_LostFocusHandler(),        #PB_EventType_LostFocus)
+      BindGadgetEvent(GNum, @_FocusHandler(),            #PB_EventType_Focus)
+      BindGadgetEvent(GNum, @_ResizeHandler(),           #PB_EventType_Resize)
       
-      BindEvent(#Event_Cursor, @_CursorDrawing(), EditEx()\Window\Num, GNum)
-      BindEvent(#PB_Event_CloseWindow, @_CloseWindowHandler(), EditEx()\Window\Num)
+      BindEvent(#Event_Cursor, @_CursorDrawing())
+      
+      If IsWindow(EditEx()\Window\Num)
+        
+        EditEx()\Window\Width  = WindowWidth(EditEx()\Window\Num)
+        EditEx()\Window\Height = WindowHeight(EditEx()\Window\Num)
+        
+        If Flags & #AutoResize
+          BindEvent(#PB_Event_SizeWindow, @_ResizeWindowHandler(), EditEx()\Window\Num)
+        EndIf
+        
+        BindEvent(#PB_Event_CloseWindow, @_CloseWindowHandler(), EditEx()\Window\Num)
+      EndIf
       
       CloseGadgetList()
+      
+      CompilerIf #Enable_SpellChecking ; ListView
+       
+        If IsWindow(WindowNum)
+          WNum = OpenWindow(#PB_Any, X, Y, 100, 60, "Suggestions", #PB_Window_BorderLess|#PB_Window_Invisible, WindowID(WindowNum))
+        Else
+          WNum = OpenWindow(#PB_Any, X, Y, 100, 60, "Suggestions", #PB_Window_BorderLess|#PB_Window_Invisible)
+        EndIf
+        
+	      If WNum
+	        StickyWindow(WNum, #True) 
+	        EditEx()\WinNum  = WNum
+          EditEx()\ListNum = ListViewGadget(#PB_Any, 0, 0, 100, 60)
+          If IsGadget(EditEx()\ListNum)
+            SetGadgetData(EditEx()\ListNum, GNum)
+            BindGadgetEvent(EditEx()\ListNum, @_ListViewHandler(), #PB_EventType_LeftDoubleClick)
+          EndIf
+          HideWindow(EditEx()\WinNum, #True)
+        EndIf
+        
+      CompilerEndIf
+      
     EndIf
     
-    AdjustScrolls_()
-
-    Draw_(GNum)
+    Draw_()
     
     ProcedureReturn GNum
   EndProcedure
   
-  Procedure RemoveGadget(GNum.i)
+  Procedure   RemoveGadget(GNum.i)
     
     If FindMapElement(EditEx(), Str(GNum))
       
@@ -5238,7 +4565,7 @@ CompilerIf #PB_Compiler_IsMainFile
   Define.i QuitWindow.i
   
   Enumeration 
-    #Win
+    #Window
     #Editor
     #EditEx
     #PopupMenu
@@ -5257,11 +4584,11 @@ CompilerIf #PB_Compiler_IsMainFile
     Case EditEx::#English
       Text = "School is a beautiful thing." + #LF$ + "You need it, that's true." + #LF$ + "There was a group of monkeys sitting on a fallen tree."
       Text + #LF$ + "They had been sent there to make up the mind." + #LF$ + "The teacher was three tons heavy, a clever elephant."
-      ;Text + #LF$ + "The teacher took the students by the ears with his trunk." + #LF$ + "They didn't learn anything, they just made noise, all effort was lost."
+      Text + #LF$ + "The teacher took the students by the ears with his trunk." + #LF$ + "They didn't learn anything, they just made noise, all effort was lost."
     Case EditEx::#French
       Text = "L'école est une belle chose." + #LF$ + "Tu en as besoin, c'est vrai." + #LF$ + "Sur un arbre tombé, un troupeau de singes était assis."
       Text + #LF$ + "Ils avaient été envoyés là-bas pour se décider."  + #LF$ + "Le professeur pesait trois tonnes, un éléphant intelligent."
-      ;Text + #LF$ + "Le professeur a pris les élèves par les oreilles avec son coffre." + #LF$ + "Ils n'ont rien appris, ils ont juste fait du bruit, tous les efforts ont été perdus."
+      Text + #LF$ + "Le professeur a pris les élèves par les oreilles avec son coffre." + #LF$ + "Ils n'ont rien appris, ils ont juste fait du bruit, tous les efforts ont été perdus."
   EndSelect
 
   #Font = 1
@@ -5294,7 +4621,7 @@ CompilerIf #PB_Compiler_IsMainFile
     
   CompilerEndIf
   
-  If OpenWindow(#Win, 0, 0, 322, 287, "EditorGadget", #PB_Window_SystemMenu | #PB_Window_SizeGadget | #PB_Window_ScreenCentered)
+  If OpenWindow(#Window, 0, 0, 322, 287, "EditorGadget", #PB_Window_SystemMenu | #PB_Window_SizeGadget | #PB_Window_ScreenCentered)
     
     If CreatePopupMenu(#PopupMenu) ;{ Creation of the pop-up menu begins.
       MenuItem(#MenuItem_1, "Copy")
@@ -5311,36 +4638,36 @@ CompilerIf #PB_Compiler_IsMainFile
     SetGadgetText(#Editor, Text)
     SetGadgetFont(#Editor, FontID(#Font))
     
-    EditEx::Gadget(#EditEx, 8, 146, 306, 133, EditEx::#ScrollBars, #Win)
+    EditEx::Gadget(#EditEx, 8, 146, 306, 133, EditEx::#AutoResize, #Window)
     EditEx::SetFont(#EditEx, FontID(#Font))
-    
-    EditEx::SetAttribute(#EditEx, EditEx::#AutoHide, #True)    ; Test AutoHide Scrollbars
-    
+
     ; Test WordWrap and Hyphenation
     CompilerIf EditEx::#Enable_Hyphenation
-      EditEx::SetAttribute(#EditEx, EditEx::#Hyphenation, #True) ; Test Hyphenation
+      EditEx::SetFlags(#EditEx, EditEx::#Hyphenation) ; Test Hyphenation
     CompilerElse
-      EditEx::SetAttribute(#EditEx, EditEx::#WordWrap, #True)    ; Test WordWrap
+      EditEx::SetFlags(#EditEx, EditEx::#WordWrap)    ; Test WordWrap
     CompilerEndIf
     
     CompilerIf EditEx::#Enable_UndoRedo
       EditEx::EnableUndoRedo(#EditEx, #True)
     CompilerEndIf
     
-    EditEx::AttachPopup(#EditEx, #PopupMenu)
+    ;EditEx::AttachPopup(#EditEx, #PopupMenu)
     
     ;EditEx::SetAttribute(#EditEx, EditEx::#CtrlChars, #True)
     
+    CompilerIf EditEx::#Enable_SpellChecking
+      EditEx::EnableAutoSpellCheck(#EditEx, #True, EditEx::#Suggestions)
+    CompilerEndIf
+    
     ; --- Add Text ---
-    EditEx::SetText(#EditEx, Text, #LF$)
+    ;EditEx::SetText(#EditEx, Text)
     ; ----------------
     
     CompilerIf EditEx::#Enable_SpellChecking
-
-      EditEx::AddToUserDictionary("Affenschar")
       
-      EditEx::EnableAutoSpellCheck(#EditEx)
-    
+      EditEx::AddToUserDictionary(#EditEx, "Affenschar")
+      
     CompilerElseIf EditEx::#Enable_SyntaxHighlight
       
       EditEx::EnableSyntaxHighlight(#EditEx)
@@ -5348,13 +4675,13 @@ CompilerIf #PB_Compiler_IsMainFile
       EditEx::AddWord(#EditEx, "ein")
       EditEx::AddWord(#EditEx, "Affenschar", #Blue)
       EditEx::AddWord(#EditEx, "bilden",     #Green)
-      EditEx::ReDraw_(#EditEx)
+      EditEx::ReDraw(#EditEx)
       
       ; EditEx::DeleteWord(#EditEx, "ein")
       
     CompilerEndIf
     
-    ;ResizeGadget(#EditEx, #PB_Ignore, #PB_Ignore, 290, 100) ; Test ResizeHandler
+    ;Debug EditEx::GetText(#EditEx, EditEx::#Hyphenation)
     
     QuitWindow = #False
     
@@ -5387,20 +4714,19 @@ CompilerIf #PB_Compiler_IsMainFile
     Until QuitWindow
     
     CompilerIf EditEx::#Enable_SpellChecking
-      EditEx::SaveUserDictionary()
+      ;EditEx::SaveUserDictionary()
     CompilerEndIf
     
     EditEx::RemoveGadget(#EditEx)
     
-    CloseWindow(#Win)  
+    CloseWindow(#Window)  
   EndIf
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 11
-; Folding = 5BOIAIIZNAgggGAAAAAsMMCgDIoBAAHAAmAAAAAQAAoJxP5ABABAAwOCBA-
-; Markers = 1061,2844,3305
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 53
+; Folding = c9HAAAAAAAAAIEAICAAAgAwQAAAAAAvoDocgFCAAAEAEkQDg
 ; EnableThread
 ; EnableXP
 ; DPIAware
