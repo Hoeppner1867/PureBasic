@@ -7,13 +7,19 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 3.10.2019
+; Last Update: 6.10.2019
 ;
-; New:   Completely revised with a new approach to text handling
-; Added: Correction suggestions for spell-checking (right click on wrong (red) words)
-; Added: Right douple click: spell-checking and, if necessary, correction suggestions
-; Added: CountItems()
-; Bugfix: SetText()
+; Bugfixes
+;
+; New:     Automatic spell checking now independent of syntax highlighting
+; New:     DisableSpellCheck() / DisableSuggestions() / SetSyntaxHighlight() / SetUndoSteps()
+; New:     Left double click selects word and checks spelling of the word
+; New:     SoftHyphen overrides hyphenation
+; Changed: _RightDoubleClickHandler() => left douple click & right click 
+; Changed: EnableAutoSpellCheck() sets #AutoSpellCheck as default for all gadgets
+; Removed: EnableSyntaxHighlight() / EnableUndoRedo() / RemoveGadget()
+; Bugfixes
+
 
 
 ;{ ===== MIT License =====
@@ -84,24 +90,24 @@
   ; EditEx::ClearUndo()              - Delete the list with Undo/Redo steps
   ; EditEx::Copy()                   - Copy selected text to clipboard
   ; EditEx::Cut()                    - Cut the selected text and copy it to the clipboard
-  ; EditEx::CorrectionSuggestions()  - Retruns a list of suggested corrections
   ; EditEx::CountItems()             - Returns number of rows
   ; EditEx::DeleteSelection()        - Delete selected text (Remove selection: #True/#False)
   ; EditEx::DeleteWord()             - Delete word from syntax highlighting
-  ; EditEx::EnableAutoSpellCheck()   - Activate automatic spelling correction
-  ; EditEx::EnableSyntaxHighlight()  - Enable syntax highlighting (#False/#CaseSensitiv/#NoCase)
-  ; EditEx::EnableUndoRedo()         - Enable 'Undo/Redo' function (#True/#False)
+  ; EditEx::DisableSpellCheck()      - Disable auto spellcheck for this gadget
+  ; EditEx::DisableSuggestions()     - Disable correction suggestions for this gadget
+  ; EditEx::EnableAutoSpellCheck()   - Activate automatic spell checking (all gadgets)
   ; EditEx::FreeDictionary()         - Removes the loaded dictionary from memory
   ; EditEx::GetAttribute()           - Returns value of attribute (#ReadOnly/#WordWrap/#Hyphenation/#Border/#CtrlChars)
-  ; EditEx::GetColor()               - Returns color of attribute (#FrontColor/#BackColor/#SyntaxColor/#SelectionColor)
+  ; EditEx::GetColor()               - Returns color of attribute (#FrontColor/#BackColor/#SpellCheckColor/#SelectionColor)
   ; EditEx::GetItemText()            - Returns text row at 'Position'
   ; EditEx::GetSelection()           - Returns selected text (Remove selection: #True/#False)
   ; EditEx::GetText()                - Returns all text rows seperated by 'Seperator'
+  ; EditEx::GetSuggestions()         - Retruns a list of suggested corrections
   ; EditEx::InsertText()             - Insert text at cursor position (or replace selection)
   ; EditEx::IsRedo()                 - Checks if an redo is possible
   ; EditEx::IsSelected()             - Returns whether a selection exists
   ; EditEx::IsUndo()                 - Checks if an undo is possible
-  ; EditEx::LoadDictionary()         - Load the dictionary for spell checking
+  ; EditEx::LoadDictionary()         - Load the dictionary for spell checking (all gadgets)
   ; EditEx::LoadHyphenationPattern() - Load hyphenation pattern for selected language (#Deutsch/#English/#French)
   ; EditEx::Redo()                   - Perform Redo
   ; EditEx::ReDraw()                 - Redraw the gadget
@@ -110,12 +116,14 @@
   ; EditEx::SaveUserDictionary()     - Save user dictionary
   ; EditEx::SetAutoResizeFlags()     - [#MoveX|#MoveY|#Width|#Height]
   ; EditEx::SetAttribute()           - Enable/Disable attribute (#ReadOnly/#WordWrap/#Hyphenation/#Border/#CtrlChars)
-  ; EditEx::SetColor()               - Set or change color of attribute (#FrontColor/#BackColor/#SyntaxColor/#SelectionColor)
+  ; EditEx::SetColor()               - Set or change color of attribute (#FrontColor/#BackColor/#SpellCheckColor/#SelectionColor)
   ; EditEx::SetFont()                - Set or change font FontID(#Font)
   ; EditEx::SetFlags()               - Set gadget flags
   ; EditEx::SetItemText()            - Replace text row at 'Position'
+  ; EditEx::SetSyntaxHighlight()     - [#CaseSensitiv/#NoCase]
   ; EditEx::SetText()                - Set or replace all text rows
   ; EditEx::SetTextWidth()           - Set text width for wordwrap and hyphenation (pt/px/in/cm/mm)
+  ; EditEx::SetUndoSteps()           - Set max. steps for undo
   ; EditEx::SpellCheck()             - Checks the spelling of the word (returns: #True/#False)
   ; EditEx::SpellChecking()          - Check the spelling in the editor gadget (#Highlight/#WrongWords)
   ; EditEx::Undo()                   - Perform Undo
@@ -134,7 +142,7 @@ DeclareModule EditEx
   
   #Enable_Hyphenation     = #True  ; Requires file with hyphenation patterns => LoadHyphenationPattern()
   #Enable_SpellChecking   = #True  ; Requires file with dictionary           => LoadDictionary()
-  #Enable_SyntaxHighlight = #True  ; Needed for spell checking!
+  #Enable_SyntaxHighlight = #False
   #Enable_UndoRedo        = #True 
   
   ;{ _____ Constants _____
@@ -164,8 +172,6 @@ DeclareModule EditEx
     #CtrlChars
     #AutoSpellCheck
     #Suggestions
-    #SyntaxHighlight
-    #UndoRedo
     #ScrollBar_Vertical
     #ScrollBar_Horizontal
   EndEnumeration
@@ -178,7 +184,7 @@ DeclareModule EditEx
   Enumeration Color 1
     #FrontColor
     #BackColor
-    #SyntaxColor
+    #SpellCheckColor
     #SelectTextColor
     #SelectionColor
   EndEnumeration
@@ -238,6 +244,8 @@ DeclareModule EditEx
     #DIC_English = "english.dic"
     #DIC_French  = "french.dic"
     
+    Global NewList WrongWords.s()  ; <= SpellChecking(GNum, #WrongWords)
+    
   CompilerEndIf
   ;}
   
@@ -246,32 +254,33 @@ DeclareModule EditEx
   ;- ============================================================================
   
   CompilerIf #Enable_SyntaxHighlight
-    Declare   AddWord(GNum.i, Word.s, Color.i=#False)                            ; Add word to syntax highlighting
-    Declare   ClearWords(GNum.i)                                                 ; Delete the list with the words for syntax highlighting
-    Declare   DeleteWord(GNum.i, Word.s)                                         ; Delete word from syntax highlighting
-    Declare   EnableSyntaxHighlight(GNum.i, State.i=#True, Flag.i=#CaseSensitiv) ; Enable syntax highlighting ((#False/#CaseSensitiv/#NoCase)
+    Declare   AddWord(GNum.i, Word.s, Color.i)          ; Add word to syntax highlighting
+    Declare   ClearWords(GNum.i)                        ; Delete the list with the words for syntax highlighting
+    Declare   DeleteWord(GNum.i, Word.s)                ; Delete word from syntax highlighting
+    Declare   SetSyntaxHighlight(GNum.i, Flag.i)        ; Enable syntax highlighting (#CaseSensitiv/#NoCase)
   CompilerEndIf
   
   CompilerIf #Enable_Hyphenation
-    Declare LoadHyphenationPattern(File.s=#PAT_Deutsch)                     ; Load hyphenation pattern for selected language (ALL gadgets)
+    Declare LoadHyphenationPattern(File.s=#PAT_Deutsch)        ; Load hyphenation pattern for selected language (ALL gadgets)
   CompilerEndIf
   
   CompilerIf #Enable_SpellChecking
-    Declare   LoadDictionary(DicFile.s, AddDicFile.s="")                      ; Load the dictionary for spell checking (ALL gadgets)
-    Declare   EnableAutoSpellCheck(GNum.i, State.i=#True, Flag.i=#False)      ; Activate automatic spelling correction
-    Declare   SpellCheck(Word.s)                                              ; Checks the spelling of the word (returns: #True/#False)
-    Declare   SpellChecking(GNum.i, Flag.i=#Highlight)                        ; Check the spelling in the editor gadget
-    Declare   CorrectionSuggestions(GNum.i, Word.s, List Suggestions.s())
-    Declare   AddToUserDictionary(GNum.i, Word.s)                             ; Add a new word to user dictionary
-    Declare   SaveUserDictionary()                                            ; Save user dictionary
-    Declare   FreeDictionary()                                                ; Removes the loaded dictionary from memory
-    Global NewList WrongWords.s()                                           ; <= SpellChecking(GNum, #WrongWords)
+    Declare   LoadDictionary(DicFile.s, AddDicFile.s="")           ; Load the dictionary for spell checking (all gadgets)
+    Declare   EnableAutoSpellCheck(State.i=#True)                  ; Activate automatic spell checking (all gadgets)
+    Declare   DisableSpellCheck(GNum.i, State.i=#True)             ; Disable autospellcheck for this gadget
+    Declare   DisableSuggestions(GNum.i, State.i=#True)            ; Disable correction suggestions for this gadget
+    Declare   SpellCheck(Word.s)                                   ; Checks the spelling of the word (returns: #True/#False)
+    Declare   SpellChecking(GNum.i, Flag.i=#Highlight)             ; Check the spelling in the editor gadget
+    Declare   GetSuggestions(GNum.i, Word.s, List Suggestions.s()) ; Returns list with correction suggestions
+    Declare   AddToUserDictionary(GNum.i, Word.s)                  ; Add a new word to user dictionary
+    Declare   SaveUserDictionary()                                 ; Save user dictionary
+    Declare   FreeDictionary()                                     ; Removes the loaded dictionary from memory
   CompilerEndIf
   
   CompilerIf #Enable_UndoRedo
     
     Declare ClearUndo(GNum.i)
-    Declare EnableUndoRedo(GNum.i, State.i=#True, MaxSteps.i=#False)
+    Declare SetUndoSteps(GNum.i, MaxSteps.i)
     Declare Undo(GNum.i)
     Declare Redo(GNum.i)
     Declare IsUndo(GNum.i)
@@ -294,7 +303,6 @@ DeclareModule EditEx
   Declare.i IsSelected(GNum.i) 
   Declare   Paste(GNum.i)
   Declare   ReDraw(GNum.i)
-  Declare   RemoveGadget(GNum.i)
   Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetColor(GNum.i, Attribute.i, Color.i)
@@ -367,14 +375,21 @@ Module EditEx
     Active.i
     Exit.i
   EndStructure ;}
+  Global Thread.Cursor_Thread_Structure
   
   CompilerIf #Enable_Hyphenation    
     
     Structure HyphenStructure       ;{ Hyphenation
-      chars.s
-      pattern.s
+      Chars.s
+      Pattern.s
     EndStructure ;}
-    Global NewList HyphPattern.HyphenStructure()
+    
+    Structure Hyphenation_Structure
+      Path.s
+      List Item.HyphenStructure()
+      Flags.i
+    EndStructure
+    Global Hypenation.Hyphenation_Structure
     
   CompilerEndIf
   
@@ -383,17 +398,23 @@ Module EditEx
     Structure Dictionary_Structure
       Stem.s
       Endings.s
-      Flag.i
+      UCase.i
     EndStructure
     
-    Structure Spellcheck_Structure
+    Structure Words_Structure
       checked.i
       misspelled.i
     EndStructure
     
-    Global NewList Dictionary.Dictionary_Structure()
-    Global NewList UserDic.Dictionary_Structure()
-    Global NewMap  Words.Spellcheck_Structure()
+    Structure SpellCheck_Structure
+      Path.s
+      List Dictionary.Dictionary_Structure()
+      List UserDic.Dictionary_Structure()
+      Map  Words.Words_Structure()
+      Flags.i
+    EndStructure
+    Global SpellCheck.SpellCheck_Structure
+    
   CompilerEndIf
   
   CompilerIf #Enable_UndoRedo
@@ -430,7 +451,7 @@ Module EditEx
     
   CompilerEndIf
   
-  Structure Select_Structure         ;{ Selection
+  Structure Select_Structure         ;{ EditEx()\Selection
     Pos1.i
     Pos2.i
     Flag.i
@@ -440,21 +461,7 @@ Module EditEx
     Pos.i
     Len.i
   EndStructure ;}
-  
-  ; ------------------------------
-  Structure Text_Structure           ;{ Text\...
-    CursorRow.i
-    CursorPos.i
-    Map Paragraph.s()
-  EndStructure ;}
-  ; ------------------------------
-  
-  Structure Path_Structure           ;{ Path\...
-    Dictionary.s
-    Pattern.s
-  EndStructure ;}
-  Global Path.Path_Structure
-  
+ 
   Structure EditEx_Mistake_Structure ;{ EditEx()\Mistake\...
     List Pos.i()
     Len.i
@@ -573,17 +580,13 @@ Module EditEx
     CompilerEndIf
     ; ---------------
     Map  Syntax.i()
-    Map  Mistake.s()
+    Map  Mistake.i()
     List Suggestions.s()
     List Row.EditEx_Row_Structure()
   EndStructure ;}
   Global NewMap EditEx.EditEx_Structure()
-  
-  Global Thread.Cursor_Thread_Structure
-  
+
   ;} ------------------------------
-  
-  Global Time.i, Time1.i, Time2.i
   
   ;- ============================================================================
   ;-   Module - Internal   [ -> Selected EditEx() map element required ]
@@ -766,23 +769,23 @@ Module EditEx
               
               If TextWidth(Mid(EditEx()\Text$, EditEx()\Row()\Pos, c + 1)) >= EditEx()\Cursor\X
                 CursorPos =  EditEx()\Row()\Pos + c
-                EditEx()\Cursor\X   = EditEx()\Row()\X + TextWidth(Mid(EditEx()\Text$, EditEx()\Row()\Pos, c))
+                EditEx()\Cursor\X   = EditEx()\Row()\X + TextWidth(RTrim(Mid(EditEx()\Text$, EditEx()\Row()\Pos, c), #LF$))
                 EditEx()\Cursor\Y   = EditEx()\Row()\Y
                 EditEx()\Cursor\Pos = CursorPos
                 EditEx()\Cursor\Row = ListIndex(EditEx()\Row())
+                EditEx()\Cursor\BackChar = Mid(EditEx()\Text$, EditEx()\Cursor\Pos, 1)
                 Break
               EndIf  
               
             Next
   
           Else
-            
             CursorPos =  EditEx()\Row()\Pos + EditEx()\Row()\Len - 1
-            EditEx()\Cursor\X   = EditEx()\Row()\X + TextWidth(Mid(EditEx()\Text$, EditEx()\Row()\Pos, CursorPos))
+            EditEx()\Cursor\X   = EditEx()\Row()\X + TextWidth(RTrim(Mid(EditEx()\Text$, EditEx()\Row()\Pos, CursorPos), #LF$))
             EditEx()\Cursor\Y   = EditEx()\Row()\Y
             EditEx()\Cursor\Pos = CursorPos
             EditEx()\Cursor\Row = ListIndex(EditEx()\Row())
-            
+            EditEx()\Cursor\BackChar = Mid(EditEx()\Text$, EditEx()\Cursor\Pos, 1)
           EndIf
         
           StopDrawing()
@@ -791,20 +794,25 @@ Module EditEx
       EndIf
       
     EndIf
-
+    
+    EditEx()\Cursor\BackChar = Mid(EditEx()\Text$, EditEx()\Cursor\Pos, 1)
+    If EditEx()\Cursor\BackChar = #LF$ : EditEx()\Cursor\BackChar = " " : EndIf 
+    
     ProcedureReturn CursorPos
   EndProcedure 
 
-  Procedure.i CursorPos_(CursorX.i=#CurrentCursor, CursorY.i=#CurrentCursor, Change.i=#True)
+  Procedure.i CursorPos_(CursorX.i, CursorY.i, Change.i=#True)
     ; Determine cursor position based on X/Y position
     Define.i c, CursorPos
-    
-    If CursorX = #CurrentCursor : CursorX = EditEx()\Cursor\X : EndIf
-    If CursorY = #CurrentCursor : CursorY = EditEx()\Cursor\Y : EndIf
-    
+
     ForEach EditEx()\Row()
       
-      If CursorY >= EditEx()\Row()\Y And CursorY < EditEx()\Row()\Y + EditEx()\Text\Height
+      If EditEx()\Row()\Y + EditEx()\Text\Height > EditEx()\Visible\Height
+        CursorPos = EditEx()\Cursor\Pos
+        Break
+      EndIf  
+      
+      If CursorY >= EditEx()\Row()\Y And CursorY <= EditEx()\Row()\Y + EditEx()\Text\Height
         
         If StartDrawing(CanvasOutput(EditEx()\CanvasNum)) 
         
@@ -812,12 +820,12 @@ Module EditEx
           
           For c=0 To EditEx()\Row()\Len - 1
             
-            If TextWidth(Mid(EditEx()\Text$, EditEx()\Row()\Pos, c + 1)) >= CursorX
+            If TextWidth(Mid(EditEx()\Text$, EditEx()\Row()\Pos, c + 1)) > CursorX
               
               CursorPos =  EditEx()\Row()\Pos + c
               
               If Change
-                EditEx()\Cursor\X   = EditEx()\Row()\X + TextWidth(Mid(EditEx()\Text$, EditEx()\Row()\Pos, c))
+                EditEx()\Cursor\X   = EditEx()\Row()\X + TextWidth(RTrim(Mid(EditEx()\Text$, EditEx()\Row()\Pos, c), #LF$))
                 EditEx()\Cursor\Y   = EditEx()\Row()\Y
                 EditEx()\Cursor\Pos = CursorPos
                 EditEx()\Cursor\Row = ListIndex(EditEx()\Row())
@@ -829,14 +837,32 @@ Module EditEx
             
           Next
           
+          If CursorPos = 0
+            
+            If EditEx()\Row()\Len
+              CursorPos = EditEx()\Row()\Pos + EditEx()\Row()\Len - 1
+            Else
+              CursorPos = EditEx()\Row()\Pos
+            EndIf
+            
+            If Change
+              EditEx()\Cursor\X   = EditEx()\Row()\X + TextWidth(RTrim(StringSegment(EditEx()\Text$, EditEx()\Row()\Pos, CursorPos), #LF$))
+              EditEx()\Cursor\Y   = EditEx()\Row()\Y
+              EditEx()\Cursor\Pos = CursorPos
+              EditEx()\Cursor\Row = ListIndex(EditEx()\Row())
+              EditEx()\Cursor\BackChar = ""
+            EndIf  
+            
+          EndIf  
+          
           StopDrawing()
         EndIf
-        
+
         Break
       EndIf
       
     Next
-    
+
     ProcedureReturn CursorPos
   EndProcedure
   
@@ -1015,7 +1041,7 @@ Module EditEx
   
   Procedure   UpdateScrollBar_()
     ; Adjust offset and scrollbar to new cursor position
-    Define.i CharW, PageRows
+    Define.i CharW, CursorX, CursorRow, PageRows
     
     ;{ Changed cursor position
     If StartDrawing(CanvasOutput(EditEx()\CanvasNum)) 
@@ -1024,32 +1050,37 @@ Module EditEx
       
       ForEach EditEx()\Row()
         
-        If EditEx()\Cursor\Pos >= EditEx()\Row()\Pos And EditEx()\Cursor\Pos < EditEx()\Row()\Pos + EditEx()\Row()\Len
+        If EditEx()\Cursor\Pos >= EditEx()\Row()\Pos And EditEx()\Cursor\Pos <= EditEx()\Row()\Pos + EditEx()\Row()\Len
           
-          EditEx()\Cursor\X   = EditEx()\Row()\X + TextWidth(StringSegment(EditEx()\Text$, EditEx()\Row()\Pos, EditEx()\Cursor\Pos))
-          EditEx()\Cursor\Y   = EditEx()\Row()\Y
-          EditEx()\Cursor\Row = ListIndex(EditEx()\Row())
+          If EditEx()\Cursor\Pos = EditEx()\Row()\Pos + EditEx()\Row()\Len
+            
+            If ListIndex(EditEx()\Row()) = ListSize(EditEx()\Row()) - 1
+              CursorX = EditEx()\Row()\X + TextWidth(RTrim(StringSegment(EditEx()\Text$, EditEx()\Row()\Pos, EditEx()\Cursor\Pos), #LF$))
+            Else
+              If NextElement(EditEx()\Row()) : CursorX = EditEx()\Row()\X : EndIf
+            EndIf  
+      
+          Else  
+            CursorX = EditEx()\Row()\X + TextWidth(RTrim(StringSegment(EditEx()\Text$, EditEx()\Row()\Pos, EditEx()\Cursor\Pos), #LF$))
+          EndIf
           
-          CharW = TextWidth(StringSegment(EditEx()\Text$, EditEx()\Cursor\Pos, EditEx()\Cursor\Pos + 1))
-
-          Break
-        EndIf
+          CursorRow = ListIndex(EditEx()\Row())
+          CharW     = TextWidth(StringSegment(EditEx()\Text$, EditEx()\Cursor\Pos, EditEx()\Cursor\Pos + 1))
+          
+          Break  
+        EndIf  
         
       Next
       
       StopDrawing()
     EndIf ;}
     
-    EditEx()\Cursor\BackChar = Mid(EditEx()\Text$, EditEx()\Cursor\Pos, 1)
-    
     If IsGadget(EditEx()\HScroll\ID) ;{ Horizontal Scrollbar
 
-      If EditEx()\Cursor\X - EditEx()\Visible\PosOffset < EditEx()\Size\PaddingX
-        EditEx()\Visible\PosOffset = EditEx()\Cursor\X - EditEx()\Size\PaddingX
-        SetGadgetState(EditEx()\HScroll\ID, EditEx()\Visible\PosOffset)
-      ElseIf EditEx()\Cursor\X + CharW >= EditEx()\Visible\Width + EditEx()\Size\PaddingX
-        EditEx()\Visible\PosOffset = EditEx()\Cursor\X + CharW - (EditEx()\Visible\Width + EditEx()\Size\PaddingX)
-        SetGadgetState(EditEx()\HScroll\ID, EditEx()\Visible\PosOffset)
+      If CursorX - EditEx()\Visible\PosOffset < EditEx()\Size\PaddingX
+        EditEx()\Visible\PosOffset = CursorX - EditEx()\Size\PaddingX
+      ElseIf CursorX + CharW >= EditEx()\Visible\Width + EditEx()\Size\PaddingX
+        EditEx()\Visible\PosOffset = CursorX + CharW - (EditEx()\Visible\Width + EditEx()\Size\PaddingX)
       EndIf  
 
       SetHScrollPosition_()
@@ -1059,21 +1090,22 @@ Module EditEx
     If IsGadget(EditEx()\VScroll\ID) ;{ Vertical Scrollbar
       
       PageRows  = PageRows_() - 1
-
-      If EditEx()\Cursor\Row < EditEx()\Visible\RowOffset
-        EditEx()\Visible\RowOffset = EditEx()\Cursor\Row
+      If CursorRow < EditEx()\Visible\RowOffset
+        EditEx()\Visible\RowOffset = CursorRow
         If EditEx()\Visible\RowOffset < 0 : EditEx()\Visible\RowOffset = 0 : EndIf
-        SetGadgetState(EditEx()\VScroll\ID, EditEx()\VScroll\Position)
       EndIf
      
-      If EditEx()\Cursor\Row > PageRows
-        EditEx()\Visible\RowOffset = EditEx()\Cursor\Row - PageRows
-        SetGadgetState(EditEx()\VScroll\ID, EditEx()\VScroll\Position)
+      If CursorRow > PageRows
+        EditEx()\Visible\RowOffset = CursorRow - PageRows
       EndIf
  
       SetVScrollPosition_()
       ;}
     EndIf
+    
+    If CursorX <> EditEx()\Cursor\X Or CursorRow <> EditEx()\Cursor\Row
+      Draw_()
+    EndIf  
     
   EndProcedure
 
@@ -1169,7 +1201,7 @@ Module EditEx
             Word = LTrim(Word, Char$)
             Diff1$ + Char$
           EndIf
-        Case #SoftHyphen$, #LF$, #Paragraph$
+        Case #LF$, #Paragraph$
           Word = LTrim(Word, Char$)
         Default
           Break
@@ -1194,7 +1226,7 @@ Module EditEx
             Word = RTrim(Word, Char$)
             Diff2$ + Char$
           EndIf  
-        Case " ", #SoftHyphen$, #LF$
+        Case " ", #LF$
           Word = LTrim(Word, Char$)
         Default
           Break
@@ -1296,7 +1328,7 @@ Module EditEx
   
   CompilerIf #Enable_SpellChecking
 
-    Procedure ResizeList_(Pos.i)
+    Procedure   ResizeList_(Pos.i)
       Define.i X, Y, sX, sY
       
       If StartDrawing(CanvasOutput(EditEx()\CanvasNum)) 
@@ -1304,12 +1336,10 @@ Module EditEx
         If EditEx()\FontID : DrawingFont(EditEx()\FontID) : EndIf
         
         ForEach EditEx()\Row()
-          
-          If Pos >= EditEx()\Row()\Pos And Pos < EditEx()\Row()\Pos + EditEx()\Row()\Len
-            
+          Debug "Cursor: " + Str(EditEx()\Cursor\Pos) + " / Pos: " + Str(EditEx()\Row()\Pos) + " / Len: " + Str(EditEx()\Row()\Len)
+          If Pos >= EditEx()\Row()\Pos And Pos <= EditEx()\Row()\Pos + EditEx()\Row()\Len
             X = EditEx()\Row()\X + TextWidth(StringSegment(EditEx()\Text$, EditEx()\Row()\Pos, Pos))
             Y = EditEx()\Row()\Y + EditEx()\Text\Height
-
             Break
           EndIf
           
@@ -1334,30 +1364,30 @@ Module EditEx
       Define.s Chars
       
       StartPos = 0
-      EndPos   = ListSize(Dictionary()) - 1
+      EndPos   = ListSize(SpellCheck\Dictionary()) - 1
       
       Chars = LCase(Left(Word, 2))
       
       Repeat
         ListPos = StartPos + Round((EndPos - StartPos)  / 2, #PB_Round_Up)
-        If SelectElement(Dictionary(), ListPos)
-          If Chars = Left(Dictionary()\Stem, 2)
+        If SelectElement(SpellCheck\Dictionary(), ListPos)
+          If Chars = Left(SpellCheck\Dictionary()\Stem, 2)
             Break
-          ElseIf Chars < Left(Dictionary()\Stem, 2)
+          ElseIf Chars < Left(SpellCheck\Dictionary()\Stem, 2)
             EndPos   = ListPos - 1
-          ElseIf Chars > Left(Dictionary()\Stem, 2)
+          ElseIf Chars > Left(SpellCheck\Dictionary()\Stem, 2)
             StartPos = ListPos + 1
           EndIf  
         EndIf
       Until (EndPos - StartPos) < 0
       
-      While PreviousElement(Dictionary())
-        If Chars <> Left(Dictionary()\Stem, 2)
-          ProcedureReturn ListIndex(Dictionary()) + 1
+      While PreviousElement(SpellCheck\Dictionary())
+        If Chars <> Left(SpellCheck\Dictionary()\Stem, 2)
+          ProcedureReturn ListIndex(SpellCheck\Dictionary()) + 1
         EndIf
       Wend
       
-      ProcedureReturn ListIndex(Dictionary())
+      ProcedureReturn ListIndex(SpellCheck\Dictionary())
     EndProcedure
     
     Macro D(i,j) ; DamerauLevenshteinDistance
@@ -1432,20 +1462,20 @@ Module EditEx
       ClearList(EditEx()\Suggestions())
       
       Index = SearchFirstLetters(Word)
-      If SelectElement(Dictionary(), Index)
+      If SelectElement(SpellCheck\Dictionary(), Index)
         
         Repeat
   
-          If Left(Dictionary()\Stem, 2) <> FirstChars : Break : EndIf
+          If Left(SpellCheck\Dictionary()\Stem, 2) <> FirstChars : Break : EndIf
           
-          If Dictionary()\Flag = 1 And UCase = #False
+          If SpellCheck\Dictionary()\UCase = 1 And UCase = #False
             Continue
           EndIf
           
           If UCase
-            dicWord$ = UCase_(Dictionary()\Stem)
+            dicWord$ = UCase_(SpellCheck\Dictionary()\Stem)
           Else
-            dicWord$ = Dictionary()\Stem
+            dicWord$ = SpellCheck\Dictionary()\Stem
           EndIf
           
           If DamerauLevenshteinDistance(Word, dicWord$) = 1
@@ -1453,22 +1483,22 @@ Module EditEx
             EditEx()\Suggestions() = dicWord$
           EndIf  
           
-          If Dictionary()\Endings
+          If SpellCheck\Dictionary()\Endings
             
-            Count = CountString(Dictionary()\Endings, "|") + 1
+            Count = CountString(SpellCheck\Dictionary()\Endings, "|") + 1
             
             For i=1 To Count
               
-              If DamerauLevenshteinDistance(Word, dicWord$ + StringField(Dictionary()\Endings, i, "|")) = 1
+              If DamerauLevenshteinDistance(Word, dicWord$ + StringField(SpellCheck\Dictionary()\Endings, i, "|")) = 1
                 AddElement(EditEx()\Suggestions())
-                EditEx()\Suggestions() = dicWord$ + StringField(Dictionary()\Endings, i, "|")
+                EditEx()\Suggestions() = dicWord$ + StringField(SpellCheck\Dictionary()\Endings, i, "|")
               EndIf
               
             Next
             
           EndIf
           
-        Until NextElement(Dictionary()) = #False
+        Until NextElement(SpellCheck\Dictionary()) = #False
         
       EndIf
 
@@ -1488,8 +1518,8 @@ Module EditEx
       For s=1 To Spaces + 1
         Word$ = GetWord_(StringField(Text$, s, " "))
         If Word$
-          If FindMapElement(Words(), Word$) = #False
-            AddMapElement(Words(), Word$)
+          If FindMapElement(SpellCheck\Words(), Word$) = #False
+            AddMapElement(SpellCheck\Words(), Word$)
           EndIf
         EndIf
       Next
@@ -1503,23 +1533,23 @@ Module EditEx
       
       ;{ Search starting position
       StartPos = Position
-      While PreviousElement(Dictionary())
-        If Left(Dictionary()\Stem, Length) <> Pattern$ : Break : EndIf
+      While PreviousElement(SpellCheck\Dictionary())
+        If Left(SpellCheck\Dictionary()\Stem, Length) <> Pattern$ : Break : EndIf
         StartPos - 1
       Wend ;}
       
       ;{ Search to end position & expand endings
-      If SelectElement(Dictionary(), StartPos)
+      If SelectElement(SpellCheck\Dictionary(), StartPos)
         Repeat
-          If Left(Dictionary()\Stem, Length) <> Pattern$ : Break : EndIf
-          CheckWords(Dictionary()\Stem) = Dictionary()\Flag
-          If Dictionary()\Endings
-            Count = CountString(Dictionary()\Endings, "|") + 1
+          If Left(SpellCheck\Dictionary()\Stem, Length) <> Pattern$ : Break : EndIf
+          CheckWords(SpellCheck\Dictionary()\Stem) = SpellCheck\Dictionary()\UCase
+          If SpellCheck\Dictionary()\Endings
+            Count = CountString(SpellCheck\Dictionary()\Endings, "|") + 1
             For i=1 To Count
-              CheckWords(Dictionary()\Stem + StringField(Dictionary()\Endings, i, "|")) = Dictionary()\Flag
+              CheckWords(SpellCheck\Dictionary()\Stem + StringField(SpellCheck\Dictionary()\Endings, i, "|")) = SpellCheck\Dictionary()\UCase
             Next
           EndIf
-        Until NextElement(Dictionary()) = #False
+        Until NextElement(SpellCheck\Dictionary()) = #False
       EndIf ;}
       
       If FindMapElement(CheckWords(), LCase(Word))
@@ -1540,13 +1570,13 @@ Module EditEx
       Define.s LWord$ = LCase(Word)
       
       StartPos = 0
-      EndPos   = ListSize(Dictionary()) - 1
+      EndPos   = ListSize(SpellCheck\Dictionary()) - 1
       
       Repeat
         ListPos = StartPos + Round((EndPos - StartPos)  / 2, #PB_Round_Up)
-        If SelectElement(Dictionary(), ListPos)
-          If Dictionary()\Stem  = LWord$                      ;{ direct hit
-            If Dictionary()\Flag ; Upper case required
+        If SelectElement(SpellCheck\Dictionary(), ListPos)
+          If SpellCheck\Dictionary()\Stem  = LWord$                      ;{ direct hit
+            If SpellCheck\Dictionary()\UCase ; Upper case required
               If Left(Word, 1) = UCase(Left(Word, 1))
                 ProcedureReturn #True
               Else
@@ -1555,10 +1585,10 @@ Module EditEx
             Else           ; No capitalization required
               ProcedureReturn #True
             EndIf ;}
-          ElseIf Left(LWord$, 4) < Left(Dictionary()\Stem, 4) ;{ word smaller than current word
+          ElseIf Left(LWord$, 4) < Left(SpellCheck\Dictionary()\Stem, 4) ;{ word smaller than current word
             EndPos   = ListPos - 1
             ;}
-          ElseIf Left(LWord$, 4) > Left(Dictionary()\Stem, 4) ;{ word greater than current word
+          ElseIf Left(LWord$, 4) > Left(SpellCheck\Dictionary()\Stem, 4) ;{ word greater than current word
             StartPos = ListPos + 1
             ;}
           Else                                          ;{ Search by word endings
@@ -1580,25 +1610,21 @@ Module EditEx
       
       ClearMap(EditEx()\Mistake())
       
-      If MapSize(Words()) > 0
+      If MapSize(SpellCheck\Words()) > 0
         
-        ForEach Words()
+        ForEach SpellCheck\Words()
           
-          Word$ = MapKey(Words())
+          Word$ = MapKey(SpellCheck\Words())
           
-          If Words()\checked = #False
+          If SpellCheck\Words()\checked = #False
             If SpellCheck(Word$) = #False
-              Words()\misspelled = #True
+              SpellCheck\Words()\misspelled = #True
             EndIf
-            Words()\checked = #True
+            SpellCheck\Words()\checked = #True
           EndIf
           
-          If Words()\misspelled = #True
-            
-            If EditEx()\Flags & #Suggestions : EditEx()\Mistake(Word$) = Word$ : EndIf 
-            
-            If Highlight : EditEx()\Syntax(Word$) = EditEx()\Color\SyntaxHighlight : EndIf
-            
+          If SpellCheck\Words()\misspelled = #True
+            If Highlight : EditEx()\Mistake(Word$) = EditEx()\Color\SpellCheck : EndIf 
           EndIf
           
         Next
@@ -1623,7 +1649,7 @@ Module EditEx
       Define.i WordLen, WordIdx, Digits
       Define LWord.s, Char.s{1}
       
-      If ListSize(HyphPattern()) = 0
+      If ListSize(Hypenation\Item()) = 0
         Debug "ERROR: Hyphen patterns are required => LoadHyphenationPattern()"
         ProcedureReturn Word
       EndIf
@@ -1634,16 +1660,16 @@ Module EditEx
       
       Dim Hypos.s(WordLen)
       
-      ForEach HyphPattern()  ;{ Evaluate pattern
+      ForEach Hypenation\Item()  ;{ Evaluate pattern
         
-        WordIdx = FindString(LWord, HyphPattern()\chars, 1)
+        WordIdx = FindString(LWord, Hypenation\Item()\Chars, 1)
         If WordIdx
           
           Digits = 1
           
-          For c = 1 To Len(HyphPattern()\pattern)
+          For c = 1 To Len(Hypenation\Item()\Pattern)
             
-            Char = Mid(HyphPattern()\pattern, c, 1)
+            Char = Mid(Hypenation\Item()\Pattern, c, 1)
             If Char >= "0" And Char <= "9"
               
               If c = 1
@@ -1685,6 +1711,8 @@ Module EditEx
           Word = RemoveString(Word, Str(c))
         EndIf
       Next ;}
+      
+      If Mid(Word, 2, 1) = Separator : Word = Left(Word, 1) + Mid(Word, 3) : EndIf
       
       ProcedureReturn Word
     EndProcedure
@@ -1887,17 +1915,6 @@ Module EditEx
     ProcedureReturn RGB((R1*Blend) + (R2 * (1-Blend)), (G1*Blend) + (G2 * (1-Blend)), (B1*Blend) + (B2 * (1-Blend)))
   EndProcedure
   
-  
-  Procedure   CurserXY_()
-    
-    If EditEx()\Cursor\Pos >= EditEx()\Row()\Pos And EditEx()\Cursor\Pos <= EditEx()\Row()\Pos + EditEx()\Row()\Len
-      EditEx()\Cursor\X   = EditEx()\Row()\X + TextWidth(StringSegment(EditEx()\Text$, EditEx()\Row()\Pos, EditEx()\Cursor\Pos))
-      EditEx()\Cursor\Y   = EditEx()\Row()\Y
-      EditEx()\Cursor\Row = ListIndex(EditEx()\Row())
-    EndIf
-    
-  EndProcedure 
-
   Procedure.i AddRow_(Pos.i, X.i, Y.i) 
 
     If AddElement(EditEx()\Row())
@@ -1913,7 +1930,7 @@ Module EditEx
   CompilerIf #Enable_SyntaxHighlight
     
     Procedure   DrawSyntaxHighlight_(Word$, Pos, X, Y)
-      Define.i wPos, Result, DiffW
+      Define.i wPos, DiffW
       Define.s sWord$
       
       sWord$ = GetWord_(Word$)
@@ -1923,7 +1940,7 @@ Module EditEx
 
         DrawingMode(#PB_2DDrawing_Default)
         
-        If EditEx()\Syntax() = #False : EditEx()\Syntax() = EditEx()\Color\SyntaxHighlight : EndIf
+        If EditEx()\Syntax() = #False : EditEx()\Syntax() = EditEx()\Color\SpellCheck : EndIf
         
         wPos = FindString(Word$, sWord$)
         If wPos > 1 : X + TextWidth(Left(Word$, wPos - 1)) : EndIf
@@ -1938,41 +1955,74 @@ Module EditEx
         EndIf
         
       EndIf
+
+    EndProcedure
+
+  CompilerEndIf
+  
+  CompilerIf #Enable_SpellChecking
+    
+    Procedure   DrawSpellCheck_(Word$, Pos, X, Y, Part$="")
+      Define.i wPos
+      Define.s sWord$
       
-      If EditEx()\Flags & #CtrlChars
-        
+      sWord$ = GetWord_(Word$)
+
+      If FindMapElement(EditEx()\Mistake(), sWord$)
+
         DrawingMode(#PB_2DDrawing_Default)
-
-        wPos = FindString(Word$, " ")
-        If wPos
-          If FindMapElement(EditEx()\Syntax(), #Space$)  
-            DiffW = (TextWidth(" ") - TextWidth(#Space$)) / 2
-            DrawText(X + TextWidth(Left(Word$, wPos - 1)) + DiffW, Y, #Space$, EditEx()\Syntax(), EditEx()\Color\Back)
-          EndIf
-        EndIf
-
-        wPos = FindString(Word$, #Paragraph$)
-        If wPos
-          If FindMapElement(EditEx()\Syntax(), #Paragraph$)  
-            DrawText(X + TextWidth(Left(Word$, wPos - 1)), Y, #Paragraph$, EditEx()\Syntax(), EditEx()\Color\Back)
-          EndIf
+        
+        If Part$
+          Word$  = Part$
+          sWord$ = GetWord_(Part$)
         EndIf
         
-        wPos = FindString(Word$, #SoftHyphen$)
-        If wPos
-          If FindMapElement(EditEx()\Syntax(), #SoftHyphen$)
-          ;Line(X + TextWidth(Left(Word$, wPos - 1)), Y, dpiX(1), EditEx()\Text\Height, EditEx()\Syntax())
-          DrawText(X + TextWidth(Left(Word$, wPos - 1)), Y, #SoftHyphen$, EditEx()\Syntax(), EditEx()\Color\Back)
-          EndIf
-        EndIf
-
+        wPos = FindString(Word$, sWord$)
+        If wPos > 1 : X + TextWidth(Left(Word$, wPos - 1)) : EndIf
+        
+        ;If Right(Part$, 1) = "-" : sWord$ + "-" : EndIf
+        
+        DrawText(X, Y, RTrim(sWord$, #LF$), EditEx()\Mistake(), EditEx()\Color\Back)
+        
         DrawingMode(#PB_2DDrawing_Transparent)
+        
+        If EditEx()\Cursor\Pos >= Pos + wPos - 1 And EditEx()\Cursor\Pos < Pos + wPos + Len(sWord$)
+          EditEx()\Cursor\FrontColor = EditEx()\Mistake()
+          EditEx()\Cursor\BackColor  = EditEx()\Color\Back
+        EndIf
         
       EndIf
       
     EndProcedure
-
+    
   CompilerEndIf
+  
+  Procedure   DrawCtrlChars(Word$, X, Y)
+    Define.i DiffW, wPos
+    DrawingMode(#PB_2DDrawing_Default)
+    
+    Word$ = RemoveString(Word$, #LF$)
+    
+    wPos = FindString(Word$, " ")
+    If wPos
+      DiffW = Round((TextWidth(" ") - TextWidth(#Space$)) / 2, #PB_Round_Nearest)
+      DrawText(X + TextWidth(Left(Word$, wPos - 1)) + DiffW, Y, #Space$, $B48246, EditEx()\Color\Back)
+    EndIf
+
+    wPos = FindString(Word$, #Paragraph$)
+    If wPos
+      DrawText(X + TextWidth(Left(Word$, wPos - 1)), Y, #Paragraph$, $578B2E, EditEx()\Color\Back)
+    EndIf
+    
+    wPos = FindString(Word$, #SoftHyphen$)
+    If wPos
+      ;Line(X + TextWidth(Left(Word$, wPos - 1)), Y, dpiX(1), EditEx()\Text\Height, $7280FA)
+      DrawText(X + TextWidth(Left(Word$, wPos - 1)), Y, #SoftHyphen$, $7280FA, EditEx()\Color\Back)
+    EndIf
+
+    DrawingMode(#PB_2DDrawing_Transparent)
+    
+  EndProcedure
   
   Procedure   DrawSelection_(X, Pos.i, Len.i, Pos1.i, Pos2.i)
     Define.i sPosX, sWidth
@@ -2019,18 +2069,29 @@ Module EditEx
 
   EndProcedure  
   
+  
   Procedure   Draw_() ; Draw Gadget
-    Define.i X, Y, Width, Height, PosX, PosY, WordLen, maxTextWidth
-    Define.i r, w, h, Rows, Words, Pos, wPos, Pos1, Pos2, sPosX, Hyphen
-    Define.s Row$, Word$, hWord$, WordOnly$, WordMask$, Part$
+    Define.i r, w, h, X, Y, Width, Height, PosX, PosY, Pos, wPos, Pos1, Pos2, WordLen, maxTextWidth
+    Define.i Rows, Words, sPosX, Hyphen, SyntaxHighlight, AutoSpellCheck, SoftHyphen
+    Define.s Row$, Text$, Word$, hWord$, WordOnly$, WordMask$, Part$
     
     ClearList(EditEx()\Row())
     
+    If Not EditEx()\Cursor\Pos
+      EditEx()\Cursor\Pos = 1
+      EditEx()\Cursor\X   = dpiX(EditEx()\Size\PaddingX)
+      EditEx()\Cursor\Y   = dpiY(EditEx()\Size\PaddingY)
+    EndIf
+    
+    If MapSize(EditEx()\Syntax())  : SyntaxHighlight = #True : EndIf
+    If MapSize(EditEx()\Mistake()) : AutoSpellCheck  = #True : EndIf
+      
     If StartDrawing(CanvasOutput(EditEx()\CanvasNum)) 
       
       If EditEx()\FontID : DrawingFont(EditEx()\FontID) : EndIf
 
-      EditEx()\Text\Height = TextHeight("Abc")
+      EditEx()\Text\Height   = TextHeight("Abc")
+      EditEx()\Cursor\Height = EditEx()\Text\Height
       
       ;{ _____ Draw Background _____
       DrawingMode(#PB_2DDrawing_Default)
@@ -2046,8 +2107,6 @@ Module EditEx
         maxTextWidth = dpiX(EditEx()\Visible\Width)
       EndIf
 
-      If Not EditEx()\Cursor\Pos : EditEx()\Cursor\Pos = 1 : EndIf
-      
       EditEx()\Text\Len = Len(EditEx()\Text$)
       If EditEx()\Text\Len : Pos = 1 : EndIf
       
@@ -2088,13 +2147,15 @@ Module EditEx
             
             Word$ = StringField(Row$, w, " ")
             If w <> Words : Word$ + " " : EndIf
-
+            
+            Part$ = ""
+            
             If PosX + TextWidth(RTrim(Word$)) > maxTextWidth
               
               CompilerIf #Enable_Hyphenation
                 
                 If EditEx()\Flags & #Hyphenation
-                  
+
                   WordOnly$ = GetWord_(Word$)
                   
                   If WordOnly$ <> Word$
@@ -2103,13 +2164,17 @@ Module EditEx
                     WordMask$ = ""
                   EndIf
                   
-                  hWord$ = HyphenateWord(WordOnly$)
-                  Hyphen = CountString(hWord$, #SoftHyphen$)
+                  SoftHyphen = CountString(WordOnly$, #SoftHyphen$)
+                  If SoftHyphen
+                    Hyphen = SoftHyphen
+                    hWord$ = WordOnly$
+                  Else  
+                    hWord$ = HyphenateWord(WordOnly$)
+                    Hyphen = CountString(hWord$, #SoftHyphen$)
+                  EndIf
                   
                   If Hyphen
-                    
-                    Part$ = ""
-                    
+
                     If WordMask$ : hWord$ = ReplaceString(WordMask$, "$", hWord$) : EndIf
                   
                     For h=1 To Hyphen + 1
@@ -2125,18 +2190,26 @@ Module EditEx
                       hWord$ = RemoveString(hWord$, #SoftHyphen$)
                       
                       DrawText(PosX, PosY, RTrim(Part$ + "-", #LF$), EditEx()\Color\Front)
+
+                      CompilerIf #Enable_SpellChecking
+                        If EditEx()\Flags & #AutoSpellCheck
+                          If AutoSpellCheck : DrawSpellCheck_(Word$, Pos, PosX, PosY, Part$ + "-") : EndIf
+                        EndIf  
+                      CompilerEndIf
                       
-                      Word$ = Mid(hWord$, Len(Part$) + 1)
+                      CompilerIf #Enable_SyntaxHighlight
+                        If SyntaxHighlight : DrawSyntaxHighlight_(Word$, Pos, PosX, PosY) : EndIf
+                      CompilerEndIf
                       
-                      If EditEx()\Flags & #SyntaxHighlight : DrawSyntaxHighlight_(Part$ + "-", Pos, PosX, PosY) : EndIf
-                      
-                      WordLen = Len(Part$)
+                      WordLen = Len(Part$) + SoftHyphen
                       
                       If EditEx()\Selection\Flag = #Selected : DrawSelection_(PosX, Pos, WordLen, Pos1, Pos2) : EndIf
                       
                       EditEx()\Row()\Len   + WordLen
                       EditEx()\Row()\Width + TextWidth(Part$)
                       EditEx()\Row()\WordWrap = "-" + #LF$
+                      
+                      Part$ = Mid(hWord$, Len(Part$) + 1)
                       
                       Pos + WordLen
                     EndIf
@@ -2156,41 +2229,52 @@ Module EditEx
             EndIf
 
             sPosX = PosX
-            PosX  = DrawText(PosX, PosY, RTrim(Word$, #LF$), EditEx()\Color\Front)
-
-            CompilerIf #Enable_SyntaxHighlight
             
-              If EditEx()\Flags & #SyntaxHighlight : DrawSyntaxHighlight_(Word$, Pos, sPosX, PosY) : EndIf
+            If Part$
+              PosX  = DrawText(PosX, PosY, RTrim(Part$, #LF$), EditEx()\Color\Front)
+            Else
+              PosX  = DrawText(PosX, PosY, RTrim(Word$, #LF$), EditEx()\Color\Front)
+            EndIf
+            
+            CompilerIf #Enable_SpellChecking
+              If EditEx()\Flags & #AutoSpellCheck
+                If AutoSpellCheck : DrawSpellCheck_(Word$, Pos, sPosX, PosY, Part$) : EndIf
+              EndIf  
+            CompilerEndIf
+            
+            CompilerIf #Enable_SyntaxHighlight
               
-            CompilerElse
-              
-              If EditEx()\Flags & #CtrlChars
-                
-                If FindMapElement(EditEx()\Syntax(), #Space$)  
-                  wPos = FindString(Word$, " ")
-                  If wPos
-                    DiffW = (TextWidth(" ") - TextWidth(#Space$)) / 2
-                    DrawText(X + TextWidth(Left(Word$, wPos - 1)) + DiffW, Y, #Space$, $B48246)
-                  EndIf
+              If SyntaxHighlight
+                If Part$
+                  DrawSyntaxHighlight_(Part$, Pos, sPosX, PosY)
+                Else
+                  DrawSyntaxHighlight_(Word$, Pos, sPosX, PosY)
                 EndIf
-                
               EndIf
               
             CompilerEndIf 
-
-            WordLen = Len(Word$)
+     
+            If EditEx()\Flags & #CtrlChars
+              If Part$
+                DrawCtrlChars(RTrim(Part$, #LF$), sPosX, PosY)
+              Else  
+                DrawCtrlChars(RTrim(Word$, #LF$), sPosX, PosY)
+              EndIf  
+            EndIf
             
+            If Part$
+              WordLen = Len(Part$)
+            Else  
+              WordLen = Len(Word$)
+            EndIf
+          
             If EditEx()\Selection\Flag = #Selected : DrawSelection_(sPosX, Pos, WordLen, Pos1, Pos2) : EndIf
             
             EditEx()\Row()\Len   + WordLen
             EditEx()\Row()\Width + TextWidth(Word$)
             
-            CurserXY_()
-            
             Pos + WordLen
           Next
-          
-          CurserXY_()
           
           PosY + EditEx()\Text\Height
           ;}
@@ -2207,22 +2291,22 @@ Module EditEx
             sPosX = PosX
             PosX  = DrawText(PosX, PosY, RTrim(Word$, #LF$), EditEx()\Color\Front)
             
+            CompilerIf #Enable_SpellChecking
+              
+              If EditEx()\Flags & #AutoSpellCheck
+                If AutoSpellCheck : DrawSpellCheck_(Word$, Pos, sPosX, PosY) : EndIf
+              EndIf  
+              
+            CompilerEndIf
+            
             CompilerIf #Enable_SyntaxHighlight
+              If SyntaxHighlight : DrawSyntaxHighlight_(Word$, Pos, sPosX, PosY) : EndIf
+            CompilerEndIf  
             
-              If EditEx()\Flags & #SyntaxHighlight : DrawSyntaxHighlight_(Word$, Pos, sPosX, PosY) : EndIf
-              
-            CompilerElse
-              
-              If FindMapElement(EditEx()\Syntax(), #Space$)  
-                wPos = FindString(Word$, " ")
-                If wPos
-                  DiffW = (TextWidth(" ") - TextWidth(#Space$)) / 2
-                  DrawText(X + TextWidth(Left(Word$, wPos - 1)) + DiffW, Y, #Space$, $B48246)
-                EndIf
-              EndIf
-              
-            CompilerEndIf   
-            
+            If EditEx()\Flags & #CtrlChars
+              DrawCtrlChars(Word$, PosX, PosY)
+            EndIf
+
             WordLen = Len(Word$)
             
             If EditEx()\Selection\Flag = #Selected : DrawSelection_(sPosX, Pos, WordLen, Pos1, Pos2) : EndIf
@@ -2232,22 +2316,43 @@ Module EditEx
             
             Pos + WordLen
           Next
-          
-          CurserXY_()
-          
+
           PosY + EditEx()\Text\Height
           ;}
         EndIf
 
       Next  
       ;}
-
+      
       ;{ _____ Cursor _____
-      If EditEx()\Cursor\State
-        Line(EditEx()\Cursor\X, EditEx()\Cursor\Y, dpiX(1), EditEx()\Cursor\Height, EditEx()\Color\Cursor)
-      EndIf
-      EditEx()\Cursor\Height   = EditEx()\Text\Height
-      EditEx()\Cursor\BackChar = Mid(EditEx()\Text$, EditEx()\Cursor\Pos, 1)
+      ForEach EditEx()\Row()
+        
+        If EditEx()\Cursor\Pos >= EditEx()\Row()\Pos And EditEx()\Cursor\Pos <= EditEx()\Row()\Pos + EditEx()\Row()\Len
+          
+          If EditEx()\Cursor\Pos = EditEx()\Row()\Pos + EditEx()\Row()\Len
+            
+            If ListIndex(EditEx()\Row()) = ListSize(EditEx()\Row()) - 1
+              EditEx()\Cursor\X = EditEx()\Row()\X + TextWidth(RTrim(StringSegment(EditEx()\Text$, EditEx()\Row()\Pos, EditEx()\Cursor\Pos), #LF$))
+              EditEx()\Cursor\BackChar = ""
+            Else
+              If NextElement(EditEx()\Row())
+                EditEx()\Cursor\X = EditEx()\Row()\X
+                EditEx()\Cursor\BackChar = Mid(EditEx()\Text$, EditEx()\Cursor\Pos, 1)
+              EndIf
+            EndIf  
+
+          Else  
+            EditEx()\Cursor\X = EditEx()\Row()\X + TextWidth(RTrim(StringSegment(EditEx()\Text$, EditEx()\Row()\Pos, EditEx()\Cursor\Pos), #LF$))
+            EditEx()\Cursor\BackChar = Mid(EditEx()\Text$, EditEx()\Cursor\Pos, 1)
+          EndIf
+          
+          EditEx()\Cursor\Y   = EditEx()\Row()\Y
+          EditEx()\Cursor\Row = ListIndex(EditEx()\Row())
+          
+          Break  
+        EndIf  
+        
+      Next  
       ;}
       
       ;{ _____ Padding _____
@@ -2302,22 +2407,29 @@ Module EditEx
     Define.i WindowNum = EventWindow()
     
     ForEach EditEx()
-      
+
       If EditEx()\Cursor\Pause = #False
         
         EditEx()\Cursor\State ! #True
       
         If StartDrawing(CanvasOutput(EditEx()\CanvasNum)) 
+          
           DrawingMode(#PB_2DDrawing_Default)
+          
           If EditEx()\Cursor\State
+            
             Line(EditEx()\Cursor\X, EditEx()\Cursor\Y, 1, EditEx()\Cursor\Height, EditEx()\Color\Cursor)
+            
           Else
+            
             If EditEx()\FontID : DrawingFont(EditEx()\FontID) : EndIf
+
             If EditEx()\Cursor\BackChar
               DrawText(EditEx()\Cursor\X, EditEx()\Cursor\Y, EditEx()\Cursor\BackChar, EditEx()\Cursor\FrontColor, EditEx()\Cursor\BackColor)
             Else
               Line(EditEx()\Cursor\X, EditEx()\Cursor\Y, 1, EditEx()\Cursor\Height, EditEx()\Color\Back)
-            EndIf   
+            EndIf
+            
           EndIf
           StopDrawing()
         EndIf
@@ -2661,7 +2773,6 @@ Module EditEx
             
             EditEx()\Text$ = InsertString(EditEx()\Text$, #LF$, EditEx()\Cursor\Pos)
             EditEx()\Cursor\Pos + 1
-            
             RemoveSelection_()
             
             CompilerIf #Enable_SpellChecking
@@ -2674,9 +2785,7 @@ Module EditEx
             CompilerEndIf 
             
             CompilerIf #Enable_UndoRedo
-              
-              If EditEx()\Flags & #UndoRedo : AddUndo_() : EndIf
-              
+              AddUndo_()
             CompilerEndIf
             
             ReDraw = #True
@@ -2724,7 +2833,7 @@ Module EditEx
                 
                 EditEx()\Cursor\Pos - 1
                 If EditEx()\Cursor\Pos < 1 : EditEx()\Cursor\Pos = 1 : EndIf
-                
+
               EndIf
               
             EndIf
@@ -2760,9 +2869,7 @@ Module EditEx
               EditEx()\Cursor\Pos + Len(Text$)
               
               CompilerIf #Enable_UndoRedo
-                
-                If EditEx()\Flags & #UndoRedo : AddUndo_() : EndIf
-                
+                AddUndo_()
               CompilerEndIf
               
               ReDraw = #True
@@ -2782,9 +2889,7 @@ Module EditEx
                 DeleteSelection_(#False)
                 
                 CompilerIf #Enable_UndoRedo
-                  
-                  If EditEx()\Flags & #UndoRedo : AddUndo_() : EndIf
-                  
+                  AddUndo_()
                 CompilerEndIf
                 
               EndIf
@@ -2812,9 +2917,7 @@ Module EditEx
               EditEx()\Cursor\Pos + Len(Text$)
               
               CompilerIf #Enable_UndoRedo
-                
-                If EditEx()\Flags & #UndoRedo : AddUndo_() : EndIf
-                
+                AddUndo_()
               CompilerEndIf
               
             ElseIf Modifier & #PB_Canvas_Control
@@ -2859,12 +2962,8 @@ Module EditEx
           CompilerIf #Enable_UndoRedo
             
             If Modifier & #PB_Canvas_Control
-              
-              If EditEx()\Flags & #UndoRedo
-                Undo_()
-                ReDraw = #True
-              EndIf
-              
+              Undo_()
+              ReDraw = #True
             EndIf 
 
           CompilerEndIf
@@ -2891,7 +2990,7 @@ Module EditEx
   
   Procedure _InputHandler()   ; Input character
     Define.i GNum = EventGadget()
-    Define.i Char, SpellCheck
+    Define.i Char
     
     
     If FindMapElement(EditEx(), Str(GNum))
@@ -2909,12 +3008,10 @@ Module EditEx
         
         CompilerIf #Enable_UndoRedo
           
-          If EditEx()\Flags & #UndoRedo
-            Select Char
-              Case 32, 33, 58, 59, 63
-                AddUndo_()
-            EndSelect
-          EndIf
+          Select Char
+            Case 32, 33, 58, 59, 63
+              AddUndo_()
+          EndSelect
           
         CompilerEndIf
         
@@ -2924,15 +3021,12 @@ Module EditEx
             
             Select Char
               Case 32, 33, 41, 44, 46
-                SpellCheck = #True
+                UpdateWordList_()
+                SpellChecking_(#True)
               Case 58, 59, 63, 93, 125
-                SpellCheck = #True
+                UpdateWordList_()
+                SpellChecking_(#True)
             EndSelect
-            
-            If SpellCheck 
-              UpdateWordList_()
-              SpellChecking_(#True)
-            EndIf
             
           EndIf
           
@@ -2976,11 +3070,12 @@ Module EditEx
             
             ForEach EditEx()\Mistake()
               
-              If Word$ = EditEx()\Mistake()
+              If Word$ = MapKey(EditEx()\Mistake())
                 
                 EditEx()\Selection\Pos1 = sWord
                 EditEx()\Selection\Pos2 = eWord
                 EditEx()\Selection\Flag = #Selected
+                EditEx()\Cursor\Pos = EditEx()\Selection\Pos2
                 Draw_()
                 
                 If CorrectionSuggestions_(Word$)
@@ -3012,49 +3107,6 @@ Module EditEx
     EndIf
     
   EndProcedure
-  
-  CompilerIf #Enable_SpellChecking
-  
-    Procedure _RightDoubleClickHandler()
-      Define.i GNum = EventGadget()
-      Define.i X, Y, CursorPos, sWord, eWord
-      Define.s Word$
-      
-      If FindMapElement(EditEx(), Str(GNum))
-      
-        X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
-        Y = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
-        
-        CursorPos = CursorPos_(X, Y)
-        If CursorPos
-         
-          sWord = WordStart_(EditEx()\Text$, CursorPos)
-          eWord = WordEnd_(EditEx()\Text$ , CursorPos)
-          Word$ = StringSegment(EditEx()\Text$, sWord, eWord)
-          
-          If Words(Word$)\checked = #False
-            If SpellCheck(Word$) = #False
-              Words(Word$)\misspelled = #True
-            EndIf
-            Words(Word$)\checked = #True
-          EndIf
-          
-          If Words(Word$)\misspelled = #True
-            
-            If EditEx()\Flags & #Suggestions : EditEx()\Mistake(Word$) = Word$ : EndIf 
-            
-            EditEx()\Syntax(Word$) = EditEx()\Color\SyntaxHighlight
-            
-          EndIf
-          
-          Draw_()
-        EndIf
-        
-      EndIf
-      
-    EndProcedure
-    
-  CompilerEndIf
 
   Procedure _LeftButtonDownHandler()
     Define.i GNum = EventGadget()
@@ -3074,15 +3126,17 @@ Module EditEx
       
       CursorPos = CursorPos_(CursorX, CursorY)
       If CursorPos
+        
         EditEx()\Cursor\LastX = EditEx()\Cursor\X ; last cursor position for cursor up/down
+        
         RemoveSelection_()
+
         Draw_()
+
       EndIf
     
       CompilerIf #Enable_UndoRedo
-        
-        If EditEx()\Flags & #UndoRedo : ChangeUndoCursor_() : EndIf 
-        
+        ChangeUndoCursor_()
       CompilerEndIf
 
     EndIf
@@ -3117,7 +3171,7 @@ Module EditEx
   Procedure _LeftDoubleClickHandler()
     Define.i GNum = EventGadget()
     Define.i CursorX, CursorY, CursorPos
-    Define.s Text$
+    Define.s Word$
     
     If FindMapElement(EditEx(), Str(GNum))
       
@@ -3149,6 +3203,27 @@ Module EditEx
         
         EditEx()\Selection\Flag = #Selected
         EditEx()\Cursor\Pos     = EditEx()\Selection\Pos2
+        
+        CompilerIf #Enable_SpellChecking
+          
+          If EditEx()\Flags & #AutoSpellCheck
+            
+            Word$ = GetSelection_(#False)
+            Word$ = GetWord_(Word$)
+            If SpellCheck\Words(Word$)\checked = #False
+              If SpellCheck(Word$) = #False
+                SpellCheck\Words(Word$)\misspelled = #True
+              EndIf
+              SpellCheck\Words(Word$)\checked = #True
+            EndIf
+            
+            If SpellCheck\Words(Word$)\misspelled = #True
+              EditEx()\Mistake(Word$) = EditEx()\Color\SpellCheck
+            EndIf
+            
+          EndIf
+          
+        CompilerEndIf
         
         Draw_()
       EndIf
@@ -3412,22 +3487,22 @@ Module EditEx
       Define.i FileID
       Define.s Word$, Path$
       
-      ClearList(Dictionary())
+      ClearList(SpellCheck\Dictionary())
       
-      Path\Dictionary = GetPathPart(DicFile)
+      SpellCheck\Path = GetPathPart(DicFile)
       
       FileID = ReadFile(#PB_Any, DicFile)
       If FileID
         While Eof(FileID) = #False
           Word$ = ReadString(FileID)
-          AddElement(Dictionary())
-          Dictionary()\Stem = StringField(Word$, 1, Chr(127))
+          AddElement(SpellCheck\Dictionary())
+          SpellCheck\Dictionary()\Stem = StringField(Word$, 1, Chr(127))
           If CountString(Word$, Chr(127)) = 2
-            Dictionary()\Endings = StringField(Word$, 2, Chr(127))
-            Dictionary()\Flag    = Val(StringField(Word$, 3, Chr(127)))
+            SpellCheck\Dictionary()\Endings = StringField(Word$, 2, Chr(127))
+            SpellCheck\Dictionary()\UCase    = Val(StringField(Word$, 3, Chr(127)))
           Else
-            Dictionary()\Endings = ""
-            Dictionary()\Flag    = Val(StringField(Word$, 3, Chr(127)))
+            SpellCheck\Dictionary()\Endings = ""
+            SpellCheck\Dictionary()\UCase    = Val(StringField(Word$, 3, Chr(127)))
           EndIf
         Wend
         CloseFile(FileID)
@@ -3439,14 +3514,14 @@ Module EditEx
         If FileID
           While Eof(FileID) = #False
             Word$ = ReadString(FileID)
-            AddElement(Dictionary())
-            Dictionary()\Stem = StringField(Word$, 1, Chr(127))
+            AddElement(SpellCheck\Dictionary())
+            SpellCheck\Dictionary()\Stem = StringField(Word$, 1, Chr(127))
             If CountString(Word$, Chr(127)) = 2
-              Dictionary()\Endings = StringField(Word$, 2, Chr(127))
-              Dictionary()\Flag    = Val(StringField(Word$, 3, Chr(127)))
+              SpellCheck\Dictionary()\Endings = StringField(Word$, 2, Chr(127))
+              SpellCheck\Dictionary()\UCase    = Val(StringField(Word$, 3, Chr(127)))
             Else
-              Dictionary()\Endings = ""
-              Dictionary()\Flag    = Val(StringField(Word$, 3, Chr(127)))
+              SpellCheck\Dictionary()\Endings = ""
+              SpellCheck\Dictionary()\UCase    = Val(StringField(Word$, 3, Chr(127)))
             EndIf
           Wend
           CloseFile(FileID)
@@ -3454,74 +3529,91 @@ Module EditEx
       EndIf
       
       ;{ Dictionary is required
-      If ListSize(Dictionary()) = 0
+      If ListSize(SpellCheck\Dictionary()) = 0
         Debug "ERROR: No dictionary found"
         ProcedureReturn #False
       EndIf ;}
       
-      ClearList(UserDic())
+      ClearList(SpellCheck\UserDic())
       
-      FileID = ReadFile(#PB_Any, Path\Dictionary + "user.dic")
+      FileID = ReadFile(#PB_Any, SpellCheck\Path + "user.dic")
       If FileID
         
         While Eof(FileID) = #False
           Word$ = ReadString(FileID)
-          AddElement(UserDic())
-          UserDic()\Stem = StringField(Word$, 1, Chr(127))
+          AddElement(SpellCheck\UserDic())
+          SpellCheck\UserDic()\Stem = StringField(Word$, 1, Chr(127))
           If CountString(Word$, Chr(127)) = 2
-            UserDic()\Endings = StringField(Word$, 2, Chr(127))
-            UserDic()\Flag    = Val(StringField(Word$, 3, Chr(127)))
+            SpellCheck\UserDic()\Endings = StringField(Word$, 2, Chr(127))
+            SpellCheck\UserDic()\UCase    = Val(StringField(Word$, 3, Chr(127)))
           Else
-            UserDic()\Endings = ""
-            UserDic()\Flag    = Val(StringField(Word$, 3, Chr(127)))
+            SpellCheck\UserDic()\Endings = ""
+            SpellCheck\UserDic()\UCase    = Val(StringField(Word$, 3, Chr(127)))
           EndIf
         Wend
         
-        MergeLists(UserDic(), Dictionary())
+        MergeLists(SpellCheck\UserDic(), SpellCheck\Dictionary())
         
         CloseFile(FileID)
       EndIf
       
-      SortStructuredList(Dictionary(), #PB_Sort_Ascending, OffsetOf(Dictionary_Structure\Stem), TypeOf(Dictionary_Structure\Stem))  
+      SortStructuredList(SpellCheck\Dictionary(), #PB_Sort_Ascending, OffsetOf(Dictionary_Structure\Stem), TypeOf(Dictionary_Structure\Stem))  
       
     EndProcedure
     
     Procedure FreeDictionary()
-      ClearList(Dictionary())
+      ClearList(SpellCheck\Dictionary())
+      SpellCheck\Flags & ~#AutoSpellCheck
+      SpellCheck\Flags & ~#Suggestions
     EndProcedure
     
-    Procedure EnableAutoSpellCheck(GNum.i, State.i=#True, Flag.i=#False)
-      
-      ;{ Syntax highlighting is required
-      If #Enable_SyntaxHighlight = #False
-        Debug "ERROR: Syntax highlighting is required => #Enable_SyntaxHighlight = #True"
-        ProcedureReturn #False
-      EndIf ;}
-      
+    Procedure EnableAutoSpellCheck(State.i=#True)
+
       ;{ Dictionary is required
-      If ListSize(Dictionary()) = 0
-        Debug "ERROR: Dictionary is required => LoadDictionary()"
+      If ListSize(SpellCheck\Dictionary()) = 0
+        Debug "ERROR: Dictionary is required => LoadSpellCheck\Dictionary()"
         ProcedureReturn #False
       EndIf ;}
+      
+      If State
+        SpellCheck\Flags | #AutoSpellCheck
+        SpellCheck\Flags | #Suggestions
+      Else
+        SpellCheck\Flags & ~#AutoSpellCheck
+        SpellCheck\Flags & ~#Suggestions
+      EndIf 
+
+    EndProcedure
+    
+    
+    Procedure DisableSpellCheck(GNum.i, State.i=#True)
       
       If FindMapElement(EditEx(), Str(GNum))
         
-        EditEx()\SyntaxHighlight = #CaseSensitiv
-        
         If State
-          EditEx()\Flags | #AutoSpellCheck
-          EditEx()\Flags | #SyntaxHighlight
-          If Flag = #Suggestions : EditEx()\Flags | #Suggestions : EndIf 
-        Else
           EditEx()\Flags & ~#AutoSpellCheck
-          EditEx()\Flags & ~#SyntaxHighlight
-          EditEx()\Flags & ~#Suggestions
-        EndIf   
+        Else
+          EditEx()\Flags | #AutoSpellCheck
+        EndIf
         
       EndIf
       
+    EndProcedure
+    
+    Procedure DisableSuggestions(GNum.i, State.i=#True)
+      
+      If FindMapElement(EditEx(), Str(GNum))
+        
+        If State
+          EditEx()\Flags & ~#Suggestions
+        Else
+          EditEx()\Flags | #Suggestions
+        EndIf
+        
+      EndIf
       
     EndProcedure
+    
     
     Procedure SpellCheck(Word.s)
       ProcedureReturn SpellCheck_(Word)
@@ -3529,15 +3621,9 @@ Module EditEx
     
     Procedure SpellChecking(GNum.i, Flag.i=#Highlight)
       
-      ;{ Syntax highlighting is required
-      If #Enable_SyntaxHighlight = #False
-        Debug "ERROR: Syntax highlighting is required => #Enable_SyntaxHighlight = #True"
-        ProcedureReturn #False
-      EndIf ;}
-      
       ;{ Dictionary is required
-      If ListSize(Dictionary()) = 0
-        Debug "ERROR: Dictionary is required => LoadDictionary()"
+      If ListSize(SpellCheck\Dictionary()) = 0
+        Debug "ERROR: Dictionary is required => LoadSpellCheck\Dictionary()"
         ProcedureReturn #False
       EndIf ;}
       
@@ -3555,12 +3641,12 @@ Module EditEx
         
         If Flag & #WrongWords
           ClearList(WrongWords())
-          ForEach Words()
-            If Words()\misspelled = #True
+          ForEach SpellCheck\Words()
+            If SpellCheck\Words()\misspelled = #True
               If AddElement(WrongWords())
-                WrongWords() = MapKey(Words())
+                WrongWords() = MapKey(SpellCheck\Words())
               EndIf  
-              DeleteMapElement(Words())
+              DeleteMapElement(SpellCheck\Words())
             EndIf
           Next
         EndIf
@@ -3571,21 +3657,22 @@ Module EditEx
       
     EndProcedure
     
+    
     Procedure SaveUserDictionary()
       Define.i FileID
       Define.s File$, Word$
       
-      File$ = Path\Dictionary + "user.dic"
+      File$ = SpellCheck\Path + "user.dic"
       
-      If ListSize(UserDic()) = 0 : ProcedureReturn #False : EndIf
+      If ListSize(SpellCheck\UserDic()) = 0 : ProcedureReturn #False : EndIf
       
       FileID = CreateFile(#PB_Any, File$)
       If FileID
         
-        SortStructuredList(UserDic(), #PB_Sort_Ascending, OffsetOf(Dictionary_Structure\Stem), TypeOf(Dictionary_Structure\Stem))
+        SortStructuredList(SpellCheck\UserDic(), #PB_Sort_Ascending, OffsetOf(Dictionary_Structure\Stem), TypeOf(Dictionary_Structure\Stem))
         
-        ForEach UserDic()
-          Word$ = UserDic()\Stem + Chr(127) + UserDic()\Endings + Chr(127) + UserDic()\Flag
+        ForEach SpellCheck\UserDic()
+          Word$ = SpellCheck\UserDic()\Stem + Chr(127) + SpellCheck\UserDic()\Endings + Chr(127) + SpellCheck\UserDic()\UCase
           WriteStringN(FileID, Word$, #PB_UTF8)
         Next
         
@@ -3601,29 +3688,29 @@ Module EditEx
         If SpellCheck(Word) = #False
           
           DeleteMapElement(EditEx()\Syntax(), Word)
-          Words(Word)\misspelled = #False
+          SpellCheck\Words(Word)\misspelled = #False
   
-          If AddElement(UserDic())
-            UserDic()\Stem    = LCase(Word)
-            UserDic()\Endings = ""
+          If AddElement(SpellCheck\UserDic())
+            SpellCheck\UserDic()\Stem    = LCase(Word)
+            SpellCheck\UserDic()\Endings = ""
             If Left(Word, 1)  = UCase(Left(Word, 1))
-              UserDic()\Flag  = #True
+              SpellCheck\UserDic()\UCase  = #True
             Else
-              UserDic()\Flag  = #False
+              SpellCheck\UserDic()\UCase  = #False
             EndIf
           EndIf
           
-          If AddElement(Dictionary())
-            Dictionary()\Stem    = LCase(Word)
-            Dictionary()\Endings = ""
+          If AddElement(SpellCheck\Dictionary())
+            SpellCheck\Dictionary()\Stem    = LCase(Word)
+            SpellCheck\Dictionary()\Endings = ""
             If Left(Word, 1) = UCase(Left(Word, 1))
-              Dictionary()\Flag  = #True
+              SpellCheck\Dictionary()\UCase  = #True
             Else
-              Dictionary()\Flag  = #False
+              SpellCheck\Dictionary()\UCase  = #False
             EndIf
           EndIf
           
-          SortStructuredList(Dictionary(), #PB_Sort_Ascending, OffsetOf(Dictionary_Structure\Stem), TypeOf(Dictionary_Structure\Stem))
+          SortStructuredList(SpellCheck\Dictionary(), #PB_Sort_Ascending, OffsetOf(Dictionary_Structure\Stem), TypeOf(Dictionary_Structure\Stem))
           
           If EditEx()\Flags & #AutoSpellCheck
             UpdateWordList_()
@@ -3637,13 +3724,14 @@ Module EditEx
       
     EndProcedure
     
+    
     Procedure ClearCheckedWords()
       
-      ClearMap(Words())
+      ClearMap(SpellCheck\Words())
       
     EndProcedure
 
-    Procedure CorrectionSuggestions(GNum.i, Word.s, List Suggestions.s())
+    Procedure GetSuggestions(GNum.i, Word.s, List Suggestions.s())
       
       If FindMapElement(EditEx(), Str(GNum))
         
@@ -3665,19 +3753,22 @@ Module EditEx
       Define.i FileID
       Define.s Pattern 
       
-      Path\Pattern = GetPathPart(File)
+      Hypenation\Path = GetPathPart(File)
       
-      ClearList(HyphPattern())
+      ClearList(Hypenation\Item())
       
       FileID = ReadFile(#PB_Any, File)
       If FileID
         While Eof(FileID) = #False
           Pattern = Trim(ReadString(FileID, #PB_UTF8))
-          AddElement(HyphPattern())
-          HyphPattern()\chars   = StringField(Pattern, 1, ":")
-          HyphPattern()\pattern = StringField(Pattern, 2, ":")
+          AddElement(Hypenation\Item())
+          Hypenation\Item()\Chars   = StringField(Pattern, 1, ":")
+          Hypenation\Item()\Pattern = StringField(Pattern, 2, ":")
         Wend 
         CloseFile(FileID)
+        
+        Hypenation\Flags = #Hyphenation
+        
         ProcedureReturn #True
       Else
         ProcedureReturn #False
@@ -3691,33 +3782,25 @@ Module EditEx
   
   CompilerIf #Enable_SyntaxHighlight
     
-    Procedure EnableSyntaxHighlight(GNum.i, State.i=#True, Flag.i=#CaseSensitiv) ; #False/#CaseSensitiv/#NoCase
+    Procedure SetSyntaxHighlight(GNum.i, Flag.i) ; #CaseSensitiv/#NoCase
       
       If FindMapElement(EditEx(), Str(GNum))
         
-        If State
-          EditEx()\Flags | #SyntaxHighlight
-          EditEx()\SyntaxHighlight = Flag
-        Else
-          EditEx()\Flags & ~#SyntaxHighlight
-          EditEx()\SyntaxHighlight = #False
-        EndIf
-        
+        EditEx()\SyntaxHighlight = Flag
+
         Draw_()
         
       EndIf
       
     EndProcedure
   
-    Procedure AddWord(GNum.i, Word.s, Color.i=#False)
+    Procedure AddWord(GNum.i, Word.s, Color.i)
       
       If FindMapElement(EditEx(), Str(GNum))
-        
         EditEx()\Syntax(Word)  = Color
-        
       EndIf
     
-  EndProcedure
+    EndProcedure
   
     Procedure DeleteWord(GNum.i, Word.s)
       
@@ -3745,18 +3828,10 @@ Module EditEx
   
   CompilerIf #Enable_UndoRedo
 
-    Procedure EnableUndoRedo(GNum.i, State.i=#True, MaxSteps.i=#False) ; #True / #False
+    Procedure SetUndoSteps(GNum.i, MaxSteps.i)
       
       If FindMapElement(EditEx(), Str(GNum))
-        
-        If State
-          EditEx()\Flags | #UndoRedo
-        Else
-          EditEx()\Flags & ~#UndoRedo
-        EndIf
-        
         EditEx()\Undo\MaxSteps = MaxSteps
-        
       EndIf
       
     EndProcedure  
@@ -3765,15 +3840,9 @@ Module EditEx
       Define r.i, Text$, CurrentText$
       
       If FindMapElement(EditEx(), Str(GNum))
-        
-        If EditEx()\Flags & #UndoRedo
-          
-          Undo_()
-          Draw_()
-          AdjustScrolls_()
-          
-        EndIf
-        
+        Undo_()
+        Draw_()
+        AdjustScrolls_()
       EndIf
       
     EndProcedure
@@ -3782,22 +3851,18 @@ Module EditEx
       Define Text$
       
       If FindMapElement(EditEx(), Str(GNum))
-        
-        If EditEx()\Flags & #UndoRedo
-          
-          Text$ = GetLastRedo_()
-          If Text$
-  
-            ClearRedo_()
-            
-            EditEx()\Text$ = Text$
-            EditEx()\Cursor\Pos = EditEx()\Undo\CursorPos
 
-            Draw_()
-            AdjustScrolls_()
-            
-          EndIf
+        Text$ = GetLastRedo_()
+        If Text$
+
+          ClearRedo_()
           
+          EditEx()\Text$ = Text$
+          EditEx()\Cursor\Pos = EditEx()\Undo\CursorPos
+
+          Draw_()
+          AdjustScrolls_()
+
         EndIf
         
       EndIf
@@ -4049,8 +4114,8 @@ Module EditEx
           ProcedureReturn EditEx()\Color\Front
         Case #BackColor
           ProcedureReturn EditEx()\Color\Back
-        Case #SyntaxColor
-          ProcedureReturn EditEx()\Color\SyntaxHighlight
+        Case #SpellCheckColor
+          ProcedureReturn EditEx()\Color\SpellCheck
         Case #SelectionColor
           ProcedureReturn EditEx()\Color\Highlight
         Case #SelectTextColor
@@ -4140,13 +4205,7 @@ Module EditEx
           EditEx()\Text\Width = Value
         Case #CtrlChars
           If Value
-            EditEx()\Flags | #CtrlChars
-            CompilerIf #Enable_SyntaxHighlight
-              EditEx()\Flags | #SyntaxHighlight
-              EditEx()\Syntax(#Paragraph$)  = $578B2E
-              EditEx()\Syntax(#Space$)      = $B48246
-              EditEx()\Syntax(#SoftHyphen$) = $7280FA
-            CompilerEndIf  
+            EditEx()\Flags | #CtrlChars 
           Else
             EditEx()\Flags & ~#CtrlChars
           EndIf  
@@ -4175,8 +4234,8 @@ Module EditEx
           EditEx()\Color\Front = Color
         Case #BackColor, #PB_Gadget_BackColor
           EditEx()\Color\Back  = Color
-        Case #SyntaxColor
-          EditEx()\Color\SyntaxHighlight = Color
+        Case #SpellCheckColor
+          EditEx()\Color\SpellCheck = Color
         Case #SelectTextColor
           EditEx()\Color\HighlightText = Color
         Case #SelectionColor
@@ -4260,7 +4319,7 @@ Module EditEx
       CompilerEndIf
       
       CompilerIf #Enable_UndoRedo
-        If EditEx()\Flags & #UndoRedo : AddUndo_() : EndIf
+       AddUndo_()
       CompilerEndIf
       
     EndIf  
@@ -4284,9 +4343,7 @@ Module EditEx
       CompilerEndIf
       
       CompilerIf #Enable_UndoRedo
-        
-        If EditEx()\Flags & #UndoRedo : AddUndo_() : EndIf
-        
+        AddUndo_()
       CompilerEndIf
 
       Draw_()
@@ -4405,8 +4462,20 @@ Module EditEx
             EditEx()\FontID = GetGadgetFont(#PB_Default)
         CompilerEndSelect ;}
         
+        EditEx()\Flags = Flags
+        
+        If SpellCheck\Flags & #AutoSpellCheck : EditEx()\Flags | #AutoSpellCheck : EndIf
+        If SpellCheck\Flags & #Suggestions    : EditEx()\Flags | #Suggestions    : EndIf
+        
+        If Hypenation\Flags & #Hyphenation 
+          EditEx()\Flags | #Hyphenation
+          EditEx()\Flags & ~#ScrollBar_Horizontal
+        EndIf        
+        
+        EditEx()\SyntaxHighlight = #CaseSensitiv
+        
         ;{ Scrollbars
-        If Flags & #ScrollBar_Horizontal And Flags & #ScrollBar_Vertical
+        If EditEx()\Flags & #ScrollBar_Horizontal And EditEx()\Flags & #ScrollBar_Vertical
           EditEx()\HScroll\ID = ScrollBarGadget(#PB_Any, 2, Height - #Scroll_Width - 1, Width - #Scroll_Width - 4, #Scroll_Width, 0, 0, 0)
           EditEx()\VScroll\ID = ScrollBarGadget(#PB_Any, Width - #Scroll_Width - 1, 2, #Scroll_Width, Height - #Scroll_Width - 4, 0, 0, 0, #PB_ScrollBar_Vertical)
           SetGadgetData(EditEx()\VScroll\ID, GNum)
@@ -4415,13 +4484,13 @@ Module EditEx
           HideGadget(EditEx()\VScroll\ID, #True)
           BindGadgetEvent(EditEx()\HScroll\ID, @_SynchronizeScrollPos(),  #PB_All)
           BindGadgetEvent(EditEx()\VScroll\ID, @_SynchronizeScrollRows(), #PB_All) 
-        ElseIf Flags & #ScrollBar_Horizontal
+        ElseIf EditEx()\Flags & #ScrollBar_Horizontal
           EditEx()\HScroll\ID = ScrollBarGadget(#PB_Any, 2, Height - #Scroll_Width - 1, Width - #Scroll_Width - 4, #Scroll_Width, 0, 0, 0)
           EditEx()\VScroll\ID = #PB_Default
           SetGadgetData(EditEx()\HScroll\ID, GNum)
           HideGadget(EditEx()\HScroll\ID, #True)
           BindGadgetEvent(EditEx()\HScroll\ID, @_SynchronizeScrollPos(), #PB_All)
-        ElseIf Flags & #ScrollBar_Vertical
+        ElseIf EditEx()\Flags & #ScrollBar_Vertical
           EditEx()\VScroll\ID = ScrollBarGadget(#PB_Any, Width - #Scroll_Width - 1, 2, #Scroll_Width, Height - #Scroll_Width - 4, 0, 0, 0, #PB_ScrollBar_Vertical)
           EditEx()\HScroll\ID = #PB_Default
           SetGadgetData(EditEx()\VScroll\ID, GNum)
@@ -4433,8 +4502,6 @@ Module EditEx
         EditEx()\VScroll\Hide = #True
         ;}
 
-        EditEx()\Flags = Flags
-        
         SetGadgetData(EditEx()\CanvasNum, GNum)
 
       Else
@@ -4479,14 +4546,13 @@ Module EditEx
         EditEx()\Color\Back = EditEx()\Color\ReadOnly
       EndIf
       
-      EditEx()\Color\SyntaxHighlight = $0000E6
+      EditEx()\Color\SpellCheck = $0000E6
       ;}
 
       EditEx()\Visible\RowOffset = 0
       EditEx()\Visible\PosOffset = 0
       
       BindGadgetEvent(GNum, @_RightClickHandler(),       #PB_EventType_RightClick)
-      BindGadgetEvent(GNum, @_RightDoubleClickHandler(), #PB_EventType_RightDoubleClick)
       BindGadgetEvent(GNum, @_LeftDoubleClickHandler(),  #PB_EventType_LeftDoubleClick)
       BindGadgetEvent(GNum, @_LeftButtonDownHandler(),   #PB_EventType_LeftButtonDown)
       BindGadgetEvent(GNum, @_LeftButtonUpHandler(),     #PB_EventType_LeftButtonUp)
@@ -4549,33 +4615,13 @@ Module EditEx
     ProcedureReturn GNum
   EndProcedure
   
-  Procedure   RemoveGadget(GNum.i)
-    
-    If FindMapElement(EditEx(), Str(GNum))
-      
-      CompilerIf Defined(ModuleEx, #PB_Module) = #False
-        If MapSize(EditEx()) = 1
-          Thread\Exit = #True
-          Delay(100)
-          If IsThread(Thread\Num) : KillThread(Thread\Num) : EndIf
-          Thread\Active = #False
-        EndIf
-      CompilerEndIf
-      
-      DeleteMapElement(EditEx())
-      
-    EndIf 
-    
-  EndProcedure
-  
 EndModule
 
 ;- ========  Module - Example ========
 
 CompilerIf #PB_Compiler_IsMainFile
-  
-  Language = EditEx::#Deutsch  ; #Deutsch / #English / #French
-  
+
+  Define.i Language = EditEx::#Deutsch  ; #Deutsch / #English / #French
   Define.s Text
   Define.i QuitWindow.i
   
@@ -4634,6 +4680,8 @@ CompilerIf #PB_Compiler_IsMainFile
         EditEx::LoadDictionary(EditEx::#DIC_French)  ; or: "french.dic"
     EndSelect
     
+    EditEx::EnableAutoSpellCheck()
+    
   CompilerEndIf
   
   If OpenWindow(#Window, 0, 0, 322, 287, "EditorGadget", #PB_Window_SystemMenu | #PB_Window_SizeGadget | #PB_Window_ScreenCentered)
@@ -4662,34 +4710,24 @@ CompilerIf #PB_Compiler_IsMainFile
     CompilerElse
       EditEx::SetFlags(#EditEx, EditEx::#WordWrap)    ; Test WordWrap
     CompilerEndIf
-    
-    CompilerIf EditEx::#Enable_UndoRedo
-      EditEx::EnableUndoRedo(#EditEx, #True)
-    CompilerEndIf
-    
-    ;EditEx::AttachPopup(#EditEx, #PopupMenu)
+
+    EditEx::AttachPopup(#EditEx, #PopupMenu)
     
     ;EditEx::SetAttribute(#EditEx, EditEx::#CtrlChars, #True)
-    
-    CompilerIf EditEx::#Enable_SpellChecking
-      EditEx::EnableAutoSpellCheck(#EditEx, #True, EditEx::#Suggestions)
-    CompilerEndIf
     
     ; --- Add Text ---
     EditEx::SetText(#EditEx, Text)
     ; ----------------
     
     CompilerIf EditEx::#Enable_SpellChecking
-      
       EditEx::AddToUserDictionary(#EditEx, "Affenschar")
+    CompilerEndIf
+    
+    CompilerIf EditEx::#Enable_SyntaxHighlight
       
-    CompilerElseIf EditEx::#Enable_SyntaxHighlight
-      
-      EditEx::EnableSyntaxHighlight(#EditEx)
-      EditEx::AddWord(#EditEx, "Schule")
-      EditEx::AddWord(#EditEx, "ein")
-      EditEx::AddWord(#EditEx, "Affenschar", #Blue)
-      EditEx::AddWord(#EditEx, "bilden",     #Green)
+      EditEx::AddWord(#EditEx, "Schule", #Blue)
+      EditEx::AddWord(#EditEx, "ein",    #Yellow)
+      EditEx::AddWord(#EditEx, "bilden", #Green)
       EditEx::ReDraw(#EditEx)
       
       ; EditEx::DeleteWord(#EditEx, "ein")
@@ -4729,10 +4767,8 @@ CompilerIf #PB_Compiler_IsMainFile
     Until QuitWindow
     
     CompilerIf EditEx::#Enable_SpellChecking
-      ;EditEx::SaveUserDictionary()
+      ;EditEx::SaveUserSpellCheck\Dictionary()
     CompilerEndIf
-    
-    EditEx::RemoveGadget(#EditEx)
     
     CloseWindow(#Window)  
   EndIf
@@ -4740,8 +4776,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 2897
-; FirstLine = 2854
-; Folding = +--------------------f---------------------H7---
+; CursorPosition = 782
+; FirstLine = 402
+; Folding = 5-nQEgBAxPHAGwAjAfAIaAAB0sDwoiAhcglZEAAABE5GoA54
+; Markers = 865
 ; EnableXP
 ; DPIAware
