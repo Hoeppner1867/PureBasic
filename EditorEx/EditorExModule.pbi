@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 6.10.2019
+; Last Update: 7.10.2019
 ;
 ; Bugfixes
 ;
@@ -840,7 +840,7 @@ Module EditEx
           If CursorPos = 0
             
             If EditEx()\Row()\Len
-              CursorPos = EditEx()\Row()\Pos + EditEx()\Row()\Len - 1
+              CursorPos = EditEx()\Row()\Pos + EditEx()\Row()\Len
             Else
               CursorPos = EditEx()\Row()\Pos
             EndIf
@@ -1048,33 +1048,51 @@ Module EditEx
       
       If EditEx()\FontID : DrawingFont(EditEx()\FontID) : EndIf
       
-      ForEach EditEx()\Row()
+      If EditEx()\Cursor\Pos > EditEx()\Text\Len
         
-        If EditEx()\Cursor\Pos >= EditEx()\Row()\Pos And EditEx()\Cursor\Pos <= EditEx()\Row()\Pos + EditEx()\Row()\Len
+        If LastElement(EditEx()\Row())
           
-          If EditEx()\Cursor\Pos = EditEx()\Row()\Pos + EditEx()\Row()\Len
-            
-            If ListIndex(EditEx()\Row()) = ListSize(EditEx()\Row()) - 1
-              CursorX = EditEx()\Row()\X + TextWidth(RTrim(StringSegment(EditEx()\Text$, EditEx()\Row()\Pos, EditEx()\Cursor\Pos), #LF$))
-            Else
-              If NextElement(EditEx()\Row()) : CursorX = EditEx()\Row()\X : EndIf
-            EndIf  
-      
-          Else  
-            CursorX = EditEx()\Row()\X + TextWidth(RTrim(StringSegment(EditEx()\Text$, EditEx()\Row()\Pos, EditEx()\Cursor\Pos), #LF$))
+          If Mid(EditEx()\Text$, EditEx()\Cursor\Pos - 1, 1) = #LF$
+            CursorRow = ListIndex(EditEx()\Row()) + 1
+            CursorX = EditEx()\Row()\X
+          Else
+            CursorRow = ListIndex(EditEx()\Row())
+            CursorX = EditEx()\Row()\X + TextWidth(Mid(EditEx()\Text$, EditEx()\Cursor\Pos))
           EndIf
           
-          CursorRow = ListIndex(EditEx()\Row())
-          CharW     = TextWidth(StringSegment(EditEx()\Text$, EditEx()\Cursor\Pos, EditEx()\Cursor\Pos + 1))
-          
-          Break  
-        EndIf  
+        EndIf
         
-      Next
+      Else
+        
+        ForEach EditEx()\Row()
+          
+          If EditEx()\Cursor\Pos >= EditEx()\Row()\Pos And EditEx()\Cursor\Pos <= EditEx()\Row()\Pos + EditEx()\Row()\Len
+            
+            If EditEx()\Cursor\Pos = EditEx()\Row()\Pos + EditEx()\Row()\Len
+              
+              If ListIndex(EditEx()\Row()) = ListSize(EditEx()\Row()) - 1
+                CursorX = EditEx()\Row()\X + TextWidth(RTrim(StringSegment(EditEx()\Text$, EditEx()\Row()\Pos, EditEx()\Cursor\Pos), #LF$))
+              Else
+                If NextElement(EditEx()\Row()) : CursorX = EditEx()\Row()\X : EndIf
+              EndIf  
+        
+            Else  
+              CursorX = EditEx()\Row()\X + TextWidth(RTrim(StringSegment(EditEx()\Text$, EditEx()\Row()\Pos, EditEx()\Cursor\Pos), #LF$))
+            EndIf
+            
+            CursorRow = ListIndex(EditEx()\Row())
+            CharW     = TextWidth(StringSegment(EditEx()\Text$, EditEx()\Cursor\Pos, EditEx()\Cursor\Pos + 1))
+            
+            Break
+          EndIf  
+          
+        Next
+        
+      EndIf
       
       StopDrawing()
     EndIf ;}
-    
+
     If IsGadget(EditEx()\HScroll\ID) ;{ Horizontal Scrollbar
 
       If CursorX - EditEx()\Visible\PosOffset < EditEx()\Size\PaddingX
@@ -1915,6 +1933,132 @@ Module EditEx
     ProcedureReturn RGB((R1*Blend) + (R2 * (1-Blend)), (G1*Blend) + (G2 * (1-Blend)), (B1*Blend) + (B2 * (1-Blend)))
   EndProcedure
   
+  Procedure FormatText_(Text.s, maxTextWidth.i, unit.s, FontID.i) ; Draw Gadget
+    Define.i r, w, h, X, Y, Width, Height, PosX, PosY, Pos, wPos, Pos1, Pos2, WordLen, maxTextWidth
+    Define.i Rows, Words, sPosX, Hyphen, SyntaxHighlight, AutoSpellCheck, SoftHyphen
+    Define.s Row$, Text$, Word$, hWord$, WordOnly$, WordMask$, Part$
+    Define.i TextHeight
+    
+    ; TODO: Text -> fText
+    
+    ClearList(EditEx()\Row())
+
+    If StartDrawing(CanvasOutput(EditEx()\CanvasNum)) 
+      
+      If EditEx()\FontID : DrawingFont(FontID) : EndIf
+
+      TextHeight = TextHeight("Abc")
+    
+      Pos = 1
+
+      Rows = CountString(Text, #LF$) + 1 
+      For r=1 To Rows
+
+        PosX = 0
+      
+        Row$ = StringField(Text, r, #LF$)
+        If r <> Rows : Row$ + #LF$ : EndIf
+      
+        If AddElement(EditEx()\Row()) : EditEx()\Row()\Pos = Pos : EndIf
+      
+        Words = CountString(Row$, " ") + 1
+        For w=1 To Words
+          
+          Word$ = StringField(Row$, w, " ")
+          If w <> Words : Word$ + " " : EndIf
+          
+          Part$ = ""
+          
+          If PosX + TextWidth(RTrim(Word$)) > maxTextWidth
+            
+            CompilerIf #Enable_Hyphenation
+              
+              If EditEx()\Flags & #Hyphenation
+  
+                WordOnly$ = GetWord_(Word$)
+                
+                If WordOnly$ <> Word$
+                  WordMask$ = ReplaceString(Word$, WordOnly$, "$")
+                Else
+                  WordMask$ = ""
+                EndIf
+                
+                SoftHyphen = CountString(WordOnly$, #SoftHyphen$)
+                If SoftHyphen
+                  Hyphen = SoftHyphen
+                  hWord$ = WordOnly$
+                Else  
+                  hWord$ = HyphenateWord(WordOnly$)
+                  Hyphen = CountString(hWord$, #SoftHyphen$)
+                EndIf
+                
+                If Hyphen
+  
+                  If WordMask$ : hWord$ = ReplaceString(WordMask$, "$", hWord$) : EndIf
+                
+                  For h=1 To Hyphen + 1
+                    If PosX + TextWidth(RTrim(Part$ + StringField(hWord$, h, #SoftHyphen$))) > maxTextWidth
+                      Break
+                    Else
+                      Part$ + StringField(hWord$, h, #SoftHyphen$)
+                    EndIf  
+                  Next
+                  
+                  If Part$
+                    
+                    hWord$ = RemoveString(hWord$, #SoftHyphen$)
+                    
+                    DrawText(PosX, PosY, RTrim(Part$ + "-", #LF$), EditEx()\Color\Front)
+
+                    WordLen = Len(Part$) + SoftHyphen
+
+                    EditEx()\Row()\Len   + WordLen
+                    EditEx()\Row()\Width + TextWidth(Part$)
+                    EditEx()\Row()\WordWrap = "-" + #LF$
+                    
+                    Part$ = Mid(hWord$, Len(Part$) + 1)
+                    
+                    Pos + WordLen
+                  EndIf
+                  
+                EndIf
+  
+              EndIf
+              
+            CompilerEndIf
+            
+            If EditEx()\Row()\WordWrap = "" : EditEx()\Row()\WordWrap = #LF$ : EndIf
+            
+            PosX = 0
+
+            If AddElement(EditEx()\Row()) : EditEx()\Row()\Pos = Pos : EndIf
+            
+          EndIf
+          
+          If Part$
+            PosX  = TextWidth(RTrim(Part$, #LF$))
+          Else
+            PosX  = TextWidth(RTrim(Word$, #LF$))
+          EndIf
+  
+          If Part$
+            WordLen = Len(Part$)
+          Else  
+            WordLen = Len(Word$)
+          EndIf
+          
+          EditEx()\Row()\Len   + WordLen
+          
+          Pos + WordLen
+        Next
+
+      Next  
+
+      StopDrawing()
+    EndIf
+
+  EndProcedure
+  
   Procedure.i AddRow_(Pos.i, X.i, Y.i) 
 
     If AddElement(EditEx()\Row())
@@ -2016,7 +2160,7 @@ Module EditEx
     
     wPos = FindString(Word$, #SoftHyphen$)
     If wPos
-      ;Line(X + TextWidth(Left(Word$, wPos - 1)), Y, dpiX(1), EditEx()\Text\Height, $7280FA)
+      ;Line(X + TextWidth(Left(Word$, wPos - 1)), Y, dpiX(1), TextHeight, $7280FA)
       DrawText(X + TextWidth(Left(Word$, wPos - 1)), Y, #SoftHyphen$, $7280FA, EditEx()\Color\Back)
     EndIf
 
@@ -2352,7 +2496,7 @@ Module EditEx
           Break  
         EndIf  
         
-      Next  
+      Next 
       ;}
       
       ;{ _____ Padding _____
@@ -4285,7 +4429,7 @@ Module EditEx
     
   EndProcedure  
   
-  Procedure   SetItemText(GNum.i, Row.i, Text.s) ; Replace text row at 'Position'
+  Procedure   SetItemText(GNum.i, Row.i, Text.s)         ; Replace text row at 'Position'
     Define.i Count, Pos1, Pos2
     
     If FindMapElement(EditEx(), Str(GNum))
@@ -4354,6 +4498,7 @@ Module EditEx
   EndProcedure
   
   Procedure   SetTextWidth(GNum.i, Value.f, unit.s="px")
+    ; px = mm * 96 / 25,4mm
     Define.f ScaleFactor
     Define.i Pixel
     
@@ -4361,11 +4506,11 @@ Module EditEx
     
       Select Unit
         Case "pt"
-          EditEx()\Text\Width = Round((Value * 96) / 72, #PB_Round_Nearest)
+          EditEx()\Text\Width = Round(Value * 96 / 72, #PB_Round_Nearest)
         Case "mm"
-          EditEx()\Text\Width = Round(Value * (72 / 25.4), #PB_Round_Nearest)
+          EditEx()\Text\Width = Round(Value * 96 / 25.4, #PB_Round_Nearest)
         Case "cm"
-          EditEx()\Text\Width = Round(Value * (72 / 2.54), #PB_Round_Nearest)
+          EditEx()\Text\Width = Round(Value * 96 / 2.54, #PB_Round_Nearest)
         Case "in"
           EditEx()\Text\Width = Round(Value * 96, #PB_Round_Nearest)
         Default
@@ -4776,9 +4921,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 782
-; FirstLine = 402
-; Folding = 5-nQEgBAxPHAGwAjAfAIaAAB0sDwoiAhcglZEAAABE5GoA54
+; CursorPosition = 9
+; Folding = 5-nQEgBAxPAACwAiAfAgoBAA1zOAjKCEyBWCAAAAEAAagAgf-
 ; Markers = 865
 ; EnableXP
 ; DPIAware
