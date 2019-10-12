@@ -7,7 +7,11 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 11.10.2019
+; Last Update: 12.10.2019
+;
+; Bugfix: Selection
+; Bugfix: Copy & Paste 
+; Cursor: Left click at end of line places cursor in front of #LF$
 ;
 ; Reorganization and revision of drawing and scroll routines.
 ;
@@ -845,6 +849,7 @@ Module EditEx
             
             If EditEx()\Row()\Len
               CursorPos = EditEx()\Row()\Pos + EditEx()\Row()\Len
+              If Mid(EditEx()\Text$, CursorPos - 1, 1) = #LF$ : CursorPos - 1 : EndIf 
             Else
               CursorPos = EditEx()\Row()\Pos
             EndIf
@@ -1988,10 +1993,14 @@ Module EditEx
         EndIf
 
       EndIf
-
-      EditEx()\Row()\Selection\X      = PosX
-      EditEx()\Row()\Selection\String = RTrim(Text$, #LF$)
-      EditEx()\Row()\Selection\State  = #True
+      
+      If EditEx()\Row()\Selection\State  = #True
+        EditEx()\Row()\Selection\String + RTrim(Text$, #LF$)
+      Else  
+        EditEx()\Row()\Selection\X      = PosX
+        EditEx()\Row()\Selection\String = RTrim(Text$, #LF$)
+        EditEx()\Row()\Selection\State  = #True
+      EndIf 
       
       If EditEx()\Cursor\Pos >= Pos1 And EditEx()\Cursor\Pos < Pos2
         EditEx()\Cursor\FrontColor = EditEx()\Color\HighlightText
@@ -4129,7 +4138,7 @@ Module EditEx
           DeleteSelection_()
         EndIf
         
-        EditEx()\Text$ = InsertString(EditEx()\Text$, Text, EditEx()\Cursor\Pos + 1)
+        EditEx()\Text$ = InsertString(EditEx()\Text$, Text, EditEx()\Cursor\Pos)
         EditEx()\Cursor\Pos + Len(Text)
         
         CompilerIf #Enable_SpellChecking
@@ -4878,9 +4887,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 771
-; FirstLine = 344
-; Folding = 5-nQAABAAIAAgBEA+AAxgACACC9HgRFBJjAvxAAAACAAAIjwv
-; Markers = 868
+; CursorPosition = 4105
+; FirstLine = 693
+; Folding = 5-nQAABACIAAgBEA+AYzgACACCcAgRFBJjADhAAAACAAAIjwv
+; Markers = 873
 ; EnableXP
 ; DPIAware
