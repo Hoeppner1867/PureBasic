@@ -2977,6 +2977,8 @@ Module EditEx
             If Modifier & #PB_Canvas_Control
               
               Text$ = GetClipboardText()
+              Text$ = ReplaceString(Text$, #CRLF$, #LF$)
+              Text$ = ReplaceString(Text$, #CR$, #LF$)
               
               If EditEx()\Selection\Flag = #Selected
                 DeleteSelection_(#False)
@@ -3025,6 +3027,8 @@ Module EditEx
             If Modifier & #PB_Canvas_Shift
               
               Text$ = GetClipboardText()
+              Text$ = ReplaceString(Text$, #CRLF$, #LF$)
+              Text$ = ReplaceString(Text$, #CR$, #LF$)
               
               If EditEx()\Selection\Flag = #Selected
                 DeleteSelection_(#False)
@@ -4132,8 +4136,9 @@ Module EditEx
       
       If EditEx()\Flags & #ReadOnly = #False
         
-        Text = ReplaceString(GetClipboardText(), #NL$, #LF$)
-
+        Text = ReplaceString(GetClipboardText(), #CRLF$, #LF$)
+        Text = ReplaceString(Text, #CR$, #LF$)
+        
         If EditEx()\Selection\Flag = #Selected
           DeleteSelection_()
         EndIf
@@ -4887,9 +4892,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 4105
-; FirstLine = 693
-; Folding = 5-nQAABACIAAgBEA+AYzgACACCcAgRFBJjADhAAAACAAAIjwv
+; CursorPosition = 3031
+; FirstLine = 766
+; Folding = 5-nQAABACIAAgBEA+AYzgQBACCcAgRHBJjADhAAAADAAAIjwv
 ; Markers = 873
 ; EnableXP
 ; DPIAware
