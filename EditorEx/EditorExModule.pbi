@@ -94,6 +94,8 @@
   ; EditEx::DisableSuggestions()     - Disable correction suggestions for this gadget
   ; EditEx::EnableAutoSpellCheck()   - Activate automatic spell checking (all gadgets)
   ; EditEx::FreeDictionary()         - Removes the loaded dictionary from memory
+  ; EditEx::Free()                   - Free gadget (delete map element)
+  ; EditEx::FreeGadgets()            - Free all gadgets of the window (delete map elements)
   ; EditEx::GetAttribute()           - Returns value of attribute (#ReadOnly/#WordWrap/#Hyphenation/#Border/#CtrlChars)
   ; EditEx::GetColor()               - Returns color of attribute (#FrontColor/#BackColor/#SpellCheckColor/#SelectionColor)
   ; EditEx::GetItemText()            - Returns text row at 'Position'
@@ -294,6 +296,8 @@ DeclareModule EditEx
   Declare   Cut(GNum.i)
   Declare.i CountItems(GNum.i)
   Declare   DeleteSelection(GNum.i, Remove.i=#True)
+  Declare   Free(GNum.i)
+  Declare   FreeGadgets(WindowNum.i)
   Declare.i GetAttribute(GNum.i, Attribute.i)
   Declare.i GetColor(GNum.i, Attribute.i)
   Declare.s GetItemText(GNum.i, Position.i)
@@ -3588,8 +3592,6 @@ Module EditEx
         
         If IsWindow(EditEx()\WinNum) : CloseWindow(EditEx()\WinNum) : EndIf
         
-        DeleteMapElement(EditEx())
-        
       EndIf
       
     Next
@@ -4852,6 +4854,28 @@ Module EditEx
     ProcedureReturn GNum
   EndProcedure
   
+  Procedure   Free(GNum.i)
+    
+    If FindMapElement(EditEx(), Str(GNum))
+      If IsWindow(EditEx()\WinNum) : CloseWindow(EditEx()\WinNum) : EndIf
+      DeleteMapElement(EditEx())
+    EndIf
+    
+  EndProcedure
+  
+  Procedure   FreeGadgets(WindowNum.i)
+    
+    ForEach EditEx()
+    
+      If EditEx()\Window\Num = WindowNum
+        If IsWindow(EditEx()\WinNum) : CloseWindow(EditEx()\WinNum) : EndIf
+        DeleteMapElement(EditEx())
+      EndIf 
+      
+    Next
+    
+  EndProcedure
+  
 EndModule
 
 ;- ========  Module - Example ========
@@ -5014,9 +5038,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 1169
-; FirstLine = 377
-; Folding = 5HnQAABAAIIAgBEA+EAzgABACCcAgRFBJjADhQAAACAAgDRA+0
-; Markers = 880
+; CursorPosition = 97
+; FirstLine = 32
+; Folding = 9HnQAABAAIIAgBEA+EAzgABACCcAgRFBJjADhQAAACAAgDBB54
+; Markers = 884
 ; EnableXP
 ; DPIAware
