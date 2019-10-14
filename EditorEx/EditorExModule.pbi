@@ -7,7 +7,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 12.10.2019
+; Last Update: 14.10.2019
+;
+; Added: WrapText() - wrap saved text without loading it into the gadget before.
 ;
 ; Bugfix: Selection
 ; Bugfix: Copy & Paste 
@@ -167,6 +169,9 @@ DeclareModule EditEx
     #CtrlChars
     #AutoSpellCheck
     #Suggestions
+    #mm
+    #cm
+    #inch
     #ScrollBar_Vertical
     #ScrollBar_Horizontal
   EndEnumeration
@@ -306,6 +311,8 @@ DeclareModule EditEx
   Declare   SetItemText(GNum.i, Position.i, Text.s)
   Declare   SetText(GNum.i, Text.s)
   Declare   SetTextWidth(GNum.i, Value.f, unit.s="px")
+  Declare.s WrapText(Text.s, Width.i, Font.i, Flags.i=#WordWrap)
+  
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
   
 EndDeclareModule
@@ -735,7 +742,7 @@ Module EditEx
     EndIf
 
   EndProcedure
-  
+
   ;- ----- Mouse -----
   
   Procedure   ChangeMouseCursor_(GNum.i, CursorX.i, CursorY.i)
@@ -1850,7 +1857,6 @@ Module EditEx
     
     ProcedureReturn RGB((R1*Blend) + (R2 * (1-Blend)), (G1*Blend) + (G2 * (1-Blend)), (B1*Blend) + (B2 * (1-Blend)))
   EndProcedure
-  
   
   Procedure.i AddRow_(Pos.i, X.i, Y.i) 
 
@@ -4467,7 +4473,6 @@ Module EditEx
   
   Procedure   SetTextWidth(GNum.i, Value.f, unit.s="px")
     ; px = mm * 96 / 25,4mm
-    Define.f ScaleFactor
     Define.i Pixel
     
     If FindMapElement(EditEx(), Str(GNum))
@@ -4488,7 +4493,116 @@ Module EditEx
     EndIf
     
   EndProcedure
-
+  
+  Procedure.s WrapText(Text.s, Width.i, Font.i, Flags.i=#WordWrap) ; Flags: #WordWrap/#Hyphenation | #mm/#cm/#inch
+    Define.i r, w, h, Pos, PosX, maxTextWidth, Rows, Words, Hyphen, SoftHyphen
+    Define.s Row$, Word$, Part$, WordOnly$, WordMask$, hWord$, wrapText$
+    
+    If Flags & #mm
+      maxTextWidth= Round(Width * 96 / 25.4, #PB_Round_Nearest)
+    ElseIf Flags & #cm
+      maxTextWidth = Round(Width * 96 / 2.54, #PB_Round_Nearest)
+    ElseIf Flags & #inch
+      maxTextWidth = Round(Width * 96, #PB_Round_Nearest)
+    Else
+      maxTextWidth = Width
+    EndIf
+    
+    If StartDrawing(CanvasOutput(EditEx()\CanvasNum)) 
+      
+      If IsFont(Font) : DrawingFont(FontID(Font)) : EndIf
+  
+      Pos = 1
+  
+      Rows = CountString(Text, #LF$) + 1 
+      For r=1 To Rows
+  
+        PosX = 0
+        
+        Row$ = StringField(Text, r, #LF$)
+        If r <> Rows : Row$ + #LF$ : EndIf
+  
+        Words = CountString(Row$, " ") + 1
+        For w=1 To Words
+          
+          Word$ = StringField(Row$, w, " ")
+          If w <> Words : Word$ + " " : EndIf
+          
+          Part$ = ""
+          
+          If PosX + TextWidth(RTrim(Word$)) > maxTextWidth
+  
+            CompilerIf #Enable_Hyphenation
+           
+              If Flags & #Hyphenation ;{ Hyphenation
+              
+                WordOnly$ = GetWord_(Word$)
+              
+                If WordOnly$ <> Word$
+                  WordMask$ = ReplaceString(Word$, WordOnly$, "$")
+                Else
+                  WordMask$ = ""
+                EndIf
+                
+                SoftHyphen = CountString(WordOnly$, #SoftHyphen$)
+                If SoftHyphen
+                  Hyphen = SoftHyphen
+                  hWord$ = WordOnly$
+                Else  
+                  hWord$ = HyphenateWord(WordOnly$)
+                  Hyphen = CountString(hWord$, #SoftHyphen$)
+                EndIf
+                
+                If Hyphen
+  
+                  If WordMask$ : hWord$ = ReplaceString(WordMask$, "$", hWord$) : EndIf
+                
+                  For h=1 To Hyphen + 1
+                    If PosX + TextWidth(RTrim(Part$ + StringField(hWord$, h, #SoftHyphen$))) > maxTextWidth
+                      Break
+                    Else
+                      Part$ + StringField(hWord$, h, #SoftHyphen$)
+                    EndIf  
+                  Next
+                  
+                  If Part$
+                    
+                    wrapText$ + Part$ + "-"
+  
+                    Part$ = Mid(RemoveString(hWord$, #SoftHyphen$), Len(Part$) + 1)
+  
+                  EndIf
+                  
+                EndIf
+                ;}
+              EndIf
+            
+            CompilerEndIf
+            
+            wrapText$ + #LF$
+            
+            PosX = 0
+            
+          EndIf
+  
+          If Part$
+            wrapText$ + Part$
+            PosX + TextWidth(RTrim(Part$, #LF$))
+          Else
+            wrapText$ + Word$
+            PosX + TextWidth(RTrim(Word$, #LF$))
+          EndIf
+  
+        Next
+  
+      Next
+  
+      StopDrawing()
+    EndIf
+    
+    ProcedureReturn wrapText$
+  EndProcedure
+  
   ;- ===== Gadget =====
   
   Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
@@ -4850,6 +4964,9 @@ CompilerIf #PB_Compiler_IsMainFile
       
     CompilerEndIf
     
+    EditEx::SetTextWidth(#EditEx, 283)
+    
+    Debug EditEx::WrapText(Text, 283, #Font, EditEx::#Hyphenation)
     ;Debug EditEx::GetText(#EditEx, EditEx::#Hyphenation)
     
     QuitWindow = #False
@@ -4892,9 +5009,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 3031
-; FirstLine = 766
-; Folding = 5-nQAABACIAAgBEA+AYzgQBACCcAgRHBJjADhAAAADAAAIjwv
-; Markers = 873
+; CursorPosition = 11
+; Folding = 5HnQAABAAIAAgBEA+EAzgABACCcAgRFBJjADhQAAACAAgDZA+0
+; Markers = 880
 ; EnableXP
 ; DPIAware
