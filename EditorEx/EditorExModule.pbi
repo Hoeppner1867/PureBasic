@@ -1127,7 +1127,7 @@ Module EditEx
     Define.s Char$, Diff1$, Diff2$
     
     Word = RTrim(Trim(Word), #LF$)
-    If EditEx()\Visible\CtrlChars : Word = RTrim(Word, #Paragraph$) : EndIf
+   ;If EditEx()\Visible\CtrlChars : Word = RTrim(Word, #Paragraph$) : EndIf
     
     For i=1 To 2
       Char$ = Left(Word, 1)
@@ -1167,7 +1167,7 @@ Module EditEx
             Word = RTrim(Word, Char$)
             Diff2$ + Char$
           EndIf  
-        Case " ", #LF$
+        Case " ", #LF$, #Paragraph$
           Word = LTrim(Word, Char$)
         Default
           Break
@@ -4495,7 +4495,7 @@ Module EditEx
   EndProcedure
   
   Procedure.s WrapText(Text.s, Width.i, Font.i, Flags.i=#WordWrap) ; Flags: #WordWrap/#Hyphenation | #mm/#cm/#inch
-    Define.i r, w, h, Pos, PosX, maxTextWidth, Rows, Words, Hyphen, SoftHyphen
+    Define.i r, w, h, Pos, PosX, ImgNum, maxTextWidth, Rows, Words, Hyphen, SoftHyphen
     Define.s Row$, Word$, Part$, WordOnly$, WordMask$, hWord$, wrapText$
     
     If Flags & #mm
@@ -4508,96 +4508,101 @@ Module EditEx
       maxTextWidth = Width
     EndIf
     
-    If StartDrawing(CanvasOutput(EditEx()\CanvasNum)) 
-      
-      If IsFont(Font) : DrawingFont(FontID(Font)) : EndIf
-  
-      Pos = 1
-  
-      Rows = CountString(Text, #LF$) + 1 
-      For r=1 To Rows
-  
-        PosX = 0
+    ImgNum = CreateImage(#PB_Any, 16, 16)
+    If ImgNum
+    
+      If StartDrawing(ImageOutput(ImgNum)) 
         
-        Row$ = StringField(Text, r, #LF$)
-        If r <> Rows : Row$ + #LF$ : EndIf
-  
-        Words = CountString(Row$, " ") + 1
-        For w=1 To Words
+        If IsFont(Font) : DrawingFont(FontID(Font)) : EndIf
+    
+        Pos = 1
+    
+        Rows = CountString(Text, #LF$) + 1 
+        For r=1 To Rows
+    
+          PosX = 0
           
-          Word$ = StringField(Row$, w, " ")
-          If w <> Words : Word$ + " " : EndIf
-          
-          Part$ = ""
-          
-          If PosX + TextWidth(RTrim(Word$)) > maxTextWidth
-  
-            CompilerIf #Enable_Hyphenation
-           
-              If Flags & #Hyphenation ;{ Hyphenation
-              
-                WordOnly$ = GetWord_(Word$)
-              
-                If WordOnly$ <> Word$
-                  WordMask$ = ReplaceString(Word$, WordOnly$, "$")
-                Else
-                  WordMask$ = ""
-                EndIf
+          Row$ = StringField(Text, r, #LF$)
+          If r <> Rows : Row$ + #LF$ : EndIf
+    
+          Words = CountString(Row$, " ") + 1
+          For w=1 To Words
+            
+            Word$ = StringField(Row$, w, " ")
+            If w <> Words : Word$ + " " : EndIf
+            
+            Part$ = ""
+            
+            If PosX + TextWidth(RTrim(Word$)) > maxTextWidth
+    
+              CompilerIf #Enable_Hyphenation
+             
+                If Flags & #Hyphenation ;{ Hyphenation
                 
-                SoftHyphen = CountString(WordOnly$, #SoftHyphen$)
-                If SoftHyphen
-                  Hyphen = SoftHyphen
-                  hWord$ = WordOnly$
-                Else  
-                  hWord$ = HyphenateWord(WordOnly$)
-                  Hyphen = CountString(hWord$, #SoftHyphen$)
-                EndIf
+                  WordOnly$ = GetWord_(Word$)
                 
-                If Hyphen
-  
-                  If WordMask$ : hWord$ = ReplaceString(WordMask$, "$", hWord$) : EndIf
-                
-                  For h=1 To Hyphen + 1
-                    If PosX + TextWidth(RTrim(Part$ + StringField(hWord$, h, #SoftHyphen$))) > maxTextWidth
-                      Break
-                    Else
-                      Part$ + StringField(hWord$, h, #SoftHyphen$)
-                    EndIf  
-                  Next
-                  
-                  If Part$
-                    
-                    wrapText$ + Part$ + "-"
-  
-                    Part$ = Mid(RemoveString(hWord$, #SoftHyphen$), Len(Part$) + 1)
-  
+                  If WordOnly$ <> Word$
+                    WordMask$ = ReplaceString(Word$, WordOnly$, "$")
+                  Else
+                    WordMask$ = ""
                   EndIf
                   
+                  SoftHyphen = CountString(WordOnly$, #SoftHyphen$)
+                  If SoftHyphen
+                    Hyphen = SoftHyphen
+                    hWord$ = WordOnly$
+                  Else  
+                    hWord$ = HyphenateWord(WordOnly$)
+                    Hyphen = CountString(hWord$, #SoftHyphen$)
+                  EndIf
+                  
+                  If Hyphen
+    
+                    If WordMask$ : hWord$ = ReplaceString(WordMask$, "$", hWord$) : EndIf
+                  
+                    For h=1 To Hyphen + 1
+                      If PosX + TextWidth(RTrim(Part$ + StringField(hWord$, h, #SoftHyphen$))) > maxTextWidth
+                        Break
+                      Else
+                        Part$ + StringField(hWord$, h, #SoftHyphen$)
+                      EndIf  
+                    Next
+                    
+                    If Part$
+                      
+                      wrapText$ + Part$ + "-"
+    
+                      Part$ = Mid(RemoveString(hWord$, #SoftHyphen$), Len(Part$) + 1)
+    
+                    EndIf
+                    
+                  EndIf
+                  ;}
                 EndIf
-                ;}
-              EndIf
-            
-            CompilerEndIf
-            
-            wrapText$ + #LF$
-            
-            PosX = 0
-            
-          EndIf
-  
-          If Part$
-            wrapText$ + Part$
-            PosX + TextWidth(RTrim(Part$, #LF$))
-          Else
-            wrapText$ + Word$
-            PosX + TextWidth(RTrim(Word$, #LF$))
-          EndIf
-  
+              
+              CompilerEndIf
+              
+              wrapText$ + #LF$
+              
+              PosX = 0
+              
+            EndIf
+    
+            If Part$
+              wrapText$ + Part$
+              PosX + TextWidth(RTrim(Part$, #LF$))
+            Else
+              wrapText$ + Word$
+              PosX + TextWidth(RTrim(Word$, #LF$))
+            EndIf
+    
+          Next
+    
         Next
-  
-      Next
-  
-      StopDrawing()
+    
+        StopDrawing()
+      EndIf
+      
     EndIf
     
     ProcedureReturn wrapText$
@@ -5009,8 +5014,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 11
-; Folding = 5HnQAABAAIAAgBEA+EAzgABACCcAgRFBJjADhQAAACAAgDZA+0
+; CursorPosition = 1169
+; FirstLine = 377
+; Folding = 5HnQAABAAIIAgBEA+EAzgABACCcAgRFBJjADhQAAACAAgDRA+0
 ; Markers = 880
 ; EnableXP
 ; DPIAware

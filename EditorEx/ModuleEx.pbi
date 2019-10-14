@@ -295,7 +295,7 @@ Module ModuleEx
     ImgNum = CreateImage(#PB_Any, 16, 16)
     If ImgNum
 
-      If StartVectorDrawing(ImageVectorOutput(ImgNum))
+      If StartVectorDrawing(ImageOutput(ImgNum))
         
         VectorFont(FontID(FontNum), Pixel_(FontSize))
         
@@ -375,13 +375,13 @@ Module ModuleEx
   
   Procedure.i LoadFont_(Name.s, Size.i, Style.i, Font.i=#PB_Any) 
 	  Define.i FontNum
-	  Define.s Key = FontName + "|" + Str(Style)
+	  Define.s Key = Name + "|" + Str(Style)
 	  
 	  FontNum = ModuleEx\Font(Key)\Size(Str(Size))
 	  If IsFont(Font)
       ProcedureReturn Font
     Else  
-      FontNum = PB(LoadFont)(Font, FontName, Size, Style)
+      FontNum = PB(LoadFont)(Font, Name, Size, Style)
         If Font = #PB_Any : Font = FontNum : EndIf
       If IsFont(Font)
         ModuleEx\Font(Key)\Size(Str(Size)) = Font
@@ -879,8 +879,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 250
-; FirstLine = 96
-; Folding = EIgRAgCA5
+; CursorPosition = 383
+; FirstLine = 212
+; Folding = EIAIEgAA5
 ; EnableXP
 ; DPIAware
