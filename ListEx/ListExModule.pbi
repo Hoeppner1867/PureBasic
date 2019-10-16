@@ -9,13 +9,12 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 1.10.2019
+; Last Update: 16.10.2019
+;
+; - Added: Drag & Drop for editable cells (Text)
 ;
 ; - Bugfixes: header sort
 ; - #ResizeWidth -> #Width / #ResizeHeight -> #Height / #Width -> ColumnWidth
-;
-; - SetItemText() -> only redraw if text has changed
-; - Right Click & Multiselect
 ;
 
 ;{ ===== MIT License =====
@@ -118,6 +117,7 @@ DeclareModule ListEx
   #Enable_Validation  = #True
   #Enable_MarkContent = #True
   #Enable_ProgressBar = #True
+  #Enable_DragAndDrop = #True
   
   ;- ===========================================================================
   ;-   DeclareModule - Constants / Structures
@@ -3903,7 +3903,40 @@ Module ListEx
     
   EndProcedure
   
+  CompilerIf #Enable_DragAndDrop
+    
+    Procedure _GadgetDropHandler()
+      Define.s Key$
+      Define.i GadgetNum = EventGadget()
+      
+      If FindMapElement(ListEx(), Str(GadgetNum))
 
+        ListEx()\Row\Current = GetRow_(EventDropY())
+        ListEx()\Col\Current = GetColumn_(EventDropX())
+        
+        If ListEx()\Row\Current >= 0 And ListEx()\Col\Current >= 0
+          
+          If SelectElement(ListEx()\Rows(), ListEx()\Row\Current)
+            If SelectElement(ListEx()\Cols(), ListEx()\Col\Current)
+              
+              Key$ = ListEx()\Cols()\Key
+              
+              If ListEx()\Cols()\Flags & #Strings
+                ListEx()\Rows()\Column(Key$)\Value + EventDropText()
+                Draw_()
+              EndIf
+              
+            EndIf 
+          EndIf
+          
+        EndIf  
+    
+      EndIf
+      
+    EndProcedure
+    
+  CompilerEndIf
+  
   Procedure _ResizeHandler()
     Define.i OffsetX, OffSetY
     Define.i GadgetNum = EventGadget()
@@ -4894,10 +4927,14 @@ Module ListEx
         BindGadgetEvent(ListEx()\CanvasNum, @_MouseWheelHandler(),      #PB_EventType_MouseWheel)
         BindGadgetEvent(ListEx()\CanvasNum, @_ResizeHandler(),          #PB_EventType_Resize)
         BindGadgetEvent(ListEx()\CanvasNum, @_MouseLeaveHandler(),      #PB_EventType_MouseLeave)
-        BindGadgetEvent(ListEx()\CanvasNum, @_KeyDownHandler(),         #PB_EventType_KeyDown)
-        
+        BindGadgetEvent(ListEx()\CanvasNum, @_KeyDownHandler(),         #PB_EventType_KeyDown)     
         BindGadgetEvent(ListEx()\HScrollNum, @_SynchronizeScrollCols(),  #PB_All)
         BindGadgetEvent(ListEx()\VScrollNum, @_SynchronizeScrollRows(),  #PB_All) 
+        
+        CompilerIf #Enable_DragAndDrop
+          EnableGadgetDrop(ListEx()\CanvasNum, #PB_Drop_Text, #PB_Drag_Copy)
+          BindEvent(#PB_Event_GadgetDrop, @_GadgetDropHandler(), ListEx()\Window\Num, ListEx()\CanvasNum)
+        CompilerEndIf
         
         Draw_()
         
@@ -6262,9 +6299,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 3394
-; FirstLine = 761
-; Folding = MBAAAECmBAAAAAACAQAiBAiBAAAAEABYAAAAAAAAAAAAAAAAAQ0
+; CursorPosition = 13
+; Folding = MBAAAAAEAAAAAAACAAAgBAiBwAAAAABYGAAAAAIAQAAAAAAAAAo-
 ; Markers = 585,3171
 ; EnableXP
 ; DPIAware
