@@ -60,9 +60,7 @@ Module Item
   EndProcedure
   
   Procedure  RemoveData(GId.i)
-    If FindMapElement(IDEx(), Str(GId))
-      DeleteMapElement(IDEx())
-    EndIf
+    DeleteMapElement(IDEx(), Str(GId))
   EndProcedure
   
   Procedure  FreeData()
