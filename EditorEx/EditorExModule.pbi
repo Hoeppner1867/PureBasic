@@ -9,6 +9,7 @@
 
 ; Last Update: 17.10.2019
 ;
+; Bugfixes: DPI
 ; List of suggested corrections: Button to add a word to the user dictionary.
 ;
 ; Added: WrapText() - wrap saved text without loading it into the gadget before.
@@ -1274,7 +1275,7 @@ Module EditEx
   ;-----------------------------------------------------------------------------  
   
   CompilerIf #Enable_SpellChecking
-        
+  
     Procedure   ResizeList_(Pos.i)
       Define.i X, Y, sX, sY, RowOffSet
       
@@ -1287,8 +1288,8 @@ Module EditEx
         ForEach EditEx()\Row()
 
           If Pos >= EditEx()\Row()\Pos And Pos < EditEx()\Row()\Pos + EditEx()\Row()\Len
-            X = EditEx()\Row()\X - EditEx()\Visible\PosOffset + TextWidth(StringSegment(EditEx()\Text$, EditEx()\Row()\Pos, Pos))
-            Y = EditEx()\Row()\Y - RowOffset + EditEx()\Text\Height
+            X = DesktopUnscaledX(EditEx()\Row()\X - EditEx()\Visible\PosOffset + TextWidth(StringSegment(EditEx()\Text$, EditEx()\Row()\Pos, Pos)))
+            Y = DesktopUnscaledY(EditEx()\Row()\Y - RowOffset + EditEx()\Text\Height)
             Break
           EndIf
           
@@ -1298,8 +1299,8 @@ Module EditEx
       EndIf
       
       sX = GadgetX(EditEx()\CanvasNum, #PB_Gadget_ScreenCoordinate)
-    	sY = GadgetY(EditEx()\CanvasNum, #PB_Gadget_ScreenCoordinate)
-    	
+      sY = GadgetY(EditEx()\CanvasNum, #PB_Gadget_ScreenCoordinate)
+      
     	ResizeWindow(EditEx()\WinNum, sX + X, sY + Y, #PB_Ignore, #PB_Ignore)
     	
     EndProcedure
@@ -2447,8 +2448,8 @@ Module EditEx
           PosX = EditEx()\Row()\Selection\X - PosOffset
           DrawText(PosX, PosY, EditEx()\Row()\Selection\String, EditEx()\Color\HighlightText, EditEx()\Color\Highlight)
         EndIf  
-        
-        If PosY + EditEx()\Text\Height > EditEx()\Visible\Height : Break : EndIf
+
+        If PosY + EditEx()\Text\Height > dpiY(EditEx()\Visible\Height) : Break : EndIf
         
       Next ;}
       
@@ -4896,10 +4897,10 @@ Module EditEx
           EndIf
           
           If SpellCheck\Button
-            EditEx()\ButtonNum = ButtonGadget(#PB_Any, -1, 60, 102, 20, SpellCheck\Button)
+            EditEx()\ButtonNum = ButtonGadget(#PB_Any, 0, 60, 100, 20, SpellCheck\Button)
             If EditEx()\ButtonNum : GadgetToolTip(EditEx()\ButtonNum, SpellCheck\ToolTip) : EndIf
           Else
-            EditEx()\ButtonNum = ButtonGadget(#PB_Any, -1, 60, 102, 20, "Add Word")
+            EditEx()\ButtonNum = ButtonGadget(#PB_Any, 0, 60, 100, 20, "Add Word")
             If EditEx()\ButtonNum : GadgetToolTip(EditEx()\ButtonNum, "Add to user dictionary.") : EndIf
           EndIf
 
@@ -5109,8 +5110,7 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
 ; CursorPosition = 11
-; FirstLine = 18
-; Folding = 9HnRAgBAAIKEgBIA9BAmBBCYAIwBAGVEkMCcEKBAAIAAAcACi--
-; Markers = 886
+; Folding = 5HnRAgBAAIKEgBIA9BAmBhCQAIwBAGVEAMScECBAAIAAAcQCi--
+; Markers = 887
 ; EnableXP
 ; DPIAware
