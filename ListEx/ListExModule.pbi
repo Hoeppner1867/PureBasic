@@ -9,9 +9,10 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 16.10.2019
+; Last Update: 17.10.2019
 ;
-; - Added: Drag & Drop for editable cells (Text)
+; - Added: Drag & Drop for editable cells (text)
+; - Bugfix: Fonts
 ;
 ; - Bugfixes: header sort
 ; - #ResizeWidth -> #Width / #ResizeHeight -> #Height / #Width -> ColumnWidth
@@ -2166,7 +2167,7 @@ Module ListEx
         
         If ListEx()\Rows()\FontID : FontID = ListEx()\Rows()\FontID : EndIf
         RowFontID = FontID
-        
+
         rowHeight + ListEx()\Rows()\Height
         
         colX = ListEx()\Size\X - ListEx()\Col\OffsetX
@@ -2204,6 +2205,8 @@ Module ListEx
           If Key$ = "" : Key$ = Str(ListIndex(ListEx()\Cols())) : EndIf
           
           Flags = ListEx()\Rows()\Column(Key$)\Flags
+          
+          FontID = RowFontID
           
           If ListEx()\Cols()\FontID : FontID = ListEx()\Cols()\FontID : EndIf
 
@@ -3906,7 +3909,7 @@ Module ListEx
   CompilerIf #Enable_DragAndDrop
     
     Procedure _GadgetDropHandler()
-      Define.s Key$
+      Define.s Key$, Text$
       Define.i GadgetNum = EventGadget()
       
       If FindMapElement(ListEx(), Str(GadgetNum))
@@ -3922,7 +3925,12 @@ Module ListEx
               Key$ = ListEx()\Cols()\Key
               
               If ListEx()\Cols()\Flags & #Strings
-                ListEx()\Rows()\Column(Key$)\Value + EventDropText()
+                Text$ = ListEx()\Rows()\Column(Key$)\Value
+                If Text$
+                  ListEx()\Rows()\Column(Key$)\Value + " " + EventDropText()
+                Else
+                  ListEx()\Rows()\Column(Key$)\Value = EventDropText()
+                EndIf  
                 Draw_()
               EndIf
               
@@ -6168,7 +6176,7 @@ CompilerIf #PB_Compiler_IsMainFile
     ListEx::SetFont(#List, FontID(#Font_Arial9B), ListEx::#HeaderFont)
     
     ListEx::AddItem(#List, ListEx::#LastItem, "Image"    + #LF$ + "no Image" + #LF$ + #LF$ + #LF$ + "Push")
-    ListEx::AddItem(#List, ListEx::#LastItem, "Thorsten" + #LF$ + "" + #LF$ + "male" + #LF$ + "18.07.1967" + #LF$ + "", "PureBasic") ; Hoeppner
+    ListEx::AddItem(#List, ListEx::#LastItem, "Thorsten" + #LF$ + "Hoeppner" + #LF$ + "male" + #LF$ + "18.07.1967" + #LF$ + "", "PureBasic")
     ListEx::AddItem(#List, ListEx::#LastItem, "Amelia"   + #LF$ + "Smith"    + #LF$ + "female"+ #LF$ + #LF$ + "Push")
     ListEx::AddItem(#List, ListEx::#LastItem, "Jack"     + #LF$ + "Jones"    + #LF$ + #LF$ + #LF$ + "Push")
     ListEx::AddItem(#List, ListEx::#LastItem, "Isla"     + #LF$ + "Williams" + #LF$ + #LF$ + #LF$ + "Push")
@@ -6299,9 +6307,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 13
-; Folding = MBAAAAAEAAAAAAACAAAgBAiBwAAAAABYGAAAAAIAQAAAAAAAAAo-
-; Markers = 585,3171
+; CursorPosition = 3923
+; FirstLine = 746
+; Folding = MBAAAAAEAAAAAAACAAACGAgBwAAAAABYGAAAAAIAQAAAAAAAAAq-
+; Markers = 586,3174
 ; EnableXP
 ; DPIAware
 ; EnableUnicode

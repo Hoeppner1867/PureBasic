@@ -7,13 +7,11 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 14.10.2019
+; Last Update: 17.10.2019
+;
+; List of suggested corrections: Button to add a word to the user dictionary.
 ;
 ; Added: WrapText() - wrap saved text without loading it into the gadget before.
-;
-; Bugfix: Selection
-; Bugfix: Copy & Paste 
-; Cursor: Left click at end of line places cursor in front of #LF$
 ;
 ; Reorganization and revision of drawing and scroll routines.
 ;
@@ -414,6 +412,8 @@ Module EditEx
     
     Structure SpellCheck_Structure
       Path.s
+      Button.s
+      ToolTip.s
       List Dictionary.Dictionary_Structure()
       List UserDic.Dictionary_Structure()
       Map  Words.Words_Structure()
@@ -577,6 +577,7 @@ Module EditEx
   Structure EditEx_Structure         ;{ EditEx(#gadget)\...
     CanvasNum.i
     ListNum.i
+    ButtonNum.i
     WinNum.i
     PopupMenu.i
     FontID.i
@@ -584,6 +585,7 @@ Module EditEx
     SyntaxHighlight.i
     
     Text$
+
     Flags.i
     ; ----------------
     Window.EditEx_Window_Structure
@@ -1272,7 +1274,7 @@ Module EditEx
   ;-----------------------------------------------------------------------------  
   
   CompilerIf #Enable_SpellChecking
-
+        
     Procedure   ResizeList_(Pos.i)
       Define.i X, Y, sX, sY, RowOffSet
       
@@ -1284,7 +1286,7 @@ Module EditEx
         
         ForEach EditEx()\Row()
 
-          If Pos >= EditEx()\Row()\Pos And Pos <= EditEx()\Row()\Pos + EditEx()\Row()\Len
+          If Pos >= EditEx()\Row()\Pos And Pos < EditEx()\Row()\Pos + EditEx()\Row()\Len
             X = EditEx()\Row()\X - EditEx()\Visible\PosOffset + TextWidth(StringSegment(EditEx()\Text$, EditEx()\Row()\Pos, Pos))
             Y = EditEx()\Row()\Y - RowOffset + EditEx()\Text\Height
             Break
@@ -1473,6 +1475,7 @@ Module EditEx
       
     EndProcedure
     
+
     Procedure   SpellCheckEndings_(Position.i, Word.s, Length.i=4)
       Define.i i, StartPos, Count
       Define.s Pattern$ = LCase(Left(Word, Length))
@@ -1576,6 +1579,46 @@ Module EditEx
           
         Next
         
+      EndIf
+      
+    EndProcedure
+    
+    
+    Procedure AddToUserDictionary_(Word.s)
+      
+      If SpellCheck(Word) = #False
+        
+        DeleteMapElement(EditEx()\Syntax(), Word)
+        SpellCheck\Words(Word)\misspelled = #False
+
+        If AddElement(SpellCheck\UserDic())
+          SpellCheck\UserDic()\Stem    = LCase(Word)
+          SpellCheck\UserDic()\Endings = ""
+          If Left(Word, 1)  = UCase(Left(Word, 1))
+            SpellCheck\UserDic()\UCase  = #True
+          Else
+            SpellCheck\UserDic()\UCase  = #False
+          EndIf
+        EndIf
+        
+        If AddElement(SpellCheck\Dictionary())
+          SpellCheck\Dictionary()\Stem    = LCase(Word)
+          SpellCheck\Dictionary()\Endings = ""
+          If Left(Word, 1) = UCase(Left(Word, 1))
+            SpellCheck\Dictionary()\UCase  = #True
+          Else
+            SpellCheck\Dictionary()\UCase  = #False
+          EndIf
+        EndIf
+        
+        SortStructuredList(SpellCheck\Dictionary(), #PB_Sort_Ascending, OffsetOf(Dictionary_Structure\Stem), TypeOf(Dictionary_Structure\Stem))
+        
+        If EditEx()\Flags & #AutoSpellCheck
+          UpdateWordList_()
+          SpellChecking_(#True)
+          ReDraw_()
+        EndIf
+
       EndIf
       
     EndProcedure
@@ -2527,13 +2570,36 @@ Module EditEx
     
   EndProcedure
   
+  Procedure _ButtonHandler()
+    Define.i GNum
+    Define.s Word$
+    Define.i ButtonNum.i = EventGadget()
+    
+    GNum = GetGadgetData(ButtonNum)
+    If FindMapElement(EditEx(), Str(GNum))
+      
+      HideWindow(EditEx()\WinNum, #True)
+      
+      Word$ = GetSelection_()
+      If Word$ : AddToUserDictionary_(Word$) : EndIf
+
+      EditEx()\Visible\WordList = #False
+      
+      ReDraw_()
+    EndIf
+
+  EndProcedure
+  
+  
   ;- --- Cursor-Handler ---  
   
   Procedure _CursorDrawing() ; Trigger from Thread (PostEvent Change)
     Define.i WindowNum = EventWindow()
     
     ForEach EditEx()
-
+      
+      If IsGadget(EditEx()\CanvasNum) = #False : Continue : EndIf
+      
       If EditEx()\Cursor\Pause = #False
         
         EditEx()\Cursor\State ! #True
@@ -3198,25 +3264,24 @@ Module EditEx
             ForEach EditEx()\Mistake()
               
               If Word$ = MapKey(EditEx()\Mistake())
-                
                 EditEx()\Selection\Pos1 = sWord
                 EditEx()\Selection\Pos2 = eWord
                 EditEx()\Selection\Flag = #Selected
                 EditEx()\Cursor\Pos = EditEx()\Selection\Pos2
                 ReDraw_(#False)
                 
-                If CorrectionSuggestions_(Word$)
-                  ResizeList_(sWord)
-                  ClearGadgetItems(EditEx()\ListNum)
-                  ForEach EditEx()\Suggestions()
-                    AddGadgetItem(EditEx()\ListNum, -1, EditEx()\Suggestions())
-                  Next  
-                  EditEx()\Visible\WordList = #True
-                  HideWindow(EditEx()\WinNum, #False)
-                EndIf
+                CorrectionSuggestions_(Word$)
+                ResizeList_(sWord)
+                ClearGadgetItems(EditEx()\ListNum)
+                ForEach EditEx()\Suggestions()
+                  AddGadgetItem(EditEx()\ListNum, -1, EditEx()\Suggestions())
+                Next  
+                EditEx()\Visible\WordList = #True
+                HideWindow(EditEx()\WinNum, #False)
                 
                 ProcedureReturn #True
               EndIf   
+              
             Next
             
           EndIf
@@ -3609,8 +3674,33 @@ Module EditEx
     
     Procedure LoadDictionary(DicFile.s, AddDicFile.s="")
       Define.i FileID
-      Define.s Word$, Path$
+      Define.s Word$, Path$, Language$
       
+      Language$ = LCase(GetFilePart(DicFile, #PB_FileSystem_NoExtension))
+      Select Language$
+        Case "german", "deutsch"  
+          SpellCheck\Button  = "Hinzufügen"
+          SpellCheck\ToolTip = "Zum Benutzerwörterbuch hinzufügen."
+        Case "french", "français"
+          SpellCheck\Button  = "Ajouter"
+          SpellCheck\ToolTip = "Ajouter au dictionnaire utilisateur."
+        Case "italian", "italiano"
+          SpellCheck\Button  = "Sommare"
+          SpellCheck\ToolTip = "Aggiungi al dizionario utente."
+        Case "spanish", "español"
+          SpellCheck\Button  = "Añadir"
+          SpellCheck\ToolTip = "Añadir al diccionario del usuario."
+        Case "portuguese", "português"
+          SpellCheck\Button  = "Adicionar"
+          SpellCheck\ToolTip = "Adicionar ao dicionário do usuário."
+        Case "dutch", "nederlands"
+          SpellCheck\Button = "Toevoegen"
+          SpellCheck\ToolTip = "Toevoegen aan gebruikerswoordenboek."
+        Default
+          SpellCheck\Button  = "Add Word"
+          SpellCheck\ToolTip = "Add to user dictionary."
+      EndSelect    
+
       ClearList(SpellCheck\Dictionary())
       
       SpellCheck\Path = GetPathPart(DicFile)
@@ -3809,40 +3899,7 @@ Module EditEx
       
       If FindMapElement(EditEx(), Str(GNum))
         
-        If SpellCheck(Word) = #False
-          
-          DeleteMapElement(EditEx()\Syntax(), Word)
-          SpellCheck\Words(Word)\misspelled = #False
-  
-          If AddElement(SpellCheck\UserDic())
-            SpellCheck\UserDic()\Stem    = LCase(Word)
-            SpellCheck\UserDic()\Endings = ""
-            If Left(Word, 1)  = UCase(Left(Word, 1))
-              SpellCheck\UserDic()\UCase  = #True
-            Else
-              SpellCheck\UserDic()\UCase  = #False
-            EndIf
-          EndIf
-          
-          If AddElement(SpellCheck\Dictionary())
-            SpellCheck\Dictionary()\Stem    = LCase(Word)
-            SpellCheck\Dictionary()\Endings = ""
-            If Left(Word, 1) = UCase(Left(Word, 1))
-              SpellCheck\Dictionary()\UCase  = #True
-            Else
-              SpellCheck\Dictionary()\UCase  = #False
-            EndIf
-          EndIf
-          
-          SortStructuredList(SpellCheck\Dictionary(), #PB_Sort_Ascending, OffsetOf(Dictionary_Structure\Stem), TypeOf(Dictionary_Structure\Stem))
-          
-          If EditEx()\Flags & #AutoSpellCheck
-            UpdateWordList_()
-            SpellChecking_(#True)
-            ReDraw_()
-          EndIf
-  
-        EndIf
+        AddToUserDictionary_(Word)
         
       EndIf
       
@@ -4820,22 +4877,35 @@ Module EditEx
       CompilerIf #Enable_SpellChecking ; ListView
        
         If IsWindow(WindowNum)
-          WNum = OpenWindow(#PB_Any, X, Y, 100, 60, "Suggestions", #PB_Window_BorderLess|#PB_Window_Invisible|#PB_Window_NoGadgets, WindowID(WindowNum))
+          WNum = OpenWindow(#PB_Any, X, Y, 100, 80, "Suggestions", #PB_Window_BorderLess|#PB_Window_Invisible|#PB_Window_NoGadgets, WindowID(WindowNum))
         Else
-          WNum = OpenWindow(#PB_Any, X, Y, 100, 60, "Suggestions", #PB_Window_BorderLess|#PB_Window_Invisible|#PB_Window_NoGadgets)
+          WNum = OpenWindow(#PB_Any, X, Y, 100, 80, "Suggestions", #PB_Window_BorderLess|#PB_Window_Invisible|#PB_Window_NoGadgets)
         EndIf
         
         If WNum
 
 	        StickyWindow(WNum, #True) 
-	        EditEx()\WinNum  = WNum
+	        EditEx()\WinNum = WNum
 	        
 	        GadgetList = UseGadgetList(WindowID(WNum))
 	        
-          EditEx()\ListNum = ListViewGadget(#PB_Any, 0, 0, 100, 60)
+	        EditEx()\ListNum   = ListViewGadget(#PB_Any, 0, 0, 100, 60)
           If IsGadget(EditEx()\ListNum)
             SetGadgetData(EditEx()\ListNum, GNum)
             BindGadgetEvent(EditEx()\ListNum, @_ListViewHandler(), #PB_EventType_LeftDoubleClick)
+          EndIf
+          
+          If SpellCheck\Button
+            EditEx()\ButtonNum = ButtonGadget(#PB_Any, -1, 60, 102, 20, SpellCheck\Button)
+            If EditEx()\ButtonNum : GadgetToolTip(EditEx()\ButtonNum, SpellCheck\ToolTip) : EndIf
+          Else
+            EditEx()\ButtonNum = ButtonGadget(#PB_Any, -1, 60, 102, 20, "Add Word")
+            If EditEx()\ButtonNum : GadgetToolTip(EditEx()\ButtonNum, "Add to user dictionary.") : EndIf
+          EndIf
+
+          If IsGadget(EditEx()\ButtonNum)
+            SetGadgetData(EditEx()\ButtonNum, GNum)
+            BindGadgetEvent(EditEx()\ButtonNum, @_ButtonHandler())
           EndIf
           
           UseGadgetList(GadgetList)
@@ -4979,7 +5049,7 @@ CompilerIf #PB_Compiler_IsMainFile
     ; ----------------
     
     CompilerIf EditEx::#Enable_SpellChecking
-      EditEx::AddToUserDictionary(#EditEx, "Affenschar")
+      ;EditEx::AddToUserDictionary(#EditEx, "Affenschar")
     CompilerEndIf
     
     CompilerIf EditEx::#Enable_SyntaxHighlight
@@ -4995,7 +5065,7 @@ CompilerIf #PB_Compiler_IsMainFile
     
     EditEx::SetTextWidth(#EditEx, 283)
     
-    Debug EditEx::WrapText(Text, 283, #Font, EditEx::#Hyphenation)
+    ;Debug EditEx::WrapText(Text, 283, #Font, EditEx::#Hyphenation)
     ;Debug EditEx::GetText(#EditEx, EditEx::#Hyphenation)
     
     QuitWindow = #False
@@ -5029,7 +5099,7 @@ CompilerIf #PB_Compiler_IsMainFile
     Until QuitWindow
     
     CompilerIf EditEx::#Enable_SpellChecking
-      ;EditEx::SaveUserSpellCheck\Dictionary()
+      ;EditEx::SaveUserDictionary()
     CompilerEndIf
     
     CloseWindow(#Window)  
@@ -5038,9 +5108,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 97
-; FirstLine = 32
-; Folding = 9HnQAABAAIIAgBEA+EAzgABACCcAgRFBJjADhQAAACAAgDBB54
-; Markers = 884
+; CursorPosition = 11
+; FirstLine = 18
+; Folding = 9HnRAgBAAIKEgBIA9BAmBBCYAIwBAGVEkMCcEKBAAIAAAcACi--
+; Markers = 886
 ; EnableXP
 ; DPIAware
