@@ -366,8 +366,6 @@ DeclareModule ListEx
   Declare   SetItemImage(GNum.i, Row.i, Column.i, Width.f, Height.f, Image.i, Align.i=#Left)
   Declare   SetItemState(GNum.i, Row.i, State.i, Column.i=#PB_Ignore)
   Declare   SetItemText(GNum.i, Row.i, Text.s , Column.i)
-  Declare   SetProgressBarAttribute(GNum.i, Attrib.i, Value.i)
-  Declare   SetProgressBarFlags(GNum.i, Flags.i)
   Declare   SetRowsHeight(GNum.i, Height.f)
   Declare   SetState(GNum.i, Row.i=#PB_Default)
   Declare   SetTimeMask(GNum.i, Mask.s, Column.i=#PB_Ignore)
@@ -376,7 +374,12 @@ DeclareModule ListEx
   CompilerIf #Enable_MarkContent
     Declare MarkContent(GNum.i, Column.i, Term.s, Color1.i=#PB_Default, Color2.i=#PB_Default, FontID.i=#PB_Default)
   CompilerEndIf
-
+  
+  CompilerIf #Enable_ProgressBar
+    Declare   SetProgressBarAttribute(GNum.i, Attrib.i, Value.i)
+    Declare   SetProgressBarFlags(GNum.i, Flags.i)
+  CompilerEndIf
+  
 EndDeclareModule
 
 Module ListEx
@@ -4057,9 +4060,9 @@ Module ListEx
       If ScrollPos <> ListEx()\HScroll\Position
         
         If ScrollPos < ListEx()\Col\OffsetX
-          ListEx()\Col\OffsetX = ScrollPos - dpiX(20)
+          ListEx()\Col\OffsetX = ScrollPos ; - dpiX(20)
         ElseIf ScrollPos > ListEx()\Col\OffsetX
-          ListEx()\Col\OffsetX = ScrollPos + dpiX(20)
+          ListEx()\Col\OffsetX = ScrollPos ;+ dpiX(20)
         EndIf
         
         If ListEx()\Col\OffsetX < ListEx()\HScroll\MinPos : ListEx()\Col\OffsetX = ListEx()\HScroll\MinPos : EndIf
@@ -6307,10 +6310,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 3923
-; FirstLine = 746
-; Folding = MBAAAAAEAAAAAAACAAACGAgBwAAAAABYGAAAAAIAQAAAAAAAAAq-
-; Markers = 586,3174
+; CursorPosition = 4062
+; FirstLine = 616
+; Folding = EDAAAAAIAAAAAAAEAAAEMAADgBAAAACwECAAAAQAgAAAAAAAAAU-
+; Markers = 589,3177
 ; EnableXP
 ; DPIAware
 ; EnableUnicode

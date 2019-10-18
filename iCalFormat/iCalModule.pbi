@@ -9,8 +9,10 @@
 ;/ © 2019 by Thorsten Hoeppner (07/2019)
 ;/
 
-; Last Update: 9.09.2019
-
+; Last Update: 18.10.2019
+;
+; Changed: Create() returns ID of #PB_Any
+; Added:   SetSupplement()
 
 ;{ ===== MIT License =====
 ;
@@ -86,6 +88,7 @@ DeclareModule iCal
   Declare.i GetEvents(ID.i, List Events.Event_Structure()) 
   Declare.i ImportFile(ID.i, File.s="iCal_Import.ics")
   Declare.i Remove(ID.i)
+  Declare   SetSupplement(ID.i, Attrib.i, String.s)
   
 EndDeclareModule  
 
@@ -117,7 +120,13 @@ Module iCal
   #iCal_DateStamp     = "DTSTAMP:"        ; Time at which the entry was created
   #iCal_EndEvent      = "END:VEVENT"      ; End of the area in which the appointment data is contained.
   #iCal_EndCalendar   = "END:VCALENDAR"   ; End iCalendar file
-
+  
+  Enumeration 1
+    #SUMMARY
+    #DTSTART
+    #DTEND
+  EndEnumeration  
+  
   ;- ============================================================================
 	;-   Module - Structures
 	;- ============================================================================
@@ -140,6 +149,9 @@ Module iCal
   Structure iCal_Structure       ;{ iCal('id')\...
     ProducerID.s
     List Event.iCal_Event_Structure()
+    Summary.s
+    DTStart.s
+    DTEnd.s
     Method.i
   EndStructure ;}
   Global NewMap iCal.iCal_Structure()
@@ -172,7 +184,7 @@ Module iCal
     ProcedureReturn FormatDate("%yyyy%mm%ddT%hh%ii%ss", Date)
   EndProcedure
   
-   Procedure.s EscapeText(Text.s)
+  Procedure.s EscapeText(Text.s)
     Define.i i, Pos, Length
     
     Text = ReplaceString(Text, ",", "\,")
@@ -247,7 +259,7 @@ Module iCal
       iCal()\ProducerID = Producer
       iCal()\Method     = Method
       
-      ProcedureReturn #True
+      ProcedureReturn ID
     EndIf
     
     ProcedureReturn #False
@@ -313,7 +325,13 @@ Module iCal
           WriteStringN(FileID, #iCal_BeginEvent, #PB_UTF8)
           WriteStringN(FileID, #iCal_UID         + iCal()\Event()\UID,         #PB_UTF8)
           WriteStringN(FileID, #iCal_Location    + EscapeText(iCal()\Event()\Location),    #PB_UTF8)
-          WriteStringN(FileID, #iCal_Summary     + EscapeText(iCal()\Event()\Summary),     #PB_UTF8)
+          
+          If iCal()\Summary
+            WriteStringN(FileID, ReplaceString(#iCal_Summary, ":", iCal()\Summary + ":") + EscapeText(iCal()\Event()\Summary), #PB_UTF8)
+          Else
+            WriteStringN(FileID, #iCal_Summary + EscapeText(iCal()\Event()\Summary), #PB_UTF8)
+          EndIf
+          
           WriteStringN(FileID, #iCal_Description + EscapeText(iCal()\Event()\Description), #PB_UTF8)
           
           If iCal()\Event()\Class = #Private
@@ -321,9 +339,19 @@ Module iCal
           Else
             WriteStringN(FileID, #iCal_Public,  #PB_UTF8)
           EndIf
-        
-          WriteStringN(FileID, #iCal_DateStart + DateICal(iCal()\Event()\StartDate), #PB_UTF8)
-          WriteStringN(FileID, #iCal_DateEnd   + DateICal(iCal()\Event()\EndDate),   #PB_UTF8)
+          
+          If iCal()\DTStart
+            WriteStringN(FileID, ReplaceString(#iCal_DateStart, ":", iCal()\DTStart + ":") + DateICal(iCal()\Event()\StartDate), #PB_UTF8)
+          Else
+            WriteStringN(FileID, #iCal_DateStart + DateICal(iCal()\Event()\StartDate), #PB_UTF8)
+          EndIf
+          
+          If iCal()\DTEnd 
+            WriteStringN(FileID, ReplaceString(#iCal_DateEnd, ":", iCal()\DTEnd + ":") + DateICal(iCal()\Event()\EndDate), #PB_UTF8)
+          Else
+            WriteStringN(FileID, #iCal_DateEnd + DateICal(iCal()\Event()\EndDate), #PB_UTF8)
+          EndIf 
+          
           WriteStringN(FileID, #iCal_DateStamp + DateICal(iCal()\Event()\DateStamp), #PB_UTF8)
           
           WriteStringN(FileID, #iCal_EndEvent,  #PB_UTF8)
@@ -356,7 +384,7 @@ Module iCal
         While Eof(FileID) = #False
           
           String = ReadString(FileID)
-          
+
           Select StringField(String, 1, ":")
             Case "PRODID" ;{ PRODID:
               iCal()\ProducerID = StringField(String, 2, ":")
@@ -379,7 +407,13 @@ Module iCal
                 If AddElement(iCal()\Event())
                   
                   Repeat
+                    
                     String = ReadString(FileID)
+                    
+                    If CountString(String, ";")
+                      String = StringField(String, 1, ";") + ":" + StringField(String, 2, ":")
+                    EndIf  
+                    
                     Select StringField(String, 1, ":")
                       Case "UID"
                         iCal()\Event()\UID         = StringField(String, 2, ":")
@@ -402,6 +436,7 @@ Module iCal
                       Case "DTSTAMP"
                         iCal()\Event()\DateStamp = ParseDate("%yyyy%mm%ddT%hh%ii%ss", RTrim(StringField(String, 2, ":"), "Z"))  
                     EndSelect
+                    
                   Until String = "END:VEVENT" Or Eof(FileID)
                   
                 EndIf
@@ -434,6 +469,24 @@ Module iCal
     ProcedureReturn #False
   EndProcedure  
   
+  
+  Procedure   SetSupplement(ID.i, Attrib.i, String.s)
+    
+    If FindMapElement(iCal(), Str(ID))
+      
+      Select Attrib
+        Case #SUMMARY
+          iCal()\Summary = String
+        Case #DTSTART
+          iCal()\DTStart = String
+        Case #DTEND
+          iCal()\DTEnd   = String
+      EndSelect
+      
+    EndIf  
+ 
+  EndProcedure
+  
 EndModule
 
 ;- ========  Module - Example ========
@@ -461,7 +514,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 11
-; Folding = 11BR-
+; CursorPosition = 9
+; Folding = kEAQ9
 ; EnableXP
 ; DPIAware
