@@ -9,13 +9,12 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 17.10.2019
+; Last Update:21.10.2019
+;
+; - Bugfix: Shortcuts
 ;
 ; - Added: Drag & Drop for editable cells (text)
 ; - Bugfix: Fonts
-;
-; - Bugfixes: header sort
-; - #ResizeWidth -> #Width / #ResizeHeight -> #Height / #Width -> ColumnWidth
 ;
 
 ;{ ===== MIT License =====
@@ -4114,6 +4113,10 @@ Module ListEx
     
     If IsWindow(ListEx()\Window\Num)
       If Flag
+        AddKeyboardShortcut(ListEx()\Window\Num, #PB_Shortcut_Return, #Key_Return)
+        AddKeyboardShortcut(ListEx()\Window\Num, #PB_Shortcut_Escape, #Key_Escape)
+        AddKeyboardShortcut(ListEx()\Window\Num, #PB_Shortcut_Tab,    #Key_Tab)
+        AddKeyboardShortcut(ListEx()\Window\Num, #PB_Shortcut_Tab|#PB_Shortcut_Shift, #Key_ShiftTab)
         BindMenuEvent(ListEx()\ShortCutID, #Key_Return,   @_KeyReturnHandler())
         BindMenuEvent(ListEx()\ShortCutID, #Key_Escape,   @_KeyEscapeHandler())
         BindMenuEvent(ListEx()\ShortCutID, #Key_Tab,      @_KeyTabHandler())
@@ -4123,6 +4126,10 @@ Module ListEx
         UnbindMenuEvent(ListEx()\ShortCutID, #Key_Escape,   @_KeyEscapeHandler())
         UnbindMenuEvent(ListEx()\ShortCutID, #Key_Tab,      @_KeyTabHandler())
         UnbindMenuEvent(ListEx()\ShortCutID, #Key_ShiftTab, @_KeyShiftTabHandler())
+        RemoveKeyboardShortcut(ListEx()\Window\Num, #PB_Shortcut_Return)
+        RemoveKeyboardShortcut(ListEx()\Window\Num, #PB_Shortcut_Escape)
+        RemoveKeyboardShortcut(ListEx()\Window\Num, #PB_Shortcut_Tab)
+        RemoveKeyboardShortcut(ListEx()\Window\Num, #PB_Shortcut_Tab|#PB_Shortcut_Shift)
       EndIf
     EndIf
     
@@ -4823,10 +4830,6 @@ Module ListEx
         ;{ Shortcuts
         If IsWindow(ListEx()\Window\Num)
           ListEx()\ShortCutID = CreateMenu(#PB_Any, WindowID(ListEx()\Window\Num))
-          AddKeyboardShortcut(ListEx()\Window\Num, #PB_Shortcut_Return, #Key_Return)
-          AddKeyboardShortcut(ListEx()\Window\Num, #PB_Shortcut_Escape, #Key_Escape)
-          AddKeyboardShortcut(ListEx()\Window\Num, #PB_Shortcut_Tab,    #Key_Tab)
-          AddKeyboardShortcut(ListEx()\Window\Num, #PB_Shortcut_Tab|#PB_Shortcut_Shift, #Key_ShiftTab)
           If Flags & #AutoResize
             BindEvent(#PB_Event_SizeWindow, @_ResizeWindowHandler(), ListEx()\Window\Num)
           EndIf
@@ -5043,6 +5046,8 @@ Module ListEx
     
     If FindMapElement(ListEx(), Str(GNum))
       
+      If Row < 0 : ProcedureReturn #False : EndIf
+      
       If SelectElement(ListEx()\Rows(), Row)
         If SelectElement(ListEx()\Cols(), Column)
           ProcedureReturn ListEx()\Rows()\Column(ListEx()\Cols()\Key)\State
@@ -5057,6 +5062,8 @@ Module ListEx
     
     If FindMapElement(ListEx(), Str(GNum))
       
+      If Row < 0 : ProcedureReturn #False : EndIf
+      
       If SelectElement(ListEx()\Rows(), Row)
         ProcedureReturn ListEx()\Rows()\iData
       EndIf
@@ -5068,6 +5075,8 @@ Module ListEx
   Procedure.s GetItemID(GNum.i, Row.i)
     
     If FindMapElement(ListEx(), Str(GNum))
+      
+      If Row < 0 : ProcedureReturn "" : EndIf
       
       If SelectElement(ListEx()\Rows(), Row)
         ProcedureReturn ListEx()\Rows()\ID
@@ -5095,12 +5104,15 @@ Module ListEx
   EndProcedure
   
   Procedure.s GetRowLabel(GNum.i, Row.i)
+    
     ProcedureReturn GetItemID(GNum, Row)
   EndProcedure
   
   Procedure.i GetItemState(GNum.i, Row.i, Column.i=#PB_Ignore) ; [#Selected/#Checked/#Inbetween]
     
     If FindMapElement(ListEx(), Str(GNum))
+      
+      If Row < 0 : ProcedureReturn #False : EndIf
       
       If SelectElement(ListEx()\Rows(), Row)
         If Column = #PB_Ignore
@@ -6310,10 +6322,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 4062
-; FirstLine = 616
-; Folding = EDAAAAAIAAAAAAAEAAAEMAADgBAAAACwECAAAAQAgAAAAAAAAAU-
-; Markers = 589,3177
+; CursorPosition = 13
+; Folding = EDAAAAAIAAAAAAAEAAAEMAADgBAAAACwEKAAAAQAhB4BAAAAAAU-
+; Markers = 588,3176
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
