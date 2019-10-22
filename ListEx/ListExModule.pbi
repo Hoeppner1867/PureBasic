@@ -6,7 +6,7 @@
 ;/
 ;/ Editable and sortable ListGadget
 ;/
-;/ © 2019 Thorsten1867 (03/2019)
+;/ Â© 2019 Thorsten1867 (03/2019)
 ;/
  
 ; Last Update:21.10.2019
@@ -404,7 +404,7 @@ Module ListEx
   #DefaultCountry          = "DE"
   #DefaultDateMask         = "%dd.%mm.%yyyy"
   #DefaultTimeMask         = "%hh:%ii:%ss"
-  #DefaultCurrency         = "€"
+  #DefaultCurrency         = "Â€"
   #DefaultClock            = "Uhr"
   #DefaultTimeSeparator    = ":"
   #DefaultDateSeparator    = "."
@@ -1420,21 +1420,21 @@ Module ListEx
   Procedure.s SortDEU_(Text.s, Flags.i=#Lexikon) ; german charakters (DIN 5007)
     
     If Flags & #Namen
-      Text = ReplaceString(Text, "Ä", "Ae")
-      Text = ReplaceString(Text, "Ö", "Oe")
-      Text = ReplaceString(Text, "Ü", "Ue")
-      Text = ReplaceString(Text, "ä", "ae")
-      Text = ReplaceString(Text, "ö", "oe")
-      Text = ReplaceString(Text, "ü", "ue")
-      Text = ReplaceString(Text, "ß", "ss")
+      Text = ReplaceString(Text, "Ã„", "Ae")
+      Text = ReplaceString(Text, "Ã–", "Oe")
+      Text = ReplaceString(Text, "Ãœ", "Ue")
+      Text = ReplaceString(Text, "Ã¤", "ae")
+      Text = ReplaceString(Text, "Ã¶", "oe")
+      Text = ReplaceString(Text, "Ã¼", "ue")
+      Text = ReplaceString(Text, "ÃŸ", "ss")
     ElseIf Flags & #Lexikon Or Flags & #Deutsch
-      Text = ReplaceString(Text, "Ä", "A")
-      Text = ReplaceString(Text, "Ö", "O")
-      Text = ReplaceString(Text, "Ü", "U")
-      Text = ReplaceString(Text, "ä", "a")
-      Text = ReplaceString(Text, "ö", "o")
-      Text = ReplaceString(Text, "ü", "u")
-      Text = ReplaceString(Text, "ß", "ss")
+      Text = ReplaceString(Text, "Ã„", "A")
+      Text = ReplaceString(Text, "Ã–", "O")
+      Text = ReplaceString(Text, "Ãœ", "U")
+      Text = ReplaceString(Text, "Ã¤", "a")
+      Text = ReplaceString(Text, "Ã¶", "o")
+      Text = ReplaceString(Text, "Ã¼", "u")
+      Text = ReplaceString(Text, "ÃŸ", "ss")
     EndIf
     
     ProcedureReturn Text
@@ -4444,9 +4444,8 @@ Module ListEx
         
       EndIf
       
-      If ListEx()\FitCols : FitColumns_() : EndIf
-      
       If ListEx()\ReDraw
+        If ListEx()\FitCols : FitColumns_() : EndIf
         UpdateRowY_()
         Draw_()
       EndIf
@@ -4503,9 +4502,9 @@ Module ListEx
           Next
         EndIf
         
-        If ListEx()\FitCols : FitColumns_() : EndIf
-        
+
         If ListEx()\ReDraw
+          If ListEx()\FitCols : FitColumns_() : EndIf
           UpdateRowY_()
           Draw_()
         EndIf
@@ -5390,8 +5389,11 @@ Module ListEx
         
         If ListEx()\Rows()\Column(Label)\Value <> Text
           ListEx()\Rows()\Column(Label)\Value = Text
-          If ListEx()\FitCols : FitColumns_() : EndIf
-          If ListEx()\ReDraw  : Draw_() : EndIf
+          
+          If ListEx()\ReDraw
+            If ListEx()\FitCols : FitColumns_() : EndIf
+            Draw_()
+          EndIf
         EndIf
         
       EndIf
@@ -5655,8 +5657,11 @@ Module ListEx
           EndIf
       EndSelect
       
-      If ListEx()\FitCols : FitColumns_() : EndIf
-      If ListEx()\ReDraw : Draw_() : EndIf
+      
+      If ListEx()\ReDraw
+        If ListEx()\FitCols : FitColumns_() : EndIf
+        Draw_()
+      EndIf
     EndIf
     
   EndProcedure  
@@ -5697,8 +5702,11 @@ Module ListEx
           EndIf
       EndSelect
       
-      If ListEx()\FitCols : FitColumns_() : EndIf
-      If ListEx()\ReDraw : Draw_() : EndIf
+      
+      If ListEx()\ReDraw
+        If ListEx()\FitCols : FitColumns_() : EndIf
+        Draw_()
+      EndIf
       
     EndIf
     
@@ -5860,8 +5868,11 @@ Module ListEx
         EndIf
       EndIf
       
-      If ListEx()\FitCols : FitColumns_() : EndIf
-      If ListEx()\ReDraw : Draw_() : EndIf
+      
+      If ListEx()\ReDraw
+        If ListEx()\FitCols : FitColumns_() : EndIf
+        Draw_()
+      EndIf
       
     EndIf
     
@@ -5895,8 +5906,11 @@ Module ListEx
           Else
             ListEx()\Cols()\Header\Flags & ~#Image
           EndIf
-          If ListEx()\FitCols : FitColumns_() : EndIf
-          If ListEx()\ReDraw  : Draw_()       : EndIf
+          
+          If ListEx()\ReDraw
+            If ListEx()\FitCols : FitColumns_() : EndIf
+            Draw_()
+          EndIf
         EndIf
         
       Else
@@ -5914,8 +5928,11 @@ Module ListEx
               ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Flags & ~#Image
             EndIf
             
-            If ListEx()\FitCols : FitColumns_() : EndIf
-            If ListEx()\ReDraw  : Draw_()       : EndIf
+            
+            If ListEx()\ReDraw
+              If ListEx()\FitCols : FitColumns_() : EndIf
+              Draw_()
+            EndIf
           EndIf
         EndIf
         
@@ -5941,8 +5958,11 @@ Module ListEx
               If ListEx()\ReDraw : Draw_() : EndIf 
             Else  
               If SelectElement(ListEx()\Cols(), Column)
-                ListEx()\Rows()\Column(ListEx()\Cols()\Key)\State = State
-                If ListEx()\ReDraw : Draw_() : EndIf
+                
+                If ListEx()\ReDraw
+                  ListEx()\Rows()\Column(ListEx()\Cols()\Key)\State = State
+                  Draw_()
+                EndIf
               EndIf 
             EndIf
           EndIf
@@ -5964,8 +5984,11 @@ Module ListEx
           
           If ListEx()\Cols()\Header\Titel <> Text
             ListEx()\Cols()\Header\Titel = Text
-            If ListEx()\Cols()\Flags & #FitColumn : FitColumns_() : EndIf
-            If ListEx()\ReDraw : Draw_() : EndIf
+            
+            If ListEx()\ReDraw
+              If ListEx()\Cols()\Flags & #FitColumn : FitColumns_() : EndIf
+              Draw_()
+            EndIf
           EndIf
           
         EndIf
@@ -5975,8 +5998,11 @@ Module ListEx
             
             If ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Value <> Text
               ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Value = Text
-              If ListEx()\Cols()\Flags & #FitColumn : FitColumns_() : EndIf
-              If ListEx()\ReDraw : Draw_() : EndIf
+            
+              If ListEx()\ReDraw 
+                If ListEx()\Cols()\Flags & #FitColumn : FitColumns_() : EndIf
+                Draw_() 
+              EndIf
             EndIf
             
           EndIf
