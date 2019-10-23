@@ -271,6 +271,7 @@ DeclareModule EditEx
     Declare   DisableSpellCheck(GNum.i, State.i=#True)             ; Disable autospellcheck for this gadget
     Declare   DisableSuggestions(GNum.i, State.i=#True)            ; Disable correction suggestions for this gadget
     Declare   SpellCheck(Word.s)                                   ; Checks the spelling of the word (returns: #True/#False)
+    Declare.i SpellCheckText(Text.s, List Mistake.s())             ; Checks the spelling of the text (returns: number of mistakes)
     Declare   SpellChecking(GNum.i, Flag.i=#Highlight)             ; Check the spelling in the editor gadget
     Declare   GetSuggestions(GNum.i, Word.s, List Suggestions.s()) ; Returns list with correction suggestions
     Declare   AddToUserDictionary(GNum.i, Word.s)                  ; Add a new word to user dictionary
@@ -2306,7 +2307,7 @@ Module EditEx
       RowOffset = EditEx()\Visible\RowOffset * EditEx()\Text\Height
       
       If EditEx()\Cursor\Pos = 0                     ;{ Empty text
-        
+        EditEx()\Cursor\Pos = 1
         EditEx()\Cursor\X   = EditEx()\Size\PaddingX
         EditEx()\Cursor\Y   = EditEx()\Size\PaddingY
         EditEx()\Cursor\Row = 0
@@ -3673,7 +3674,7 @@ Module EditEx
   
   CompilerIf #Enable_SpellChecking
     
-    Procedure LoadDictionary(DicFile.s, AddDicFile.s="")
+    Procedure   LoadDictionary(DicFile.s, AddDicFile.s="")
       Define.i FileID
       Define.s Word$, Path$, Language$
       
@@ -3776,13 +3777,13 @@ Module EditEx
       
     EndProcedure
     
-    Procedure FreeDictionary()
+    Procedure   FreeDictionary()
       ClearList(SpellCheck\Dictionary())
       SpellCheck\Flags & ~#AutoSpellCheck
       SpellCheck\Flags & ~#Suggestions
     EndProcedure
     
-    Procedure EnableAutoSpellCheck(State.i=#True)
+    Procedure   EnableAutoSpellCheck(State.i=#True)
 
       ;{ Dictionary is required
       If ListSize(SpellCheck\Dictionary()) = 0
@@ -3801,7 +3802,7 @@ Module EditEx
     EndProcedure
     
     
-    Procedure DisableSpellCheck(GNum.i, State.i=#True)
+    Procedure   DisableSpellCheck(GNum.i, State.i=#True)
       
       If FindMapElement(EditEx(), Str(GNum))
         
@@ -3815,7 +3816,7 @@ Module EditEx
       
     EndProcedure
     
-    Procedure DisableSuggestions(GNum.i, State.i=#True)
+    Procedure   DisableSuggestions(GNum.i, State.i=#True)
       
       If FindMapElement(EditEx(), Str(GNum))
         
@@ -3830,11 +3831,40 @@ Module EditEx
     EndProcedure
     
     
-    Procedure SpellCheck(Word.s)
+    Procedure   SpellCheck(Word.s)
       ProcedureReturn SpellCheck_(Word)
     EndProcedure
     
-    Procedure SpellChecking(GNum.i, Flag.i=#Highlight)
+    Procedure.i SpellCheckText(Text.s, List Mistake.s())
+      Define.i r, w, Rows, Words
+      Define.s Row$, Word$
+      
+      ClearList(Mistake())
+      
+      Text = ReplaceString(Text, #CRLF$, #LF$)
+      Text = ReplaceString(Text, #CR$, #LF$)
+      
+      Rows = CountString(Text, #LF$) + 1
+      For r=1 To Rows
+        
+        Row$ = StringField(Text, r, #LF$)
+        
+        Words = CountString(Row$, " ") + 1
+        For w=1 To Words
+          
+          Word$ = GetWord_(StringField(Row$, w, " "))
+          If SpellCheck_(Word$)
+            If AddElement(Mistake()) : Mistake() = Word$ : EndIf
+          EndIf
+          
+        Next
+        
+      Next
+      
+      ProcedureReturn ListSize(Mistake())
+    EndProcedure
+    
+    Procedure   SpellChecking(GNum.i, Flag.i=#Highlight)
       
       ;{ Dictionary is required
       If ListSize(SpellCheck\Dictionary()) = 0
@@ -3873,7 +3903,7 @@ Module EditEx
     EndProcedure
     
     
-    Procedure SaveUserDictionary()
+    Procedure   SaveUserDictionary()
       Define.i FileID
       Define.s File$, Word$
       
@@ -3896,7 +3926,7 @@ Module EditEx
       
     EndProcedure
     
-    Procedure AddToUserDictionary(GNum.i, Word.s)
+    Procedure   AddToUserDictionary(GNum.i, Word.s)
       
       If FindMapElement(EditEx(), Str(GNum))
         
@@ -3907,13 +3937,13 @@ Module EditEx
     EndProcedure
     
     
-    Procedure ClearCheckedWords()
+    Procedure   ClearCheckedWords()
       
       ClearMap(SpellCheck\Words())
       
     EndProcedure
 
-    Procedure GetSuggestions(GNum.i, Word.s, List Suggestions.s())
+    Procedure   GetSuggestions(GNum.i, Word.s, List Suggestions.s())
       
       If FindMapElement(EditEx(), Str(GNum))
         
@@ -4104,14 +4134,21 @@ Module EditEx
   Procedure   DeleteSelection(GNum.i, Remove.i=#True)    ; Delete selected text (Remove selection: #True/#False)
     Define row.i, CurrentRow, Text.s
     
-    If EditEx()\Flags & #ReadOnly = #False
+    If FindMapElement(EditEx(), Str(GNum))
       
-      If FindMapElement(EditEx(), Str(GNum))
-        
+      If EditEx()\Flags & #ReadOnly = #False
+
         If DeleteSelection_(Remove)
+          
+          CompilerIf #Enable_UndoRedo
+            AddUndo_()
+          CompilerEndIf
+          
           ReDraw_()
         EndIf
-      
+        
+        
+        
       EndIf
       
     EndIf
@@ -4132,10 +4169,10 @@ Module EditEx
   EndProcedure
   
   Procedure   InsertText(GNum.i, Text.s)                 ; Insert text at cursor position (or replace selection)
-    
-    If EditEx()\Flags & #ReadOnly = #False
+
+    If FindMapElement(EditEx(), Str(GNum))
       
-      If FindMapElement(EditEx(), Str(GNum))
+      If EditEx()\Flags & #ReadOnly = #False  
         
         If EditEx()\Selection\Flag = #Selected
           DeleteSelection_()
@@ -4143,7 +4180,11 @@ Module EditEx
         
         EditEx()\Text$ = InsertString(EditEx()\Text$, Text, EditEx()\Cursor\Pos + 1)
         EditEx()\Cursor\Pos + Len(Text)
-
+        
+        CompilerIf #Enable_UndoRedo
+          AddUndo_()
+        CompilerEndIf
+        
         ReDraw_()
         
       EndIf
@@ -4185,6 +4226,9 @@ Module EditEx
           Text$ = ReplaceString(Text$, #LF$, #NL$)
           SetClipboardText(Text$)
           DeleteSelection_()
+           CompilerIf #Enable_UndoRedo
+            AddUndo_()
+          CompilerEndIf
         EndIf
 
         ReDraw_()
@@ -4220,7 +4264,11 @@ Module EditEx
           EndIf 
           
         CompilerEndIf
-
+        
+        CompilerIf #Enable_UndoRedo
+          AddUndo_()
+        CompilerEndIf
+        
         ReDraw_()
         
       EndIf
@@ -4245,7 +4293,11 @@ Module EditEx
         EndIf
         
       CompilerEndIf 
-
+      
+      CompilerIf #Enable_UndoRedo
+        AddUndo_()
+      CompilerEndIf
+      
       ReDraw_()
       
     EndIf
@@ -4482,6 +4534,10 @@ Module EditEx
           
           EditEx()\Text$ = Left(EditEx()\Text$, Pos1) + Text + Mid(EditEx()\Text$, Pos2)
           
+          CompilerIf #Enable_UndoRedo
+            AddUndo_()
+          CompilerEndIf
+      
         EndIf
         
       EndIf
@@ -5109,8 +5165,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 11
-; Folding = 5HnRAgBAAIKEgBIA9BAmBhCQAIwBAGVEAMScECBAAIAAAcQCi--
-; Markers = 887
+; CursorPosition = 273
+; FirstLine = 157
+; Folding = 5XnRAgBAAIKEgBIA9BAkBBCAIIwBAGVEAMSMEECEAkmAACYgEE--
+; Markers = 888
 ; EnableXP
 ; DPIAware

@@ -3013,7 +3013,7 @@ Module PDF
   
   Procedure   SetDrawColor_(Red.f, Green.f, Blue.f)
     
-    If (Green = 0 And Blue = 0) Or Green = #PB_Default
+    If Green = #PB_Default And Blue = #PB_Default
       PDF()\Color\Draw = strF_(Red / 255, 3) + " G"
     Else
       PDF()\Color\Draw = strF_(Red / 255, 3) + " " + strF_(Green / 255, 3) + " " + strF_(Blue / 255, 3) + " RG"
@@ -3025,7 +3025,7 @@ Module PDF
   
   Procedure   SetFrontColor_(Red.f, Green.f, Blue.f)
     
-    If (Green = 0 And Blue = 0) Or Green = #PB_Default
+    If Green = #PB_Default And Blue = #PB_Default
       PDF()\Color\Text = strF_(Red / 255, 3) + " g"
     Else
       PDF()\Color\Text = strF_(Red / 255, 3) + " " + strF_(Green / 255, 3) + " " + strF_(Blue / 255, 3) + " rg"
@@ -4341,15 +4341,13 @@ Module PDF
         Case #DrawColor
           SetDrawColor_(Red, Green, Blue)
         Case #FillColor
-          If (Green = 0 And Blue = 0) Or Green = #PB_Default
+          If Green = #PB_Default And Blue = #PB_Default
             PDF()\Color\Fill = strF_(Red / 255, 3) + " g"
           Else
             PDF()\Color\Fill = strF_(Red / 255, 3) + " " + strF_(Green / 255, 3) + " " + strF_(Blue / 255, 3) + " rg"
           EndIf
           If PDF()\Color\Fill <> PDF()\Color\Text : PDF()\Color\Flag = #True : EndIf
-          If PDF()\pageNum > 0 
-            objOutPage_(PDF()\Color\Fill)
-          EndIf
+          If PDF()\pageNum > 0 : objOutPage_(PDF()\Color\Fill) : EndIf
       EndSelect
       
     EndIf
@@ -6946,8 +6944,9 @@ CompilerEndIf
 
 ;- ========================
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 35
-; Folding = MAIBAEAPQAIAEgAAgAAAACBAAAhAAAAAAACAgZQAAgREAAAADAAKIACAAAIYYCMHA9ABAA+
+; CursorPosition = 4343
+; FirstLine = 643
+; Folding = MAIBAEAPQAIAEgAAgAAAACBAAAhAAAAAMACAAZQAAgREAAABDAAKIACEAAIYYCMHA9ABAA+
 ; Markers = 569,1000,2351,2455,3761,3826
 ; EnableXP
 ; DPIAware

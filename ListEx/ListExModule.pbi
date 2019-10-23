@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update:21.10.2019
+; Last Update: 22.10.2019
 ;
 ; - Bugfix: Shortcuts
 ;
@@ -4443,10 +4443,9 @@ Module ListEx
         EndIf
         
       EndIf
-      
-      If ListEx()\FitCols : FitColumns_() : EndIf
-      
+
       If ListEx()\ReDraw
+        If ListEx()\FitCols : FitColumns_() : EndIf
         UpdateRowY_()
         Draw_()
       EndIf
@@ -4502,10 +4501,9 @@ Module ListEx
             EndIf
           Next
         EndIf
-        
-        If ListEx()\FitCols : FitColumns_() : EndIf
-        
+
         If ListEx()\ReDraw
+          If ListEx()\FitCols : FitColumns_() : EndIf
           UpdateRowY_()
           Draw_()
         EndIf
@@ -5389,9 +5387,14 @@ Module ListEx
       If SelectElement(ListEx()\Rows(), Row)
         
         If ListEx()\Rows()\Column(Label)\Value <> Text
+          
           ListEx()\Rows()\Column(Label)\Value = Text
-          If ListEx()\FitCols : FitColumns_() : EndIf
-          If ListEx()\ReDraw  : Draw_() : EndIf
+          
+          If ListEx()\ReDraw
+            If ListEx()\FitCols : FitColumns_() : EndIf
+            Draw_()
+          EndIf
+          
         EndIf
         
       EndIf
@@ -5654,9 +5657,12 @@ Module ListEx
             EndIf
           EndIf
       EndSelect
+
+      If ListEx()\ReDraw
+        If ListEx()\FitCols : FitColumns_() : EndIf
+        Draw_()
+      EndIf
       
-      If ListEx()\FitCols : FitColumns_() : EndIf
-      If ListEx()\ReDraw : Draw_() : EndIf
     EndIf
     
   EndProcedure  
@@ -5696,9 +5702,11 @@ Module ListEx
             EndIf
           EndIf
       EndSelect
-      
-      If ListEx()\FitCols : FitColumns_() : EndIf
-      If ListEx()\ReDraw : Draw_() : EndIf
+
+      If ListEx()\ReDraw
+        If ListEx()\FitCols : FitColumns_() : EndIf
+        Draw_()
+      EndIf
       
     EndIf
     
@@ -5859,9 +5867,11 @@ Module ListEx
           EndIf
         EndIf
       EndIf
-      
-      If ListEx()\FitCols : FitColumns_() : EndIf
-      If ListEx()\ReDraw : Draw_() : EndIf
+
+      If ListEx()\ReDraw
+        If ListEx()\FitCols : FitColumns_() : EndIf
+        Draw_()
+      EndIf
       
     EndIf
     
@@ -5913,9 +5923,12 @@ Module ListEx
             Else
               ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Flags & ~#Image
             EndIf
+
+            If ListEx()\ReDraw
+              If ListEx()\FitCols : FitColumns_() : EndIf
+              Draw_()
+            EndIf
             
-            If ListEx()\FitCols : FitColumns_() : EndIf
-            If ListEx()\ReDraw  : Draw_()       : EndIf
           EndIf
         EndIf
         
@@ -5964,8 +5977,10 @@ Module ListEx
           
           If ListEx()\Cols()\Header\Titel <> Text
             ListEx()\Cols()\Header\Titel = Text
-            If ListEx()\Cols()\Flags & #FitColumn : FitColumns_() : EndIf
-            If ListEx()\ReDraw : Draw_() : EndIf
+            If ListEx()\ReDraw
+              If ListEx()\Cols()\Flags & #FitColumn : FitColumns_() : EndIf
+              Draw_()
+            EndIf
           EndIf
           
         EndIf
@@ -5975,8 +5990,10 @@ Module ListEx
             
             If ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Value <> Text
               ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Value = Text
-              If ListEx()\Cols()\Flags & #FitColumn : FitColumns_() : EndIf
-              If ListEx()\ReDraw : Draw_() : EndIf
+              If ListEx()\ReDraw
+                If ListEx()\Cols()\Flags & #FitColumn : FitColumns_() : EndIf
+                Draw_()
+              EndIf
             EndIf
             
           EndIf
@@ -6322,8 +6339,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 13
-; Folding = EDAAAAAIAAAAAAAEAAAEMAADgBAAAACwEKAAAAQAhB4BAAAAAAU-
+; CursorPosition = 11
+; Folding = EDAAAAAIAAAAAAAEAAAEMAADgBAAAACwEKAWAAQAhB4BAEgB1BU-
 ; Markers = 588,3176
 ; EnableXP
 ; DPIAware
