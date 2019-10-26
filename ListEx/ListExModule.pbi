@@ -9,7 +9,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 22.10.2019
+; Last Update: 26.10.2019
+;
+; - Added: #LockCell / SetCellFlags() / RemoveCellFlag()
 ;
 ; - Bugfix: Shortcuts
 ;
@@ -83,6 +85,7 @@
 ; ListEx::SetAttribute()            - similar to SetGadgetAttribute()  [#Padding] 
 ; ListEx::SetAutoResizeColumn()     - column that is reduced when the vertical scrollbar is displayed.
 ; ListEx::SetAutoResizeFlags()      - [#MoveX|#MoveY|#Width|#Height]
+; ListEx::SetCellFlags()            - [#LockCell|#Strings|#ComboBoxes|#Dates]
 ; ListEx::SetCellState()            - similar to 'SetGadgetItemState()' with labels
 ; ListEx::SetCellText()             - similar to 'SetGadgetItemText()' with labels
 ; ListEx::SetColor()                - similar to 'SetGadgetColor()'
@@ -111,6 +114,7 @@
 
 ;} -----------------------------
 
+; TODO_ LockCell
 
 DeclareModule ListEx
   
@@ -182,7 +186,6 @@ DeclareModule ListEx
     #StringFont
     #HeaderFont
     #GadgetFont
-    #CellFont
   EndEnumeration
   
   EnumerationBinary Flags
@@ -199,8 +202,6 @@ DeclareModule ListEx
     #UseExistingCanvas
     #ThreeState
     #MultiSelect
-    ; --- Edit/Events ---
-    #Image
     ; --- Color ---
     #ActiveLinkColor
     #BackColor
@@ -232,9 +233,15 @@ DeclareModule ListEx
     #Editable = #Strings
     #Buttons
     #Links
+    #Image
     #ProgressBar
     #MarkContent
     #Hide
+    #CellFont
+    #CellFront
+    #CellBack
+    #CellGrid
+    #LockCell
     ; --------
     #Cash
     #Float
@@ -337,6 +344,7 @@ DeclareModule ListEx
   Declare.i HideColumn(GNum.i, Column.i, State.i=#True)
   Declare   LoadColorTheme(GNum.i, File.s)
   Declare   Refresh(GNum.i)
+  Declare   RemoveCellFlag(GNum.i, Row.i, Column.i, Flag.i)
   Declare   RemoveColumn(GNum.i, Column.i)
   Declare   RemoveItem(GNum.i, Row.i)
   Declare   RemoveItemState(GNum.i, Row.i, State.i, Column.i=#PB_Ignore)
@@ -346,6 +354,7 @@ DeclareModule ListEx
   Declare   SetAttribute(GNum.i, Attrib.i, Value.i)
   Declare   SetAutoResizeColumn(GNum.i, Column.i, minWidth.f=#PB_Default, maxWidth.f=#PB_Default)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
+  Declare   SetCellFlags(GNum.i, Row.i, Column.i, Flags.i)
   Declare   SetCellState(GNum.i, Row.i, Label.s, State.i)
   Declare   SetCellText(GNum.i, Row.i, Label.s, Text.s)
   Declare   SetColor(GNum.i, ColorTyp.i, Value.i, Column.i=#PB_Ignore)
@@ -2238,7 +2247,7 @@ Module ListEx
             
             If ListEx()\Cols()\Flags & #Links
               FrontColor = ListEx()\Color\Link
-            ElseIf ListEx()\Rows()\Column(Key$)\Flags & #FrontColor
+            ElseIf Flags & #CellFront
               FrontColor = ListEx()\Rows()\Column(Key$)\Color\Front
             ElseIf ListEx()\Cols()\FrontColor <> #PB_Default
               FrontColor = ListEx()\Cols()\FrontColor
@@ -2248,7 +2257,7 @@ Module ListEx
             
             ;{ Colored cell background
             If ListIndex(ListEx()\Rows()) <> ListEx()\Row\Current
-              If Flags & #BackColor                       
+              If Flags & #CellBack                       
                 DrawingMode(#PB_2DDrawing_Default)
                 Box(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height, ListEx()\Rows()\Column(Key$)\Color\Back)  
               ElseIf ListEx()\Cols()\BackColor <> #PB_Default
@@ -2281,7 +2290,7 @@ Module ListEx
               
               If Flags & #CellFont : FontID = ListEx()\Rows()\Column(Key$)\FontID : EndIf
               
-              If ListEx()\Rows()\Column(Key$)\Flags & #FrontColor
+              If Flags & #CellFront
                 Button_(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height, ListEx()\Rows()\Column(Key$)\Value, #False, ListEx()\Rows()\Column(Key$)\Color\Front, FontID)
               Else
                 Button_(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height, ListEx()\Rows()\Column(Key$)\Value, #False, ListEx()\Rows()\Color\Front, FontID)
@@ -2315,9 +2324,7 @@ Module ListEx
             ElseIf ListEx()\Cols()\Flags & #ProgressBar ;  ProgressBar
               CompilerIf #Enable_ProgressBar
                 
-                If Flags & #CellFont : FontID = ListEx()\Rows()\Column(Key$)\FontID : EndIf
-                
-                If ListEx()\Rows()\Column(Key$)\Flags & #CellFont : DrawingFont(ListEx()\Rows()\Column(Key$)\FontID) : EndIf
+                If Flags & #CellFont : DrawingFont(ListEx()\Rows()\Column(Key$)\FontID) : EndIf
               
                 DrawProgressBar_(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height, ListEx()\Rows()\Column(Key$)\State, ListEx()\Rows()\Column(Key$)\Value, FrontColor, ListEx()\Cols()\Align, FontID)
 
@@ -2367,7 +2374,7 @@ Module ListEx
                 
                 If ListEx()\Cols()\Flags & #Links
                   FrontColor = ListEx()\Color\Link
-                ElseIf ListEx()\Rows()\Column(Key$)\Flags & #FrontColor
+                ElseIf Flags & #CellFront
                   FrontColor = ListEx()\Rows()\Column(Key$)\Color\Front
                 Else
                   FrontColor = ListEx()\Color\Front
@@ -2752,7 +2759,7 @@ Module ListEx
     
   EndProcedure
   
-  Procedure   ManageEditGadgets_(Row.i, Column.i)
+  Procedure.i ManageEditGadgets_(Row.i, Column.i)
     Define.f X, Y
     Define.i Date
     Define.s Value$, Key$, Mask$
@@ -2769,7 +2776,9 @@ Module ListEx
         
         Key$ = ListEx()\Cols()\Key
         
-        If ListEx()\Cols()\Flags & #Strings        ;{ Editable Cells
+        If ListEx()\Rows()\Column(Key$)\Flags & #LockCell : ProcedureReturn #False : EndIf
+        
+        If ListEx()\Cols()\Flags & #Strings Or ListEx()\Rows()\Column(Key$)\Flags & #Strings           ;{ Editable Cells
 
           If IsGadget(ListEx()\StringNum)
             
@@ -2799,7 +2808,7 @@ Module ListEx
             
           EndIf
           ;}
-        ElseIf ListEx()\Cols()\Flags & #ComboBoxes ;{ ComboCoxes
+        ElseIf ListEx()\Cols()\Flags & #ComboBoxes Or ListEx()\Rows()\Column(Key$)\Flags & #ComboBoxes ;{ ComboCoxes
 
           If IsGadget(ListEx()\ComboNum)
             
@@ -2826,7 +2835,7 @@ Module ListEx
           
           EndIf
           ;}
-        ElseIf ListEx()\Cols()\Flags & #Dates      ;{ DateGadget
+        ElseIf ListEx()\Cols()\Flags & #Dates Or ListEx()\Rows()\Column(Key$)\Flags & #Dates           ;{ DateGadget
 
           If IsGadget(ListEx()\DateNum)
             
@@ -2875,6 +2884,7 @@ Module ListEx
       EndIf
     EndIf
     
+    ProcedureReturn #True
   EndProcedure
   
   Procedure   ScrollEditGadgets_() 
@@ -5209,6 +5219,18 @@ Module ListEx
    
   EndProcedure
   
+  Procedure   RemoveCellFlag(GNum.i, Row.i, Column.i, Flag.i)
+  
+    If SelectElement(ListEx()\Rows(), Row)
+      If SelectElement(ListEx()\Cols(), Column)
+
+        ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Flags & ~Flag
+        
+      EndIf
+    EndIf
+    
+  EndProcedure
+  
   Procedure   RemoveColumn(GNum.i, Column.i)
     Define.s Key$, Col$ 
     
@@ -5379,6 +5401,20 @@ Module ListEx
     EndIf  
    
   EndProcedure
+  
+  
+  Procedure  SetCellFlags(GNum.i, Row.i, Column.i, Flags.i)
+    
+    If SelectElement(ListEx()\Rows(), Row)
+      If SelectElement(ListEx()\Cols(), Column)
+
+        ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Flags | Flags
+        
+      EndIf
+    EndIf
+    
+  EndProcedure
+  
   
   Procedure   SetCellText(GNum.i, Row.i, Label.s, Text.s)
     
@@ -5773,7 +5809,7 @@ Module ListEx
                 If SelectElement(ListEx()\Cols(), Column)
                   Key$ = ListEx()\Cols()\Key
                   ListEx()\Rows()\Column(Key$)\Color\Front = Value
-                  ListEx()\Rows()\Column(Key$)\Flags | #FrontColor
+                  ListEx()\Rows()\Column(Key$)\Flags | #CellFront
                 EndIf
               EndIf 
             EndIf
@@ -5795,7 +5831,7 @@ Module ListEx
                 If SelectElement(ListEx()\Cols(), Column)
                   Key$ = ListEx()\Cols()\Key
                   ListEx()\Rows()\Column(Key$)\Color\Back = Value
-                  ListEx()\Rows()\Column(Key$)\Flags | #BackColor
+                  ListEx()\Rows()\Column(Key$)\Flags | #CellBack
                 EndIf  
               EndIf 
             EndIf
@@ -5811,7 +5847,7 @@ Module ListEx
                 If SelectElement(ListEx()\Cols(), Column)
                   Key$ = ListEx()\Cols()\Key
                   ListEx()\Rows()\Column(Key$)\Color\Grid = Value
-                  ListEx()\Rows()\Column(Key$)\Flags | #GridColor
+                  ListEx()\Rows()\Column(Key$)\Flags | #CellGrid
                 EndIf  
               EndIf
             EndIf
@@ -6256,6 +6292,9 @@ CompilerIf #PB_Compiler_IsMainFile
       ListEx::SetItemImage(#List, ListEx::#Header, 2, 14, 14, #Image, ListEx::#Right)
     EndIf
     
+    ; --- Test cell flags ---
+    ListEx::SetCellFlags(#List, 2, 1, ListEx::#Dates)
+    
     ; --- Test ProgressBar ---
     ;CompilerIf ListEx::#Enable_ProgressBar
     ;  ListEx::SetCellState(#List, 1, "progress", 100) ; or SetItemState(#List, 1, 75, 5)
@@ -6339,9 +6378,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 11
-; Folding = EDAAAAAIAAAAAAAEAAAEMAADgBAAAACwEKAWAAQAhB4BAEgB1BU-
-; Markers = 588,3176
+; CursorPosition = 17
+; Folding = ODAAAAAIAAAAAAA9VBAE9ZEDgAAAIwCwEIIWAAQAhR4BAABgXAQ0
+; Markers = 597,2781,3186
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
