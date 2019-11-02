@@ -11,11 +11,10 @@
  
 ; Last Update: 2.11.2019
 ;
+; - Added:  #ResizeColumn
 ; - Bugfix: Type for single cells
 ;
 ; - Added: GetColumnFromLabel()
-;
-; - Added: #LockCell / SetCellFlags() / RemoveCellFlag()
 ;
 
 ;{ ===== MIT License =====
@@ -199,6 +198,7 @@ DeclareModule ListEx
     #NumberedColumn
     #SingleClickEdit
     #AutoResize
+    #ResizeColumn
     #UseExistingCanvas
     #ThreeState
     #MultiSelect
@@ -592,6 +592,8 @@ Module ListEx
     Width.f
     Padding.i
     OffsetX.f
+    MouseX.i
+    Resize.i
     CheckBoxes.i
   EndStructure ;}
   
@@ -3388,9 +3390,11 @@ Module ListEx
     
     If FindMapElement(ListEx(), Str(GNum))
       
-      ;If ListEx()\Cursor = #PB_Cursor_LeftRight
-      ;  
-      ;EndIf  
+      ;{ Resize column with mouse
+      If ListEx()\Cursor = #PB_Cursor_LeftRight
+        ListEx()\Col\MouseX = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
+        ProcedureReturn #True
+      EndIf ;}
       
       If ListEx()\String\Flag   ;{ Close String
         CloseString_()
@@ -3777,6 +3781,11 @@ Module ListEx
       ListEx()\Row\Current = GetRow_(GetGadgetAttribute(GNum, #PB_Canvas_MouseY))
       ListEx()\Col\Current = GetColumn_(GetGadgetAttribute(GNum, #PB_Canvas_MouseX))
       
+      If ListEx()\Cursor = #PB_Cursor_LeftRight Or ListEx()\Col\MouseX
+        ListEx()\Cursor = #Cursor_Default
+        ListEx()\Col\MouseX = 0
+      EndIf
+      
       If ListEx()\Row\Current < 0 Or ListEx()\Col\Current < 0 : ProcedureReturn #False : EndIf
       
       If ListEx()\Button\Pressed ;{ Button pressed
@@ -3871,15 +3880,40 @@ Module ListEx
       X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
       Y = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
       
-      ;ForEach ListEx()\Cols()
-      ;  If X = ListEx()\Cols()\X
-      ;    If ListEx()\Cursor <> #PB_Cursor_LeftRight
-      ;      ListEx()\Cursor = #PB_Cursor_LeftRight
-      ;      SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\Cursor)
-      ;      ProcedureReturn #True
-      ;    EndIf 
-      ;  EndIf  
-      ;Next  
+      If ListEx()\Flags & #ResizeColumn ;{ Resize column with mouse
+        
+        If ListEx()\Cursor = #PB_Cursor_LeftRight
+          
+          If ListEx()\Col\MouseX ;{ Resize column
+            
+            If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize - 1)
+              ListEx()\Cols()\Width - (ListEx()\Col\MouseX - X)   
+            EndIf
+          
+            If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize)
+              ListEx()\Cols()\X     = X
+              ListEx()\Cols()\Width + (ListEx()\Col\MouseX - X) 
+            EndIf
+           
+            ListEx()\Col\MouseX = X
+            
+            Draw_()
+            
+            ProcedureReturn #True
+          EndIf
+          ;}
+        Else                                      ;{ Change cursor to #PB_Cursor_LeftRight
+          ForEach ListEx()\Cols()
+            If X = ListEx()\Cols()\X
+              ListEx()\Cursor = #PB_Cursor_LeftRight
+              ListEx()\Col\Resize = ListIndex(ListEx()\Cols())
+              SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\Cursor)
+              ProcedureReturn #True
+            EndIf  
+          Next ;}
+        EndIf
+        
+      EndIf ;}
       
       Row    = GetRow_(Y)
       Column = GetColumn_(X)
@@ -6404,7 +6438,7 @@ CompilerIf #PB_Compiler_IsMainFile
     ButtonGadget(#B_Green, 420,  80, 70, 20, "Green")
     ButtonGadget(#B_Blue,  420, 110, 70, 20, "Blue")
     
-    ListEx::Gadget(#List, 10, 10, 395, 230, "", 25, "", ListEx::#GridLines|ListEx::#CheckBoxes|ListEx::#AutoResize|ListEx::#MultiSelect|ListEx::#ThreeState) ; ListEx::#NoRowHeader|ListEx::#MultiSelect|ListEx::#NumberedColumn|ListEx::#CheckBoxes|ListEx::#SingleClickEdit|ListEx::#AutoResize 
+    ListEx::Gadget(#List, 10, 10, 395, 230, "", 25, "", ListEx::#GridLines|ListEx::#CheckBoxes|ListEx::#AutoResize|ListEx::#MultiSelect|ListEx::#ResizeColumn) ; ListEx::#NoRowHeader|ListEx::#ThreeState|ListEx::#NumberedColumn|ListEx::#SingleClickEdit 
     
     ListEx::DisableReDraw(#List, #True) 
     
@@ -6562,10 +6596,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 6479
-; FirstLine = 1113
-; Folding = GDIABAAIAAAAAAAwVBAEEAAwAIAAACAEAAAAAAAAABAAABwAAPAg7
-; Markers = 598,2828,3233
+; CursorPosition = 13
+; FirstLine = 2
+; Folding = ODAAAAEIAAAAAAAwVBAEEAAwAIAAAEAAwBAAAAAAEQICAQgMAgAAo+
+; Markers = 600,2830,3235
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
