@@ -9,14 +9,13 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 26.10.2019
+; Last Update: 2.11.2019
+;
+; - Bugfix: Type for single cells
+;
+; - Added: GetColumnFromLabel()
 ;
 ; - Added: #LockCell / SetCellFlags() / RemoveCellFlag()
-;
-; - Bugfix: Shortcuts
-;
-; - Added: Drag & Drop for editable cells (text)
-; - Bugfix: Fonts
 ;
 
 ;{ ===== MIT License =====
@@ -66,6 +65,7 @@
 ; ListEx::GetCellState()            - similar to 'GetGadgetItemState()' with labels
 ; ListEx::GetChangedState()         - check whether entries have been edited
 ; ListEx::GetColumnAttribute()      - similar to 'GetGadgetItemAttribute()'
+; ListEx::GetColumnFromLabel()      - returns column number for this label
 ; ListEx::GetColumnLabel()          - returns the label of the column
 ; ListEx::GetColumnState()          - similar to 'GetGadgetItemState()' for a specific column
 ; ListEx::GetItemData()             - similar to 'GetGadgetItemData()'
@@ -332,6 +332,7 @@ DeclareModule ListEx
   Declare.i GetCellState(GNum.i, Row.i, Label.s) 
   Declare.i GetChangedState(GNum.i)
   Declare.i GetColumnAttribute(GNum.i, Column.i, Attribute.i)
+  Declare.i GetColumnFromLabel(GNum.i, Label.s)
   Declare.s GetColumnLabel(GNum.i, Column.i)
   Declare.i GetColumnState(GNum.i, Row.i, Column.i)
   Declare.i GetItemData(GNum.i, Row.i)
@@ -2282,7 +2283,53 @@ Module ListEx
                 CheckBox_(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height, TextHeight("X") - dpiY(3), ListEx()\Color\Back,  ListEx()\Rows()\State)
               EndIf
               ;}
-            ElseIf ListEx()\Cols()\Flags & #Buttons     ;{ Button
+            ElseIf Flags & #Buttons Or Flags & #Strings Or Flags & #Dates ;{ Single cells
+              
+              Text$ = ListEx()\Rows()\Column(Key$)\Value
+              If Text$ <> ""
+                
+                CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+                  ClipOutput(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height) 
+                CompilerEndIf
+                
+                If Flags & #CellFont : FontID = ListEx()\Rows()\Column(Key$)\FontID : EndIf
+                
+                DrawingFont(FontID)
+                
+                textY = (ListEx()\Rows()\Height - TextHeight("Abc")) / 2 + dpiY(1)
+                
+                DrawingMode(#PB_2DDrawing_Transparent)
+                
+                textX = GetAlignOffset_(Text$, ListEx()\Cols()\Width, ListEx()\Cols()\Align)
+
+                CompilerIf #Enable_MarkContent
+                  
+                  If ListEx()\Cols()\Flags & #MarkContent
+                    If FindMapElement(ListEx()\Mark(), ListEx()\Cols()\Key)
+                      Select IsMarked_(Text$, ListEx()\Mark()\Term, ListEx()\Cols()\Flags)
+                        Case #Condition1
+                          FrontColor = ListEx()\Mark()\Color1
+                          If ListEx()\Mark()\FontID <> #PB_Default : DrawingFont(ListEx()\Mark()\FontID) : EndIf
+                        Case #Condition2
+                          FrontColor = ListEx()\Mark()\Color2
+                          If ListEx()\Mark()\FontID <> #PB_Default : DrawingFont(ListEx()\Mark()\FontID) : EndIf
+                      EndSelect
+                    EndIf
+                  EndIf
+                  
+                CompilerEndIf
+                
+                DrawText(colX + textX, rowY + textY, Text$, FrontColor)
+                
+                If Flags & #CellFont : DrawingFont(RowFontID) : EndIf
+                
+                CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+                  UnclipOutput()
+                CompilerEndIf
+                
+              EndIf
+              ;}
+            ElseIf ListEx()\Cols()\Flags & #Buttons    ;{ Button
               
               CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
                 ClipOutput(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height)
@@ -3341,6 +3388,10 @@ Module ListEx
     
     If FindMapElement(ListEx(), Str(GNum))
       
+      ;If ListEx()\Cursor = #PB_Cursor_LeftRight
+      ;  
+      ;EndIf  
+      
       If ListEx()\String\Flag   ;{ Close String
         CloseString_()
         Draw_()
@@ -3358,7 +3409,7 @@ Module ListEx
       
       ListEx()\Row\Current = GetRow_(GetGadgetAttribute(GNum, #PB_Canvas_MouseY))
       ListEx()\Col\Current = GetColumn_(GetGadgetAttribute(GNum, #PB_Canvas_MouseX))
-
+      
       If ListEx()\Row\Current = #Header ;{ Header clicked
         
         If ListEx()\Col\Current < 0 : ProcedureReturn #False : EndIf
@@ -3498,6 +3549,82 @@ Module ListEx
                 Draw_()
               EndIf  
               ;}
+            ElseIf Flags & #Buttons Or Flags & #Strings Or Flags & #Dates ;{ Single cells
+              
+              ListEx()\Focus = #True
+              
+              ;{ MultiSelect
+              If ListEx()\Flags & #MultiSelect
+                
+                If GetGadgetAttribute(GNum, #PB_Canvas_Modifiers) = #PB_Canvas_Control
+                
+                  If ListEx()\MultiSelect = #False
+                    PushListPosition(ListEx()\Rows())
+                    If SelectElement(ListEx()\Rows(), ListEx()\Row\Focus)
+                      ListEx()\Rows()\State | #Selected
+                    EndIf
+                    PopListPosition(ListEx()\Rows())
+                    ListEx()\MultiSelect = #True
+                  EndIf
+                  
+                  ListEx()\Rows()\State ! #Selected
+                  ListEx()\Row\StartSelect = #PB_Default
+                  
+                ElseIf GetGadgetAttribute(GNum, #PB_Canvas_Modifiers) = #PB_Canvas_Shift
+                  
+                  If ListEx()\Row\StartSelect = #PB_Default :  ListEx()\Row\StartSelect = ListEx()\Row\Focus : EndIf
+                  
+                  If ListEx()\Row\Focus >= 0
+                    
+                    If ListEx()\Row\Current >= ListEx()\Row\StartSelect
+                      StartRow = ListEx()\Row\StartSelect
+                      EndRow   = ListEx()\Row\Current
+                    Else
+                      StartRow = ListEx()\Row\Current
+                      EndRow   = ListEx()\Row\StartSelect
+                    EndIf
+                    
+                    PushListPosition(ListEx()\Rows())
+                    ForEach ListEx()\Rows()
+                      Row = ListIndex(ListEx()\Rows())
+                      If Row >= StartRow And Row <= EndRow
+                        ListEx()\Rows()\State | #Selected
+                      Else
+                        ListEx()\Rows()\State & ~#Selected
+                      EndIf  
+                    Next
+                    PopListPosition(ListEx()\Rows())
+                    
+                    ListEx()\MultiSelect = #True
+                  EndIf
+                  
+                Else
+                  
+                  PushListPosition(ListEx()\Rows())
+                  
+                  ForEach ListEx()\Rows()
+                    If ListIndex(ListEx()\Rows()) = ListEx()\Row\Current
+                      ListEx()\Rows()\State | #Selected
+                    Else  
+                      ListEx()\Rows()\State & ~#Selected
+                    EndIf
+                  Next
+                  
+                  PopListPosition(ListEx()\Rows())
+                  
+                  ListEx()\MultiSelect     = #False
+                  ListEx()\Row\StartSelect = #PB_Default
+
+                EndIf
+                
+              EndIf ;}
+              
+              If SelectElement(ListEx()\Rows(), ListEx()\Row\Current)
+                ListEx()\Row\Focus = ListEx()\Row\Current
+              EndIf
+              
+              Draw_() ; Draw Focus
+             ;}              
             ElseIf ListEx()\Cols()\Flags & #Buttons ;{ Button
               
               Value$ = ListEx()\Rows()\Column(Key$)\Value
@@ -3738,13 +3865,24 @@ Module ListEx
     Define.s Key$, Value$, Focus$
     Define   Image.Image_Structure
     Define.i GNum = EventGadget()
-    
-    
-    
+
     If FindMapElement(ListEx(), Str(GNum))
       
-      Row    = GetRow_(GetGadgetAttribute(GNum, #PB_Canvas_MouseY))
-      Column = GetColumn_(GetGadgetAttribute(GNum, #PB_Canvas_MouseX))
+      X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
+      Y = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
+      
+      ;ForEach ListEx()\Cols()
+      ;  If X = ListEx()\Cols()\X
+      ;    If ListEx()\Cursor <> #PB_Cursor_LeftRight
+      ;      ListEx()\Cursor = #PB_Cursor_LeftRight
+      ;      SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\Cursor)
+      ;      ProcedureReturn #True
+      ;    EndIf 
+      ;  EndIf  
+      ;Next  
+      
+      Row    = GetRow_(Y)
+      Column = GetColumn_(X)
       
       Focus$ = Str(Row)+"|"+Str(Column)
       
@@ -3797,14 +3935,14 @@ Module ListEx
               Flags  = ListEx()\Rows()\Column(Key$)\Flags
               
               ; Change Cursor
-              If ListEx()\Cols()\Flags & #Strings
+              If ListEx()\Cols()\Flags & #Strings Or Flags & #Strings
                 
                 If ListEx()\Cursor <> #Cursor_Edit
                   ListEx()\Cursor = #Cursor_Edit
                   SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\Cursor)
                 EndIf
                 
-              ElseIf ListEx()\Cols()\Flags & #ComboBoxes
+              ElseIf ListEx()\Cols()\Flags & #ComboBoxes Or Flags & #ComboBoxes
                 
                 If ListEx()\Cursor <> #Cursor_Edit
                   ListEx()\Cursor = #Cursor_Edit
@@ -3818,7 +3956,7 @@ Module ListEx
                   SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\Cursor)
                 EndIf
                 
-              ElseIf ListEx()\Cols()\Flags & #Dates
+              ElseIf ListEx()\Cols()\Flags & #Dates Or Flags & #Dates
                 
                 If ListEx()\Cursor <> #Cursor_Edit
                   ListEx()\Cursor = #Cursor_Edit
@@ -3833,7 +3971,7 @@ Module ListEx
                 EndIf
                 
               ElseIf ListEx()\Cols()\Flags & #Buttons
-                
+
                 ListEx()\Button\Focus = Focus$
                 
                 Value$ = ListEx()\Rows()\Column(Key$)\Value
@@ -5038,6 +5176,27 @@ Module ListEx
     
   EndProcedure  
   
+  Procedure.i GetColumnFromLabel(GNum.i, Label.s)
+    Define.i Column = #PB_Default
+    
+    If FindMapElement(ListEx(), Str(GNum))
+
+      PushListPosition(ListEx()\Cols())
+      
+      ForEach ListEx()\Cols()
+        If ListEx()\Cols()\Key = Label
+          Column = ListIndex(ListEx()\Cols())
+          Break
+        EndIf
+      Next
+      
+      PopListPosition(ListEx()\Cols())
+      
+    EndIf
+    
+    ProcedureReturn Column
+  EndProcedure
+  
   Procedure.s GetColumnLabel(GNum.i, Column.i)
 
     If FindMapElement(ListEx(), Str(GNum))
@@ -5097,23 +5256,30 @@ Module ListEx
   Procedure.i GetRowFromLabel(GNum.i, Label.s)
     Define.i Row = #PB_Default
     
-    PushListPosition(ListEx()\Rows())
-    
-    ForEach ListEx()\Rows()
-      If ListEx()\Rows()\ID = Label
-        Row = ListIndex(ListEx()\Rows())
-        Break
-      EndIf
-    Next
-    
-    PopListPosition(ListEx()\Rows())
+    If FindMapElement(ListEx(), Str(GNum))
+      
+      PushListPosition(ListEx()\Rows())
+      
+      ForEach ListEx()\Rows()
+        If ListEx()\Rows()\ID = Label
+          Row = ListIndex(ListEx()\Rows())
+          Break
+        EndIf
+      Next
+      
+      PopListPosition(ListEx()\Rows())
+      
+    EndIf
     
     ProcedureReturn Row
   EndProcedure
   
   Procedure.s GetRowLabel(GNum.i, Row.i)
     
-    ProcedureReturn GetItemID(GNum, Row)
+    If FindMapElement(ListEx(), Str(GNum))
+      ProcedureReturn GetItemID(GNum, Row)
+    EndIf
+    
   EndProcedure
   
   Procedure.i GetItemState(GNum.i, Row.i, Column.i=#PB_Ignore) ; [#Selected/#Checked/#Inbetween]
@@ -5220,13 +5386,22 @@ Module ListEx
   EndProcedure
   
   Procedure   RemoveCellFlag(GNum.i, Row.i, Column.i, Flag.i)
+    
+    If FindMapElement(ListEx(), Str(GNum))
+      
+      If SelectElement(ListEx()\Rows(), Row)
+        If SelectElement(ListEx()\Cols(), Column)
   
-    If SelectElement(ListEx()\Rows(), Row)
-      If SelectElement(ListEx()\Cols(), Column)
-
-        ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Flags & ~Flag
-        
+          ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Flags & ~Flag
+          
+          If ListEx()\ReDraw
+            If ListEx()\FitCols : FitColumns_() : EndIf
+            Draw_()
+          EndIf
+          
+        EndIf
       EndIf
+      
     EndIf
     
   EndProcedure
@@ -5403,14 +5578,23 @@ Module ListEx
   EndProcedure
   
   
-  Procedure  SetCellFlags(GNum.i, Row.i, Column.i, Flags.i)
+  Procedure   SetCellFlags(GNum.i, Row.i, Column.i, Flags.i)
     
-    If SelectElement(ListEx()\Rows(), Row)
-      If SelectElement(ListEx()\Cols(), Column)
-
-        ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Flags | Flags
-        
+    If FindMapElement(ListEx(), Str(GNum))
+      
+      If SelectElement(ListEx()\Rows(), Row)
+        If SelectElement(ListEx()\Cols(), Column)
+  
+          ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Flags | Flags
+          
+          If ListEx()\ReDraw
+            If ListEx()\FitCols : FitColumns_() : EndIf
+            Draw_()
+          EndIf
+          
+        EndIf
       EndIf
+      
     EndIf
     
   EndProcedure
@@ -6292,8 +6476,8 @@ CompilerIf #PB_Compiler_IsMainFile
       ListEx::SetItemImage(#List, ListEx::#Header, 2, 14, 14, #Image, ListEx::#Right)
     EndIf
     
-    ; --- Test cell flags ---
-    ListEx::SetCellFlags(#List, 2, 1, ListEx::#Dates)
+    ; --- Test single cell flags ---
+    ;ListEx::SetCellFlags(#List, 2, 5, ListEx::#Strings)
     
     ; --- Test ProgressBar ---
     ;CompilerIf ListEx::#Enable_ProgressBar
@@ -6378,9 +6562,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 17
-; Folding = ODAAAAAIAAAAAAA9VBAE9ZEDgAAAIwCwEIIWAAQAhR4BAABgXAQ0
-; Markers = 597,2781,3186
+; CursorPosition = 6479
+; FirstLine = 1113
+; Folding = GDIABAAIAAAAAAAwVBAEEAAwAIAAACAEAAAAAAAAABAAABwAAPAg7
+; Markers = 598,2828,3233
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
