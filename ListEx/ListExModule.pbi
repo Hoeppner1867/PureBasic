@@ -9,12 +9,12 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 2.11.2019
+; Last Update: 4.11.2019
+;
+; - Addded: ListEx::Hide()
 ;
 ; - Added:  #ResizeColumn
 ; - Bugfix: Type for single cells
-;
-; - Added: GetColumnFromLabel()
 ;
 
 ;{ ===== MIT License =====
@@ -74,6 +74,7 @@
 ; ListEx::GetRowFromLabel()         - returns row number for this label
 ; ListEx::GetRowLabel()             - returns the label of the row
 ; ListEx::GetState(GNum.i)          - similar to 'GetGadgetState()'
+; ListEx::Hide()                    - similar to 'HideGadget()', but disables redrawing of the canvas gadget
 ; ListEx::HideColumn()              - hides a column
 ; ListEx::Refresh()                 - redraw gadget
 ; ListEx::RemoveColumn()            - similar to 'RemoveGadgetColumn()'
@@ -342,6 +343,7 @@ DeclareModule ListEx
   Declare.i GetRowFromLabel(GNum.i, Label.s)
   Declare.s GetRowLabel(GNum.i, Row.i)
   Declare.i GetState(GNum.i)
+  Declare   Hide(GNum.i, State.i=#True)
   Declare.i HideColumn(GNum.i, Column.i, State.i=#True)
   Declare   LoadColorTheme(GNum.i, File.s)
   Declare   Refresh(GNum.i)
@@ -756,6 +758,7 @@ Module ListEx
 
     Editable.i
     ReDraw.i
+    Hide.i
     
     Cursor.i
     Focus.i
@@ -2063,7 +2066,9 @@ Module ListEx
     Define.i Flags, imgFlags, Align, Mark, Row
     Define.i FrontColor, FocusColor, RowColor, FontID, RowFontID, Time
     Define.s Key$, Text$
-
+    
+    If ListEx()\Hide : ProcedureReturn #False : EndIf
+    
     AdjustScrollBars_()
 
     If StartDrawing(CanvasOutput(ListEx()\CanvasNum))
@@ -5369,6 +5374,23 @@ Module ListEx
     
   EndProcedure
   
+  
+  Procedure   Hide(GNum.i, State.i=#True)
+    
+    If FindMapElement(ListEx(), Str(GNum))
+      
+      If State
+        ListEx()\Hide  = #True
+        HideGadget(GNum, #True)
+      Else
+        ListEx()\Hide  = #False
+        HideGadget(GNum, #False)
+      EndIf 
+      
+    EndIf
+    
+  EndProcedure
+  
   Procedure.i HideColumn(GNum.i, Column.i, State.i=#True)
     
     If FindMapElement(ListEx(), Str(GNum))
@@ -6596,10 +6618,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 13
-; FirstLine = 2
-; Folding = ODAAAAEIAAAAAAAwVBAEEAAwAIAAAEAAwBAAAAAAEQICAQgMAgAAo+
-; Markers = 600,2830,3235
+; CursorPosition = 16
+; Folding = ODAAAAEIAAAAAAAwVBAAEAAwAAAAAEAAgBAAAAAAEQICADAZAABAQ0
+; Markers = 602,2835,3240
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
