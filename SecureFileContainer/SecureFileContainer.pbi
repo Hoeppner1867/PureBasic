@@ -77,7 +77,7 @@ DeclareModule SFC
   Enumeration 1                ;{ Info
     #ProgID
     #Author
-    #Titel
+    #Title
     #Subject
     #Creator
   EndEnumeration ;}
@@ -1739,7 +1739,7 @@ Module SFC
       Select Type
         Case #Author
           ProcedureReturn Content\Author
-        Case #Titel
+        Case #Title
           ProcedureReturn Content\Titel
         Case #Subject
           ProcedureReturn Content\Subject
@@ -1760,7 +1760,7 @@ Module SFC
       Select Type
         Case #Author
           Content\Author  = Value
-        Case #Titel
+        Case #Title
           Content\Titel   = Value
         Case #Subject
           Content\Subject = Value
@@ -1781,7 +1781,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 4
+  #Example = 1
   
   ; 1: Create Container
   ; 2: Load XML
@@ -1859,9 +1859,9 @@ CompilerIf #PB_Compiler_IsMainFile
 
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 1506
-; FirstLine = 181
-; Folding = AGB+eAYAQAeEE+
+; CursorPosition = 1762
+; FirstLine = 260
+; Folding = MGB+eAYAQAYED9
 ; EnableXP
 ; DPIAware
 ; EnablePurifier
