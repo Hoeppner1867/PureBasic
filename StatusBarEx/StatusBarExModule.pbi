@@ -9,10 +9,12 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
   
-; Last Update: 22.09.2019
+; Last Update: 8.11.2019
 ;
-; Bugfix: ToolTips
-;
+; Added: #UseExistingCanvas
+; Added: #Container (use container instead of window for resizing)
+; Added: StatusBar::Hide()
+; Updated: AutoResize
 
 ;{ ===== MIT License =====
 ;
@@ -56,6 +58,8 @@
 ; StatusBar::GetText()            - similar to 'GetGadgetText()'
 ; StatusBar::Image()              - similar to 'StatusBarImage()'
 ; StatusBar::ImageButton()        - similar to 'ButtonImageGadget()'
+; StatusBar::Height()             - similar to 'StatusBarHeight()'
+; StatusBar::Hide()               - similar to 'HideGadget()'
 ; StatusBar::HyperLink()          - similar to 'HyperLinkGadget()'
 ; StatusBar::Progress()           - similar to 'StatusBarProgress()'
 ; StatusBar::SetAttribute()       - similar to 'SetGadgetAttribute()'
@@ -97,6 +101,8 @@ DeclareModule StatusBar
     #Gadget
     #Popup
     #SizeHandle
+    #Container
+    #UseExistingCanvas
   EndEnumeration
   
   Enumeration #PB_EventType_FirstCustomValue
@@ -126,6 +132,7 @@ DeclareModule StatusBar
   Declare.i GetState(GNum.i, Field.i)
   Declare.s GetText(GNum.i, Field.i)
   Declare.i Height(GNum.i)
+  Declare   Hide(GNum.i, State.i=#True)
   Declare.i HyperLink(GNum.i, Field.i, Text.s, Color.i, EventNum.i=#PB_Ignore, EventID.s="", Flags.i=#False)
   Declare   Image(GNum.i, Field.i, ImageNum.i, Width.i=#PB_Default, Height.i=#PB_Default, Flags.i=#False)
   Declare.i ImageButton(GNum.i, Field.i, ImageID.i, EventNum.i=#PB_Ignore, EventID.s="", Flags.i=#False)
@@ -234,11 +241,12 @@ Module StatusBar
   Structure StBEx_Structure ;{ StBEx('GNum')\
     CanvasNum.i
     
-    IgnoreSize.i ; Number of fields with #PB_Ignore
+    IgnoreNum.i ; Number of fields with #PB_Ignore
     Font.i
     Focus.i
     ToolTip.i
     Menu.i
+    Hide.i
     
     Color.StBEx_Color_Structure
     Event.StBEx_Event_Structure
@@ -362,9 +370,11 @@ Module StatusBar
   EndProcedure
   
   Procedure Draw_()
-    Define.f X, Width, txtY, txtX, imgX, imgY
+    Define.f X, Height, Width, txtY, txtX, imgX, imgY
     Define.i imgFlags, FrontColor, BackColor
     Define.s Text
+    
+    If StBEx()\Hide : ProcedureReturn #False : EndIf
     
     If StartDrawing(CanvasOutput(StBEx()\CanvasNum))
       
@@ -375,18 +385,20 @@ Module StatusBar
       Box(0, 0, dpiX(GadgetWidth(StBEx()\CanvasNum)), dpiY(GadgetHeight(StBEx()\CanvasNum)), StBEx()\Color\Back)
       ;}
       
+      Height = dpiX(StBEx()\Size\Height)
+      
       ;  _____ Fields _____
       
       ForEach StBEx()\Fields()
         
         ;{ --- Field width ---
         If StBEx()\Fields()\Width = #PB_Ignore
-          If StBEx()\IgnoreSize
+          If StBEx()\IgnoreNum
             Width = GetAvailableSpace_()
             If Width <= 0
               Width = 0
             Else
-              Width = Width  / StBEx()\IgnoreSize
+              Width = Width / StBEx()\IgnoreNum
             EndIf
           EndIf 
         Else
@@ -423,8 +435,8 @@ Module StatusBar
               imgFlags = StBEx()\Image()\Flags
               
               txtX = GetAlignOffset_(Text, Width - dpiX(4) - StBEx()\Image()\Width, StBEx()\Fields()\Flags)
-              txtY = (StBEx()\Size\Height - TextHeight(Text)) / 2
-              imgY = (StBEx()\Size\Height -  StBEx()\Image()\Height) / 2
+              txtY = (Height - TextHeight(Text)) / 2
+              imgY = (Height -  StBEx()\Image()\Height) / 2
               
               If imgFlags & #Right
                 DrawingMode(#PB_2DDrawing_Transparent)
@@ -452,7 +464,7 @@ Module StatusBar
                 imgX = dpiX(4)
               EndIf
               
-              imgY  = (StBEx()\Size\Height -  StBEx()\Image()\Height) / 2
+              imgY  = (Height -  StBEx()\Image()\Height) / 2
               
               DrawingMode(#PB_2DDrawing_AlphaBlend)
               If IsImage(StBEx()\Fields()\ImageNum)
@@ -478,7 +490,7 @@ Module StatusBar
           Text = StBEx()\Fields()\Text
           If Text
             txtX = GetAlignOffset_(Text, Width, StBEx()\Fields()\Flags)
-            txtY = (StBEx()\Size\Height - TextHeight(Text)) / 2
+            txtY = (Height - TextHeight(Text)) / 2
             DrawingMode(#PB_2DDrawing_Transparent)
             DrawText(X + txtX, txtY, Text, FrontColor, BackColor)
           EndIf
@@ -581,6 +593,31 @@ Module StatusBar
     
   EndProcedure
   
+  Procedure _RightClickHandler()
+    Define.f X, posX, posY
+    Define.i GNum = EventGadget()
+    
+    If FindMapElement(StBEx(), Str(GNum))
+      
+      X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
+      
+      If IsWindow(StBEx()\Window\Num)
+        ForEach StBEx()\Fields()
+          If StBEx()\Fields()\Flags & #Popup And IsMenu(StBEx()\Fields()\PopupNum)
+            If X > StBEx()\Fields()\X And X < StBEx()\Fields()\endX
+              posX = WindowX(StBEx()\Window\Num, #PB_Window_InnerCoordinate) + StBEx()\Size\X + StBEx()\Fields()\X + dpiX(1)
+              posY = WindowY(StBEx()\Window\Num, #PB_Window_InnerCoordinate) + WindowHeight(StBEx()\Window\Num, #PB_Window_InnerCoordinate) - GadgetHeight(StBEx()\CanvasNum)
+              DisplayPopupMenu(StBEx()\Fields()\PopupNum, WindowID(StBEx()\Window\Num), dpiX(posX), dpiY(posY))
+              Break
+            EndIf
+          EndIf
+        Next
+      EndIf
+      
+    EndIf  
+
+  EndProcedure   
+  
   Procedure _MouseMoveHandler()
     Define.f X
     Define.i GNum = EventGadget()
@@ -615,6 +652,36 @@ Module StatusBar
     
   EndProcedure
   
+  Procedure _ResizeHandler()
+    Define.i GadgetNum = EventGadget()
+    
+    If FindMapElement(StBEx(), Str(GadgetNum))
+      Draw_() 
+    EndIf
+    
+  EndProcedure
+  
+  Procedure _ResizeContainerHandler()
+    Define.f OffSetX, OffSetY
+    
+    ForEach StBEx()
+      
+      If IsGadget(StBEx()\CanvasNum)
+        
+        If IsGadget(StBEx()\Window\Num)
+          
+          OffSetX = GadgetWidth(StBEx()\Window\Num)  - StBEx()\Window\Width
+          OffSetY = GadgetHeight(StBEx()\Window\Num) - StBEx()\Window\Height
+          
+          ResizeGadget(StBEx()\CanvasNum, #PB_Ignore, StBEx()\Size\Y + OffsetY, StBEx()\Size\Width + OffSetX, #PB_Ignore)
+        EndIf
+        
+      EndIf
+      
+    Next
+    
+  EndProcedure
+  
   Procedure _ResizeWindowHandler()
     Define.f OffSetX, OffSetY
     
@@ -624,13 +691,10 @@ Module StatusBar
         
         If IsWindow(StBEx()\Window\Num)
           
-          OffSetX = WindowWidth(StBEx()\Window\Num)  - DesktopUnscaledX(StBEx()\Window\Width)
-          OffSetY = WindowHeight(StBEx()\Window\Num) - DesktopUnscaledY(StBEx()\Window\Height)
+          OffSetX = WindowWidth(StBEx()\Window\Num)  - StBEx()\Window\Width
+          OffSetY = WindowHeight(StBEx()\Window\Num) - StBEx()\Window\Height
           
-          ResizeGadget(StBEx()\CanvasNum, #PB_Ignore, DesktopUnscaledY(StBEx()\Size\Y) + OffSetY, DesktopUnscaledX(StBEx()\Size\Width) + OffSetX,  #PB_Ignore)
-
-          Draw_()
-          
+          ResizeGadget(StBEx()\CanvasNum, #PB_Ignore, StBEx()\Size\Y + OffsetY, StBEx()\Size\Width + OffSetX, #PB_Ignore)
         EndIf
         
       EndIf
@@ -638,32 +702,7 @@ Module StatusBar
     Next
     
   EndProcedure
-  
-  Procedure _RightClickHandler()
-    Define.f X, posX, posY
-    Define.i GNum = EventGadget()
-    
-    If FindMapElement(StBEx(), Str(GNum))
-      
-      X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
-      
-      If IsWindow(StBEx()\Window\Num)
-        ForEach StBEx()\Fields()
-          If StBEx()\Fields()\Flags & #Popup And IsMenu(StBEx()\Fields()\PopupNum)
-            If X > StBEx()\Fields()\X And X < StBEx()\Fields()\endX
-              posX = WindowX(StBEx()\Window\Num, #PB_Window_InnerCoordinate) + StBEx()\Size\X + StBEx()\Fields()\X + dpiX(1)
-              posY = WindowY(StBEx()\Window\Num, #PB_Window_InnerCoordinate) + WindowHeight(StBEx()\Window\Num, #PB_Window_InnerCoordinate) - GadgetHeight(StBEx()\CanvasNum)
-              DisplayPopupMenu(StBEx()\Fields()\PopupNum, WindowID(StBEx()\Window\Num), dpiX(posX), dpiY(posY))
-              Break
-            EndIf
-          EndIf
-        Next
-      EndIf
-      
-    EndIf  
 
-  EndProcedure 
-  
   ;- ==========================================================================
   ;-   Module - Declared Procedures
   ;- ========================================================================== 
@@ -692,7 +731,7 @@ Module StatusBar
         StBEx()\Fields()\Flags = Flags
         
         If Width = #PB_Ignore
-          StBEx()\IgnoreSize + 1
+          StBEx()\IgnoreNum + 1
           StBEx()\Fields()\Width = #PB_Ignore
         Else  
           StBEx()\Fields()\Width = dpiX(Width)
@@ -848,22 +887,48 @@ Module StatusBar
   
   
   Procedure.i Gadget(GNum.i, WindowNum.i, MenuNum.i=#False, Flags.i=#False)
+    ; Flag #Container: WindowNum = ContainerGadgetNum
     Define.i Result, Y, Width, Height
     
-    If IsWindow(WindowNum)
-      Width  = dpiX(WindowWidth(WindowNum,  #PB_Window_InnerCoordinate))
-      Height = dpiY(WindowHeight(WindowNum, #PB_Window_InnerCoordinate))
-      BindEvent(#PB_Event_SizeWindow, @_ResizeWindowHandler(), WindowNum)
-      If IsMenu(MenuNum)
-        Y = Height - dpiY(#StatusBar_Height - MenuHeight())
+    If Flags & #Container ;{ Container
+      
+      If IsGadget(WindowNum)
+        Width  = GadgetWidth(WindowNum)
+        Height = GadgetHeight(WindowNum)
+        Y = Height - #StatusBar_Height
+        BindGadgetEvent(WindowNum, @_ResizeContainerHandler(), #PB_EventType_Resize)
       Else
-        Y = Height - dpiY(#StatusBar_Height)
+        ProcedureReturn #False
       EndIf
-    Else
-      ProcedureReturn #False
+      ;}
+    Else                  ;{ Window
+      
+      If IsWindow(WindowNum)
+        Width  = WindowWidth(WindowNum,  #PB_Window_InnerCoordinate)
+        Height = WindowHeight(WindowNum, #PB_Window_InnerCoordinate)
+        BindEvent(#PB_Event_SizeWindow, @_ResizeWindowHandler(), WindowNum)
+        If IsMenu(MenuNum)
+          Y = Height - #StatusBar_Height - MenuHeight()
+        Else
+          Y = Height - #StatusBar_Height
+        EndIf
+      Else
+        ProcedureReturn #False
+      EndIf
+      ;}
     EndIf
     
-    Result = CanvasGadget(GNum, 0, Y, Width, #StatusBar_Height, #PB_Canvas_Keyboard|#PB_Canvas_Container)
+    If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
+      If IsGadget(GNum)
+        Result = #True
+      Else
+        ProcedureReturn #False
+      EndIf
+      ;}
+    Else
+      Result = CanvasGadget(GNum, 0, Y, Width, #StatusBar_Height, #PB_Canvas_Keyboard|#PB_Canvas_Container)
+    EndIf
+
     If Result
       
       If GNum = #PB_Any : GNum = Result : EndIf
@@ -880,7 +945,7 @@ Module StatusBar
         StBEx()\Size\X = 0
         StBEx()\Size\Y = Y
         StBEx()\Size\Width  = Width
-        StBEx()\Size\Height = dpiY(#StatusBar_Height)
+        StBEx()\Size\Height = #StatusBar_Height
         
         StBEx()\Window\Num    = WindowNum
         StBEx()\Window\Width  = Width
@@ -906,8 +971,9 @@ Module StatusBar
         
       EndIf
       
-      BindGadgetEvent(StBEx()\CanvasNum,  @_MouseMoveHandler(), #PB_EventType_MouseMove)
-      BindGadgetEvent(StBEx()\CanvasNum,  @_RightClickHandler(), #PB_EventType_RightClick)
+      BindGadgetEvent(StBEx()\CanvasNum, @_MouseMoveHandler(),  #PB_EventType_MouseMove)
+      BindGadgetEvent(StBEx()\CanvasNum, @_RightClickHandler(), #PB_EventType_RightClick)
+      BindGadgetEvent(StBEx()\CanvasNum, @_ResizeHandler(),     #PB_EventType_Resize)
       
       CloseGadgetList()  
     EndIf
@@ -954,6 +1020,22 @@ Module StatusBar
     
     If FindMapElement(StBEx(), Str(GNum))
       ProcedureReturn StBEx()\Size\Height
+    EndIf
+    
+  EndProcedure
+  
+  Procedure   Hide(GNum.i, State.i=#True)
+    
+    If FindMapElement(StBEx(), Str(GNum))
+      
+      If State
+        StBEx()\Hide  = #True
+        HideGadget(GNum, #True)
+      Else
+        StBEx()\Hide  = #False
+        HideGadget(GNum, #False)
+      EndIf 
+      
     EndIf
     
   EndProcedure
@@ -1404,7 +1486,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
   
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 13
-; Folding = UACAQEEggAA5
+; CursorPosition = 1470
+; FirstLine = 577
+; Folding = eACk7HAEABAAw
 ; EnableXP
 ; DPIAware
