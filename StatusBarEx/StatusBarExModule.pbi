@@ -14,7 +14,6 @@
 ; Added: #UseExistingCanvas
 ; Added: #Container (use container instead of window for resizing)
 ; Added: StatusBar::Hide()
-; Updated: AutoResize
 
 ;{ ===== MIT License =====
 ;
@@ -1425,7 +1424,7 @@ CompilerIf #PB_Compiler_IsMainFile
       MenuItem(#Menu_Item2, "Item 2")
     EndIf
     
-    If StatusBar::Gadget(#StatusBar, #Window, StatusBar::#Border|StatusBar::#SizeHandle)
+    If StatusBar::Gadget(#StatusBar, #Window, #False, StatusBar::#Border|StatusBar::#SizeHandle)
       StatusBar::AddField(#StatusBar, 100)
       StatusBar::AddField(#StatusBar, 80)
       StatusBar::AddField(#StatusBar, #PB_Ignore, StatusBar::#Center)
@@ -1486,8 +1485,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
   
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 1470
-; FirstLine = 577
-; Folding = eACk7HAEABAAw
+; CursorPosition = 417
+; FirstLine = 216
+; Folding = cAC17HAEABAAw
 ; EnableXP
 ; DPIAware

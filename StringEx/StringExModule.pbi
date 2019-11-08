@@ -9,11 +9,14 @@
 
 ; Last Update: 8.11.19
 ;
+; BugFixes
+; Added: StringEx::Hide()
 ; Added: #UseExistingCanvas
 ;
 ; Changed: #ResizeWidth -> #Width / #ResizeHeight -> #Height
 ; Added:   SetDynamicFont() / FitText() / SetFitText()       [needs ModuleEx.pbi]
 ; Added:   Flags '#FitText' & '#FixPadding' for Autoresize   [needs ModuleEx.pbi]
+
 
 ;{ ===== MIT License =====
 ;
@@ -54,6 +57,7 @@
 ; StringEx::GetColor()           - similar to 'GetGadgetColor()'
 ; StringEx::GetText()            - similar to 'GetGadgetText()'
 ; StringEx::Gadget()             - similar to 'StringGadget()'
+; StringEx::Hide()               - similar to 'HideGadget()'
 ; StringEx::Paste()              - paste clipboard
 ; StringEx::RemoveFlag()         - removes a flag
 ; StringEx::SetAttribute()       - similar to 'SetGadgetAttribute()'
@@ -65,8 +69,6 @@
 
 ;}
 
-
-XIncludeFile "ModuleEx.pbi"
 
 DeclareModule StringEx
   
@@ -162,12 +164,14 @@ DeclareModule StringEx
   Declare.i GetColor(GNum.i, ColorType.i)
   Declare.s GetText(GNum.i) 
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Text.s="", Flags.i=#False, WindowNum.i=#PB_Default)
+  Declare   Hide(GNum.i, State.i=#True)
   Declare   Paste(GNum.i)
   Declare   RemoveFlag(GNum.i, Flag.i)
   Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
-  Declare   SetColor(GNum.i, ColorType.i, Color.i) 
+  Declare   SetColor(GNum.i, ColorType.i, Color.i)
   Declare   SetFlags(GNum.i, Flags.i)
+  Declare   SetFont(GNum.i, FontNum.i) 
   Declare   SetText(GNum.i, Text.s) 
   Declare   Undo(GNum.i)
   
@@ -308,6 +312,7 @@ Module StringEx
     Mouse.i
     MaxLength.i
     Padding.i
+    Hide.i
     
     ; Fit Text
     PaddingX.i
@@ -687,7 +692,9 @@ Module StringEx
     Define.f X, Y, Height, Width, startX
     Define.s Text, Word, strgPart
     Define.i TextColor, BackColor, BorderColor
-      
+    
+    If StrgEx()\Hide : ProcedureReturn #False : EndIf
+    
     If StrgEx()\MaxLength <> #PB_Default
       If Len(StrgEx()\Text) > StrgEx()\MaxLength
         StrgEx()\Text = Left(StrgEx()\Text, StrgEx()\MaxLength)
@@ -863,7 +870,7 @@ Module StringEx
     Define.i GNum = EventGadget()
     
     If FindMapElement(StrgEx(), Str(GNum))
-
+      
       StrgEx()\State | #Focus
       Draw_()
       
@@ -1218,18 +1225,30 @@ Module StringEx
     
   EndProcedure
   
-  Procedure _MouseLeaveHandler()
+  Procedure _MouseEnterHandler()
     Define.i GNum = EventGadget()
     
     If FindMapElement(StrgEx(), Str(GNum))
       
+      StrgEx()\Button\State & #Focus
+      
+      Draw_()
+    EndIf
+    
+  EndProcedure
+  
+  Procedure _MouseLeaveHandler()
+    Define.i GNum = EventGadget()
+    
+    If FindMapElement(StrgEx(), Str(GNum))
+
       StrgEx()\Button\State & ~#Focus
       ResetList(StrgEx()\AutoComplete())
       
       Draw_()
     EndIf
     
-  EndProcedure
+  EndProcedure  
   
   Procedure _MouseMoveHandler()
     Define.i X
@@ -1675,6 +1694,7 @@ Module StringEx
         BindGadgetEvent(GNum, @_KeyDownHandler(),         #PB_EventType_KeyDown)
         BindGadgetEvent(GNum, @_MouseMoveHandler(),       #PB_EventType_MouseMove)
         BindGadgetEvent(GNum, @_MouseLeaveHandler(),      #PB_EventType_MouseLeave)
+        BindGadgetEvent(GNum, @_MouseEnterHandler(),      #PB_EventType_MouseEnter)
         BindGadgetEvent(GNum, @_RightClickHandler(),      #PB_EventType_RightClick)
         BindGadgetEvent(GNum, @_LeftDoubleClickHandler(), #PB_EventType_LeftDoubleClick)
         BindGadgetEvent(GNum, @_CursorDrawing(),          #PB_EventType_Change)
@@ -1701,6 +1721,7 @@ Module StringEx
       
     EndIf
     
+    ProcedureReturn GNum
   EndProcedure
   
   
@@ -1752,6 +1773,14 @@ Module StringEx
     
   EndProcedure
   
+  Procedure Hide(GNum.i, State.i=#True)
+    
+    If FindMapElement(StrgEx(), Str(GNum))
+      HideGadget(GNum, State)
+      StrgEx()\Hide = State 
+    EndIf  
+  
+  EndProcedure
   
   Procedure SetAutoResizeFlags(GNum.i, Flags.i)
     
@@ -2069,10 +2098,10 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 1551
-; FirstLine = 559
-; Folding = cPAEAoAkAcBAM7oDgDgCg-
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 1612
+; FirstLine = 404
+; Folding = UHAFAoAkAJBAMwRDATAAA+
 ; EnableThread
 ; EnableXP
 ; DPIAware

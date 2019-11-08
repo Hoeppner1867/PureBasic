@@ -18,6 +18,11 @@
 ; Added: RequiredFontSize() & CalcPadding()
 ; Added: SetFont() with '#FitText'-Flag
 
+
+; TODO: LoadFont() - Index FontNum
+
+
+
 ;{ ===== MIT License =====
 ;
 ; Copyright (c) 2019 Thorsten Hoeppner
@@ -102,6 +107,7 @@ DeclareModule ModuleEx
     #EventType_Year
     #EventType_Focus
     #EventType_RightClick
+    #EventType_TrackBar
   EndEnumeration ;}
   
   #Event_Tabulator      = 64000
@@ -113,7 +119,7 @@ DeclareModule ModuleEx
     Factor.f
   EndStructure
   Padding.Padding_Structure
-  
+
   ;- ============================================================================
   ;-   DeclareModule
   ;- ============================================================================
@@ -129,6 +135,14 @@ DeclareModule ModuleEx
   Declare.i RequiredFontSize(Text.s, Width.i, Height.i, FontNum.i)
   Declare   SetAttribute(GNum.i, Type.i, Value.i)
   Declare.i SetFont(GNum.i, Name.s, Size.i, Style.i=#False, Flags.i=#False, Type.i=#Gadget) 
+  
+  Macro LoadFont(Font, Name, Height, Style = 0)
+    Font(Font, Name, Height, Style = 0)
+  EndMacro
+  
+  Macro PB(Function)
+    Function
+  EndMacro
   
 EndDeclareModule
 
@@ -189,7 +203,10 @@ Module ModuleEx
     
     Map Window.ModuleEx_Window_Gadget_Structure()
     Map Gadget.ModuleEx_Gadget_Structure()
+    
     Map Font.Font_Structure()
+    Map ID.s()
+    ;Map Num.s()
     
   EndStructure ;}
   Global ModuleEx.ModuleEx_Structure
@@ -244,9 +261,7 @@ Module ModuleEx
 	  ProcedureReturn Round(Pixel * 72 / 96, #PB_Round_Nearest)
 	EndProcedure
 	
-	
 
-	
 	Procedure.i CalcFitFontSize_(Text.s, Width.i, Height.i, FontNum.i)
 	  Define.i FontSize, ImgNum, r, Rows 
 	  Define.i txtWidth, txtHeight, maxWidth, hSize, vSize, DiffW
@@ -358,16 +373,19 @@ Module ModuleEx
   
   ; _____ Font Management _____
   
-  Procedure.i LoadFont_(Name.s, Size.i, Style.i) 
-	  Define.i Font
+  Procedure.i LoadFont_(Name.s, Size.i, Style.i, Font.i=#PB_Any) 
+	  Define.i FontNum
+	  Define.s Key = Name + "|" + Str(Style)
 	  
-	  Font = ModuleEx\Font(Name+"|"+Str(Style))\Size(Str(Size))
+	  FontNum = ModuleEx\Font(Key)\Size(Str(Size))
 	  If IsFont(Font)
       ProcedureReturn Font
     Else  
-      Font = LoadFont(#PB_Any, Name, Size, Style)
+      FontNum = PB(LoadFont)(Font, Name, Size, Style)
+        If Font = #PB_Any : Font = FontNum : EndIf
       If IsFont(Font)
-        ModuleEx\Font(Name+"|"+Str(Style))\Size(Str(Size)) = Font
+        ModuleEx\Font(Key)\Size(Str(Size)) = Font
+        ModuleEx\ID(Str(FontID(Font))) = Key
         ProcedureReturn Font
       EndIf 
     EndIf 
@@ -380,7 +398,7 @@ Module ModuleEx
   Procedure _CursorThread(ElapsedTime.i)
 
     Repeat
-      
+
       If ElapsedTime >= ModuleEx\Thread\Frequency
         PostEvent(#Event_Cursor)
         ElapsedTime = 0
@@ -752,7 +770,7 @@ Module ModuleEx
   Procedure.i SetFont(GNum.i, Name.s, Size.i, Style.i=#False, Flags.i=#False, Type.i=#Gadget) 
     Define.i FontNum, FontSize
     
-    FontNum = Font(Name, Size, Style)
+    FontNum = LoadFont_(Name, Size, Style)
     
     Select Type
       Case #Gadget  
@@ -819,6 +837,8 @@ CompilerIf #PB_Compiler_IsMainFile
     #Combo
   EndEnumeration
   
+  LoadFont(0, "Arial", 12, 0)
+  
   If OpenWindow(#Window, 0, 0, 310, 60, "Meta - Module", #PB_Window_SystemMenu|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
     
     ButtonGadget(#Button,   10,  15,  80, 24, "Button", #PB_Button_Toggle) 
@@ -858,9 +878,9 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 729
-; FirstLine = 271
-; Folding = UCYHAIAE9
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 629
+; FirstLine = 283
+; Folding = EIAIMgYA5
 ; EnableXP
 ; DPIAware

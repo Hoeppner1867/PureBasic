@@ -9,7 +9,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 4.11.2019
+; Last Update: 8.11.2019
+;
+; - Support for StringExModule.pbi
 ;
 ; - Addded: ListEx::Hide()
 ;
@@ -114,7 +116,8 @@
 
 ;} -----------------------------
 
-; TODO_ LockCell
+
+; XIncludeFile "StringExModule.pbi"
 
 DeclareModule ListEx
   
@@ -319,6 +322,7 @@ DeclareModule ListEx
   Declare   ClearComboBoxItems(GNum.i, Column.i)
   Declare   ClearItems(GNum.i)
   Declare   CloseEdit(GNum.i)
+  Declare   DebugList(GNum.i)
   Declare.i CountItems(GNum.i, Flag.i=#False)
   Declare   DisableEditing(GNum.i, State.i=#True)
   Declare   DisableReDraw(GNum.i, State.i=#True)
@@ -538,8 +542,6 @@ Module ListEx
     State.i
     ID.s
   EndStructure  ;}
-  
-
   
   Structure Rows_Column_Structure       ;{ ListEx()\Rows()\Column('label')\...
     Value.s
@@ -2837,13 +2839,26 @@ Module ListEx
           If IsGadget(ListEx()\StringNum)
             
             If ListEx()\Editable
+              
               ResizeGadget(ListEx()\StringNum, DesktopUnscaledX(X), DesktopUnscaledY(Y) + 1, DesktopUnscaledX(ListEx()\Cols()\Width), DesktopUnscaledY(ListEx()\Rows()\Height) - 1)
-              SetGadgetText(ListEx()\StringNum, ListEx()\Rows()\Column(Key$)\Value)
-              If ListEx()\Cols()\FontID
-                SetGadgetFont(ListEx()\StringNum, ListEx()\Cols()\FontID)
-              Else
-                SetGadgetFont(ListEx()\StringNum, ListEx()\Row\FontID)
-              EndIf
+              
+              CompilerIf Defined(StringEx, #PB_Module)
+                StringEx::SetText(ListEx()\StringNum, ListEx()\Rows()\Column(Key$)\Value)
+                If ListEx()\Cols()\FontID
+                  StringEx::SetFont(ListEx()\StringNum, ListEx()\Cols()\FontID)
+                Else
+                  StringEx::SetFont(ListEx()\StringNum, ListEx()\Row\FontID)
+                EndIf
+                StringEx::Hide(ListEx()\StringNum, #False)
+              CompilerElse  
+                SetGadgetText(ListEx()\StringNum, ListEx()\Rows()\Column(Key$)\Value)
+                If ListEx()\Cols()\FontID
+                  SetGadgetFont(ListEx()\StringNum, ListEx()\Cols()\FontID)
+                Else
+                  SetGadgetFont(ListEx()\StringNum, ListEx()\Row\FontID)
+                EndIf
+                HideGadget(ListEx()\StringNum, #False)
+              CompilerEndIf
               
               ListEx()\String\Row    = Row
               ListEx()\String\Col    = Column
@@ -2855,7 +2870,6 @@ Module ListEx
               ListEx()\String\Flag   = #True
 
               BindShortcuts_(#True)
-              HideGadget(ListEx()\StringNum, #False)
               
               SetActiveGadget(ListEx()\StringNum) 
             EndIf
@@ -2950,9 +2964,17 @@ Module ListEx
         Y = ListEx()\String\Y - ListEx()\Row\OffSetY
         ResizeGadget(ListEx()\StringNum, DesktopUnscaledX(X), DesktopUnscaledY(Y) + 1, #PB_Ignore, #PB_Ignore)
         If X + ListEx()\String\Width > ListEx()\Size\Width Or Y + ListEx()\String\Height > ListEx()\Size\Height Or Y < ListEx()\Header\Height
-          HideGadget(ListEx()\StringNum, #True) 
+          CompilerIf Defined(StringEx, #PB_Module)
+            StringEx::Hide(ListEx()\StringNum, #True) 
+          CompilerElse
+            HideGadget(ListEx()\StringNum, #True)
+          CompilerEndIf
         Else  
-          HideGadget(ListEx()\StringNum, #False)
+          CompilerIf Defined(StringEx, #PB_Module)
+            StringEx::Hide(ListEx()\StringNum, #False) 
+          CompilerElse
+            HideGadget(ListEx()\StringNum, #False)
+          CompilerEndIf
         EndIf
       EndIf
     EndIf
@@ -4225,8 +4247,15 @@ Module ListEx
       GNum = GetGadgetData(StringNum)
       If FindMapElement(ListEx(), Str(GNum))
         If ListEx()\String\Wrong
-          SetGadgetColor(ListEx()\StringNum, #PB_Gadget_FrontColor, $000000)
-          SetGadgetColor(ListEx()\StringNum, #PB_Gadget_BackColor,  $FFFFFF)
+          
+          CompilerIf Defined(StringEx, #PB_Module)
+            StringEx::SetColor(ListEx()\StringNum, StringEx::#FrontColor, $000000)
+            StringEx::SetColor(ListEx()\StringNum, StringEx::#BackColor,  $FFFFFF)
+          CompilerElse  
+            SetGadgetColor(ListEx()\StringNum, #PB_Gadget_FrontColor, $000000)
+            SetGadgetColor(ListEx()\StringNum, #PB_Gadget_BackColor,  $FFFFFF)
+          CompilerEndIf
+      
           ListEx()\String\Wrong = #False
         EndIf
       EndIf
@@ -4335,8 +4364,13 @@ Module ListEx
             
             If ListEx()\String\Wrong
               If IsGadget(ListEx()\StringNum)
-                SetGadgetColor(ListEx()\StringNum, #PB_Gadget_FrontColor, $000000)
-                SetGadgetColor(ListEx()\StringNum, #PB_Gadget_BackColor,  $FFFFFF)
+                CompilerIf Defined(StringEx, #PB_Module)
+                  StringEx::SetColor(ListEx()\StringNum, StringEx::#FrontColor, $000000)
+                  StringEx::SetColor(ListEx()\StringNum, StringEx::#BackColor,  $FFFFFF)
+                CompilerElse  
+                  SetGadgetColor(ListEx()\StringNum, #PB_Gadget_FrontColor, $000000)
+                  SetGadgetColor(ListEx()\StringNum, #PB_Gadget_BackColor,  $FFFFFF)
+                CompilerEndIf
               EndIf
               ListEx()\String\Wrong = #False
             EndIf
@@ -4344,27 +4378,44 @@ Module ListEx
             If Escape
               UpdateEventData_(#EventType_String, #NotValid, #NotValid, "", #NotValid, "")
             Else
-              ListEx()\Rows()\Column(ListEx()\String\Label)\Value = GetGadgetText(ListEx()\StringNum)
-              ListEx()\Changed = #True
-              SetGadgetText(ListEx()\StringNum, "")
+              CompilerIf Defined(StringEx, #PB_Module)
+                ListEx()\Rows()\Column(ListEx()\String\Label)\Value = StringEx::GetText(ListEx()\StringNum)
+                StringEx::SetText(ListEx()\StringNum, "")
+              CompilerElse
+                ListEx()\Rows()\Column(ListEx()\String\Label)\Value = GetGadgetText(ListEx()\StringNum)
+                SetGadgetText(ListEx()\StringNum, "")
+              CompilerEndIf
               UpdateEventData_(#EventType_String, ListEx()\String\Row, ListEx()\String\Col, GetGadgetText(ListEx()\StringNum), #NotValid, ListEx()\Rows()\ID)
               If IsWindow(ListEx()\Window\Num)
                 PostEvent(#PB_Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_String)
                 PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_String)
               EndIf 
+              ListEx()\Changed = #True
             EndIf
             
-            HideGadget(ListEx()\StringNum, #True)
+            CompilerIf Defined(StringEx, #PB_Module)
+              StringEx::Hide(ListEx()\StringNum, #True) 
+            CompilerElse
+              HideGadget(ListEx()\StringNum, #True)
+            CompilerEndIf
+          
             BindShortcuts_(#False)
             
             ListEx()\String\Label = ""
             ListEx()\String\Flag  = #False
 
           Else
+            
             If IsGadget(ListEx()\StringNum)
-              SetGadgetColor(ListEx()\StringNum, #PB_Gadget_FrontColor, ListEx()\Color\WrongFront)
-              SetGadgetColor(ListEx()\StringNum, #PB_Gadget_BackColor,  ListEx()\Color\WrongBack)
+              CompilerIf Defined(StringEx, #PB_Module)
+                StringEx::SetColor(ListEx()\StringNum, StringEx::#FrontColor, ListEx()\Color\WrongFront)
+                StringEx::SetColor(ListEx()\StringNum, StringEx::#BackColor,  ListEx()\Color\WrongBack)
+              CompilerElse  
+                SetGadgetColor(ListEx()\StringNum, #PB_Gadget_FrontColor, ListEx()\Color\WrongFront)
+                SetGadgetColor(ListEx()\StringNum, #PB_Gadget_BackColor,  ListEx()\Color\WrongBack)
+              CompilerEndIf
             EndIf
+            
             ListEx()\String\Wrong = #True
           EndIf
           
@@ -4453,6 +4504,28 @@ Module ListEx
   ;- ==========================================================================
   ;-   Module - Declared Procedures
   ;- ==========================================================================  
+  
+  Procedure DebugList(GNum.i)
+    
+    If FindMapElement(ListEx(), Str(GNum))
+      
+      Debug "----- Debug -----"
+      
+      ForEach ListEx()\Rows()
+        
+        Debug ">>> Row " + Str(ListIndex(ListEx()\Rows()))
+        
+        ForEach ListEx()\Rows()\Column()
+          Debug "Column " + MapKey(ListEx()\Rows()\Column()) + ": " + ListEx()\Rows()\Column()\Value
+        Next
+        
+      Next
+      
+      Debug "-----------------"
+      
+    EndIf
+    
+  EndProcedure  
   
   CompilerIf #Enable_MarkContent
  
@@ -4670,7 +4743,7 @@ Module ListEx
         ListEx()\Rows()\ID     = Label
         ListEx()\Rows()\Height = ListEx()\Row\Height
         
-        ListEx()\Rows()\FontID   = ListEx()\Row\FontID
+        ListEx()\Rows()\FontID = ListEx()\Row\FontID
         
         ListEx()\Rows()\Color\Front = ListEx()\Color\Front
         ListEx()\Rows()\Color\Back  = ListEx()\Color\Back
@@ -4885,7 +4958,7 @@ Module ListEx
   Procedure.i Gadget(GNum.i, X.f, Y.f, Width.f, Height.f, ColTitle.s, ColWidth.f, ColLabel.s="", Flags.i=#False, WindowNum.i=#PB_Default)
     Define.i Result
     
-    If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget (without guaranty!)
+    If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
       If IsGadget(GNum)
         Result = #True
       Else
@@ -4927,9 +5000,21 @@ Module ListEx
         ListEx()\CanvasNum = GNum
         
         CompilerIf Defined(ModuleEx, #PB_Module)
-          If ModuleEx::AddWindow(ListEx()\Window\Num, ModuleEx::#Tabulator)
-            ModuleEx::AddGadget(GNum, ListEx()\Window\Num, ModuleEx::#UseTabulator)
-          EndIf
+          
+          CompilerIf Defined(StringEx, #PB_Module)
+            
+            If ModuleEx::AddWindow(ListEx()\Window\Num, ModuleEx::#Tabulator|ModuleEx::#CursorEvent)
+              ModuleEx::AddGadget(GNum, ListEx()\Window\Num, ModuleEx::#UseTabulator)
+            EndIf
+            
+          CompilerElse
+            
+            If ModuleEx::AddWindow(ListEx()\Window\Num, ModuleEx::#Tabulator)
+              ModuleEx::AddGadget(GNum, ListEx()\Window\Num, ModuleEx::#UseTabulator)
+            EndIf
+            
+          CompilerEndIf
+          
         CompilerEndIf
         
         ListEx()\Flags  = Flags
@@ -4978,13 +5063,26 @@ Module ListEx
         ;}        
 
         ;{ Gadgets
-        ListEx()\StringNum  = StringGadget(#PB_Any, 0, 0, 0, 0, "")
-        If IsGadget(ListEx()\StringNum)
-          SetGadgetData(ListEx()\StringNum, ListEx()\CanvasNum)
-          BindGadgetEvent(ListEx()\StringNum, @_StringGadgetHandler(), #PB_EventType_Change)
-          HideGadget(ListEx()\StringNum, #True)
-        EndIf
-        
+        CompilerIf Defined(StringEx, #PB_Module)
+          
+          ListEx()\StringNum = StringEx::Gadget(#PB_Any, 0, 0, 0, 0, "", #False, ListEx()\Window\Num)
+          If IsGadget(ListEx()\StringNum)
+            SetGadgetData(ListEx()\StringNum, ListEx()\CanvasNum)
+            BindGadgetEvent(ListEx()\StringNum, @_StringGadgetHandler(), #PB_EventType_Change)
+            StringEx::Hide(ListEx()\StringNum, #True)
+          EndIf
+          
+        CompilerElse
+          
+          ListEx()\StringNum = StringGadget(#PB_Any, 0, 0, 0, 0, "")
+          If IsGadget(ListEx()\StringNum)
+            SetGadgetData(ListEx()\StringNum, ListEx()\CanvasNum)
+            BindGadgetEvent(ListEx()\StringNum, @_StringGadgetHandler(), #PB_EventType_Change)
+            HideGadget(ListEx()\StringNum, #True)
+          EndIf
+          
+        CompilerEndIf
+      
         ListEx()\ComboNum = ComboBoxGadget(#PB_Any, 0, 0, 0, 0, #PB_ComboBox_Editable)
         If IsGadget(ListEx()\ComboNum)
           SetGadgetData(ListEx()\ComboNum, ListEx()\CanvasNum)
@@ -5127,8 +5225,8 @@ Module ListEx
         BindGadgetEvent(ListEx()\CanvasNum, @_ResizeHandler(),          #PB_EventType_Resize)
         BindGadgetEvent(ListEx()\CanvasNum, @_MouseLeaveHandler(),      #PB_EventType_MouseLeave)
         BindGadgetEvent(ListEx()\CanvasNum, @_KeyDownHandler(),         #PB_EventType_KeyDown)     
-        BindGadgetEvent(ListEx()\HScrollNum, @_SynchronizeScrollCols(),  #PB_All)
-        BindGadgetEvent(ListEx()\VScrollNum, @_SynchronizeScrollRows(),  #PB_All) 
+        BindGadgetEvent(ListEx()\HScrollNum, @_SynchronizeScrollCols(), #PB_All)
+        BindGadgetEvent(ListEx()\VScrollNum, @_SynchronizeScrollRows(), #PB_All) 
         
         CompilerIf #Enable_DragAndDrop
           EnableGadgetDrop(ListEx()\CanvasNum, #PB_Drop_Text, #PB_Drag_Copy)
@@ -5379,14 +5477,9 @@ Module ListEx
     
     If FindMapElement(ListEx(), Str(GNum))
       
-      If State
-        ListEx()\Hide  = #True
-        HideGadget(GNum, #True)
-      Else
-        ListEx()\Hide  = #False
-        HideGadget(GNum, #False)
-      EndIf 
-      
+      ListEx()\Hide  = State
+      HideGadget(GNum, State)
+
     EndIf
     
   EndProcedure
@@ -6594,7 +6687,9 @@ CompilerIf #PB_Compiler_IsMainFile
         Case #PB_Event_Menu ;{ PopupMenu
           Select EventMenu()
             Case #MenuItem0 
+              ListEx::DebugList(#List)
               ListEx::ClearItems(#List)
+              ListEx::DebugList(#List)
             Case #MenuItem1
               ListEx::LoadColorTheme(#List, "Theme_Blue.json")
             Case #MenuItem2
@@ -6617,10 +6712,10 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 16
-; Folding = ODAAAAEIAAAAAAAwVBAAEAAwAAAAAEAAgBAAAAAAEQICADAZAABAQ0
-; Markers = 602,2835,3240
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 11
+; Folding = EDAAAAAIAAAAAAAwVBAAPAAwOwbAAgIAAMAEIAQBAgMOEAABAAAgACo-
+; Markers = 604,2837,2845,2967,3262
 ; EnableXP
 ; DPIAware
 ; EnableUnicode

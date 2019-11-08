@@ -488,11 +488,8 @@ Module ResourceEx
         If *Buffer
           
           If UncompressPackMemory(ResEx()\ID, *Buffer, Size, FileName) <> -1
-            
-            Size = DecryptMemory_(*Buffer, Size, ResEx()\Key)
+            Size   = DecryptMemory_(*Buffer, Size, ResEx()\Key)
             Result = CatchXML(XML, *Buffer, Size, Flags, Encoding)
-            If XML = #PB_Any : XML = Result : EndIf
-
           EndIf
           
           FreeMemory(*Buffer)
@@ -502,7 +499,7 @@ Module ResourceEx
 
     EndIf
     
-    ProcedureReturn XML
+    ProcedureReturn Result
   EndProcedure
   
   Procedure.i UseJSON(ID.i, JSON.i, FileName.s, Flags.i=#False)
@@ -519,9 +516,8 @@ Module ResourceEx
         If *Buffer
           
           If UncompressPackMemory(ResEx()\ID, *Buffer, Size, FileName) <> -1
-            Size = DecryptMemory_(*Buffer, Size, ResEx()\Key)
+            Size   = DecryptMemory_(*Buffer, Size, ResEx()\Key)
             Result = CatchJSON(JSON, *Buffer, Size, Flags)
-            If JSON = #PB_Any : JSON = Result : EndIf
           EndIf
           
           FreeMemory(*Buffer)
@@ -531,7 +527,7 @@ Module ResourceEx
       
     EndIf
     
-    ProcedureReturn JSON
+    ProcedureReturn Result
   EndProcedure
 
   Procedure.i UseImage(ID.i, Image.i, FileName.s)
@@ -550,7 +546,6 @@ Module ResourceEx
           If UncompressPackMemory(ResEx()\ID, *Buffer, Size, FileName) <> -1
             Size = DecryptMemory_(*Buffer, Size, ResEx()\Key)
             Result = CatchImage(Image, *Buffer, Size)
-            If Image = #PB_Any : Image = Result : EndIf
           EndIf
 
           FreeMemory(*Buffer)
@@ -560,7 +555,7 @@ Module ResourceEx
       
     EndIf
     
-    ProcedureReturn Image
+    ProcedureReturn Result
   EndProcedure
   
   Procedure.s UseText(ID.i, FileName.s, Flags.i=#PB_UTF8)
@@ -608,7 +603,6 @@ Module ResourceEx
             If UncompressPackMemory(ResEx()\ID, *Buffer, Size, FileName) <> -1
               Size = DecryptMemory_(*Buffer, Size, ResEx()\Key)
               Result = CatchSound(Sound, *Buffer, Size)
-              If Sound = #PB_Any : Sound = Result : EndIf
             EndIf
 
             FreeMemory(*Buffer)
@@ -618,7 +612,7 @@ Module ResourceEx
      
     EndIf
     
-    ProcedureReturn Sound
+    ProcedureReturn Result
   EndProcedure
   
   Procedure.i UseSprite(ID.i, Sprite.i, FileName.s, Flags.i=#False)
@@ -637,7 +631,6 @@ Module ResourceEx
             If UncompressPackMemory(ResEx()\ID, *Buffer, Size, FileName) <> -1
               If DecryptMemory_(*Buffer, Size, ResEx()\Key)
                 Result = CatchSprite(Sprite, *Buffer, Flags)
-                If Sprite = #PB_Any : Sprite = Result : EndIf
               EndIf
             EndIf
             
@@ -648,7 +641,7 @@ Module ResourceEx
      
     EndIf
     
-    ProcedureReturn Sprite
+    ProcedureReturn Result
   EndProcedure
 
   Procedure.i UseMusic(ID.i, Music.i, FileName.s, Flags.i=#False)
@@ -667,7 +660,6 @@ Module ResourceEx
             If UncompressPackMemory(ResEx()\ID, *Buffer, Size, FileName) <> -1
               Size = DecryptMemory_(*Buffer, Size, ResEx()\Key)
               Result = CatchMusic(Music, *Buffer, Size)
-              If Music = #PB_Any : Music = Result : EndIf
             EndIf
             
             FreeMemory(*Buffer)
@@ -677,7 +669,7 @@ Module ResourceEx
      
     EndIf
     
-    ProcedureReturn Music
+    ProcedureReturn Result
   EndProcedure
   
   
@@ -736,8 +728,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 49
-; FirstLine = 99
-; Folding = OwHAA+
+; CursorPosition = 671
+; FirstLine = 112
+; Folding = uwHAA+
 ; EnableXP
 ; DPIAware

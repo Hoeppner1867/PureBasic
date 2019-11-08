@@ -67,7 +67,7 @@ XIncludeFile "PreviewModule.pbi"
 
 #Language = "qAES-Packer.lng"
 
-#Pattern_ZIP$  = "ZIP (*.zip)|*.zip"
+#Pattern_ZIP$  = "ZIP (*.zip)|*.zip;*.jar"
 #Pattern_LZMA$ = "LZMA (*.7z)|*.7z;*.lzma"
 #Pattern_TAR$  = "TAR (*.tar)|*.tar;*.gzip;*.bzip2;*.bz2"
 #Pattern_RES$  = "Resources (*.res)|*.res"
@@ -625,7 +625,7 @@ Procedure.s SelectLanguage()
 EndProcedure
 
 
-Procedure   CreateResourceFile(File.s) 
+Procedure   CreateResourceFile(File.s, PackFile.s) 
   
   If CreateFile(#File, File, #PB_UTF8)
     
@@ -663,7 +663,7 @@ Procedure   CreateResourceFile(File.s)
     
     WriteStringN(#File, "")
     
-    WriteStringN(#File, "If ResourceEx::Open(#ResEx, " + Chr(34) + GetFilePart(File) + Chr(34) + ")")
+    WriteStringN(#File, "If ResourceEx::Open(#ResEx, " + Chr(34) + GetFilePart(PackFile) + Chr(34) + ")")
     
     ForEach Archive\File()
       If GetExtensionPart(Archive\File()\Name)
@@ -1116,7 +1116,7 @@ Procedure   OpenPackFile_(PackFile.s)
   SetGadgetColor(#Gadget_PackerEx_SG_Archive, #PB_Gadget_FrontColor, $8B0000)
 
   Select LCase(GetExtensionPart(PackFile))
-    Case "zip"
+    Case "zip", "jar"
       If LoadContent(PackFile, #PB_PackerPlugin_Zip)
         Archive\Plugin = #PB_PackerPlugin_Zip
         AppReg::SetInteger(#HKey, "Archive", "Pattern", #ZIP)
@@ -1521,7 +1521,7 @@ If Window_PackerEx()
             EndIf 
             
             If GetExtensionPart(Archive\Name) = "res"
-              CreateResourceFile(Archive\Path + "Resource.pbi")
+              CreateResourceFile(Archive\Path + "Resource.pbi", Archive\Name)
             EndIf 
             
             ListEx::HideColumn(#Gadget_PackerEx_FileList, 2, #False)
@@ -1758,11 +1758,11 @@ Window::Save("qAES-Packer.win")
 
 End
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 999
-; FirstLine = 156
-; Folding = YAAwDA9PeAMWWj
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 1521
+; FirstLine = 481
+; Folding = YAAwjA9PeIMXWj
 ; EnableXP
 ; DPIAware
 ; UseIcon = qAES-Packer.ico
-; Executable = ..\qAES-Packer64.exe
+; Executable = ..\qAES-Packer.exe
