@@ -10,9 +10,10 @@
 ;/
 
 
-
-; Last Update:
-
+; Last Update: 8.11.19
+;
+; Added: #UseExistingCanvas
+;
 
 ;{ ===== MIT License =====
 ;
@@ -54,7 +55,6 @@
 
 ;}
 
-
 XIncludeFile "ModuleEx.pbi"
 
 DeclareModule ImageEx
@@ -70,6 +70,8 @@ DeclareModule ImageEx
 		#AdjustBorder      ; fit border to image
 		#AdjustBackground  ; fit background color for images with alpha channel
 		#ChangeCursor
+		#Always24Bit
+		#UseExistingCanvas
 		#Border = #PB_Image_Border ; Draw a border (512)
 	EndEnumeration ;}
 	
@@ -164,6 +166,7 @@ Module ImageEx
 	  Num.i
 	  Width.i
 	  Height.i
+	  Depth.i
 	  Factor.f
 	EndStructure ;}
 	
@@ -339,8 +342,12 @@ Module ImageEx
 			  Box(0, 0, dpiX(GadgetWidth(ImageEx()\CanvasNum)), dpiY(GadgetHeight(ImageEx()\CanvasNum)), ImageEx()\Color\Back)
 			EndIf 
 			;}		  
-		  
-		  DrawingMode(#PB_2DDrawing_AlphaBlend)
+		  If ImageEx()\Image\Depth = 32
+		    DrawingMode(#PB_2DDrawing_AlphaBlend)
+		  Else
+		    DrawingMode(#PB_2DDrawing_Default)
+		  EndIf
+
 		  DrawImage(ImageID(ImageEx()\Image\Num), imgX, imgY, imgWidth, imgHeight)
 		  
 		  ImageEx()\Current\X = imgX
@@ -624,8 +631,18 @@ Module ImageEx
 	
 	Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, ImageNum.i, Flags.i=#False, WindowNum.i=#PB_Default)
 		Define DummyNum, Result.i
-
-		Result = CanvasGadget(GNum, X, Y, Width, Height)
+		
+		If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
+      If IsGadget(GNum)
+        Result = #True
+      Else
+        ProcedureReturn #False
+      EndIf
+      ;}
+    Else
+      Result = CanvasGadget(GNum, X, Y, Width, Height)
+    EndIf
+		
 		If Result
 
 			If GNum = #PB_Any : GNum = Result : EndIf
@@ -675,6 +692,7 @@ Module ImageEx
 				If IsImage(ImageNum)
 				  ImageEx()\Image\Width  = ImageWidth(ImageNum)
 				  ImageEx()\Image\Height = ImageHeight(ImageNum)
+				  ImageEx()\Image\Depth  = ImageDepth(ImageNum)
 				  ImageEx()\Image\Factor = ImageEx()\Image\Height / ImageEx()\Image\Width
 				EndIf   
 				
@@ -806,6 +824,7 @@ Module ImageEx
 			If IsImage(ImageNum)
 			  ImageEx()\Image\Width  = ImageWidth(ImageNum)
 			  ImageEx()\Image\Height = ImageHeight(ImageNum)
+			  ImageEx()\Image\Depth  = ImageDepth(ImageNum)
 			  ImageEx()\Image\Factor = ImageEx()\Image\Height / ImageEx()\Image\Width
 			EndIf  
       
@@ -939,7 +958,7 @@ CompilerIf #PB_Compiler_IsMainFile
 
   #Image = 1
   
-  LoadImage(#Image, "Test.png")
+  LoadImage(#Image, "TestH.png")
   
   If OpenWindow(#Window, 0, 0, 300, 200, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
     
@@ -990,8 +1009,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 941
-; FirstLine = 287
-; Folding = MdAAAAGEix+
+; CursorPosition = 641
+; FirstLine = 275
+; Folding = cdBAEAmJUj0
 ; EnableXP
 ; DPIAware

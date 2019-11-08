@@ -9,7 +9,10 @@
 ;/ © 2019 Thorsten1867 (06/2019)
 ;/
 
-; Last Update: 24.8.2019
+; Last Update: 8.11.19
+;
+; Added: #UseExistingCanvas
+;
 
 ;{ ===== MIT License =====
 ;
@@ -65,6 +68,7 @@ DeclareModule ProgressEx
     #Vertical
     #ShowPercent
     #AutoResize
+    #UseExistingCanvas
   EndEnumeration
   
   Enumeration 1
@@ -416,7 +420,17 @@ Module ProgressEx
   Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Minimum.i=0, Maximum.i=100, Flags.i=#False, WindowNum.i=#PB_Default)
     Define.i txtNum, Result
     
-    Result = CanvasGadget(GNum, X, Y, Width, Height)
+    If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
+      If IsGadget(GNum)
+        Result = #True
+      Else
+        ProcedureReturn #False
+      EndIf
+      ;}
+    Else
+      Result = CanvasGadget(GNum, X, Y, Width, Height)
+    EndIf
+
     If Result
       
       If GNum = #PB_Any : GNum = Result : EndIf
@@ -662,8 +676,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 11
-; Folding = OCPMSw
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 432
+; FirstLine = 253
+; Folding = OCPckg-
 ; EnableXP
 ; DPIAware

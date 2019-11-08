@@ -9,9 +9,12 @@
 ;/ © 2019 Thorsten1867 (07/2019)
 ;/
 
-; Last Update: 5.09.2019
+; Last Update: 8.11.2019
 ;
-; Bugfix:  Resize
+; Added:  #UseExistingCanvas
+;
+; Added:  Today Color
+; Bugfix: Resize
 ;
 ; Changed: #ResizeWidth -> #Width / #ResizeHeight -> #Height
 ;
@@ -123,6 +126,7 @@ DeclareModule Calendar
     #ToolTips      ; Show tooltips
     #FitText
     #FixPadding
+    #UseExistingCanvas
   EndEnumeration ;}
   
   Enumeration 1     ;{ Attribute
@@ -164,6 +168,7 @@ DeclareModule Calendar
     #BorderColor
     #FocusColor
     #FrontColor
+    #TodayColor
     #GreyTextColor
     #LineColor
     #Entry_FrontColor
@@ -298,6 +303,14 @@ Module Calendar
   ;- ============================================================================
   ;-   Module - Structures
   ;- ============================================================================
+  
+  Structure Border_Structure
+    Day.i
+    X.i
+    Y.i
+    Width.i
+    Height.i
+  EndStructure
   
   Structure UUID_Structure               ;{ UID
     Byte.b[16]
@@ -437,6 +450,7 @@ Module Calendar
     Front.i
     Line.i
     GreyText.i
+    Today.i
     EntryFront.i
     EntryBack.i
   EndStructure  ;}
@@ -866,6 +880,18 @@ Module Calendar
 	  ProcedureReturn DayOfWeek
 	EndProcedure
 	
+	Procedure.i Today_(Month.i, Year.i) 
+	  Define.q tDate = Date()
+	  
+	  If Year_(tDate) = Year
+	    If Month_(tDate) = Month
+	      ProcedureReturn Day_(tDate)
+	    EndIf  
+	  EndIf 
+	  
+	  ProcedureReturn #False
+	EndProcedure
+	  
   Procedure   UpdatePopUpMenu_()
 		Define.s Text$
 
@@ -997,9 +1023,10 @@ Module Calendar
   Procedure   Draw_()
     Define.i X, Y, Width, Height, PosX, PosY, txtX, txtY, txtHeight
     Define.i c, r, Column, Row, ColumnWidth, RowHeight, bWidth, bHeight, Difference
-    Define.i Date, Month, Year, Day, GreyDay, FirstWeekDay, LastDay, FocusDay, FocusX, FocusY
+    Define.i Date, Month, Year, Day, GreyDay, FirstWeekDay, LastDay
     Define.i FrontColor, BackColor, CurrentDate, Entries
     Define.s Text$, Month$, Year$, ToolTipMask$
+    Define Focus.Border_Structure, Today.Border_Structure
     
     X = dpiX(Calendar()\Margin\Left)
     Y = dpiY(Calendar()\Margin\Top)
@@ -1066,10 +1093,11 @@ Module Calendar
       FirstWeekDay = FirstWeekDay_(Month, Year)
       LastDay      = LastDayOfMonth_(Month, Year)
       GreyDay      = FirstCalendarDay(Month.i, Year.i)
-      FocusDay     = Day_(Calendar()\Current\Focus)
+      Focus\Day    = Day_(Calendar()\Current\Focus)
+      Today\Day    = Today_(Month, Year)
       
-      FocusX = #NotValid
-      FocusY = #NotValid
+      Focus\X = #NotValid
+      Focus\Y = #NotValid
       
       PosY = Y
       Day  = 1
@@ -1205,6 +1233,15 @@ Module Calendar
                 FrontColor = Calendar()\Color\Front
                 BackColor  = Calendar()\Color\Back
                 
+                If Day = Today\Day
+                  DrawingMode(#PB_2DDrawing_Default)
+                  Box(PosX, PosY, bWidth, bHeight, BlendColor_(Calendar()\Color\Today, BackColor, 6))
+                  Today\X = PosX
+                  Today\Y = PosY
+                  Today\Width  = bWidth
+                  Today\Height = bHeight
+                EndIf 
+                
                 If Entries        ;{ Draw entry background
                   
                   If FindMapElement(Calendar()\Day(), Str(Day))
@@ -1307,14 +1344,19 @@ Module Calendar
                   EndIf
                   
                 EndIf ;}
-                
-                If Day = FocusDay ;{ Draw focus
+               
+                If Day = Focus\Day ;{ Draw focus
                   If Month = Month_(Calendar()\Current\Focus) And Year = Year_(Calendar()\Current\Focus)
                     DrawingMode(#PB_2DDrawing_Default)
-                    Box(PosX, PosY, ColumnWidth, RowHeight, BlendColor_(Calendar()\Color\Focus, BackColor, 10))
-                    FocusX = PosX : FocusY = PosY
+                    Box(PosX, PosY, bWidth, bHeight, BlendColor_(Calendar()\Color\Focus, BackColor, 10))
+                    Focus\X = PosX
+                    Focus\Y = PosY
+                    Focus\Width  = bWidth
+                    Focus\Height = bHeight
                   EndIf
                 EndIf ;}
+                
+ 
                 
                 DrawingMode(#PB_2DDrawing_Transparent) 
                 DrawText(PosX + txtX, PosY + txtY, Text$, FrontColor)
@@ -1366,10 +1408,15 @@ Module Calendar
       
       PopMapPosition(Calendar()\Day())
       
-      ;{ Draw Focus Border
-      If FocusX <> #NotValid And FocusY <> #NotValid 
+      If Today\Day
         DrawingMode(#PB_2DDrawing_Outlined) 
-        Box(FocusX, FocusY, ColumnWidth + dpiX(1), RowHeight + dpiY(1), BlendColor_(Calendar()\Color\Focus, Calendar()\Color\Line, 60))
+        Box(Today\X, Today\Y, Today\Width, Today\Height, BlendColor_(Calendar()\Color\Today, Calendar()\Color\Line, 40))
+      EndIf 
+      
+      ;{ Draw Focus Border
+      If Focus\X <> #NotValid And Focus\Y <> #NotValid 
+        DrawingMode(#PB_2DDrawing_Outlined) 
+        Box(Focus\X, Focus\Y, Focus\Width, Focus\Height, BlendColor_(Calendar()\Color\Focus, Calendar()\Color\Line, 60))
       EndIf
       ;}
       
@@ -2147,7 +2194,17 @@ Module Calendar
   Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
     Define d, m, DummyNum, Result.i
     
-    Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Container)
+    If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
+      If IsGadget(GNum)
+        Result = #True
+      Else
+        ProcedureReturn #False
+      EndIf
+      ;}
+    Else
+      Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Container)
+    EndIf
+
     If Result
       
       If GNum = #PB_Any : GNum = Result : EndIf
@@ -2246,6 +2303,7 @@ Module Calendar
         Calendar()\Color\Focus      = $D77800
         Calendar()\Color\Front      = $000000
         Calendar()\Color\Line       = $B4B4B4
+        Calendar()\Color\Today      = $0000FF
         
         Calendar()\Color\EntryFront = $0000CC
         Calendar()\Color\EntryBack  = $FFFFFF
@@ -2435,6 +2493,8 @@ Module Calendar
           Calendar()\Color\Front       = Value        
         Case #FocusColor
           Calendar()\Color\Focus       = Value
+        Case #TodayColor
+          Calendar()\Color\Today       = Value  
         Case #GreyTextColor
           Calendar()\Color\GreyText    = Value
         Case #LineColor
@@ -2852,7 +2912,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 11
-; Folding = soHAAwEAoBB5gTQQsTAA2AAMwX-
+; CursorPosition = 2206
+; FirstLine = 670
+; Folding = sQHACwGAoBACI-pMYngACLgwof0
 ; EnableXP
 ; DPIAware

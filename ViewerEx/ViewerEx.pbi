@@ -10,8 +10,10 @@
 ;/ Pattern based on (http://tug.org/tex-hyphen/)
 ;/
 
-; Last Update: 
-
+; Last Update: 8.11.19
+;
+; Added: #UseExistingCanvas
+;
 
 ;{ ===== MIT License =====
 ;
@@ -96,6 +98,7 @@ DeclareModule ViewerEx
   EnumerationBinary Gadget
     #AutoResize
     #Borderless
+    #UseExistingCanvas
   EndEnumeration
   
   EnumerationBinary Flags
@@ -265,6 +268,7 @@ Module ViewerEx
     Hide.i
   EndStructure ;}
   
+  
   Structure ViewerEx_Size_Structure      ;{ VGEx()\Size\...
     X.f
     Y.f
@@ -371,7 +375,7 @@ Module ViewerEx
     EventValue.s
     Label.s ; Label for current content
     Pattern.s  ; Language code for hyphenation
-    
+
     Color.ViewerEx_Color_Structure
     Content.ViewerEx_Content_Structure
     ScrollBar.ViewerEx_ScrollBar_Structure
@@ -2266,7 +2270,17 @@ Module ViewerEx
   Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
     Define.i Result, Num
     
-    Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Keyboard|#PB_Canvas_Container)
+    If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
+      If IsGadget(GNum)
+        Result = #True
+      Else
+        ProcedureReturn #False
+      EndIf
+      ;}
+    Else
+      Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Keyboard|#PB_Canvas_Container)
+    EndIf
+    
     If Result
       
       If GNum = #PB_Any : GNum = Result : EndIf
@@ -2529,6 +2543,7 @@ Module ViewerEx
     ProcedureReturn Result
   EndProcedure
   
+  
   Procedure   SetAutoResizeFlags(GNum.i, Flags.i)
     
     If FindMapElement(VGEx(), Str(GNum))
@@ -2742,10 +2757,10 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 2695
-; FirstLine = 498
-; Folding = MCEAkBAACYAAAAAAAAAHC56
-; Markers = 1788
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 2281
+; FirstLine = 263
+; Folding = MCAAgBAACYAEAAAAAAAPEgz
+; Markers = 1792
 ; EnableXP
 ; DPIAware

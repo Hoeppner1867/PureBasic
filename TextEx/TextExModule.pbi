@@ -9,8 +9,10 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 12.6.2019
-
+; Last Update: 8.11.19
+;
+; Added: #UseExistingCanvas
+;
 ; - Added: Default font
 
 ;{ ===== MIT License =====
@@ -65,6 +67,7 @@ DeclareModule TextEx
     #Gradient
     #AutoResize
     #MultiLine
+    #UseExistingCanvas
     #Border = #PB_Text_Border
   EndEnumeration
   
@@ -431,7 +434,17 @@ Module TextEx
   Procedure   Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Text.s, Flags.i=#False, WindowNum.i=#PB_Default)
     Define.i Result, txtNum
     
-    Result = CanvasGadget(GNum, X, Y, Width, Height)
+    If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
+      If IsGadget(GNum)
+        Result = #True
+      Else
+        ProcedureReturn #False
+      EndIf
+      ;}
+    Else
+      Result = CanvasGadget(GNum, X, Y, Width, Height)
+    EndIf
+    
     If Result
       
       If GNum = #PB_Any : GNum = Result : EndIf
@@ -553,8 +566,8 @@ CompilerIf #PB_Compiler_IsMainFile
     
   EndIf
 CompilerEndIf
-; IDE Options = PureBasic 5.70 LTS (Windows - x86)
-; CursorPosition = 203
-; FirstLine = 126
-; Folding = eCsP9+
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 445
+; FirstLine = 292
+; Folding = eCsPs0
 ; EnableXP

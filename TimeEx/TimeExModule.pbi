@@ -7,7 +7,10 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 2.4.2019
+; Last Update: 8.11.19
+;
+; Added: #UseExistingCanvas
+;
 
 
 ;{ ===== MIT License =====
@@ -58,6 +61,7 @@ DeclareModule TimeEx
     #Borderless
     #Format12Hour
     #NoSeconds
+    #UseExistingCanvas
   EndEnumeration
   
   Enumeration Color 1 
@@ -851,7 +855,17 @@ Module TimeEx
   Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Time.s, Flags.i=#False, WindowNum.i=#PB_Default) 
     Define Result.i, txtNum
     
-    Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Keyboard)
+    If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
+      If IsGadget(GNum)
+        Result = #True
+      Else
+        ProcedureReturn #False
+      EndIf
+      ;}
+    Else
+      Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Keyboard)
+    EndIf
+    
     If Result
       If GNum = #PB_Any : GNum = Result : EndIf
       
@@ -1079,9 +1093,9 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf
-; IDE Options = PureBasic 5.70 LTS (Windows - x86)
-; CursorPosition = 875
-; FirstLine = 159
-; Folding = 5BTIBAwB+
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 866
+; FirstLine = 198
+; Folding = 9BTIBAwD9
 ; EnableXP
 ; DPIAware

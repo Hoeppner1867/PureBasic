@@ -10,10 +10,10 @@
 ;/
 
 
-; Last Update: 9.09.2019
-
-; - many Bugfixes
-
+; Last Update: 8.11.19
+;
+; Added: #UseExistingCanvas
+;
 
 ;{ ===== MIT License =====
 ;
@@ -68,6 +68,7 @@ DeclareModule PreView
 		#AutoResize ; Automatic resizing of the gadget
 		#Border     ; Draw a border
 		#ResizeWindow
+		#UseExistingCanvas
 	EndEnumeration ;}
 	
 	Enumeration 1     ;{ PreView()\Mode
@@ -1248,8 +1249,18 @@ Module PreView
   
 	Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
 		Define DummyNum, Result.i
-
-		Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Container|#PB_Canvas_Border)
+		
+		If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
+      If IsGadget(GNum)
+        Result = #True
+      Else
+        ProcedureReturn #False
+      EndIf
+      ;}
+    Else
+      Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Container|#PB_Canvas_Border)
+    EndIf
+		
 		If Result
 
 			If GNum = #PB_Any : GNum = Result : EndIf
@@ -1634,7 +1645,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 14
-; Folding = 9EB4TPQJEkA+
+; CursorPosition = 1258
+; FirstLine = 502
+; Folding = 9EB4TPQJEMB9
 ; EnableXP
 ; DPIAware

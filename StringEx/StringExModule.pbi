@@ -7,7 +7,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 3.09.2019
+; Last Update: 8.11.19
+;
+; Added: #UseExistingCanvas
 ;
 ; Changed: #ResizeWidth -> #Width / #ResizeHeight -> #Height
 ; Added:   SetDynamicFont() / FitText() / SetFitText()       [needs ModuleEx.pbi]
@@ -68,7 +70,7 @@ XIncludeFile "ModuleEx.pbi"
 
 DeclareModule StringEx
   
-  #Enable_AutoComplete = #True
+  #Enable_AutoComplete       = #True
   #Enable_ShowPasswordButton = #True
   
   ;- ===========================================================================
@@ -92,6 +94,7 @@ DeclareModule StringEx
     #Center
     #FitText
     #FixPadding
+    #UseExistingCanvas
   EndEnumeration
   
   Enumeration Attribute 1
@@ -1537,10 +1540,20 @@ Module StringEx
   EndProcedure
   
   
-  Procedure Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Content.s="", Flags.i=#False, WindowNum.i=#PB_Default)
+  Procedure   Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Content.s="", Flags.i=#False, WindowNum.i=#PB_Default)
     Define.i Result, txtNum
     
-    Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Keyboard)
+    If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
+      If IsGadget(GNum)
+        Result = #True
+      Else
+        ProcedureReturn #False
+      EndIf
+      ;}
+    Else
+      Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Keyboard)
+    EndIf
+    
     If Result
       
       If GNum = #PB_Any : GNum = Result : EndIf
@@ -1679,7 +1692,7 @@ Module StringEx
           EndIf  
         EndIf
         
-        BindEvent(#Event_Cursor,         @_CursorDrawing())
+        BindEvent(#Event_Cursor, @_CursorDrawing())
         BindEvent(#PB_Event_CloseWindow, @_CloseWindowHandler(), StrgEx()\Window\Num)
         
         Draw_()
@@ -2057,9 +2070,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 65
-; FirstLine = 8
-; Folding = MHAEAAAAAAAAA5sBgAAgw-
+; CursorPosition = 1551
+; FirstLine = 559
+; Folding = cPAEAoAkAcBAM7oDgDgCg-
 ; EnableThread
 ; EnableXP
 ; DPIAware

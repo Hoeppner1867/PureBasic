@@ -7,14 +7,12 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 17.10.2019
+; Last Update: 8.11.19
+;
+; Added: #UseExistingCanvas
 ;
 ; Bugfixes: DPI
 ; List of suggested corrections: Button to add a word to the user dictionary.
-;
-; Added: WrapText() - wrap saved text without loading it into the gadget before.
-;
-; Reorganization and revision of drawing and scroll routines.
 ;
 
 
@@ -175,6 +173,7 @@ DeclareModule EditEx
     #inch
     #ScrollBar_Vertical
     #ScrollBar_Horizontal
+    #UseExistingCanvas
   EndEnumeration
   
   EnumerationBinary SpellCheck
@@ -4741,7 +4740,17 @@ Module EditEx
       Flags & ~#PB_Editor_WordWrap
     EndIf
     
-    Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Keyboard|#PB_Canvas_Container|#PB_Canvas_ClipMouse)
+    If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
+      If IsGadget(GNum)
+        Result = #True
+      Else
+        ProcedureReturn #False
+      EndIf
+      ;}
+    Else
+      Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Keyboard|#PB_Canvas_Container|#PB_Canvas_ClipMouse)
+    EndIf
+
     If Result
       
       If GNum = #PB_Any : GNum = Result : EndIf
@@ -5165,9 +5174,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 273
-; FirstLine = 157
-; Folding = 5XnRAgBAAIKEgBIA9BAkBBCAIIwBAGVEAMSMEECEAkmAACYgEE--
-; Markers = 888
+; CursorPosition = 4750
+; FirstLine = 842
+; Folding = 5XnRAgBAAIKEgBIA9BAkBBCAIIwBAGVEAMSMEECEAkmAAC5BJI+-
+; Markers = 887
 ; EnableXP
 ; DPIAware

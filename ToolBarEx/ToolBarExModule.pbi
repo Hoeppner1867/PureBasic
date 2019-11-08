@@ -9,7 +9,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 18.09.2019
+; Last Update: 8.11.19
+;
+; Added: #UseExistingCanvas
 ;
 ; Bugfix: Focus
 ;
@@ -105,6 +107,7 @@ DeclareModule ToolBar
     #PopupArrows
     #ToolTips
     #TextInside
+    #UseExistingCanvas
   EndEnumeration
   
   Enumeration Attribute 1
@@ -1525,8 +1528,18 @@ Module ToolBar
         If Flags & #Border :  Height + dpiY(2) : EndIf
       EndIf
     EndIf ;}
+    
+    If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
+      If IsGadget(GNum)
+        Result = #True
+      Else
+        ProcedureReturn #False
+      EndIf
+      ;}
+    Else
+      Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Container)
+    EndIf
 
-    Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Container)
     If Result
       
       If GNum = #PB_Any : GNum = Result : EndIf
@@ -2079,8 +2092,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 15
-; Folding = 9BAEcQHPsJFAgZAgqf-
+; CursorPosition = 1541
+; FirstLine = 479
+; Folding = 9BAEcQHMsJFAg6AAV-+
 ; EnableXP
 ; DPIAware
 ; Executable = Test.exe

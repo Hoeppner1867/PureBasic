@@ -10,14 +10,12 @@
 ;/
 
 
-; Last Update: 28.07.19
+; Last Update: 8.11.19
+;
+; Added: #UseExistingCanvas
 ;
 ; Added: #Time flag for axis / AddAxisLabel()
 ; Added: 
-;
-; Added: Scatter plot chart
-;
-; BugFixes
 ;
 
 ;{ ===== MIT License =====
@@ -166,6 +164,7 @@ DeclareModule Chart
     #ModifyByCursor  ; move data points up and down to change the value [#LineChart]
     #AxisX
     #AxisY
+    #UseExistingCanvas
   EndEnumeration
   
   #AllScatterPlots = #AllDataSeries
@@ -255,8 +254,7 @@ DeclareModule Chart
   CompilerEndIf
   
   CompilerIf #Enable_ScatterPlot
-    
-    Declare.i AddAxisLabel(GNum.i, Label.s, Value.f, Type.i=#AxisX)
+
     Declare.i AddScatterPlot(GNum.i, Label.s, Color.i=#PB_Default, GradientColor.i=#PB_Default, BorderColor.i=#PB_Default)
     Declare.i AddScatterItem(GNum.i, Scatter.s, Label.s, DataX.q, DataY.q)
     Declare.i DisplayScatterPlot(GNum.i, Scatter.s, State.i=#True)
@@ -274,6 +272,7 @@ DeclareModule Chart
     
   CompilerEndIf  
   
+  Declare.i AddAxisLabel(GNum.i, Label.s, Value.f, Type.i=#AxisX)
   Declare.i AddItem(GNum.i, Label.s, Value.i, BarColor.i=#PB_Default, GradientColor.i=#PB_Default, BorderColor.i=#PB_Default)
   Declare   AttachPopupMenu(GNum.i, PopUpNum.i)
   Declare   DisableReDraw(GNum.i, State.i=#False)
@@ -649,6 +648,20 @@ Module Chart
         Text$ = ReplaceString(Text$, #DataY$,   StrF(Chart()\Series()\Item()\DataY), Chart()\Decimals)
         Text$ = ReplaceString(Text$, #TimeX$,   FormatDate(Chart()\AxisX\DateMask, Int(Chart()\Series()\Item()\DataX)))
         Text$ = ReplaceString(Text$, #TimeY$,   FormatDate(Chart()\AxisY\DateMask, Int(Chart()\Series()\Item()\DataY)))
+      EndIf
+      
+    ElseIf Chart()\Flags & #LineChart 
+      
+      Percent = (Chart()\Item()\Value - Chart()\Current\MinimumY) * 100
+      If Percent <> 0
+        Percent = (Percent / Chart()\Line\Range)
+      Else
+        Percent = 0
+      EndIf
+      If Text
+        Text$ = ReplaceString(Text,  #Percent$, Str(Percent) + "%")
+        Text$ = ReplaceString(Text$, #Value$, Str(Chart()\Item()\Value))
+        Text$ = ReplaceString(Text$, #Label$, Chart()\Item()\Label)
       EndIf
       
     Else
@@ -4840,34 +4853,6 @@ Module Chart
     
     EndProcedure
     
-    Procedure   AddAxisLabel(GNum.i, Label.s, Value.f, Type.i=#AxisX) ; enable with flag '#Label'
-      Define.i i, Count
-      
-      If FindMapElement(Chart(), Str(GNum))
-
-        Select Type
-          Case #AxisX
-            
-            If AddElement(Chart()\AxisX\Label())
-              Chart()\AxisX\Label()\Text  = Label
-              Chart()\AxisX\Label()\Value = Value
-            EndIf
-            Chart()\Scatter\ScaleLinesX = ListSize(Chart()\AxisX\Label())
-            
-          Case #AxisY
-
-            If AddElement(Chart()\AxisX\Label())
-              Chart()\AxisY\Label()\Text  = Label
-              Chart()\AxisY\Label()\Value = Value
-            EndIf
-            Chart()\Scatter\ScaleLinesY = ListSize(Chart()\AxisY\Label())
-            
-        EndSelect
-        
-      EndIf  
-      
-    EndProcedure 
-    
     Procedure.i DisplayScatterPlot(GNum.i, Scatter.s, State.i=#True)
 
       If FindMapElement(Chart(), Str(GNum))
@@ -5173,8 +5158,7 @@ Module Chart
     EndProcedure
     
   CompilerEndIf  
-  
-  
+   
   CompilerIf #Enable_DataSeries
     
     Procedure.i AddDataSeries(GNum.i, Label.s, Color.i=#PB_Default, GradientColor.i=#PB_Default, BorderColor.i=#PB_Default)
@@ -5526,6 +5510,34 @@ Module Chart
   CompilerEndIf
   
   
+  Procedure.i AddAxisLabel(GNum.i, Label.s, Value.f, Type.i=#AxisX) ; enable with flag '#Label'
+    Define.i i, Count
+    
+    If FindMapElement(Chart(), Str(GNum))
+
+      Select Type
+        Case #AxisX
+          
+          If AddElement(Chart()\AxisX\Label())
+            Chart()\AxisX\Label()\Text  = Label
+            Chart()\AxisX\Label()\Value = Value
+            ProcedureReturn ListSize(Chart()\AxisX\Label())
+          EndIf
+          
+        Case #AxisY
+
+          If AddElement(Chart()\AxisY\Label())
+            Chart()\AxisY\Label()\Text  = Label
+            Chart()\AxisY\Label()\Value = Value
+            ProcedureReturn ListSize(Chart()\AxisY\Label())
+          EndIf
+          
+      EndSelect
+      
+    EndIf  
+    
+  EndProcedure 
+  
   Procedure.i AddItem(GNum.i, Label.s, Value.i, Color.i=#PB_Default, GradientColor.i=#PB_Default, BorderColor.i=#PB_Default)
     
     If FindMapElement(Chart(), Str(GNum))
@@ -5630,7 +5642,17 @@ Module Chart
   Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
     Define txtNum, Result.i
     
-    Result = CanvasGadget(GNum, X, Y, Width, Height)
+    If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
+      If IsGadget(GNum)
+        Result = #True
+      Else
+        ProcedureReturn #False
+      EndIf
+      ;}
+    Else
+      Result = CanvasGadget(GNum, X, Y, Width, Height)
+    EndIf
+
     If Result
       
       If GNum = #PB_Any : GNum = Result : EndIf
@@ -6389,9 +6411,10 @@ CompilerIf #PB_Compiler_IsMainFile
   ; 13: bezier curves
   ; 14: negative & positive values
   ; 15: data series
+  ; 16: 
   ; --- Scatter Plot ---
-  ; 16: popup menu
-  ; 17: time axis
+  ; 17: popup menu
+  ; 18: time axis
   ; --------------------------
   
   Enumeration 
@@ -6517,7 +6540,7 @@ CompilerIf #PB_Compiler_IsMainFile
         Chart::AttachPopupMenu(#Chart, #PopUp)
         Chart::UpdatePopupText(#Chart, #Menu_Display, "Display '" + Chart::#Serie$ + "'")
         Chart::UpdatePopupText(#Chart, #Menu_Hide,    "Hide '"    + Chart::#Serie$ + "'")
-      CompilerCase 16  
+      CompilerCase 17  
         Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#ScatterPlot|Chart::#Border|Chart::#ToolTips|Chart::#AutoResize, #Window) ; |Chart::#ShowLines|Chart::#ShowValue
         Chart::SetFlags(#Chart, Chart::#Legend, Chart::#PostEvents|Chart::#PopUpMenu)
         Chart::SetAttribute(#Chart, Chart::#MaximumY, 80)
@@ -6529,7 +6552,7 @@ CompilerIf #PB_Compiler_IsMainFile
         Chart::UpdatePopupText(#Chart, #Menu_Display, "Display '" + Chart::#Serie$ + "'")
         Chart::UpdatePopupText(#Chart, #Menu_Hide,    "Hide '"    + Chart::#Serie$ + "'")
         ;Chart::SetFont(#Chart, FontID(#Font), Chart::#ScatterPlot)
-      CompilerCase 17  
+      CompilerCase 18  
         Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#ScatterPlot|Chart::#Border|Chart::#ShowLines|Chart::#ToolTips|Chart::#AutoResize, #Window) ; |Chart::#ShowLines|Chart::#ShowValue
         Chart::SetFlags(#Chart, Chart::#Legend, Chart::#PostEvents|Chart::#PopUpMenu)
         Chart::SetAttribute(#Chart, Chart::#MaximumY, 80)
@@ -6542,7 +6565,7 @@ CompilerIf #PB_Compiler_IsMainFile
         Chart::AddAxisLabel(#Chart, "11:00", Date(2019, 1, 1, 11, 0, 0))
         Chart::AddAxisLabel(#Chart, "12:00", Date(2019, 1, 1, 12, 0, 0))
         Chart::AddAxisLabel(#Chart, "13:00", Date(2019, 1, 1, 13, 0, 0))
-        Chart::SetFlags(#Chart, Chart::#AxisX, Chart::#Time|Chart::#Labels) ; 
+        Chart::SetFlags(#Chart, Chart::#AxisX, Chart::#Time|Chart::#Labels)
         
         Chart::ToolTipText(#Chart, Chart::#Scatter$ + ": " + Chart::#Time$ + " - " + Chart::#DataY$) 
       CompilerDefault
@@ -6787,9 +6810,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 
-; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 6545
-; FirstLine = 6334
-; Folding = -----------v----------------------------------------------
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 5654
+; FirstLine = 4151
+; Folding = M--------futf5-------------------vNfwBgEFAQcgevqI--Tf4-6--
 ; EnableXP
 ; DPIAware

@@ -7,7 +7,9 @@
 ;/ Â© 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 2.09.2019
+; Last Update: 8.11.2019
+;
+; Added: #UseExistingCanvas
 ;
 ; Changed: #ResizeWidth -> #Width / #ResizeHeight -> #Height
 ; Added:   SetDynamicFont() / FitText() / SetFitText()       [needs ModuleEx.pbi]
@@ -91,7 +93,8 @@ DeclareModule ButtonEx
 		#Borderless
 		#AutoResize
 		#FitText
-    #FixPadding
+		#FixPadding
+		#UseExistingCanvas
 	EndEnumeration
 
 	EnumerationBinary
@@ -801,8 +804,18 @@ Module ButtonEx
 	
 	Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Text.s, Flags.i, WindowNum.i=#PB_Default)
 		Define Result.i, txtNum
+		
+		If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
+      If IsGadget(GNum)
+        Result = #True
+      Else
+        ProcedureReturn #False
+      EndIf
+      ;}
+    Else
+      Result = CanvasGadget(GNum, X, Y, Width, Height)
+    EndIf
 
-		Result = CanvasGadget(GNum, X, Y, Width, Height)
 		If Result
 
 			If GNum = #PB_Any : GNum = Result : EndIf
@@ -1176,8 +1189,8 @@ CompilerIf #PB_Compiler_IsMainFile
 
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 691
-; FirstLine = 146
-; Folding = kBIAEEMAA+
+; CursorPosition = 817
+; FirstLine = 184
+; Folding = sBIAEEKBA9-
 ; EnableXP
 ; DPIAware

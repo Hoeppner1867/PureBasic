@@ -11,7 +11,10 @@
 ;/ © 2019  by Thorsten (11/2019)
 ;/
 
-; Last Update:
+; Last Update: 8.11.19
+;
+; Added: #UseExistingCanvas
+;
 
 ;{ ===== MIT License =====
 ;
@@ -63,7 +66,8 @@ DeclareModule Gradual
 	  #Border       ; Show borders
 	  #PostEvents   ; Send events for left click
 	  #ChangeCursor ; change the cursor for clickable areas
-		#ToolTips     ; Show tooltips
+	  #ToolTips     ; Show tooltips
+	  #UseExistingCanvas
 	EndEnumeration ;}
 
 	EnumerationBinary ;{ AutoResize
@@ -578,8 +582,18 @@ Module Gradual
 
 	Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Steps.i, Flags.i=#False, WindowNum.i=#PB_Default)
 		Define DummyNum, Result.i
-
-		Result = CanvasGadget(GNum, X, Y, Width, Height)
+		
+		If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
+      If IsGadget(GNum)
+        Result = #True
+      Else
+        ProcedureReturn #False
+      EndIf
+      ;}
+    Else
+      Result = CanvasGadget(GNum, X, Y, Width, Height)
+    EndIf
+		
 		If Result
 
 			If GNum = #PB_Any : GNum = Result : EndIf
@@ -842,8 +856,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 798
-; FirstLine = 153
-; Folding = uEAA5AAw8
+; CursorPosition = 595
+; FirstLine = 120
+; Folding = +EAA5gAg4
 ; EnableXP
 ; DPIAware
