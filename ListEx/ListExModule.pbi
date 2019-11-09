@@ -9,14 +9,11 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 8.11.2019
+; Last Update: 9.11.2019
 ;
-; - Support for StringExModule.pbi
+; - StringGadget() replaced by internal DrawString_()
 ;
 ; - Addded: ListEx::Hide()
-;
-; - Added:  #ResizeColumn
-; - Bugfix: Type for single cells
 ;
 
 ;{ ===== MIT License =====
@@ -117,8 +114,6 @@
 ;} -----------------------------
 
 
-; XIncludeFile "StringExModule.pbi"
-
 DeclareModule ListEx
   
   #Enable_Validation  = #True
@@ -186,7 +181,6 @@ DeclareModule ListEx
     #HeaderHeight
     #Padding
     #Gadget
-    #StringFont
     #HeaderFont
     #GadgetFont
   EndEnumeration
@@ -278,6 +272,7 @@ DeclareModule ListEx
   
   CompilerIf Defined(ModuleEx, #PB_Module)
     
+    #Event_Cursor       = ModuleEx::#Event_Cursor
     #Event_Gadget       = ModuleEx::#Event_Gadget
     
     #EventType_Button   = ModuleEx::#EventType_Button
@@ -292,6 +287,7 @@ DeclareModule ListEx
   CompilerElse
     
     Enumeration #PB_Event_FirstCustomValue
+      #Event_Cursor
       #Event_Gadget
     EndEnumeration
     
@@ -426,6 +422,8 @@ Module ListEx
   #DefaultDateSeparator    = "."
   #DefaultDecimalSeperator = ","
   
+  #CursorFrequency = 600
+  
   #RegEx = 1
   #JSON  = 1
   #NoFocus = -1
@@ -463,6 +461,24 @@ Module ListEx
   ;- ============================================================================  
   
   ; ===== Structures =====
+  
+  Structure Cursor_Thread_Structure     ;{
+    Num.i
+    Active.i
+    Exit.i
+  EndStructure ;}
+  
+  Structure ListEx_Cursor_Structure     ;{ ListEx()\Cursor\...
+    Pos.i ; 0: "|abc" / 1: "a|bc" / 2: "ab|c"  / 3: "abc|"
+    X.i
+    Y.i
+    Height.i
+    ClipX.i
+    State.i
+    Frequency.i
+    Thread.i
+    BackColor.i
+  EndStructure ;}
   
   Structure ListEx_Mark_Structure       ;{ ListEx()\Mark()\...
     Term.s
@@ -631,8 +647,11 @@ Module ListEx
     Width.f
     Height.f
     Label.s
-    Flag.i
+    Text.s
+    CursorPos.i
+    FontID.i
     Wrong.i
+    Flag.i
   EndStructure ;}
   
   Structure ListEx_Button_Structure     ;{ ListEx()\Button\...
@@ -750,7 +769,6 @@ Module ListEx
     Window.ListEx_Window_Structure
     
     CanvasNum.i
-    StringNum.i
     ComboNum.i
     DateNum.i
     PopUpID.i
@@ -762,7 +780,9 @@ Module ListEx
     ReDraw.i
     Hide.i
     
-    Cursor.i
+    CanvasCursor.i
+    Cursor.ListEx_Cursor_Structure
+    
     Focus.i
     MultiSelect.i
     Changed.i
@@ -803,7 +823,9 @@ Module ListEx
   Global NewMap ListEx.ListEx_Structure()
   
   Global NewMap Font.Font_Structure()
-  Global NewMap Grades.Grades_Structure() 
+  Global NewMap Grades.Grades_Structure()
+  
+  Global Thread.Cursor_Thread_Structure
   
   ;- ============================================================================
   ;-   Module - Internal
@@ -811,10 +833,10 @@ Module ListEx
   
   Declare AdjustScrollBars_(Force.i=#False)
   Declare BindShortcuts_(Flag.i=#True)
+  Declare BindTabulator_(Flag.i=#True)
   Declare CloseString_(Escape.i=#False)
   Declare CloseComboBox_(Escape.i=#False)
   Declare CloseDate_(Escape.i=#False)
-  
   
   CompilerIf #PB_Compiler_OS = #PB_OS_MacOS
     ; Addition of mk-soft
@@ -969,7 +991,15 @@ Module ListEx
     EndIf
     
   EndProcedure
+  
+  Procedure.s DeleteStringPart_(String.s, Position.i, Length.i=1) ; Delete string part at Position (with Length)
     
+    If Position <= 0 : Position = 1 : EndIf
+    If Position > Len(String) : Position = Len(String) : EndIf
+    
+    ProcedureReturn Left(String, Position - 1) + Mid(String, Position + Length)
+  EndProcedure
+  
   ;- _____ Check Content _____
   
   CompilerIf #Enable_Validation
@@ -2062,7 +2092,84 @@ Module ListEx
     
   EndProcedure
   
- 
+  Procedure   DrawString_()
+    Define.i p, PosX, PosY, txtHeight, CursorX, maxPosX
+    Define.i TextColor, BackColor, BorderColor
+    Define.s Text
+    
+    ;{ --- Color ---
+    If ListEx()\String\Wrong
+      TextColor = ListEx()\Color\WrongFront
+      BackColor = ListEx()\Color\WrongBack
+    Else  
+      TextColor = ListEx()\Color\Front
+      If SelectElement(ListEx()\Cols(), ListEx()\String\Col)
+        If ListEx()\Cols()\FrontColor <> #PB_Default
+          TextColor = ListEx()\Cols()\FrontColor
+        EndIf
+      EndIf   
+      BackColor = $FFFFFF
+    EndIf 
+    BorderColor = ListEx()\Color\Focus
+    ;}
+    
+    If StartDrawing(CanvasOutput(ListEx()\CanvasNum))
+      
+      DrawingFont(ListEx()\String\FontID)
+
+      ;{ _____ Background _____
+      DrawingMode(#PB_2DDrawing_Default)
+      Box(ListEx()\String\X, ListEx()\String\Y, ListEx()\String\Width, ListEx()\String\Height, BackColor)
+      ;}
+      
+      Text = ListEx()\String\Text
+      txtHeight = TextHeight(ListEx()\String\Text)
+      
+      PosX = ListEx()\String\X + dpiX(3)
+      PosY = ListEx()\String\Y + ((ListEx()\String\Height - txtHeight) / 2) 
+      maxPosX = ListEx()\String\X + ListEx()\String\Width - 1
+      
+      ClipOutput(ListEx()\String\X, ListEx()\String\Y, ListEx()\String\Width, ListEx()\String\Height) 
+      
+      ListEx()\Cursor\X = PosX + TextWidth(Left(Text, ListEx()\String\CursorPos)) - 1
+      ListEx()\Cursor\Pos = ListEx()\String\CursorPos
+      ListEx()\Cursor\Y   = PosY
+      ListEx()\Cursor\ClipX     = maxPosX
+      ListEx()\Cursor\Height    = txtHeight
+      ListEx()\Cursor\BackColor = BackColor
+      
+      If ListEx()\Cursor\X > maxPosX
+        
+        Text = Left(Text, ListEx()\String\CursorPos)
+        
+        For p = Len(Text) To 0 Step -1
+          If PosX + TextWidth(Right(Text, p)) <= maxPosX
+            Text = Right(Text, p)
+            ListEx()\Cursor\X = PosX + TextWidth(Text) - 1
+            Break  
+          EndIf 
+        Next
+        
+      EndIf
+      
+      DrawingMode(#PB_2DDrawing_Transparent)
+      DrawText(PosX, PosY, Text, TextColor)
+
+      Line(ListEx()\Cursor\X, PosY, 1, txtHeight, $000000)
+      
+      UnclipOutput()
+      
+      ;{ _____ Border _____
+      DrawingMode(#PB_2DDrawing_Outlined)
+      Box(ListEx()\String\X, ListEx()\String\Y, ListEx()\String\Width, ListEx()\String\Height, BorderColor)
+      ;}
+      
+      StopDrawing()
+    EndIf
+  
+  EndProcedure  
+  
+
   Procedure   Draw_()
     Define.f colX, rowY, textY, textX, colW0, colWidth, rowHeight, imgY, imgX, imgWidth
     Define.i Flags, imgFlags, Align, Mark, Row
@@ -2561,8 +2668,7 @@ Module ListEx
     EndIf  
     
   EndProcedure
-  
-  
+ 
   ;- __________ ScrollBars _________
   
   Procedure   AdjustScrollBars_(Force.i=#False)
@@ -2835,44 +2941,30 @@ Module ListEx
         If ListEx()\Rows()\Column(Key$)\Flags & #LockCell : ProcedureReturn #False : EndIf
         
         If ListEx()\Cols()\Flags & #Strings Or ListEx()\Rows()\Column(Key$)\Flags & #Strings           ;{ Editable Cells
+  
+          If ListEx()\Editable
 
-          If IsGadget(ListEx()\StringNum)
+            If ListEx()\Cols()\FontID
+              ListEx()\String\FontID = ListEx()\Cols()\FontID
+            Else
+              ListEx()\String\FontID = ListEx()\Row\FontID
+            EndIf  
             
-            If ListEx()\Editable
-              
-              ResizeGadget(ListEx()\StringNum, DesktopUnscaledX(X), DesktopUnscaledY(Y) + 1, DesktopUnscaledX(ListEx()\Cols()\Width), DesktopUnscaledY(ListEx()\Rows()\Height) - 1)
-              
-              CompilerIf Defined(StringEx, #PB_Module)
-                StringEx::SetText(ListEx()\StringNum, ListEx()\Rows()\Column(Key$)\Value)
-                If ListEx()\Cols()\FontID
-                  StringEx::SetFont(ListEx()\StringNum, ListEx()\Cols()\FontID)
-                Else
-                  StringEx::SetFont(ListEx()\StringNum, ListEx()\Row\FontID)
-                EndIf
-                StringEx::Hide(ListEx()\StringNum, #False)
-              CompilerElse  
-                SetGadgetText(ListEx()\StringNum, ListEx()\Rows()\Column(Key$)\Value)
-                If ListEx()\Cols()\FontID
-                  SetGadgetFont(ListEx()\StringNum, ListEx()\Cols()\FontID)
-                Else
-                  SetGadgetFont(ListEx()\StringNum, ListEx()\Row\FontID)
-                EndIf
-                HideGadget(ListEx()\StringNum, #False)
-              CompilerEndIf
-              
-              ListEx()\String\Row    = Row
-              ListEx()\String\Col    = Column
-              ListEx()\String\X      = ListEx()\Cols()\X
-              ListEx()\String\Y      = ListEx()\Rows()\Y
-              ListEx()\String\Width  = ListEx()\Cols()\Width
-              ListEx()\String\Height = ListEx()\Rows()\Height
-              ListEx()\String\Label  = ListEx()\Cols()\Key
-              ListEx()\String\Flag   = #True
+            ListEx()\String\Row    = Row
+            ListEx()\String\Col    = Column
+            ListEx()\String\X      = ListEx()\Cols()\X
+            ListEx()\String\Y      = ListEx()\Rows()\Y
+            ListEx()\String\Width  = ListEx()\Cols()\Width
+            ListEx()\String\Height = ListEx()\Rows()\Height
+            ListEx()\String\Label  = ListEx()\Cols()\Key
+            ListEx()\String\Text   = ListEx()\Rows()\Column(Key$)\Value
+            ListEx()\String\Flag   = #True
 
-              BindShortcuts_(#True)
-              
-              SetActiveGadget(ListEx()\StringNum) 
-            EndIf
+            ListEx()\String\CursorPos = Len(ListEx()\String\Text)
+            
+            DrawString_()
+            
+            BindTabulator_(#False)
             
           EndIf
           ;}
@@ -2959,24 +3051,9 @@ Module ListEx
     Define.f X, Y
     
     If ListEx()\String\Flag
-      If IsGadget(ListEx()\StringNum)
-        X = ListEx()\String\X - ListEx()\Col\OffsetX
-        Y = ListEx()\String\Y - ListEx()\Row\OffSetY
-        ResizeGadget(ListEx()\StringNum, DesktopUnscaledX(X), DesktopUnscaledY(Y) + 1, #PB_Ignore, #PB_Ignore)
-        If X + ListEx()\String\Width > ListEx()\Size\Width Or Y + ListEx()\String\Height > ListEx()\Size\Height Or Y < ListEx()\Header\Height
-          CompilerIf Defined(StringEx, #PB_Module)
-            StringEx::Hide(ListEx()\StringNum, #True) 
-          CompilerElse
-            HideGadget(ListEx()\StringNum, #True)
-          CompilerEndIf
-        Else  
-          CompilerIf Defined(StringEx, #PB_Module)
-            StringEx::Hide(ListEx()\StringNum, #False) 
-          CompilerElse
-            HideGadget(ListEx()\StringNum, #False)
-          CompilerEndIf
-        EndIf
-      EndIf
+
+      CloseString_()
+
     EndIf
     
     If ListEx()\ComboBox\Flag
@@ -3076,8 +3153,54 @@ Module ListEx
     
     ProcedureReturn #NotValid
   EndProcedure
-  
+
   ;- ----------------------------
+  
+  Procedure _CursorThread(Frequency.i)
+    Define.i ElapsedTime
+    
+    Repeat
+      
+      If ElapsedTime >= Frequency
+        PostEvent(#Event_Cursor)
+        ElapsedTime = 0
+      EndIf
+      
+      Delay(100)
+      
+      ElapsedTime + 100
+      
+    Until Thread\Exit
+    
+  EndProcedure
+  
+  Procedure _CursorDrawing() ; Trigger from Thread (PostEvent Change)
+    Define.i WindowNum = EventWindow()
+    
+    ForEach ListEx()
+      
+      If ListEx()\Cursor\X >= ListEx()\Cursor\ClipX : Continue : EndIf
+      
+      If ListEx()\String\Flag
+
+        ListEx()\Cursor\State ! #True
+      
+        If StartDrawing(CanvasOutput(ListEx()\CanvasNum))
+          DrawingMode(#PB_2DDrawing_Default)
+          If ListEx()\Cursor\State
+            Line(ListEx()\Cursor\X, ListEx()\Cursor\Y, 1, ListEx()\Cursor\Height, $000000)
+          Else
+            Line(ListEx()\Cursor\X, ListEx()\Cursor\Y, 1, ListEx()\Cursor\Height, ListEx()\Cursor\BackColor)
+          EndIf
+          StopDrawing()
+        EndIf
+
+      EndIf
+      
+    Next
+    
+  EndProcedure  
+  
   
   Procedure _KeyShiftTabHandler()
     Define.i GNum, Column, Row
@@ -3090,25 +3213,11 @@ Module ListEx
       If FindMapElement(ListEx(), Str(GNum))  
 
         Select ActiveID 
-          Case ListEx()\StringNum
-            CloseString_()
-            Column = PreviousEditColumn_(ListEx()\String\Col)
-            If Column = #NotValid
-              Row = ListEx()\String\Row - 1
-              If SelectElement(ListEx()\Rows(), Row)
-                Column = PreviousEditColumn_(#PB_Default)
-                If Column <> #NotValid
-                  ManageEditGadgets_(Row, Column)
-                EndIf 
-              EndIf
-            Else
-              ManageEditGadgets_(ListEx()\String\Row, Column)
-            EndIf
           Case ListEx()\ComboNum
             CloseComboBox_()
             Column = PreviousEditColumn_(ListEx()\ComboBox\Col)
             If Column = #NotValid
-              Row = ListEx()\String\Row - 1
+              Row = ListEx()\ComboBox\Row - 1
               If SelectElement(ListEx()\Rows(), Row)
                 Column = PreviousEditColumn_(#PB_Default)
                 If Column <> #NotValid
@@ -3122,7 +3231,7 @@ Module ListEx
             CloseDate_()
             Column = PreviousEditColumn_(ListEx()\Date\Col)
             If Column = #NotValid
-              Row = ListEx()\String\Row - 1
+              Row = ListEx()\Date\Row - 1
               If SelectElement(ListEx()\Rows(), Row)
                 Column = PreviousEditColumn_(#PB_Default)
                 If Column <> #NotValid
@@ -3151,25 +3260,11 @@ Module ListEx
       If FindMapElement(ListEx(), Str(GNum))  
         
         Select ActiveID 
-          Case ListEx()\StringNum
-            CloseString_()
-            Column = NextEditColumn_(ListEx()\String\Col)
-            If Column = #NotValid
-              Row = ListEx()\String\Row + 1
-              If SelectElement(ListEx()\Rows(), Row)
-                Column = NextEditColumn_(#PB_Default)
-                If Column <> #NotValid
-                  ManageEditGadgets_(Row, Column)
-                EndIf 
-              EndIf
-            Else
-              ManageEditGadgets_(ListEx()\String\Row, Column)
-            EndIf
           Case ListEx()\ComboNum
             CloseComboBox_()
             Column = NextEditColumn_(ListEx()\ComboBox\Col)
             If Column = #NotValid
-              Row = ListEx()\String\Row + 1
+              Row = ListEx()\ComboBox\Row + 1
               If SelectElement(ListEx()\Rows(), Row)
                 Column = NextEditColumn_(#PB_Default)
                 If Column <> #NotValid
@@ -3183,7 +3278,7 @@ Module ListEx
             CloseDate_()
             Column = NextEditColumn_(ListEx()\Date\Col)
             If Column = #NotValid
-              Row = ListEx()\String\Row + 1
+              Row = ListEx()\Date\Row + 1
               If SelectElement(ListEx()\Rows(), Row)
                 Column = NextEditColumn_(#PB_Default)
                 If Column <> #NotValid
@@ -3211,10 +3306,6 @@ Module ListEx
       If FindMapElement(ListEx(), Str(GNum))  
         
         Select ActiveID 
-          Case ListEx()\StringNum
-            
-            CloseString_()
-            
           Case ListEx()\ComboNum
             
             CloseComboBox_()
@@ -3241,10 +3332,6 @@ Module ListEx
       If FindMapElement(ListEx(), Str(GNum))  
  
         Select ActiveID 
-          Case ListEx()\StringNum
-            
-            CloseString_(#True)
-            
           Case ListEx()\ComboNum
             
             CloseComboBox_(#True)
@@ -3261,9 +3348,10 @@ Module ListEx
   EndProcedure
   
   Procedure _KeyDownHandler()
+    Define.i Row, Column, PageRows, Key, Modifier
+    Define.s Text
     Define.i GNum = EventGadget()
-    Define.i PageRows, Key, Modifier
-    
+
     If FindMapElement(ListEx(), Str(GNum))
       
       Key      = GetGadgetAttribute(GNum, #PB_Canvas_Key)
@@ -3271,84 +3359,213 @@ Module ListEx
       
       Select Key
         Case #PB_Shortcut_Left     ;{ Left
-          ListEx()\Col\OffsetX - 20
-          SetHScrollPosition_()
+          If ListEx()\String\Flag
+            If ListEx()\String\CursorPos > 0
+              ListEx()\String\CursorPos - 1
+            EndIf
+          Else  
+            ListEx()\Col\OffsetX - 20
+            SetHScrollPosition_()
+          EndIf 
           ;}
         Case #PB_Shortcut_Right    ;{ Right
-          ListEx()\Col\OffsetX + 20
-          SetHScrollPosition_()
+          If ListEx()\String\Flag
+            If ListEx()\String\CursorPos < Len(ListEx()\String\Text)
+              ListEx()\String\CursorPos + 1
+            EndIf
+          Else 
+            ListEx()\Col\OffsetX + 20
+            SetHScrollPosition_()
+          EndIf  
           ;}
         Case #PB_Shortcut_Up       ;{ Up
-          ListEx()\Focus = #True
-          If PreviousElement(ListEx()\Rows())
-            ListEx()\Row\Current = ListIndex(ListEx()\Rows())
-          ElseIf FirstElement(ListEx()\Rows())
-            ListEx()\Row\Current = ListIndex(ListEx()\Rows())
+          If ListEx()\String\Flag = #False
+            ListEx()\Focus = #True
+            If PreviousElement(ListEx()\Rows())
+              ListEx()\Row\Current = ListIndex(ListEx()\Rows())
+            ElseIf FirstElement(ListEx()\Rows())
+              ListEx()\Row\Current = ListIndex(ListEx()\Rows())
+            EndIf
+            ListEx()\Row\Focus = ListEx()\Row\Current
+            SetRowFocus_(ListEx()\Row\Focus)
           EndIf
-          ListEx()\Row\Focus = ListEx()\Row\Current
-          SetRowFocus_(ListEx()\Row\Focus) ;}
+          ;}
         Case #PB_Shortcut_Down     ;{ Down
-          ListEx()\Focus = #True
-          If NextElement(ListEx()\Rows())
-            ListEx()\Row\Current = ListIndex(ListEx()\Rows())
-          ElseIf LastElement(ListEx()\Rows())
-            ListEx()\Row\Current = ListIndex(ListEx()\Rows())
-          EndIf
-          ListEx()\Row\Focus = ListEx()\Row\Current
-          SetRowFocus_(ListEx()\Row\Focus)
+          If ListEx()\String\Flag = #False
+            ListEx()\Focus = #True
+            If NextElement(ListEx()\Rows())
+              ListEx()\Row\Current = ListIndex(ListEx()\Rows())
+            ElseIf LastElement(ListEx()\Rows())
+              ListEx()\Row\Current = ListIndex(ListEx()\Rows())
+            EndIf
+            ListEx()\Row\Focus = ListEx()\Row\Current
+            SetRowFocus_(ListEx()\Row\Focus)
+          EndIf  
           ;}
         Case #PB_Shortcut_PageUp   ;{ PageUp
-          PageRows = GetPageRows_()
-          ListEx()\Row\Current = ListEx()\Row\Focus - PageRows
-          If ListEx()\Row\Current < 0 : ListEx()\Row\Current = 0 : EndIf
-          If SelectElement(ListEx()\Rows(), ListEx()\Row\Current)
-            ListEx()\Row\Focus = ListEx()\Row\Current
-            ListEx()\Row\Offset = ListEx()\Row\Focus
-            If ListEx()\Row\Offset > ListSize(ListEx()\Rows()) - PageRows
-              ListEx()\Row\Offset = ListSize(ListEx()\Rows()) - PageRows
-            EndIf
-            SetVScrollPosition_()
-          EndIf ;}
-        Case #PB_Shortcut_PageDown ;{ PageDown
-          PageRows = GetPageRows_()
-          ListEx()\Row\Current = ListEx()\Row\Focus + PageRows
-          If ListEx()\Row\Current >= ListSize(ListEx()\Rows()) : ListEx()\Row\Current = ListSize(ListEx()\Rows()) - 1 : EndIf 
-          If SelectElement(ListEx()\Rows(), ListEx()\Row\Current)
-            ListEx()\Row\Focus = ListEx()\Row\Current
-            ListEx()\Row\Offset = ListEx()\Row\Focus
-            If ListEx()\Row\Offset >= ListSize(ListEx()\Rows()) - PageRows
-              ListEx()\Row\Offset = ListSize(ListEx()\Rows()) - PageRows
-            EndIf
-            SetVScrollPosition_()
-          EndIf ;}
-        Case #PB_Shortcut_Home     ;{ Home
-          If Modifier & #PB_Canvas_Control
-            If FirstElement(ListEx()\Rows())
-              ListEx()\Focus = #True
-              ListEx()\Row\Current = ListIndex(ListEx()\Rows())
+          If ListEx()\String\Flag = #False
+            PageRows = GetPageRows_()
+            ListEx()\Row\Current = ListEx()\Row\Focus - PageRows
+            If ListEx()\Row\Current < 0 : ListEx()\Row\Current = 0 : EndIf
+            If SelectElement(ListEx()\Rows(), ListEx()\Row\Current)
               ListEx()\Row\Focus = ListEx()\Row\Current
-              SetRowFocus_(ListEx()\Row\Focus)
+              ListEx()\Row\Offset = ListEx()\Row\Focus
+              If ListEx()\Row\Offset > ListSize(ListEx()\Rows()) - PageRows
+                ListEx()\Row\Offset = ListSize(ListEx()\Rows()) - PageRows
+              EndIf
+              SetVScrollPosition_()
+            EndIf
+          EndIf  
+          ;}
+        Case #PB_Shortcut_PageDown ;{ PageDown
+          If ListEx()\String\Flag = #False
+            PageRows = GetPageRows_()
+            ListEx()\Row\Current = ListEx()\Row\Focus + PageRows
+            If ListEx()\Row\Current >= ListSize(ListEx()\Rows()) : ListEx()\Row\Current = ListSize(ListEx()\Rows()) - 1 : EndIf 
+            If SelectElement(ListEx()\Rows(), ListEx()\Row\Current)
+              ListEx()\Row\Focus = ListEx()\Row\Current
+              ListEx()\Row\Offset = ListEx()\Row\Focus
+              If ListEx()\Row\Offset >= ListSize(ListEx()\Rows()) - PageRows
+                ListEx()\Row\Offset = ListSize(ListEx()\Rows()) - PageRows
+              EndIf
+              SetVScrollPosition_()
+            EndIf
+          EndIf  
+          ;}
+        Case #PB_Shortcut_Home     ;{ Home
+          If ListEx()\String\Flag
+            ListEx()\String\CursorPos = 0
+          Else
+            If Modifier & #PB_Canvas_Control
+              If FirstElement(ListEx()\Rows())
+                ListEx()\Focus = #True
+                ListEx()\Row\Current = ListIndex(ListEx()\Rows())
+                ListEx()\Row\Focus = ListEx()\Row\Current
+                SetRowFocus_(ListEx()\Row\Focus)
+              EndIf
             EndIf
           EndIf ;}
         Case #PB_Shortcut_End      ;{ End
-          If Modifier & #PB_Canvas_Control
-            If LastElement(ListEx()\Rows())
-              ListEx()\Row\Current = ListIndex(ListEx()\Rows())
-              ListEx()\Row\Focus = ListEx()\Row\Current
-              SetRowFocus_(ListEx()\Row\Focus)
+          If ListEx()\String\Flag
+            ListEx()\String\CursorPos = Len(ListEx()\String\Text)
+          Else          
+            If Modifier & #PB_Canvas_Control
+              If LastElement(ListEx()\Rows())
+                ListEx()\Row\Current = ListIndex(ListEx()\Rows())
+                ListEx()\Row\Focus = ListEx()\Row\Current
+                SetRowFocus_(ListEx()\Row\Focus)
+              EndIf
             EndIf
-          EndIf ;}
+          EndIf  
+          ;}
+        Case #PB_Shortcut_Back     ;{ Delete Back
+          If ListEx()\String\Flag
+            If ListEx()\String\CursorPos > 0
+              ListEx()\String\Text = DeleteStringPart_(ListEx()\String\Text, ListEx()\String\CursorPos)
+              ListEx()\String\CursorPos - 1
+            EndIf
+          EndIf   
+          ;}
+        Case #PB_Shortcut_Delete   ;{ Delete
+          If ListEx()\String\Flag
+            If ListEx()\String\CursorPos < Len(ListEx()\String\Text)
+              ListEx()\String\Text = DeleteStringPart_(ListEx()\String\Text, ListEx()\String\CursorPos + 1)
+            EndIf
+          EndIf   
+          ;} 
+        Case #PB_Shortcut_Insert   ;{ Paste (Shift-Ins)
+          If ListEx()\String\Flag
+            If Modifier & #PB_Canvas_Shift
+              Text = GetClipboardText()
+              ListEx()\String\Text = InsertString(ListEx()\String\Text, Text, ListEx()\String\CursorPos + 1)
+              ListEx()\String\CursorPos + Len(Text)
+            EndIf
+          EndIf
+          ;}  
+        Case #PB_Shortcut_V        ;{ Paste (Ctrl-V) 
+          If ListEx()\String\Flag
+            Text = GetClipboardText()
+            ListEx()\String\Text = InsertString(ListEx()\String\Text, Text, ListEx()\String\CursorPos + 1)
+            ListEx()\String\CursorPos + Len(Text)
+          EndIf  
+          ;} 
         Case #PB_Shortcut_Return   ;{ Return
+          If ListEx()\String\Flag
+            CloseString_()
+          EndIf  
+          ;}
+        Case #PB_Shortcut_Tab      ;{ Tabulator
+          
+          If ListEx()\String\Flag
+            
+            CloseString_()
+            
+            If Modifier & #PB_Canvas_Shift
+              Column = PreviousEditColumn_(ListEx()\String\Col)
+              If Column = #NotValid
+                Row = ListEx()\String\Row - 1
+                If SelectElement(ListEx()\Rows(), Row)
+                  Column = PreviousEditColumn_(#PB_Default)
+                  If Column <> #NotValid
+                    ManageEditGadgets_(Row, Column)
+                  EndIf 
+                EndIf
+              Else
+                ManageEditGadgets_(ListEx()\String\Row, Column)
+              EndIf
+            Else
+              Column = NextEditColumn_(ListEx()\String\Col)
+              If Column = #NotValid
+                Row = ListEx()\String\Row + 1
+                If SelectElement(ListEx()\Rows(), Row)
+                  Column = NextEditColumn_(#PB_Default)
+                  If Column <> #NotValid
+                    ManageEditGadgets_(Row, Column)
+                  EndIf 
+                EndIf
+              Else
+                ManageEditGadgets_(ListEx()\String\Row, Column)
+              EndIf
+            EndIf
+          EndIf    
           ;}
       EndSelect
       
-      Draw_()
-      
+      If ListEx()\String\Flag
+        DrawString_()
+      Else
+        Draw_()
+      EndIf  
+
     EndIf
     
   EndProcedure
   
   
+  Procedure _InputHandler()
+    Define   Char.i, Char$
+    Define.i GNum = EventGadget()
+    
+    If FindMapElement(ListEx(), Str(GNum))
+
+      If ListEx()\String\Flag
+        
+        Char = GetGadgetAttribute(GNum, #PB_Canvas_Input)
+        If Char >= 32
+          
+          Char$ = Chr(Char)
+          ListEx()\String\CursorPos + 1  
+          ListEx()\String\Text = InsertString(ListEx()\String\Text, Char$, ListEx()\String\CursorPos)
+
+          DrawString_()
+        EndIf
+        
+      EndIf
+      
+    EndIf
+    
+  EndProcedure   
+
   Procedure _RightClickHandler()
     Define.i X, Y
     Define.i GNum = EventGadget()
@@ -3655,6 +3872,7 @@ Module ListEx
               EndIf
               
               Draw_() ; Draw Focus
+              If ListEx()\String\Flag : DrawString_() : EndIf
              ;}              
             ElseIf ListEx()\Cols()\Flags & #Buttons ;{ Button
               
@@ -3783,6 +4001,7 @@ Module ListEx
               EndIf
               
               Draw_() ; Draw Focus
+              If ListEx()\String\Flag : DrawString_() : EndIf
              ;}
             EndIf
             
@@ -3808,8 +4027,8 @@ Module ListEx
       ListEx()\Row\Current = GetRow_(GetGadgetAttribute(GNum, #PB_Canvas_MouseY))
       ListEx()\Col\Current = GetColumn_(GetGadgetAttribute(GNum, #PB_Canvas_MouseX))
       
-      If ListEx()\Cursor = #PB_Cursor_LeftRight Or ListEx()\Col\MouseX
-        ListEx()\Cursor = #Cursor_Default
+      If ListEx()\CanvasCursor = #PB_Cursor_LeftRight Or ListEx()\Col\MouseX
+        ListEx()\CanvasCursor = #Cursor_Default
         ListEx()\Col\MouseX = 0
       EndIf
       
@@ -3890,6 +4109,9 @@ Module ListEx
       EndIf
       
       Draw_()
+      
+      If ListEx()\String\Flag : DrawString_() : EndIf
+   
     EndIf
     
   EndProcedure
@@ -3909,7 +4131,7 @@ Module ListEx
       
       If ListEx()\Flags & #ResizeColumn ;{ Resize column with mouse
         
-        If ListEx()\Cursor = #PB_Cursor_LeftRight
+        If ListEx()\CanvasCursor = #PB_Cursor_LeftRight
           
           If ListEx()\Col\MouseX ;{ Resize column
             
@@ -3932,9 +4154,9 @@ Module ListEx
         Else                                      ;{ Change cursor to #PB_Cursor_LeftRight
           ForEach ListEx()\Cols()
             If X = ListEx()\Cols()\X
-              ListEx()\Cursor = #PB_Cursor_LeftRight
+              ListEx()\CanvasCursor = #PB_Cursor_LeftRight
               ListEx()\Col\Resize = ListIndex(ListEx()\Cols())
-              SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\Cursor)
+              SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
               ProcedureReturn #True
             EndIf  
           Next ;}
@@ -3954,9 +4176,9 @@ Module ListEx
       
       If Row = #NotValid Or Column = #NotValid
         
-        If ListEx()\Cursor <> #Cursor_Default
-          ListEx()\Cursor = #Cursor_Default
-          SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\Cursor)
+        If ListEx()\CanvasCursor <> #Cursor_Default
+          ListEx()\CanvasCursor = #Cursor_Default
+          SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
         EndIf
         
       Else
@@ -3966,16 +4188,16 @@ Module ListEx
           If SelectElement(ListEx()\Cols(), Column)
             If ListEx()\Cols()\Header\Sort & #HeaderSort
               
-              If ListEx()\Cursor <> #Cursor_Sort
-                ListEx()\Cursor = #Cursor_Sort
-                SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\Cursor)
+              If ListEx()\CanvasCursor <> #Cursor_Sort
+                ListEx()\CanvasCursor = #Cursor_Sort
+                SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
               EndIf
               
             Else
               
-              If ListEx()\Cursor <> #Cursor_Default
-                ListEx()\Cursor = #Cursor_Default
-                SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\Cursor)
+              If ListEx()\CanvasCursor <> #Cursor_Default
+                ListEx()\CanvasCursor = #Cursor_Default
+                SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
               EndIf
               
             EndIf
@@ -3998,37 +4220,37 @@ Module ListEx
               ; Change Cursor
               If ListEx()\Cols()\Flags & #Strings Or Flags & #Strings
                 
-                If ListEx()\Cursor <> #Cursor_Edit
-                  ListEx()\Cursor = #Cursor_Edit
-                  SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\Cursor)
+                If ListEx()\CanvasCursor <> #Cursor_Edit
+                  ListEx()\CanvasCursor = #Cursor_Edit
+                  SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
                 EndIf
                 
               ElseIf ListEx()\Cols()\Flags & #ComboBoxes Or Flags & #ComboBoxes
                 
-                If ListEx()\Cursor <> #Cursor_Edit
-                  ListEx()\Cursor = #Cursor_Edit
-                  SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\Cursor)
+                If ListEx()\CanvasCursor <> #Cursor_Edit
+                  ListEx()\CanvasCursor = #Cursor_Edit
+                  SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
                 EndIf
                 
               ElseIf ListEx()\Cols()\Flags & #CheckBoxes
                 
-                If ListEx()\Cursor <> #Cursor_Edit
-                  ListEx()\Cursor = #Cursor_Edit
-                  SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\Cursor)
+                If ListEx()\CanvasCursor <> #Cursor_Edit
+                  ListEx()\CanvasCursor = #Cursor_Edit
+                  SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
                 EndIf
                 
               ElseIf ListEx()\Cols()\Flags & #Dates Or Flags & #Dates
                 
-                If ListEx()\Cursor <> #Cursor_Edit
-                  ListEx()\Cursor = #Cursor_Edit
-                  SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\Cursor)
+                If ListEx()\CanvasCursor <> #Cursor_Edit
+                  ListEx()\CanvasCursor = #Cursor_Edit
+                  SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
                 EndIf
                 
               ElseIf ListEx()\Cols()\Flags & #Links
                 
-                If ListEx()\Cursor <> #Cursor_Click
-                  ListEx()\Cursor = #Cursor_Click
-                  SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\Cursor)
+                If ListEx()\CanvasCursor <> #Cursor_Click
+                  ListEx()\CanvasCursor = #Cursor_Click
+                  SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
                 EndIf
                 
               ElseIf ListEx()\Cols()\Flags & #Buttons
@@ -4048,16 +4270,16 @@ Module ListEx
               
                 DrawButton_(X, Y, ListEx()\Cols()\Width, ListEx()\Rows()\Height, Value$, #Focus, ListEx()\Rows()\Color\Front, ListEx()\Rows()\FontID, @Image)
                 
-                If ListEx()\Cursor <> #Cursor_Button
-                  ListEx()\Cursor = #Cursor_Button
-                  SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\Cursor)
+                If ListEx()\CanvasCursor <> #Cursor_Button
+                  ListEx()\CanvasCursor = #Cursor_Button
+                  SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
                 EndIf
                 
               Else
                 
-                If ListEx()\Cursor <> #Cursor_Default
-                  ListEx()\Cursor = #Cursor_Default
-                  SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\Cursor)
+                If ListEx()\CanvasCursor <> #Cursor_Default
+                  ListEx()\CanvasCursor = #Cursor_Default
+                  SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
                 EndIf
                 
               EndIf
@@ -4078,6 +4300,7 @@ Module ListEx
     If FindMapElement(ListEx(), Str(GadgetNum))
       
       Draw_()
+      If ListEx()\String\Flag : DrawString_() : EndIf 
       
     EndIf
     
@@ -4109,6 +4332,8 @@ Module ListEx
           ScrollEditGadgets_() 
           
           Draw_()
+          If ListEx()\String\Flag : DrawString_() : EndIf 
+          
         EndIf
 
       EndIf
@@ -4239,28 +4464,27 @@ Module ListEx
     
   EndProcedure
   
-  Procedure _StringGadgetHandler()
-    Define.i GNum, StringNum = EventGadget()
+  Procedure _CloseWindowHandler()
+    Define.i Window = EventWindow()
     
-    If IsGadget(StringNum)
-      
-      GNum = GetGadgetData(StringNum)
-      If FindMapElement(ListEx(), Str(GNum))
-        If ListEx()\String\Wrong
-          
-          CompilerIf Defined(StringEx, #PB_Module)
-            StringEx::SetColor(ListEx()\StringNum, StringEx::#FrontColor, $000000)
-            StringEx::SetColor(ListEx()\StringNum, StringEx::#BackColor,  $FFFFFF)
-          CompilerElse  
-            SetGadgetColor(ListEx()\StringNum, #PB_Gadget_FrontColor, $000000)
-            SetGadgetColor(ListEx()\StringNum, #PB_Gadget_BackColor,  $FFFFFF)
-          CompilerEndIf
-      
-          ListEx()\String\Wrong = #False
-        EndIf
+    ForEach ListEx()
+    
+      If ListEx()\Window\Num = Window
+        
+        CompilerIf Defined(ModuleEx, #PB_Module) = #False
+          If MapSize(ListEx()) = 1
+            Thread\Exit = #True
+            Delay(100)
+            If IsThread(Thread\Num) : KillThread(Thread\Num) : EndIf
+            Thread\Active = #False
+          EndIf
+        CompilerEndIf
+        
+        DeleteMapElement(ListEx())
+        
       EndIf
       
-    EndIf
+    Next
     
   EndProcedure
   
@@ -4291,6 +4515,8 @@ Module ListEx
         ScrollEditGadgets_() 
         
         Draw_()
+        If ListEx()\String\Flag : DrawString_() : EndIf 
+        
       EndIf
       
     EndIf
@@ -4316,6 +4542,8 @@ Module ListEx
         ScrollEditGadgets_()
         
         Draw_()
+        If ListEx()\String\Flag : DrawString_() : EndIf 
+        
       EndIf
       
     EndIf
@@ -4350,84 +4578,66 @@ Module ListEx
     EndIf
     
   EndProcedure
-
+  
+  Procedure  BindTabulator_(Flag.i=#True)
+    
+    If IsWindow(ListEx()\Window\Num)
+      If Flag
+        AddKeyboardShortcut(ListEx()\Window\Num, #PB_Shortcut_Tab,    #Key_Tab)
+        AddKeyboardShortcut(ListEx()\Window\Num, #PB_Shortcut_Tab|#PB_Shortcut_Shift, #Key_ShiftTab)
+      Else
+        RemoveKeyboardShortcut(ListEx()\Window\Num, #PB_Shortcut_Tab)
+        RemoveKeyboardShortcut(ListEx()\Window\Num, #PB_Shortcut_Tab|#PB_Shortcut_Shift)
+      EndIf
+    EndIf
+    
+  EndProcedure
+  
   Procedure  CloseString_(Escape.i=#False)
     
-    If IsGadget(ListEx()\StringNum)
-      
-      PushListPosition(ListEx()\Rows())
-      
-      If SelectElement(ListEx()\Rows(), ListEx()\String\Row)
-        If SelectElement(ListEx()\Cols(), ListEx()\String\Col)
-          
-          If IsContentValid_(GetGadgetText(ListEx()\StringNum)) Or Escape
-            
-            If ListEx()\String\Wrong
-              If IsGadget(ListEx()\StringNum)
-                CompilerIf Defined(StringEx, #PB_Module)
-                  StringEx::SetColor(ListEx()\StringNum, StringEx::#FrontColor, $000000)
-                  StringEx::SetColor(ListEx()\StringNum, StringEx::#BackColor,  $FFFFFF)
-                CompilerElse  
-                  SetGadgetColor(ListEx()\StringNum, #PB_Gadget_FrontColor, $000000)
-                  SetGadgetColor(ListEx()\StringNum, #PB_Gadget_BackColor,  $FFFFFF)
-                CompilerEndIf
-              EndIf
-              ListEx()\String\Wrong = #False
-            EndIf
-            
-            If Escape
-              UpdateEventData_(#EventType_String, #NotValid, #NotValid, "", #NotValid, "")
-            Else
-              CompilerIf Defined(StringEx, #PB_Module)
-                ListEx()\Rows()\Column(ListEx()\String\Label)\Value = StringEx::GetText(ListEx()\StringNum)
-                StringEx::SetText(ListEx()\StringNum, "")
-              CompilerElse
-                ListEx()\Rows()\Column(ListEx()\String\Label)\Value = GetGadgetText(ListEx()\StringNum)
-                SetGadgetText(ListEx()\StringNum, "")
-              CompilerEndIf
-              UpdateEventData_(#EventType_String, ListEx()\String\Row, ListEx()\String\Col, GetGadgetText(ListEx()\StringNum), #NotValid, ListEx()\Rows()\ID)
-              If IsWindow(ListEx()\Window\Num)
-                PostEvent(#PB_Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_String)
-                PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_String)
-              EndIf 
-              ListEx()\Changed = #True
-            EndIf
-            
-            CompilerIf Defined(StringEx, #PB_Module)
-              StringEx::Hide(ListEx()\StringNum, #True) 
-            CompilerElse
-              HideGadget(ListEx()\StringNum, #True)
-            CompilerEndIf
-          
-            BindShortcuts_(#False)
-            
-            ListEx()\String\Label = ""
-            ListEx()\String\Flag  = #False
+    PushListPosition(ListEx()\Rows())
+    
+    If SelectElement(ListEx()\Rows(), ListEx()\String\Row)
+      If SelectElement(ListEx()\Cols(), ListEx()\String\Col)
+        
+        If IsContentValid_(ListEx()\String\Text) Or Escape
 
+          ListEx()\String\Wrong = #False   
+          
+          If Escape
+            
+            UpdateEventData_(#EventType_String, #NotValid, #NotValid, "", #NotValid, "")
+            
           Else
+
+            ListEx()\Rows()\Column(ListEx()\String\Label)\Value = ListEx()\String\Text
             
-            If IsGadget(ListEx()\StringNum)
-              CompilerIf Defined(StringEx, #PB_Module)
-                StringEx::SetColor(ListEx()\StringNum, StringEx::#FrontColor, ListEx()\Color\WrongFront)
-                StringEx::SetColor(ListEx()\StringNum, StringEx::#BackColor,  ListEx()\Color\WrongBack)
-              CompilerElse  
-                SetGadgetColor(ListEx()\StringNum, #PB_Gadget_FrontColor, ListEx()\Color\WrongFront)
-                SetGadgetColor(ListEx()\StringNum, #PB_Gadget_BackColor,  ListEx()\Color\WrongBack)
-              CompilerEndIf
-            EndIf
+            UpdateEventData_(#EventType_String, ListEx()\String\Row, ListEx()\String\Col, ListEx()\String\Text, #NotValid, ListEx()\Rows()\ID)
             
-            ListEx()\String\Wrong = #True
+            If IsWindow(ListEx()\Window\Num)
+              PostEvent(#PB_Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_String)
+              PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_String)
+            EndIf 
+            
+            ListEx()\Changed = #True
           EndIf
-          
-          
+
+          ListEx()\String\Text  = ""
+          ListEx()\String\Label = ""
+          ListEx()\String\Flag  = #False
+
+        Else
+
+          ListEx()\String\Wrong = #True
           
         EndIf
-      EndIf
 
-      PopListPosition(ListEx()\Rows())
-      
-      Draw_()
+      EndIf
     EndIf
+
+    PopListPosition(ListEx()\Rows())
+
+    Draw_()
     
   EndProcedure
   
@@ -5000,20 +5210,18 @@ Module ListEx
         ListEx()\CanvasNum = GNum
         
         CompilerIf Defined(ModuleEx, #PB_Module)
+
+          If ModuleEx::AddWindow(ListEx()\Window\Num, ModuleEx::#Tabulator|ModuleEx::#CursorEvent)
+            ModuleEx::AddGadget(GNum, ListEx()\Window\Num, ModuleEx::#UseTabulator)
+          EndIf
           
-          CompilerIf Defined(StringEx, #PB_Module)
-            
-            If ModuleEx::AddWindow(ListEx()\Window\Num, ModuleEx::#Tabulator|ModuleEx::#CursorEvent)
-              ModuleEx::AddGadget(GNum, ListEx()\Window\Num, ModuleEx::#UseTabulator)
-            EndIf
-            
-          CompilerElse
-            
-            If ModuleEx::AddWindow(ListEx()\Window\Num, ModuleEx::#Tabulator)
-              ModuleEx::AddGadget(GNum, ListEx()\Window\Num, ModuleEx::#UseTabulator)
-            EndIf
-            
-          CompilerEndIf
+        CompilerElse
+          
+          If Thread\Active = #False
+            Thread\Exit   = #False
+            Thread\Num    = CreateThread(@_CursorThread(), #CursorFrequency)
+            Thread\Active = #True
+          EndIf
           
         CompilerEndIf
         
@@ -5025,8 +5233,8 @@ Module ListEx
         
         If Flags & #NumberedColumn : ListEx()\Col\CheckBoxes = 1 : EndIf
         
-        ListEx()\Cursor   = #Cursor_Default
-        ListEx()\Editable = #True
+        ListEx()\CanvasCursor = #Cursor_Default
+        ListEx()\Editable     = #True
         
         ListEx()\ProgressBar\Minimum = 0
         ListEx()\ProgressBar\Maximum = 100
@@ -5063,26 +5271,6 @@ Module ListEx
         ;}        
 
         ;{ Gadgets
-        CompilerIf Defined(StringEx, #PB_Module)
-          
-          ListEx()\StringNum = StringEx::Gadget(#PB_Any, 0, 0, 0, 0, "", #False, ListEx()\Window\Num)
-          If IsGadget(ListEx()\StringNum)
-            SetGadgetData(ListEx()\StringNum, ListEx()\CanvasNum)
-            BindGadgetEvent(ListEx()\StringNum, @_StringGadgetHandler(), #PB_EventType_Change)
-            StringEx::Hide(ListEx()\StringNum, #True)
-          EndIf
-          
-        CompilerElse
-          
-          ListEx()\StringNum = StringGadget(#PB_Any, 0, 0, 0, 0, "")
-          If IsGadget(ListEx()\StringNum)
-            SetGadgetData(ListEx()\StringNum, ListEx()\CanvasNum)
-            BindGadgetEvent(ListEx()\StringNum, @_StringGadgetHandler(), #PB_EventType_Change)
-            HideGadget(ListEx()\StringNum, #True)
-          EndIf
-          
-        CompilerEndIf
-      
         ListEx()\ComboNum = ComboBoxGadget(#PB_Any, 0, 0, 0, 0, #PB_ComboBox_Editable)
         If IsGadget(ListEx()\ComboNum)
           SetGadgetData(ListEx()\ComboNum, ListEx()\CanvasNum)
@@ -5116,6 +5304,7 @@ Module ListEx
           If Flags & #AutoResize
             BindEvent(#PB_Event_SizeWindow, @_ResizeWindowHandler(), ListEx()\Window\Num)
           EndIf
+          BindEvent(#PB_Event_CloseWindow,  @_CloseWindowHandler(),  ListEx()\Window\Num)
         Else
           Debug "ERROR: No active Window"
         EndIf ;}
@@ -5213,21 +5402,22 @@ Module ListEx
         
         ListEx()\Color\AlternateRow = ListEx()\Color\Back
         ;}
+        
+        BindGadgetEvent(ListEx()\CanvasNum,  @_RightClickHandler(),      #PB_EventType_RightClick)
+        BindGadgetEvent(ListEx()\CanvasNum,  @_LeftButtonDownHandler(),  #PB_EventType_LeftButtonDown)
+        BindGadgetEvent(ListEx()\CanvasNum,  @_LeftButtonUpHandler(),    #PB_EventType_LeftButtonUp)
+        BindGadgetEvent(ListEx()\CanvasNum,  @_LeftDoubleClickHandler(), #PB_EventType_LeftDoubleClick)
+        BindGadgetEvent(ListEx()\CanvasNum,  @_MouseMoveHandler(),       #PB_EventType_MouseMove)
+        BindGadgetEvent(ListEx()\CanvasNum,  @_MouseWheelHandler(),      #PB_EventType_MouseWheel)
+        BindGadgetEvent(ListEx()\CanvasNum,  @_ResizeHandler(),          #PB_EventType_Resize)
+        BindGadgetEvent(ListEx()\CanvasNum,  @_MouseLeaveHandler(),      #PB_EventType_MouseLeave)
+        BindGadgetEvent(ListEx()\CanvasNum,  @_KeyDownHandler(),         #PB_EventType_KeyDown)  
+        BindGadgetEvent(ListEx()\CanvasNum,  @_InputHandler(),           #PB_EventType_Input)
+        BindGadgetEvent(ListEx()\HScrollNum, @_SynchronizeScrollCols(),  #PB_All)
+        BindGadgetEvent(ListEx()\VScrollNum, @_SynchronizeScrollRows(),  #PB_All) 
+        
+        BindEvent(#Event_Cursor, @_CursorDrawing())
 
-        If IsGadget(ListEx()\StringNum) : SetGadgetFont(ListEx()\StringNum, ListEx()\Row\FontID) : EndIf
-        
-        BindGadgetEvent(ListEx()\CanvasNum, @_RightClickHandler(),      #PB_EventType_RightClick)
-        BindGadgetEvent(ListEx()\CanvasNum, @_LeftButtonDownHandler(),  #PB_EventType_LeftButtonDown)
-        BindGadgetEvent(ListEx()\CanvasNum, @_LeftButtonUpHandler(),    #PB_EventType_LeftButtonUp)
-        BindGadgetEvent(ListEx()\CanvasNum, @_LeftDoubleClickHandler(), #PB_EventType_LeftDoubleClick)
-        BindGadgetEvent(ListEx()\CanvasNum, @_MouseMoveHandler(),       #PB_EventType_MouseMove)
-        BindGadgetEvent(ListEx()\CanvasNum, @_MouseWheelHandler(),      #PB_EventType_MouseWheel)
-        BindGadgetEvent(ListEx()\CanvasNum, @_ResizeHandler(),          #PB_EventType_Resize)
-        BindGadgetEvent(ListEx()\CanvasNum, @_MouseLeaveHandler(),      #PB_EventType_MouseLeave)
-        BindGadgetEvent(ListEx()\CanvasNum, @_KeyDownHandler(),         #PB_EventType_KeyDown)     
-        BindGadgetEvent(ListEx()\HScrollNum, @_SynchronizeScrollCols(), #PB_All)
-        BindGadgetEvent(ListEx()\VScrollNum, @_SynchronizeScrollRows(), #PB_All) 
-        
         CompilerIf #Enable_DragAndDrop
           EnableGadgetDrop(ListEx()\CanvasNum, #PB_Drop_Text, #PB_Drag_Copy)
           BindEvent(#PB_Event_GadgetDrop, @_GadgetDropHandler(), ListEx()\Window\Num, ListEx()\CanvasNum)
@@ -6013,10 +6203,6 @@ Module ListEx
               ListEx()\Cols()\Header\FontID = FontID
             EndIf
           EndIf
-        Case #StringFont
-          If IsGadget(ListEx()\StringNum)
-            SetGadgetFont(ListEx()\StringNum, ListEx()\Row\FontID)
-          EndIf
         Default
           If Column = #PB_Ignore
             ListEx()\Row\FontID = FontID
@@ -6712,10 +6898,10 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 11
-; Folding = EDAAAAAIAAAAAAAwVBAAPAAwOwbAAgIAAMAEIAQBAgMOEAABAAAgACo-
-; Markers = 604,2837,2845,2967,3262
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 13
+; Folding = cDAAAAQAAAAAAAAAuKAAAYAAgdggDAAiQRB+HACAKAA1UAAACAAACBEQ-
+; Markers = 2924,2943,2946,3055,3349
 ; EnableXP
 ; DPIAware
 ; EnableUnicode

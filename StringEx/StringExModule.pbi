@@ -265,7 +265,7 @@ Module StringEx
     Height.i
     State.i
     Frequency.i
-    Elapsed.i
+    ;Elapsed.i
     Thread.i
     Pause.i
   EndStructure ;}
@@ -1709,12 +1709,13 @@ Module StringEx
             StrgEx()\Window\Width  = WindowWidth(WindowNum)
             StrgEx()\Window\Height = WindowHeight(WindowNum)
             BindEvent(#PB_Event_SizeWindow, @_ResizeWindowHandler(), WindowNum)
-          EndIf  
+          EndIf
+          
         EndIf
         
+        If IsWindow(WindowNum) : BindEvent(#PB_Event_CloseWindow, @_CloseWindowHandler(), StrgEx()\Window\Num) : Endif
         BindEvent(#Event_Cursor, @_CursorDrawing())
-        BindEvent(#PB_Event_CloseWindow, @_CloseWindowHandler(), StrgEx()\Window\Num)
-        
+
         Draw_()
         
       EndIf
@@ -2098,10 +2099,10 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1612
-; FirstLine = 404
-; Folding = UHAFAoAkAJBAMwRDATAAA+
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 1715
+; FirstLine = 529
+; Folding = cXEEIgAY7IAAAwxDgbCAA+
 ; EnableThread
 ; EnableXP
 ; DPIAware
