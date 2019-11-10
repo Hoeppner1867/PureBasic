@@ -11,6 +11,7 @@
  
 ; Last Update: 10.11.2019
 ;
+; - ListEx::SetColumnFlags() / RemoveColumnFlag()
 ; - Bugfix: row color
 ;
 ; - StringGadget() replaced by internal DrawString_()
@@ -79,7 +80,9 @@
 ; ListEx::Hide()                    - similar to 'HideGadget()', but disables redrawing of the canvas gadget
 ; ListEx::HideColumn()              - hides a column
 ; ListEx::Refresh()                 - redraw gadget
+; ListEx::RemoveCellFlag()          - removes a flag
 ; ListEx::RemoveColumn()            - similar to 'RemoveGadgetColumn()'
+; ListEx::RemoveColumnFlag()        - removes a flag
 ; ListEx::RemoveItem()              - similar to 'RemoveGadgetItem()'
 ; ListEx::RemoveItemState()         - removes #Selected / #Checked / #Inbetween
 ; ListEx::ResetChangedState()       - reset to not edited
@@ -89,10 +92,11 @@
 ; ListEx::SetAutoResizeFlags()      - [#MoveX|#MoveY|#Width|#Height]
 ; ListEx::SetCellFlags()            - [#LockCell|#Strings|#ComboBoxes|#Dates]
 ; ListEx::SetCellState()            - similar to 'SetGadgetItemState()' with labels
-; ListEx::SetCellText()             - similar to 'SetGadgetItemText()' with labels
+; ListEx::SetCellText()             - similar to 'SetGadgetItemText()'  with labels
 ; ListEx::SetColor()                - similar to 'SetGadgetColor()'
 ; ListEx::SetColorTheme()           - change the color theme
 ; ListEx::SetColumnAttribute()      - [#Align/#ColumnWidth/#Font]
+; ListEx::SetColumnFlags()          - [#FitColumn | #Left/#Right/#Center]
 ; ListEx::SetColumnState()          - similar to 'SetGadgetItemState()' for a specific column
 ; ListEx::SetDateMask()             - similar to 'SetGadgetText()' and 'DateGadget()'
 ; ListEx::SetDateAttribute()        - similar to 'SetGadgetAttribute()' and 'DateGadget()'
@@ -352,6 +356,7 @@ DeclareModule ListEx
   Declare   Refresh(GNum.i)
   Declare   RemoveCellFlag(GNum.i, Row.i, Column.i, Flag.i)
   Declare   RemoveColumn(GNum.i, Column.i)
+  Declare   RemoveColumnFlag(GNum.i, Column.i, Flag.i)
   Declare   RemoveItem(GNum.i, Row.i)
   Declare   RemoveItemState(GNum.i, Row.i, State.i, Column.i=#PB_Ignore)
   Declare   ResetChangedState(GNum.i)
@@ -366,6 +371,7 @@ DeclareModule ListEx
   Declare   SetColor(GNum.i, ColorTyp.i, Value.i, Column.i=#PB_Ignore)
   Declare   SetColorTheme(GNum.i, Theme.i=#PB_Default)
   Declare   SetColumnAttribute(GNum.i, Column.i, Attrib.i, Value.i)
+  Declare   SetColumnFlags(GNum.i, Column.i, Flags.i)
   Declare   SetColumnState(GNum.i, Row.i, Column.i, State.i)
   Declare   SetFont(GNum.i, FontID.i, Type.i=#False, Column.i=#PB_Ignore)   
   Declare   SetDateAttribute(GNum.i, Column.i, Attrib.i, Value.i)
@@ -1710,7 +1716,7 @@ Module ListEx
             ElseIf ListEx()\Cols()\Flags & #ProgressBar ;{ ProgressBar
               If ListEx()\Cols()\Width > ListEx()\Cols()\MaxWidth : ListEx()\Cols()\MaxWidth = ListEx()\Cols()\Width : EndIf
               ;}
-            ElseIf Flags & #Image       ;{ Image
+            ElseIf Flags & #Image                       ;{ Image
 
               imgWidth = ListEx()\Rows()\Column(Key$)\Image\Width + 4
               
@@ -5749,6 +5755,19 @@ Module ListEx
     
   EndProcedure
   
+  Procedure   RemoveColumnFlag(GNum.i, Column.i, Flag.i)
+
+    If FindMapElement(ListEx(), Str(GNum))
+      
+      If SelectElement(ListEx()\Cols(), Column)
+        ListEx()\Cols()\Flags & ~Flag
+        If ListEx()\ReDraw : Draw_() : EndIf
+      EndIf
+      
+    EndIf
+    
+  EndProcedure
+  
   Procedure   RemoveColumn(GNum.i, Column.i)
     Define.s Key$, Col$ 
     
@@ -6124,7 +6143,20 @@ Module ListEx
     EndIf
     
   EndProcedure 
+  
+  Procedure   SetColumnFlags(GNum.i, Column.i, Flags.i)
 
+    If FindMapElement(ListEx(), Str(GNum))
+      
+      If SelectElement(ListEx()\Cols(), Column)
+        ListEx()\Cols()\Flags | Flags
+        If ListEx()\ReDraw : Draw_() : EndIf
+      EndIf
+      
+    EndIf
+    
+  EndProcedure 
+  
   Procedure   SetColumnState(GNum.i, Row.i, Column.i, State.i)
     
     If FindMapElement(ListEx(), Str(GNum))
@@ -6743,7 +6775,7 @@ CompilerIf #PB_Compiler_IsMainFile
     ButtonGadget(#B_Green, 420,  80, 70, 20, "Green")
     ButtonGadget(#B_Blue,  420, 110, 70, 20, "Blue")
     
-    ListEx::Gadget(#List, 10, 10, 395, 230, "", 25, "", ListEx::#GridLines|ListEx::#CheckBoxes|ListEx::#AutoResize|ListEx::#MultiSelect|ListEx::#ResizeColumn) ; ListEx::#NoRowHeader|ListEx::#ThreeState|ListEx::#NumberedColumn|ListEx::#SingleClickEdit 
+    ListEx::Gadget(#List, 10, 10, 395, 230, "", 25, "", ListEx::#GridLines|ListEx::#CheckBoxes|ListEx::#AutoResize|ListEx::#MultiSelect|ListEx::#ResizeColumn, #Window) ; ListEx::#NoRowHeader|ListEx::#ThreeState|ListEx::#NumberedColumn|ListEx::#SingleClickEdit 
     
     ListEx::DisableReDraw(#List, #True) 
     
@@ -6904,9 +6936,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 2405
-; FirstLine = 1934
-; Folding = -HAEAAg------------fPp-------------------------------5---
+; CursorPosition = 13
+; Folding = +HAEAAg---------N1-fP6---------------------------BAAAAgA-
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
