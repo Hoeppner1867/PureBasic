@@ -2400,13 +2400,13 @@ Module ListEx
             If ListIndex(ListEx()\Rows()) <> ListEx()\Row\Current
               If Flags & #CellBack                       
                 DrawingMode(#PB_2DDrawing_Default)
-                Box(colX, rowY, ListEx()\Cols()\Width, dpiY(ListEx()\Rows()\Height), ListEx()\Rows()\Column(Key$)\Color\Back)
+                Box(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), ListEx()\Rows()\Column(Key$)\Color\Back)
               ElseIf ListEx()\Rows()\Color\Back <> #PB_Default
                 DrawingMode(#PB_2DDrawing_Default)
-                Box(colX, rowY, ListEx()\Cols()\Width, dpiY(ListEx()\Rows()\Height), ListEx()\Rows()\Color\Back)
+                Box(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), ListEx()\Rows()\Color\Back)
               ElseIf ListEx()\Cols()\BackColor <> #PB_Default
                 DrawingMode(#PB_2DDrawing_Default)
-                Box(colX, rowY, ListEx()\Cols()\Width, dpiY(ListEx()\Rows()\Height), ListEx()\Cols()\BackColor)
+                Box(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), ListEx()\Cols()\BackColor)
               EndIf
             EndIf ;}
             
@@ -6904,8 +6904,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 13
-; Folding = -HAEAAg-------------Pp-------------------------------5---
+; CursorPosition = 2405
+; FirstLine = 1934
+; Folding = -HAEAAg------------fPp-------------------------------5---
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
