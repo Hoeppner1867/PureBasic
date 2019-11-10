@@ -9,10 +9,13 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 9.11.2019
+; Last Update: 10.11.2019
+;
+; - Bugfix: row color
 ;
 ; - StringGadget() replaced by internal DrawString_()
-;
+; - DPI reworked
+; 
 ; - Addded: ListEx::Hide()
 ;
 
@@ -462,12 +465,12 @@ Module ListEx
   
   ; ===== Structures =====
   
-  Structure Cursor_Thread_Structure     ;{
+  Structure Cursor_Thread_Structure     ;{ Thread\...
     Num.i
     Active.i
     Exit.i
   EndStructure ;}
-  
+
   Structure ListEx_Cursor_Structure     ;{ ListEx()\Cursor\...
     Pos.i ; 0: "|abc" / 1: "a|bc" / 2: "ab|c"  / 3: "abc|"
     X.i
@@ -526,7 +529,6 @@ Module ListEx
     Height.f
     Flags.i
   EndStructure ;}
-  
   
   Structure Cols_Header_Structure       ;{ ListEx()\Cols()\Header\...
     Titel.s
@@ -819,14 +821,13 @@ Module ListEx
     List Rows.ListEx_Rows_Structure()
     
   EndStructure ;}
-  
   Global NewMap ListEx.ListEx_Structure()
   
   Global NewMap Font.Font_Structure()
   Global NewMap Grades.Grades_Structure()
   
   Global Thread.Cursor_Thread_Structure
-  
+
   ;- ============================================================================
   ;-   Module - Internal
   ;- ============================================================================ 
@@ -837,7 +838,7 @@ Module ListEx
   Declare CloseString_(Escape.i=#False)
   Declare CloseComboBox_(Escape.i=#False)
   Declare CloseDate_(Escape.i=#False)
-  
+
   CompilerIf #PB_Compiler_OS = #PB_OS_MacOS
     ; Addition of mk-soft
     
@@ -946,7 +947,9 @@ Module ListEx
   EndProcedure
   
   Procedure.i GetRow_(Y.f)
-
+    
+    Y = DesktopUnscaledY(Y)
+    
     If Y > ListEx()\Size\Y And Y < ListEx()\Size\Rows + ListEx()\Header\Height
       
       If Y < ListEx()\Header\Height
@@ -976,6 +979,8 @@ Module ListEx
   EndProcedure
   
   Procedure.i GetColumn_(X.i)
+    
+    X = DesktopUnscaledX(X)
     
     If X > ListEx()\Size\X And X < ListEx()\Size\Cols
       
@@ -1633,7 +1638,7 @@ Module ListEx
           EndIf
           
           If ListEx()\Cols()\Header\Flags & #Image 
-            ListEx()\Cols()\MaxWidth = TextWidth(ListEx()\Cols()\Header\Titel) + ListEx()\Cols()\Header\Image\Width + dpiX(4)
+            ListEx()\Cols()\MaxWidth = TextWidth(ListEx()\Cols()\Header\Titel) + ListEx()\Cols()\Header\Image\Width + 4
           Else
             ListEx()\Cols()\MaxWidth = TextWidth(ListEx()\Cols()\Header\Titel)
           EndIf          
@@ -1707,7 +1712,7 @@ Module ListEx
               ;}
             ElseIf Flags & #Image       ;{ Image
 
-              imgWidth = ListEx()\Rows()\Column(Key$)\Image\Width + dpiX(4)
+              imgWidth = ListEx()\Rows()\Column(Key$)\Image\Width + 4
               
               Text$ = ListEx()\Rows()\Column(Key$)\Value
               If Text$ <> ""
@@ -1924,8 +1929,8 @@ Module ListEx
       If State < ListEx()\ProgressBar\Minimum : State = ListEx()\ProgressBar\Minimum : EndIf
       If State > ListEx()\ProgressBar\Maximum : State = ListEx()\ProgressBar\Maximum : EndIf
       
-      pbWidth  = Width  - dpiX(4)
-      pbHeight = Height - dpiY(4)
+      pbWidth  = dpiX(Width  - 4)
+      pbHeight = dpiY(Height - 4)
       
       If State > ListEx()\ProgressBar\Minimum
         
@@ -1933,14 +1938,14 @@ Module ListEx
           Progress = pbWidth
         Else
           Factor   = pbWidth / (ListEx()\ProgressBar\Maximum - ListEx()\ProgressBar\Minimum)
-          Progress = (State - ListEx()\ProgressBar\Minimum) * Factor
+          Progress = dpiX((State - ListEx()\ProgressBar\Minimum) * Factor)
         EndIf
         
         DrawingMode(#PB_2DDrawing_Gradient)
         FrontColor(ListEx()\Color\Gradient)
         BackColor(ListEx()\Color\ProgressBar)
-        LinearGradient(X + dpiX(2), Y + dpiY(2), X + Progress + dpiX(2), Y + pbHeight + dpiX(2))
-        Box(X + dpiX(2), Y + dpiY(2), Progress, pbHeight)
+        LinearGradient(dpiX(X + 2), dpiY(Y + 2), dpiX(X + 2) + Progress, dpiX(Y + 2) + pbHeight)
+        Box(dpiX(X + 2), dpiY(Y + 2), Progress, pbHeight)
   
       EndIf
       
@@ -1952,10 +1957,10 @@ Module ListEx
         
         Text  = ReplaceString(Text, #Progress$, Str(Percent) + "%")
         textX = GetAlignOffset_(Text, pbWidth, Align)
-        textY = (Height - TextHeight(Text)) / 2
+        textY = (dpiY(Height) - TextHeight(Text)) / 2
         
         DrawingMode(#PB_2DDrawing_Transparent)
-        DrawText(X + textX, Y + textY, Text, TextColor)
+        DrawText(dpiX(X) + textX, dpiY(Y) + textY, Text, TextColor)
         
       ElseIf ListEx()\ProgressBar\Flags & #ShowPercent
         
@@ -1963,17 +1968,17 @@ Module ListEx
         
         Text  = Str(Percent) + "%"
         textX = Progress - TextWidth(Text)
-        textY = (Height - TextHeight(Text)) / 2
+        textY = (dpiY(Height) - TextHeight(Text)) / 2
         
         If textX < dpiX(5) : textX = dpiX(5) : EndIf
         
         DrawingMode(#PB_2DDrawing_Transparent)
-        DrawText(X + textX, Y + textY, Text, TextColor)
+        DrawText(dpiX(X) + textX, dpiY(Y) + textY, Text, TextColor)
         
       EndIf
       
       DrawingMode(#PB_2DDrawing_Outlined)
-      Box(X + dpiX(2),  Y + dpiY(2), pbWidth, pbHeight, ListEx()\Color\ButtonBorder)
+      Box(dpiX(X + 2),  dpiY(Y + 2), pbWidth, pbHeight, ListEx()\Color\ButtonBorder)
       
     EndProcedure
     
@@ -1984,6 +1989,11 @@ Module ListEx
     
     If StartDrawing(CanvasOutput(ListEx()\CanvasNum))
       
+      X = dpiX(X)
+      Y = dpiY(Y)
+      Width  = dpiX(Width)
+      Height = dpiY(Height)
+      
       If FontID > 0
         Button_(X, Y, Width, Height, Text, ColorFlag, TextColor, FontID)
       Else
@@ -1993,17 +2003,17 @@ Module ListEx
       If *Image\ID ;{ Image 
         
         If *Image\Flags & #Center
-          imgX = (Width - *Image\Width) / 2
+          imgX = (Width - dpiX(*Image\Width)) / 2
         ElseIf *Image\Flags & #Right
-          imgX = Width - *Image\Width - dpiX(4)
+          imgX = Width - dpiX(*Image\Width) - dpiX(4)
         Else 
           imgX = dpiX(4)
         EndIf
         
-        imgY  = (Height - *Image\Height) / 2 + dpiY(1)
+        imgY  = (Height - dpiY(*Image\Height)) / 2 + dpiY(1)
         
         DrawingMode(#PB_2DDrawing_AlphaBlend)
-        DrawImage(*Image\ID, X + imgX, Y + imgY, *Image\Width, *Image\Height) 
+        DrawImage(*Image\ID, X + imgX, Y + imgY, dpiX(*Image\Width), dpiY(*Image\Height)) 
         ;}
       EndIf
       
@@ -2017,6 +2027,11 @@ Module ListEx
     
     If StartDrawing(CanvasOutput(ListEx()\CanvasNum))
       
+      X = dpiX(X)
+      Y = dpiY(Y)
+      Width  = dpiX(Width)
+      Height = dpiY(Height)
+      
       UpdateRowY_()
 
       CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
@@ -2029,17 +2044,17 @@ Module ListEx
       If *Image\ID ;{ Image 
         
         If *Image\Flags & #Center
-          imgX = (Width - *Image\Width) / 2
+          imgX = (Width - dpiX(*Image\Width)) / 2
         ElseIf *Image\Flags & #Right
-          imgX = Width - *Image\Width - dpiX(4)
+          imgX = Width - dpiX(*Image\Width - 4)
         Else 
           imgX = dpiX(4)
         EndIf
         
-        imgY  = (Height - *Image\Height) / 2 + dpiY(1)
+        imgY  = (Height - dpiY(*Image\Height)) / 2 + dpiY(1)
         
         DrawingMode(#PB_2DDrawing_AlphaBlend)
-        DrawImage(*Image\ID, X + imgX + dpiX(1), Y + imgY + dpiY(1), *Image\Width - dpiX(2), *Image\Height - dpiY(2)) 
+        DrawImage(*Image\ID, X + imgX + dpiX(1), Y + imgY + dpiY(1), dpiX(*Image\Width - 2), dpiY(*Image\Height - 2)) 
         
         If Text <> ""
           
@@ -2054,7 +2069,7 @@ Module ListEx
           ElseIf *Image\Flags & #Right
             textX = GetAlignOffset_(Text, Width, #Left)
           Else 
-            textX = *Image\Width + dpiX(8)
+            textX = dpiX(*Image\Width + 8)
           EndIf
           
           textY = (Height - TextHeight("Abc")) / 2 + dpiY(1)
@@ -2075,10 +2090,11 @@ Module ListEx
           EndIf
           
           textX = GetAlignOffset_(Text, Width, Align)
-          textY = (Height - TextHeight("Abc")) / 2 + dpiX(1)
+          textY = (Height - TextHeight("Abc")) / 2 + dpiY(1)
           
           DrawingMode(#PB_2DDrawing_Transparent)
           DrawText(X + textX, Y + textY, Text, LinkColor)
+          
         EndIf
         ;}
       EndIf 
@@ -2119,17 +2135,17 @@ Module ListEx
 
       ;{ _____ Background _____
       DrawingMode(#PB_2DDrawing_Default)
-      Box(ListEx()\String\X, ListEx()\String\Y, ListEx()\String\Width, ListEx()\String\Height, BackColor)
+      Box(dpiX(ListEx()\String\X), dpiY(ListEx()\String\Y), dpiX(ListEx()\String\Width), dpiY(ListEx()\String\Height), BackColor)
       ;}
       
-      Text = ListEx()\String\Text
+      Text      = ListEx()\String\Text
       txtHeight = TextHeight(ListEx()\String\Text)
       
-      PosX = ListEx()\String\X + dpiX(3)
-      PosY = ListEx()\String\Y + ((ListEx()\String\Height - txtHeight) / 2) 
-      maxPosX = ListEx()\String\X + ListEx()\String\Width - 1
+      PosX    = dpiX(ListEx()\String\X + 3)
+      PosY    = dpiY(ListEx()\String\Y) + ((dpiY(ListEx()\String\Height) - txtHeight) / 2) 
+      maxPosX = dpiX(ListEx()\String\X + ListEx()\String\Width - 1)
       
-      ClipOutput(ListEx()\String\X, ListEx()\String\Y, ListEx()\String\Width, ListEx()\String\Height) 
+      ClipOutput(dpiX(ListEx()\String\X), dpiY(ListEx()\String\Y), dpiX(ListEx()\String\Width), dpiY(ListEx()\String\Height)) 
       
       ListEx()\Cursor\X = PosX + TextWidth(Left(Text, ListEx()\String\CursorPos)) - 1
       ListEx()\Cursor\Pos = ListEx()\String\CursorPos
@@ -2161,17 +2177,17 @@ Module ListEx
       
       ;{ _____ Border _____
       DrawingMode(#PB_2DDrawing_Outlined)
-      Box(ListEx()\String\X, ListEx()\String\Y, ListEx()\String\Width, ListEx()\String\Height, BorderColor)
+      Box(dpiX(ListEx()\String\X), dpiY(ListEx()\String\Y), dpiX(ListEx()\String\Width), dpiY(ListEx()\String\Height), BorderColor)
       ;}
       
       StopDrawing()
     EndIf
   
   EndProcedure  
-  
 
   Procedure   Draw_()
     Define.f colX, rowY, textY, textX, colW0, colWidth, rowHeight, imgY, imgX, imgWidth
+    Define.i Width, Height
     Define.i Flags, imgFlags, Align, Mark, Row
     Define.i FrontColor, FocusColor, RowColor, FontID, RowFontID, Time
     Define.s Key$, Text$
@@ -2179,7 +2195,13 @@ Module ListEx
     If ListEx()\Hide : ProcedureReturn #False : EndIf
     
     AdjustScrollBars_()
-
+    
+    If ListEx()\HScroll\Hide
+      Height = dpiY(GadgetWidth(ListEx()\CanvasNum))
+    Else  
+      Height = dpiY(GadgetWidth(ListEx()\CanvasNum)) - dpiY(#ScrollBar_Width)
+    EndIf
+    
     If StartDrawing(CanvasOutput(ListEx()\CanvasNum))
       
       PushListPosition(ListEx()\Rows())
@@ -2192,21 +2214,21 @@ Module ListEx
       
       ;{ _____ Background _____
       DrawingMode(#PB_2DDrawing_Default)
-      Box(colX, rowY, dpiX(GadgetWidth(ListEx()\CanvasNum)), dpiY(GadgetHeight(ListEx()\CanvasNum)), ListEx()\Color\Canvas)
+      Box(0, 0, dpiX(GadgetWidth(ListEx()\CanvasNum)), dpiY(GadgetHeight(ListEx()\CanvasNum)), ListEx()\Color\Canvas)
       ;}
 
-      colX     = ListEx()\Size\X    - ListEx()\Col\OffsetX
-      colWidth = ListEx()\Size\Cols - ListEx()\Col\OffsetX
+      colX     = dpiX(ListEx()\Size\X)    - dpiX(ListEx()\Col\OffsetX)
+      colWidth = dpiX(ListEx()\Size\Cols) - dpiX(ListEx()\Col\OffsetX)
 
       ;{ _____ Header _____
       If ListEx()\Flags & #NoRowHeader
         
-        rowY = ListEx()\Size\Y
+        rowY = dpiY(ListEx()\Size\Y)
         
       Else
 
         DrawingMode(#PB_2DDrawing_Default)
-        Box(colX, rowY, ListEx()\Size\Cols, ListEx()\Header\Height, ListEx()\Color\HeaderBack)
+        Box(colX, rowY, dpiX(ListEx()\Size\Cols), dpiY(ListEx()\Header\Height), ListEx()\Color\HeaderBack)
         
         ForEach ListEx()\Cols()
           
@@ -2220,11 +2242,11 @@ Module ListEx
 
           If ListEx()\Cols()\Header\BackColor <> #PB_Default
             DrawingMode(#PB_2DDrawing_Default)
-            Box(colX, rowY, ListEx()\Cols()\Width, ListEx()\Header\Height, ListEx()\Cols()\Header\BackColor)
+            Box(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Header\Height), ListEx()\Cols()\Header\BackColor)
           EndIf 
           
           If CurrentColumn_() = ListEx()\Sort\Column And ListEx()\Cols()\Header\Sort & #SortArrows
-            Arrow_(colX, rowY, ListEx()\Cols()\Width, ListEx()\Header\Height, ListEx()\Cols()\Header\Direction) 
+            Arrow_(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Header\Height), ListEx()\Cols()\Header\Direction) 
           EndIf
           
           If ListEx()\Cols()\Header\Flags & #Image ;{ Image
@@ -2232,19 +2254,19 @@ Module ListEx
             imgFlags = ListEx()\Cols()\Header\Image\Flags
             
             If imgFlags & #Center
-              imgX  = (ListEx()\Cols()\Width - ListEx()\Cols()\Header\Image\Width) / 2
+              imgX = (dpiX(ListEx()\Cols()\Width) - dpiX(ListEx()\Cols()\Header\Image\Width)) / 2
             ElseIf imgFlags & #Right
-              imgX  =  ListEx()\Cols()\Width - ListEx()\Cols()\Header\Image\Width - dpiX(4)
+              imgX = dpiX(ListEx()\Cols()\Width) - dpiX(ListEx()\Cols()\Header\Image\Width) - dpiX(4)
             Else 
               imgX = dpiX(4)
             EndIf
 
-            imgY  = (ListEx()\Header\Height - ListEx()\Cols()\Header\Image\Height) / 2 + dpiY(1)
+            imgY  = (dpiY(ListEx()\Header\Height) - dpiY(ListEx()\Cols()\Header\Image\Height)) / 2 + dpiY(1)
           
             DrawingMode(#PB_2DDrawing_AlphaBlend)
-            DrawImage(ListEx()\Cols()\Header\Image\ID, colX + imgX, rowY + imgY, ListEx()\Cols()\Header\Image\Width, ListEx()\Cols()\Header\Image\Height) 
+            DrawImage(ListEx()\Cols()\Header\Image\ID, colX + imgX, rowY + imgY, dpiX(ListEx()\Cols()\Header\Image\Width), dpiY(ListEx()\Cols()\Header\Image\Height)) 
             
-            ListEx()\Cols()\MaxWidth = TextWidth(ListEx()\Cols()\Header\Titel) + ListEx()\Cols()\Header\Image\Width + dpiX(4)
+            ListEx()\Cols()\MaxWidth = TextWidth(ListEx()\Cols()\Header\Titel) + dpiX(ListEx()\Cols()\Header\Image\Width) + dpiX(4)
             
           Else
             
@@ -2265,23 +2287,23 @@ Module ListEx
           EndIf
           
           If ListEx()\Cols()\Header\Titel
-            textX = GetAlignOffset_(ListEx()\Cols()\Header\Titel, ListEx()\Cols()\Width, Align)
-            textY = (ListEx()\Header\Height - TextHeight("Abc")) / 2 + 0.5
+            textX = GetAlignOffset_(ListEx()\Cols()\Header\Titel, dpiX(ListEx()\Cols()\Width), Align)
+            textY = (dpiY(ListEx()\Header\Height) - TextHeight("Abc")) / 2 + 0.5
             DrawingMode(#PB_2DDrawing_Transparent)
             DrawText(colX + textX, rowY + textY, ListEx()\Cols()\Header\Titel, FrontColor)
           EndIf
           
           DrawingMode(#PB_2DDrawing_Outlined)
-          Box(colX - 1, rowY, ListEx()\Cols()\Width + 1, ListEx()\Header\Height + 1, ListEx()\Color\HeaderGrid)
-          colX + ListEx()\Cols()\Width
+          Box(colX - 1, rowY, dpiX(ListEx()\Cols()\Width) + 1, dpiY(ListEx()\Header\Height) + 1, ListEx()\Color\HeaderGrid)
+          colX + dpiX(ListEx()\Cols()\Width)
           
         Next
       
-        rowY = ListEx()\Size\Y + ListEx()\Header\Height
+        rowY = dpiY(ListEx()\Size\Y) + dpiY(ListEx()\Header\Height)
       EndIf ;}
       
       DrawingFont(ListEx()\Row\FontID)
-      FontID    = ListEx()\Row\FontID
+      FontID = ListEx()\Row\FontID
       
       ; _____ Rows _____
       ListEx()\Row\OffSetY = 0
@@ -2296,9 +2318,9 @@ Module ListEx
         If ListEx()\Rows()\FontID : FontID = ListEx()\Rows()\FontID : EndIf
         RowFontID = FontID
 
-        rowHeight + ListEx()\Rows()\Height
+        rowHeight + dpiY(ListEx()\Rows()\Height)
         
-        colX = ListEx()\Size\X - ListEx()\Col\OffsetX
+        colX = dpiX(ListEx()\Size\X) - dpiX(ListEx()\Col\OffsetX)
         
         DrawingMode(#PB_2DDrawing_Default)
         
@@ -2307,22 +2329,22 @@ Module ListEx
         ;{ Alternate Color
         If ListEx()\Color\Back <> ListEx()\Color\AlternateRow
           If Mod(ListIndex(ListEx()\Rows()), 2)
-            Box(colX, rowY, ListEx()\Size\Cols, ListEx()\Rows()\Height, ListEx()\Color\AlternateRow)
+            Box(colX, rowY, dpiX(ListEx()\Size\Cols), dpiY(ListEx()\Rows()\Height), ListEx()\Color\AlternateRow)
           Else
-            Box(colX, rowY, ListEx()\Size\Cols, ListEx()\Rows()\Height, ListEx()\Color\Back)
+            Box(colX, rowY, dpiX(ListEx()\Size\Cols), dpiY(ListEx()\Rows()\Height), ListEx()\Color\Back)
           EndIf
         Else
-          Box(colX, rowY, ListEx()\Size\Cols, ListEx()\Rows()\Height, ListEx()\Color\Back)  
+          Box(colX, rowY, dpiX(ListEx()\Size\Cols), dpiY(ListEx()\Rows()\Height), ListEx()\Color\Back)  
         EndIf ;}
         
         ;{ Focus row
         FocusColor = BlendColor_(ListEx()\Color\Focus, ListEx()\Color\Back, 10)
         If ListEx()\Flags & #MultiSelect And ListEx()\MultiSelect = #True
           If ListEx()\Rows()\State & #Selected
-            Box(colX, rowY, ListEx()\Size\Cols, ListEx()\Rows()\Height, FocusColor)
+            Box(colX, rowY, dpiX(ListEx()\Size\Cols), dpiY(ListEx()\Rows()\Height), FocusColor)
           EndIf
         ElseIf ListEx()\Focus And ListIndex(ListEx()\Rows()) = ListEx()\Row\Focus
-          Box(colX, rowY, ListEx()\Size\Cols, ListEx()\Rows()\Height, FocusColor)
+          Box(colX, rowY, dpiX(ListEx()\Size\Cols), dpiY(ListEx()\Rows()\Height), FocusColor)
         EndIf ;}
 
         ForEach ListEx()\Cols() ;{ Columns of current row
@@ -2345,18 +2367,18 @@ Module ListEx
             DrawingFont(FontID)
             
             Text$    = Str(ListIndex(ListEx()\Rows()) + 1)
-            textX    = GetAlignOffset_(Text$, ListEx()\Cols()\Width, #Right)
-            textY    = (ListEx()\Rows()\Height - TextHeight("Abc")) / 2 + dpiY(1)
-            colW0    = ListEx()\Cols()\Width
+            textX    = GetAlignOffset_(Text$, dpiX(ListEx()\Cols()\Width), #Right)
+            textY    = (dpiY(ListEx()\Rows()\Height) - TextHeight("Abc")) / 2 + dpiY(1)
+            colW0    = dpiX(ListEx()\Cols()\Width)
             
             DrawingMode(#PB_2DDrawing_Default)
-            Box(colX, rowY, ListEx()\Cols()\Width, ListEx()\Row\Height, ListEx()\Color\HeaderBack)
+            Box(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Row\Height), ListEx()\Color\HeaderBack)
             
             DrawingMode(#PB_2DDrawing_Transparent)
             DrawText(colX + textX, rowY + textY, Text$, ListEx()\Color\HeaderFront, ListEx()\Color\HeaderBack)
             
             DrawingMode(#PB_2DDrawing_Outlined)
-            Box(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height + dpiY(1), ListEx()\Color\HeaderGrid)
+            Box(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height + 1), ListEx()\Color\HeaderGrid)
             
             If Flags & #CellFont : DrawingFont(RowFontID) : EndIf
             ;}
@@ -2366,6 +2388,8 @@ Module ListEx
               FrontColor = ListEx()\Color\Link
             ElseIf Flags & #CellFront
               FrontColor = ListEx()\Rows()\Column(Key$)\Color\Front
+            ElseIf ListEx()\Rows()\Color\Front <> #PB_Default
+              FrontColor = ListEx()\Rows()\Color\Front
             ElseIf ListEx()\Cols()\FrontColor <> #PB_Default
               FrontColor = ListEx()\Cols()\FrontColor
             Else
@@ -2376,27 +2400,30 @@ Module ListEx
             If ListIndex(ListEx()\Rows()) <> ListEx()\Row\Current
               If Flags & #CellBack                       
                 DrawingMode(#PB_2DDrawing_Default)
-                Box(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height, ListEx()\Rows()\Column(Key$)\Color\Back)  
+                Box(colX, rowY, ListEx()\Cols()\Width, dpiY(ListEx()\Rows()\Height), ListEx()\Rows()\Column(Key$)\Color\Back)
+              ElseIf ListEx()\Rows()\Color\Back <> #PB_Default
+                DrawingMode(#PB_2DDrawing_Default)
+                Box(colX, rowY, ListEx()\Cols()\Width, dpiY(ListEx()\Rows()\Height), ListEx()\Rows()\Color\Back)
               ElseIf ListEx()\Cols()\BackColor <> #PB_Default
                 DrawingMode(#PB_2DDrawing_Default)
-                Box(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height, ListEx()\Cols()\BackColor)
+                Box(colX, rowY, ListEx()\Cols()\Width, dpiY(ListEx()\Rows()\Height), ListEx()\Cols()\BackColor)
               EndIf
             EndIf ;}
             
             If ListEx()\Cols()\Flags & #CheckBoxes      ;{ CheckBox
               
               If ListEx()\Focus And ListIndex(ListEx()\Rows()) = ListEx()\Row\Focus
-                CheckBox_(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height, TextHeight("X") - dpiY(3), FocusColor, ListEx()\Rows()\Column(Key$)\State)
+                CheckBox_(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), TextHeight("X") - dpiY(3), FocusColor, ListEx()\Rows()\Column(Key$)\State)
               Else
-                CheckBox_(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height, TextHeight("X") - dpiY(3), ListEx()\Color\Back, ListEx()\Rows()\Column(Key$)\State)
+                CheckBox_(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), TextHeight("X") - dpiY(3), ListEx()\Color\Back, ListEx()\Rows()\Column(Key$)\State)
               EndIf
             
             ElseIf ListEx()\Flags & #CheckBoxes And CurrentColumn_() = ListEx()\Col\CheckBoxes
               
               If ListEx()\Focus And ListIndex(ListEx()\Rows()) = ListEx()\Row\Focus
-                CheckBox_(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height, TextHeight("X") - dpiY(3), FocusColor, ListEx()\Rows()\State)
+                CheckBox_(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), TextHeight("X") - dpiY(3), FocusColor, ListEx()\Rows()\State)
               Else
-                CheckBox_(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height, TextHeight("X") - dpiY(3), ListEx()\Color\Back,  ListEx()\Rows()\State)
+                CheckBox_(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), TextHeight("X") - dpiY(3), ListEx()\Color\Back,  ListEx()\Rows()\State)
               EndIf
               ;}
             ElseIf Flags & #Buttons Or Flags & #Strings Or Flags & #Dates ;{ Single cells
@@ -2405,18 +2432,18 @@ Module ListEx
               If Text$ <> ""
                 
                 CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
-                  ClipOutput(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height) 
+                  ClipOutput(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height)) 
                 CompilerEndIf
                 
                 If Flags & #CellFont : FontID = ListEx()\Rows()\Column(Key$)\FontID : EndIf
                 
                 DrawingFont(FontID)
                 
-                textY = (ListEx()\Rows()\Height - TextHeight("Abc")) / 2 + dpiY(1)
+                textY = (dpiY(ListEx()\Rows()\Height) - TextHeight("Abc")) / 2 + dpiY(1)
                 
                 DrawingMode(#PB_2DDrawing_Transparent)
                 
-                textX = GetAlignOffset_(Text$, ListEx()\Cols()\Width, ListEx()\Cols()\Align)
+                textX = GetAlignOffset_(Text$, dpiX(ListEx()\Cols()\Width), ListEx()\Cols()\Align)
 
                 CompilerIf #Enable_MarkContent
                   
@@ -2448,15 +2475,15 @@ Module ListEx
             ElseIf ListEx()\Cols()\Flags & #Buttons    ;{ Button
               
               CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
-                ClipOutput(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height)
+                ClipOutput(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height))
               CompilerEndIf
               
               If Flags & #CellFont : FontID = ListEx()\Rows()\Column(Key$)\FontID : EndIf
               
               If Flags & #CellFront
-                Button_(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height, ListEx()\Rows()\Column(Key$)\Value, #False, ListEx()\Rows()\Column(Key$)\Color\Front, FontID)
+                Button_(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), ListEx()\Rows()\Column(Key$)\Value, #False, ListEx()\Rows()\Column(Key$)\Color\Front, FontID)
               Else
-                Button_(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height, ListEx()\Rows()\Column(Key$)\Value, #False, ListEx()\Rows()\Color\Front, FontID)
+                Button_(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), ListEx()\Rows()\Column(Key$)\Value, #False, ListEx()\Rows()\Color\Front, FontID)
               EndIf
               
               If Flags & #Image
@@ -2464,17 +2491,17 @@ Module ListEx
                 imgFlags = ListEx()\Rows()\Column(Key$)\Image\Flags
               
                 If imgFlags & #Center
-                  imgX  = (ListEx()\Cols()\Width - ListEx()\Rows()\Column(Key$)\Image\Width) / 2
+                  imgX  = (dpiX(ListEx()\Cols()\Width) - dpiX(ListEx()\Rows()\Column(Key$)\Image\Width)) / 2
                 ElseIf imgFlags & #Right
-                  imgX  = ListEx()\Cols()\Width - ListEx()\Rows()\Column(Key$)\Image\Width - dpiX(4)
+                  imgX  = dpiX(ListEx()\Cols()\Width)  - dpiX(ListEx()\Rows()\Column(Key$)\Image\Width) - dpiX(4)
                 Else 
                   imgX = dpiX(4)
                 EndIf
 
-                imgY = (ListEx()\Rows()\Height - ListEx()\Rows()\Column(Key$)\Image\Height) / 2 + dpiY(1)
+                imgY = (dpiY(ListEx()\Rows()\Height) - dpiY(ListEx()\Rows()\Column(Key$)\Image\Height)) / 2 + dpiY(1)
               
                 DrawingMode(#PB_2DDrawing_AlphaBlend)
-                DrawImage(ListEx()\Rows()\Column(Key$)\Image\ID, colX + imgX, rowY + imgY, ListEx()\Rows()\Column(Key$)\Image\Width, ListEx()\Rows()\Column(Key$)\Image\Height) 
+                DrawImage(ListEx()\Rows()\Column(Key$)\Image\ID, colX + imgX, rowY + imgY, dpiX(ListEx()\Rows()\Column(Key$)\Image\Width), dpiY(ListEx()\Rows()\Column(Key$)\Image\Height)) 
                 
               EndIf
               
@@ -2489,7 +2516,7 @@ Module ListEx
                 
                 If Flags & #CellFont : DrawingFont(ListEx()\Rows()\Column(Key$)\FontID) : EndIf
               
-                DrawProgressBar_(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height, ListEx()\Rows()\Column(Key$)\State, ListEx()\Rows()\Column(Key$)\Value, FrontColor, ListEx()\Cols()\Align, FontID)
+                DrawProgressBar_(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), ListEx()\Rows()\Column(Key$)\State, ListEx()\Rows()\Column(Key$)\Value, FrontColor, ListEx()\Cols()\Align, FontID)
 
                 If Flags & #CellFont : DrawingFont(RowFontID) : EndIf
                 
@@ -2497,24 +2524,24 @@ Module ListEx
             ElseIf Flags & #Image                       ;{ Image
               
               CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
-                ClipOutput(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height)
+                ClipOutput(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height))
               CompilerEndIf
               
               imgFlags = ListEx()\Rows()\Column(Key$)\Image\Flags
               
               If imgFlags & #Center
-                imgX  = (ListEx()\Cols()\Width - ListEx()\Rows()\Column(Key$)\Image\Width) / 2
+                imgX  = (dpiX(ListEx()\Cols()\Width) - dpiX(ListEx()\Rows()\Column(Key$)\Image\Width)) / 2
               ElseIf imgFlags & #Right
-                imgX  = ListEx()\Cols()\Width  - ListEx()\Rows()\Column(Key$)\Image\Width - dpiX(4)
+                imgX  = dpiX(ListEx()\Cols()\Width)  - dpiX(ListEx()\Rows()\Column(Key$)\Image\Width) - dpiX(4)
               Else 
                 imgX = dpiX(4)
               EndIf
               
-              imgWidth = ListEx()\Rows()\Column(Key$)\Image\Width + dpiX(4)
-              imgY     = (ListEx()\Rows()\Height - ListEx()\Rows()\Column(Key$)\Image\Height) / 2 + dpiY(1)
+              imgWidth = dpiX(ListEx()\Rows()\Column(Key$)\Image\Width) + dpiX(4)
+              imgY     = (dpiY(ListEx()\Rows()\Height) - dpiY(ListEx()\Rows()\Column(Key$)\Image\Height)) / 2 + dpiY(1)
               
               DrawingMode(#PB_2DDrawing_AlphaBlend)
-              DrawImage(ListEx()\Rows()\Column(Key$)\Image\ID, colX + imgX, rowY + imgY, ListEx()\Rows()\Column(Key$)\Image\Width, ListEx()\Rows()\Column(Key$)\Image\Height) 
+              DrawImage(ListEx()\Rows()\Column(Key$)\Image\ID, colX + imgX, rowY + imgY, dpiX(ListEx()\Rows()\Column(Key$)\Image\Width), dpiY(ListEx()\Rows()\Column(Key$)\Image\Height)) 
               
               Text$ = ListEx()\Rows()\Column(Key$)\Value
               If Text$ <> ""
@@ -2523,14 +2550,14 @@ Module ListEx
                 
                 DrawingFont(FontID)
                 
-                textY = (ListEx()\Rows()\Height - TextHeight("Abc")) / 2 + dpiY(1)
+                textY = (dpiY(ListEx()\Rows()\Height) - TextHeight("Abc")) / 2 + dpiY(1)
                 
                 If imgFlags & #Center
-                  textX = GetAlignOffset_(Text$, ListEx()\Cols()\Width, #Center)
+                  textX = GetAlignOffset_(Text$, dpiX(ListEx()\Cols()\Width), #Center)
                 ElseIf imgFlags & #Right
-                  textX = GetAlignOffset_(Text$, ListEx()\Cols()\Width, #Left)
+                  textX = GetAlignOffset_(Text$, dpiX(ListEx()\Cols()\Width), #Left)
                 Else 
-                  textX = ListEx()\Rows()\Column(Key$)\Image\Width + dpiX(8)
+                  textX = dpiX(ListEx()\Rows()\Column(Key$)\Image\Width) + dpiX(8)
                 EndIf
                 
                 DrawingMode(#PB_2DDrawing_Transparent)
@@ -2575,18 +2602,18 @@ Module ListEx
               If Text$ <> ""
                 
                 CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
-                  ClipOutput(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height) 
+                  ClipOutput(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height)) 
                 CompilerEndIf
                 
                 If Flags & #CellFont : FontID = ListEx()\Rows()\Column(Key$)\FontID : EndIf
                 
                 DrawingFont(FontID)
                 
-                textY = (ListEx()\Rows()\Height - TextHeight("Abc")) / 2 + dpiY(1)
+                textY = (dpiY(ListEx()\Rows()\Height) - TextHeight("Abc")) / 2 + dpiY(1)
                 
                 DrawingMode(#PB_2DDrawing_Transparent)
                 
-                textX = GetAlignOffset_(Text$, ListEx()\Cols()\Width, ListEx()\Cols()\Align)
+                textX = GetAlignOffset_(Text$, dpiX(ListEx()\Cols()\Width), ListEx()\Cols()\Align)
 
                 CompilerIf #Enable_MarkContent
                   
@@ -2619,27 +2646,27 @@ Module ListEx
           
             If ListEx()\Flags & #GridLines
               DrawingMode(#PB_2DDrawing_Outlined)
-              Box(colX - dpiX(1), rowY, ListEx()\Cols()\Width + dpiX(1), ListEx()\Rows()\Height + dpiY(1), ListEx()\Color\Grid)
+              Box(colX - dpiX(1), rowY, dpiX(ListEx()\Cols()\Width) + dpiX(1), dpiY(ListEx()\Rows()\Height) + dpiY(1), ListEx()\Color\Grid)
             EndIf
             
           EndIf
           
-          colX + ListEx()\Cols()\Width
+          colX + dpiX(ListEx()\Cols()\Width)
           ;}
         Next
         
-        rowY + ListEx()\Row\Height
+        rowY + dpiY(ListEx()\Row\Height)
         
-        If rowY > ListEx()\Size\Height : Break : EndIf
+        If rowY > Height : Break : EndIf
         
       Next
 
-      colX = ListEx()\Size\X - ListEx()\Col\OffsetX
-      rowY = ListEx()\Size\Y
+      colX = dpiX(ListEx()\Size\X) - dpiX(ListEx()\Col\OffsetX)
+      rowY = dpiY(ListEx()\Size\Y)
       
       DrawingMode(#PB_2DDrawing_Default)
       
-      Line(0, ListEx()\Header\Height, colWidth, dpiY(1), ListEx()\Color\HeaderGrid) 
+      Line(0, dpiX(ListEx()\Header\Height), colWidth, dpiY(1), ListEx()\Color\HeaderGrid) 
       
       ;{ _____ ScrollBars ______
       If ListEx()\VScroll\Hide = #False
@@ -2652,13 +2679,11 @@ Module ListEx
       
       ;{ _____ Border _____
       If ListEx()\Flags & #NumberedColumn
-        Line(colX + colW0 - dpiY(1), ListEx()\Header\Height, dpiY(1), rowHeight + dpiY(1), ListEx()\Color\HeaderGrid)
+        Line(colX + colW0 - dpiY(1), dpiY(ListEx()\Header\Height), dpiY(1), rowHeight + dpiY(1), ListEx()\Color\HeaderGrid)
       EndIf
       
       DrawingMode(#PB_2DDrawing_Outlined)
-      
       Box(0, 0, dpiX(GadgetWidth(ListEx()\CanvasNum)), dpiY(GadgetHeight(ListEx()\CanvasNum)), ListEx()\Color\HeaderGrid)
-
       ;}
       
       PopListPosition(ListEx()\Cols())
@@ -2673,112 +2698,16 @@ Module ListEx
   
   Procedure   AdjustScrollBars_(Force.i=#False)
     Define.f WidthOffset
+    Define.i Width
     Define.i PageRows
-
-    If ListEx()\AutoResize\Column <> #PB_Ignore ;{ Resize column
-      
-      If ListEx()\Size\Cols > ListEx()\Size\Width
-        
-        If SelectElement(ListEx()\Cols(), ListEx()\AutoResize\Column)
-          
-          WidthOffset = ListEx()\Size\Cols - ListEx()\Size\Width
-          If ListEx()\Cols()\Width - WidthOffset >= ListEx()\AutoResize\MinWidth
-            ListEx()\Cols()\Width  - WidthOffset
-            ListEx()\Size\Cols     - WidthOffset
-            ListEx()\Size\Height   = dpiY(GadgetHeight(ListEx()\CanvasNum))
-            ListEx()\HScroll\Hide  = #True
-            UpdateColumnX_()
-            HideGadget(ListEx()\HScrollNum, #True) 
-            ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width - 1, GadgetHeight(ListEx()\CanvasNum) - 2)
-          Else  
-            WidthOffset = ListEx()\AutoResize\Width - ListEx()\Cols()\Width
-            ListEx()\Cols()\Width = ListEx()\AutoResize\Width
-            UpdateColumnX_()
-          EndIf
-          
-        EndIf
-        
-      ElseIf ListEx()\Size\Cols < ListEx()\Size\Width
-        
-        If SelectElement(ListEx()\Cols(), ListEx()\AutoResize\Column)
-          
-          WidthOffset = ListEx()\Size\Width - ListEx()\Size\Cols
-          
-          If ListEx()\AutoResize\maxWidth > #PB_Default And ListEx()\Cols()\Width + WidthOffset > ListEx()\AutoResize\maxWidth
-            ListEx()\Cols()\Width = ListEx()\AutoResize\maxWidth
-          Else  
-            ListEx()\Cols()\Width + WidthOffset
-          EndIf
-          
-          UpdateColumnX_()
-          
-        EndIf
-        
-      EndIf
-      ;}
-    EndIf
-    
-    If IsGadget(ListEx()\HScrollNum) ;{ Horizontal Scrollbar
-      
-      If ListEx()\Size\Cols > ListEx()\Size\Width
-        If ListEx()\HScroll\Hide
-          ListEx()\Size\Height = dpiY(GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width)
-          If ListEx()\VScroll\Hide
-            ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - 1, #ScrollBar_Width - 1)
-          Else
-            ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width - 1, #ScrollBar_Width - 1)
-          EndIf
-          HideGadget(ListEx()\HScrollNum, #False)
-          ListEx()\HScroll\Hide = #False
-        EndIf
-        
-        SetGadgetAttribute(ListEx()\HScrollNum, #PB_ScrollBar_Minimum,    0)
-        SetGadgetAttribute(ListEx()\HScrollNum, #PB_ScrollBar_Maximum,    ListEx()\Size\Cols)
-        SetGadgetAttribute(ListEx()\HScrollNum, #PB_ScrollBar_PageLength, ListEx()\Size\Width)
-        
-        ListEx()\HScroll\MinPos = 0
-        ListEx()\HScroll\MaxPos = ListEx()\Size\Cols - ListEx()\Size\Width + 1
-        
-        If ListEx()\HScroll\Hide = #False
-          If dpiX(GadgetWidth(ListEx()\HScrollNum)) < ListEx()\Size\Width - dpiX(2)
-            If ListEx()\VScroll\Hide
-              ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - 1, #ScrollBar_Width - 1)
-            Else  
-              ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width - 1, #ScrollBar_Width - 1)
-            EndIf  
-          ElseIf dpiX(GadgetWidth(ListEx()\HScrollNum)) > ListEx()\Size\Width - dpiX(1)
-            If ListEx()\VScroll\Hide
-              ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - 1, #ScrollBar_Width - 1)
-            Else  
-              ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width - 1, #ScrollBar_Width - 1)
-            EndIf 
-          EndIf
-          
-        EndIf
-        
-      ElseIf ListEx()\Size\Cols < ListEx()\Size\Width
-        
-        If ListEx()\HScroll\Hide
-          
-        Else
-          ListEx()\Size\Height = dpiY(GadgetHeight(ListEx()\CanvasNum))
-          ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width - 1, GadgetHeight(ListEx()\CanvasNum) - 2)
-          HideGadget(ListEx()\HScrollNum, #True)
-          ListEx()\HScroll\Hide = #True
-        EndIf
-        
-      EndIf 
-      ;}
-    EndIf
     
     If IsGadget(ListEx()\VScrollNum) ;{ Vertical ScrollBar
       
-      If ListEx()\Size\Rows > (ListEx()\Size\Height - ListEx()\Header\Height)
+      If ListEx()\Size\Rows > (GadgetHeight(ListEx()\CanvasNum) - ListEx()\Header\Height)
       
         PageRows = GetPageRows_()
         
         If ListEx()\VScroll\Hide Or Force
-          ListEx()\Size\Width = dpiX(GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width)
           If ListEx()\HScroll\Hide
             ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width - 1, GadgetHeight(ListEx()\CanvasNum) - 2)
           Else
@@ -2796,7 +2725,7 @@ Module ListEx
         ListEx()\VScroll\MaxPos = ListEx()\Row\Number - PageRows + 2
         
         If ListEx()\VScroll\Hide = #False
-          If dpiY(GadgetHeight(ListEx()\VScrollNum)) < ListEx()\Size\Height - dpiY(2)
+          If GadgetHeight(ListEx()\VScrollNum) < GadgetHeight(ListEx()\CanvasNum) - 2
             
             If ListEx()\HScroll\Hide
               ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width - 1, GadgetHeight(ListEx()\CanvasNum) - 2)
@@ -2804,7 +2733,7 @@ Module ListEx
               ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width - 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width - 2)
             EndIf
             
-          ElseIf dpiY(GadgetHeight(ListEx()\VScrollNum)) > ListEx()\Size\Height
+          ElseIf GadgetHeight(ListEx()\VScrollNum) > GadgetHeight(ListEx()\CanvasNum)
             
             If ListEx()\HScroll\Hide
               ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width - 1, GadgetHeight(ListEx()\CanvasNum) - 2)
@@ -2816,9 +2745,8 @@ Module ListEx
           
         EndIf
         
-      ElseIf Not ListEx()\VScroll\Hide And ListEx()\Size\Rows < (ListEx()\Size\Height - ListEx()\Header\Height)
+      ElseIf Not ListEx()\VScroll\Hide And ListEx()\Size\Rows < (GadgetHeight(ListEx()\CanvasNum) - ListEx()\Header\Height)
         
-        ListEx()\Size\Width = dpiX(GadgetWidth(ListEx()\CanvasNum))
         ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - 1, #ScrollBar_Width - 2)
         HideGadget(ListEx()\VScrollNum, #True)
         ListEx()\Row\Offset   = 0
@@ -2830,6 +2758,104 @@ Module ListEx
         EndIf 
         
       EndIf
+      ;}
+    EndIf
+    
+    If ListEx()\VScroll\Hide
+      Width = GadgetWidth(ListEx()\CanvasNum)
+    Else
+      Width = GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width 
+    EndIf
+    
+    If ListEx()\AutoResize\Column <> #PB_Ignore ;{ Resize column
+
+      If ListEx()\Size\Cols > Width
+        
+        If SelectElement(ListEx()\Cols(), ListEx()\AutoResize\Column)
+          
+          WidthOffset = ListEx()\Size\Cols - Width
+          If ListEx()\Cols()\Width - WidthOffset >= ListEx()\AutoResize\MinWidth
+            ListEx()\Cols()\Width  - WidthOffset
+            ListEx()\Size\Cols     - WidthOffset
+            ListEx()\HScroll\Hide  = #True
+            UpdateColumnX_()
+            HideGadget(ListEx()\HScrollNum, #True) 
+            ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width - 1, GadgetHeight(ListEx()\CanvasNum) - 2)
+          Else  
+            WidthOffset = ListEx()\AutoResize\Width - ListEx()\Cols()\Width
+            ListEx()\Cols()\Width = ListEx()\AutoResize\Width
+            UpdateColumnX_()
+          EndIf
+          
+        EndIf
+        
+      ElseIf ListEx()\Size\Cols < Width
+        
+        If SelectElement(ListEx()\Cols(), ListEx()\AutoResize\Column)
+          
+          WidthOffset = Width - ListEx()\Size\Cols
+          
+          If ListEx()\AutoResize\maxWidth > #PB_Default And ListEx()\Cols()\Width + WidthOffset > ListEx()\AutoResize\maxWidth
+            ListEx()\Cols()\Width = ListEx()\AutoResize\maxWidth
+          Else  
+            ListEx()\Cols()\Width + WidthOffset
+          EndIf
+          
+          UpdateColumnX_()
+          
+        EndIf
+        
+      EndIf
+      ;}
+    EndIf    
+    
+    If IsGadget(ListEx()\HScrollNum)            ;{ Horizontal Scrollbar
+      
+      If ListEx()\Size\Cols > Width
+        
+        If ListEx()\HScroll\Hide
+          If ListEx()\VScroll\Hide
+            ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - 1, #ScrollBar_Width - 1)
+          Else
+            ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width - 1, #ScrollBar_Width - 1)
+          EndIf
+          HideGadget(ListEx()\HScrollNum, #False)
+          ListEx()\HScroll\Hide = #False
+        EndIf
+        
+        SetGadgetAttribute(ListEx()\HScrollNum, #PB_ScrollBar_Minimum,    0)
+        SetGadgetAttribute(ListEx()\HScrollNum, #PB_ScrollBar_Maximum,    ListEx()\Size\Cols)
+        SetGadgetAttribute(ListEx()\HScrollNum, #PB_ScrollBar_PageLength, Width)
+        
+        ListEx()\HScroll\MinPos = 0
+        ListEx()\HScroll\MaxPos = ListEx()\Size\Cols - Width + 1
+        
+        If ListEx()\HScroll\Hide = #False
+          If GadgetWidth(ListEx()\HScrollNum) < Width - 2
+            If ListEx()\VScroll\Hide
+              ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - 1, #ScrollBar_Width - 1)
+            Else  
+              ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width - 1, #ScrollBar_Width - 1)
+            EndIf  
+          ElseIf GadgetWidth(ListEx()\HScrollNum) > Width - 1
+            If ListEx()\VScroll\Hide
+              ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - 1, #ScrollBar_Width - 1)
+            Else  
+              ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width - 1, #ScrollBar_Width - 1)
+            EndIf 
+          EndIf
+          
+        EndIf
+        
+      ElseIf ListEx()\Size\Cols < Width
+        
+        If ListEx()\HScroll\Hide = #False
+          ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width - 1, GadgetHeight(ListEx()\CanvasNum) - 2)
+          HideGadget(ListEx()\HScrollNum, #True)
+          ListEx()\HScroll\Hide = #True
+        EndIf
+        
+      EndIf 
       ;}
     EndIf
     
@@ -2887,7 +2913,6 @@ Module ListEx
   
   ;- __________ Events __________
   
-
   Procedure   UpdateEventData_(Type.i, Row.i=#NotValid, Column.i=#NotValid, Value.s="", State.i=#NotValid, ID.s="")
     
     ListEx()\Event\Type   = Type
@@ -2974,7 +2999,7 @@ Module ListEx
             
             If ListEx()\Editable
               
-              ResizeGadget(ListEx()\ComboNum, DesktopUnscaledX(X), DesktopUnscaledY(Y) + 1, DesktopUnscaledX(ListEx()\Cols()\Width) - 1,  DesktopUnscaledY(ListEx()\Rows()\Height))
+              ResizeGadget(ListEx()\ComboNum, X, Y + 1, ListEx()\Cols()\Width - 1,  ListEx()\Rows()\Height)
               LoadComboItems_(Column)
               SetGadgetText(ListEx()\ComboNum, ListEx()\Rows()\Column(Key$)\Value)
               ListEx()\ComboBox\Row    = Row
@@ -3009,7 +3034,7 @@ Module ListEx
                 If ListEx()\Date\Column()\Mask : Mask$ = ListEx()\Date\Column()\Mask : EndIf
               EndIf
 
-              ResizeGadget(ListEx()\DateNum, DesktopUnscaledX(X), DesktopUnscaledX(Y), DesktopUnscaledX(ListEx()\Cols()\Width) - 1,  DesktopUnscaledY(ListEx()\Rows()\Height))
+              ResizeGadget(ListEx()\DateNum, X, Y, ListEx()\Cols()\Width - 1, ListEx()\Rows()\Height)
               SetGadgetText(ListEx()\DateNum, Mask$)
 
               Value$ = ListEx()\Rows()\Column(Key$)\Value
@@ -3050,18 +3075,14 @@ Module ListEx
   Procedure   ScrollEditGadgets_() 
     Define.f X, Y
     
-    If ListEx()\String\Flag
-
-      CloseString_()
-
-    EndIf
+    If ListEx()\String\Flag : CloseString_() : EndIf
     
     If ListEx()\ComboBox\Flag
       If IsGadget(ListEx()\ComboNum)
         X = ListEx()\ComboBox\X - ListEx()\Col\OffsetX
         Y = ListEx()\ComboBox\Y - ListEx()\Row\OffSetY
-        ResizeGadget(ListEx()\ComboNum, DesktopUnscaledX(X), DesktopUnscaledY(Y) + 1, #PB_Ignore, #PB_Ignore)
-        If X + ListEx()\ComboBox\Width > ListEx()\Size\Width Or Y + ListEx()\ComboBox\Height > ListEx()\Size\Height Or Y < ListEx()\Header\Height
+        ResizeGadget(ListEx()\ComboNum, X, Y + 1, #PB_Ignore, #PB_Ignore)
+        If X + ListEx()\ComboBox\Width > GadgetWidth(ListEx()\CanvasNum) Or Y + ListEx()\ComboBox\Height > GadgetHeight(ListEx()\CanvasNum) Or Y < ListEx()\Header\Height
           HideGadget(ListEx()\ComboNum, #True) 
         Else  
           HideGadget(ListEx()\ComboNum, #False)
@@ -3073,8 +3094,8 @@ Module ListEx
       If IsGadget(ListEx()\DateNum)
         X = ListEx()\Date\X - ListEx()\Col\OffsetX
         Y = ListEx()\Date\Y - ListEx()\Row\OffSetY
-        ResizeGadget(ListEx()\DateNum, DesktopUnscaledX(X), DesktopUnscaledY(Y) + dpiY(1), #PB_Ignore, #PB_Ignore)
-        If X + ListEx()\Date\Width > ListEx()\Size\Width Or Y + ListEx()\Date\Height > ListEx()\Size\Height Or Y < ListEx()\Header\Height
+        ResizeGadget(ListEx()\DateNum, X, Y + 1, #PB_Ignore, #PB_Ignore)
+        If X + ListEx()\Date\Width > GadgetWidth(ListEx()\CanvasNum) Or Y + ListEx()\Date\Height > GadgetHeight(ListEx()\CanvasNum) Or Y < ListEx()\Header\Height
           HideGadget(ListEx()\DateNum, #True) 
         Else  
           HideGadget(ListEx()\DateNum, #False)
@@ -3575,7 +3596,7 @@ Module ListEx
       X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
       Y = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
       
-      If X < ListEx()\Size\Width And X < ListEx()\Size\Cols 
+      If X < GadgetWidth(GNum) And X < ListEx()\Size\Cols 
         If Y > ListEx()\Header\Height And Y < (ListEx()\Size\Rows + ListEx()\Header\Height)
           
           ListEx()\Row\Current = GetRow_(GetGadgetAttribute(GNum, #PB_Canvas_MouseY))
@@ -4386,13 +4407,6 @@ Module ListEx
     Define.i GadgetNum = EventGadget()
     
     If FindMapElement(ListEx(), Str(GadgetNum))
-    
-      ListEx()\Size\Width  = dpiX(GadgetWidth(GadgetNum))
-      ListEx()\Size\Height = dpiY(GadgetHeight(GadgetNum))
-      
-      If ListEx()\VScroll\Hide = #False : ListEx()\Size\Width  - dpiX(#ScrollBar_Width) : EndIf
-      
-      If ListEx()\HScroll\Hide = #False : ListEx()\Size\Height - dpiY(#ScrollBar_Width) : EndIf
       
       If ListEx()\VScroll\Hide = #False Or ListEx()\HScroll\Hide = #False
         
@@ -4434,23 +4448,20 @@ Module ListEx
             OffSetX = WindowWidth(ListEx()\Window\Num)  - ListEx()\Window\Width
             OffsetY = WindowHeight(ListEx()\Window\Num) - ListEx()\Window\Height
             
-            ListEx()\Window\Width  = WindowWidth(ListEx()\Window\Num)
-            ListEx()\Window\Height = WindowHeight(ListEx()\Window\Num)
-            
             If ListEx()\Size\Flags
               
               X = #PB_Ignore : Y = #PB_Ignore : Width  = #PB_Ignore : Height = #PB_Ignore
               
-              If ListEx()\Size\Flags & #MoveX : X = GadgetX(ListEx()\CanvasNum) + OffSetX : EndIf
-              If ListEx()\Size\Flags & #MoveY : Y = GadgetY(ListEx()\CanvasNum) + OffSetY : EndIf
-              If ListEx()\Size\Flags & #Width  : Width  = GadgetWidth(ListEx()\CanvasNum)  + OffSetX : EndIf
-              If ListEx()\Size\Flags & #Height : Height = GadgetHeight(ListEx()\CanvasNum) + OffSetY : EndIf
+              If ListEx()\Size\Flags & #MoveX : X = ListEx()\Size\X + OffSetX : EndIf
+              If ListEx()\Size\Flags & #MoveY : Y = ListEx()\Size\Y + OffSetY : EndIf
+              If ListEx()\Size\Flags & #Width  : Width  = ListEx()\Size\Width  + OffSetX : EndIf
+              If ListEx()\Size\Flags & #Height : Height = ListEx()\Size\Height + OffSetY : EndIf
               
               ResizeGadget(ListEx()\CanvasNum, X, Y, Width, Height)
               
             Else
               
-              ResizeGadget(ListEx()\CanvasNum, #PB_Ignore, #PB_Ignore, GadgetWidth(ListEx()\CanvasNum) + OffSetX, GadgetHeight(ListEx()\CanvasNum) + OffsetY)
+              ResizeGadget(ListEx()\CanvasNum, #PB_Ignore, #PB_Ignore, ListEx()\Size\Width + OffSetX, Height + OffsetY)
               
             EndIf
             
@@ -4549,7 +4560,6 @@ Module ListEx
     EndIf
     
   EndProcedure 
-  
   
   ;- __________ Editing Cells __________
   
@@ -4799,7 +4809,7 @@ Module ListEx
         ListEx()\Cols()\Header\FontID     = #PB_Default
         ListEx()\Cols()\Header\FrontColor = #PB_Default
         ListEx()\Cols()\Header\BackColor  = #PB_Default
-        ListEx()\Cols()\Width             = dpiX(Width)
+        ListEx()\Cols()\Width             = Width
         ListEx()\Cols()\Currency          = ListEx()\Country\Currency
         ListEx()\Cols()\FrontColor        = #PB_Default
         ListEx()\Cols()\BackColor         = #PB_Default
@@ -5182,13 +5192,7 @@ Module ListEx
     If Result
       
       If GNum = #PB_Any : GNum = Result : EndIf
-      
-      X = dpiX(X)
-      Y = dpiY(Y)
-      Width    = dpiX(Width)
-      Height   = dpiY(Height)
-      ColWidth = dpiX(ColWidth)
-      
+
       If ColLabel = "" : ColLabel = "0" : EndIf
       
       If AddMapElement(ListEx(), Str(GNum))
@@ -5228,8 +5232,8 @@ Module ListEx
         ListEx()\Flags  = Flags
         ListEx()\ReDraw = #True
         
-        ListEx()\Row\Height = dpiX(20) ; Default row height
-        ListEx()\Col\Width  = dpiY(50) ; Default column width
+        ListEx()\Row\Height = 20 ; Default row height
+        ListEx()\Col\Width  = 50 ; Default column width
         
         If Flags & #NumberedColumn : ListEx()\Col\CheckBoxes = 1 : EndIf
         
@@ -5313,7 +5317,7 @@ Module ListEx
         If Flags & #NoRowHeader
           ListEx()\Header\Height = 0
         Else  
-          ListEx()\Header\Height = dpiY(20)
+          ListEx()\Header\Height = 20
         EndIf
         ListEx()\Header\FontID   = FontID(LoadFont(#PB_Any, "Arial", 9))  
         ListEx()\Header\Align    = #False
@@ -5336,7 +5340,7 @@ Module ListEx
           ListEx()\Cols()\Header\FontID     = #PB_Default
           ListEx()\Cols()\Header\FrontColor = #PB_Default
           ListEx()\Cols()\Header\BackColor  = #PB_Default
-          ListEx()\Cols()\Width             = dpiX(ColWidth)
+          ListEx()\Cols()\Width             = ColWidth
           ListEx()\Cols()\Key               = ColLabel
           ListEx()\Cols()\FrontColor        = #PB_Default
           ListEx()\Cols()\BackColor         = #PB_Default
@@ -5881,7 +5885,7 @@ Module ListEx
       
       Select Attrib
         Case #Padding
-          ListEx()\Col\Padding = dpiX(Value)
+          ListEx()\Col\Padding = Value
       EndSelect
       
       If ListEx()\ReDraw : Draw_() : EndIf
@@ -5897,8 +5901,8 @@ Module ListEx
       If minWidth = #PB_Default : minWidth = ListEx()\Col\Width : EndIf
       
       ListEx()\AutoResize\Column   = Column
-      ListEx()\AutoResize\minWidth = dpiX(minWidth)
-      ListEx()\AutoResize\maxWidth = dpiX(maxWidth)
+      ListEx()\AutoResize\minWidth = minWidth
+      ListEx()\AutoResize\maxWidth = maxWidth
       If SelectElement(ListEx()\Cols(), Column) : ListEx()\AutoResize\Width = ListEx()\Cols()\Width : EndIf
       
       If ListEx()\ReDraw : Draw_() : EndIf
@@ -6106,7 +6110,7 @@ Module ListEx
           Case #Align
             ListEx()\Cols()\Align  = Value
           Case #ColumnWidth
-            ListEx()\Cols()\Width  = dpiX(Value)
+            ListEx()\Cols()\Width  = Value
             UpdateColumnX_()
           Case #FontID
             ListEx()\Cols()\FontID = Value
@@ -6238,7 +6242,7 @@ Module ListEx
             EndIf
           EndIf
         Case #HeaderHeight
-          ListEx()\Header\Height = dpiY(Value)
+          ListEx()\Header\Height = Value
           UpdateRowY_()
         Case #FontID
           If Column = #PB_Ignore
@@ -6271,7 +6275,7 @@ Module ListEx
 
     If FindMapElement(ListEx(), Str(GNum))
       
-      ListEx()\Header\Height = dpiY(Height)
+      ListEx()\Header\Height = Height
       UpdateRowY_()
 
       If ListEx()\ReDraw : Draw_() : EndIf
@@ -6453,8 +6457,8 @@ Module ListEx
         If SelectElement(ListEx()\Cols(), Column)
           If IsImage(Image)
             ListEx()\Cols()\Header\Image\ID     = ImageID(Image)
-            ListEx()\Cols()\Header\Image\Width  = dpiX(Width)
-            ListEx()\Cols()\Header\Image\Height = dpiY(Height)
+            ListEx()\Cols()\Header\Image\Width  = Width
+            ListEx()\Cols()\Header\Image\Height = Height
             ListEx()\Cols()\Header\Image\Flags  = Align
             ListEx()\Cols()\Header\Flags | #Image
           Else
@@ -6471,8 +6475,8 @@ Module ListEx
             
             If IsImage(Image)
               ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Image\ID     = ImageID(Image)
-              ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Image\Width  = dpiX(Width)
-              ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Image\Height = dpiY(Height)
+              ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Image\Width  = Width
+              ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Image\Height = Height
               ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Image\Flags  = Align
               ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Flags | #Image
             Else
@@ -6592,7 +6596,7 @@ Module ListEx
 
     If FindMapElement(ListEx(), Str(GNum))
       
-      ListEx()\Row\Height = dpiY(Height)
+      ListEx()\Row\Height = Height
       
       ForEach ListEx()\Rows()
         ListEx()\Rows()\Height = ListEx()\Row\Height
@@ -6743,8 +6747,8 @@ CompilerIf #PB_Compiler_IsMainFile
     
     ListEx::DisableReDraw(#List, #True) 
     
-    ListEx::AddColumn(#List, 1, "Link",    75, "link",   ListEx::#Links)    ; |ListEx::#FitColumn
-    ListEx::AddColumn(#List, 2, "Edit",    85, "edit",   ListEx::#Editable) ; |ListEx::#FitColumn
+    ListEx::AddColumn(#List, 1, "Link", 75, "link",   ListEx::#Links)    ; |ListEx::#FitColumn
+    ListEx::AddColumn(#List, 2, "Edit", 85, "edit",   ListEx::#Editable) ; |ListEx::#FitColumn
     ListEx::AddColumn(#List, ListEx::#LastItem, "Combo",   78, "combo",  ListEx::#ComboBoxes)
     ListEx::AddColumn(#List, ListEx::#LastItem, "Date",    76, "date",   ListEx::#Dates)
     ListEx::AddColumn(#List, ListEx::#LastItem, "Buttons", 60, "button", ListEx::#Buttons) ; ListEx::#Hide
@@ -6793,8 +6797,9 @@ CompilerIf #PB_Compiler_IsMainFile
     
     ListEx::SetColor(#List, ListEx::#FrontColor, $82004B, 2) ; front color for column 2
     
-    ListEx::SetItemColor(#List,  5, ListEx::#FrontColor, $228B22, 2)
-    ListEx::SetItemFont(#List, 0, FontID(#Font_Arial9B), 2)
+    ;ListEx::SetItemColor(#List, 5, ListEx::#FrontColor, $228B22, 2)
+    ListEx::SetItemColor(#List, 5, ListEx::#BackColor, $FAFFF5)
+    ListEx::SetItemFont(#List,  0, FontID(#Font_Arial9B), 2)
     
     ListEx::SetAutoResizeFlags(#List, ListEx::#Height)
     
@@ -6900,8 +6905,7 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
 ; CursorPosition = 13
-; Folding = cDAAAAQAAAAAAAAAuKAAAYAAgdggDAAiQRB+HACAKAA1UAAACAAACBEQ-
-; Markers = 2924,2943,2946,3055,3349
+; Folding = -HAEAAg-------------Pp-------------------------------5---
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
