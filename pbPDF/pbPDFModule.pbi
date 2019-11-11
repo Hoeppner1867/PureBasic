@@ -31,8 +31,9 @@
 ; SOFTWARE.
 ;}
 
-; Last Update: 26.08.2019
+; Last Update: 11.11.2019
 ; 
+; [11.11.2019] Changed: Embed images
 ; [26.08.2019] Bugfix: PDF::Image()
 
 
@@ -298,7 +299,7 @@ DeclareModule PDF
   ;{ ----- Info:        SetInfo() -----
   Enumeration 1
     #Author
-    #Titel
+    #Title
     #Subject
     #Keywords
     #Creator
@@ -929,7 +930,7 @@ Module PDF
     Flag.i    ; #True / #False
   EndStructure ;}  
   
-  Structure PDF_Image_Structure      ;{ PDF()\objImages(FileName)\... | PDF()\objFonts()\... | PDF()\objFiles()\... | PDF()\objJavaScript()\...
+  Structure PDF_Image_Structure      ;{ PDF()\objImages()\... | PDF()\objFonts()\... | PDF()\objFiles()\... | PDF()\objJavaScript()\...
     Number.i
     Object.s
     Width.f
@@ -1031,8 +1032,7 @@ Module PDF
     List objFiles.PDF_Embed_Structure()      ; [-> Names:     /EmbeddedFiles]
     List objFonts.PDF_Embed_Structure()      ; [-> Resources: /Font]
     List objJavaScript.PDF_Embed_Structure() ; [-> Names:     /JavaScript]
-    
-    Map  objImages.PDF_Image_Structure()     ; [-> Resources: /XObject]
+    List objImages.PDF_Image_Structure()     ; [-> Resources: /XObject]
     
     ; _____ Data for PDF creation _____
     
@@ -1855,7 +1855,7 @@ Module PDF
             ProcedureReturn ListIndex(PDF()\objFonts())
           EndIf ;}
         Case #objImage       ;{ Image Object
-          If AddMapElement(PDF()\objImages(), GetFilePart(Name))
+          If AddElement(PDF()\objImages())
             PDF()\imgNum + 1
             PDF()\objImages()\Number = PDF()\imgNum
             PDF()\objImages()\Object = strObj_(PDF()\objNum)
@@ -2238,7 +2238,6 @@ Module PDF
     If *Memory And Size
 
       *MemPtr = *Memory
-      Debug "MaxMem: " + Str(*Memory + Size)
       *Header\Size = 0
       
       *Header\Signature = Hex(EndianQ(PeekQ(*MemPtr)), #PB_Quad)
@@ -2353,104 +2352,100 @@ Module PDF
     Define.s Filter, ColorSpace, Parms, objPalette, objStrg
     
     If *Memory And Size
-      
-      If FindMapElement(PDF()\objImages(), GetFilePart(FileName)) = #False
 
-        ; Read image file header
-        Select Format
-          Case #Image_PNG      ;{ PNG-Image
-            If HeaderPNG_(*Memory, Size, @Header)
-              Filter = "FlateDecode"
-              Select Header\ColorSpace
-                Case 0
-                  ColorSpace = "DeviceGray"
-                  Parms     = "/DecodeParms <</Predictor 15 /Colors 1 /BitsPerComponent " + Str(Header\BitDepth) + " /Columns " + Str(Header\Width) + ">>"  
-                Case 2
-                  ColorSpace = "DeviceRGB" 
-                  Parms     = "/DecodeParms <</Predictor 15 /Colors 3 /BitsPerComponent " + Str(Header\BitDepth) + " /Columns " + Str(Header\Width) + ">>"          
-                Case 3
-                  ColorSpace = "Indexed"
-                  Parms     = "/DecodeParms <</Predictor 15 /Colors 1 /BitsPerComponent " + Str(Header\BitDepth) + " /Columns " + Str(Header\Width) + ">>"          
-                Default
-                  PDF()\Error = #ERROR_ALPHA_CHANNEL_PNG_NOT_SUPPORTED
-                  ProcedureReturn #False
-              EndSelect
-              If ColorSpace = "Indexed"
-                objNew_()
-                objPalette = strObj_(PDF()\objNum)
-                objOutDictionary_("/Length " + Str(Header\PalSize))
-                objOutStream_(Header\PalPtr, Header\PalSize) 
-              EndIf
-            Else
-              PDF()\Error = #ERROR_INCORRECT_PNG_FILE
-              ProcedureReturn #False
-            EndIf ;}
-          Case #Image_JPEG     ;{ JPEG-Image
-            If HeaderJPG_(*Memory, Size, @Header)
-              Filter = "DCTDecode"
-              Select Header\ColorSpace
-                Case 1
-                  ColorSpace = "DeviceGray"
-                Case 3
-                  ColorSpace = "DeviceRGB"           
-                Default:
-                  ColorSpace = "DeviceCMYK"               
-              EndSelect
-            Else
-              PDF()\Error = #ERROR_NOT_A_JPEG_FILE
-              ProcedureReturn #False
-            EndIf ;}
-          Case #Image_JPEG2000 ;{ JEPEG200-Image
-            If HeaderJP2_(*Memory, Size, @Header)
-              Filter = "JPXDecode"
-              ; 0: Bi-level / 3: YCbCr(2) / 14: CIELab / 16: sRGB / 17: Greyscale / 18: sRGB YCC
-              Select Header\ColorSpace
-                Case 17
-                  ColorSpace = "DeviceGray" 
-                Case 16, 18
-                  ColorSpace = "DeviceRGB"
-                Default
-                  ColorSpace = "" ; use color space specifications in the JPEG2000 data
-              EndSelect
-            Else
-              PDF()\Error = #ERROR_NOT_A_JPEG_FILE
-              ProcedureReturn #False
-            EndIf ;}
-        EndSelect
-  
-        objNew_(#objImage, FileName)
-        objStrg = "/Type /XObject /Subtype /Image" + #LF$
-        objStrg + "/Width "  + Str(Header\Width) + #LF$ + "/Height " + Str(Header\Height) + #LF$
-        If ColorSpace = "Indexed"
-          objStrg + "/ColorSpace [/Indexed /DeviceRGB " + Str(Header\PalSize / 3 - 1) + " " + objPalette + "]" + #LF$          
-        ElseIf ColorSpace <> " " ; no ColorSpace for JP2 
-          objStrg + "/ColorSpace /" + ColorSpace + #LF$
-          If ColorSpace = "DeviceCMYK"
-            objStrg + "/Decode [1 0 1 0 1 0 1 0]" + #LF$
-          EndIf
+      ; Read image file header
+      Select Format
+        Case #Image_PNG      ;{ PNG-Image
+          If HeaderPNG_(*Memory, Size, @Header)
+            Filter = "FlateDecode"
+            Select Header\ColorSpace
+              Case 0
+                ColorSpace = "DeviceGray"
+                Parms     = "/DecodeParms <</Predictor 15 /Colors 1 /BitsPerComponent " + Str(Header\BitDepth) + " /Columns " + Str(Header\Width) + ">>"  
+              Case 2
+                ColorSpace = "DeviceRGB" 
+                Parms     = "/DecodeParms <</Predictor 15 /Colors 3 /BitsPerComponent " + Str(Header\BitDepth) + " /Columns " + Str(Header\Width) + ">>"          
+              Case 3
+                ColorSpace = "Indexed"
+                Parms     = "/DecodeParms <</Predictor 15 /Colors 1 /BitsPerComponent " + Str(Header\BitDepth) + " /Columns " + Str(Header\Width) + ">>"          
+              Default
+                PDF()\Error = #ERROR_ALPHA_CHANNEL_PNG_NOT_SUPPORTED
+                ProcedureReturn #False
+            EndSelect
+            If ColorSpace = "Indexed"
+              objNew_()
+              objPalette = strObj_(PDF()\objNum)
+              objOutDictionary_("/Length " + Str(Header\PalSize))
+              objOutStream_(Header\PalPtr, Header\PalSize) 
+            EndIf
+          Else
+            PDF()\Error = #ERROR_INCORRECT_PNG_FILE
+            ProcedureReturn #False
+          EndIf ;}
+        Case #Image_JPEG     ;{ JPEG-Image
+          If HeaderJPG_(*Memory, Size, @Header)
+            Filter = "DCTDecode"
+            Select Header\ColorSpace
+              Case 1
+                ColorSpace = "DeviceGray"
+              Case 3
+                ColorSpace = "DeviceRGB"           
+              Default:
+                ColorSpace = "DeviceCMYK"               
+            EndSelect
+          Else
+            PDF()\Error = #ERROR_NOT_A_JPEG_FILE
+            ProcedureReturn #False
+          EndIf ;}
+        Case #Image_JPEG2000 ;{ JEPEG200-Image
+          If HeaderJP2_(*Memory, Size, @Header)
+            Filter = "JPXDecode"
+            ; 0: Bi-level / 3: YCbCr(2) / 14: CIELab / 16: sRGB / 17: Greyscale / 18: sRGB YCC
+            Select Header\ColorSpace
+              Case 17
+                ColorSpace = "DeviceGray" 
+              Case 16, 18
+                ColorSpace = "DeviceRGB"
+              Default
+                ColorSpace = "" ; use color space specifications in the JPEG2000 data
+            EndSelect
+          Else
+            PDF()\Error = #ERROR_NOT_A_JPEG_FILE
+            ProcedureReturn #False
+          EndIf ;}
+      EndSelect
+
+      objNew_(#objImage, FileName)
+      objStrg = "/Type /XObject /Subtype /Image" + #LF$
+      objStrg + "/Width "  + Str(Header\Width) + #LF$ + "/Height " + Str(Header\Height) + #LF$
+      If ColorSpace = "Indexed"
+        objStrg + "/ColorSpace [/Indexed /DeviceRGB " + Str(Header\PalSize / 3 - 1) + " " + objPalette + "]" + #LF$          
+      ElseIf ColorSpace <> " " ; no ColorSpace for JP2 
+        objStrg + "/ColorSpace /" + ColorSpace + #LF$
+        If ColorSpace = "DeviceCMYK"
+          objStrg + "/Decode [1 0 1 0 1 0 1 0]" + #LF$
         EndIf
-        objStrg + "/BitsPerComponent " + Str(Header\BitDepth) + #LF$
-        objStrg + "/Filter /" + Filter + #LF$
-        If Parms <> "" : objStrg + Parms + #LF$ : EndIf
-        objStrg + "/Length "+Str(Header\Size) + #LF$
-        objOutDictionary_(objStrg, #LF$)
-        objOutStream_(Header\Memory, Header\Size)
-        
-        ; ===== Automatic width and height calculation if needed
-        
-        If Width = 0 And Height = 0 ;{ Put image at 72 dpi
-          Width  = Header\Width  / PDF()\ScaleFactor
-          Height = Header\Height / PDF()\ScaleFactor
-          ;}
-        EndIf
-        
-        If Width  = 0 : Width  = Height * Header\Width  / Header\Height : EndIf
-        If Height = 0 : Height = Width  * Header\Height / Header\Width  : EndIf
-        
-        PDF()\objImages()\Width  = Width
-        PDF()\objImages()\Height = Height
-       
       EndIf
+      objStrg + "/BitsPerComponent " + Str(Header\BitDepth) + #LF$
+      objStrg + "/Filter /" + Filter + #LF$
+      If Parms <> "" : objStrg + Parms + #LF$ : EndIf
+      objStrg + "/Length "+Str(Header\Size) + #LF$
+      objOutDictionary_(objStrg, #LF$)
+      objOutStream_(Header\Memory, Header\Size)
+      
+      ; ===== Automatic width and height calculation if needed
+      
+      If Width = 0 And Height = 0 ;{ Put image at 72 dpi
+        Width  = Header\Width  / PDF()\ScaleFactor
+        Height = Header\Height / PDF()\ScaleFactor
+        ;}
+      EndIf
+      
+      If Width  = 0 : Width  = Height * Header\Width  / Header\Height : EndIf
+      If Height = 0 : Height = Width  * Header\Height / Header\Width  : EndIf
+      
+      PDF()\objImages()\Width  = Width
+      PDF()\objImages()\Height = Height
 
       objOutPage_("q " + strF_(PDF()\objImages()\Width * PDF()\ScaleFactor, 2) + " 0 0 " + strF_(PDF()\objImages()\Height * PDF()\ScaleFactor, 2) + " " + strF_(X * PDF()\ScaleFactor, 2) + " " + strF_((PDF()\Page\Height - (Y + PDF()\objImages()\Height)) * PDF()\ScaleFactor, 2) + " cm /I" + Str(PDF()\objImages()\Number) + " Do Q")
       
@@ -3906,7 +3901,7 @@ Module PDF
     EndIf ;}
     
     ;{ _____ Images _____
-    If MapSize(PDF()\objImages()) > 0
+    If ListSize(PDF()\objImages()) > 0
       objStrg = "/XObject <<"
       ForEach PDF()\objImages()
         objStrg + "/I" + Str(PDF()\objImages()\Number) + " " + PDF()\objImages()\Object + " "
@@ -4459,7 +4454,7 @@ Module PDF
       Select Type
         Case #Author
           objOutDictionary_(EscapeString(Value), "/Author (",   ")" + #LF$, #objText, PDF()\Trailer\Info)
-        Case #Titel
+        Case #Title
           objOutDictionary_(EscapeString(Value), "/Title (",    ")" + #LF$, #objText, PDF()\Trailer\Info)
         Case #Subject
           objOutDictionary_(EscapeString(Value), "/Subject (",  ")" + #LF$, #objText, PDF()\Trailer\Info)
@@ -6944,10 +6939,9 @@ CompilerEndIf
 
 ;- ========================
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 4343
-; FirstLine = 643
-; Folding = MAIBAEAPQAIAEgAAgAAAACBAAAhAAAAAMACAAZQAAgREAAABDAAKIACEAAIYYCMHA9ABAA+
-; Markers = 569,1000,2351,2455,3761,3826
+; CursorPosition = 36
+; Folding = MAYBAEAPQAIAEgAAgAAAECBAAAxAAAAAMACAAZQEAhREAAABHAAKIACEAAIYYCMFA9ABAA+
+; Markers = 570,1001,2350,2450,3756,3821
 ; EnableXP
 ; DPIAware
 ; EnablePurifier
