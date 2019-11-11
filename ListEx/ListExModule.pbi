@@ -9,16 +9,16 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 10.11.2019
+; Last Update: 11.11.2019
+;
+; - Added: CSV support (file/clipboard)
 ;
 ; - ListEx::SetColumnFlags() / RemoveColumnFlag()
 ; - Bugfix: row color
 ;
 ; - StringGadget() replaced by internal DrawString_()
 ; - DPI reworked
-; 
-; - Addded: ListEx::Hide()
-;
+
 
 ;{ ===== MIT License =====
 ;
@@ -54,6 +54,7 @@
 ; ListEx::ChangeCountrySettings()   - change default settings
 ; ListEx::ClearComboBoxItems()      - clear items of the comboboxes of the column
 ; ListEx::ClearItems()              - similar to 'ClearGadgetItems()'
+; ListEx::ClipBoard()               - copy selected items to clipboard (CSV)
 ; ListEx::DisableEditing()          - disable editing for the complete list
 ; ListEx::DisableReDraw()           - disable redraw
 ; ListEx::EventColumn()             - column of event (Event: ListEx::#Event_Module)
@@ -61,6 +62,7 @@
 ; ListEx::EventState()              - returns state   (e.g. CheckBox / DateGadget)
 ; ListEx::EventValue()              - returns value   (string)
 ; ListEx::EventID()                 - returns row ID or header label 
+; ListEx::ExportCSV()               - export CSV-file from list
 ; ListEx::Gadget()                  - [#GridLines|#NumberedColumn|#NoRowHeader]
 ; ListEx::GetAttribute()            - similar to 'GetGadgetAttribute()'
 ; ListEx::GetCellText()             - similar to 'GetGadgetItemText()' with labels
@@ -79,6 +81,7 @@
 ; ListEx::GetState(GNum.i)          - similar to 'GetGadgetState()'
 ; ListEx::Hide()                    - similar to 'HideGadget()', but disables redrawing of the canvas gadget
 ; ListEx::HideColumn()              - hides a column
+; ListEx::ImportCSV()               - import CSV-file to list
 ; ListEx::Refresh()                 - redraw gadget
 ; ListEx::RemoveCellFlag()          - removes a flag
 ; ListEx::RemoveColumn()            - similar to 'RemoveGadgetColumn()'
@@ -127,6 +130,7 @@ DeclareModule ListEx
   #Enable_MarkContent = #True
   #Enable_ProgressBar = #True
   #Enable_DragAndDrop = #True
+  #Enable_CSV_Support = #True
   
   ;- ===========================================================================
   ;-   DeclareModule - Constants / Structures
@@ -148,14 +152,17 @@ DeclareModule ListEx
   
   #ColumnCount = #PB_ListIcon_ColumnCount
 
-  #Selected   = #PB_ListIcon_Selected
-  #Checked    = #PB_ListIcon_Checked
-  #Inbetween  = #PB_ListIcon_Inbetween
-  
   #Minimum     = #PB_Date_Minimum
   #Maximum     = #PB_Date_Maximum
   
   #Progress$ = "{Percent}"
+  
+  EnumerationBinary 
+    #Selected   = #PB_ListIcon_Selected
+    #Checked    = #PB_ListIcon_Checked
+    #Inbetween  = #PB_ListIcon_Inbetween
+    #HeaderRow
+  EndEnumeration
   
   EnumerationBinary ; ProgressBars
     #ShowPercent
@@ -207,6 +214,7 @@ DeclareModule ListEx
     #UseExistingCanvas
     #ThreeState
     #MultiSelect
+    #FitColumn
     ; --- Color ---
     #ActiveLinkColor
     #BackColor
@@ -224,7 +232,6 @@ DeclareModule ListEx
     #HeaderBackColor
     #HeaderGridColor
     #AlternateRowColor
-    #FitColumn
   EndEnumeration
 
   EnumerationBinary ColumnFlags
@@ -315,7 +322,7 @@ DeclareModule ListEx
   ;- ===========================================================================
   ;-   DeclareModule
   ;- ===========================================================================
-  
+
   Declare.i AddColumn(GNum.i, Column.i, Title.s, Width.f, Label.s="", Flags.i=#False)
   Declare.i AddComboBoxItems(GNum.i, Column.i, Text.s)
   Declare.i AddCells(GNum.i, Row.i=-1, Labels.s="", Text.s="", RowID.s="", Flags.i=#False) 
@@ -398,6 +405,12 @@ DeclareModule ListEx
   CompilerIf #Enable_ProgressBar
     Declare   SetProgressBarAttribute(GNum.i, Attrib.i, Value.i)
     Declare   SetProgressBarFlags(GNum.i, Flags.i)
+  CompilerEndIf
+  
+  CompilerIf #Enable_CSV_Support
+    Declare   ClipBoard(GNum.i, Flags.i=#False, Separator.s=";", DQuote.s=#DQUOTE$)
+    Declare   ExportCSV(GNum.i, File.s, Flags.i=#False, Separator.s=";", DQuote.s=#DQUOTE$)
+    Declare   ImportCSV(GNum.i, File.s, Flags.i=#False, Separator.s=";", DQuote.s=#DQUOTE$)
   CompilerEndIf
   
 EndDeclareModule
@@ -537,7 +550,7 @@ Module ListEx
   EndStructure ;}
   
   Structure Cols_Header_Structure       ;{ ListEx()\Cols()\Header\...
-    Titel.s
+    Title.s
     Direction.i
     Sort.i
     Align.i
@@ -1010,6 +1023,121 @@ Module ListEx
     
     ProcedureReturn Left(String, Position - 1) + Mid(String, Position + Length)
   EndProcedure
+  
+  Procedure.i AddItem_(Row.i, Text.s, Label.s, Flags.i) 
+    Define.i i, nc, FitColumn, Result
+    
+    ;{ Add item
+    Select Row
+      Case #FirstItem
+        FirstElement(ListEx()\Rows())
+        Result = InsertElement(ListEx()\Rows()) 
+      Case #LastItem
+        LastElement(ListEx()\Rows())
+        Result = AddElement(ListEx()\Rows())
+      Default
+        If SelectElement(ListEx()\Rows(), Row)
+          Result = InsertElement(ListEx()\Rows()) 
+        Else
+          LastElement(ListEx()\Rows())
+          Result = AddElement(ListEx()\Rows())
+        EndIf
+    EndSelect ;}
+   
+    If Result
+      
+      ListEx()\Row\Number    = ListSize(ListEx()\Rows())
+      ListEx()\Rows()\ID     = Label
+      ListEx()\Rows()\Height = ListEx()\Row\Height
+      
+      ListEx()\Rows()\FontID = ListEx()\Row\FontID
+      
+      ListEx()\Rows()\Color\Front = ListEx()\Color\Front
+      ListEx()\Rows()\Color\Back  = ListEx()\Color\Back
+      ListEx()\Rows()\Color\Grid  = ListEx()\Color\Grid
+      
+      If Text <> ""
+        
+        If ListEx()\Flags & #NumberedColumn Or ListEx()\Flags & #CheckBoxes
+          nc = 0
+        Else
+          nc = 1
+        EndIf
+        
+        For i=1 To CountString(Text, #LF$) + 1
+          If SelectElement(ListEx()\Cols(), i - nc)
+            ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Value = StringField(Text, i, #LF$)
+          EndIf
+        Next
+        
+      EndIf
+
+    EndIf
+
+    ProcedureReturn ListIndex(ListEx()\Rows())
+  EndProcedure 
+  
+  ;- _____ CSV - Support _____
+  
+  CompilerIf #Enable_CSV_Support
+    
+    Procedure.s Export_CSV_Header(Separator.s, DQuote.s)
+      Define.s CSV$ 
+      
+      ForEach ListEx()\Cols()
+        
+        If ListIndex(ListEx()\Cols()) = 1
+          CSV$ = DQuote + ListEx()\Cols()\Header\Title
+        Else  
+          CSV$ + DQuote + Separator + DQuote + ListEx()\Cols()\Header\Title
+        EndIf
+      Next
+
+      ProcedureReturn CSV$ + DQuote
+    EndProcedure
+    
+    Procedure.s Export_CSV_Row(Separator.s, DQuote.s)
+      Define.s Key$, CSV$ 
+      
+      ForEach ListEx()\Cols()
+        Key$ = ListEx()\Cols()\Key
+        If ListIndex(ListEx()\Cols()) = 1
+          CSV$ = DQuote + ListEx()\Rows()\Column(Key$)\Value
+        Else  
+          CSV$ + DQuote + Separator + DQuote + ListEx()\Rows()\Column(Key$)\Value
+        EndIf
+      Next
+
+      ProcedureReturn CSV$ + DQuote
+    EndProcedure
+    
+    Procedure.i Import_CSV_Header(String.s, Separator.s, DQuote.s)
+      Define.i idx = 1
+      Define.s Column$
+      
+      String = ReplaceString(Trim(String, DQuote), DQuote + Separator + DQuote, #LF$)
+      
+      ForEach ListEx()\Cols()
+        
+        Column$ = StringField(String, idx, #LF$)
+        If Column$
+          ListEx()\Cols()\Header\Title = Column$
+        EndIf  
+        
+        idx + 1
+      Next
+    
+    EndProcedure
+    
+    Procedure.i Import_CSV_Row(String.s, Separator.s, DQuote.s)
+
+      String = ReplaceString(String, DQuote + Separator + DQuote, #LF$)
+      String = Trim(String, DQuote)
+      
+      ProcedureReturn AddItem_(-1, String, "", #False)
+    EndProcedure
+    
+  CompilerEndIf  
   
   ;- _____ Check Content _____
   
@@ -1644,9 +1772,9 @@ Module ListEx
           EndIf
           
           If ListEx()\Cols()\Header\Flags & #Image 
-            ListEx()\Cols()\MaxWidth = TextWidth(ListEx()\Cols()\Header\Titel) + ListEx()\Cols()\Header\Image\Width + 4
+            ListEx()\Cols()\MaxWidth = TextWidth(ListEx()\Cols()\Header\Title) + ListEx()\Cols()\Header\Image\Width + 4
           Else
-            ListEx()\Cols()\MaxWidth = TextWidth(ListEx()\Cols()\Header\Titel)
+            ListEx()\Cols()\MaxWidth = TextWidth(ListEx()\Cols()\Header\Title)
           EndIf          
 
         Next
@@ -2272,11 +2400,11 @@ Module ListEx
             DrawingMode(#PB_2DDrawing_AlphaBlend)
             DrawImage(ListEx()\Cols()\Header\Image\ID, colX + imgX, rowY + imgY, dpiX(ListEx()\Cols()\Header\Image\Width), dpiY(ListEx()\Cols()\Header\Image\Height)) 
             
-            ListEx()\Cols()\MaxWidth = TextWidth(ListEx()\Cols()\Header\Titel) + dpiX(ListEx()\Cols()\Header\Image\Width) + dpiX(4)
+            ListEx()\Cols()\MaxWidth = TextWidth(ListEx()\Cols()\Header\Title) + dpiX(ListEx()\Cols()\Header\Image\Width) + dpiX(4)
             
           Else
             
-            ListEx()\Cols()\MaxWidth = TextWidth(ListEx()\Cols()\Header\Titel)
+            ListEx()\Cols()\MaxWidth = TextWidth(ListEx()\Cols()\Header\Title)
             ;}
           EndIf          
           
@@ -2292,11 +2420,11 @@ Module ListEx
             FrontColor = ListEx()\Cols()\Header\FrontColor
           EndIf
           
-          If ListEx()\Cols()\Header\Titel
-            textX = GetAlignOffset_(ListEx()\Cols()\Header\Titel, dpiX(ListEx()\Cols()\Width), Align)
+          If ListEx()\Cols()\Header\Title
+            textX = GetAlignOffset_(ListEx()\Cols()\Header\Title, dpiX(ListEx()\Cols()\Width), Align)
             textY = (dpiY(ListEx()\Header\Height) - TextHeight("Abc")) / 2 + 0.5
             DrawingMode(#PB_2DDrawing_Transparent)
-            DrawText(colX + textX, rowY + textY, ListEx()\Cols()\Header\Titel, FrontColor)
+            DrawText(colX + textX, rowY + textY, ListEx()\Cols()\Header\Title, FrontColor)
           EndIf
           
           DrawingMode(#PB_2DDrawing_Outlined)
@@ -4753,6 +4881,139 @@ Module ListEx
     
   EndProcedure  
   
+  CompilerIf #Enable_CSV_Support
+    
+    Procedure ClipBoard(GNum.i, Flags.i=#False, Separator.s=";", DQuote.s=#DQUOTE$)
+      ; Flags: #HeaderRow | #Selected/#Checked/#Inbetween
+      Define.s CSV$
+      
+      If FindMapElement(ListEx(), Str(GNum))
+        
+        If Flags & #HeaderRow
+          CSV$ = Export_CSV_Header(Separator, DQuote) + #LF$
+        EndIf
+        
+        PushListPosition(ListEx()\Rows())
+        
+        ForEach ListEx()\Rows()
+          
+          If Flags & #Selected
+            If ListEx()\Rows()\State & #Selected
+              CSV$ + Export_CSV_Row(Separator, DQuote) + #LF$
+            EndIf
+          ElseIf Flags & #Checked
+            If ListEx()\Rows()\State & #Checked
+              CSV$ + Export_CSV_Row(Separator, DQuote) + #LF$
+            EndIf  
+          ElseIf Flags & #Inbetween
+            If ListEx()\Rows()\State & #Inbetween
+              CSV$ + Export_CSV_Row(Separator, DQuote) + #LF$
+            EndIf   
+          Else  
+            If ListEx()\Rows()\State & #Selected Or ListEx()\Rows()\State & #Checked
+              CSV$ + Export_CSV_Row(Separator, DQuote) + #LF$
+            EndIf
+          EndIf
+
+        Next
+        
+        PopListPosition(ListEx()\Rows())
+        
+        SetClipboardText(CSV$)
+        
+      EndIf
+      
+    EndProcedure
+    
+    Procedure ExportCSV(GNum.i, File.s, Flags.i=#False, Separator.s=";", DQuote.s=#DQUOTE$)
+      ; Flags: #HeaderRow | #Selected/#Checked/#Inbetween
+      Define.i FileID
+      Define.s Row$
+      
+      If FindMapElement(ListEx(), Str(GNum))
+        
+        FileID = CreateFile(#PB_Any, File)
+        If FileID
+          
+          WriteStringFormat(FileID, #PB_UTF8)
+          
+          If Flags & #HeaderRow
+            Row$ = Export_CSV_Header(Separator, DQuote)
+            WriteStringN(FileID, Row$)
+          EndIf
+          
+          PushListPosition(ListEx()\Rows())
+          
+          ForEach ListEx()\Rows()
+            
+            If Flags & #Selected
+              If ListEx()\Rows()\State & #Selected
+               Row$ = Export_CSV_Row(Separator, DQuote)
+                WriteStringN(FileID, Row$)
+              EndIf
+            ElseIf Flags & #Checked
+              If ListEx()\Rows()\State & #Checked
+                Row$ = Export_CSV_Row(Separator, DQuote)
+                WriteStringN(FileID, Row$)
+              EndIf  
+            ElseIf Flags & #Inbetween
+              If ListEx()\Rows()\State & #Inbetween
+                Row$ = Export_CSV_Row(Separator, DQuote)
+                WriteStringN(FileID, Row$)
+              EndIf   
+            Else
+              Row$ = Export_CSV_Row(Separator, DQuote)
+              WriteStringN(FileID, Row$)
+            EndIf
+
+          Next
+          
+          PopListPosition(ListEx()\Rows())
+          
+          CloseFile(FileID)
+        EndIf
+
+      EndIf  
+      
+    EndProcedure  
+    
+    Procedure ImportCSV(GNum.i, File.s, Flags.i=#False, Separator.s=";", DQuote.s=#DQUOTE$)
+      ; Flags: #HeaderRow
+      Define.i FileID, BOM
+      Define.s Row$
+      
+      If FindMapElement(ListEx(), Str(GNum))
+        
+        FileID = ReadFile(#PB_Any, File)
+        If FileID
+          
+          BOM = ReadStringFormat(FileID)
+          
+          If Flags & #HeaderRow
+            Row$ = ReadString(FileID, BOM)
+            Import_CSV_Header(Row$, Separator, DQuote)
+          EndIf
+          
+          While Eof(FileID) = #False
+            Row$ = ReadString(FileID, BOM)
+            Import_CSV_Row(Row$, Separator, DQuote)
+          Wend
+
+          CloseFile(FileID)
+        EndIf
+        
+        If ListEx()\ReDraw
+          If ListEx()\FitCols : FitColumns_() : EndIf
+          UpdateRowY_()
+          Draw_()
+        EndIf
+        
+      EndIf
+      
+    EndProcedure
+    
+  CompilerEndIf  
+  
   CompilerIf #Enable_MarkContent
  
     Procedure   MarkContent(GNum.i, Column.i, Term.s, Color1.i=#PB_Default, Color2.i=#PB_Default, FontID.i=#PB_Default)
@@ -4810,7 +5071,7 @@ Module ListEx
         If Flags & #FitColumn : ListEx()\FitCols = #True : EndIf
         
         ListEx()\Col\Number               = ListSize(ListEx()\Cols())
-        ListEx()\Cols()\Header\Titel      = Title
+        ListEx()\Cols()\Header\Title      = Title
         ListEx()\Cols()\Header\Align      = #PB_Default
         ListEx()\Cols()\Header\FontID     = #PB_Default
         ListEx()\Cols()\Header\FrontColor = #PB_Default
@@ -4942,63 +5203,21 @@ Module ListEx
   EndProcedure
   
   Procedure.i AddItem(GNum.i, Row.i=-1, Text.s="", Label.s="", Flags.i=#False) 
-    Define.i i, nc, FitColumn, Result
+    Define.i Index = #PB_Default
     
     If FindMapElement(ListEx(), Str(GNum))
-      
-      ;{ Add item
-      Select Row
-        Case #FirstItem
-          FirstElement(ListEx()\Rows())
-          Result = InsertElement(ListEx()\Rows()) 
-        Case #LastItem
-          LastElement(ListEx()\Rows())
-          Result = AddElement(ListEx()\Rows())
-        Default
-          If SelectElement(ListEx()\Rows(), Row)
-            Result = InsertElement(ListEx()\Rows()) 
-          Else
-            LastElement(ListEx()\Rows())
-            Result = AddElement(ListEx()\Rows())
-          EndIf
-      EndSelect ;}
-      
-      If Result
-        
-        ListEx()\Row\Number    = ListSize(ListEx()\Rows())
-        ListEx()\Rows()\ID     = Label
-        ListEx()\Rows()\Height = ListEx()\Row\Height
-        
-        ListEx()\Rows()\FontID = ListEx()\Row\FontID
-        
-        ListEx()\Rows()\Color\Front = ListEx()\Color\Front
-        ListEx()\Rows()\Color\Back  = ListEx()\Color\Back
-        ListEx()\Rows()\Color\Grid  = ListEx()\Color\Grid
-        
-        If Text <> ""
-          If ListEx()\Flags & #NumberedColumn Or ListEx()\Flags & #CheckBoxes
-            nc = 0
-          Else
-            nc = 1
-          EndIf
-          For i=1 To CountString(Text, #LF$) + 1
-            If SelectElement(ListEx()\Cols(), i - nc)
-              ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Value = StringField(Text, i, #LF$)
-            EndIf
-          Next
-        EndIf
 
-        If ListEx()\ReDraw
-          If ListEx()\FitCols : FitColumns_() : EndIf
-          UpdateRowY_()
-          Draw_()
-        EndIf
-        
+      Index = AddItem_(Row, Text, Label, Flags) 
+      
+      If ListEx()\ReDraw
+        If ListEx()\FitCols : FitColumns_() : EndIf
+        UpdateRowY_()
+        Draw_()
       EndIf
 
     EndIf
     
-    ProcedureReturn ListIndex(ListEx()\Rows())
+    ProcedureReturn Index
   EndProcedure
   
   Procedure   AttachPopupMenu(GNum.i, Popup.i)
@@ -5341,7 +5560,7 @@ Module ListEx
         ListEx()\Col\Padding = 5
         
         If AddElement(ListEx()\Cols())
-          ListEx()\Cols()\Header\Titel      = ColTitle
+          ListEx()\Cols()\Header\Title      = ColTitle
           ListEx()\Cols()\Header\Align      = #PB_Default
           ListEx()\Cols()\Header\FontID     = #PB_Default
           ListEx()\Cols()\Header\FrontColor = #PB_Default
@@ -5649,7 +5868,7 @@ Module ListEx
       
       If Row = #Header
         If SelectElement(ListEx()\Cols(), Column)
-          ProcedureReturn ListEx()\Cols()\Header\Titel
+          ProcedureReturn ListEx()\Cols()\Header\Title
         EndIf
       Else  
         If SelectElement(ListEx()\Rows(), Row)
@@ -6566,8 +6785,8 @@ Module ListEx
       If Row = #Header
         If SelectElement(ListEx()\Cols(), Column)
           
-          If ListEx()\Cols()\Header\Titel <> Text
-            ListEx()\Cols()\Header\Titel = Text
+          If ListEx()\Cols()\Header\Title <> Text
+            ListEx()\Cols()\Header\Title = Text
             If ListEx()\ReDraw
               If ListEx()\Cols()\Flags & #FitColumn : FitColumns_() : EndIf
               Draw_()
@@ -6738,12 +6957,14 @@ CompilerIf #PB_Compiler_IsMainFile
   Enumeration 1
     #List
     #Button
+    #Export
     #PopupMenu
     #MenuItem0
     #MenuItem1
     #MenuItem2
     #MenuItem3
     #MenuItem4
+    #MenuItem5
     #B_Green
     #B_Grey
     #B_Blue
@@ -6761,6 +6982,8 @@ CompilerIf #PB_Compiler_IsMainFile
   If OpenWindow(#Window, 0, 0, 500, 250, "Window", #PB_Window_SystemMenu|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
     
     If CreatePopupMenu(#PopupMenu)
+      MenuItem(#MenuItem5, "Copy to clipboard")
+      MenuBar()
       MenuItem(#MenuItem0, "Clear List")
       MenuBar()
       MenuItem(#MenuItem1, "Theme 'Blue'")
@@ -6774,6 +6997,7 @@ CompilerIf #PB_Compiler_IsMainFile
     ButtonGadget(#B_Grey,  420,  50, 70, 20, "Grey")
     ButtonGadget(#B_Green, 420,  80, 70, 20, "Green")
     ButtonGadget(#B_Blue,  420, 110, 70, 20, "Blue")
+    ButtonGadget(#Export,  420, 150, 70, 20, "Export")
     
     ListEx::Gadget(#List, 10, 10, 395, 230, "", 25, "", ListEx::#GridLines|ListEx::#CheckBoxes|ListEx::#AutoResize|ListEx::#MultiSelect|ListEx::#ResizeColumn, #Window) ; ListEx::#NoRowHeader|ListEx::#ThreeState|ListEx::#NumberedColumn|ListEx::#SingleClickEdit 
     
@@ -6905,6 +7129,8 @@ CompilerIf #PB_Compiler_IsMainFile
             Case #B_Blue
               ListEx::SetColorTheme(#List, ListEx::#Theme_Blue)
               ;ListEx::LoadColorTheme(#List, "Theme_Blue.json")
+            Case #Export
+              ListEx::ExportCSV(#List, "ListEx.csv", ListEx::#HeaderRow)
               ;}
           EndSelect
         Case #PB_Event_Menu ;{ PopupMenu
@@ -6925,10 +7151,14 @@ CompilerIf #PB_Compiler_IsMainFile
               HideGadget(#B_Grey,  #False)
               HideGadget(#B_Blue,  #False)
               ResizeGadget(#List, #PB_Ignore, #PB_Ignore, 400, #PB_Ignore)
+            Case #MenuItem5
+              CompilerIf ListEx::#Enable_CSV_Support
+                ListEx::ClipBoard(#List)
+              CompilerEndIf  
           EndSelect ;}
       EndSelect
     Until Event = #PB_Event_CloseWindow
-    
+
     ;ListEx::SaveColorTheme(#List, "Theme_Test.json")
     
   EndIf
@@ -6936,8 +7166,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 13
-; Folding = +HAEAAg---------N1-fP6---------------------------BAAAAgA-
+; CursorPosition = 401
+; FirstLine = 9
+; Folding = 1PAJAAACAE6-8--xfAQR7dm---XBOA9-PAAb4nAAycCcAAABAAAAAAAAYgw
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
