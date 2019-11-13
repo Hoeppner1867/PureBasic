@@ -9,7 +9,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 11.11.2019
+; Last Update: 12.11.2019
+;
+; - Bugfix: Cash
 ;
 ; - Added: CSV support (file/clipboard)
 ;
@@ -101,6 +103,7 @@
 ; ListEx::SetColumnAttribute()      - [#Align/#ColumnWidth/#Font]
 ; ListEx::SetColumnFlags()          - [#FitColumn | #Left/#Right/#Center]
 ; ListEx::SetColumnState()          - similar to 'SetGadgetItemState()' for a specific column
+; ListEx::SetCurrency()             - 
 ; ListEx::SetDateMask()             - similar to 'SetGadgetText()' and 'DateGadget()'
 ; ListEx::SetDateAttribute()        - similar to 'SetGadgetAttribute()' and 'DateGadget()'
 ; ListEx::SetFont()                 - similar to 'SetGadgetFont()'
@@ -380,6 +383,7 @@ DeclareModule ListEx
   Declare   SetColumnAttribute(GNum.i, Column.i, Attrib.i, Value.i)
   Declare   SetColumnFlags(GNum.i, Column.i, Flags.i)
   Declare   SetColumnState(GNum.i, Row.i, Column.i, State.i)
+  Declare   SetCurrency(GNum.i, String.s, Column.i=#PB_Ignore)
   Declare   SetFont(GNum.i, FontID.i, Type.i=#False, Column.i=#PB_Ignore)   
   Declare   SetDateAttribute(GNum.i, Column.i, Attrib.i, Value.i)
   Declare   SetDateMask(GNum.i, Mask.s, Column.i=#PB_Ignore)
@@ -1598,7 +1602,7 @@ Module ListEx
   Procedure.f GetCashFloat_(String.s, Currency.s)
 
     String = ReplaceString(String, ",", ".")
-    String = RemoveString(String, "")
+    String = RemoveString(String, Currency)
     
     ProcedureReturn ValF(Trim(String)) 
   EndProcedure
@@ -7166,9 +7170,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 401
-; FirstLine = 9
-; Folding = 1PAJAAACAE6-8--xfAQR7dm---XBOA9-PAAb4nAAycCcAAABAAAAAAAAYgw
+; CursorPosition = 14
+; Folding = 3PAJAAACAE6-8--8fAQR7dm---XBOA9-PAAb4nAAycCcAAABAAAAAgAAYgw
 ; EnableXP
 ; DPIAware
 ; EnableUnicode

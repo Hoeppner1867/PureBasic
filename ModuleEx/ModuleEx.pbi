@@ -11,12 +11,15 @@
 ; - Creates cursor events for gadgets of a window (#CursorEvent)
 ; - Provides event types for PostEvent() for other modules
 
-; Last Update: 2.09.2019
+; Last Update: 13.11.2019
 ;
 ; Added: Font management -> ModuleEx::Font()
 ; Added: Dynamic fonts for custom gadgets
 ; Added: RequiredFontSize() & CalcPadding()
 ; Added: SetFont() with '#FitText'-Flag
+
+
+; TODO: LoadFont() - Index FontNum
 
 ;{ ===== MIT License =====
 ;
@@ -54,13 +57,7 @@
 
 DeclareModule ModuleEx
   
-  #ButtonEx    = "ButtonExModule.pbi"
-  #ListEx      = "ListExModule.pbi"
-  #StatusBarEx = "StatusBarExModule.pbi"
-  #StringEx    = "StringExModule.pbi"
-  #TextEx      = "TextExModule.pbi"
-  #TimeEx      = "TimeExModule.pbi"
-  #ToolBarEx   = "ToolBarExModule.pbi"
+  #Enable_Tabulator_Management = #True
   
   EnumerationBinary ;{ Flags
     #Tabulator
@@ -82,6 +79,7 @@ DeclareModule ModuleEx
   Enumeration #PB_Event_FirstCustomValue     ;{ #Event
     #Event_Gadget
     #Event_Cursor
+    #Event_Theme
   EndEnumeration ;}
   
   Enumeration #PB_EventType_FirstCustomValue ;{ #EventType
@@ -108,13 +106,39 @@ DeclareModule ModuleEx
   #Event_Tabulator      = 64000
   #Event_ShiftTabulator = 63999
   
+  ; _____ Theme-Support _____
+  
+  Enumeration 1
+    #Theme_Blue  
+    #Theme_Green
+  EndEnumeration
+  
+  Structure Theme_Color_Structure
+    FrontColor.i
+    BackColor.i
+  EndStructure
+  
+  Structure Theme_Structure
+    FrontColor.i
+    BackColor.i
+    RowColor.i
+    BorderColor.i
+    LineColor.i
+    Header.Theme_Color_Structure
+    Focus.Theme_Color_Structure
+    GadgetColor.i
+  EndStructure  
+  Global ThemeGUI.Theme_Structure
+  
+  ; _____ Fit Font _____
+  
   Structure Padding_Structure
     X.i
     Y.i
     Factor.f
   EndStructure
   Padding.Padding_Structure
-  
+
   ;- ============================================================================
   ;-   DeclareModule
   ;- ============================================================================
@@ -130,6 +154,15 @@ DeclareModule ModuleEx
   Declare.i RequiredFontSize(Text.s, Width.i, Height.i, FontNum.i)
   Declare   SetAttribute(GNum.i, Type.i, Value.i)
   Declare.i SetFont(GNum.i, Name.s, Size.i, Style.i=#False, Flags.i=#False, Type.i=#Gadget) 
+  Declare   SetTheme(Theme.i=#PB_Default)
+  
+  Macro LoadFont(Font, Name, Height, Style = 0)
+    Font(Font, Name, Height, Style = 0)
+  EndMacro
+  
+  Macro PB(Function)
+    Function
+  EndMacro
   
 EndDeclareModule
 
@@ -190,7 +223,10 @@ Module ModuleEx
     
     Map Window.ModuleEx_Window_Gadget_Structure()
     Map Gadget.ModuleEx_Gadget_Structure()
+    
     Map Font.Font_Structure()
+    Map ID.s()
+    ;Map Num.s()
     
   EndStructure ;}
   Global ModuleEx.ModuleEx_Structure
@@ -199,7 +235,41 @@ Module ModuleEx
   ;-   Module - Internal
   ;- ============================================================================
   
-  CompilerIf #PB_Compiler_OS = #PB_OS_Windows  ; Thanks to mk-soft
+  CompilerIf #PB_Compiler_OS = #PB_OS_MacOS
+    ; Addition of mk-soft
+    
+    Procedure OSX_NSColorToRGBA(NSColor)
+      Protected.cgfloat red, green, blue, alpha
+      Protected nscolorspace, rgba
+      nscolorspace = CocoaMessage(0, nscolor, "colorUsingColorSpaceName:$", @"NSCalibratedRGBColorSpace")
+      If nscolorspace
+        CocoaMessage(@red, nscolorspace, "redComponent")
+        CocoaMessage(@green, nscolorspace, "greenComponent")
+        CocoaMessage(@blue, nscolorspace, "blueComponent")
+        CocoaMessage(@alpha, nscolorspace, "alphaComponent")
+        rgba = RGBA(red * 255.9, green * 255.9, blue * 255.9, alpha * 255.)
+        ProcedureReturn rgba
+      EndIf
+    EndProcedure
+    
+    Procedure OSX_NSColorToRGB(NSColor)
+      Protected.cgfloat red, green, blue
+      Protected r, g, b, a
+      Protected nscolorspace, rgb
+      nscolorspace = CocoaMessage(0, nscolor, "colorUsingColorSpaceName:$", @"NSCalibratedRGBColorSpace")
+      If nscolorspace
+        CocoaMessage(@red, nscolorspace, "redComponent")
+        CocoaMessage(@green, nscolorspace, "greenComponent")
+        CocoaMessage(@blue, nscolorspace, "blueComponent")
+        rgb = RGB(red * 255.0, green * 255.0, blue * 255.0)
+        ProcedureReturn rgb
+      EndIf
+    EndProcedure
+    
+  CompilerEndIf
+  
+  CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+    ; Thanks to mk-soft
     Import ""
       PB_Object_EnumerateStart(PB_Objects)
       PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
@@ -245,9 +315,7 @@ Module ModuleEx
 	  ProcedureReturn Round(Pixel * 72 / 96, #PB_Round_Nearest)
 	EndProcedure
 	
-	
 
-	
 	Procedure.i CalcFitFontSize_(Text.s, Width.i, Height.i, FontNum.i)
 	  Define.i FontSize, ImgNum, r, Rows 
 	  Define.i txtWidth, txtHeight, maxWidth, hSize, vSize, DiffW
@@ -359,16 +427,19 @@ Module ModuleEx
   
   ; _____ Font Management _____
   
-  Procedure.i LoadFont_(Name.s, Size.i, Style.i) 
-	  Define.i Font
+  Procedure.i LoadFont_(Name.s, Size.i, Style.i, Font.i=#PB_Any) 
+	  Define.i FontNum
+	  Define.s Key = Name + "|" + Str(Style)
 	  
-	  Font = ModuleEx\Font(Name+"|"+Str(Style))\Size(Str(Size))
+	  FontNum = ModuleEx\Font(Key)\Size(Str(Size))
 	  If IsFont(Font)
       ProcedureReturn Font
     Else  
-      Font = LoadFont(#PB_Any, Name, Size, Style)
+      FontNum = PB(LoadFont)(Font, Name, Size, Style)
+        If Font = #PB_Any : Font = FontNum : EndIf
       If IsFont(Font)
-        ModuleEx\Font(Name+"|"+Str(Style))\Size(Str(Size)) = Font
+        ModuleEx\Font(Key)\Size(Str(Size)) = Font
+        ModuleEx\ID(Str(FontID(Font))) = Key
         ProcedureReturn Font
       EndIf 
     EndIf 
@@ -395,91 +466,93 @@ Module ModuleEx
     
   EndProcedure
   
-  Procedure _TabulatorHandler()
-    Define.i Window.i, Gadget, NextGadget
+  CompilerIf #Enable_Tabulator_Management
     
-    Window = GetActiveWindow()
-    If IsWindow(Window)
+    Procedure _TabulatorHandler()
+      Define.i Window.i, Gadget, NextGadget
       
-      If FindMapElement(ModuleEx\Window(), Str(Window))
-        If NextElement(ModuleEx\Window()\Gadget())
-          If IsGadget(ModuleEx\Window()\Gadget()) : SetActiveGadget(ModuleEx\Window()\Gadget()) : EndIf
-        Else
-          FirstElement(ModuleEx\Window()\Gadget())
-          If IsGadget(ModuleEx\Window()\Gadget()) : SetActiveGadget(ModuleEx\Window()\Gadget()) : EndIf
-        EndIf
-      EndIf
-      
-    EndIf
-    
-  EndProcedure
-  
-  Procedure _ShiftTabulatorHandler()
-    Define.i Window.i, Gadget, NextGadget
-    
-    Window = GetActiveWindow()
-    If IsWindow(Window)
-      
-      If FindMapElement(ModuleEx\Window(), Str(Window))
-        If PreviousElement(ModuleEx\Window()\Gadget())
-          If IsGadget(ModuleEx\Window()\Gadget()) : SetActiveGadget(ModuleEx\Window()\Gadget()) : EndIf
-        Else
-          LastElement(ModuleEx\Window()\Gadget())
-          If IsGadget(ModuleEx\Window()\Gadget()) : SetActiveGadget(ModuleEx\Window()\Gadget()) : EndIf
-        EndIf
-      EndIf
-      
-    EndIf
-    
-  EndProcedure
-  
-  
-  Procedure _FocusHandler()
-    Define.i GNum = EventGadget()
-    
-    If FindMapElement(ModuleEx\Gadget(), Str(GNum))
-
-      If ModuleEx\Gadget()\Flags & #UseTabulator
+      Window = GetActiveWindow()
+      If IsWindow(Window)
         
-        If IsMenu(ModuleEx\Menu)
-          UnbindMenuEvent(ModuleEx\Menu, #Event_Tabulator,       @_TabulatorHandler())
-          UnbindMenuEvent(ModuleEx\Menu, #Event_ShiftTabulator,  @_ShiftTabulatorHandler())
-        EndIf 
-        
-        If IsWindow(ModuleEx\Gadget()\Window)
-          RemoveKeyboardShortcut(ModuleEx\Gadget()\Window, #PB_Shortcut_Tab)
-          RemoveKeyboardShortcut(ModuleEx\Gadget()\Window, #PB_Shortcut_Shift|#PB_Shortcut_Tab)
+        If FindMapElement(ModuleEx\Window(), Str(Window))
+          If NextElement(ModuleEx\Window()\Gadget())
+            If IsGadget(ModuleEx\Window()\Gadget()) : SetActiveGadget(ModuleEx\Window()\Gadget()) : EndIf
+          Else
+            FirstElement(ModuleEx\Window()\Gadget())
+            If IsGadget(ModuleEx\Window()\Gadget()) : SetActiveGadget(ModuleEx\Window()\Gadget()) : EndIf
+          EndIf
         EndIf
         
       EndIf
       
-    EndIf
+    EndProcedure
     
-  EndProcedure
-  
-  Procedure _LostFocusHandler()
-    Define.i GNum = EventGadget()
-    
-    If FindMapElement(ModuleEx\Gadget(), Str(GNum))
+    Procedure _ShiftTabulatorHandler()
+      Define.i Window.i, Gadget, NextGadget
       
-      If ModuleEx\Gadget()\Flags & #UseTabulator
+      Window = GetActiveWindow()
+      If IsWindow(Window)
         
-        If IsWindow(ModuleEx\Gadget()\Window)
-          AddKeyboardShortcut(ModuleEx\Gadget()\Window, #PB_Shortcut_Tab, #Event_Tabulator)
-          AddKeyboardShortcut(ModuleEx\Gadget()\Window, #PB_Shortcut_Shift|#PB_Shortcut_Tab, #Event_ShiftTabulator)
-        EndIf
-        
-        If IsMenu(ModuleEx\Menu)
-          BindMenuEvent(ModuleEx\Menu, #Event_Tabulator,      @_TabulatorHandler())
-          BindMenuEvent(ModuleEx\Menu, #Event_ShiftTabulator, @_ShiftTabulatorHandler())
+        If FindMapElement(ModuleEx\Window(), Str(Window))
+          If PreviousElement(ModuleEx\Window()\Gadget())
+            If IsGadget(ModuleEx\Window()\Gadget()) : SetActiveGadget(ModuleEx\Window()\Gadget()) : EndIf
+          Else
+            LastElement(ModuleEx\Window()\Gadget())
+            If IsGadget(ModuleEx\Window()\Gadget()) : SetActiveGadget(ModuleEx\Window()\Gadget()) : EndIf
+          EndIf
         EndIf
         
       EndIf
       
-    EndIf
-    
-  EndProcedure
+    EndProcedure
   
+    Procedure _FocusHandler()
+      Define.i GNum = EventGadget()
+      
+      If FindMapElement(ModuleEx\Gadget(), Str(GNum))
+  
+        If ModuleEx\Gadget()\Flags & #UseTabulator
+          
+          If IsMenu(ModuleEx\Menu)
+            UnbindMenuEvent(ModuleEx\Menu, #Event_Tabulator,       @_TabulatorHandler())
+            UnbindMenuEvent(ModuleEx\Menu, #Event_ShiftTabulator,  @_ShiftTabulatorHandler())
+          EndIf 
+          
+          If IsWindow(ModuleEx\Gadget()\Window)
+            RemoveKeyboardShortcut(ModuleEx\Gadget()\Window, #PB_Shortcut_Tab)
+            RemoveKeyboardShortcut(ModuleEx\Gadget()\Window, #PB_Shortcut_Shift|#PB_Shortcut_Tab)
+          EndIf
+          
+        EndIf
+        
+      EndIf
+      
+    EndProcedure
+    
+    Procedure _LostFocusHandler()
+      Define.i GNum = EventGadget()
+      
+      If FindMapElement(ModuleEx\Gadget(), Str(GNum))
+        
+        If ModuleEx\Gadget()\Flags & #UseTabulator
+          
+          If IsWindow(ModuleEx\Gadget()\Window)
+            AddKeyboardShortcut(ModuleEx\Gadget()\Window, #PB_Shortcut_Tab, #Event_Tabulator)
+            AddKeyboardShortcut(ModuleEx\Gadget()\Window, #PB_Shortcut_Shift|#PB_Shortcut_Tab, #Event_ShiftTabulator)
+          EndIf
+          
+          If IsMenu(ModuleEx\Menu)
+            BindMenuEvent(ModuleEx\Menu, #Event_Tabulator,      @_TabulatorHandler())
+            BindMenuEvent(ModuleEx\Menu, #Event_ShiftTabulator, @_ShiftTabulatorHandler())
+          EndIf
+          
+        EndIf
+        
+      EndIf
+      
+    EndProcedure
+    
+  CompilerEndIf  
   
   Procedure _CloseWindowHandler()
     Define.i Window = EventWindow()
@@ -583,11 +656,13 @@ Module ModuleEx
       Else
         ModuleEx\Gadget()\Idx = ListIndex(ModuleEx\Window(Str(WindowNum))\Gadget())
       EndIf
-
-      If IsGadget(GNum)
-        BindGadgetEvent(GNum, @_FocusHandler(),     #PB_EventType_Focus)
-        BindGadgetEvent(GNum, @_LostFocusHandler(), #PB_EventType_LostFocus)
-      EndIf
+      
+      CompilerIf #Enable_Tabulator_Management
+        If IsGadget(GNum)
+          BindGadgetEvent(GNum, @_FocusHandler(),     #PB_EventType_Focus)
+          BindGadgetEvent(GNum, @_LostFocusHandler(), #PB_EventType_LostFocus)
+        EndIf
+      CompilerEndIf
       
       ProcedureReturn #True
     EndIf
@@ -621,24 +696,28 @@ Module ModuleEx
             ;}  
           EndIf
           
-          If Flags & #Tabulator   ;{ Manage tabulator shortcut for this window
+          CompilerIf #Enable_Tabulator_Management
             
-            ModuleEx\Menu = CreateMenu(#PB_Any, WindowID(WindowNum))
-            If IsMenu(ModuleEx\Menu)
+            If Flags & #Tabulator   ;{ Manage tabulator shortcut for this window
               
-              RemoveKeyboardShortcut(WindowNum, #PB_Shortcut_Tab)
-              RemoveKeyboardShortcut(WindowNum, #PB_Shortcut_Shift|#PB_Shortcut_Tab)
-              
-              AddKeyboardShortcut(WindowNum, #PB_Shortcut_Tab, #Event_Tabulator)
-              AddKeyboardShortcut(WindowNum, #PB_Shortcut_Shift|#PB_Shortcut_Tab, #Event_ShiftTabulator)
-              
-              BindMenuEvent(ModuleEx\Menu, #Event_Tabulator,       @_TabulatorHandler())
-              BindMenuEvent(ModuleEx\Menu, #Event_ShiftTabulator,  @_ShiftTabulatorHandler())
-      
+              ModuleEx\Menu = CreateMenu(#PB_Any, WindowID(WindowNum))
+              If IsMenu(ModuleEx\Menu)
+                
+                RemoveKeyboardShortcut(WindowNum, #PB_Shortcut_Tab)
+                RemoveKeyboardShortcut(WindowNum, #PB_Shortcut_Shift|#PB_Shortcut_Tab)
+                
+                AddKeyboardShortcut(WindowNum, #PB_Shortcut_Tab, #Event_Tabulator)
+                AddKeyboardShortcut(WindowNum, #PB_Shortcut_Shift|#PB_Shortcut_Tab, #Event_ShiftTabulator)
+                
+                BindMenuEvent(ModuleEx\Menu, #Event_Tabulator,       @_TabulatorHandler())
+                BindMenuEvent(ModuleEx\Menu, #Event_ShiftTabulator,  @_ShiftTabulatorHandler())
+        
+              EndIf
+              ;}
             EndIf
-            ;}
-          EndIf
-          
+            
+          CompilerEndIf
+        
           BindEvent(#PB_Event_CloseWindow, @_CloseWindowHandler(), WindowNum)
           
           ProcedureReturn #True
@@ -753,7 +832,7 @@ Module ModuleEx
   Procedure.i SetFont(GNum.i, Name.s, Size.i, Style.i=#False, Flags.i=#False, Type.i=#Gadget) 
     Define.i FontNum, FontSize
     
-    FontNum = Font(Name, Size, Style)
+    FontNum = LoadFont_(Name, Size, Style)
     
     Select Type
       Case #Gadget  
@@ -804,7 +883,98 @@ Module ModuleEx
     EndSelect
     
   EndProcedure  
-
+  
+  ; _____ GUI Theme _____
+  
+  Procedure SetTheme(Theme.i=#PB_Default)
+    
+    CompilerSelect  #PB_Compiler_OS
+      CompilerCase #PB_OS_Windows
+        ThemeGUI\GadgetColor = GetSysColor_(#COLOR_MENU)
+      CompilerCase #PB_OS_MacOS
+        ThemeGUI\GadgetColor = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
+      CompilerCase #PB_OS_Linux
+        ThemeGUI\GadgetColor = $EDEDED
+    CompilerEndSelect
+    
+    Select Theme
+      Case #Theme_Blue
+          ; $43321C
+          ; $3A2100
+          ; $764200
+          ; $B06400
+          ; $CB9755
+          ; $E5CBAA
+          ; $EDDCC6
+          ; $F6EDE2
+          ; $FCF9F5
+        ThemeGUI\FrontColor  = $490000
+        ThemeGUI\BackColor   = $FCF9F5
+        ThemeGUI\BorderColor = $8C8C8C
+        ThemeGUI\LineColor   = $C5C5C5
+        ThemeGUI\RowColor    = $FAF5EE
+        ThemeGUI\Focus\FrontColor  = $43321C
+        ThemeGUI\Focus\BackColor   = $CB9755
+        ThemeGUI\Header\FrontColor = $43321C
+        ThemeGUI\Header\BackColor  = $E5CBAA
+      Case #Theme_Green
+        ; $2A3A1F
+        ; $142D05
+        ; $295B0A
+        ; $3E8910
+        ; $7EB05F
+        ; $BED7AF
+        ; $D4E4C9
+        ; $E2EDDB
+        ; $F5F9F3
+        ThemeGUI\FrontColor  = $0F2203
+        ThemeGUI\BackColor   = $F9FBF7
+        ThemeGUI\BorderColor = $9B9B9B
+        ThemeGUI\LineColor   = $CCCCCC
+        ThemeGUI\RowColor    = $F3F7F0
+        ThemeGUI\Focus\FrontColor  = $142D05
+        ThemeGUI\Focus\BackColor   = $7EB05F
+        ThemeGUI\Header\FrontColor = $142D05
+        ThemeGUI\Header\BackColor  = $BED7AF
+      Default
+        
+        ThemeGUI\RowColor = $FCFCFC
+        
+        CompilerSelect  #PB_Compiler_OS
+          CompilerCase #PB_OS_Windows
+            ThemeGUI\FrontColor        = GetSysColor_(#COLOR_WINDOWTEXT)
+            ThemeGUI\BackColor         = GetSysColor_(#COLOR_WINDOW)
+            ThemeGUI\LineColor         = GetSysColor_(#COLOR_3DLIGHT)
+            ThemeGUI\BorderColor       = GetSysColor_(#COLOR_WINDOWFRAME)
+            ThemeGUI\Focus\FrontColor  = GetSysColor_(#COLOR_HIGHLIGHTTEXT)
+            ThemeGUI\Focus\BackColor   = GetSysColor_(#COLOR_HIGHLIGHT)
+            ThemeGUI\Header\FrontColor = GetSysColor_(#COLOR_WINDOWTEXT)
+            ThemeGUI\Header\BackColor  = GetSysColor_(#COLOR_WINDOW)
+          CompilerCase #PB_OS_MacOS
+            ThemeGUI\FrontColor        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
+            ThemeGUI\BackColor         = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
+            ThemeGUI\LineColor         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+            ThemeGUI\BorderColor       = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+            ThemeGUI\Focus\FrontColor  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedTextColor"))
+            ThemeGUI\Focus\BackColor   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedControlColor"))
+            ThemeGUI\Header\FrontColor = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
+            ThemeGUI\Header\BackColor  = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
+          CompilerCase #PB_OS_Linux
+            ThemeGUI\FrontColor        = $000000
+            ThemeGUI\BackColor         = $FFFFFF
+            ThemeGUI\LineColor         = $B4B4B4
+            ThemeGUI\BorderColor       = $A0A0A0
+            ThemeGUI\Focus\FrontColor  = $FFFFFF
+            ThemeGUI\Focus\BackColor   = $D77800
+            ThemeGUI\Header\FrontColor = $000000
+            ThemeGUI\Header\BackColor  = $FFFFFF
+      CompilerEndSelect
+    EndSelect
+    
+    PostEvent(#Event_Theme)
+    
+  EndProcedure
+  
 EndModule
 
 
@@ -819,6 +989,8 @@ CompilerIf #PB_Compiler_IsMainFile
     #Button
     #Combo
   EndEnumeration
+  
+  LoadFont(0, "Arial", 12, 0)
   
   If OpenWindow(#Window, 0, 0, 310, 60, "Meta - Module", #PB_Window_SystemMenu|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
     
@@ -860,8 +1032,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 104
-; FirstLine = 39
-; Folding = kDYHAIAA9
+; CursorPosition = 861
+; FirstLine = 221
+; Folding = UIAAAAIAAw
 ; EnableXP
 ; DPIAware
