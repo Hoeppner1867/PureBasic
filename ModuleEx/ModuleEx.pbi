@@ -18,7 +18,6 @@
 ; Added: RequiredFontSize() & CalcPadding()
 ; Added: SetFont() with '#FitText'-Flag
 
-
 ; TODO: LoadFont() - Index FontNum
 
 ;{ ===== MIT License =====
@@ -113,30 +112,51 @@ DeclareModule ModuleEx
     #Theme_Green
   EndEnumeration
   
-  Structure Theme_Color_Structure
+  Structure Theme_Progress_Structure ;{ ThemeGUI\Progress\...
     FrontColor.i
     BackColor.i
-  EndStructure
+    GradientColor.i
+  EndStructure ;}
   
-  Structure Theme_Structure
+  Structure Theme_Header_Structure ;{ ThemeGUI\Header\...
     FrontColor.i
     BackColor.i
-    RowColor.i
+    LightColor.i
+  EndStructure ;}
+  
+  Structure Theme_Border_Structure ;{ ThemeGUI\...
+    FrontColor.i
+    BackColor.i
     BorderColor.i
+  EndStructure ;}
+  
+  Structure Theme_Color_Structure  ;{ ThemeGUI\...
+    FrontColor.i
+    BackColor.i
+  EndStructure ;}
+  
+  Structure Theme_Structure        ;{ ThemeGUI\...
+    FrontColor.i
+    BackColor.i
+    BorderColor.i
+    RowColor.i
     LineColor.i
-    Header.Theme_Color_Structure
+    Button.Theme_Border_Structure
     Focus.Theme_Color_Structure
+    Header.Theme_Header_Structure
+    Progress.Theme_Progress_Structure
+    Title.Theme_Color_Structure
     GadgetColor.i
-  EndStructure  
+  EndStructure ;}
   Global ThemeGUI.Theme_Structure
   
   ; _____ Fit Font _____
   
-  Structure Padding_Structure
+  Structure Padding_Structure      ;{ Padding\...
     X.i
     Y.i
     Factor.f
-  EndStructure
+  EndStructure ;}
   Padding.Padding_Structure
 
   ;- ============================================================================
@@ -899,75 +919,93 @@ Module ModuleEx
     
     Select Theme
       Case #Theme_Blue
-          ; $43321C
-          ; $3A2100
-          ; $764200
-          ; $B06400
-          ; $CB9755
-          ; $E5CBAA
-          ; $EDDCC6
-          ; $F6EDE2
-          ; $FCF9F5
-        ThemeGUI\FrontColor  = $490000
-        ThemeGUI\BackColor   = $FCF9F5
-        ThemeGUI\BorderColor = $8C8C8C
-        ThemeGUI\LineColor   = $C5C5C5
-        ThemeGUI\RowColor    = $FAF5EE
-        ThemeGUI\Focus\FrontColor  = $43321C
-        ThemeGUI\Focus\BackColor   = $CB9755
-        ThemeGUI\Header\FrontColor = $43321C
-        ThemeGUI\Header\BackColor  = $E5CBAA
+        ; $43321C $3A2100 $764200 $B06400 $CB9755 $E5CBAA $EDDCC6 $F6EDE2 $FCF9F5
+        ThemeGUI\FrontColor         = $490000
+        ThemeGUI\BackColor          = $FCF9F5
+        ThemeGUI\BorderColor        = $8C8C8C
+        ThemeGUI\LineColor          = $C5C5C5
+        ThemeGUI\RowColor           = $FAF5EE
+        ThemeGUI\Focus\FrontColor   = $43321C
+        ThemeGUI\Focus\BackColor    = $B06400
+        ThemeGUI\Header\FrontColor  = $43321C
+        ThemeGUI\Header\BackColor   = $E5CBAA
+        ThemeGUI\Header\LightColor  = $F6EDE2
+        ThemeGUI\Button\FrontColor  = $490000
+        ThemeGUI\Button\BackColor   = $E3E3E3
+        ThemeGUI\Button\BorderColor = $A0A0A0
+        ThemeGUI\Title\FrontColor   = $FCF9F5
+        ThemeGUI\Title\BackColor    = $764200
+        ThemeGUI\Progress\FrontColor    = $FCF9F5
+        ThemeGUI\Progress\BackColor     = $CB9755 
+        ThemeGUI\Progress\GradientColor = $B06400
       Case #Theme_Green
-        ; $2A3A1F
-        ; $142D05
-        ; $295B0A
-        ; $3E8910
-        ; $7EB05F
-        ; $BED7AF
-        ; $D4E4C9
-        ; $E2EDDB
-        ; $F5F9F3
-        ThemeGUI\FrontColor  = $0F2203
-        ThemeGUI\BackColor   = $F9FBF7
-        ThemeGUI\BorderColor = $9B9B9B
-        ThemeGUI\LineColor   = $CCCCCC
-        ThemeGUI\RowColor    = $F3F7F0
-        ThemeGUI\Focus\FrontColor  = $142D05
-        ThemeGUI\Focus\BackColor   = $7EB05F
-        ThemeGUI\Header\FrontColor = $142D05
-        ThemeGUI\Header\BackColor  = $BED7AF
+        ; $2A3A1F $142D05 $295B0A $3E8910 $7EB05F $BED7AF $D4E4C9 $E2EDDB $F5F9F3
+        ThemeGUI\FrontColor         = $0F2203
+        ThemeGUI\BackColor          = $F9FBF7
+        ThemeGUI\BorderColor        = $9B9B9B
+        ThemeGUI\LineColor          = $CCCCCC
+        ThemeGUI\RowColor           = $F3F7F0
+        ThemeGUI\Focus\FrontColor   = $142D05
+        ThemeGUI\Focus\BackColor    = $3E8910
+        ThemeGUI\Header\FrontColor  = $142D05
+        ThemeGUI\Header\BackColor   = $BED7AF
+        ThemeGUI\Header\LightColor  = $E2EDDB
+        ThemeGUI\Button\FrontColor  = $0F2203
+        ThemeGUI\Button\BackColor   = $E3E3E3
+        ThemeGUI\Button\BorderColor = $A0A0A0
+        ThemeGUI\Title\FrontColor   = $F5F9F3
+        ThemeGUI\Title\BackColor    = $295B0A
+        ThemeGUI\Progress\FrontColor    = $F5F9F3
+        ThemeGUI\Progress\BackColor     = $7EB05F
+        ThemeGUI\Progress\GradientColor = $3E8910
       Default
         
-        ThemeGUI\RowColor = $FCFCFC
+        ThemeGUI\RowColor          = $FCFCFC
+        ThemeGUI\Title\FrontColor  = $FFFFFF
+        ThemeGUI\Title\BackColor   = $FCF9F5
+        ThemeGUI\Header\LightColor = $F6EDE2
+        
+        ThemeGUI\Progress\FrontColor    = $F9FEF8
+        ThemeGUI\Progress\BackColor     = $25B006
+        ThemeGUI\Progress\GradientColor = $25B006
         
         CompilerSelect  #PB_Compiler_OS
           CompilerCase #PB_OS_Windows
-            ThemeGUI\FrontColor        = GetSysColor_(#COLOR_WINDOWTEXT)
-            ThemeGUI\BackColor         = GetSysColor_(#COLOR_WINDOW)
-            ThemeGUI\LineColor         = GetSysColor_(#COLOR_3DLIGHT)
-            ThemeGUI\BorderColor       = GetSysColor_(#COLOR_WINDOWFRAME)
-            ThemeGUI\Focus\FrontColor  = GetSysColor_(#COLOR_HIGHLIGHTTEXT)
-            ThemeGUI\Focus\BackColor   = GetSysColor_(#COLOR_HIGHLIGHT)
-            ThemeGUI\Header\FrontColor = GetSysColor_(#COLOR_WINDOWTEXT)
-            ThemeGUI\Header\BackColor  = GetSysColor_(#COLOR_WINDOW)
+            ThemeGUI\FrontColor         = GetSysColor_(#COLOR_WINDOWTEXT)
+            ThemeGUI\BackColor          = GetSysColor_(#COLOR_WINDOW)
+            ThemeGUI\LineColor          = GetSysColor_(#COLOR_3DLIGHT)
+            ThemeGUI\BorderColor        = GetSysColor_(#COLOR_WINDOWFRAME)
+            ThemeGUI\Focus\FrontColor   = GetSysColor_(#COLOR_HIGHLIGHTTEXT)
+            ThemeGUI\Focus\BackColor    = GetSysColor_(#COLOR_HIGHLIGHT)
+            ThemeGUI\Header\FrontColor  = GetSysColor_(#COLOR_WINDOWTEXT)
+            ThemeGUI\Header\BackColor   = GetSysColor_(#COLOR_WINDOW)
+            ThemeGUI\Button\FrontColor  = GetSysColor_(#COLOR_WINDOWTEXT)
+            ThemeGUI\Button\BackColor   = GetSysColor_(#COLOR_3DLIGHT) 
+            ThemeGUI\Button\BorderColor = GetSysColor_(#COLOR_3DSHADOW)
           CompilerCase #PB_OS_MacOS
-            ThemeGUI\FrontColor        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
-            ThemeGUI\BackColor         = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
-            ThemeGUI\LineColor         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
-            ThemeGUI\BorderColor       = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
-            ThemeGUI\Focus\FrontColor  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedTextColor"))
-            ThemeGUI\Focus\BackColor   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedControlColor"))
-            ThemeGUI\Header\FrontColor = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
-            ThemeGUI\Header\BackColor  = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
+            ThemeGUI\FrontColor         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
+            ThemeGUI\BackColor          = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
+            ThemeGUI\LineColor          = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+            ThemeGUI\BorderColor        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+            ThemeGUI\Focus\FrontColor   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedTextColor"))
+            ThemeGUI\Focus\BackColor    = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedControlColor"))
+            ThemeGUI\Header\FrontColor  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
+            ThemeGUI\Header\BackColor   = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
+            ThemeGUI\Button\FrontColor  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor")) 
+            ThemeGUI\Button\BackColor   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
+            ThemeGUI\Button\BorderColor = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
           CompilerCase #PB_OS_Linux
-            ThemeGUI\FrontColor        = $000000
-            ThemeGUI\BackColor         = $FFFFFF
-            ThemeGUI\LineColor         = $B4B4B4
-            ThemeGUI\BorderColor       = $A0A0A0
-            ThemeGUI\Focus\FrontColor  = $FFFFFF
-            ThemeGUI\Focus\BackColor   = $D77800
-            ThemeGUI\Header\FrontColor = $000000
-            ThemeGUI\Header\BackColor  = $FFFFFF
+            ThemeGUI\FrontColor         = $000000
+            ThemeGUI\BackColor          = $FFFFFF
+            ThemeGUI\LineColor          = $B4B4B4
+            ThemeGUI\BorderColor        = $A0A0A0
+            ThemeGUI\Focus\FrontColor   = $FFFFFF
+            ThemeGUI\Focus\BackColor    = $D77800
+            ThemeGUI\Header\FrontColor  = $000000
+            ThemeGUI\Header\BackColor   = $FFFFFF
+            ThemeGUI\Button\FrontColor  = $000000
+            ThemeGUI\Button\BackColor   = $E3E3E3
+            ThemeGUI\Button\BorderColor = $A0A0A0
       CompilerEndSelect
     EndSelect
     
@@ -1032,8 +1070,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 861
+; CursorPosition = 934
 ; FirstLine = 221
-; Folding = UIAAAAIAAw
+; Folding = EsIAAAAIAA5
 ; EnableXP
 ; DPIAware

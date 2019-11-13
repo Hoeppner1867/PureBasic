@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 12.11.2019
+; Last Update: 13.11.2019
 ;
 ; - Bugfix: Cash
 ;
@@ -126,6 +126,7 @@
 
 ;} -----------------------------
 
+XIncludeFile "ModuleEx.pbi"
 
 DeclareModule ListEx
   
@@ -134,6 +135,7 @@ DeclareModule ListEx
   #Enable_ProgressBar = #True
   #Enable_DragAndDrop = #True
   #Enable_CSV_Support = #True
+  #Enable_GUI_Theme   = #True
   
   ;- ===========================================================================
   ;-   DeclareModule - Constants / Structures
@@ -229,11 +231,11 @@ DeclareModule ListEx
     #FocusColor
     #FrontColor
     #GadgetBackColor
-    #GridColor
+    #LineColor
     #LinkColor
     #HeaderFrontColor
     #HeaderBackColor
-    #HeaderGridColor
+    #HeaderLineColor
     #AlternateRowColor
   EndEnumeration
 
@@ -255,7 +257,7 @@ DeclareModule ListEx
     #CellFont
     #CellFront
     #CellBack
-    #CellGrid
+    #CellLine
     #LockCell
     ; --------
     #Cash
@@ -291,6 +293,7 @@ DeclareModule ListEx
     
     #Event_Cursor       = ModuleEx::#Event_Cursor
     #Event_Gadget       = ModuleEx::#Event_Gadget
+    #Event_Theme        = ModuleEx::#Event_Theme
     
     #EventType_Button   = ModuleEx::#EventType_Button
     #EventType_String   = ModuleEx::#EventType_String
@@ -543,7 +546,7 @@ Module ListEx
   Structure Color_Structure             ;{ ...\Color\...
     Front.i
     Back.i
-    Grid.i
+    Line.i
   EndStructure ;}
   
   Structure Image_Structure             ;{ ListEx()\Rows()\Column('label')\Image\...
@@ -611,10 +614,10 @@ Module ListEx
     AlternateRow.i
     Front.i
     Back.i
-    Grid.i
+    Line.i
     HeaderFront.i
     HeaderBack.i
-    HeaderGrid.i
+    HeaderLine.i
     Canvas.i
     Focus.i
     Edit.i
@@ -1056,9 +1059,9 @@ Module ListEx
       
       ListEx()\Rows()\FontID = ListEx()\Row\FontID
       
-      ListEx()\Rows()\Color\Front = ListEx()\Color\Front
-      ListEx()\Rows()\Color\Back  = ListEx()\Color\Back
-      ListEx()\Rows()\Color\Grid  = ListEx()\Color\Grid
+      ListEx()\Rows()\Color\Front = #PB_Default
+      ListEx()\Rows()\Color\Back  = #PB_Default
+      ListEx()\Rows()\Color\Line  = ListEx()\Color\Line
       
       If Text <> ""
         
@@ -1981,7 +1984,7 @@ Module ListEx
     Define.f textX, textY
     Define.i BackColor, BorderColor
     
-    If TextColor = #PB_Default : TextColor = ListEx()\Row\Color\Front : EndIf
+    If TextColor = #PB_Default : TextColor = ListEx()\Color\Front : EndIf
     
     If ColorFlag & #Click
       BackColor   = BlendColor_(ListEx()\Color\Focus, $FFFFFF, 20)
@@ -2014,7 +2017,7 @@ Module ListEx
     DrawingMode(#PB_2DDrawing_Transparent)
     textX = GetAlignOffset_(Text, Width, #Center)
     textY = (Height - TextHeight("Abc")) / 2
-    DrawText(X + textX, Y + textY, Text, ListEx()\Rows()\Color\Front)
+    DrawText(X + textX, Y + textY, Text, TextColor)
     
   EndProcedure
   
@@ -2432,7 +2435,7 @@ Module ListEx
           EndIf
           
           DrawingMode(#PB_2DDrawing_Outlined)
-          Box(colX - 1, rowY, dpiX(ListEx()\Cols()\Width) + 1, dpiY(ListEx()\Header\Height) + 1, ListEx()\Color\HeaderGrid)
+          Box(colX - 1, rowY, dpiX(ListEx()\Cols()\Width) + 1, dpiY(ListEx()\Header\Height) + 1, ListEx()\Color\HeaderLine)
           colX + dpiX(ListEx()\Cols()\Width)
           
         Next
@@ -2465,7 +2468,7 @@ Module ListEx
         Row = ListIndex(ListEx()\Rows())
         
         ;{ Alternate Color
-        If ListEx()\Color\Back <> ListEx()\Color\AlternateRow
+        If ListEx()\Color\Back <> ListEx()\Color\AlternateRow 
           If Mod(ListIndex(ListEx()\Rows()), 2)
             Box(colX, rowY, dpiX(ListEx()\Size\Cols), dpiY(ListEx()\Rows()\Height), ListEx()\Color\AlternateRow)
           Else
@@ -2516,7 +2519,7 @@ Module ListEx
             DrawText(colX + textX, rowY + textY, Text$, ListEx()\Color\HeaderFront, ListEx()\Color\HeaderBack)
             
             DrawingMode(#PB_2DDrawing_Outlined)
-            Box(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height + 1), ListEx()\Color\HeaderGrid)
+            Box(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height + 1), ListEx()\Color\HeaderLine)
             
             If Flags & #CellFont : DrawingFont(RowFontID) : EndIf
             ;}
@@ -2536,7 +2539,7 @@ Module ListEx
             
             ;{ Colored cell background
             If ListIndex(ListEx()\Rows()) <> ListEx()\Row\Current
-              If Flags & #CellBack                       
+              If Flags & #CellBack
                 DrawingMode(#PB_2DDrawing_Default)
                 Box(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), ListEx()\Rows()\Column(Key$)\Color\Back)
               ElseIf ListEx()\Rows()\Color\Back <> #PB_Default
@@ -2577,6 +2580,10 @@ Module ListEx
                 
                 DrawingFont(FontID)
                 
+                If Flags & #Buttons
+                  Button_(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), ListEx()\Rows()\Column(Key$)\Value, #False, FrontColor, FontID)
+                EndIf 
+                
                 textY = (dpiY(ListEx()\Rows()\Height) - TextHeight("Abc")) / 2 + dpiY(1)
                 
                 DrawingMode(#PB_2DDrawing_Transparent)
@@ -2610,19 +2617,15 @@ Module ListEx
                 
               EndIf
               ;}
-            ElseIf ListEx()\Cols()\Flags & #Buttons    ;{ Button
+            ElseIf ListEx()\Cols()\Flags & #Buttons     ;{ Button
               
               CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
                 ClipOutput(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height))
               CompilerEndIf
               
               If Flags & #CellFont : FontID = ListEx()\Rows()\Column(Key$)\FontID : EndIf
-              
-              If Flags & #CellFront
-                Button_(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), ListEx()\Rows()\Column(Key$)\Value, #False, ListEx()\Rows()\Column(Key$)\Color\Front, FontID)
-              Else
-                Button_(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), ListEx()\Rows()\Column(Key$)\Value, #False, ListEx()\Rows()\Color\Front, FontID)
-              EndIf
+
+              Button_(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), ListEx()\Rows()\Column(Key$)\Value, #False, FrontColor, FontID)
               
               If Flags & #Image
                 
@@ -2784,7 +2787,7 @@ Module ListEx
           
             If ListEx()\Flags & #GridLines
               DrawingMode(#PB_2DDrawing_Outlined)
-              Box(colX - dpiX(1), rowY, dpiX(ListEx()\Cols()\Width) + dpiX(1), dpiY(ListEx()\Rows()\Height) + dpiY(1), ListEx()\Color\Grid)
+              Box(colX - dpiX(1), rowY, dpiX(ListEx()\Cols()\Width) + dpiX(1), dpiY(ListEx()\Rows()\Height) + dpiY(1), ListEx()\Color\Line)
             EndIf
             
           EndIf
@@ -2804,7 +2807,7 @@ Module ListEx
       
       DrawingMode(#PB_2DDrawing_Default)
       
-      Line(0, dpiX(ListEx()\Header\Height), colWidth, dpiY(1), ListEx()\Color\HeaderGrid) 
+      Line(0, dpiX(ListEx()\Header\Height), colWidth, dpiY(1), ListEx()\Color\HeaderLine) 
       
       ;{ _____ ScrollBars ______
       If ListEx()\VScroll\Hide = #False
@@ -2817,11 +2820,11 @@ Module ListEx
       
       ;{ _____ Border _____
       If ListEx()\Flags & #NumberedColumn
-        Line(colX + colW0 - dpiY(1), dpiY(ListEx()\Header\Height), dpiY(1), rowHeight + dpiY(1), ListEx()\Color\HeaderGrid)
+        Line(colX + colW0 - dpiY(1), dpiY(ListEx()\Header\Height), dpiY(1), rowHeight + dpiY(1), ListEx()\Color\HeaderLine)
       EndIf
       
       DrawingMode(#PB_2DDrawing_Outlined)
-      Box(0, 0, dpiX(GadgetWidth(ListEx()\CanvasNum)), dpiY(GadgetHeight(ListEx()\CanvasNum)), ListEx()\Color\HeaderGrid)
+      Box(0, 0, dpiX(GadgetWidth(ListEx()\CanvasNum)), dpiY(GadgetHeight(ListEx()\CanvasNum)), ListEx()\Color\HeaderLine)
       ;}
       
       PopListPosition(ListEx()\Cols())
@@ -3315,6 +3318,29 @@ Module ListEx
 
   ;- ----------------------------
   
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure _ThemeHandler()
+
+      ForEach ListEx()
+        
+        ListEx()\Color\Focus        = ModuleEx::ThemeGUI\Focus\BackColor
+        ListEx()\Color\Front        = ModuleEx::ThemeGUI\FrontColor
+        ListEx()\Color\Back         = ModuleEx::ThemeGUI\BackColor
+        ListEx()\Color\Line         = ModuleEx::ThemeGUI\LineColor
+        ListEx()\Color\AlternateRow = ModuleEx::ThemeGUI\RowColor
+        ListEx()\Color\HeaderFront  = ModuleEx::ThemeGUI\Header\FrontColor
+        ListEx()\Color\HeaderBack   = ModuleEx::ThemeGUI\Header\BackColor
+        ListEx()\Color\ProgressBar  = ModuleEx::ThemeGUI\Progress\BackColor
+        ListEx()\Color\Gradient     = ModuleEx::ThemeGUI\Progress\GradientColor
+
+        Draw_()
+      Next
+      
+    EndProcedure
+    
+  CompilerEndIf  
+  
   Procedure _CursorThread(Frequency.i)
     Define.i ElapsedTime
     
@@ -3786,7 +3812,7 @@ Module ListEx
 
   Procedure _LeftButtonDownHandler()
     Define.f X, Y, Width, Height
-    Define.i Flags, FontID, Row, StartRow, EndRow
+    Define.i Flags, FontID, Row, StartRow, EndRow, FrontColor
     Define.s Key$, Value$
     Define   Image.Image_Structure
     Define   GNum.i = EventGadget()
@@ -4046,7 +4072,21 @@ Module ListEx
                 Image\ID = #False
               EndIf
               
-              DrawButton_(X, Y, ListEx()\Cols()\Width, ListEx()\Rows()\Height, Value$, #Click, ListEx()\Rows()\Color\Front, ListEx()\Rows()\FontID, @Image)
+              If Flags & #CellFront
+                Debug "#CellFront"
+                FrontColor = ListEx()\Rows()\Column(Key$)\Color\Front
+              ElseIf ListEx()\Rows()\Color\Front <> #PB_Default
+                Debug "ListEx()\Rows()\Color\Front"
+                FrontColor = ListEx()\Rows()\Color\Front
+              ElseIf ListEx()\Cols()\FrontColor <> #PB_Default
+                Debug "ListEx()\Cols()\FrontColor"
+                FrontColor = ListEx()\Cols()\FrontColor
+              Else
+                Debug "ListEx()\Color\Front: " + Str(ListEx()\Color\Front)
+                FrontColor = ListEx()\Color\Front
+              EndIf
+              
+              DrawButton_(X, Y, ListEx()\Cols()\Width, ListEx()\Rows()\Height, Value$, #Click, FrontColor, ListEx()\Rows()\FontID, @Image)
               
               ListEx()\Button\Row   = ListEx()\Row\Current
               ListEx()\Button\Col   = ListEx()\Col\Current
@@ -5171,7 +5211,7 @@ Module ListEx
         
         ListEx()\Rows()\Color\Front = ListEx()\Color\Front
         ListEx()\Rows()\Color\Back  = ListEx()\Color\Back
-        ListEx()\Rows()\Color\Grid  = ListEx()\Color\Grid
+        ListEx()\Rows()\Color\Line  = ListEx()\Color\Line
           
         If Text <> ""
           
@@ -5212,7 +5252,7 @@ Module ListEx
     If FindMapElement(ListEx(), Str(GNum))
 
       Index = AddItem_(Row, Text, Label, Flags) 
-      
+
       If ListEx()\ReDraw
         If ListEx()\FitCols : FitColumns_() : EndIf
         UpdateRowY_()
@@ -5590,8 +5630,8 @@ Module ListEx
         ListEx()\Color\Focus        = $D77800
         ListEx()\Color\HeaderFront  = $000000
         ListEx()\Color\HeaderBack   = $FAFAFA
-        ListEx()\Color\HeaderGrid   = $A0A0A0
-        ListEx()\Color\Grid         = $E3E3E3
+        ListEx()\Color\HeaderLine   = $A0A0A0
+        ListEx()\Color\Line         = $E3E3E3
         ListEx()\Color\Button       = $E3E3E3
         ListEx()\Color\ButtonBorder = $A0A0A0
         ListEx()\Color\ProgressBar  = $32CD32
@@ -5608,10 +5648,10 @@ Module ListEx
           CompilerCase #PB_OS_Windows
             ListEx()\Color\HeaderFront  = GetSysColor_(#COLOR_WINDOWTEXT)
             ;ListEx()\Color\HeaderBack   = GetSysColor_(#COLOR_3DLIGHT)
-            ListEx()\Color\HeaderGrid   = GetSysColor_(#COLOR_3DSHADOW)
+            ListEx()\Color\HeaderLine   = GetSysColor_(#COLOR_3DSHADOW)
             ListEx()\Color\Front        = GetSysColor_(#COLOR_WINDOWTEXT)
             ListEx()\Color\Back         = GetSysColor_(#COLOR_WINDOW)
-            ListEx()\Color\Grid         = GetSysColor_(#COLOR_3DLIGHT)
+            ListEx()\Color\Line         = GetSysColor_(#COLOR_3DLIGHT)
             ListEx()\Color\Canvas       = GetSysColor_(#COLOR_WINDOW)
             ListEx()\Color\ScrollBar    = GetSysColor_(#COLOR_MENU)
             ListEx()\Color\Focus        = GetSysColor_(#COLOR_MENUHILIGHT)
@@ -5620,11 +5660,11 @@ Module ListEx
           CompilerCase #PB_OS_MacOS
             ListEx()\Color\HeaderFront  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
             ;ListEx()\Color\HeaderBack   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
-            ListEx()\Color\HeaderGrid   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+            ListEx()\Color\HeaderLine   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
             ListEx()\Color\Front        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
             ListEx()\Color\Back         = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
             ListEx()\Color\Canvas       = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
-            ListEx()\Color\Grid         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+            ListEx()\Color\Line         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
             ListEx()\Color\ScrollBar    = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
             ListEx()\Color\Focus        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedControlColor"))
             ListEx()\Color\Button       = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
@@ -5654,6 +5694,10 @@ Module ListEx
         CompilerIf #Enable_DragAndDrop
           EnableGadgetDrop(ListEx()\CanvasNum, #PB_Drop_Text, #PB_Drag_Copy)
           BindEvent(#PB_Event_GadgetDrop, @_GadgetDropHandler(), ListEx()\Window\Num, ListEx()\CanvasNum)
+        CompilerEndIf
+        
+        CompilerIf Defined(ModuleEx, #PB_Module)
+          BindEvent(#Event_Theme, @_ThemeHandler())
         CompilerEndIf
         
         Draw_()
@@ -6252,8 +6296,8 @@ Module ListEx
           ListEx()\Color\ProgressBar = Value
         Case #GradientColor
           ListEx()\Color\Gradient    = Value
-        Case #GridColor
-          ListEx()\Color\Grid = Value
+        Case #LineColor
+          ListEx()\Color\Line = Value
         Case #FocusColor
           ListEx()\Color\Focus = Value
         Case #EditColor
@@ -6264,8 +6308,8 @@ Module ListEx
           ListEx()\Color\HeaderFront = Value
         Case #HeaderBackColor
           ListEx()\Color\HeaderBack = Value
-        Case #HeaderGridColor
-          ListEx()\Color\HeaderGrid = Value
+        Case #HeaderLineColor
+          ListEx()\Color\HeaderLine = Value
         Case #GadgetBackColor
           ListEx()\Color\Canvas = Value
         Case #AlternateRowColor
@@ -6286,10 +6330,10 @@ Module ListEx
           
           ListEx()\Color\Front        = 0
           ListEx()\Color\Back         = 16645114
-          ListEx()\Color\Grid         = 13092807
+          ListEx()\Color\Line         = 13092807
           ListEx()\Color\HeaderFront  = 4270875
           ListEx()\Color\HeaderBack   = 14599344
-          ListEx()\Color\HeaderGrid   = 8750469
+          ListEx()\Color\HeaderLine   = 8750469
           ListEx()\Color\ProgressBar  = 11369795
           ListEx()\Color\Gradient     = 13874833
           ListEx()\Color\AlternateRow = ListEx()\Color\Back
@@ -6298,10 +6342,10 @@ Module ListEx
           
           ListEx()\Color\Front        = 0
           ListEx()\Color\Back         = 16383222
-          ListEx()\Color\Grid         = 13092807
+          ListEx()\Color\Line         = 13092807
           ListEx()\Color\HeaderFront  = 2374163
           ListEx()\Color\HeaderBack   = 6674533
-          ListEx()\Color\HeaderGrid   = 8750469
+          ListEx()\Color\HeaderLine   = 8750469
           ListEx()\Color\ProgressBar  = 2263842
           ListEx()\Color\Gradient     = 7527538
           ListEx()\Color\AlternateRow = ListEx()\Color\Back
@@ -6310,27 +6354,27 @@ Module ListEx
           
           ListEx()\Color\Front        = $000000
           ListEx()\Color\Back         = $FFFFFF
-          ListEx()\Color\Grid         = $E3E3E3
+          ListEx()\Color\Line         = $E3E3E3
           ListEx()\Color\HeaderFront  = $000000
           ListEx()\Color\HeaderBack   = $FAFAFA
-          ListEx()\Color\HeaderGrid   = $A0A0A0
+          ListEx()\Color\HeaderLine   = $A0A0A0
           ListEx()\Color\AlternateRow = ListEx()\Color\Back
-          
+
           CompilerSelect  #PB_Compiler_OS
             CompilerCase #PB_OS_Windows
             ListEx()\Color\HeaderFront  = GetSysColor_(#COLOR_WINDOWTEXT)
             ;ListEx()\Color\HeaderBack   = GetSysColor_(#COLOR_3DLIGHT)
-            ListEx()\Color\HeaderGrid   = GetSysColor_(#COLOR_3DSHADOW)
+            ListEx()\Color\HeaderLine   = GetSysColor_(#COLOR_3DSHADOW)
             ListEx()\Color\Front        = GetSysColor_(#COLOR_WINDOWTEXT)
             ListEx()\Color\Back         = GetSysColor_(#COLOR_WINDOW)
-            ListEx()\Color\Grid         = GetSysColor_(#COLOR_3DLIGHT)
+            ListEx()\Color\Line         = GetSysColor_(#COLOR_3DLIGHT)
           CompilerCase #PB_OS_MacOS
             ListEx()\Color\HeaderFront  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
             ;ListEx()\Color\HeaderBack   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
-            ListEx()\Color\HeaderGrid   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+            ListEx()\Color\HeaderLine   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
             ListEx()\Color\Front        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
             ListEx()\Color\Back         = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
-            ListEx()\Color\Grid         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+            ListEx()\Color\Line         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
           CompilerCase #PB_OS_Linux
             
         CompilerEndSelect
@@ -6614,18 +6658,18 @@ Module ListEx
               EndIf 
             EndIf
           EndIf ;}
-        Case #GridColor  ;{ GridColor
+        Case #LineColor  ;{ LineColor
           If Row = #Header
-            ListEx()\Color\HeaderGrid = Value
+            ListEx()\Color\HeaderLine = Value
           Else
             If SelectElement(ListEx()\Rows(), Row)
               If Column = #PB_Ignore
-                ListEx()\Rows()\Color\Grid = Value
+                ListEx()\Rows()\Color\Line = Value
               Else
                 If SelectElement(ListEx()\Cols(), Column)
                   Key$ = ListEx()\Cols()\Key
-                  ListEx()\Rows()\Column(Key$)\Color\Grid = Value
-                  ListEx()\Rows()\Column(Key$)\Flags | #CellGrid
+                  ListEx()\Rows()\Column(Key$)\Color\Line = Value
+                  ListEx()\Rows()\Column(Key$)\Flags | #CellLine
                 EndIf  
               EndIf
             EndIf
@@ -6634,8 +6678,8 @@ Module ListEx
           ListEx()\Color\HeaderFront = Value
         Case #HeaderBackColor
           ListEx()\Color\HeaderBack = Value
-        Case #HeaderGridColor
-          ListEx()\Color\HeaderGrid = Value  
+        Case #HeaderLineColor
+          ListEx()\Color\HeaderLine = Value  
       EndSelect
       
       If ListEx()\ReDraw : Draw_() : EndIf
@@ -6992,16 +7036,16 @@ CompilerIf #PB_Compiler_IsMainFile
       MenuBar()
       MenuItem(#MenuItem1, "Theme 'Blue'")
       MenuItem(#MenuItem2, "Theme 'Green'")
-      MenuItem(#MenuItem3, "Theme 'Grey'")
+      MenuItem(#MenuItem3, "Theme 'Default'")
       MenuBar()
       MenuItem(#MenuItem4, "Reset gadget size")
     EndIf
     
     ButtonGadget(#Button,  420,  10, 70, 20, "Resize")
-    ButtonGadget(#B_Grey,  420,  50, 70, 20, "Grey")
-    ButtonGadget(#B_Green, 420,  80, 70, 20, "Green")
-    ButtonGadget(#B_Blue,  420, 110, 70, 20, "Blue")
-    ButtonGadget(#Export,  420, 150, 70, 20, "Export")
+    ButtonGadget(#B_Grey,  420,  50, 70, 20, "Default")
+    ButtonGadget(#B_Green, 420,  75, 70, 20, "Green")
+    ButtonGadget(#B_Blue,  420, 100, 70, 20, "Blue")
+    ButtonGadget(#Export,  420, 140, 70, 20, "Export")
     
     ListEx::Gadget(#List, 10, 10, 395, 230, "", 25, "", ListEx::#GridLines|ListEx::#CheckBoxes|ListEx::#AutoResize|ListEx::#MultiSelect|ListEx::#ResizeColumn, #Window) ; ListEx::#NoRowHeader|ListEx::#ThreeState|ListEx::#NumberedColumn|ListEx::#SingleClickEdit 
     
@@ -7058,7 +7102,7 @@ CompilerIf #PB_Compiler_IsMainFile
     ListEx::SetColor(#List, ListEx::#FrontColor, $82004B, 2) ; front color for column 2
     
     ;ListEx::SetItemColor(#List, 5, ListEx::#FrontColor, $228B22, 2)
-    ListEx::SetItemColor(#List, 5, ListEx::#BackColor, $FAFFF5)
+    ;ListEx::SetItemColor(#List, 5, ListEx::#BackColor, $FAFFF5)
     ListEx::SetItemFont(#List,  0, FontID(#Font_Arial9B), 2)
     
     ListEx::SetAutoResizeFlags(#List, ListEx::#Height)
@@ -7125,13 +7169,22 @@ CompilerIf #PB_Compiler_IsMainFile
               HideGadget(#B_Blue,  #True)
               ResizeGadget(#List, #PB_Ignore, #PB_Ignore, 480, #PB_Ignore)
             Case #B_Green
-              ListEx::SetColorTheme(#List, ListEx::#Theme_Green)
+              CompilerIf Defined(ModuleEx, #PB_Module)
+                ModuleEx::SetTheme(ModuleEx::#Theme_Green)
+              CompilerEndIf  
+              ;ListEx::SetColorTheme(#List, ListEx::#Theme_Green)
               ;ListEx::LoadColorTheme(#List, "Theme_Green.json")
             Case #B_Grey
-              ListEx::SetColorTheme(#List, #PB_Default)
+              CompilerIf Defined(ModuleEx, #PB_Module)
+                ModuleEx::SetTheme()
+              CompilerEndIf  
+              ;ListEx::SetColorTheme(#List, #PB_Default)
               ;ListEx::LoadColorTheme(#List, "Theme_Grey.json")  
             Case #B_Blue
-              ListEx::SetColorTheme(#List, ListEx::#Theme_Blue)
+              CompilerIf Defined(ModuleEx, #PB_Module)
+                ModuleEx::SetTheme(ModuleEx::#Theme_Blue)
+              CompilerEndIf  
+              ;ListEx::SetColorTheme(#List, ListEx::#Theme_Blue)
               ;ListEx::LoadColorTheme(#List, "Theme_Blue.json")
             Case #Export
               ListEx::ExportCSV(#List, "ListEx.csv", ListEx::#HeaderRow)
@@ -7170,8 +7223,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 14
-; Folding = 3PAJAAACAE6-8--8fAQR7dm---XBOA9-PAAb4nAAycCcAAABAAAAAgAAYgw
+; CursorPosition = 11
+; Folding = 9PQJCAACAE5-8--xfAQx7dkICWRBOEw--AQhdfCAIwBwBIAwAAAAAAAAACk4
 ; EnableXP
 ; DPIAware
 ; EnableUnicode

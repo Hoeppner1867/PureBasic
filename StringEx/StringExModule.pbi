@@ -69,6 +69,7 @@
 
 ;}
 
+XIncludeFile "ModuleEx.pbi"
 
 DeclareModule StringEx
   
@@ -125,6 +126,8 @@ DeclareModule StringEx
     
     #Event_Cursor       = ModuleEx::#Event_Cursor
     #Event_Gadget       = ModuleEx::#Event_Gadget
+    #Event_Theme        = ModuleEx::#Event_Theme
+    
     #EventType_Button   = ModuleEx::#EventType_Button
     
   CompilerElse
@@ -265,7 +268,7 @@ Module StringEx
     Height.i
     State.i
     Frequency.i
-    ;Elapsed.i
+    Elapsed.i
     Thread.i
     Pause.i
   EndStructure ;}
@@ -665,17 +668,17 @@ Module StringEx
     
     If StrgEx()\Button\State & #Click
       DrawingMode(#PB_2DDrawing_Default)
-      Box(StrgEx()\Button\X, 0, dpiX(#ButtonWidth), dpiY(GadgetHeight(StrgEx()\CanvasNum)), BlendColor_(StrgEx()\Color\Focus, $FFFFFF, 20))
+      Box(StrgEx()\Button\X, 0, dpiX(#ButtonWidth), dpiY(GadgetHeight(StrgEx()\CanvasNum)), BlendColor_(StrgEx()\Color\Focus, StrgEx()\Color\Button, 20))
     ElseIf StrgEx()\Button\State & #Focus
       DrawingMode(#PB_2DDrawing_Default)
-      Box(StrgEx()\Button\X, 0, dpiX(#ButtonWidth), dpiY(GadgetHeight(StrgEx()\CanvasNum)), BlendColor_(StrgEx()\Color\Focus, $FFFFFF, 10))
+      Box(StrgEx()\Button\X, 0, dpiX(#ButtonWidth), dpiY(GadgetHeight(StrgEx()\CanvasNum)), BlendColor_(StrgEx()\Color\Focus, StrgEx()\Color\Button, 15))
     Else
       DrawingMode(#PB_2DDrawing_Default)
       Box(StrgEx()\Button\X, 0, dpiX(#ButtonWidth), dpiY(GadgetHeight(StrgEx()\CanvasNum)), StrgEx()\Color\Button)
     EndIf 
     
     DrawingMode(#PB_2DDrawing_Outlined)
-    Box(StrgEx()\Button\X, 0, dpiX(#ButtonWidth + 1), dpiY(GadgetHeight(StrgEx()\CanvasNum)), BorderColor)
+    Box(StrgEx()\Button\X, 0, dpiX(#ButtonWidth), dpiY(GadgetHeight(StrgEx()\CanvasNum)), BorderColor)
     
     If IsImage(StrgEx()\Button\ImgNum)
       X = StrgEx()\Button\X + ((dpiX(#ButtonWidth) - StrgEx()\Button\Width)  / 2)
@@ -814,6 +817,28 @@ Module StringEx
   
   
   ;- __________ Events __________
+  
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure _ThemeHandler()
+
+      ForEach StrgEx()
+        
+        StrgEx()\Color\Front         = ModuleEx::ThemeGUI\FrontColor
+        StrgEx()\Color\Back          = ModuleEx::ThemeGUI\BackColor
+        StrgEx()\Color\Focus         = ModuleEx::ThemeGUI\Focus\BackColor
+        StrgEx()\Color\Border        = ModuleEx::ThemeGUI\BorderColor
+        StrgEx()\Color\Cursor        = ModuleEx::ThemeGUI\FrontColor
+        StrgEx()\Color\Button        = ModuleEx::ThemeGUI\Button\BackColor
+        StrgEx()\Color\HighlightText = ModuleEx::ThemeGUI\Focus\FrontColor
+        StrgEx()\Color\Highlight     = ModuleEx::ThemeGUI\Focus\BackColor
+
+        Draw_()
+      Next
+      
+    EndProcedure
+    
+  CompilerEndIf   
   
   Procedure _CursorDrawing() ; Trigger from Thread (PostEvent Change)
     Define.i WindowNum = EventWindow()
@@ -1713,9 +1738,14 @@ Module StringEx
           
         EndIf
         
-        If IsWindow(WindowNum) : BindEvent(#PB_Event_CloseWindow, @_CloseWindowHandler(), StrgEx()\Window\Num) : Endif
         BindEvent(#Event_Cursor, @_CursorDrawing())
 
+        CompilerIf Defined(ModuleEx, #PB_Module)
+          BindEvent(#Event_Theme, @_ThemeHandler())
+        CompilerEndIf
+        
+        BindEvent(#PB_Event_CloseWindow, @_CloseWindowHandler(), StrgEx()\Window\Num)
+        
         Draw_()
         
       EndIf
@@ -2066,6 +2096,8 @@ CompilerIf #PB_Compiler_IsMainFile
   	  
   	  StringEx::SetAutoResizeFlags(#StringDel, StringEx::#Width|StringEx::#FitText)
   	  
+  	  ModuleEx::SetTheme(ModuleEx::#Theme_Green)
+  	  
     CompilerEndIf
     
     
@@ -2100,9 +2132,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 1715
-; FirstLine = 529
-; Folding = cXEEIgAY7IAAAwxDgbCAA+
+; CursorPosition = 834
+; FirstLine = 310
+; Folding = cHAEAgAk1gEAwgBFAMYAAw-
 ; EnableThread
 ; EnableXP
 ; DPIAware

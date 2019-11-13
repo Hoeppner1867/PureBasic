@@ -60,9 +60,7 @@
 
 ;}
 
-
 XIncludeFile "ModuleEx.pbi"
-
 
 DeclareModule ButtonEx
 
@@ -105,10 +103,12 @@ DeclareModule ButtonEx
 	EndEnumeration
 
 	CompilerIf Defined(ModuleEx, #PB_Module)
-
+	  
+	  #Event_Gadget       = ModuleEx::#Event_Gadget
+	  #Event_Theme        = ModuleEx::#Event_Theme
+	  
 		#EventType_Button   = ModuleEx::#EventType_Button
 		#EventType_DropDown = ModuleEx::#EventType_DropDown
-		#Event_Gadget       = ModuleEx::#Event_Gadget
 
 	CompilerElse
 
@@ -606,7 +606,27 @@ Module ButtonEx
 	EndProcedure
 	
 	;- __________ Events __________
+	
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure _ThemeHandler()
 
+      ForEach BtEx()
+
+        BtEx()\Color\Front  = ModuleEx::ThemeGUI\Button\FrontColor
+        BtEx()\Color\Back   = ModuleEx::ThemeGUI\Button\BackColor
+        BtEx()\Color\Focus  = ModuleEx::ThemeGUI\Focus\BackColor
+        BtEx()\Color\Border = ModuleEx::ThemeGUI\Button\BorderColor
+        BtEx()\Color\Gadget = ModuleEx::ThemeGUI\GadgetColor
+        
+        Draw_()
+      Next
+      
+    EndProcedure
+    
+  CompilerEndIf  	
+	
+	
 	Procedure _LeftButtonDownHandler()
 		Define.i X
 		Define.i GNum = EventGadget()
@@ -899,7 +919,11 @@ Module ButtonEx
 				BindGadgetEvent(BtEx()\CanvasNum, @_LeftButtonDownHandler(), #PB_EventType_LeftButtonDown)
 				BindGadgetEvent(BtEx()\CanvasNum, @_LeftButtonUpHandler(),   #PB_EventType_LeftButtonUp)
 				BindGadgetEvent(BtEx()\CanvasNum, @_ResizeHandler(),         #PB_EventType_Resize)
-
+				
+				CompilerIf Defined(ModuleEx, #PB_Module)
+          BindEvent(#Event_Theme, @_ThemeHandler())
+        CompilerEndIf
+				
 				If IsWindow(BtEx()\Window\Num)
 					BtEx()\Window\Width = WindowWidth(BtEx()\Window\Num)
 					BtEx()\Window\Height = WindowHeight(BtEx()\Window\Num)
@@ -1146,6 +1170,8 @@ CompilerIf #PB_Compiler_IsMainFile
 		  ButtonEx::SetText(#ButtonML, "MultiLine1" + #LF$ + "MultiLine2")
 		  ButtonEx::SetDynamicFont(#ButtonML, "Arial", 9, #PB_Font_Bold)
 		  ButtonEx::SetAutoResizeFlags(#ButtonML, ButtonEx::#Width|ButtonEx::#Height|ButtonEx::#FitText) ; |ButtonEx::#FixPadding
+
+		  ModuleEx::SetTheme(ModuleEx::#Theme_Green)
 		  
 		CompilerEndIf
 		
@@ -1189,8 +1215,8 @@ CompilerIf #PB_Compiler_IsMainFile
 
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 817
-; FirstLine = 184
-; Folding = sBIAEEKBA9-
+; CursorPosition = 618
+; FirstLine = 170
+; Folding = 9BIAE95EEg-
 ; EnableXP
 ; DPIAware

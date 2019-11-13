@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (06/2019)
 ;/
 
-; Last Update: 8.11.19
+; Last Update: 13.11.19
 ;
 ; Added: #UseExistingCanvas
 ;
@@ -51,6 +51,8 @@
 ; ProgressEx::SetText()            - similar to SetGadgetText()
 ;}
 
+XIncludeFile "ModuleEx.pbi"
+
 DeclareModule ProgressEx
   
   ;- ===========================================================================
@@ -91,6 +93,12 @@ DeclareModule ProgressEx
     #GradientColor
     #BorderColor
   EndEnumeration
+  
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    #Event_Theme = ModuleEx::#Event_Theme
+    
+  CompilerEndIf
   
   ;- ===========================================================================
   ;-   DeclareModule
@@ -354,6 +362,26 @@ Module ProgressEx
   
   ;- __________ Events __________
   
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure _ThemeHandler()
+
+      ForEach PBarEx()
+        
+        PBarEx()\Color\Front       = ModuleEx::ThemeGUI\Progress\FrontColor
+        PBarEx()\Color\Back        = ModuleEx::ThemeGUI\GadgetColor
+        PBarEx()\Color\ProgressBar = ModuleEx::ThemeGUI\Progress\BackColor
+        PBarEx()\Color\Gradient    = ModuleEx::ThemeGUI\Progress\GradientColor
+        PBarEx()\Color\Border      = ModuleEx::ThemeGUI\BorderColor
+
+        Draw_()
+      Next
+      
+    EndProcedure
+    
+  CompilerEndIf 
+  
+  
   Procedure _ResizeHandler()
     Define.i GadgetID = EventGadget()
     
@@ -414,8 +442,6 @@ Module ProgressEx
   ;- ==========================================================================
   ;-   Module - Declared Procedures
   ;- ==========================================================================  
-  
-
   
   Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Minimum.i=0, Maximum.i=100, Flags.i=#False, WindowNum.i=#PB_Default)
     Define.i txtNum, Result
@@ -504,7 +530,7 @@ Module ProgressEx
         PBarEx()\Flags   = Flags
         
         BindGadgetEvent(PBarEx()\CanvasNum,  @_ResizeHandler(), #PB_EventType_Resize)
-        
+
         If Flags & #AutoResize
           If IsWindow(WindowNum)
             PBarEx()\Size\winWidth  = WindowWidth(WindowNum)
@@ -512,6 +538,10 @@ Module ProgressEx
             BindEvent(#PB_Event_SizeWindow, @_ResizeWindowHandler(), WindowNum)
           EndIf  
         EndIf
+        
+        CompilerIf Defined(ModuleEx, #PB_Module)
+          BindEvent(#Event_Theme, @_ThemeHandler())
+        CompilerEndIf
         
         Draw_()
         
@@ -660,6 +690,10 @@ CompilerIf #PB_Compiler_IsMainFile
     StringGadget(#SG, 10, 45, 30, 20, "", #PB_String_Numeric)
     ButtonGadget(#BT, 45, 44, 30, 22, "Set")
     
+    CompilerIf Defined(ModuleEx, #PB_Module)
+      ModuleEx::SetTheme(ModuleEx::#Theme_Blue)
+    CompilerEndIf
+    
     Repeat
       Event = WaitWindowEvent()
       Select Event
@@ -677,8 +711,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 432
-; FirstLine = 253
-; Folding = OCPckg-
+; CursorPosition = 11
+; Folding = UEecDB5
 ; EnableXP
 ; DPIAware

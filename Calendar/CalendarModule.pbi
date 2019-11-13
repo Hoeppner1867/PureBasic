@@ -187,12 +187,16 @@ DeclareModule Calendar
   EndEnumeration ;}
   
   CompilerIf Defined(ModuleEx, #PB_Module)
+    
     #Event_Gadget         = ModuleEx::#Event_Gadget
+    #Event_Theme          = ModuleEx::#Event_Theme
+    
     #EventType_Day        = ModuleEx::#EventType_Day
     #EventType_Month      = ModuleEx::#EventType_Month
     #EventType_Year       = ModuleEx::#EventType_Year
     #EventType_Focus      = ModuleEx::#EventType_Focus
     #EventType_RightClick = ModuleEx::#EventType_RightClick
+    
   CompilerElse
     
     Enumeration #PB_Event_FirstCustomValue
@@ -344,6 +348,7 @@ Module Calendar
     Front.i
     Back.i
     Grid.i
+    Focus.i
     Month.Color_Structure
     Week.Color_Structure
   EndStructure ;}
@@ -1463,6 +1468,28 @@ Module Calendar
   
   ;- __________ Events __________
   
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure _ThemeHandler()
+
+      ForEach Calendar()
+        
+        Calendar()\Color\Front        = ModuleEx::ThemeGUI\FrontColor
+        Calendar()\Color\Back         = ModuleEx::ThemeGUI\BackColor
+        Calendar()\Color\Grid         = ModuleEx::ThemeGUI\LineColor
+        Calendar()\Color\Focus        = ModuleEx::ThemeGUI\Focus\BackColor
+        Calendar()\Month\Color\Front  = ModuleEx::ThemeGUI\Title\FrontColor
+        Calendar()\Month\Color\Back   = ModuleEx::ThemeGUI\Title\BackColor
+        Calendar()\Week\Color\Front   = ModuleEx::ThemeGUI\Header\FrontColor
+        Calendar()\Week\Color\Back    = ModuleEx::ThemeGUI\Header\LightColor
+        
+        Draw_()
+      Next
+      
+    EndProcedure
+    
+  CompilerEndIf
+  
   Procedure  UpdateEvent_()
     
     Calendar()\Event\Day   = Val(MapKey(Calendar()\Day()))
@@ -2375,6 +2402,7 @@ Module Calendar
         EndIf ;}
         
         CompilerIf Defined(ToolTip, #PB_Module)
+          
           Calendar()\TooltipNum = ToolTip::Create(Calendar()\CanvasNum, Calendar()\Window\Num)
           If Calendar()\TooltipNum
             ToolTip::SetColor(Calendar()\CanvasNum, ToolTip::#BorderColor,      $800000)
@@ -2383,6 +2411,9 @@ Module Calendar
             ToolTip::SetColor(Calendar()\CanvasNum, ToolTip::#TitleBackColor,   $B48246)
             ToolTip::SetColor(Calendar()\CanvasNum, ToolTip::#TitleColor,       $FFFFFF)
           EndIf
+          
+          BindEvent(#Event_Theme, @_ThemeHandler())
+          
         CompilerEndIf
         
         Draw_()
@@ -2472,6 +2503,7 @@ Module Calendar
       Calendar()\Color\Front = Theme\Front
       Calendar()\Color\Back  = Theme\Back
       Calendar()\Color\Grid  = Theme\Grid
+      Calendar()\Color\Focus = Theme\Focus
       
       Calendar()\Month\Color\Front = Theme\Month\Front
       Calendar()\Month\Color\Back  = Theme\Month\Back
@@ -2513,6 +2545,7 @@ Module Calendar
       Theme\Front = Calendar()\Color\Front
       Theme\Back  = Calendar()\Color\Back
       Theme\Grid  = Calendar()\Color\Grid
+      Theme\Focus = Calendar()\Color\Focus
       
       Theme\Month\Front = Calendar()\Month\Color\Front
       Theme\Month\Back  = Calendar()\Month\Color\Back
@@ -2609,29 +2642,34 @@ Module Calendar
       
       Select Theme
         Case #Theme_Blue
-          
+
           Calendar()\Color\Front        = 0
           Calendar()\Color\Back         = 16645114
           Calendar()\Color\Grid         = 13092807
+          Calendar()\Color\Focus        = $B06400
           Calendar()\Month\Color\Front  = 16775408
           Calendar()\Month\Color\Back   = 11691264
           Calendar()\Week\Color\Front   = 5767168
           Calendar()\Week\Color\Back    = 16775926
-          
+
         Case #Theme_Green
           
           Calendar()\Color\Front        = 0
           Calendar()\Color\Back         = 16383222
           Calendar()\Color\Grid         = 13092807
+          Calendar()\Color\Focus        = $3E8910
           Calendar()\Month\Color\Front  = 16449525
           Calendar()\Month\Color\Back   = 25600
           Calendar()\Week\Color\Back    = 15925234
           
         Default
           
+          Calendar()\Color\Focus        = $D77800
+          
           Calendar()\Color\Front        = 0
           Calendar()\Color\Back         = 16777215
           Calendar()\Color\Grid         = 14935011
+          Calendar()\Color\Focus        = $D77800
           
           Calendar()\Month\Color\Front  = #PB_Default
           Calendar()\Month\Color\Back   = #PB_Default
@@ -2963,6 +3001,8 @@ CompilerIf #PB_Compiler_IsMainFile
     	
       CompilerEndIf
       
+      ModuleEx::SetTheme(ModuleEx::#Theme_Blue)
+      
       CompilerSelect #Example
         CompilerCase 2
           Calendar::SetFlags(#Calendar, Calendar::#Gadget, Calendar::#GreyedDays)
@@ -2976,7 +3016,7 @@ CompilerIf #PB_Compiler_IsMainFile
           Calendar::SetFlags(#Calendar, Calendar::#Gadget, Calendar::#GreyedDays)
         CompilerDefault
           
-          Calendar::SetColorTheme(#Calendar, Calendar::#Theme_Green)
+          ;Calendar::SetColorTheme(#Calendar, Calendar::#Theme_Green)
           
           Calendar::SetFont(#Calendar, #FontWeekDays, Calendar::#Font_Entry)
           Calendar::SetFlags(#Calendar, Calendar::#Gadget, Calendar::#GreyedDays)
@@ -3040,7 +3080,7 @@ CompilerIf #PB_Compiler_IsMainFile
       EndSelect        
     Until Event = #PB_Event_CloseWindow
     
-    Calendar::SaveColorTheme(#Calendar, "Color.json")
+    ;Calendar::SaveColorTheme(#Calendar, "Color.json")
     
     CloseWindow(#Window)
   EndIf 
@@ -3048,8 +3088,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 13
-; Folding = MAOMAAEAABAAw8GEBTEAAEAAgAJ0
-; Markers = 1044,2607
+; CursorPosition = 3007
+; FirstLine = 721
+; Folding = MgPIAAEAgAAAw8eQEMRAAVAACCk1
+; Markers = 1049,2640
 ; EnableXP
 ; DPIAware

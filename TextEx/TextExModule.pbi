@@ -51,7 +51,7 @@
 
 ;}
 
-
+;XIncludeFile "ModuleEx.pbi"
 
 DeclareModule TextEx
   
@@ -287,6 +287,23 @@ Module TextEx
   EndProcedure 
   
   ;- __________ Events __________
+  
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure _ThemeHandler()
+
+      ForEach TextEx()
+        
+        TextEx()\Color\Front    = ModuleEx::ThemeGUI\FrontColor
+        TextEx()\Color\Back     = ModuleEx::ThemeGUI\GadgetColor
+
+        Draw_()
+      Next
+      
+    EndProcedure
+    
+  CompilerEndIf 
+  
   
   Procedure _ResizeHandler()
     Define.i GadgetID = EventGadget()
@@ -567,7 +584,7 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 445
-; FirstLine = 292
-; Folding = eCsPs0
+; CursorPosition = 301
+; FirstLine = 204
+; Folding = eCsvw3-
 ; EnableXP
