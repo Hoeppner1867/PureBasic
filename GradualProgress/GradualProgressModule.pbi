@@ -53,6 +53,7 @@
 
 ;}
 
+; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule Gradual
 
@@ -92,7 +93,8 @@ DeclareModule Gradual
 	CompilerIf Defined(ModuleEx, #PB_Module)
 
 		#Event_Gadget = ModuleEx::#Event_Gadget
-
+		#Event_Theme  = ModuleEx::#Event_Theme
+		
 	CompilerElse
 
 		Enumeration #PB_Event_FirstCustomValue
@@ -444,7 +446,31 @@ Module Gradual
 	EndProcedure
 
 	;- __________ Events __________
+	
+  
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure _ThemeHandler()
 
+      ForEach Gradual()
+        
+        Gradual()\Color\Front         = ModuleEx::ThemeGUI\FrontColor
+				Gradual()\Color\Back          = ModuleEx::ThemeGUI\BackColor
+				Gradual()\Color\Border        = ModuleEx::ThemeGUI\BorderColor
+				Gradual()\Color\ActiveBack    = ModuleEx::ThemeGUI\Progress\GradientColor
+				
+				Gradual()\Color\InActiveBack  = BlendColor_(Gradual()\Color\ActiveBack, ModuleEx::ThemeGUI\GadgetColor, 25)
+				Gradual()\Color\ActiveFront   = ModuleEx::ThemeGUI\Progress\FrontColor
+				Gradual()\Color\InActiveFront = BlendColor_(Gradual()\Color\ActiveBack, ModuleEx::ThemeGUI\GadgetColor, 70)
+
+        Draw_()
+      Next
+      
+    EndProcedure
+    
+  CompilerEndIf  
+  
+	
 	Procedure _LeftClickHandler()
 		Define.i s, X, Y
 		Define.i GNum = EventGadget()
@@ -666,7 +692,11 @@ Module Gradual
 				BindGadgetEvent(Gradual()\CanvasNum,  @_ResizeHandler(),          #PB_EventType_Resize)
 				BindGadgetEvent(Gradual()\CanvasNum,  @_MouseMoveHandler(),       #PB_EventType_MouseMove)
 				BindGadgetEvent(Gradual()\CanvasNum,  @_LeftClickHandler(),       #PB_EventType_LeftClick)
-
+				
+				CompilerIf Defined(ModuleEx, #PB_Module)
+          BindEvent(#Event_Theme, @_ThemeHandler())
+        CompilerEndIf
+				
 				If Flags & #AutoResize ;{ Enable AutoResize
 					If IsWindow(Gradual()\Window\Num)
 						Gradual()\Window\Width  = WindowWidth(Gradual()\Window\Num)
@@ -821,6 +851,8 @@ CompilerIf #PB_Compiler_IsMainFile
     ButtonGadget(#Previous, 10, 90, 80, 25, "Previous")
     ButtonGadget(#Next,    490, 90, 80, 25, "Next")
     
+    ;ModuleEx::SetTheme(ModuleEx::#Theme_Blue) 
+    
     Repeat
       Event = WaitWindowEvent()
       Select Event
@@ -856,8 +888,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 595
-; FirstLine = 120
-; Folding = +EAA5gAg4
+; CursorPosition = 55
+; FirstLine = 6
+; Folding = 9GAA5DCB9+
 ; EnableXP
 ; DPIAware

@@ -129,6 +129,7 @@
   
 ;} ===========================
 
+; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule EditEx
   
@@ -220,6 +221,7 @@ DeclareModule EditEx
   CompilerIf Defined(ModuleEx, #PB_Module)
     
     #Event_Cursor = ModuleEx::#Event_Cursor
+    #Event_Theme  = ModuleEx::#Event_Theme
     
   CompilerElse
     
@@ -2546,6 +2548,29 @@ Module EditEx
 
   ;- __________ Events __________
   
+  
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure _ThemeHandler()
+
+      ForEach EditEx()
+        
+        EditEx()\Color\Front         = ModuleEx::ThemeGUI\FrontColor
+        EditEx()\Color\Back          = ModuleEx::ThemeGUI\BackColor
+        EditEx()\Color\Border        = ModuleEx::ThemeGUI\BorderColor
+        EditEx()\Color\Cursor        = ModuleEx::ThemeGUI\FrontColor
+        EditEx()\Color\HighlightText = ModuleEx::ThemeGUI\Focus\FrontColor
+        EditEx()\Color\Highlight     = ModuleEx::ThemeGUI\Focus\BackColor
+        EditEx()\Color\ScrollBar     = ModuleEx::ThemeGUI\ScrollbarColor
+
+        Draw_()
+      Next
+      
+    EndProcedure
+    
+  CompilerEndIf    
+  
+  
   Procedure _ListViewHandler()
     Define.i GNum, Selected
     Define.i ListNum.i = EventGadget()
@@ -4869,7 +4894,7 @@ Module EditEx
       EndIf
 
       ;{ ----- Set colors -------------------------
-      
+     
       EditEx()\Color\Front         = $000000
       EditEx()\Color\Back          = $FFFFFF
       EditEx()\Color\ReadOnly      = $F5F5F5
@@ -4925,6 +4950,10 @@ Module EditEx
       BindGadgetEvent(GNum, @_ResizeHandler(),           #PB_EventType_Resize)
       
       BindEvent(#Event_Cursor, @_CursorDrawing())
+      
+      CompilerIf Defined(ModuleEx, #PB_Module)
+        BindEvent(#Event_Theme, @_ThemeHandler())
+      CompilerEndIf
       
       If IsWindow(EditEx()\Window\Num)
         
@@ -5134,6 +5163,8 @@ CompilerIf #PB_Compiler_IsMainFile
     ;Debug EditEx::WrapText(Text, 283, #Font, EditEx::#Hyphenation)
     ;Debug EditEx::GetText(#EditEx, EditEx::#Hyphenation)
     
+    ;ModuleEx::SetTheme(ModuleEx::#Theme_Green)
+    
     QuitWindow = #False
     
     Repeat
@@ -5174,9 +5205,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 4750
-; FirstLine = 842
-; Folding = 5XnRAgBAAIKEgBIA9BAkBBCAIIwBAGVEAMSMEECEAkmAAC5BJI+-
-; Markers = 887
+; CursorPosition = 5165
+; FirstLine = 995
+; Folding = 5XnRAgBAAIAEgBIA9BAkBBCYAgAHAYURAwIwQQIQAQaCAIgHOBx-
+; Markers = 889
 ; EnableXP
 ; DPIAware

@@ -173,6 +173,7 @@ DeclareModule ModuleEx
     Header.Theme_Header_Structure
     Progress.Theme_Progress_Structure
     Title.Theme_Border_Structure
+    ScrollbarColor.i
     GadgetColor.i
   EndStructure ;}
   Global ThemeGUI.Theme_Structure
@@ -1003,11 +1004,14 @@ Module ModuleEx
     
     CompilerSelect  #PB_Compiler_OS
       CompilerCase #PB_OS_Windows
-        ThemeGUI\GadgetColor = GetSysColor_(#COLOR_MENU)
+        ThemeGUI\GadgetColor    = GetSysColor_(#COLOR_MENU)
+        ThemeGUI\ScrollbarColor = GetSysColor_(#COLOR_MENU)
       CompilerCase #PB_OS_MacOS
-        ThemeGUI\GadgetColor = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
+        ThemeGUI\GadgetColor    = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
+        ThemeGUI\ScrollbarColor = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
       CompilerCase #PB_OS_Linux
-        ThemeGUI\GadgetColor = $EDEDED
+        ThemeGUI\GadgetColor    = $EDEDED
+        ThemeGUI\ScrollbarColor = $C8C8C8
     CompilerEndSelect
     
     Select Theme
@@ -1082,6 +1086,7 @@ Module ModuleEx
             ThemeGUI\Button\BackColor   = GetSysColor_(#COLOR_3DLIGHT) 
             ThemeGUI\Button\BorderColor = GetSysColor_(#COLOR_3DSHADOW)
             ThemeGUI\Title\BorderColor  = GetSysColor_(#COLOR_WINDOWFRAME)
+            ThemeGUI\ScrollbarColor     = GetSysColor_(#COLOR_MENU)
           CompilerCase #PB_OS_MacOS
             ThemeGUI\FrontColor         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
             ThemeGUI\BackColor          = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
@@ -1095,6 +1100,7 @@ Module ModuleEx
             ThemeGUI\Button\BackColor   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
             ThemeGUI\Button\BorderColor = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
             ThemeGUI\Title\BorderColor  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+            ThemeGUI\ScrollbarColor     = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
           CompilerCase #PB_OS_Linux
             ThemeGUI\FrontColor         = $000000
             ThemeGUI\BackColor          = $FFFFFF
@@ -1108,6 +1114,7 @@ Module ModuleEx
             ThemeGUI\Button\BackColor   = $E3E3E3
             ThemeGUI\Button\BorderColor = $A0A0A0
             ThemeGUI\Title\BorderColor  = $B4B4B4
+            ThemeGUI\ScrollbarColor     = $C8C8C8
         CompilerEndSelect
         ;}
     EndSelect
@@ -1192,8 +1199,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 52
-; FirstLine = 2
-; Folding = mBRAAAAgAAAP+
+; CursorPosition = 1005
+; FirstLine = 235
+; Folding = mBRAAAAgAAAJ+
 ; EnableXP
 ; DPIAware

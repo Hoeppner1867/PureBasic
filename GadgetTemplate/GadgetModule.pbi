@@ -42,6 +42,7 @@
 
 ;}
 
+; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule {Gadget}
 
@@ -72,7 +73,8 @@ DeclareModule {Gadget}
 	CompilerIf Defined(ModuleEx, #PB_Module)
 
 		#Event_Gadget = ModuleEx::#Event_Gadget
-
+		#Event_Theme  = ModuleEx::#Event_Theme
+		
 	CompilerElse
 
 		Enumeration #PB_Event_FirstCustomValue
@@ -274,7 +276,25 @@ Module {Gadget}
 	EndProcedure
 
 	;- __________ Events __________
+	
+	CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure _ThemeHandler()
 
+      ForEach {Gadget}()
+        
+        {Gadget}()\Color\Front  = ModuleEx::ThemeGUI\FrontColor
+				{Gadget}()\Color\Back   = ModuleEx::ThemeGUI\BackColor
+				{Gadget}()\Color\Border = ModuleEx::ThemeGUI\BorderColor
+        
+        Draw_()
+      Next
+      
+    EndProcedure
+    
+  CompilerEndIf 
+	
+	
 	Procedure _LeftDoubleClickHandler()
 		Define.i X, Y
 		Define.i GNum = EventGadget()
@@ -515,7 +535,11 @@ Module {Gadget}
 				BindGadgetEvent({Gadget}()\CanvasNum,  @_MouseMoveHandler(),       #PB_EventType_MouseMove)
 				BindGadgetEvent({Gadget}()\CanvasNum,  @_LeftButtonDownHandler(),  #PB_EventType_LeftButtonDown)
 				BindGadgetEvent({Gadget}()\CanvasNum,  @_LeftButtonUpHandler(),    #PB_EventType_LeftButtonUp)
-
+				
+				CompilerIf Defined(ModuleEx, #PB_Module)
+          BindEvent(#Event_Theme, @_ThemeHandler())
+        CompilerEndIf
+				
 				If Flags & #AutoResize ;{ Enabel AutoResize
 					If IsWindow({Gadget}()\Window\Num)
 						{Gadget}()\Window\Width  = WindowWidth({Gadget}()\Window\Num)
@@ -617,8 +641,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 559
-; FirstLine = 203
-; Folding = 9EgxBCwh
+; CursorPosition = 540
+; FirstLine = 174
+; Folding = 9GAgDARI9
 ; EnableXP
 ; DPIAware
