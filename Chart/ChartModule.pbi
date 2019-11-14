@@ -15,7 +15,6 @@
 ; Added: #UseExistingCanvas
 ;
 ; Added: #Time flag for axis / AddAxisLabel()
-; Added: 
 ;
 
 ;{ ===== MIT License =====
@@ -108,6 +107,8 @@
 ; Chart::SetScatterLabelData()  - sets the values of the item by label
 
 ;}
+
+ ; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule Chart
   
@@ -222,6 +223,7 @@ DeclareModule Chart
   CompilerIf Defined(ModuleEx, #PB_Module)
     
     #Event_Gadget = ModuleEx::#Event_Gadget
+    #Event_Theme  = ModuleEx::#Event_Theme
     
   CompilerElse
     
@@ -3696,6 +3698,28 @@ Module Chart
   
   ;- __________ Events __________
   
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure _ThemeHandler()
+
+      ForEach Chart()
+        
+        Chart()\Color\Front     = ModuleEx::ThemeGUI\FrontColor
+        Chart()\Color\Back      = ModuleEx::ThemeGUI\BackColor
+        Chart()\Color\Border    = ModuleEx::ThemeGUI\BorderColor
+        Chart()\Color\Axis      = ModuleEx::ThemeGUI\FrontColor
+        Chart()\Color\Bar       = ModuleEx::ThemeGUI\Progress\BackColor
+        Chart()\Color\BarBorder = ModuleEx::ThemeGUI\Header\FrontColor
+        Chart()\Color\Gradient  = ModuleEx::ThemeGUI\Progress\GradientColor
+
+        Draw_()
+      Next
+      
+    EndProcedure
+    
+  CompilerEndIf   
+  
+  
   Procedure.i GetRadius_(X1.i, Y1.i, X2.i, Y2.i)
     Define.f X, Y
     X = X1 - X2
@@ -5775,6 +5799,10 @@ Module Chart
         BindGadgetEvent(Chart()\CanvasNum,  @_LeftDoubleClickHandler(), #PB_EventType_LeftDoubleClick)
         BindGadgetEvent(Chart()\CanvasNum,  @_MouseMoveHandler(),       #PB_EventType_MouseMove)
         
+        CompilerIf Defined(ModuleEx, #PB_Module)
+          BindEvent(#Event_Theme, @_ThemeHandler())
+        CompilerEndIf
+        
         CompilerIf #Enable_ModifyByCursor
           BindGadgetEvent(Chart()\CanvasNum,  @_LeftButtonDownHandler(),  #PB_EventType_LeftButtonDown)
           BindGadgetEvent(Chart()\CanvasNum,  @_LeftButtonUpHandler(),    #PB_EventType_LeftButtonUp)
@@ -6389,7 +6417,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   ; ----- Select Example -----
   
-  #Example = 17
+  #Example = 1
   
   ; --- Bar Chart ---
   ;  1: automatically adjust maximum value (#PB_Default)
@@ -6717,7 +6745,9 @@ CompilerIf #PB_Compiler_IsMainFile
     StringGadget(#Label, 10, 200, 80, 20, "(Click Data)", #PB_String_ReadOnly)
     StringGadget(#Value, 95, 200, 30, 20, "")
     ButtonGadget(#Button, 130, 200, 40, 20, "Apply")
-
+    
+    ; ModuleEx::SetTheme(ModuleEx::#Theme_Green)
+    
     Repeat
       Event = WaitWindowEvent()
       Select Event
@@ -6811,8 +6841,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 5654
-; FirstLine = 4151
-; Folding = M--------futf5-------------------vNfwBgEFAQcgevqI--Tf4-6--
+; CursorPosition = 6419
+; FirstLine = 3479
+; Folding = Y--------futf5--------------xf-40v39AHASUAAxB78VF6-f78+P---
 ; EnableXP
 ; DPIAware

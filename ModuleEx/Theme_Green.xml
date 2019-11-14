@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<Theme_Structure>
+  <FrontColor>991747</FrontColor>
+  <BackColor>16382967</BackColor>
+  <BorderColor>10197915</BorderColor>
+  <RowColor>15988720</RowColor>
+  <LineColor>13421772</LineColor>
+  <Button>
+    <FrontColor>991747</FrontColor>
+    <BackColor>14935011</BackColor>
+    <BorderColor>10526880</BorderColor>
+  </Button>
+  <Focus>
+    <FrontColor>1322245</FrontColor>
+    <BackColor>4098320</BackColor>
+  </Focus>
+  <Header>
+    <FrontColor>1322245</FrontColor>
+    <BackColor>12507055</BackColor>
+    <LightColor>14872027</LightColor>
+  </Header>
+  <Progress>
+    <FrontColor>16120307</FrontColor>
+    <BackColor>8302687</BackColor>
+    <GradientColor>4098320</GradientColor>
+  </Progress>
+  <Title>
+    <FrontColor>16120307</FrontColor>
+    <BackColor>2710282</BackColor>
+  </Title>
+  <GadgetColor>15790320</GadgetColor>
+</Theme_Structure>

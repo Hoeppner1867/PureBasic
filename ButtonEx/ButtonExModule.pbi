@@ -60,7 +60,7 @@
 
 ;}
 
-XIncludeFile "ModuleEx.pbi"
+; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule ButtonEx
 

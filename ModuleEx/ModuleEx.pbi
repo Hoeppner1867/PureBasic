@@ -11,14 +11,14 @@
 ; - Creates cursor events for gadgets of a window (#CursorEvent)
 ; - Provides event types for PostEvent() for other modules
 
-; Last Update: 13.11.2019
+; Last Update: 14.11.2019
+;
+; Added: GUI theme for all supportet gadgets
 ;
 ; Added: Font management -> ModuleEx::Font()
 ; Added: Dynamic fonts for custom gadgets
 ; Added: RequiredFontSize() & CalcPadding()
 ; Added: SetFont() with '#FitText'-Flag
-
-; TODO: LoadFont() - Index FontNum
 
 ;{ ===== MIT License =====
 ;
@@ -50,7 +50,10 @@
 ; ModuleEx::AddWindow()                - enables the tabulator handling for this window  (#Tabulator|#CursorEvent)
 ; ModuleEx::CursorFrequency()          - changes the cursor frequency (default: 600ms)
 ; ModuleEx::ExitCursorThread()         - exit cursor thread
-
+; ModuleEx::LoadTheme()                - load a theme for all supportet gadgets
+; ModuleEx::SaveTheme()                - save current theme
+; ModuleEx::SetColor()                 - change the theme color of all supported gadgets
+; ModuleEx::SetTheme()                 - set a theme for all supportet gadgets
 ;}
 
 
@@ -74,11 +77,12 @@ DeclareModule ModuleEx
     #PaddingX
     #PaddingY
   EndEnumeration ;}
-  
+
   Enumeration #PB_Event_FirstCustomValue     ;{ #Event
     #Event_Gadget
     #Event_Cursor
     #Event_Theme
+    #Event_ToolTip
   EndEnumeration ;}
   
   Enumeration #PB_EventType_FirstCustomValue ;{ #EventType
@@ -107,10 +111,33 @@ DeclareModule ModuleEx
   
   ; _____ Theme-Support _____
   
-  Enumeration 1
+  Enumeration
+    #Theme_Default
     #Theme_Blue  
     #Theme_Green
   EndEnumeration
+  
+  Enumeration 1     ;{ Theme - Color
+    #Color_Front
+    #Color_Back
+    #Color_Line
+    #Color_Border
+    #Color_Row
+    #Color_Gadget
+    #Color_FocusFront
+    #Color_FocusBack
+    #Color_HeaderFront
+    #Color_HeaderBack
+    #Color_HeaderLight
+    #Color_ButtonFront
+    #Color_ButtonBack
+    #Color_ButtonBorder
+    #Color_TitleFront
+    #Color_TitleBack
+    #Color_ProgressFront
+    #Color_ProgressBack
+    #Color_ProgressGradient
+  EndEnumeration ;}
   
   Structure Theme_Progress_Structure ;{ ThemeGUI\Progress\...
     FrontColor.i
@@ -118,24 +145,24 @@ DeclareModule ModuleEx
     GradientColor.i
   EndStructure ;}
   
-  Structure Theme_Header_Structure ;{ ThemeGUI\Header\...
+  Structure Theme_Header_Structure   ;{ ThemeGUI\Header\...
     FrontColor.i
     BackColor.i
     LightColor.i
   EndStructure ;}
   
-  Structure Theme_Border_Structure ;{ ThemeGUI\...
+  Structure Theme_Border_Structure   ;{ ThemeGUI\...
     FrontColor.i
     BackColor.i
     BorderColor.i
   EndStructure ;}
   
-  Structure Theme_Color_Structure  ;{ ThemeGUI\...
+  Structure Theme_Color_Structure    ;{ ThemeGUI\...
     FrontColor.i
     BackColor.i
   EndStructure ;}
   
-  Structure Theme_Structure        ;{ ThemeGUI\...
+  Structure Theme_Structure          ;{ ThemeGUI\...
     FrontColor.i
     BackColor.i
     BorderColor.i
@@ -145,14 +172,14 @@ DeclareModule ModuleEx
     Focus.Theme_Color_Structure
     Header.Theme_Header_Structure
     Progress.Theme_Progress_Structure
-    Title.Theme_Color_Structure
+    Title.Theme_Border_Structure
     GadgetColor.i
   EndStructure ;}
   Global ThemeGUI.Theme_Structure
   
   ; _____ Fit Font _____
   
-  Structure Padding_Structure      ;{ Padding\...
+  Structure Padding_Structure        ;{ Padding\...
     X.i
     Y.i
     Factor.f
@@ -171,8 +198,11 @@ DeclareModule ModuleEx
   Declare   Font(Name.s, Size.i, Style.i=#False)
   Declare   FreeFonts()
   Declare.i GetGadgetWindow()
+  Declare.i LoadTheme(File.s="ThemeGUI.xml")
   Declare.i RequiredFontSize(Text.s, Width.i, Height.i, FontNum.i)
+  Declare.i SaveTheme(File.s="ThemeGUI.xml")
   Declare   SetAttribute(GNum.i, Type.i, Value.i)
+  Declare   SetColor(Type.i, Color.i)
   Declare.i SetFont(GNum.i, Name.s, Size.i, Style.i=#False, Flags.i=#False, Type.i=#Gadget) 
   Declare   SetTheme(Theme.i=#PB_Default)
   
@@ -466,7 +496,23 @@ Module ModuleEx
 	  
 	  ProcedureReturn #False
 	EndProcedure
-  
+	
+	; _____ GUI Theme _____
+	
+	Procedure SaveTheme_(File.s)
+	  Define.i XML
+	  
+	  XML = CreateXML(#PB_Any)
+    If XML
+      InsertXMLStructure(RootXMLNode(XML), @ThemeGUI, Theme_Structure)
+      FormatXML(XML, #PB_XML_ReFormat)
+      SaveXML(XML, File)
+      FreeXML(XML)
+    EndIf
+
+	  
+	EndProcedure
+	
   ;- __________ Events __________
   
   Procedure _CursorThread(ElapsedTime.i)
@@ -906,7 +952,54 @@ Module ModuleEx
   
   ; _____ GUI Theme _____
   
-  Procedure SetTheme(Theme.i=#PB_Default)
+  Procedure   SetColor(Type.i, Color.i)
+    
+    Select Type
+      Case #Color_Gadget
+        ThemeGUI\GadgetColor            = Color
+      Case #Color_Front
+        ThemeGUI\FrontColor             = Color
+      Case #Color_Back
+         ThemeGUI\BackColor             = Color
+      Case #Color_Border   
+        ThemeGUI\BorderColor            = Color
+      Case #Color_Line
+        ThemeGUI\LineColor              = Color
+      Case #Color_Row
+       ThemeGUI\RowColor                = Color
+      Case #Color_FocusFront
+        ThemeGUI\Focus\FrontColor       = Color
+      Case #Color_FocusBack
+        ThemeGUI\Focus\BackColor        = Color
+      Case #Color_HeaderFront    
+        ThemeGUI\Header\FrontColor      = Color
+      Case #Color_HeaderBack    
+        ThemeGUI\Header\BackColor       = Color
+      Case #Color_HeaderLight    
+        ThemeGUI\Header\LightColor      = Color
+      Case #Color_ButtonFront  
+        ThemeGUI\Button\FrontColor      = Color
+      Case #Color_ButtonBack 
+        ThemeGUI\Button\BackColor       = Color
+      Case #Color_ButtonBorder    
+        ThemeGUI\Button\BorderColor     = Color
+      Case #Color_TitleFront
+        ThemeGUI\Title\FrontColor       = Color
+      Case #Color_TitleBack
+        ThemeGUI\Title\BackColor        = Color
+      Case #Color_ProgressFront
+        ThemeGUI\Progress\FrontColor    = Color
+      Case #Color_ProgressBack
+        ThemeGUI\Progress\BackColor     = Color 
+      Case #Color_ProgressGradient
+        ThemeGUI\Progress\GradientColor = Color
+    EndSelect
+    
+    PostEvent(#Event_Theme)
+    
+  EndProcedure
+  
+  Procedure   SetTheme(Theme.i=#PB_Default)
     
     CompilerSelect  #PB_Compiler_OS
       CompilerCase #PB_OS_Windows
@@ -918,7 +1011,7 @@ Module ModuleEx
     CompilerEndSelect
     
     Select Theme
-      Case #Theme_Blue
+      Case #Theme_Blue  ;{ Blue Theme
         ; $43321C $3A2100 $764200 $B06400 $CB9755 $E5CBAA $EDDCC6 $F6EDE2 $FCF9F5
         ThemeGUI\FrontColor         = $490000
         ThemeGUI\BackColor          = $FCF9F5
@@ -935,10 +1028,12 @@ Module ModuleEx
         ThemeGUI\Button\BorderColor = $A0A0A0
         ThemeGUI\Title\FrontColor   = $FCF9F5
         ThemeGUI\Title\BackColor    = $764200
+        ThemeGUI\Title\BorderColor  = $3A2100
         ThemeGUI\Progress\FrontColor    = $FCF9F5
         ThemeGUI\Progress\BackColor     = $CB9755 
         ThemeGUI\Progress\GradientColor = $B06400
-      Case #Theme_Green
+        ;}
+      Case #Theme_Green ;{ Green Theme
         ; $2A3A1F $142D05 $295B0A $3E8910 $7EB05F $BED7AF $D4E4C9 $E2EDDB $F5F9F3
         ThemeGUI\FrontColor         = $0F2203
         ThemeGUI\BackColor          = $F9FBF7
@@ -955,14 +1050,18 @@ Module ModuleEx
         ThemeGUI\Button\BorderColor = $A0A0A0
         ThemeGUI\Title\FrontColor   = $F5F9F3
         ThemeGUI\Title\BackColor    = $295B0A
+        ThemeGUI\Title\BorderColor  = $142D05
         ThemeGUI\Progress\FrontColor    = $F5F9F3
         ThemeGUI\Progress\BackColor     = $7EB05F
         ThemeGUI\Progress\GradientColor = $3E8910
-      Default
+        ;}
+      Default           ;{ Default Theme
         
         ThemeGUI\RowColor          = $FCFCFC
+        
         ThemeGUI\Title\FrontColor  = $FFFFFF
         ThemeGUI\Title\BackColor   = $FCF9F5
+        
         ThemeGUI\Header\LightColor = $F6EDE2
         
         ThemeGUI\Progress\FrontColor    = $F9FEF8
@@ -982,6 +1081,7 @@ Module ModuleEx
             ThemeGUI\Button\FrontColor  = GetSysColor_(#COLOR_WINDOWTEXT)
             ThemeGUI\Button\BackColor   = GetSysColor_(#COLOR_3DLIGHT) 
             ThemeGUI\Button\BorderColor = GetSysColor_(#COLOR_3DSHADOW)
+            ThemeGUI\Title\BorderColor  = GetSysColor_(#COLOR_WINDOWFRAME)
           CompilerCase #PB_OS_MacOS
             ThemeGUI\FrontColor         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
             ThemeGUI\BackColor          = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
@@ -994,6 +1094,7 @@ Module ModuleEx
             ThemeGUI\Button\FrontColor  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor")) 
             ThemeGUI\Button\BackColor   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
             ThemeGUI\Button\BorderColor = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+            ThemeGUI\Title\BorderColor  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
           CompilerCase #PB_OS_Linux
             ThemeGUI\FrontColor         = $000000
             ThemeGUI\BackColor          = $FFFFFF
@@ -1006,10 +1107,31 @@ Module ModuleEx
             ThemeGUI\Button\FrontColor  = $000000
             ThemeGUI\Button\BackColor   = $E3E3E3
             ThemeGUI\Button\BorderColor = $A0A0A0
-      CompilerEndSelect
+            ThemeGUI\Title\BorderColor  = $B4B4B4
+        CompilerEndSelect
+        ;}
     EndSelect
     
     PostEvent(#Event_Theme)
+    
+  EndProcedure
+  
+  Procedure.i LoadTheme(File.s="ThemeGUI.xml")
+    Define.i XML
+    
+    XML = LoadXML(#PB_Any, File)
+    If XML
+      ExtractXMLStructure(MainXMLNode(XML), @ThemeGUI, Theme_Structure)
+      FreeXML(XML)
+       PostEvent(#Event_Theme)
+      ProcedureReturn #True
+    EndIf
+    
+  EndProcedure
+  
+  Procedure.i SaveTheme(File.s="ThemeGUI.xml")
+    
+    ProcedureReturn SaveTheme_(File)
     
   EndProcedure
   
@@ -1070,8 +1192,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 934
-; FirstLine = 221
-; Folding = EsIAAAAIAA5
+; CursorPosition = 52
+; FirstLine = 2
+; Folding = mBRAAAAgAAAP+
 ; EnableXP
 ; DPIAware

@@ -51,6 +51,8 @@
 
 ;}
 
+;XIncludeFile "ModuleEx.pbi"
+
 DeclareModule ToolTip
 
 	;- ===========================================================================
@@ -82,10 +84,20 @@ DeclareModule ToolTip
 	EnumerationBinary ; GadgetFlags
 		#Border ; Draw a border
 	EndEnumeration
-
-  Enumeration #PB_Event_FirstCustomValue
-		#Event_ToolTip
-	EndEnumeration ;}
+	
+	CompilerIf Defined(ModuleEx, #PB_Module)
+	  
+	  #Event_ToolTip = ModuleEX::#Event_ToolTip
+	  #Event_Theme   = ModuleEx::#Event_Theme
+	  
+	CompilerElse
+	  
+    Enumeration #PB_Event_FirstCustomValue
+  		#Event_ToolTip
+  	EndEnumeration
+  	
+  CompilerEndIf
+  ;}
 	
 	;- ===========================================================================
 	;-   DeclareModule
@@ -414,6 +426,26 @@ Module ToolTip
 
 	;- __________ Events __________
 	
+	CompilerIf Defined(ModuleEx, #PB_Module)
+	  
+	  Procedure _ThemeHandler()
+
+      ForEach ToolTip()
+        
+        ToolTip()\Color\Front       = ModuleEx::ThemeGUI\FrontColor
+				ToolTip()\Color\Back        = ModuleEx::ThemeGUI\BackColor
+				ToolTip()\Color\Border      = ModuleEx::ThemeGUI\BorderColor
+				ToolTip()\Color\TitleFront  = ModuleEx::ThemeGUI\Title\FrontColor
+				ToolTip()\Color\TitleBack   = ModuleEx::ThemeGUI\Title\BackColor
+				ToolTip()\Color\TitleBorder = ModuleEx::ThemeGUI\Title\BorderColor
+
+        Draw_()
+      Next
+      
+    EndProcedure
+    
+  CompilerEndIf
+	
 	Procedure _TimerThread(Map *Timer())
 	  
 	  While Not ExitThread
@@ -632,6 +664,10 @@ Module ToolTip
   				
   				BindEvent(#Event_ToolTip, @_ToolTipHandler())
   				
+  				CompilerIf Defined(ModuleEx, #PB_Module)
+            BindEvent(#Event_Theme, @_ThemeHandler())
+          CompilerEndIf
+  				
   				If IsWindow(ToolTip()\WindowNum)
             BindEvent(#PB_Event_CloseWindow, @_CloseWindowHandler(), ToolTip()\WindowNum)
           EndIf
@@ -811,6 +847,7 @@ CompilerIf #PB_Compiler_IsMainFile
       ToolTip::SetColor(#Gadget, ToolTip::#TitleBackColor,   $B48246)
       ToolTip::SetColor(#Gadget, ToolTip::#TitleColor,       $FFFFFF)
       ;ToolTip::SetImage(#Gadget, #Image)
+      ;ModuleEx::SetTheme(ModuleEx::#Theme_Green)
     EndIf
 
     Repeat
@@ -821,9 +858,9 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf 
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 456
-; FirstLine = 201
-; Folding = WABK7i5
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 849
+; FirstLine = 378
+; Folding = 9ACUmUB+
 ; EnableXP
 ; DPIAware
