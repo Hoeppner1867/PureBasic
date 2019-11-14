@@ -69,7 +69,7 @@
 
 ;}
 
-XIncludeFile "ModuleEx.pbi"
+; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule StringEx
   
@@ -2096,7 +2096,7 @@ CompilerIf #PB_Compiler_IsMainFile
   	  
   	  StringEx::SetAutoResizeFlags(#StringDel, StringEx::#Width|StringEx::#FitText)
   	  
-  	  ModuleEx::SetTheme(ModuleEx::#Theme_Green)
+  	  ;ModuleEx::SetTheme(ModuleEx::#Theme_Green)
   	  
     CompilerEndIf
     
@@ -2132,9 +2132,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 834
-; FirstLine = 310
-; Folding = cHAEAgAk1gEAwgBFAMYAAw-
+; CursorPosition = 2098
+; Folding = cHAEAgAg1gEAwABFAMYAAw-
 ; EnableThread
 ; EnableXP
 ; DPIAware

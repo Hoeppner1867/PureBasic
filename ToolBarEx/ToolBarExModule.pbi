@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 8.11.19
+; Last Update: 14.11.19
 ;
 ; Added: #UseExistingCanvas
 ;
@@ -79,6 +79,7 @@
 
 ;} -----------------------------
 
+; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule ToolBar
   
@@ -138,13 +139,15 @@ DeclareModule ToolBar
   
   CompilerIf Defined(ModuleEx, #PB_Module)
     
+    #Event_Gadget          = ModuleEx::#Event_Gadget
+    #Event_Theme           = ModuleEx::#Event_Theme
+    
     #EventType_ImageButton = ModuleEx::#EventType_ImageButton
     #EventType_ComboBox    = ModuleEx::#EventType_ComboBox
     #EventType_SpinBox     = ModuleEx::#EventType_SpinBox
     #EventType_Button      = ModuleEx::#EventType_Button
     #EventType_TrackBar    = ModuleEx::#EventType_TrackBar
-    #Event_Gadget          = ModuleEx::#Event_Gadget
-    
+
   CompilerElse
     
     Enumeration #PB_Event_FirstCustomValue
@@ -774,6 +777,26 @@ Module ToolBar
   EndProcedure
   
   ;- __________ Events __________
+  
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure _ThemeHandler()
+
+      ForEach TBEx()
+        
+        TBEx()\Color\Front     = ModuleEx::ThemeGUI\FrontColor
+        TBEx()\Color\Back      = ModuleEx::ThemeGUI\GadgetColor
+        TBEx()\Color\Separator = ModuleEx::ThemeGUI\Button\BorderColor
+        TBEx()\Color\Focus     = ModuleEx::ThemeGUI\Focus\BackColor
+        TBEx()\Color\Border    = ModuleEx::ThemeGUI\BorderColor
+
+        Draw_()
+      Next
+      
+    EndProcedure
+    
+  CompilerEndIf   
+  
   
   CompilerIf #EnableToolBarGadgets
     
@@ -1616,6 +1639,10 @@ Module ToolBar
         BindGadgetEvent(GNum,  @_ResizeHandler(),         #PB_EventType_Resize)
         BindGadgetEvent(GNum,  @_MouseLeaveHandler(),     #PB_EventType_MouseLeave)
         
+        CompilerIf Defined(ModuleEx, #PB_Module)
+          BindEvent(#Event_Theme, @_ThemeHandler())
+        CompilerEndIf        
+        
         TBEx()\ReDraw = #True
         
         If Flags & #AdjustHeight
@@ -2039,7 +2066,9 @@ CompilerIf #PB_Compiler_IsMainFile
       ; --- SpinBox ---
       ToolBar::SetItemState(#ToolBar, 9, 9)
     CompilerEndIf
-  
+    
+    ;ModuleEx::SetTheme(ModuleEx::#Theme_Blue)
+    
     Repeat
       Event = WaitWindowEvent()
       Select Event
@@ -2092,9 +2121,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 1541
-; FirstLine = 479
-; Folding = 9BAEcQHMsJFAg6AAV-+
+; CursorPosition = 81
+; Folding = 9BAEcQHz1mUAAmHAo74
 ; EnableXP
 ; DPIAware
 ; Executable = Test.exe

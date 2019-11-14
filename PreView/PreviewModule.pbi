@@ -10,7 +10,7 @@
 ;/
 
 
-; Last Update: 8.11.19
+; Last Update: 14.11.19
 ;
 ; Added: #UseExistingCanvas
 ;
@@ -56,6 +56,7 @@
   
 ;}
 
+; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule PreView
 
@@ -96,7 +97,8 @@ DeclareModule PreView
 	CompilerIf Defined(ModuleEx, #PB_Module)
 
 		#Event_Gadget = ModuleEx::#Event_Gadget
-
+		#Event_Theme  = ModuleEx::#Event_Theme
+		
 	CompilerElse
 
 		Enumeration #PB_Event_FirstCustomValue
@@ -172,6 +174,7 @@ Module PreView
 		Front.i
 		Back.i
 		Border.i
+		Gadget.i
 		ScrollBar.i
 	EndStructure  ;}
 
@@ -904,7 +907,27 @@ Module PreView
 	EndProcedure
 	
 	;- __________ Events __________
+	
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure _ThemeHandler()
 
+      ForEach PreView()
+        
+        PreView()\Color\Front     = ModuleEx::ThemeGUI\FrontColor
+        PreView()\Color\Back      = ModuleEx::ThemeGUI\BackColor
+        PreView()\Color\Gadget    = ModuleEx::ThemeGUI\GadgetColor
+				PreView()\Color\Border    = ModuleEx::ThemeGUI\BorderColor
+				PreView()\Color\ScrollBar = ModuleEx::ThemeGUI\ScrollbarColor
+
+        Draw_()
+      Next
+      
+    EndProcedure
+    
+  CompilerEndIf 	
+	
+	
 	Procedure _RightClickHandler()
 		Define.i X, Y
 		Define.i GadgetNum = EventGadget()
@@ -1332,7 +1355,8 @@ Module PreView
 				PreView()\Flags = Flags
 
 				PreView()\Color\Front     = $000000
-				PreView()\Color\Back      = $EDEDED
+				PreView()\Color\Back      = $FFFFFF
+				PreView()\Color\Gadget    = $EDEDED
 				PreView()\Color\Border    = $A0A0A0
 				PreView()\Color\ScrollBar = $F0F0F0
 				
@@ -1340,11 +1364,13 @@ Module PreView
 					CompilerCase #PB_OS_Windows
 						PreView()\Color\Front     = GetSysColor_(#COLOR_WINDOWTEXT)
 						PreView()\Color\Back      = GetSysColor_(#COLOR_MENU)
+						PreView()\Color\Gadget    = GetSysColor_(#COLOR_WINDOW)
 						PreView()\Color\Border    = GetSysColor_(#COLOR_WINDOWFRAME)
 						PreView()\Color\ScrollBar = GetSysColor_(#COLOR_MENU)
 					CompilerCase #PB_OS_MacOS
 						PreView()\Color\Front     = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
-						PreView()\Color\Back      = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
+						PreView()\Color\Back      = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
+						PreView()\Color\Gadget    = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
 						PreView()\Color\Border    = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
 						PreView()\Color\ScrollBar = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
 					CompilerCase #PB_OS_Linux
@@ -1354,6 +1380,10 @@ Module PreView
 				BindGadgetEvent(PreView()\CanvasNum,  @_ResizeHandler(),          #PB_EventType_Resize)
 				BindGadgetEvent(PreView()\CanvasNum,  @_RightClickHandler(),      #PB_EventType_RightClick)
 				BindGadgetEvent(PreView()\CanvasNum,  @_MouseWheelHandler(),      #PB_EventType_MouseWheel)
+				
+        CompilerIf Defined(ModuleEx, #PB_Module)
+          BindEvent(#Event_Theme, @_ThemeHandler())
+        CompilerEndIf				
 				
 				If IsWindow(PreView()\Window\Num)
   				PreView()\Window\Width   = WindowWidth(PreView()\Window\Num)
@@ -1561,7 +1591,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 4
+  #Example = 1
   ;
   ; 1: Text
   ; 2: JSON
@@ -1625,6 +1655,8 @@ CompilerIf #PB_Compiler_IsMainFile
       
     EndIf
     
+    ; ModuleEx::SetTheme(ModuleEx::#Theme_Green)
+    
     Repeat
       Event = WaitWindowEvent()
       Select Event
@@ -1645,8 +1677,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 1258
-; FirstLine = 502
-; Folding = 9EB4TPQJEMB9
+; CursorPosition = 12
+; Folding = 9GD4TPQ5RwMg-
 ; EnableXP
 ; DPIAware

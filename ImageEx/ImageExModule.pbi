@@ -10,7 +10,7 @@
 ;/
 
 
-; Last Update: 8.11.19
+; Last Update: 14.11.19
 ;
 ; Added: #UseExistingCanvas
 ;
@@ -55,7 +55,7 @@
 
 ;}
 
-XIncludeFile "ModuleEx.pbi"
+; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule ImageEx
 
@@ -102,7 +102,8 @@ DeclareModule ImageEx
 	CompilerIf Defined(ModuleEx, #PB_Module)
 
 		#Event_Gadget = ModuleEx::#Event_Gadget
-
+		#Event_Theme  = ModuleEx::#Event_Theme
+		
 	CompilerElse
 
 		Enumeration #PB_Event_FirstCustomValue
@@ -397,7 +398,26 @@ Module ImageEx
 	EndProcedure
 
 	;- __________ Events __________
+	
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure _ThemeHandler()
 
+      ForEach ImageEx()
+        
+				ImageEx()\Color\Front  = ModuleEx::ThemeGUI\FrontColor
+				ImageEx()\Color\Back   = ModuleEx::ThemeGUI\GadgetColor
+				ImageEx()\Color\Border = ModuleEx::ThemeGUI\BorderColor
+				ImageEx()\Color\Gadget = ModuleEx::ThemeGUI\GadgetColor
+
+        Draw_()
+      Next
+      
+    EndProcedure
+    
+  CompilerEndIf 	
+	
+	
 	Procedure _LeftDoubleClickHandler()
 		Define.i X, Y
 		Define.i GadgetNum = EventGadget()
@@ -726,7 +746,11 @@ Module ImageEx
 				BindGadgetEvent(ImageEx()\CanvasNum,  @_MouseMoveHandler(),       #PB_EventType_MouseMove)
 				BindGadgetEvent(ImageEx()\CanvasNum,  @_LeftButtonDownHandler(),  #PB_EventType_LeftButtonDown)
 				BindGadgetEvent(ImageEx()\CanvasNum,  @_LeftButtonUpHandler(),    #PB_EventType_LeftButtonUp)
-
+				
+        CompilerIf Defined(ModuleEx, #PB_Module)
+          BindEvent(#Event_Theme, @_ThemeHandler())
+        CompilerEndIf				
+				
 				If Flags & #AutoResize ;{ Enabel AutoResize
 					If IsWindow(ImageEx()\Window\Num)
 						ImageEx()\Window\Width  = WindowWidth(ImageEx()\Window\Num)
@@ -982,6 +1006,8 @@ CompilerIf #PB_Compiler_IsMainFile
       
     CompilerEndIf  
     
+    ; ModuleEx::SetTheme(ModuleEx::#Theme_Green)
+    
     Repeat
       Event = WaitWindowEvent()
       Select Event
@@ -1009,8 +1035,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 641
-; FirstLine = 275
-; Folding = cdBAEAmJUj0
+; CursorPosition = 1008
+; FirstLine = 489
+; Folding = cdBAEOYmgas-
 ; EnableXP
 ; DPIAware

@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
   
-; Last Update: 8.11.2019
+; Last Update: 14.11.2019
 ;
 ; Added: #UseExistingCanvas
 ; Added: #Container (use container instead of window for resizing)
@@ -73,6 +73,7 @@
 
 ;}
 
+;XIncludeFile "ModuleEx.pbi"
 
 DeclareModule StatusBar
   
@@ -104,12 +105,31 @@ DeclareModule StatusBar
     #UseExistingCanvas
   EndEnumeration
   
-  Enumeration #PB_EventType_FirstCustomValue
-    #EventType_ComboBox
-    #EventType_TextButton
-    #EventType_ImageButton
-    #EventType_HyperLink
-  EndEnumeration 
+  
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    #Event_Theme  = ModuleEx::#Event_Theme
+    #Event_Gadget = ModuleEx::#Event_Gadget
+    
+    #EventType_ComboBox    = ModuleEx::#EventType_ComboBox
+    #EventType_TextButton  = ModuleEx::#EventType_Button
+    #EventType_ImageButton = ModuleEx::#EventType_ImageButton
+    #EventType_HyperLink   = ModuleEx::#EventType_HyperLink
+    
+  CompilerElse
+    
+    Enumeration #PB_Event_FirstCustomValue
+      #Event_Gadget
+    EndEnumeration
+    
+    Enumeration #PB_EventType_FirstCustomValue
+      #EventType_ComboBox
+      #EventType_TextButton
+      #EventType_ImageButton
+      #EventType_HyperLink
+    EndEnumeration 
+    
+  CompilerEndIf  
   ;}
   
   ;- ===========================================================================
@@ -515,6 +535,25 @@ Module StatusBar
   EndProcedure
   
   ;- __________ Events __________
+  
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure _ThemeHandler()
+
+      ForEach StBEx()
+        
+        StBEx()\Color\Front     = ModuleEx::ThemeGUI\FrontColor
+        StBEx()\Color\Back      = ModuleEx::ThemeGUI\GadgetColor
+        StBEx()\Color\Separator = ModuleEx::ThemeGUI\Button\BorderColor
+        StBEx()\Color\Border    = ModuleEx::ThemeGUI\BorderColor
+
+        Draw_()
+      Next
+      
+    EndProcedure
+    
+  CompilerEndIf   
+  
   
   Procedure _GadgetHandler()
     Define.i GadgetNum = EventGadget()
@@ -973,6 +1012,10 @@ Module StatusBar
       BindGadgetEvent(StBEx()\CanvasNum, @_MouseMoveHandler(),  #PB_EventType_MouseMove)
       BindGadgetEvent(StBEx()\CanvasNum, @_RightClickHandler(), #PB_EventType_RightClick)
       BindGadgetEvent(StBEx()\CanvasNum, @_ResizeHandler(),     #PB_EventType_Resize)
+      
+      CompilerIf Defined(ModuleEx, #PB_Module)
+        BindEvent(#Event_Theme, @_ThemeHandler())
+      CompilerEndIf
       
       CloseGadgetList()  
     EndIf
@@ -1458,6 +1501,8 @@ CompilerIf #PB_Compiler_IsMainFile
       StatusBar::ToolTip(#StatusBar, 2, "ProgressBar")
     EndIf 
     
+    ;ModuleEx::SetTheme(ModuleEx::#Theme_Blue)
+    
     Repeat
       Event = WaitWindowEvent()
       Select Event
@@ -1485,8 +1530,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
   
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 417
-; FirstLine = 216
-; Folding = cAC17HAEABAAw
+; CursorPosition = 11
+; Folding = 9AEo2-BgAIGAA9
 ; EnableXP
 ; DPIAware

@@ -89,6 +89,8 @@
 
 ;} -----------------------------
 
+; XIncludeFile "ModuleEx.pbi"
+
 DeclareModule ViewerEx
   
   #Enable_Hyphenation         = #True
@@ -120,9 +122,11 @@ DeclareModule ViewerEx
   
   CompilerIf Defined(ModuleEx, #PB_Module)
     
-    #EventType_Link = ModuleEx::#EventType_Link
     #Event_Gadget   = ModuleEx::#Event_Gadget
+    #Event_Theme    = ModuleEx::#Event_Theme
     
+    #EventType_Link = ModuleEx::#EventType_Link
+
   CompilerElse
     
     Enumeration #PB_Event_FirstCustomValue
@@ -1137,6 +1141,25 @@ Module ViewerEx
   EndProcedure
   
   ;- __________ Events __________  
+  
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure _ThemeHandler()
+
+      ForEach VGEx()
+        
+        VGEx()\Color\Front     = ModuleEx::ThemeGUI\FrontColor
+        VGEx()\Color\Back      = ModuleEx::ThemeGUI\BackColor
+        VGEx()\Color\ScrollBar = ModuleEx::ThemeGUI\ScrollbarColor
+        VGEx()\Color\Border    = ModuleEx::ThemeGUI\BorderColor
+
+        Draw_()
+      Next
+      
+    EndProcedure
+    
+  CompilerEndIf   
+  
   
   Procedure _LeftClickHandler()
     Define.i X, Y
@@ -2387,6 +2410,10 @@ Module ViewerEx
         BindGadgetEvent(GNum, @_MouseMoveHandler(),  #PB_EventType_MouseMove)
         BindGadgetEvent(GNum, @_LeftClickHandler(),  #PB_EventType_LeftClick)
         
+        CompilerIf Defined(ModuleEx, #PB_Module)
+          BindEvent(#Event_Theme, @_ThemeHandler())
+        CompilerEndIf        
+        
         VGEx()\ReDraw = #True
         
       EndIf
@@ -2732,6 +2759,8 @@ CompilerIf #PB_Compiler_IsMainFile
       
     CompilerEndIf
     
+    ; ModuleEx::SetTheme(ModuleEx::#Theme_Blue)
+    
     Repeat
       Select WaitWindowEvent()
         Case #PB_Event_CloseWindow ;{ Close Window
@@ -2758,9 +2787,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 2281
-; FirstLine = 263
-; Folding = MCAAgBAACYAEAAAAAAAPEgz
-; Markers = 1792
+; CursorPosition = 91
+; Folding = MCAAgBAACYwCAAAMAAA1lAS+
+; Markers = 1815
 ; EnableXP
 ; DPIAware
