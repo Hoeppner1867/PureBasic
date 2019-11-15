@@ -123,6 +123,7 @@
 
 ;} -----------------------------
 
+
 ; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule ListEx
@@ -1807,7 +1808,7 @@ Module ListEx
           Else
             FontID = ListEx()\Rows()\FontID
           EndIf
-          DrawingFont(FontID)
+          If FontID : DrawingFont(FontID) : EndIf
           
           If CurrentColumn_() = 0 And ListEx()\Flags & #NumberedColumn ;{ Numbering column 0
             
@@ -7246,9 +7247,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 3346
-; FirstLine = 1348
-; Folding = 9PQJCAACAF5-8--xfAQ08-biI5FF9YA--TQF3-ZAgAHBHgAIDAAIAkACAIQ++
+; CursorPosition = 1978
+; FirstLine = 417
+; Folding = 1PQJCAACAF5-8--xfQQh70ZiI5FF9IA--TQF3-ZAgAHBHgAgDAAIAkACAIQ++
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
