@@ -123,7 +123,7 @@
 
 ;} -----------------------------
 
- XIncludeFile "ModuleEx.pbi"
+; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule ListEx
   
