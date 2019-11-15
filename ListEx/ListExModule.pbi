@@ -9,17 +9,14 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 13.11.2019
+; Last Update: 15.11.2019
+;
+; - Bugfix: #LockCell and Drag & Drop
 ;
 ; - Bugfix: Cash
-;
 ; - Added: CSV support (file/clipboard)
 ;
-; - ListEx::SetColumnFlags() / RemoveColumnFlag()
-; - Bugfix: row color
-;
-; - StringGadget() replaced by internal DrawString_()
-; - DPI reworked
+
 
 
 ;{ ===== MIT License =====
@@ -126,7 +123,7 @@
 
 ;} -----------------------------
 
-XIncludeFile "ModuleEx.pbi"
+; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule ListEx
   
@@ -3328,6 +3325,7 @@ Module ListEx
         ListEx()\Color\Front        = ModuleEx::ThemeGUI\FrontColor
         ListEx()\Color\Back         = ModuleEx::ThemeGUI\BackColor
         ListEx()\Color\Line         = ModuleEx::ThemeGUI\LineColor
+        ListEx()\Color\ScrollBar    = ModuleEx::ThemeGUI\ScrollbarColor
         ListEx()\Color\AlternateRow = ModuleEx::ThemeGUI\RowColor
         ListEx()\Color\HeaderFront  = ModuleEx::ThemeGUI\Header\FrontColor
         ListEx()\Color\HeaderBack   = ModuleEx::ThemeGUI\Header\BackColor
@@ -4559,7 +4557,7 @@ Module ListEx
               
               Key$ = ListEx()\Cols()\Key
               
-              If ListEx()\Cols()\Flags & #Strings
+              If ListEx()\Cols()\Flags & #Strings And ListEx()\Rows()\Column(Key$)\Flags & #LockCell = #False
                 Text$ = ListEx()\Rows()\Column(Key$)\Value
                 If Text$
                   ListEx()\Rows()\Column(Key$)\Value + " " + EventDropText()
@@ -7132,6 +7130,8 @@ CompilerIf #PB_Compiler_IsMainFile
     
     ;ListEx::SetState(#List, 9)
     
+    ;ModuleEx::LoadTheme("Theme_Green.xml")
+    
     Repeat
       Event = WaitWindowEvent()
       Select Event
@@ -7222,9 +7222,10 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 11
-; Folding = 9PQJCAACAE5-8--xfAQx7dkICWRBOEw--AQhdfCAIwBwBIAwAAAAAAAAACk4
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 13
+; FirstLine = 10
+; Folding = 9PQJCAACAE5-8--xfAQx7dkICWRBPCw--AQhdfGAIwBwBIA5AAACABAAACk4
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
