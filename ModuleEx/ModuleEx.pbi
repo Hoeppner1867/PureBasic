@@ -56,7 +56,6 @@
 ; ModuleEx::SetTheme()                 - set a theme for all supportet gadgets
 ;}
 
-
 DeclareModule ModuleEx
   
   #Enable_Tabulator_Management = #True
@@ -115,6 +114,7 @@ DeclareModule ModuleEx
     #Theme_Default
     #Theme_Blue  
     #Theme_Green
+    #Theme_Dark
   EndEnumeration
   
   Enumeration 1     ;{ Theme - Color
@@ -139,6 +139,13 @@ DeclareModule ModuleEx
     #Color_ProgressGradient
   EndEnumeration ;}
   
+  Structure Theme_Font_Structure
+    Num.i
+    Name.s
+    Size.i
+    Style.i
+  EndStructure  
+  
   Structure Theme_Progress_Structure ;{ ThemeGUI\Progress\...
     FrontColor.i
     BackColor.i
@@ -148,6 +155,7 @@ DeclareModule ModuleEx
   Structure Theme_Header_Structure   ;{ ThemeGUI\Header\...
     FrontColor.i
     BackColor.i
+    BorderColor.i
     LightColor.i
   EndStructure ;}
   
@@ -175,6 +183,8 @@ DeclareModule ModuleEx
     Title.Theme_Border_Structure
     ScrollbarColor.i
     GadgetColor.i
+    WindowColor.i
+    Font.Theme_Font_Structure
   EndStructure ;}
   Global ThemeGUI.Theme_Structure
   
@@ -238,7 +248,7 @@ Module ModuleEx
     Exit.i
   EndStructure ;}
   
-  Structure Font_Structure                   ;{ ModuleEx\Font('Name|Style')\
+  Structure ModuleEx_Font_Structure          ;{ ModuleEx\Font('Name|Style')\
     Style.i
     Map Size.i()  ; ('Size')
   EndStructure ;}
@@ -275,7 +285,7 @@ Module ModuleEx
     Map Window.ModuleEx_Window_Gadget_Structure()
     Map Gadget.ModuleEx_Gadget_Structure()
     
-    Map Font.Font_Structure()
+    Map Font.ModuleEx_Font_Structure()
     Map ID.s()
     ;Map Num.s()
     
@@ -1002,6 +1012,9 @@ Module ModuleEx
   
   Procedure   SetTheme(Theme.i=#PB_Default)
     
+    ThemeGUI\Font\Num    = #PB_Default
+    ThemeGUI\WindowColor = #PB_Default
+    
     CompilerSelect  #PB_Compiler_OS
       CompilerCase #PB_OS_Windows
         ThemeGUI\GadgetColor    = GetSysColor_(#COLOR_MENU)
@@ -1016,9 +1029,9 @@ Module ModuleEx
     
     Select Theme
       Case #Theme_Blue  ;{ Blue Theme
-        ; $43321C $3A2100 $764200 $B06400 $CB9755 $E5CBAA $EDDCC6 $F6EDE2 $FCF9F5
+        ;  $3A2100 $43321C $764200 $B06400 $CB9755 $E5CBAA $EDDCC6 $F6EDE2 $FCF9F5
         ThemeGUI\FrontColor         = $490000
-        ThemeGUI\BackColor          = $FCF9F5
+        ThemeGUI\BackColor          = $FEFDFB
         ThemeGUI\BorderColor        = $8C8C8C
         ThemeGUI\LineColor          = $C5C5C5
         ThemeGUI\RowColor           = $FAF5EE
@@ -1026,6 +1039,7 @@ Module ModuleEx
         ThemeGUI\Focus\BackColor    = $B06400
         ThemeGUI\Header\FrontColor  = $43321C
         ThemeGUI\Header\BackColor   = $E5CBAA
+        ThemeGUI\Header\BorderColor = $A0A0A0
         ThemeGUI\Header\LightColor  = $F6EDE2
         ThemeGUI\Button\FrontColor  = $490000
         ThemeGUI\Button\BackColor   = $E3E3E3
@@ -1037,10 +1051,11 @@ Module ModuleEx
         ThemeGUI\Progress\BackColor     = $CB9755 
         ThemeGUI\Progress\GradientColor = $B06400
         ;}
+        SaveTheme_("Theme_Blue.xml")
       Case #Theme_Green ;{ Green Theme
         ; $2A3A1F $142D05 $295B0A $3E8910 $7EB05F $BED7AF $D4E4C9 $E2EDDB $F5F9F3
         ThemeGUI\FrontColor         = $0F2203
-        ThemeGUI\BackColor          = $F9FBF7
+        ThemeGUI\BackColor          = $FCFDFC
         ThemeGUI\BorderColor        = $9B9B9B
         ThemeGUI\LineColor          = $CCCCCC
         ThemeGUI\RowColor           = $F3F7F0
@@ -1048,6 +1063,7 @@ Module ModuleEx
         ThemeGUI\Focus\BackColor    = $3E8910
         ThemeGUI\Header\FrontColor  = $142D05
         ThemeGUI\Header\BackColor   = $BED7AF
+        ThemeGUI\Header\BorderColor = $A0A0A0
         ThemeGUI\Header\LightColor  = $E2EDDB
         ThemeGUI\Button\FrontColor  = $0F2203
         ThemeGUI\Button\BackColor   = $E3E3E3
@@ -1059,6 +1075,34 @@ Module ModuleEx
         ThemeGUI\Progress\BackColor     = $7EB05F
         ThemeGUI\Progress\GradientColor = $3E8910
         ;}
+        SaveTheme_("Theme_Green.xml")
+      Case #Theme_Dark
+        ;  $3A2100 $43321C $764200 $B06400 $CB9755 $E5CBAA $EDDCC6 $F6EDE2 $FCF9F5
+        ThemeGUI\FrontColor         = $FCF9F5
+        ThemeGUI\BackColor          = $3A2100
+        ThemeGUI\BorderColor        = $8C8C8C
+        ThemeGUI\LineColor          = $764200
+        ThemeGUI\RowColor           = $422500
+        ThemeGUI\Focus\FrontColor   = $764200
+        ThemeGUI\Focus\BackColor    = $FFFFFF
+        ThemeGUI\Header\FrontColor  = $E5CBAA
+        ThemeGUI\Header\BackColor   = $764200
+        ThemeGUI\Header\BorderColor = $CB9755
+        ThemeGUI\Header\LightColor  = $F6EDE2
+        ThemeGUI\Button\FrontColor  = $FCF9F5
+        ThemeGUI\Button\BackColor   = $5E3400
+        ThemeGUI\Button\BorderColor = $B06400
+        ThemeGUI\Title\FrontColor   = $FCF9F5
+        ThemeGUI\Title\BackColor    = $764200
+        ThemeGUI\Title\BorderColor  = $3A2100
+        ThemeGUI\Progress\FrontColor    = $F6EDE2
+        ThemeGUI\Progress\BackColor     = $B06400 
+        ThemeGUI\Progress\GradientColor = $764200
+
+        ThemeGUI\WindowColor = $342B1D
+        ThemeGUI\GadgetColor = $342B1D
+
+        SaveTheme_("Theme_Dark.xml")
       Default           ;{ Default Theme
         
         ThemeGUI\RowColor          = $FCFCFC
@@ -1069,7 +1113,7 @@ Module ModuleEx
         ThemeGUI\Header\LightColor = $F6EDE2
         
         ThemeGUI\Progress\FrontColor    = $F9FEF8
-        ThemeGUI\Progress\BackColor     = $25B006
+        ThemeGUI\Progress\BackColor     = $31EE07
         ThemeGUI\Progress\GradientColor = $25B006
         
         CompilerSelect  #PB_Compiler_OS
@@ -1117,6 +1161,7 @@ Module ModuleEx
             ThemeGUI\ScrollbarColor     = $C8C8C8
         CompilerEndSelect
         ;}
+        SaveTheme_("Theme_Default.xml")
     EndSelect
     
     PostEvent(#Event_Theme)
@@ -1198,9 +1243,9 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 1005
-; FirstLine = 235
-; Folding = mBRAAAAgAAAJ+
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 1093
+; FirstLine = 315
+; Folding = EMRQAACgAAgR+
 ; EnableXP
 ; DPIAware
