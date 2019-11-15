@@ -123,7 +123,7 @@
 
 ;} -----------------------------
 
-; XIncludeFile "ModuleEx.pbi"
+ XIncludeFile "ModuleEx.pbi"
 
 DeclareModule ListEx
   
@@ -618,7 +618,7 @@ Module ListEx
     Canvas.i
     Focus.i
     Edit.i
-    Button.i
+    ButtonBack.i
     ButtonBorder.i
     ProgressBar.i
     Gradient.i
@@ -1053,9 +1053,6 @@ Module ListEx
       ListEx()\Row\Number    = ListSize(ListEx()\Rows())
       ListEx()\Rows()\ID     = Label
       ListEx()\Rows()\Height = ListEx()\Row\Height
-      
-      ListEx()\Rows()\FontID = ListEx()\Row\FontID
-      
       ListEx()\Rows()\Color\Front = #PB_Default
       ListEx()\Rows()\Color\Back  = #PB_Default
       ListEx()\Rows()\Color\Line  = ListEx()\Color\Line
@@ -1984,13 +1981,13 @@ Module ListEx
     If TextColor = #PB_Default : TextColor = ListEx()\Color\Front : EndIf
     
     If ColorFlag & #Click
-      BackColor   = BlendColor_(ListEx()\Color\Focus, $FFFFFF, 20)
+      BackColor   = BlendColor_(ListEx()\Color\Focus, ListEx()\Color\Back, 20)
       BorderColor = ListEx()\Color\Focus
     ElseIf ColorFlag & #Focus
-      BackColor   = BlendColor_(ListEx()\Color\Focus, $FFFFFF, 10)
+      BackColor   = BlendColor_(ListEx()\Color\Focus, ListEx()\Color\Back, 10)
       BorderColor = ListEx()\Color\Focus
     Else  
-      BackColor   = ListEx()\Color\Button
+      BackColor   = ListEx()\Color\ButtonBack
       BorderColor = ListEx()\Color\ButtonBorder
     EndIf
     
@@ -2020,16 +2017,18 @@ Module ListEx
   
   Procedure.i CheckBox_(X.i, Y.i, Width.i, Height.i, boxWidth.i, BackColor.i, State.i)
     Define.i X1, X2, Y1, Y2
-    Define.i bColor
+    Define.i bColor, LineColor
     
     If boxWidth <= Width And boxWidth <= Height
       
       X + ((Width  - boxWidth) / 2)
       Y + ((Height - boxWidth) / 2) + 1
       
+      LineColor = BlendColor_(ListEx()\Color\Front, BackColor, 60)
+      
       If State & #Checked
 
-        bColor = BlendColor_($424242, $A09E9E)
+        bColor = BlendColor_(LineColor, ListEx()\Color\ButtonBack)
         
         X1 = X + 1
         X2 = X + boxWidth - 2
@@ -2040,19 +2039,19 @@ Module ListEx
         LineXY(X1 - 1, Y1, X2 - 1, Y2, bColor)
         LineXY(X2 + 1, Y1, X1 + 1, Y2, bColor)
         LineXY(X2 - 1, Y1, X1 - 1, Y2, bColor)
-        LineXY(X2, Y1, X1, Y2, $424242)
-        LineXY(X1, Y1, X2, Y2, $424242)
+        LineXY(X2, Y1, X1, Y2, LineColor)
+        LineXY(X1, Y1, X2, Y2, LineColor)
         
       ElseIf State & #Inbetween
         
-        Box(X, Y, boxWidth, boxWidth, BlendColor_($424242, BackColor, 50))
+        Box(X, Y, boxWidth, boxWidth, BlendColor_(LineColor, BackColor, 50))
         
       EndIf
       
       DrawingMode(#PB_2DDrawing_Outlined)
-      Box(X + 2, Y + 2, boxWidth - 4, boxWidth - 4, BlendColor_($424242, BackColor, 5))
-      Box(X + 1, Y + 1, boxWidth - 2, boxWidth - 2, BlendColor_($424242, BackColor, 25))
-      Box(X, Y, boxWidth, boxWidth, $424242)
+      Box(X + 2, Y + 2, boxWidth - 4, boxWidth - 4, BlendColor_(LineColor, BackColor, 5))
+      Box(X + 1, Y + 1, boxWidth - 2, boxWidth - 2, BlendColor_(LineColor, BackColor, 25))
+      Box(X, Y, boxWidth, boxWidth, LineColor)
       
     EndIf
     
@@ -2283,8 +2282,10 @@ Module ListEx
       PosY    = dpiY(ListEx()\String\Y) + ((dpiY(ListEx()\String\Height) - txtHeight) / 2) 
       maxPosX = dpiX(ListEx()\String\X + ListEx()\String\Width - 1)
       
-      ClipOutput(dpiX(ListEx()\String\X), dpiY(ListEx()\String\Y), dpiX(ListEx()\String\Width), dpiY(ListEx()\String\Height)) 
-      
+      CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+        ClipOutput(dpiX(ListEx()\String\X), dpiY(ListEx()\String\Y), dpiX(ListEx()\String\Width), dpiY(ListEx()\String\Height)) 
+      CompilerEndIf
+    
       ListEx()\Cursor\X = PosX + TextWidth(Left(Text, ListEx()\String\CursorPos)) - 1
       ListEx()\Cursor\Pos = ListEx()\String\CursorPos
       ListEx()\Cursor\Y   = PosY
@@ -2311,7 +2312,9 @@ Module ListEx
 
       Line(ListEx()\Cursor\X, PosY, 1, txtHeight, $000000)
       
-      UnclipOutput()
+      CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+        UnclipOutput()
+      CompilerEndIf
       
       ;{ _____ Border _____
       DrawingMode(#PB_2DDrawing_Outlined)
@@ -2442,7 +2445,7 @@ Module ListEx
       
       DrawingFont(ListEx()\Row\FontID)
       FontID = ListEx()\Row\FontID
-      
+     
       ; _____ Rows _____
       ListEx()\Row\OffSetY = 0
 
@@ -3321,6 +3324,10 @@ Module ListEx
 
       ForEach ListEx()
         
+        If IsFont(ModuleEx::ThemeGUI\Font\Num)
+          ListEx()\Row\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
+        EndIf  
+        
         ListEx()\Color\Focus        = ModuleEx::ThemeGUI\Focus\BackColor
         ListEx()\Color\Front        = ModuleEx::ThemeGUI\FrontColor
         ListEx()\Color\Back         = ModuleEx::ThemeGUI\BackColor
@@ -3329,9 +3336,18 @@ Module ListEx
         ListEx()\Color\AlternateRow = ModuleEx::ThemeGUI\RowColor
         ListEx()\Color\HeaderFront  = ModuleEx::ThemeGUI\Header\FrontColor
         ListEx()\Color\HeaderBack   = ModuleEx::ThemeGUI\Header\BackColor
+        ListEx()\Color\HeaderLine   = ModuleEx::ThemeGUI\Header\BorderColor
         ListEx()\Color\ProgressBar  = ModuleEx::ThemeGUI\Progress\BackColor
         ListEx()\Color\Gradient     = ModuleEx::ThemeGUI\Progress\GradientColor
-
+        ListEx()\Color\ButtonBack   = ModuleEx::ThemeGUI\Button\BackColor
+        ListEx()\Color\ButtonBorder = ModuleEx::ThemeGUI\Button\BorderColor
+        
+        If ModuleEx::ThemeGUI\WindowColor > 0
+          If IsWindow(ListEx()\Window\Num)
+            SetWindowColor(ListEx()\Window\Num, ModuleEx::ThemeGUI\WindowColor) 
+          EndIf  
+        EndIf 
+        
         Draw_()
       Next
       
@@ -5630,7 +5646,7 @@ Module ListEx
         ListEx()\Color\HeaderBack   = $FAFAFA
         ListEx()\Color\HeaderLine   = $A0A0A0
         ListEx()\Color\Line         = $E3E3E3
-        ListEx()\Color\Button       = $E3E3E3
+        ListEx()\Color\ButtonBack   = $E3E3E3
         ListEx()\Color\ButtonBorder = $A0A0A0
         ListEx()\Color\ProgressBar  = $32CD32
         ListEx()\Color\Gradient     = $00FC7C
@@ -5653,7 +5669,7 @@ Module ListEx
             ListEx()\Color\Canvas       = GetSysColor_(#COLOR_WINDOW)
             ListEx()\Color\ScrollBar    = GetSysColor_(#COLOR_MENU)
             ListEx()\Color\Focus        = GetSysColor_(#COLOR_MENUHILIGHT)
-            ListEx()\Color\Button       = GetSysColor_(#COLOR_3DLIGHT)
+            ListEx()\Color\ButtonBack   = GetSysColor_(#COLOR_3DLIGHT)
             ListEx()\Color\ButtonBorder = GetSysColor_(#COLOR_3DSHADOW) 
           CompilerCase #PB_OS_MacOS
             ListEx()\Color\HeaderFront  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
@@ -5665,7 +5681,7 @@ Module ListEx
             ListEx()\Color\Line         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
             ListEx()\Color\ScrollBar    = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
             ListEx()\Color\Focus        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedControlColor"))
-            ListEx()\Color\Button       = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
+            ListEx()\Color\ButtonBack   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
             ListEx()\Color\ButtonBorder = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
           CompilerCase #PB_OS_Linux
             
@@ -6289,7 +6305,7 @@ Module ListEx
             EndIf
           EndIf 
         Case #ButtonColor  
-          ListEx()\Color\Button = Value
+          ListEx()\Color\ButtonBack = Value
         Case #ProgressBarColor
           ListEx()\Color\ProgressBar = Value
         Case #GradientColor
@@ -7014,6 +7030,7 @@ CompilerIf #PB_Compiler_IsMainFile
     #B_Green
     #B_Grey
     #B_Blue
+    #B_Dark
   EndEnumeration
 
   #Image = 0
@@ -7040,7 +7057,7 @@ CompilerIf #PB_Compiler_IsMainFile
     EndIf
     
     ButtonGadget(#Button,  420,  10, 70, 20, "Resize")
-    ButtonGadget(#B_Grey,  420,  50, 70, 20, "Default")
+    ButtonGadget(#B_Dark,  420,  50, 70, 20, "Dark")
     ButtonGadget(#B_Green, 420,  75, 70, 20, "Green")
     ButtonGadget(#B_Blue,  420, 100, 70, 20, "Blue")
     ButtonGadget(#Export,  420, 140, 70, 20, "Export")
@@ -7174,6 +7191,12 @@ CompilerIf #PB_Compiler_IsMainFile
               CompilerEndIf  
               ;ListEx::SetColorTheme(#List, ListEx::#Theme_Green)
               ;ListEx::LoadColorTheme(#List, "Theme_Green.json")
+             Case #B_Dark
+              CompilerIf Defined(ModuleEx, #PB_Module)
+                ModuleEx::SetTheme(ModuleEx::#Theme_Dark)
+              CompilerEndIf  
+              ;ListEx::SetColorTheme(#List, #PB_Default)
+              ;ListEx::LoadColorTheme(#List, "Theme_Grey.json")    
             Case #B_Grey
               CompilerIf Defined(ModuleEx, #PB_Module)
                 ModuleEx::SetTheme()
@@ -7223,9 +7246,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 13
-; FirstLine = 10
-; Folding = 9PQJCAACAE5-8--xfAQx7dkICWRBPCw--AQhdfGAIwBwBIA5AAACABAAACk4
+; CursorPosition = 3346
+; FirstLine = 1348
+; Folding = 9PQJCAACAF5-8--xfAQ08-biI5FF9YA--TQF3-ZAgAHBHgAIDAAIAkACAIQ++
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
