@@ -1805,8 +1805,10 @@ Module ListEx
           
           If ListEx()\Cols()\FontID
             FontID = ListEx()\Cols()\FontID
-          Else
+          ElseIf ListEx()\Rows()\FontID
             FontID = ListEx()\Rows()\FontID
+          Else
+            FontID = ListEx()\Row\FontID
           EndIf
           If FontID : DrawingFont(FontID) : EndIf
           
@@ -7247,9 +7249,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1978
-; FirstLine = 417
-; Folding = 1PQJCAACAF5-8--xfQQh70ZiI5FF9IA--TQF3-ZAgAHBHgAgDAAIAkACAIQ++
+; CursorPosition = 1810
+; FirstLine = 435
+; Folding = 1PQJCAACAF5-8--xfUQh70ZiI5FF9IA--TQF3-ZAgAHBHgAgDAAIAkACAIQ++
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
