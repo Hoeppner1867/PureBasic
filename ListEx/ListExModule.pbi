@@ -9,14 +9,15 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 15.11.2019
+; Last Update: 16.11.2019
+;
+; - Added: gadget number '#Theme' (#PB_Default) changes all gadgets for suitable commands
 ;
 ; - Bugfix: #LockCell and Drag & Drop
 ;
 ; - Bugfix: Cash
 ; - Added: CSV support (file/clipboard)
 ;
-
 
 
 ;{ ===== MIT License =====
@@ -84,7 +85,8 @@
 ; ListEx::Refresh()                 - redraw gadget
 ; ListEx::RemoveCellFlag()          - removes a flag
 ; ListEx::RemoveColumn()            - similar to 'RemoveGadgetColumn()'
-; ListEx::RemoveColumnFlag()        - removes a flag
+; ListEx::RemoveColumnFlag()        - removes a column flag
+; ListEx::RemoveFlag()              - removes a gadget flag
 ; ListEx::RemoveItem()              - similar to 'RemoveGadgetItem()'
 ; ListEx::RemoveItemState()         - removes #Selected / #Checked / #Inbetween
 ; ListEx::ResetChangedState()       - reset to not edited
@@ -103,6 +105,7 @@
 ; ListEx::SetCurrency()             - 
 ; ListEx::SetDateMask()             - similar to 'SetGadgetText()' and 'DateGadget()'
 ; ListEx::SetDateAttribute()        - similar to 'SetGadgetAttribute()' and 'DateGadget()'
+; ListEx::SetFlags()                - set gadget flags
 ; ListEx::SetFont()                 - similar to 'SetGadgetFont()'
 ; ListEx::SetHeaderAttribute()      - [#Align]
 ; ListEx::SetHeaderHeight()         - set header height
@@ -123,10 +126,11 @@
 
 ;} -----------------------------
 
-
-; XIncludeFile "ModuleEx.pbi"
+;XIncludeFile "ModuleEx.pbi"
 
 DeclareModule ListEx
+  
+  #Version = 15111900
   
   #Enable_Validation  = #True
   #Enable_MarkContent = #True
@@ -140,6 +144,8 @@ DeclareModule ListEx
   ;- =========================================================================== 
   
   ;{ _____ Constants _____
+  #Theme = -1
+  
   #FirstItem = 0
   #LastItem  = -1
   
@@ -282,7 +288,9 @@ DeclareModule ListEx
     #DecimalSeperator
   EndEnumeration
   
-  Enumeration Theme 1
+  Enumeration
+    #Theme_Default
+    #Theme_Custom
     #Theme_Blue  
     #Theme_Green
   EndEnumeration
@@ -368,6 +376,7 @@ DeclareModule ListEx
   Declare   RemoveCellFlag(GNum.i, Row.i, Column.i, Flag.i)
   Declare   RemoveColumn(GNum.i, Column.i)
   Declare   RemoveColumnFlag(GNum.i, Column.i, Flag.i)
+  Declare   RemoveFlag(GNum.i, Flag.i)
   Declare   RemoveItem(GNum.i, Row.i)
   Declare   RemoveItemState(GNum.i, Row.i, State.i, Column.i=#PB_Ignore)
   Declare   ResetChangedState(GNum.i)
@@ -380,11 +389,12 @@ DeclareModule ListEx
   Declare   SetCellState(GNum.i, Row.i, Label.s, State.i)
   Declare   SetCellText(GNum.i, Row.i, Label.s, Text.s)
   Declare   SetColor(GNum.i, ColorTyp.i, Value.i, Column.i=#PB_Ignore)
-  Declare   SetColorTheme(GNum.i, Theme.i=#PB_Default)
+  Declare   SetColorTheme(GNum.i, Theme.i=#Theme_Default, File.s="") 
   Declare   SetColumnAttribute(GNum.i, Column.i, Attrib.i, Value.i)
   Declare   SetColumnFlags(GNum.i, Column.i, Flags.i)
   Declare   SetColumnState(GNum.i, Row.i, Column.i, State.i)
   Declare   SetCurrency(GNum.i, String.s, Column.i=#PB_Ignore)
+  Declare   SetFlags(GNum.i, Flags.i)
   Declare   SetFont(GNum.i, FontID.i, Type.i=#False, Column.i=#PB_Ignore)   
   Declare   SetDateAttribute(GNum.i, Column.i, Attrib.i, Value.i)
   Declare   SetDateMask(GNum.i, Mask.s, Column.i=#PB_Ignore)
@@ -451,8 +461,6 @@ Module ListEx
   
   #CursorFrequency = 600
   
-  #RegEx = 1
-  #JSON  = 1
   #NoFocus = -1
   #NotSelected = -1
   
@@ -1717,9 +1725,118 @@ Module ListEx
   
   EndProcedure
   
+  ;- __________ Theme __________ 
+  
+  Procedure   ColorTheme_(Theme.i)
+
+    Select Theme
+      Case #Theme_Blue
+        
+        ListEx()\Color\Front        = 0
+        ListEx()\Color\Back         = 16645114
+        ListEx()\Color\Line         = 13092807
+        ListEx()\Color\HeaderFront  = 4270875
+        ListEx()\Color\HeaderBack   = 14599344
+        ListEx()\Color\HeaderLine   = 8750469
+        ListEx()\Color\ProgressBar  = 11369795
+        ListEx()\Color\Gradient     = 13874833
+        ListEx()\Color\AlternateRow = ListEx()\Color\Back
+        
+      Case #Theme_Green
+        
+        ListEx()\Color\Front        = 0
+        ListEx()\Color\Back         = 16383222
+        ListEx()\Color\Line         = 13092807
+        ListEx()\Color\HeaderFront  = 2374163
+        ListEx()\Color\HeaderBack   = 6674533
+        ListEx()\Color\HeaderLine   = 8750469
+        ListEx()\Color\ProgressBar  = 2263842
+        ListEx()\Color\Gradient     = 7527538
+        ListEx()\Color\AlternateRow = ListEx()\Color\Back
+        
+      Default
+        
+        ListEx()\Color\Front        = $000000
+        ListEx()\Color\Back         = $FFFFFF
+        ListEx()\Color\Line         = $E3E3E3
+        ListEx()\Color\HeaderFront  = $000000
+        ListEx()\Color\HeaderBack   = $FAFAFA
+        ListEx()\Color\HeaderLine   = $A0A0A0
+        ListEx()\Color\AlternateRow = ListEx()\Color\Back
+
+        CompilerSelect  #PB_Compiler_OS
+          CompilerCase #PB_OS_Windows
+          ListEx()\Color\HeaderFront  = GetSysColor_(#COLOR_WINDOWTEXT)
+          ListEx()\Color\HeaderLine   = GetSysColor_(#COLOR_3DSHADOW)
+          ListEx()\Color\Front        = GetSysColor_(#COLOR_WINDOWTEXT)
+          ListEx()\Color\Back         = GetSysColor_(#COLOR_WINDOW)
+          ListEx()\Color\Line         = GetSysColor_(#COLOR_3DLIGHT)
+        CompilerCase #PB_OS_MacOS
+          ListEx()\Color\HeaderFront  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
+          ListEx()\Color\HeaderLine   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+          ListEx()\Color\Front        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
+          ListEx()\Color\Back         = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
+          ListEx()\Color\Line         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+        CompilerCase #PB_OS_Linux
+       
+      CompilerEndSelect
+    EndSelect
+    
+  EndProcedure  
+  
+  Procedure   SetColor_(ColorTyp.i, Value.i, Column.i=#PB_Ignore)
+
+    Select ColorTyp
+      Case #ButtonBorderColor
+        ListEx()\Color\ButtonBorder = Value
+      Case #ActiveLinkColor  
+        ListEx()\Color\ActiveLink   = Value
+      Case #FrontColor
+        If Column = #PB_Ignore
+          ListEx()\Color\Front      = Value
+        Else
+          If SelectElement(ListEx()\Cols(), Column)
+            ListEx()\Cols()\FrontColor = Value
+          EndIf
+        EndIf 
+      Case #BackColor
+        If Column = #PB_Ignore
+          ListEx()\Color\Back = Value
+        Else
+          If SelectElement(ListEx()\Cols(), Column)
+            ListEx()\Cols()\BackColor = Value
+          EndIf
+        EndIf 
+      Case #ButtonColor  
+        ListEx()\Color\ButtonBack   = Value
+      Case #ProgressBarColor
+        ListEx()\Color\ProgressBar  = Value
+      Case #GradientColor
+        ListEx()\Color\Gradient     = Value
+      Case #LineColor
+        ListEx()\Color\Line         = Value
+      Case #FocusColor
+        ListEx()\Color\Focus        = Value
+      Case #EditColor
+        ListEx()\Color\Edit         = Value
+      Case #LinkColor
+        ListEx()\Color\Link         = Value
+      Case #HeaderFrontColor
+        ListEx()\Color\HeaderFront  = Value
+      Case #HeaderBackColor
+        ListEx()\Color\HeaderBack   = Value
+      Case #HeaderLineColor
+        ListEx()\Color\HeaderLine   = Value
+      Case #GadgetBackColor
+        ListEx()\Color\Canvas       = Value
+      Case #AlternateRowColor
+        ListEx()\Color\AlternateRow = Value
+    EndSelect
+
+  EndProcedure
   
   ;- __________ Drawing __________ 
-   
+ 
   Procedure.f GetAlignOffset_(Text.s, Width.f, Flags.i)
     Define.f Offset
     
@@ -5355,7 +5472,7 @@ Module ListEx
       
   EndProcedure
   
-  Procedure.i CountItems(GNum.i, Flag.i=#False) ; [#Selected/#Checked/#Inbetween]
+  Procedure.i CountItems(GNum.i, Flag.i=#False)     ; [#Selected/#Checked/#Inbetween]
     Define.i Count
     
     If FindMapElement(ListEx(), Str(GNum))
@@ -5474,6 +5591,10 @@ Module ListEx
     Else
       Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Keyboard|#PB_Canvas_Container)
     EndIf
+    
+    CompilerIf Defined(ModuleEx, #PB_Module)
+      If #Version < ModuleEx::#Version : Debug "Please update ModuleEx.pbi" : EndIf 
+    CompilerEndIf  
     
     If Result
       
@@ -5991,12 +6112,14 @@ Module ListEx
   
   
   Procedure   LoadColorTheme(GNum.i, File.s)
+    Define.i JSON
     
     If FindMapElement(ListEx(), Str(GNum))
       
-      If LoadJSON(#JSON, File)
-        ExtractJSONStructure(JSONValue(#JSON), @ListEx()\Color, ListEx_Color_Structure)
-        FreeJSON(#JSON)
+      JSON = LoadJSON(#PB_Any, File)
+      If JSON
+        ExtractJSONStructure(JSONValue(JSON), @ListEx()\Color, ListEx_Color_Structure)
+        FreeJSON(JSON)
         If ListEx()\ReDraw : Draw_() : EndIf
       EndIf
       
@@ -6038,6 +6161,17 @@ Module ListEx
     EndIf
     
   EndProcedure
+  
+  Procedure   RemoveFlag(GNum.i, Flag.i)
+    
+    If FindMapElement(ListEx(), Str(GNum))
+      
+      ListEx()\Flags & ~Flag
+      
+      If ListEx()\ReDraw : Draw_() : EndIf
+    EndIf  
+    
+  EndProcedure  
   
   Procedure   RemoveColumnFlag(GNum.i, Column.i, Flag.i)
 
@@ -6128,6 +6262,7 @@ Module ListEx
     
   EndProcedure
   
+  
   Procedure   ResetChangedState(GNum.i)
     
     If FindMapElement(ListEx(), Str(GNum))
@@ -6136,19 +6271,23 @@ Module ListEx
     
   EndProcedure  
   
+  
   Procedure   SaveColorTheme(GNum.i, File.s)
+    Define.i JSON
     
     If FindMapElement(ListEx(), Str(GNum))
       
-      If CreateJSON(#JSON)
-        InsertJSONStructure(JSONValue(#JSON), @ListEx()\Color, ListEx_Color_Structure)
-        SaveJSON(#JSON, File)
-        FreeJSON(#JSON)
+      JSON = CreateJSON(#PB_Any)
+      If JSON
+        InsertJSONStructure(JSONValue(JSON), @ListEx()\Color, ListEx_Color_Structure)
+        SaveJSON(JSON, File)
+        FreeJSON(JSON)
       EndIf
      
     EndIf  
     
   EndProcedure  
+  
   
   Procedure.i SelectItems(GNum.i, Flag.i=#All)
     ; #All / #None
@@ -6180,6 +6319,7 @@ Module ListEx
     EndIf  
       
   EndProcedure
+  
   
   Procedure   SetAttribute(GNum.i, Attrib.i, Value.i)
     ; Attrib: #Padding
@@ -6222,8 +6362,7 @@ Module ListEx
     EndIf  
    
   EndProcedure
-  
-  
+
   Procedure   SetCellFlags(GNum.i, Row.i, Column.i, Flags.i)
     
     If FindMapElement(ListEx(), Str(GNum))
@@ -6244,8 +6383,7 @@ Module ListEx
     EndIf
     
   EndProcedure
-  
-  
+
   Procedure   SetCellText(GNum.i, Row.i, Label.s, Text.s)
     
     If FindMapElement(ListEx(), Str(GNum))
@@ -6282,120 +6420,61 @@ Module ListEx
     
   EndProcedure
   
-  Procedure   SetColor(GNum.i, ColorTyp.i, Value.i, Column.i=#PB_Ignore)
+  Procedure   SetColor(GNum.i, ColorTyp.i, Value.i, Column.i=#PB_Ignore)         ; GNum: #Theme => change all gadgets
     
-    If FindMapElement(ListEx(), Str(GNum))
-    
-      Select ColorTyp
-        Case #ButtonBorderColor
-          ListEx()\Color\ButtonBorder = Value
-        Case #ActiveLinkColor  
-          ListEx()\Color\ActiveLink = Value
-        Case #FrontColor
-          If Column = #PB_Ignore
-            ListEx()\Color\Front = Value
-          Else
-            If SelectElement(ListEx()\Cols(), Column)
-              ListEx()\Cols()\FrontColor = Value
-            EndIf
-          EndIf 
-        Case #BackColor
-          If Column = #PB_Ignore
-            ListEx()\Color\Back = Value
-          Else
-            If SelectElement(ListEx()\Cols(), Column)
-              ListEx()\Cols()\BackColor = Value
-            EndIf
-          EndIf 
-        Case #ButtonColor  
-          ListEx()\Color\ButtonBack = Value
-        Case #ProgressBarColor
-          ListEx()\Color\ProgressBar = Value
-        Case #GradientColor
-          ListEx()\Color\Gradient    = Value
-        Case #LineColor
-          ListEx()\Color\Line = Value
-        Case #FocusColor
-          ListEx()\Color\Focus = Value
-        Case #EditColor
-          ListEx()\Color\Edit = Value
-        Case #LinkColor
-          ListEx()\Color\Link = Value
-        Case #HeaderFrontColor
-          ListEx()\Color\HeaderFront = Value
-        Case #HeaderBackColor
-          ListEx()\Color\HeaderBack = Value
-        Case #HeaderLineColor
-          ListEx()\Color\HeaderLine = Value
-        Case #GadgetBackColor
-          ListEx()\Color\Canvas = Value
-        Case #AlternateRowColor
-          ListEx()\Color\AlternateRow = Value
-      EndSelect
+    If GNum = #Theme 
       
+      ForEach ListEx()
+        
+        SetColor_(ColorTyp, Value)
+        
+        If ListEx()\ReDraw : Draw_() : EndIf
+      Next
+      
+    ElseIf FindMapElement(ListEx(), Str(GNum))
+      
+      SetColor_(ColorTyp, Value, Column)
+
       If ListEx()\ReDraw : Draw_() : EndIf
     EndIf
     
   EndProcedure
   
-  Procedure   SetColorTheme(GNum.i, Theme.i=#PB_Default)
+  Procedure   SetColorTheme(GNum.i, Theme.i=#Theme_Default, File.s="")           ; GNum: #Theme => change all gadgets
+    Define.i JSON
     
-    If FindMapElement(ListEx(), Str(GNum))
+    If GNum = #Theme 
       
-      Select Theme
-        Case #Theme_Blue
-          
-          ListEx()\Color\Front        = 0
-          ListEx()\Color\Back         = 16645114
-          ListEx()\Color\Line         = 13092807
-          ListEx()\Color\HeaderFront  = 4270875
-          ListEx()\Color\HeaderBack   = 14599344
-          ListEx()\Color\HeaderLine   = 8750469
-          ListEx()\Color\ProgressBar  = 11369795
-          ListEx()\Color\Gradient     = 13874833
-          ListEx()\Color\AlternateRow = ListEx()\Color\Back
-          
-        Case #Theme_Green
-          
-          ListEx()\Color\Front        = 0
-          ListEx()\Color\Back         = 16383222
-          ListEx()\Color\Line         = 13092807
-          ListEx()\Color\HeaderFront  = 2374163
-          ListEx()\Color\HeaderBack   = 6674533
-          ListEx()\Color\HeaderLine   = 8750469
-          ListEx()\Color\ProgressBar  = 2263842
-          ListEx()\Color\Gradient     = 7527538
-          ListEx()\Color\AlternateRow = ListEx()\Color\Back
-          
-        Default
-          
-          ListEx()\Color\Front        = $000000
-          ListEx()\Color\Back         = $FFFFFF
-          ListEx()\Color\Line         = $E3E3E3
-          ListEx()\Color\HeaderFront  = $000000
-          ListEx()\Color\HeaderBack   = $FAFAFA
-          ListEx()\Color\HeaderLine   = $A0A0A0
-          ListEx()\Color\AlternateRow = ListEx()\Color\Back
+      If Theme = #Theme_Custom
+        JSON = LoadJSON(#PB_Any, File)
+      EndIf  
+      
+      ForEach ListEx()
+        
+        If Theme = #Theme_Custom 
+          If IsJSON(JSON) : ExtractJSONStructure(JSONValue(JSON), @ListEx()\Color, ListEx_Color_Structure) : EndIf
+        Else
+          ColorTheme_(Theme)
+        EndIf
+        
+        Draw_()
+      Next
+      
+      If Theme = #Theme_Custom
+        If IsJSON(JSON) : FreeJSON(JSON) : EndIf
+      EndIf  
+      
+    ElseIf FindMapElement(ListEx(), Str(GNum))
 
-          CompilerSelect  #PB_Compiler_OS
-            CompilerCase #PB_OS_Windows
-            ListEx()\Color\HeaderFront  = GetSysColor_(#COLOR_WINDOWTEXT)
-            ;ListEx()\Color\HeaderBack   = GetSysColor_(#COLOR_3DLIGHT)
-            ListEx()\Color\HeaderLine   = GetSysColor_(#COLOR_3DSHADOW)
-            ListEx()\Color\Front        = GetSysColor_(#COLOR_WINDOWTEXT)
-            ListEx()\Color\Back         = GetSysColor_(#COLOR_WINDOW)
-            ListEx()\Color\Line         = GetSysColor_(#COLOR_3DLIGHT)
-          CompilerCase #PB_OS_MacOS
-            ListEx()\Color\HeaderFront  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
-            ;ListEx()\Color\HeaderBack   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
-            ListEx()\Color\HeaderLine   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
-            ListEx()\Color\Front        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
-            ListEx()\Color\Back         = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
-            ListEx()\Color\Line         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
-          CompilerCase #PB_OS_Linux
-            
-        CompilerEndSelect
-    EndSelect
+      If Theme = #Theme_Custom 
+        JSON = LoadJSON(#PB_Any, File)
+        If JSON
+          ExtractJSONStructure(JSONValue(JSON), @ListEx()\Color, ListEx_Color_Structure)
+          FreeJSON(JSON)
+        EndIf
+      Else
+        ColorTheme_(Theme)
+      EndIf
     
       Draw_()
     EndIf  
@@ -6456,9 +6535,15 @@ Module ListEx
     
   EndProcedure  
   
-  Procedure   SetCurrency(GNum.i, String.s, Column.i=#PB_Ignore)
+  Procedure   SetCurrency(GNum.i, String.s, Column.i=#PB_Ignore)                 ; GNum: #Theme => change all gadgets
     
-    If FindMapElement(ListEx(), Str(GNum))
+    If GNum = #Theme 
+      
+      ForEach ListEx()
+        ListEx()\Country\Currency = String
+      Next
+      
+    ElseIf FindMapElement(ListEx(), Str(GNum))
     
       If Column = #PB_Ignore 
         ListEx()\Country\Currency = String
@@ -6494,9 +6579,15 @@ Module ListEx
     
   EndProcedure
   
-  Procedure   SetDateMask(GNum.i, Mask.s, Column.i=#PB_Ignore)
+  Procedure   SetDateMask(GNum.i, Mask.s, Column.i=#PB_Ignore)                   ; GNum: #Theme => change all gadgets
     
-    If FindMapElement(ListEx(), Str(GNum))
+    If GNum = #Theme 
+      
+      ForEach ListEx()
+        ListEx()\Date\Mask = Mask
+      Next
+      
+    ElseIf FindMapElement(ListEx(), Str(GNum))
     
       If Column = #PB_Ignore 
         ListEx()\Date\Mask = Mask
@@ -6509,10 +6600,48 @@ Module ListEx
     EndIf
    
   EndProcedure
-
-  Procedure   SetFont(GNum.i, FontID.i, Type.i=#False, Column.i=#PB_Ignore) 
+  
+  Procedure   SetFlags(GNum.i, Flags.i)                                          ; GNum: #Theme => change all gadgets
     
-    If FindMapElement(ListEx(), Str(GNum))
+    If GNum = #Theme 
+      
+      ForEach ListEx()
+        
+        ListEx()\Flags | Flags
+        
+        If ListEx()\ReDraw : Draw_() : EndIf
+      Next
+      
+    ElseIf FindMapElement(ListEx(), Str(GNum))
+      
+      ListEx()\Flags | Flags
+      
+      If ListEx()\ReDraw : Draw_() : EndIf
+    EndIf  
+    
+  EndProcedure
+  
+  Procedure   SetFont(GNum.i, FontID.i, Type.i=#False, Column.i=#PB_Ignore)      ; GNum: #Theme => change all gadgets
+
+    If GNum = #Theme 
+      
+      ForEach ListEx()
+        
+        Select Type
+          Case #HeaderFont
+            ListEx()\Header\FontID = FontID
+          Default
+            ListEx()\Row\FontID    = FontID
+        EndSelect    
+        
+        If ListEx()\ReDraw
+          If ListEx()\FitCols : FitColumns_() : EndIf
+          Draw_()
+        EndIf
+
+      Next  
+
+    ElseIf FindMapElement(ListEx(), Str(GNum))
       
       Select Type
         Case #HeaderFont
@@ -6532,21 +6661,47 @@ Module ListEx
             EndIf
           EndIf
       EndSelect
-
+      
+      
       If ListEx()\ReDraw
         If ListEx()\FitCols : FitColumns_() : EndIf
         Draw_()
       EndIf
       
     EndIf
-    
+
   EndProcedure  
   
-  Procedure   SetHeaderAttribute(GNum.i, Attrib.i, Value.i, Column.i=#PB_Ignore)
+  Procedure   SetHeaderAttribute(GNum.i, Attrib.i, Value.i, Column.i=#PB_Ignore) ; GNum: #Theme => change all gadgets
     ; Attrib: #Align / #ColumnWidth / #FontID / #Font
     ; Value:  #Left / #Right / #Center
     
-    If FindMapElement(ListEx(), Str(GNum))
+    If GNum = #Theme 
+      
+      ForEach ListEx()
+        
+        Select Attrib
+          Case #Align
+            If SelectElement(ListEx()\Cols(), Column)
+              ListEx()\Cols()\Header\Align = Value
+            EndIf
+          Case #HeaderHeight
+            ListEx()\Header\Height = Value
+            UpdateRowY_()
+          Case #FontID
+            ListEx()\Header\FontID = Value
+          Case #Font
+            ListEx()\Header\FontID = FontID(Value)
+        EndSelect        
+        
+        If ListEx()\ReDraw
+          If ListEx()\FitCols : FitColumns_() : EndIf
+          Draw_()
+        EndIf
+
+      Next  
+ 
+    ElseIf FindMapElement(ListEx(), Str(GNum))
       
       Select Attrib
         Case #Align
@@ -6587,9 +6742,19 @@ Module ListEx
     
   EndProcedure
   
-  Procedure   SetHeaderHeight(GNum.i, Height.i)
+  Procedure   SetHeaderHeight(GNum.i, Height.i)                                  ; GNum: #Theme => change all gadgets
 
-    If FindMapElement(ListEx(), Str(GNum))
+    If GNum = #Theme 
+      
+      ForEach ListEx()
+        
+        ListEx()\Header\Height = Height
+        UpdateRowY_()
+        
+        If ListEx()\ReDraw : Draw_() : EndIf
+      Next
+
+    ElseIf FindMapElement(ListEx(), Str(GNum))
       
       ListEx()\Header\Height = Height
       UpdateRowY_()
@@ -6813,7 +6978,7 @@ Module ListEx
     
   EndProcedure
   
-  Procedure   SetItemState(GNum.i, Row.i, State.i, Column.i=#PB_Ignore) ; [#Selected/#Checked/#Inbetween]
+  Procedure   SetItemState(GNum.i, Row.i, State.i, Column.i=#PB_Ignore)          ; [#Selected/#Checked/#Inbetween]
     
     If FindMapElement(ListEx(), Str(GNum))
 
@@ -6961,9 +7126,15 @@ Module ListEx
     
   EndProcedure
   
-  Procedure   SetTimeMask(GNum.i, Mask.s, Column.i=#PB_Ignore)
+  Procedure   SetTimeMask(GNum.i, Mask.s, Column.i=#PB_Ignore)                   ; GNum: #Theme => change all gadgets
     
-    If FindMapElement(ListEx(), Str(GNum))
+    If GNum = #Theme 
+      
+      ForEach ListEx()
+        ListEx()\Country\TimeMask = Mask
+      Next
+      
+    ElseIf FindMapElement(ListEx(), Str(GNum))
     
       If Column = #PB_Ignore 
         ListEx()\Country\TimeMask = Mask
@@ -7129,7 +7300,7 @@ CompilerIf #PB_Compiler_IsMainFile
       ListEx::MarkContent(#List, 1, "CHOICE{male|female}[C3]", $D30094, $9314FF, FontID(#Font_Arial9B))
     CompilerEndIf
     
-    ListEx::SetColorTheme(#List, ListEx::#Theme_Blue)
+    ListEx::SetColorTheme(#List, ListEx::#Theme_Blue) ; #List
     ListEx::SetColor(#List, ListEx::#AlternateRowColor, $FBF7F5)
     
     If LoadImage(#Image, "Delete.png")
@@ -7249,9 +7420,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1810
-; FirstLine = 435
-; Folding = 1PQJCAACAF5-8--xfUQh70ZiI5FF9IA--TQF3-ZAgAHBHgAgDAAIAkACAIQ++
+; CursorPosition = 7302
+; FirstLine = 1033
+; Folding = 9HQJCAACAF5-8--xfABFq4nJigXUgjA9-PAVY4nAACcAcAAAcAAAAAAAEAEIf-
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
