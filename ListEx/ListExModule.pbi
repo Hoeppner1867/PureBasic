@@ -11,7 +11,7 @@
  
 ; Last Update: 16.11.2019
 ;
-; - Added: gadget number '#Theme' (#PB_Default) changes all gadgets for suitable commands
+; - Added: gadget number 'ListEx::#Theme' (#PB_Default) changes all gadgets for suitable commands
 ;
 ; - Bugfix: #LockCell and Drag & Drop
 ;
@@ -7420,9 +7420,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 7302
-; FirstLine = 1033
-; Folding = 9HQJCAACAF5-8--xfABFq4nJigXUgjA9-PAVY4nAACcAcAAAcAAAAAAAEAEIf-
+; CursorPosition = 124
+; FirstLine = 79
+; Folding = +HQJCAACAF5-8--xfABFq4nJigXUgjA9-PAVY4nAACcAcAAAcAAAAAAAEAEIf-
 ; EnableXP
 ; DPIAware
 ; EnableUnicode

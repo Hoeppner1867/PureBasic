@@ -1,6 +1,6 @@
-﻿;/ ============================
+﻿;/ ===============================
 ;/ =    ContainerExModule.pbi    =
-;/ ============================
+;/ ===============================
 ;/
 ;/ [ PB V5.7x / 64Bit / All OS / DPI ]
 ;/
@@ -9,7 +9,10 @@
 ;/ © 2019  by Thorsten Hoeppner (11/2019)
 ;/
 
-; Last Update:
+; Last Update: 16.11.2019
+;
+; Added: #TitleBox
+;
 
 ;{ ===== MIT License =====
 ;
@@ -40,6 +43,7 @@
 ; ContainerEx::Close()              - similar to 'CloseGadgetList()'
 ; ContainerEx::DisableReDraw()      - disable redraw
 ; ContainerEx::Gadget()             - similar to 'ContainerGadget()'
+; ContainerEx::SetAttribute()       - similar to 'SetGadgetAttribute()'
 ; ContainerEx::SetAutoResizeFlags() - [#MoveX|#MoveY|#Width|#Height]
 ; ContainerEx::SetColor()           - similar to 'SetGadgetColor()'
 ; ContainerEx::SetFont()            - similar to 'SetGadgetFont()'
@@ -50,7 +54,9 @@
 ; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule ContainerEx
-
+  
+  #Version = 16111900
+  
 	;- ===========================================================================
 	;-   DeclareModule - Constants
 	;- ===========================================================================
@@ -60,10 +66,15 @@ DeclareModule ContainerEx
     #Border = #PB_Container_Flat ; Draw a border
     #Center
     #Right
+    #TitleBox
 		#AutoResize                  ; Automatic resizing of the gadget
 		#ToolTips                    ; Show tooltips
 	EndEnumeration ;}
 	#Left = 0
+	
+	Enumeration 1    ;{ Attribute
+	  #Padding
+	EndEnumeration ;}
 	
 	EnumerationBinary ;{ AutoResize
 		#MoveX
@@ -76,6 +87,8 @@ DeclareModule ContainerEx
 		#FrontColor
 		#BackColor
 		#BorderColor
+		#TitleBackColor
+		#TitleBorderColor
 	EndEnumeration ;}
 
 	CompilerIf Defined(ModuleEx, #PB_Module)
@@ -99,6 +112,7 @@ DeclareModule ContainerEx
 	Declare   Close(GNum.i)
   Declare   DisableReDraw(GNum.i, State.i=#False)
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
+  Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetColor(GNum.i, ColorTyp.i, Value.i)
   Declare   SetFont(GNum.i, FontID.i) 
@@ -119,6 +133,8 @@ Module ContainerEx
 		Back.i
 		Gadget.i
 		Border.i
+		TitleBack.i
+		TitleBorder.i
 	EndStructure  ;}
 
 	Structure ContainerEx_Window_Structure  ;{ ContainerEx()\Window\...
@@ -141,6 +157,7 @@ Module ContainerEx
 		FontID.i
 		
 		Text.s
+		Padding.i
 		
 		ReDraw.i
 
@@ -222,7 +239,7 @@ Module ContainerEx
 
 	Procedure   Draw_()
 		Define.i X, Y, Width, Height, TextHeight, TextWidth
-		Define.i BorderColor
+		Define.i BackColor, Padding
 		
 		Width  = dpiX(GadgetWidth(ContainerEx()\CanvasNum))
 		Height = dpiY(GadgetHeight(ContainerEx()\CanvasNum))
@@ -246,26 +263,47 @@ Module ContainerEx
     		EndIf
     		
     		If ContainerEx()\Color\Back <> #PB_Default
+    		  BackColor = ContainerEx()\Color\Back
     		  DrawingMode(#PB_2DDrawing_Default)
-    		  Box(X, Y, Width, Height, ContainerEx()\Color\Back)
+    		  Box(X, Y, Width, Height, BackColor)
+    		Else
+    		  BackColor = ContainerEx()\Color\Gadget
     		EndIf
     		
   			DrawingMode(#PB_2DDrawing_Outlined)
   			Box(X, Y, Width, Height, ContainerEx()\Color\Border)
   			
   			If ContainerEx()\Text
+  			  
+  			  Padding = ContainerEx()\Padding
+  			  
     			If ContainerEx()\Flags & #Center
-    			  X = (Width - TextWidth - dpiX(4)) / 2
+    			  X = (Width - TextWidth - dpiX(Padding * 2)) / 2
     			ElseIf ContainerEx()\Flags & #Right
-    			  X = Width - TextWidth - dpiX(14)
+    			  X = Width - TextWidth - dpiX(10) - dpiX(Padding * 2)
     			Else
     			  X = dpiX(10)
     			EndIf  
     			
-    			Line(X, Y, TextWidth + dpiX(4), 1, ContainerEx()\Color\Gadget)
+    			If ContainerEx()\Flags & #TitleBox
+
+    			  If ContainerEx()\Color\TitleBack <> #PB_Default : BackColor = ContainerEx()\Color\TitleBack : EndIf  
+    			  DrawingMode(#PB_2DDrawing_Default)
+    			  Box(X, 0, TextWidth + dpiX(Padding * 2), TextHeight, BackColor)
+    			  
+    			  DrawingMode(#PB_2DDrawing_Outlined)
+    			  If ContainerEx()\Color\TitleBorder <> #PB_Default
+    			    Box(X, 0, TextWidth + dpiX(Padding * 2), TextHeight, ContainerEx()\Color\TitleBorder)
+    			  Else
+    			    Box(X, 0, TextWidth + dpiX(Padding * 2), TextHeight, ContainerEx()\Color\Border)
+    			  EndIf
+
+    			Else  
+    			  Line(X, Y, TextWidth + dpiX(Padding * 2), 1, ContainerEx()\Color\Gadget)
+    			EndIf  
     			
     			DrawingMode(#PB_2DDrawing_Transparent)
-    			DrawText(X + dpiX(2), 0, ContainerEx()\Text, ContainerEx()\Color\Front, ContainerEx()\Color\Back)
+    			DrawText(X + dpiX(Padding), 0, ContainerEx()\Text, ContainerEx()\Color\Front, ContainerEx()\Color\Back)
     			
     		EndIf
     		
@@ -363,7 +401,8 @@ Module ContainerEx
 		EndIf
 
 	EndProcedure
-
+	
+	
 	Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
 		Define DummyNum, Result.i
 
@@ -407,25 +446,31 @@ Module ContainerEx
 				ContainerEx()\Size\Y = Y
 				ContainerEx()\Size\Width  = Width
 				ContainerEx()\Size\Height = Height
-
+				
+				ContainerEx()\Padding = 2
+				
 				ContainerEx()\Flags  = Flags
 
 				ContainerEx()\ReDraw = #True
 
-				ContainerEx()\Color\Front  = $000000
-				ContainerEx()\Color\Border = $A0A0A0
-				ContainerEx()\Color\Gadget = $EDEDED
-				ContainerEx()\Color\Back   = #PB_Default
+				ContainerEx()\Color\Front       = $000000
+				ContainerEx()\Color\Border      = $A0A0A0
+				ContainerEx()\Color\Gadget      = $EDEDED
+				ContainerEx()\Color\Back        = #PB_Default
+				ContainerEx()\Color\TitleBack   = #PB_Default
+				ContainerEx()\Color\TitleBorder = $A0A0A0
 				
 				CompilerSelect #PB_Compiler_OS ;{ Color
 					CompilerCase #PB_OS_Windows
-						ContainerEx()\Color\Front  = GetSysColor_(#COLOR_WINDOWTEXT)
-						ContainerEx()\Color\Border = GetSysColor_(#COLOR_WINDOWFRAME)
-						ContainerEx()\Color\Gadget = GetSysColor_(#COLOR_MENU)
+						ContainerEx()\Color\Front       = GetSysColor_(#COLOR_WINDOWTEXT)
+						ContainerEx()\Color\Border      = GetSysColor_(#COLOR_WINDOWFRAME)
+						ContainerEx()\Color\Gadget      = GetSysColor_(#COLOR_MENU)
+				    ContainerEx()\Color\TitleBorder = GetSysColor_(#COLOR_WINDOWFRAME)
 					CompilerCase #PB_OS_MacOS
-						ContainerEx()\Color\Front  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
-						ContainerEx()\Color\Border = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
-						ContainerEx()\Color\Gadget = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
+						ContainerEx()\Color\Front       = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
+						ContainerEx()\Color\Border      = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+						ContainerEx()\Color\Gadget      = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
+				    ContainerEx()\Color\TitleBorder = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
 					CompilerCase #PB_OS_Linux
 
 				CompilerEndSelect ;}
@@ -450,7 +495,7 @@ Module ContainerEx
 		EndIf
 
 	EndProcedure
-	
+
 	Procedure   Close(GNum.i)
 	  
 	  If FindMapElement(ContainerEx(), Str(GNum))
@@ -458,6 +503,20 @@ Module ContainerEx
 	  EndIf
 	  
 	EndProcedure  
+	
+	
+	Procedure   SetAttribute(GNum.i, Attribute.i, Value.i)
+    
+    If FindMapElement(ContainerEx(), Str(GNum))
+      
+      Select Attribute
+        Case #Padding
+          ContainerEx()\Padding = Value
+      EndSelect
+      
+    EndIf  
+   
+  EndProcedure
 	
 	Procedure   SetAutoResizeFlags(GNum.i, Flags.i)
     
@@ -481,6 +540,10 @@ Module ContainerEx
           ContainerEx()\Color\Back   = Value
         Case #BorderColor
           ContainerEx()\Color\Border = Value
+        Case #TitleBackColor
+          ContainerEx()\Color\TitleBack = Value
+        Case #TitleBorderColor
+          ContainerEx()\Color\TitleBorder = Value
       EndSelect
       
       If ContainerEx()\ReDraw : Draw_() : EndIf
@@ -500,7 +563,8 @@ Module ContainerEx
   EndProcedure  
   
   Procedure   SetText(GNum.i, Text.s, Flags.i=#False)
-    
+    ; Flags: #Left/#Center/#Right | #TitleBox
+
     If FindMapElement(ContainerEx(), Str(GNum))
       
       ContainerEx()\Text = Text
@@ -526,16 +590,20 @@ CompilerIf #PB_Compiler_IsMainFile
   
   LoadFont(#Font, "Arial", 10, #PB_Font_Bold)
   
-  If OpenWindow(#Window, 0, 0, 300, 200, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
+  If OpenWindow(#Window, 0, 0, 200, 100, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
     
-    If ContainerEx::Gadget(#Container, 10, 10, 280, 180, ContainerEx::#Border|ContainerEx::#AutoResize, #Window)
+    If ContainerEx::Gadget(#Container, 10, 10, 180, 80, ContainerEx::#Border|ContainerEx::#AutoResize, #Window)
       
-      ContainerEx::SetText(#Container, "ContainerEx", ContainerEx::#Left)
-      ContainerEx::SetFont(#Container, FontID(#Font))
       ContainerEx::SetColor(#Container, ContainerEx::#FrontColor, $800000)
-      ContainerEx::SetColor(#Container, ContainerEx::#BackColor,  $FFFFFF)
+      ContainerEx::SetColor(#Container, ContainerEx::#BackColor,  $FFFCFA)
       
-      ButtonGadget(#Button, 20, 30, 90, 25, "Gadget")
+      ContainerEx::SetText(#Container, "ContainerEx", ContainerEx::#Right|ContainerEx::#TitleBox)
+      ContainerEx::SetFont(#Container, FontID(#Font))
+      ContainerEx::SetAttribute(#Container, ContainerEx::#Padding, 6)
+      ContainerEx::SetColor(#Container, ContainerEx::#TitleBackColor,   $FFFFFF)
+      ContainerEx::SetColor(#Container, ContainerEx::#TitleBorderColor, $420000)
+      
+      ButtonGadget(#Button, 50, 32, 80, 24, "Gadget")
       
       ContainerEx::Close(#Container)
     EndIf
@@ -550,8 +618,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 39
-; FirstLine = 79
-; Folding = MEAAAA9
+; CursorPosition = 592
+; FirstLine = 257
+; Folding = +YCEAR5
 ; EnableXP
 ; DPIAware
