@@ -9,12 +9,12 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 16.11.2019
+; Last Update: 17.11.2019
+;
+; - Added: Attribute #MaxChars for editing cells
 ;
 ; - Added: gadget number 'ListEx::#Theme' (#PB_Default) changes all gadgets for suitable commands
-;
 ; - Bugfix: #LockCell and Drag & Drop
-;
 ; - Bugfix: Cash
 ; - Added: CSV support (file/clipboard)
 ;
@@ -99,7 +99,7 @@
 ; ListEx::SetCellText()             - similar to 'SetGadgetItemText()'  with labels
 ; ListEx::SetColor()                - similar to 'SetGadgetColor()'
 ; ListEx::SetColorTheme()           - change the color theme
-; ListEx::SetColumnAttribute()      - [#Align/#ColumnWidth/#Font]
+; ListEx::SetColumnAttribute()      - [#Align/#ColumnWidth]
 ; ListEx::SetColumnFlags()          - [#FitColumn | #Left/#Right/#Center]
 ; ListEx::SetColumnState()          - similar to 'SetGadgetItemState()' for a specific column
 ; ListEx::SetCurrency()             - 
@@ -126,11 +126,11 @@
 
 ;} -----------------------------
 
-;XIncludeFile "ModuleEx.pbi"
+; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule ListEx
   
-  #Version = 15111900
+  #Version = 17111900
   
   #Enable_Validation  = #True
   #Enable_MarkContent = #True
@@ -201,6 +201,7 @@ DeclareModule ListEx
     #Font
     #FontID
     #ColumnWidth
+    #MaxChars
     #HeaderHeight
     #Padding
     #Gadget
@@ -682,6 +683,7 @@ Module ListEx
     Height.f
     Label.s
     Text.s
+    MaxChars.i
     CursorPos.i
     FontID.i
     Wrong.i
@@ -728,7 +730,7 @@ Module ListEx
     State.i
   EndStructure ;}
   
-  Structure ListEx_Date_Structure       ;{ ListEx()\String\...
+  Structure ListEx_Date_Structure       ;{ ListEx()\Date\...
     Row.i
     Col.i
     X.f
@@ -3874,7 +3876,12 @@ Module ListEx
           
           Char$ = Chr(Char)
           ListEx()\String\CursorPos + 1  
-          ListEx()\String\Text = InsertString(ListEx()\String\Text, Char$, ListEx()\String\CursorPos)
+          
+          If ListEx()\String\MaxChars
+            ListEx()\String\Text = Left(InsertString(ListEx()\String\Text, Char$, ListEx()\String\CursorPos), ListEx()\String\MaxChars)
+          Else
+            ListEx()\String\Text = InsertString(ListEx()\String\Text, Char$, ListEx()\String\CursorPos)
+          EndIf   
 
           DrawString_()
         EndIf
@@ -6328,7 +6335,9 @@ Module ListEx
       
       Select Attrib
         Case #Padding
-          ListEx()\Col\Padding = Value
+          ListEx()\Col\Padding     = Value
+        Case #MaxChars
+          ListEx()\String\MaxChars = Value
       EndSelect
       
       If ListEx()\ReDraw : Draw_() : EndIf
@@ -6490,14 +6499,14 @@ Module ListEx
         
         Select Attrib
           Case #Align
-            ListEx()\Cols()\Align  = Value
+            ListEx()\Cols()\Align    = Value
           Case #ColumnWidth
-            ListEx()\Cols()\Width  = Value
+            ListEx()\Cols()\Width    = Value
             UpdateColumnX_()
           Case #FontID
-            ListEx()\Cols()\FontID = Value
+            ListEx()\Cols()\FontID   = Value
           Case #Font  
-            ListEx()\Cols()\FontID = FontID(Value)
+            ListEx()\Cols()\FontID   = FontID(Value)
         EndSelect
         
         If ListEx()\ReDraw : Draw_() : EndIf
@@ -7236,92 +7245,109 @@ CompilerIf #PB_Compiler_IsMainFile
     ButtonGadget(#B_Blue,  420, 100, 70, 20, "Blue")
     ButtonGadget(#Export,  420, 140, 70, 20, "Export")
     
-    ListEx::Gadget(#List, 10, 10, 395, 230, "", 25, "", ListEx::#GridLines|ListEx::#CheckBoxes|ListEx::#AutoResize|ListEx::#MultiSelect|ListEx::#ResizeColumn, #Window) ; ListEx::#NoRowHeader|ListEx::#ThreeState|ListEx::#NumberedColumn|ListEx::#SingleClickEdit 
+    If ListEx::Gadget(#List, 10, 10, 395, 230, "", 25, "", ListEx::#GridLines|ListEx::#CheckBoxes|ListEx::#AutoResize|ListEx::#MultiSelect|ListEx::#ResizeColumn, #Window) ; ListEx::#NoRowHeader|ListEx::#ThreeState|ListEx::#NumberedColumn|ListEx::#SingleClickEdit 
     
-    ListEx::DisableReDraw(#List, #True) 
-    
-    ListEx::AddColumn(#List, 1, "Link", 75, "link",   ListEx::#Links)    ; |ListEx::#FitColumn
-    ListEx::AddColumn(#List, 2, "Edit", 85, "edit",   ListEx::#Editable) ; |ListEx::#FitColumn
-    ListEx::AddColumn(#List, ListEx::#LastItem, "Combo",   78, "combo",  ListEx::#ComboBoxes)
-    ListEx::AddColumn(#List, ListEx::#LastItem, "Date",    76, "date",   ListEx::#Dates)
-    ListEx::AddColumn(#List, ListEx::#LastItem, "Buttons", 60, "button", ListEx::#Buttons) ; ListEx::#Hide
+      ListEx::DisableReDraw(#List, #True) 
+      
+      ; --- Add different types of columns  ---
+      ListEx::AddColumn(#List, 1, "Link", 75, "link",   ListEx::#Links)    ; |ListEx::#FitColumn
+      ListEx::AddColumn(#List, 2, "Edit", 85, "edit",   ListEx::#Editable) ; |ListEx::#FitColumn
+      ListEx::AddColumn(#List, ListEx::#LastItem, "Combo",   78, "combo",  ListEx::#ComboBoxes)
+      ListEx::AddColumn(#List, ListEx::#LastItem, "Date",    76, "date",   ListEx::#Dates)
+      ListEx::AddColumn(#List, ListEx::#LastItem, "Buttons", 60, "button", ListEx::#Buttons) ; ListEx::#Hide
+  
+      ; --- Test ProgressBar ---
+      ;CompilerIf ListEx::#Enable_ProgressBar
+      ;  ListEx::AddColumn(#List, ListEx::#LastItem, "Progress", 60, "progress", ListEx::#ProgressBar)
+      ;  ListEx::SetProgressBarFlags(#List, ListEx::#ShowPercent)
+      ;CompilerEndIf
+      
+      ; --- design of header row ---
+      ListEx::SetHeaderAttribute(#List, ListEx::#Align, ListEx::#Center)
+      ;ListEx::SetItemColor(#List, ListEx::#Header, ListEx::#FrontColor, $0000FF, 1)
+      
+      ListEx::SetFont(#List, FontID(#Font_Arial9))
+      ListEx::SetFont(#List, FontID(#Font_Arial9B), ListEx::#HeaderFont)
+      
+      ; --- Add content ---
+      ListEx::AddItem(#List, ListEx::#LastItem, "Image"    + #LF$ + "no Image" + #LF$ + #LF$ + #LF$ + "Push")
+      ListEx::AddItem(#List, ListEx::#LastItem, "Thorsten" + #LF$ + "Hoeppner" + #LF$ + "male" + #LF$ + "18.07.1967" + #LF$ + "", "PureBasic")
+      ListEx::AddItem(#List, ListEx::#LastItem, "Amelia"   + #LF$ + "Smith"    + #LF$ + "female"+ #LF$ + #LF$ + "Push")
+      ListEx::AddItem(#List, ListEx::#LastItem, "Jack"     + #LF$ + "Jones"    + #LF$ + #LF$ + #LF$ + "Push")
+      ListEx::AddItem(#List, ListEx::#LastItem, "Isla"     + #LF$ + "Williams" + #LF$ + #LF$ + #LF$ + "Push")
+      ListEx::AddItem(#List, ListEx::#LastItem, "Harry"    + #LF$ + "Brown"    + #LF$ + #LF$ + #LF$ + "Push")
+      ListEx::AddItem(#List, ListEx::#LastItem, "Emily"    + #LF$ + "Taylor"   + #LF$ + #LF$ + #LF$ + "Push")
+      ListEx::AddItem(#List, ListEx::#LastItem, "Jacob"    + #LF$ + "Wilson"   + #LF$ + #LF$ + #LF$ + "Push")
+      ListEx::AddItem(#List, ListEx::#LastItem, "Ava"      + #LF$ + "Evans"    + #LF$ + #LF$ + #LF$ + "Push")
+      ListEx::AddItem(#List, ListEx::#LastItem, "Thomas"   + #LF$ + "Roberts"  + #LF$ + #LF$ + #LF$ + "Push")
+      ListEx::AddItem(#List, ListEx::#LastItem, "Harriet"  + #LF$ + "Smith"    + #LF$ + #LF$ + #LF$ + "Push")
+      
+      ; --- Set focus to row 9 ---
+      ; ListEx::SetState(#List, 9)
+      
+      ; --- Change item state of row 3 ---
+      ListEx::SetItemState(#List, 3, ListEx::#Inbetween)
+      
+      ; --- Change row height ---
+      ListEx::SetRowsHeight(#List, 22)
+      
+      ; --- Use PopupMenu ---
+      ListEx::AttachPopupMenu(#List, #PopupMenu)
+      
+      ; --- ComboBox in column 3 ---
+      ListEx::AddComboBoxItems(#List, 3, "male" + #LF$ + "female")
+      
+      ; --- Use column attributes ---
+      ListEx::SetColumnAttribute(#List, 1, ListEx::#FontID, FontID(#Font_Arial9U))
+      ListEx::SetColumnAttribute(#List, 5, ListEx::#Align, ListEx::#Center)
+      
+      ; --- Test sorting ---
+      ListEx::SetHeaderSort(#List, 2, ListEx::#Ascending, ListEx::#Deutsch)
+      
+      ; --- Test colors ---
+      ListEx::SetColor(#List, ListEx::#FrontColor, $82004B, 2) ; front color for column 2
+      ;ListEx::SetItemColor(#List, 5, ListEx::#FrontColor, $228B22, 2)
+      ;ListEx::SetItemColor(#List, 5, ListEx::#BackColor, $FAFFF5)
+      ListEx::SetItemFont(#List,  0, FontID(#Font_Arial9B), 2)
+      
+      ; --- Define AutoResize ---
+      ListEx::SetAutoResizeColumn(#List, 2, 50)
+      ListEx::SetAutoResizeFlags(#List, ListEx::#Height)
+      
+      ; --- Mark content in accordance with certain rules   ---
+      CompilerIf ListEx::#Enable_MarkContent
+        ListEx::MarkContent(#List, 1, "CHOICE{male|female}[C3]", $D30094, $9314FF, FontID(#Font_Arial9B))
+      CompilerEndIf
+      
+      ; --- Use color theme ---
+      ListEx::SetColorTheme(#List, ListEx::#Theme_Blue)
+      ListEx::SetColor(#List, ListEx::#AlternateRowColor, $FBF7F5)
+      
+      ; --- Use images ---
+      If LoadImage(#Image, "Delete.png")
+        ListEx::SetItemImage(#List, 0, 1, 16, 16, #Image)
+        ListEx::SetItemImage(#List, 1, 5, 14, 14, #Image, ListEx::#Center)
+        ListEx::SetItemImage(#List, ListEx::#Header, 2, 14, 14, #Image, ListEx::#Right)
+      EndIf
+      
+      ; --- Test single cell flags ---
+      ;ListEx::SetCellFlags(#List, 2, 5, ListEx::#Strings)
+      
+      ; --- Test ProgressBar ---
+      ;CompilerIf ListEx::#Enable_ProgressBar
+      ;  ListEx::SetCellState(#List, 1, "progress", 100) ; or SetItemState(#List, 1, 75, 5)
+      ;  ListEx::SetCellState(#List, 2, "progress", 50) ; or SetItemState(#List, 2, 50, 5)
+      ;  ListEx::SetCellState(#List, 3, "progress", 25) ; or SetItemState(#List, 3, 25, 5)
+      ;CompilerEndIf
 
-    ; --- Test ProgressBar ---
-    ;CompilerIf ListEx::#Enable_ProgressBar
-    ;  ListEx::AddColumn(#List, ListEx::#LastItem, "Progress", 60, "progress", ListEx::#ProgressBar)
-    ;  ListEx::SetProgressBarFlags(#List, ListEx::#ShowPercent)
-    ;CompilerEndIf
-    
-    ListEx::SetHeaderAttribute(#List, ListEx::#Align, ListEx::#Center)
-    
-    ;ListEx::SetItemColor(#List, ListEx::#Header, ListEx::#FrontColor, $0000FF, 1)
-    
-    ListEx::SetFont(#List, FontID(#Font_Arial9))
-    ListEx::SetFont(#List, FontID(#Font_Arial9B), ListEx::#HeaderFont)
-    
-    ListEx::AddItem(#List, ListEx::#LastItem, "Image"    + #LF$ + "no Image" + #LF$ + #LF$ + #LF$ + "Push")
-    ListEx::AddItem(#List, ListEx::#LastItem, "Thorsten" + #LF$ + "Hoeppner" + #LF$ + "male" + #LF$ + "18.07.1967" + #LF$ + "", "PureBasic")
-    ListEx::AddItem(#List, ListEx::#LastItem, "Amelia"   + #LF$ + "Smith"    + #LF$ + "female"+ #LF$ + #LF$ + "Push")
-    ListEx::AddItem(#List, ListEx::#LastItem, "Jack"     + #LF$ + "Jones"    + #LF$ + #LF$ + #LF$ + "Push")
-    ListEx::AddItem(#List, ListEx::#LastItem, "Isla"     + #LF$ + "Williams" + #LF$ + #LF$ + #LF$ + "Push")
-    ListEx::AddItem(#List, ListEx::#LastItem, "Harry"    + #LF$ + "Brown"    + #LF$ + #LF$ + #LF$ + "Push")
-    ListEx::AddItem(#List, ListEx::#LastItem, "Emily"    + #LF$ + "Taylor"   + #LF$ + #LF$ + #LF$ + "Push")
-    ListEx::AddItem(#List, ListEx::#LastItem, "Jacob"    + #LF$ + "Wilson"   + #LF$ + #LF$ + #LF$ + "Push")
-    ListEx::AddItem(#List, ListEx::#LastItem, "Ava"      + #LF$ + "Evans"    + #LF$ + #LF$ + #LF$ + "Push")
-    ListEx::AddItem(#List, ListEx::#LastItem, "Thomas"   + #LF$ + "Roberts"  + #LF$ + #LF$ + #LF$ + "Push")
-    ListEx::AddItem(#List, ListEx::#LastItem, "Harriet"  + #LF$ + "Smith"    + #LF$ + #LF$ + #LF$ + "Push")
-
-    ListEx::SetItemState(#List, 3, ListEx::#Inbetween)
-    
-    ListEx::DisableReDraw(#List, #False) 
-    
-    ListEx::SetRowsHeight(#List, 22)
-    
-    ListEx::AttachPopupMenu(#List, #PopupMenu)
-    
-    ListEx::AddComboBoxItems(#List, 3, "male" + #LF$ + "female")
-
-    ListEx::SetAutoResizeColumn(#List, 2, 50)
-    
-    ListEx::SetColumnAttribute(#List, 1, ListEx::#FontID, FontID(#Font_Arial9U))
-    ListEx::SetColumnAttribute(#List, 5, ListEx::#Align, ListEx::#Center)
-    
-    ListEx::SetHeaderSort(#List, 2, ListEx::#Ascending, ListEx::#Deutsch)
-    
-    ListEx::SetColor(#List, ListEx::#FrontColor, $82004B, 2) ; front color for column 2
-    
-    ;ListEx::SetItemColor(#List, 5, ListEx::#FrontColor, $228B22, 2)
-    ;ListEx::SetItemColor(#List, 5, ListEx::#BackColor, $FAFFF5)
-    ListEx::SetItemFont(#List,  0, FontID(#Font_Arial9B), 2)
-    
-    ListEx::SetAutoResizeFlags(#List, ListEx::#Height)
-    
-    CompilerIf ListEx::#Enable_MarkContent
-      ListEx::MarkContent(#List, 1, "CHOICE{male|female}[C3]", $D30094, $9314FF, FontID(#Font_Arial9B))
-    CompilerEndIf
-    
-    ListEx::SetColorTheme(#List, ListEx::#Theme_Blue) ; #List
-    ListEx::SetColor(#List, ListEx::#AlternateRowColor, $FBF7F5)
-    
-    If LoadImage(#Image, "Delete.png")
-      ListEx::SetItemImage(#List, 0, 1, 16, 16, #Image)
-      ListEx::SetItemImage(#List, 1, 5, 14, 14, #Image, ListEx::#Center)
-      ListEx::SetItemImage(#List, ListEx::#Header, 2, 14, 14, #Image, ListEx::#Right)
+      ; --- max. number of characters ---
+      ;ListEx::SetAttribute(#List, ListEx::#MaxChars, 5)
+  
+      ; --- GUI theme support ---
+      ;ModuleEx::LoadTheme("Theme_Green.xml")
+      
+      ListEx::DisableReDraw(#List, #False) 
     EndIf
-    
-    ; --- Test single cell flags ---
-    ;ListEx::SetCellFlags(#List, 2, 5, ListEx::#Strings)
-    
-    ; --- Test ProgressBar ---
-    ;CompilerIf ListEx::#Enable_ProgressBar
-    ;  ListEx::SetCellState(#List, 1, "progress", 100) ; or SetItemState(#List, 1, 75, 5)
-    ;  ListEx::SetCellState(#List, 2, "progress", 50) ; or SetItemState(#List, 2, 50, 5)
-    ;  ListEx::SetCellState(#List, 3, "progress", 25) ; or SetItemState(#List, 3, 25, 5)
-    ;CompilerEndIf
-    
-    ;ListEx::SetState(#List, 9)
-    
-    ;ModuleEx::LoadTheme("Theme_Green.xml")
     
     Repeat
       Event = WaitWindowEvent()
@@ -7420,9 +7446,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 124
-; FirstLine = 79
-; Folding = +HQJCAACAF5-8--xfABFq4nJigXUgjA9-PAVY4nAACcAcAAAcAAAAAAAEAEIf-
+; CursorPosition = 132
+; FirstLine = 6
+; Folding = 9HAAAAACAH5-8--xfABFqvPJigXUgjA9-PABZ4nAICeHcACEdAAAAAgAGAEIf-
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
