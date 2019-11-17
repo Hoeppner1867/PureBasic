@@ -11,7 +11,8 @@
  
 ; Last Update: 17.11.2019
 ;
-; - Added: Attribute #MaxChars for editing cells
+; - Added: SetCondition() for editable cells
+; - Added: Attribute #MaxChars for SetAttribute() or SetColumnAttribute()
 ; - Added: #EventType_Change for string gadget
 ;
 ; - Added: gadget number 'ListEx::#Theme' (#PB_Default) changes all gadgets for suitable commands
@@ -131,7 +132,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 17111901
+  #Version  = 17111902
   #ModuleEx = 19111702
   
   #Enable_Validation  = #True
@@ -422,6 +423,10 @@ DeclareModule ListEx
     Declare MarkContent(GNum.i, Column.i, Term.s, Color1.i=#PB_Default, Color2.i=#PB_Default, FontID.i=#PB_Default)
   CompilerEndIf
   
+  CompilerIf #Enable_Validation
+    Declare SetCondition(GNum.i, Column.i, Term.s)
+  CompilerEndIf
+  
   CompilerIf #Enable_ProgressBar
     Declare   SetProgressBarAttribute(GNum.i, Attrib.i, Value.i)
     Declare   SetProgressBarFlags(GNum.i, Flags.i)
@@ -665,7 +670,9 @@ Module ListEx
     FontID.i
     Mask.s
     MaxWidth.i
+    MaxChars.i
     Currency.s
+    Term.s
     Flags.i
     FrontColor.i
     BackColor.i
@@ -1155,7 +1162,176 @@ Module ListEx
     
   CompilerEndIf  
   
+
   ;- _____ Check Content _____
+  
+  CompilerIf #Enable_Validation Or #Enable_MarkContent
+    
+    Procedure.s ExtractTag_(Text.s, Left.s, Right.s)
+      Define.i idxL, idxR
+    
+      idxL = FindString(Text, Left,  1)
+      idxR = FindString(Text, Right, idxL + 1)
+      
+      If idxL And idxR
+        idxL + Len(Left)
+        ProcedureReturn Mid(Text, idxL, idxR-idxL)
+      EndIf
+    
+    EndProcedure
+    
+    Procedure.i CompareValues_(Value1.s, Compare.s, Value2.s, Flag.i)
+      
+      Select Flag
+        Case #Number, #Integer, #Grades ;{
+          Select Compare
+            Case "="
+              If Val(Value1) =  Val(Value2) : ProcedureReturn #True : EndIf
+            Case "<"
+              If Val(Value1) <  Val(Value2) : ProcedureReturn #True : EndIf
+            Case ">"
+              If Val(Value1) >  Val(Value2) : ProcedureReturn #True : EndIf
+            Case ">="
+              If Val(Value1) >= Val(Value2) : ProcedureReturn #True : EndIf
+            Case "<="
+              If Val(Value1) <= Val(Value2) : ProcedureReturn #True : EndIf
+            Case "<>"
+              If Val(Value1) <> Val(Value2) : ProcedureReturn #True : EndIf
+          EndSelect ;}        
+        Case #Float, #Cash              ;{
+          Value1 = ReplaceString(Value1, ListEx()\Country\DecimalSeperator, ".")
+          Value2 = ReplaceString(Value2, ListEx()\Country\DecimalSeperator, ".")
+          Select Compare
+            Case "="
+              If ValF(Value1) =  ValF(Value2) : ProcedureReturn #True : EndIf
+            Case "<"
+              If ValF(Value1) <  ValF(Value2) : ProcedureReturn #True : EndIf
+            Case ">"
+              If ValF(Value1) >  ValF(Value2) : ProcedureReturn #True : EndIf
+            Case ">="
+              If ValF(Value1) >= ValF(Value2) : ProcedureReturn #True : EndIf
+            Case "<="
+              If ValF(Value1) <= ValF(Value2) : ProcedureReturn #True : EndIf
+            Case "<>"
+              If ValF(Value1) <> ValF(Value2) : ProcedureReturn #True : EndIf
+          EndSelect ;}
+        Default                         ;{
+          Select Compare
+            Case "="
+              If Value1 =  Value2 : ProcedureReturn #True : EndIf
+            Case "<"
+              If Value1 <  Value2 : ProcedureReturn #True : EndIf
+            Case ">"
+              If Value1 >  Value2 : ProcedureReturn #True : EndIf
+            Case ">="
+              If Value1 >= Value2 : ProcedureReturn #True : EndIf
+            Case "<="
+              If Value1 <= Value2 : ProcedureReturn #True : EndIf
+            Case "<>"
+              If Value1 <> Value2 : ProcedureReturn #True : EndIf
+          EndSelect ;}
+      EndSelect
+    
+      ProcedureReturn #False
+    EndProcedure  
+    
+    Procedure.i IsCondition_(Content.s, Term.s, Flag.i=#False)
+      ; Flag: #Number, #Integer, #Grades, #Float, #Cash
+      Define.i Result1, Result2, Row, Column
+      Define   Type$, Expr$, Compare$, Link$
+      Type$ = StringField(Term, 1, "{")
+      Expr$ = ExtractTag_(Term, "{", "}")
+      Link$ = ExtractTag_(Term, "[", "]")
+      
+      If Link$ ;{ Link to another cell
+        
+        Row    = ListIndex(ListEx()\Rows())
+        Column = ListIndex(ListEx()\Cols())
+        
+        Select Left(Link$, 1) 
+          Case "R"
+            Row    = Val(LTrim(Link$, "R"))
+          Case "C"
+            Column = Val(LTrim(Link$, "C"))
+          Default
+            Row    = Val(StringField(Link$, 1, ":"))
+            Column = Val(StringField(Link$, 2, ":"))
+        EndSelect
+        
+        PushListPosition(ListEx()\Rows())
+        
+        If SelectElement(ListEx()\Rows(), Row)
+          PushListPosition(ListEx()\Cols())
+          If SelectElement(ListEx()\Cols(), Column)
+            Content = ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Value
+          EndIf
+          PopListPosition(ListEx()\Cols())
+        EndIf 
+        
+        PopListPosition(ListEx()\Rows())
+        ;}
+      EndIf
+        
+      Select UCase(Type$)
+        Case "NEGATIVE", "NEGATIV"  ;{ NEGATIVE
+          If CompareValues_(Content, "<", "0", Flag)
+            ProcedureReturn #Condition1
+          EndIf ;}
+        Case "POSITIVE", "POSITIV"  ;{ POSITIVE
+          If CompareValues_(Content, ">", "0", Flag)
+            ProcedureReturn #Condition1
+          EndIf ;}
+        Case "EQUAL", "GLEICH"      ;{ EQUAL{3.95} / EQUAL{String}
+          If CompareValues_(Content, "=", Expr$, Flag)
+            ProcedureReturn #Condition1
+          EndIf ;}
+        Case "LIKE"                 ;{ LIKE{*end} / LIKE{start*} / LIKE{*part*}
+          If Left(Expr$, 1) = "*" And Right(Expr$, 1) = "*"
+            Expr$ = Trim(Expr$, "*")
+            If CountString(Content, Expr$) : ProcedureReturn #Condition1 : EndIf
+          ElseIf Left(Expr$, 1)  = "*"
+            Expr$ = LTrim(Expr$, "*")
+            If Right(Content, Len(Expr$)) = Expr$ : ProcedureReturn #Condition1 : EndIf
+          ElseIf Right(Expr$, 1) = "*"
+            Expr$ = RTrim(Expr$, "*")
+            If Left(Content, Len(Expr$))  = Expr$ : ProcedureReturn #Condition1 : EndIf
+          Else
+            If Left(Content, Len(Expr$))  = Expr$ : ProcedureReturn #Condition1 : EndIf
+          EndIf ;}
+        Case "COMPARE", "VERGLEICH" ;{ COMPARE{<|12}  =>  [?] < 12
+          If CompareValues_(Content, StringField(Expr$, 1, "|"), StringField(Expr$, 2, "|"), Flag)
+            ProcedureReturn #Condition1
+          EndIf ;}
+        Case "BETWEEN", "ZWISCHEN"  ;{ BETWEEN{10|20}  =>  10 < [?] < 20
+          Result1 = CompareValues_(Content, ">", StringField(Expr$, 1, "|"), Flag)
+          Result2 = CompareValues_(Content, "<", StringField(Expr$, 2, "|"), Flag)
+          If Result1 And Result2
+            ProcedureReturn #Condition1
+          EndIf ;}
+        Case "BEYOND"               ;{ BEYOND{3|4}  =>  3 > [?] OR [?] > 4
+          Result1 = CompareValues_(Content, "<", StringField(Expr$, 1, "|"), Flag)
+          Result2 = CompareValues_(Content, ">", StringField(Expr$, 2, "|"), Flag)
+          If Result1
+            ProcedureReturn #Condition1
+          ElseIf Result2
+            ProcedureReturn #Condition2
+          EndIf ;}
+        Case "CHOICE", "AUSWAHL"    ;{ CHOICE{m|f}[C4]
+          Result1 = CompareValues_(Content, "=", StringField(Expr$, 1, "|"), Flag)
+          Result2 = CompareValues_(Content, "=", StringField(Expr$, 2, "|"), Flag)
+          If Result1
+            ProcedureReturn #Condition1
+          ElseIf Result2
+            ProcedureReturn #Condition2
+          EndIf ;}
+      EndSelect
+      
+      ProcedureReturn #False
+    EndProcedure
+      
+  CompilerEndIf
+  
+  ;- _____ Validate Content _____
   
   CompilerIf #Enable_Validation
     
@@ -1390,18 +1566,35 @@ Module ListEx
       
       If Value = "" : ProcedureReturn #True : EndIf
       
-      If ListEx()\Cols()\Flags & #Number
-        ProcedureReturn IsInteger(Value, #True) 
-      ElseIf ListEx()\Cols()\Flags & #Integer
-        ProcedureReturn IsInteger(Value) 
-      ElseIf ListEx()\Cols()\Flags & #Float
-        ProcedureReturn IsFloat(Value)
+      If ListEx()\Cols()\Flags & #Number      ;{ Number
+        If ListEx()\Cols()\Term
+          ProcedureReturn IsCondition_(Value, ListEx()\Cols()\Term, #Number)
+        Else  
+          ProcedureReturn IsInteger(Value, #True) 
+        EndIf ;}
+      ElseIf ListEx()\Cols()\Flags & #Integer ;{ Integer
+        If ListEx()\Cols()\Term
+          ProcedureReturn IsCondition_(Value, ListEx()\Cols()\Term, #Integer)
+        Else  
+          ProcedureReturn IsInteger(Value) 
+        EndIf ;}
+      ElseIf ListEx()\Cols()\Flags & #Float   ;{ Float
+        If ListEx()\Cols()\Term
+          ProcedureReturn IsCondition_(Value, ListEx()\Cols()\Term, #Float)
+        Else
+         ProcedureReturn IsFloat(Value)
+        EndIf ;}
       ElseIf ListEx()\Cols()\Flags & #Grades
         ProcedureReturn IsGrade(Value)
       ElseIf ListEx()\Cols()\Flags & #Cash
         ProcedureReturn IsCash(Value)
       ElseIf ListEx()\Cols()\Flags & #Time
         ProcedureReturn IsTime(Value)
+      Else                                    ;{ String
+        If ListEx()\Cols()\Term
+          ProcedureReturn IsCondition_(Value, ListEx()\Cols()\Term)
+        EndIf   
+        ;}
       EndIf  
       
       ProcedureReturn #True
@@ -1444,169 +1637,7 @@ Module ListEx
       EndIf
   
     EndProcedure
-    
-    Procedure.s ExtractTag_(Text.s, Left.s, Right.s)
-      Define.i idxL, idxR
-    
-      idxL = FindString(Text, Left,  1)
-      idxR = FindString(Text, Right, idxL + 1)
-      
-      If idxL And idxR
-        idxL + Len(Left)
-        ProcedureReturn Mid(Text, idxL, idxR-idxL)
-      EndIf
-    
-    EndProcedure
-    
-    Procedure.i CompareValues_(Value1.s, Compare.s, Value2.s, Flag.i)
-      
-      Select Flag
-        Case #Number, #Integer, #Grades ;{
-          Select Compare
-            Case "="
-              If Val(Value1) =  Val(Value2) : ProcedureReturn #True : EndIf
-            Case "<"
-              If Val(Value1) <  Val(Value2) : ProcedureReturn #True : EndIf
-            Case ">"
-              If Val(Value1) >  Val(Value2) : ProcedureReturn #True : EndIf
-            Case ">="
-              If Val(Value1) >= Val(Value2) : ProcedureReturn #True : EndIf
-            Case "<="
-              If Val(Value1) <= Val(Value2) : ProcedureReturn #True : EndIf
-            Case "<>"
-              If Val(Value1) <> Val(Value2) : ProcedureReturn #True : EndIf
-          EndSelect ;}        
-        Case #Float, #Cash              ;{
-          Value1 = ReplaceString(Value1, ListEx()\Country\DecimalSeperator, ".")
-          Value2 = ReplaceString(Value2, ListEx()\Country\DecimalSeperator, ".")
-          Select Compare
-            Case "="
-              If ValF(Value1) =  ValF(Value2) : ProcedureReturn #True : EndIf
-            Case "<"
-              If ValF(Value1) <  ValF(Value2) : ProcedureReturn #True : EndIf
-            Case ">"
-              If ValF(Value1) >  ValF(Value2) : ProcedureReturn #True : EndIf
-            Case ">="
-              If ValF(Value1) >= ValF(Value2) : ProcedureReturn #True : EndIf
-            Case "<="
-              If ValF(Value1) <= ValF(Value2) : ProcedureReturn #True : EndIf
-            Case "<>"
-              If ValF(Value1) <> ValF(Value2) : ProcedureReturn #True : EndIf
-          EndSelect ;}
-        Default                         ;{
-          Select Compare
-            Case "="
-              If Value1 =  Value2 : ProcedureReturn #True : EndIf
-            Case "<"
-              If Value1 <  Value2 : ProcedureReturn #True : EndIf
-            Case ">"
-              If Value1 >  Value2 : ProcedureReturn #True : EndIf
-            Case ">="
-              If Value1 >= Value2 : ProcedureReturn #True : EndIf
-            Case "<="
-              If Value1 <= Value2 : ProcedureReturn #True : EndIf
-            Case "<>"
-              If Value1 <> Value2 : ProcedureReturn #True : EndIf
-          EndSelect ;}
-      EndSelect
-    
-      ProcedureReturn #False
-    EndProcedure  
-    
-    Procedure.i IsMarked_(Content.s, Term.s, Flag.i)
-      ; Flag: #Number, #Integer, #Grades, #Float, #Cash
-      Define.i Result1, Result2, Row, Column
-      Define   Type$, Expr$, Compare$, Link$
-      Type$ = StringField(Term, 1, "{")
-      Expr$ = ExtractTag_(Term, "{", "}")
-      Link$ = ExtractTag_(Term, "[", "]")
-      
-      If Link$ ;{ Link to another cell
-        
-        Row    = ListIndex(ListEx()\Rows())
-        Column = ListIndex(ListEx()\Cols())
-        
-        Select Left(Link$, 1) 
-          Case "R"
-            Row    = Val(LTrim(Link$, "R"))
-          Case "C"
-            Column = Val(LTrim(Link$, "C"))
-          Default
-            Row    = Val(StringField(Link$, 1, ":"))
-            Column = Val(StringField(Link$, 2, ":"))
-        EndSelect
-        
-        PushListPosition(ListEx()\Rows())
-        
-        If SelectElement(ListEx()\Rows(), Row)
-          PushListPosition(ListEx()\Cols())
-          If SelectElement(ListEx()\Cols(), Column)
-            Content = ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Value
-          EndIf
-          PopListPosition(ListEx()\Cols())
-        EndIf 
-        
-        PopListPosition(ListEx()\Rows())
-        ;}
-      EndIf
-        
-      Select UCase(Type$)
-        Case "NEGATIVE", "NEGATIV"  ;{ NEGATIVE
-          If CompareValues_(Content, "<", "0", Flag)
-            ProcedureReturn #Condition1
-          EndIf ;}
-        Case "POSITIVE", "POSITIV"  ;{ POSITIVE
-          If CompareValues_(Content, ">", "0", Flag)
-            ProcedureReturn #Condition1
-          EndIf ;}
-        Case "EQUAL", "GLEICH"      ;{ EQUAL{3.95} / EQUAL{String}
-          If CompareValues_(Content, "=", Expr$, Flag)
-            ProcedureReturn #Condition1
-          EndIf ;}
-        Case "LIKE"                 ;{ LIKE{*end} / LIKE{start*} / LIKE{*part*}
-          If Left(Expr$, 1) = "*" And Right(Expr$, 1) = "*"
-            Expr$ = Trim(Expr$, "*")
-            If CountString(Content, Expr$) : ProcedureReturn #Condition1 : EndIf
-          ElseIf Left(Expr$, 1)  = "*"
-            Expr$ = LTrim(Expr$, "*")
-            If Right(Content, Len(Expr$)) = Expr$ : ProcedureReturn #Condition1 : EndIf
-          ElseIf Right(Expr$, 1) = "*"
-            Expr$ = RTrim(Expr$, "*")
-            If Left(Content, Len(Expr$))  = Expr$ : ProcedureReturn #Condition1 : EndIf
-          Else
-            If Left(Content, Len(Expr$))  = Expr$ : ProcedureReturn #Condition1 : EndIf
-          EndIf ;}
-        Case "COMPARE", "VERGLEICH" ;{ COMPARE{<|12}  =>  [?] < 12
-          If CompareValues_(Content, StringField(Expr$, 1, "|"), StringField(Expr$, 2, "|"), Flag)
-            ProcedureReturn #Condition1
-          EndIf ;}
-        Case "BETWEEN", "ZWISCHEN"  ;{ BETWEEN{10|20}  =>  10 < [?] < 20
-          Result1 = CompareValues_(Content, ">", StringField(Expr$, 1, "|"), Flag)
-          Result2 = CompareValues_(Content, "<", StringField(Expr$, 2, "|"), Flag)
-          If Result1 And Result2
-            ProcedureReturn #Condition1
-          EndIf ;}
-        Case "BEYOND"               ;{ BEYOND{3|4}  =>  3 > [?] OR [?] > 4
-          Result1 = CompareValues_(Content, "<", StringField(Expr$, 1, "|"), Flag)
-          Result2 = CompareValues_(Content, ">", StringField(Expr$, 2, "|"), Flag)
-          If Result1
-            ProcedureReturn #Condition1
-          ElseIf Result2
-            ProcedureReturn #Condition2
-          EndIf ;}
-        Case "CHOICE", "AUSWAHL"    ;{ CHOICE{m|f}[C4]
-          Result1 = CompareValues_(Content, "=", StringField(Expr$, 1, "|"), Flag)
-          Result2 = CompareValues_(Content, "=", StringField(Expr$, 2, "|"), Flag)
-          If Result1
-            ProcedureReturn #Condition1
-          ElseIf Result2
-            ProcedureReturn #Condition2
-          EndIf ;}
-      EndSelect
-      
-      ProcedureReturn #False
-    EndProcedure
-    
+
   CompilerEndIf   
   
   ;- _____ Sorting _____
@@ -1984,7 +2015,7 @@ Module ListEx
                   
                   If ListEx()\Cols()\Flags & #MarkContent
                     If FindMapElement(ListEx()\Mark(), ListEx()\Cols()\Key)
-                      Select IsMarked_(Text$, ListEx()\Mark()\Term, ListEx()\Cols()\Flags)
+                      Select IsCondition_(Text$, ListEx()\Mark()\Term, ListEx()\Cols()\Flags)
                         Case #Condition1
                           If ListEx()\Mark()\FontID <> #PB_Default : DrawingFont(ListEx()\Mark()\FontID) : EndIf
                         Case #Condition2
@@ -2015,7 +2046,7 @@ Module ListEx
                   
                   If ListEx()\Cols()\Flags & #MarkContent
                     If FindMapElement(ListEx()\Mark(), ListEx()\Cols()\Key)
-                      Select IsMarked_(Text$, ListEx()\Mark()\Term, ListEx()\Cols()\Flags)
+                      Select IsCondition_(Text$, ListEx()\Mark()\Term, ListEx()\Cols()\Flags)
                         Case #Condition1
                           If ListEx()\Mark()\FontID <> #PB_Default : DrawingFont(ListEx()\Mark()\FontID) : EndIf
                         Case #Condition2
@@ -2377,7 +2408,7 @@ Module ListEx
     Define.s Text
     
     ;{ --- Color ---
-    If ListEx()\String\Wrong
+    If IsContentValid_(ListEx()\String\Text) = #False
       TextColor = ListEx()\Color\WrongFront
       BackColor = ListEx()\Color\WrongBack
     Else  
@@ -2720,7 +2751,7 @@ Module ListEx
                   
                   If ListEx()\Cols()\Flags & #MarkContent
                     If FindMapElement(ListEx()\Mark(), ListEx()\Cols()\Key)
-                      Select IsMarked_(Text$, ListEx()\Mark()\Term, ListEx()\Cols()\Flags)
+                      Select IsCondition_(Text$, ListEx()\Mark()\Term, ListEx()\Cols()\Flags)
                         Case #Condition1
                           FrontColor = ListEx()\Mark()\Color1
                           If ListEx()\Mark()\FontID <> #PB_Default : DrawingFont(ListEx()\Mark()\FontID) : EndIf
@@ -2841,7 +2872,7 @@ Module ListEx
                   
                   If ListEx()\Cols()\Flags & #MarkContent
                     If FindMapElement(ListEx()\Mark(), ListEx()\Cols()\Key)
-                      Select IsMarked_(Text$, ListEx()\Mark()\Term, ListEx()\Cols()\Flags)
+                      Select IsCondition_(Text$, ListEx()\Mark()\Term, ListEx()\Cols()\Flags)
                         Case #Condition1
                           FrontColor = ListEx()\Mark()\Color1
                           If ListEx()\Mark()\FontID <> #PB_Default : DrawingFont(ListEx()\Mark()\FontID) : EndIf
@@ -2886,7 +2917,7 @@ Module ListEx
                   
                   If ListEx()\Cols()\Flags & #MarkContent
                     If FindMapElement(ListEx()\Mark(), ListEx()\Cols()\Key)
-                      Select IsMarked_(Text$, ListEx()\Mark()\Term, ListEx()\Cols()\Flags)
+                      Select IsCondition_(Text$, ListEx()\Mark()\Term, ListEx()\Cols()\Flags)
                         Case #Condition1
                           FrontColor = ListEx()\Mark()\Color1
                           If ListEx()\Mark()\FontID <> #PB_Default : DrawingFont(ListEx()\Mark()\FontID) : EndIf
@@ -3251,7 +3282,8 @@ Module ListEx
             ListEx()\String\Label   = ListEx()\Cols()\Key
             ListEx()\String\Text    = ListEx()\Rows()\Column(Key$)\Value
             ListEx()\String\Flag    = #True
-
+            ListEx()\String\Wrong   = #False
+            
             ListEx()\String\CursorPos = Len(ListEx()\String\Text)
             
             DrawString_()
@@ -3884,7 +3916,15 @@ Module ListEx
           If ListEx()\String\MaxChars
             ListEx()\String\Text = Left(InsertString(ListEx()\String\Text, Char$, ListEx()\String\CursorPos), ListEx()\String\MaxChars)
           Else
+            
             ListEx()\String\Text = InsertString(ListEx()\String\Text, Char$, ListEx()\String\CursorPos)
+            
+            If SelectElement(ListEx()\Cols(), ListEx()\String\Col)
+              If ListEx()\Cols()\MaxChars
+                ListEx()\String\Text = Left(ListEx()\String\Text, ListEx()\Cols()\MaxChars)
+              EndIf  
+            EndIf
+          
           EndIf   
           
           PostEvent(#PB_Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_Change)
@@ -4221,16 +4261,12 @@ Module ListEx
               EndIf
               
               If Flags & #CellFront
-                Debug "#CellFront"
                 FrontColor = ListEx()\Rows()\Column(Key$)\Color\Front
               ElseIf ListEx()\Rows()\Color\Front <> #PB_Default
-                Debug "ListEx()\Rows()\Color\Front"
                 FrontColor = ListEx()\Rows()\Color\Front
               ElseIf ListEx()\Cols()\FrontColor <> #PB_Default
-                Debug "ListEx()\Cols()\FrontColor"
                 FrontColor = ListEx()\Cols()\FrontColor
               Else
-                Debug "ListEx()\Color\Front: " + Str(ListEx()\Color\Front)
                 FrontColor = ListEx()\Color\Front
               EndIf
               
@@ -5223,7 +5259,23 @@ Module ListEx
     EndProcedure
     
   CompilerEndIf
-
+  
+  CompilerIf #Enable_Validation
+    
+    Procedure   SetCondition(GNum.i, Column.i, Term.s)
+      
+      If FindMapElement(ListEx(), Str(GNum))
+        
+        If SelectElement(ListEx()\Cols(), Column)
+          ListEx()\Cols()\Term = Term
+        EndIf
+        
+      EndIf  
+   
+    EndProcedure
+    
+  CompilerEndIf  
+  
   Procedure.i AddColumn(GNum.i, Column.i, Title.s, Width.f, Label.s="", Flags.i=#False)
     Define.s Term
     Define.i Result
@@ -6510,6 +6562,8 @@ Module ListEx
           Case #ColumnWidth
             ListEx()\Cols()\Width    = Value
             UpdateColumnX_()
+          Case #MaxChars
+            ListEx()\Cols()\MaxChars = Value
           Case #FontID
             ListEx()\Cols()\FontID   = Value
           Case #Font  
@@ -7326,6 +7380,11 @@ CompilerIf #PB_Compiler_IsMainFile
         ListEx::MarkContent(#List, 1, "CHOICE{male|female}[C3]", $D30094, $9314FF, FontID(#Font_Arial9B))
       CompilerEndIf
       
+      ; --- Test validation ---
+      CompilerIf ListEx::#Enable_Validation
+        ;ListEx::SetCondition(#List, 2, "BETWEEN{0|9}")
+      CompilerEndIf
+      
       ; --- Use color theme ---
       ListEx::SetColorTheme(#List, ListEx::#Theme_Blue)
       ListEx::SetColor(#List, ListEx::#AlternateRowColor, $FBF7F5)
@@ -7453,9 +7512,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 5595
-; FirstLine = 1158
-; Folding = 1HAAgAACAH5-8--xfABFqvPJigXUwCB9-PABZ4nAICaHcAGEdAAAAMAAAgEIf-
+; CursorPosition = 7376
+; FirstLine = 1894
+; Folding = 9PAAAAAEAOUEIBMgwfAhHqfIJqofUwCB9-PBRZ4nAIBgJwBYQ2BAAAAAAAAAg88
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
