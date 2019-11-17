@@ -69,7 +69,7 @@
 
 ;}
 
- XIncludeFile "ModuleEx.pbi"
+; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule StringEx
   
