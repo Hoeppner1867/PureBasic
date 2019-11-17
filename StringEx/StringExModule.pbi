@@ -69,11 +69,12 @@
 
 ;}
 
-; XIncludeFile "ModuleEx.pbi"
+ XIncludeFile "ModuleEx.pbi"
 
 DeclareModule StringEx
   
-  #Version = 19111700
+  #Version  = 19111700
+  #ModuleEx = 19111702
   
   #Enable_AutoComplete       = #True
   #Enable_ShowPasswordButton = #True
@@ -1611,7 +1612,7 @@ Module StringEx
     Define.i Result, txtNum
     
     CompilerIf Defined(ModuleEx, #PB_Module)
-      If #Version < ModuleEx::#Version : Debug "Please update ModuleEx.pbi" : EndIf 
+      If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
     CompilerEndIf
     
     If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
@@ -2168,8 +2169,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 11
-; Folding = cHAEAgAgEQEAwBBFAEwAAg+
+; CursorPosition = 76
+; FirstLine = 25
+; Folding = cHAEAgAgEQEAwBBFAcwAAg+
 ; EnableThread
 ; EnableXP
 ; DPIAware

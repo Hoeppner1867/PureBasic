@@ -131,7 +131,8 @@
 
 DeclareModule ListEx
   
-  #Version = 17111901
+  #Version  = 17111901
+  #ModuleEx = 19111702
   
   #Enable_Validation  = #True
   #Enable_MarkContent = #True
@@ -5593,10 +5594,10 @@ Module ListEx
   
   Procedure.i Gadget(GNum.i, X.f, Y.f, Width.f, Height.f, ColTitle.s, ColWidth.f, ColLabel.s="", Flags.i=#False, WindowNum.i=#PB_Default)
     Define.i Result
-    
+
     CompilerIf Defined(ModuleEx, #PB_Module)
-      If #Version < ModuleEx::#Version : Debug "Please update ModuleEx.pbi" : EndIf 
-    CompilerEndIf    
+      If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
+    CompilerEndIf
     
     If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
       If IsGadget(GNum)
@@ -7452,9 +7453,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 14
-; FirstLine = 7
-; Folding = 1HAAgAACAH5-8--xfABFqvPJigXUwCB9-PABZ4nAICaHcACEdAAAAMAAAgEIf-
+; CursorPosition = 5595
+; FirstLine = 1158
+; Folding = 1HAAgAACAH5-8--xfABFqvPJigXUwCB9-PABZ4nAICaHcAGEdAAAAMAAAgEIf-
 ; EnableXP
 ; DPIAware
 ; EnableUnicode

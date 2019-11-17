@@ -46,7 +46,8 @@
 
 DeclareModule {Gadget}
   
-  #Version = 
+  #Version  = 
+  #ModuleEx = 19111702
   
 	;- ===========================================================================
 	;-   DeclareModule - Constants
@@ -471,12 +472,13 @@ Module {Gadget}
 		EndIf
 
 	EndProcedure
-
+	
+	
 	Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
 		Define DummyNum, Result.i
 		
 		CompilerIf Defined(ModuleEx, #PB_Module)
-      If #Version < ModuleEx::#Version : Debug "Please update ModuleEx.pbi" : EndIf 
+      If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
     CompilerEndIf 
 		
 		If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
@@ -584,6 +586,7 @@ Module {Gadget}
 
 	EndProcedure
 	
+	
 	Procedure   SetAutoResizeFlags(GNum.i, Flags.i)
     
     If FindMapElement({Gadget}(), Str(GNum))
@@ -668,8 +671,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 289
-; FirstLine = 97
+; CursorPosition = 480
+; FirstLine = 123
 ; Folding = EEAgGADhw
 ; EnableXP
 ; DPIAware

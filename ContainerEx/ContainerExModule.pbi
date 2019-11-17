@@ -56,7 +56,8 @@
 
 DeclareModule ContainerEx
   
-  #Version = 19111700
+  #Version  = 19111700
+  #ModuleEx = 19111702
   
 	;- ===========================================================================
 	;-   DeclareModule - Constants
@@ -419,7 +420,7 @@ Module ContainerEx
 		Define DummyNum, Result.i
 		
 		CompilerIf Defined(ModuleEx, #PB_Module)
-      If #Version < ModuleEx::#Version : Debug "Please update ModuleEx.pbi" : EndIf 
+      If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
     CompilerEndIf
 		
 		If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
@@ -644,8 +645,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 422
-; FirstLine = 214
-; Folding = sYCUIEg-
+; CursorPosition = 423
+; FirstLine = 206
+; Folding = sYCUYEg-
 ; EnableXP
 ; DPIAware
