@@ -58,6 +58,8 @@
 
 DeclareModule ModuleEx
   
+  #Version = 15111900
+  
   #Enable_Tabulator_Management = #True
   
   EnumerationBinary ;{ Flags
@@ -511,7 +513,11 @@ Module ModuleEx
 	; _____ GUI Theme _____
 	
 	Procedure SaveTheme_(File.s)
-	  Define.i XML
+	  Define.i XML, FontNum
+	  
+	  FontNum = ThemeGUI\Font\Num
+	  
+	  ThemeGUI\Font\Num = #False
 	  
 	  XML = CreateXML(#PB_Any)
     If XML
@@ -520,7 +526,8 @@ Module ModuleEx
       SaveXML(XML, File)
       FreeXML(XML)
     EndIf
-
+    
+    ThemeGUI\Font\Num = FontNum
 	  
 	EndProcedure
 	
@@ -1244,8 +1251,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1004
-; FirstLine = 229
+; CursorPosition = 75
+; FirstLine = 23
 ; Folding = EMRQAACgAAAC+
 ; EnableXP
 ; DPIAware
