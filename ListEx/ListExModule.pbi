@@ -12,6 +12,7 @@
 ; Last Update: 17.11.2019
 ;
 ; - Added: Attribute #MaxChars for editing cells
+; - Added: #EventType_Change for string gadget
 ;
 ; - Added: gadget number 'ListEx::#Theme' (#PB_Default) changes all gadgets for suitable commands
 ; - Bugfix: #LockCell and Drag & Drop
@@ -130,7 +131,7 @@
 
 DeclareModule ListEx
   
-  #Version = 17111900
+  #Version = 17111901
   
   #Enable_Validation  = #True
   #Enable_MarkContent = #True
@@ -303,13 +304,14 @@ DeclareModule ListEx
     #Event_Theme        = ModuleEx::#Event_Theme
     
     #EventType_Button   = ModuleEx::#EventType_Button
-    #EventType_String   = ModuleEx::#EventType_String
+    #EventType_Change   = ModuleEx::#EventType_Change
     #EventType_CheckBox = ModuleEx::#EventType_CheckBox
-    #EventType_ComboBox = ModuleEx::#EventType_ComboBox
+    #EventType_ComboBox = ModuleEx::#EventType_ComboBox 
     #EventType_Date     = ModuleEx::#EventType_Date
     #EventType_Header   = ModuleEx::#EventType_Header
     #EventType_Link     = ModuleEx::#EventType_Link
     #EventType_Row      = ModuleEx::#EventType_Row
+    #EventType_String   = ModuleEx::#EventType_String
     
   CompilerElse
     
@@ -320,13 +322,14 @@ DeclareModule ListEx
     
     Enumeration #PB_EventType_FirstCustomValue
       #EventType_Button
-      #EventType_String
+      #EventType_Change
       #EventType_CheckBox
       #EventType_ComboBox
       #EventType_Date
       #EventType_Header
       #EventType_Link
       #EventType_Row
+      #EventType_String
     EndEnumeration
     
   CompilerEndIf
@@ -3238,15 +3241,15 @@ Module ListEx
               ListEx()\String\FontID = ListEx()\Row\FontID
             EndIf  
             
-            ListEx()\String\Row    = Row
-            ListEx()\String\Col    = Column
-            ListEx()\String\X      = ListEx()\Cols()\X
-            ListEx()\String\Y      = ListEx()\Rows()\Y
-            ListEx()\String\Width  = ListEx()\Cols()\Width
-            ListEx()\String\Height = ListEx()\Rows()\Height
-            ListEx()\String\Label  = ListEx()\Cols()\Key
-            ListEx()\String\Text   = ListEx()\Rows()\Column(Key$)\Value
-            ListEx()\String\Flag   = #True
+            ListEx()\String\Row     = Row
+            ListEx()\String\Col     = Column
+            ListEx()\String\X       = ListEx()\Cols()\X
+            ListEx()\String\Y       = ListEx()\Rows()\Y
+            ListEx()\String\Width   = ListEx()\Cols()\Width
+            ListEx()\String\Height  = ListEx()\Rows()\Height
+            ListEx()\String\Label   = ListEx()\Cols()\Key
+            ListEx()\String\Text    = ListEx()\Rows()\Column(Key$)\Value
+            ListEx()\String\Flag    = #True
 
             ListEx()\String\CursorPos = Len(ListEx()\String\Text)
             
@@ -3265,14 +3268,14 @@ Module ListEx
               ResizeGadget(ListEx()\ComboNum, X, Y + 1, ListEx()\Cols()\Width - 1,  ListEx()\Rows()\Height)
               LoadComboItems_(Column)
               SetGadgetText(ListEx()\ComboNum, ListEx()\Rows()\Column(Key$)\Value)
-              ListEx()\ComboBox\Row    = Row
-              ListEx()\ComboBox\Col    = Column
-              ListEx()\ComboBox\X      = ListEx()\Cols()\X
-              ListEx()\ComboBox\Y      = ListEx()\Rows()\Y
-              ListEx()\ComboBox\Width  = ListEx()\Cols()\Width
-              ListEx()\ComboBox\Height = ListEx()\Rows()\Height
-              ListEx()\ComboBox\Label  = ListEx()\Cols()\Key
-              ListEx()\ComboBox\Flag   = #True
+              ListEx()\ComboBox\Row     = Row
+              ListEx()\ComboBox\Col     = Column
+              ListEx()\ComboBox\X       = ListEx()\Cols()\X
+              ListEx()\ComboBox\Y       = ListEx()\Rows()\Y
+              ListEx()\ComboBox\Width   = ListEx()\Cols()\Width
+              ListEx()\ComboBox\Height  = ListEx()\Rows()\Height
+              ListEx()\ComboBox\Label   = ListEx()\Cols()\Key
+              ListEx()\ComboBox\Flag    = #True
               
               BindShortcuts_(#True)
               HideGadget(ListEx()\ComboNum, #False)
@@ -3306,14 +3309,14 @@ Module ListEx
                 If Date > 0 : SetGadgetState(ListEx()\DateNum, Date) : EndIf
               EndIf
 
-              ListEx()\Date\Row    = Row
-              ListEx()\Date\Col    = Column
-              ListEx()\Date\X      = ListEx()\Cols()\X
-              ListEx()\Date\Y      = ListEx()\Rows()\Y
-              ListEx()\Date\Width  = ListEx()\Cols()\Width
-              ListEx()\Date\Height = ListEx()\Rows()\Height
-              ListEx()\Date\Label  = ListEx()\Cols()\Key
-              ListEx()\Date\Flag   = #True
+              ListEx()\Date\Row     = Row
+              ListEx()\Date\Col     = Column
+              ListEx()\Date\X       = ListEx()\Cols()\X
+              ListEx()\Date\Y       = ListEx()\Rows()\Y
+              ListEx()\Date\Width   = ListEx()\Cols()\Width
+              ListEx()\Date\Height  = ListEx()\Rows()\Height
+              ListEx()\Date\Label   = ListEx()\Cols()\Key
+              ListEx()\Date\Flag    = #True
             
               BindShortcuts_(#True)
               HideGadget(ListEx()\DateNum, #False)
@@ -3882,7 +3885,10 @@ Module ListEx
           Else
             ListEx()\String\Text = InsertString(ListEx()\String\Text, Char$, ListEx()\String\CursorPos)
           EndIf   
-
+          
+          PostEvent(#PB_Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_Change)
+          PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_Change)
+          
           DrawString_()
         EndIf
         
@@ -7446,9 +7452,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 5604
-; FirstLine = 1257
-; Folding = 9HAAAAACAH5-8--xfABFqvPJigXUgjB9-PABZ4nAICaHcAAEdAAAAMAAAgEIf-
+; CursorPosition = 14
+; FirstLine = 7
+; Folding = 1HAAgAACAH5-8--xfABFqvPJigXUwCB9-PABZ4nAICaHcACEdAAAAMAAAgEIf-
 ; EnableXP
 ; DPIAware
 ; EnableUnicode

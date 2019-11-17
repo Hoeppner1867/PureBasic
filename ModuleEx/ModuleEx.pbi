@@ -88,23 +88,25 @@ DeclareModule ModuleEx
   
   Enumeration #PB_EventType_FirstCustomValue ;{ #EventType
     #EventType_Button
+    #EventType_Change
     #EventType_CheckBox
     #EventType_ComboBox
     #EventType_Date
+    #EventType_Day
     #EventType_DropDown
+    #EventType_Focus
     #EventType_Header
     #EventType_HyperLink
     #EventType_ImageButton
     #EventType_Link
+    #EventType_LostFocus
+    #EventType_Month
+    #EventType_RightClick
+    #EventType_Row
     #EventType_SpinBox
     #EventType_String
-    #EventType_Row
-    #EventType_Day
-    #EventType_Month
-    #EventType_Year
-    #EventType_Focus
-    #EventType_RightClick
     #EventType_TrackBar
+    #EventType_Year
   EndEnumeration ;}
   
   #Event_Tabulator      = 64000
@@ -1251,8 +1253,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 60
-; FirstLine = 23
-; Folding = UMRQAACgAAAC+
+; CursorPosition = 90
+; FirstLine = 38
+; Folding = kNRQAACgAAAC+
 ; EnableXP
 ; DPIAware
