@@ -9,7 +9,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
   
-; Last Update: 14.11.2019
+; Last Update: 17.11.2019
+;
+; Added: ClearItems() / Disable()
 ;
 ; Added: #UseExistingCanvas
 ; Added: #Container (use container instead of window for resizing)
@@ -73,9 +75,12 @@
 
 ;}
 
-;XIncludeFile "ModuleEx.pbi"
+; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule StatusBar
+  
+  #Version  = 19111700
+  #ModuleEx = 19111703
   
   ;- ===========================================================================
   ;-   DeclareModule - Constants / Structures
@@ -261,7 +266,7 @@ Module StatusBar
     CanvasNum.i
     
     IgnoreNum.i ; Number of fields with #PB_Ignore
-    Font.i
+    FontID.i
     Focus.i
     ToolTip.i
     Menu.i
@@ -440,8 +445,8 @@ Module StatusBar
         ;{ --- Font ---
         If StBEx()\Fields()\Flags & #Font
           DrawingFont(FontID(StBEx()\Fields()\Font))
-        ElseIf IsFont(StBEx()\Font)
-          DrawingFont(FontID(StBEx()\Font))
+        Else
+          DrawingFont(StBEx()\FontID)
         EndIf ;}
         
         If StBEx()\Fields()\Flags & #Image      ;{ Image
@@ -542,11 +547,21 @@ Module StatusBar
 
       ForEach StBEx()
         
+        If IsFont(ModuleEx::ThemeGUI\Font\Num)
+          StBEx()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
+        EndIf
+        
         StBEx()\Color\Front     = ModuleEx::ThemeGUI\FrontColor
         StBEx()\Color\Back      = ModuleEx::ThemeGUI\GadgetColor
         StBEx()\Color\Separator = ModuleEx::ThemeGUI\Button\BorderColor
         StBEx()\Color\Border    = ModuleEx::ThemeGUI\BorderColor
-
+        
+        If ModuleEx::ThemeGUI\WindowColor > 0
+          If IsWindow(StBEx()\Window\Num)
+            SetWindowColor(StBEx()\Window\Num, ModuleEx::ThemeGUI\WindowColor) 
+          EndIf  
+        EndIf 
+        
         Draw_()
       Next
       
@@ -824,7 +839,7 @@ Module StatusBar
             If StBEx()\Fields()\Flags & #Font
               If IsFont(StBEx()\Fields()\Font) : SetGadgetFont(StBEx()\Fields()\GadgetNum, FontID(StBEx()\Fields()\Font)) : EndIf
             Else
-              If IsFont(StBEx()\Font) : SetGadgetFont(StBEx()\Fields()\GadgetNum, FontID(StBEx()\Font)) : EndIf
+              SetGadgetFont(StBEx()\Fields()\GadgetNum, StBEx()\FontID)
             EndIf
             SetGadgetData(StBEx()\Fields()\GadgetNum, StBEx()\CanvasNum)
             BindGadgetEvent(StBEx()\Fields()\GadgetNum, @_GadgetHandler())
@@ -926,7 +941,11 @@ Module StatusBar
   
   Procedure.i Gadget(GNum.i, WindowNum.i, MenuNum.i=#False, Flags.i=#False)
     ; Flag #Container: WindowNum = ContainerGadgetNum
-    Define.i Result, Y, Width, Height
+    Define.i DummyNum, Result, Y, Width, Height
+    
+    CompilerIf Defined(ModuleEx, #PB_Module)
+      If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
+    CompilerEndIf 
     
     If Flags & #Container ;{ Container
       
@@ -988,6 +1007,19 @@ Module StatusBar
         StBEx()\Window\Num    = WindowNum
         StBEx()\Window\Width  = Width
         StBEx()\Window\Height = Height
+        
+        CompilerSelect #PB_Compiler_OS           ;{ Default Gadget Font
+					CompilerCase #PB_OS_Windows
+						StBEx()\FontID = GetGadgetFont(#PB_Default)
+					CompilerCase #PB_OS_MacOS
+						DummyNum = TextGadget(#PB_Any, 0, 0, 0, 0, " ")
+						If DummyNum
+							StBEx()\FontID = GetGadgetFont(DummyNum)
+							FreeGadget(DummyNum)
+						EndIf
+					CompilerCase #PB_OS_Linux
+						StBEx()\FontID = GetGadgetFont(#PB_Default)
+				CompilerEndSelect ;}
         
         StBEx()\Color\Front     = $000000
         StBEx()\Color\Back      = $EDEDED
@@ -1109,7 +1141,7 @@ Module StatusBar
             If StBEx()\Fields()\Flags & #Font
               If IsFont(StBEx()\Fields()\Font) : SetGadgetFont(StBEx()\Fields()\GadgetNum, FontID(StBEx()\Fields()\Font)) : EndIf
             Else
-              If IsFont(StBEx()\Font) : SetGadgetFont(StBEx()\Fields()\GadgetNum, FontID(StBEx()\Font)) : EndIf
+              SetGadgetFont(StBEx()\Fields()\GadgetNum, StBEx()\FontID)
             EndIf
             Height = GadgetHeight(StBEx()\Fields()\GadgetNum, #PB_Gadget_RequiredSize)
             If Height < StBEx()\Size\Height - dpiY(8)
@@ -1299,7 +1331,7 @@ Module StatusBar
       If IsFont(FontNum)
         
         If Field = #PB_Ignore
-          StBEx()\Font = FontNum
+          StBEx()\FontID = FontID(FontNum)
         Else
           If SelectElement(StBEx()\Fields(), Field)
             StBEx()\Fields()\Font = FontNum
@@ -1405,7 +1437,7 @@ Module StatusBar
             If StBEx()\Fields()\Flags & #Font
               If IsFont(StBEx()\Fields()\Font) : SetGadgetFont(StBEx()\Fields()\GadgetNum, FontID(StBEx()\Fields()\Font)) : EndIf
             Else
-              If IsFont(StBEx()\Font) : SetGadgetFont(StBEx()\Fields()\GadgetNum, FontID(StBEx()\Font)) : EndIf
+              SetGadgetFont(StBEx()\Fields()\GadgetNum, StBEx()\FontID)
             EndIf
             SetGadgetData(StBEx()\Fields()\GadgetNum, StBEx()\CanvasNum)
             BindGadgetEvent(StBEx()\Fields()\GadgetNum, @_GadgetHandler())
@@ -1529,8 +1561,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
   
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 11
-; Folding = 9AEo2-BgAIGAA9
+; Folding = 9AAA5vAAAYAII1
 ; EnableXP
 ; DPIAware

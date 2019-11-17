@@ -7,10 +7,11 @@
 ;/ Â© 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 8.11.2019
+; Last Update: 17.11.2019
+;
+; Bugfix: Themes
 ;
 ; Added: #UseExistingCanvas
-;
 ; Changed: #ResizeWidth -> #Width / #ResizeHeight -> #Height
 ; Added:   SetDynamicFont() / FitText() / SetFitText()       [needs ModuleEx.pbi]
 ; Added:   Flags '#FitText' & '#FixPadding' for Autoresize   [needs ModuleEx.pbi]
@@ -60,10 +61,13 @@
 
 ;}
 
-; XIncludeFile "ModuleEx.pbi"
+XIncludeFile "ModuleEx.pbi"
 
 DeclareModule ButtonEx
-
+  
+  #Version  = 19111700
+  #ModuleEx = 19111703
+  
 	;- ===========================================================================
 	;- DeclareModule - Constants / Structures
 	;- ===========================================================================
@@ -405,10 +409,10 @@ Module ButtonEx
 				BorderColor = BtEx()\Color\Focus
 				;}
 			ElseIf BtEx()\State & #Click Or BtEx()\Toggle
-				Box_(0, 0, dpiX(GadgetWidth(BtEx()\CanvasNum)), dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, $FFFFFF, 20))
+				Box_(0, 0, dpiX(GadgetWidth(BtEx()\CanvasNum)), dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 20))
 				BorderColor = BtEx()\Color\Focus
 			ElseIf BtEx()\State & #Focus
-				Box_(0, 0, dpiX(GadgetWidth(BtEx()\CanvasNum)), dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, $FFFFFF, 10))
+				Box_(0, 0, dpiX(GadgetWidth(BtEx()\CanvasNum)), dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 10))
 				BorderColor = BtEx()\Color\Focus
 			Else
 				Box_(0, 0, dpiX(GadgetWidth(BtEx()\CanvasNum)), dpiY(GadgetHeight(BtEx()\CanvasNum)), BtEx()\Color\Back)
@@ -612,12 +616,22 @@ Module ButtonEx
     Procedure _ThemeHandler()
 
       ForEach BtEx()
-
+        
+        If IsFont(ModuleEx::ThemeGUI\Font\Num)
+          BtEx()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
+        EndIf
+        
         BtEx()\Color\Front  = ModuleEx::ThemeGUI\Button\FrontColor
         BtEx()\Color\Back   = ModuleEx::ThemeGUI\Button\BackColor
         BtEx()\Color\Focus  = ModuleEx::ThemeGUI\Focus\BackColor
         BtEx()\Color\Border = ModuleEx::ThemeGUI\Button\BorderColor
         BtEx()\Color\Gadget = ModuleEx::ThemeGUI\GadgetColor
+        
+        If ModuleEx::ThemeGUI\WindowColor > 0
+          If IsWindow(BtEx()\Window\Num)
+            SetWindowColor(BtEx()\Window\Num, ModuleEx::ThemeGUI\WindowColor) 
+          EndIf  
+        EndIf 
         
         Draw_()
       Next
@@ -825,6 +839,10 @@ Module ButtonEx
 	Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Text.s, Flags.i, WindowNum.i=#PB_Default)
 		Define Result.i, txtNum
 		
+		CompilerIf Defined(ModuleEx, #PB_Module)
+      If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
+    CompilerEndIf
+		
 		If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
       If IsGadget(GNum)
         Result = #True
@@ -899,15 +917,15 @@ Module ButtonEx
 
 				CompilerSelect #PB_Compiler_OS ;{ Color
 					CompilerCase #PB_OS_Windows
-						BtEx()\Color\Front = GetSysColor_(#COLOR_BTNTEXT)
-						BtEx()\Color\Back = GetSysColor_(#COLOR_3DLIGHT)
-						BtEx()\Color\Focus = GetSysColor_(#COLOR_MENUHILIGHT)
+						BtEx()\Color\Front  = GetSysColor_(#COLOR_BTNTEXT)
+						BtEx()\Color\Back   = GetSysColor_(#COLOR_3DLIGHT)
+						BtEx()\Color\Focus  = GetSysColor_(#COLOR_MENUHILIGHT)
 						BtEx()\Color\Border = GetSysColor_(#COLOR_3DSHADOW)
 						BtEx()\Color\Gadget = GetSysColor_(#COLOR_MENU)
 					CompilerCase #PB_OS_MacOS
-						BtEx()\Color\Front = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
-						BtEx()\Color\Back = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
-						BtEx()\Color\Focus = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedControlColor"))
+						BtEx()\Color\Front  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
+						BtEx()\Color\Back   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
+						BtEx()\Color\Focus  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedControlColor"))
 						BtEx()\Color\Border = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
 						BtEx()\Color\Gadget = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
 					CompilerCase #PB_OS_Linux
@@ -1171,7 +1189,7 @@ CompilerIf #PB_Compiler_IsMainFile
 		  ButtonEx::SetDynamicFont(#ButtonML, "Arial", 9, #PB_Font_Bold)
 		  ButtonEx::SetAutoResizeFlags(#ButtonML, ButtonEx::#Width|ButtonEx::#Height|ButtonEx::#FitText) ; |ButtonEx::#FixPadding
 
-		  ModuleEx::SetTheme(ModuleEx::#Theme_Green)
+		  ModuleEx::SetTheme(ModuleEx::#Theme_Dark)
 		  
 		CompilerEndIf
 		
@@ -1214,9 +1232,8 @@ CompilerIf #PB_Compiler_IsMainFile
 	EndIf
 
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 618
-; FirstLine = 170
-; Folding = 9BIAE95EEg-
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 68
+; Folding = 9FIwc55MMQ-
 ; EnableXP
 ; DPIAware

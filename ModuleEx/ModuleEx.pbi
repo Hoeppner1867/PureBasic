@@ -58,7 +58,7 @@
 
 DeclareModule ModuleEx
   
-  #Version = 19111702
+  #Version = 19111703
   
   #Enable_Tabulator_Management = #True
   
@@ -1052,7 +1052,7 @@ Module ModuleEx
         ThemeGUI\Header\LightColor  = $F6EDE2
         ThemeGUI\Button\FrontColor  = $490000
         ThemeGUI\Button\BackColor   = $E3E3E3
-        ThemeGUI\Button\BorderColor = $A0A0A0
+        ThemeGUI\Button\BorderColor = $B48246
         ThemeGUI\Title\FrontColor   = $FCF9F5
         ThemeGUI\Title\BackColor    = $764200
         ThemeGUI\Title\BorderColor  = $3A2100
@@ -1254,6 +1254,6 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 60
-; Folding = kNRQAACgAAAC+
+; Folding = kNRQAACgAAAD+
 ; EnableXP
 ; DPIAware
