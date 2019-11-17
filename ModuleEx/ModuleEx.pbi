@@ -11,7 +11,7 @@
 ; - Creates cursor events for gadgets of a window (#CursorEvent)
 ; - Provides event types for PostEvent() for other modules
 
-; Last Update: 14.11.2019
+; Last Update: 17.11.2019
 ;
 ; Added: GUI theme for all supportet gadgets
 ;
@@ -58,7 +58,7 @@
 
 DeclareModule ModuleEx
   
-  #Version = 19111500
+  #Version = 19111702
   
   #Enable_Tabulator_Management = #True
   
@@ -1253,8 +1253,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 90
-; FirstLine = 38
+; CursorPosition = 60
 ; Folding = kNRQAACgAAAC+
 ; EnableXP
 ; DPIAware
