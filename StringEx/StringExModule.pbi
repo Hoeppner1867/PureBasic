@@ -74,7 +74,7 @@
 DeclareModule StringEx
   
   #Version  = 19111700
-  #ModuleEx = 19111702
+  #ModuleEx = 19111703
   
   #Enable_AutoComplete       = #True
   #Enable_ShowPasswordButton = #True
@@ -1107,7 +1107,9 @@ Module StringEx
                   StrgEx()\Cursor\Pos - 1
                 EndIf
                 RemoveSelection_()
-              EndIf  
+              EndIf 
+              PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+              PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
             EndIf ;}
           Case #PB_Shortcut_Delete    ;{ Delete / Cut (Shift)
             If Modifier & #PB_Canvas_Shift ;{ Cut selected text
@@ -1125,10 +1127,15 @@ Module StringEx
                   EndIf
                 EndIf
               EndIf ;}
-            EndIf ;} 
+            EndIf
+            PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+            PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+            ;} 
           Case #PB_Shortcut_Insert    ;{ Copy (Ctrl) / Paste (Shift)
             If Modifier & #PB_Canvas_Shift
               Paste_()
+              PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+              PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
             ElseIf Modifier & #PB_Canvas_Control
               Copy_()
             EndIf ;}  
@@ -1144,20 +1151,28 @@ Module StringEx
             ;}
           Case #PB_Shortcut_X         ;{ Cut    (Ctrl) 
             Cut_()
+            PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+            PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
             ;}
           Case #PB_Shortcut_D         ;{ Ctrl-D (Delete selection)
             If Not StrgEx()\Flags & #NotEditable
               If Modifier & #PB_Canvas_Control
                 DeleteSelection_()
+                PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+                PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
               EndIf 
             EndIf ;} 
           Case #PB_Shortcut_V         ;{ Paste  (Ctrl) 
             If Not StrgEx()\Flags & #NotEditable
               Paste_()
+              PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+              PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
             EndIf ;} 
           Case #PB_Shortcut_Z         ;{ Crtl-Z (Undo)  
             If Not StrgEx()\Flags & #NotEditable
               Undo_()
+              PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+              PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
             EndIf
             ;}
           Case #PB_Shortcut_Return    ;{ Return
@@ -1548,6 +1563,8 @@ Module StringEx
     
     If FindMapElement(StrgEx(), Str(GNum))
       StrgEx()\Text = ""
+      PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+      PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
       Draw_()
     EndIf
     
@@ -1565,6 +1582,8 @@ Module StringEx
     
     If FindMapElement(StrgEx(), Str(GNum))
       Cut_()
+      PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+      PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
       Draw_()
     EndIf
     
@@ -1574,6 +1593,8 @@ Module StringEx
     
     If FindMapElement(StrgEx(), Str(GNum))
       Paste_()
+      PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+      PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
       Draw_()
     EndIf
     
@@ -1583,6 +1604,8 @@ Module StringEx
     
     If FindMapElement(StrgEx(), Str(GNum))
       DeleteSelection_()
+      PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+      PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
       Draw_()
     EndIf
     
@@ -2170,8 +2193,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 76
-; FirstLine = 25
-; Folding = cHAEAgAgEQEAwBBFAcwAAg+
+; FirstLine = 18
+; Folding = UHAEAgAgEQBAABBFEUwAAg+
 ; EnableThread
 ; EnableXP
 ; DPIAware
