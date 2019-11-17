@@ -252,7 +252,6 @@ DeclareModule ListEx
     #ComboBoxes
     #Dates
     #Strings
-    #Editable = #Strings
     #Buttons
     #Links
     #Image
@@ -273,6 +272,7 @@ DeclareModule ListEx
     #Time
     #Text
   EndEnumeration  
+  #Editable = #Strings
   
   EnumerationBinary
     #MoveX
@@ -5588,6 +5588,10 @@ Module ListEx
   Procedure.i Gadget(GNum.i, X.f, Y.f, Width.f, Height.f, ColTitle.s, ColWidth.f, ColLabel.s="", Flags.i=#False, WindowNum.i=#PB_Default)
     Define.i Result
     
+    CompilerIf Defined(ModuleEx, #PB_Module)
+      If #Version < ModuleEx::#Version : Debug "Please update ModuleEx.pbi" : EndIf 
+    CompilerEndIf    
+    
     If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
       If IsGadget(GNum)
         Result = #True
@@ -5598,11 +5602,7 @@ Module ListEx
     Else
       Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Keyboard|#PB_Canvas_Container)
     EndIf
-    
-    CompilerIf Defined(ModuleEx, #PB_Module)
-      If #Version < ModuleEx::#Version : Debug "Please update ModuleEx.pbi" : EndIf 
-    CompilerEndIf  
-    
+
     If Result
       
       If GNum = #PB_Any : GNum = Result : EndIf
@@ -7446,9 +7446,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 132
-; FirstLine = 6
-; Folding = 9HAAAAACAH5-8--xfABFqvPJigXUgjA9-PABZ4nAICeHcACEdAAAAAgAGAEIf-
+; CursorPosition = 5604
+; FirstLine = 1257
+; Folding = 9HAAAAACAH5-8--xfABFqvPJigXUgjB9-PABZ4nAICaHcAAEdAAAAMAAAgEIf-
 ; EnableXP
 ; DPIAware
 ; EnableUnicode

@@ -7,12 +7,12 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 8.11.19
+; Last Update: 17.11.19
 ;
-; BugFixes
+; Added: #EventType_Change / #EventType_Focus / #EventType_LostFocus 
+;
 ; Added: StringEx::Hide()
 ; Added: #UseExistingCanvas
-;
 ; Changed: #ResizeWidth -> #Width / #ResizeHeight -> #Height
 ; Added:   SetDynamicFont() / FitText() / SetFitText()       [needs ModuleEx.pbi]
 ; Added:   Flags '#FitText' & '#FixPadding' for Autoresize   [needs ModuleEx.pbi]
@@ -73,6 +73,8 @@
 
 DeclareModule StringEx
   
+  #Version = 19111700
+  
   #Enable_AutoComplete       = #True
   #Enable_ShowPasswordButton = #True
   
@@ -128,7 +130,10 @@ DeclareModule StringEx
     #Event_Gadget       = ModuleEx::#Event_Gadget
     #Event_Theme        = ModuleEx::#Event_Theme
     
-    #EventType_Button   = ModuleEx::#EventType_Button
+    #EventType_Focus     = ModuleEx::#EventType_Focus
+    #EventType_LostFocus = ModuleEx::#EventType_LostFocus
+    #EventType_Change    = ModuleEx::#EventType_Change
+    #EventType_Button    = ModuleEx::#EventType_Button
     
   CompilerElse
     
@@ -139,6 +144,9 @@ DeclareModule StringEx
     
     Enumeration #PB_EventType_FirstCustomValue
       #EventType_Button
+      #EventType_Focus
+      #EventType_LostFocus
+      #EventType_Change
     EndEnumeration
     
   CompilerEndIf
@@ -824,6 +832,10 @@ Module StringEx
 
       ForEach StrgEx()
         
+        If IsFont(ModuleEx::ThemeGUI\Font\Num)
+          StrgEx()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
+        EndIf
+        
         StrgEx()\Color\Front         = ModuleEx::ThemeGUI\FrontColor
         StrgEx()\Color\Back          = ModuleEx::ThemeGUI\BackColor
         StrgEx()\Color\Focus         = ModuleEx::ThemeGUI\Focus\BackColor
@@ -832,13 +844,20 @@ Module StringEx
         StrgEx()\Color\Button        = ModuleEx::ThemeGUI\Button\BackColor
         StrgEx()\Color\HighlightText = ModuleEx::ThemeGUI\Focus\FrontColor
         StrgEx()\Color\Highlight     = ModuleEx::ThemeGUI\Focus\BackColor
-
+        
+        If ModuleEx::ThemeGUI\WindowColor > 0
+          If IsWindow(StrgEx()\Window\Num)
+            SetWindowColor(StrgEx()\Window\Num, ModuleEx::ThemeGUI\WindowColor) 
+          EndIf  
+        EndIf 
+        
         Draw_()
       Next
       
     EndProcedure
     
   CompilerEndIf   
+  
   
   Procedure _CursorDrawing() ; Trigger from Thread (PostEvent Change)
     Define.i WindowNum = EventWindow()
@@ -902,6 +921,7 @@ Module StringEx
       StrgEx()\Cursor\State = #False
       StrgEx()\Cursor\Pause = #False
       
+      PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Focus)
     EndIf
     
   EndProcedure  
@@ -917,7 +937,8 @@ Module StringEx
       StrgEx()\Button\State & ~#Focus
       ResetList(StrgEx()\AutoComplete())
       Draw_()
-  
+      
+      PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_LostFocus)
     EndIf
     
   EndProcedure    
@@ -962,6 +983,8 @@ Module StringEx
               
             CompilerEndIf
             
+            PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+            PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
           EndIf
           
           Draw_()
@@ -1587,6 +1610,10 @@ Module StringEx
   Procedure   Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Content.s="", Flags.i=#False, WindowNum.i=#PB_Default)
     Define.i Result, txtNum
     
+    CompilerIf Defined(ModuleEx, #PB_Module)
+      If #Version < ModuleEx::#Version : Debug "Please update ModuleEx.pbi" : EndIf 
+    CompilerEndIf
+    
     If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
       If IsGadget(GNum)
         Result = #True
@@ -2106,6 +2133,15 @@ CompilerIf #PB_Compiler_IsMainFile
       Select Event
         Case #PB_Event_Gadget
           Select EventGadget()
+            Case #StringEx
+              Select EventType()
+                Case #PB_EventType_Focus
+                  Debug ">>> Focus"
+                Case #PB_EventType_LostFocus
+                  Debug ">>> LostFocus"
+                Case StringEx::#EventType_Change
+                  Debug ">>> Changed"
+              EndSelect    
             Case #StringDel
               If EventType() = StringEx::#EventType_Button
                 StringEx::Clear(#StringDel)
@@ -2131,9 +2167,9 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 2098
-; Folding = cHAEAgAg1gEAwABFAMYAAw-
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 11
+; Folding = cHAEAgAgEQEAwBBFAEwAAg+
 ; EnableThread
 ; EnableXP
 ; DPIAware

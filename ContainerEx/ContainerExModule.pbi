@@ -9,8 +9,9 @@
 ;/ © 2019  by Thorsten Hoeppner (11/2019)
 ;/
 
-; Last Update: 16.11.2019
+; Last Update: 17.11.2019
 ;
+; Added: #UseExistingCanvas
 ; Added: #TitleBox
 ;
 
@@ -55,7 +56,7 @@
 
 DeclareModule ContainerEx
   
-  #Version = 16111900
+  #Version = 19111700
   
 	;- ===========================================================================
 	;-   DeclareModule - Constants
@@ -63,12 +64,13 @@ DeclareModule ContainerEx
 
   ;{ _____ Constants _____
   EnumerationBinary ;{ GadgetFlags
-    #Border = #PB_Container_Flat ; Draw a border
+    #Border = #PB_Container_Flat
     #Center
     #Right
     #TitleBox
-		#AutoResize                  ; Automatic resizing of the gadget
-		#ToolTips                    ; Show tooltips
+		#AutoResize
+		#ToolTips 
+		#UseExistingCanvas
 	EndEnumeration ;}
 	#Left = 0
 	
@@ -322,10 +324,20 @@ Module ContainerEx
 
       ForEach ContainerEx()
         
+        If IsFont(ModuleEx::ThemeGUI\Font\Num)
+          ContainerEx()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
+        EndIf
+        
         ContainerEx()\Color\Front  = ModuleEx::ThemeGUI\FrontColor
 				ContainerEx()\Color\Back   = ModuleEx::ThemeGUI\BackColor
 				ContainerEx()\Color\Border = ModuleEx::ThemeGUI\BorderColor
-        
+
+				If ModuleEx::ThemeGUI\WindowColor > 0
+          If IsWindow(ListEx()\Window\Num)
+            SetWindowColor(ListEx()\Window\Num, ModuleEx::ThemeGUI\WindowColor) 
+          EndIf  
+        EndIf 
+				
         Draw_()
       Next
       
@@ -405,8 +417,22 @@ Module ContainerEx
 	
 	Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
 		Define DummyNum, Result.i
-
-		Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Container)
+		
+		CompilerIf Defined(ModuleEx, #PB_Module)
+      If #Version < ModuleEx::#Version : Debug "Please update ModuleEx.pbi" : EndIf 
+    CompilerEndIf
+		
+		If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
+      If IsGadget(GNum)
+        Result = #True
+      Else
+        ProcedureReturn #False
+      EndIf
+      ;}
+    Else
+      Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Container)
+    EndIf
+		
 		If Result
 
 			If GNum = #PB_Any : GNum = Result : EndIf
@@ -618,8 +644,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 592
-; FirstLine = 257
-; Folding = +YCEAR5
+; CursorPosition = 422
+; FirstLine = 214
+; Folding = sYCUIEg-
 ; EnableXP
 ; DPIAware

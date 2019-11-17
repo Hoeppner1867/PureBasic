@@ -45,7 +45,9 @@
 ; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule {Gadget}
-
+  
+  #Version = 
+  
 	;- ===========================================================================
 	;-   DeclareModule - Constants
 	;- ===========================================================================
@@ -55,6 +57,7 @@ DeclareModule {Gadget}
 		#AutoResize ; Automatic resizing of the gadget
 		#Border     ; Draw a border
 		#ToolTips   ; Show tooltips
+		#UseExistingCanvas ; e.g. for dialogs
 	EndEnumeration ;}
 
 	EnumerationBinary ;{ AutoResize
@@ -252,14 +255,14 @@ Module {Gadget}
 		X = dpiX({Gadget}()\Margin\Left)
 		Y = dpiY({Gadget}()\Margin\Top)
 
-		Width  = dpiX({Gadget}()\Size\Width)  - dpiX({Gadget}()\Margin\Left) - dpiX({Gadget}()\Margin\Right)
-		Height = dpiY({Gadget}()\Size\Height) - dpiY({Gadget}()\Margin\Top)  - dpiY({Gadget}()\Margin\Bottom)
+		Width  = dpiX(GadgetWidth({Gadget}()\CanvasNum))  - dpiX({Gadget}()\Margin\Left) - dpiX({Gadget}()\Margin\Right)
+		Height = dpiY(GadgetHeight({Gadget}()\CanvasNum)) - dpiY({Gadget}()\Margin\Top)  - dpiY({Gadget}()\Margin\Bottom)
 
 		If StartDrawing(CanvasOutput({Gadget}()\CanvasNum))
 
 			;{ _____ Background _____
 			DrawingMode(#PB_2DDrawing_Default)
-			Box(0, 0, dpiX({Gadget}()\Size\Width), dpiY({Gadget}()\Size\Height), {Gadget}()\Color\Back)
+			Box(0, 0, dpiX(GadgetWidth({Gadget}()\CanvasNum)), dpiY(GadgetHeight({Gadget}()\CanvasNum)))
 			;}
 
 			DrawingFont({Gadget}()\FontID)
@@ -267,7 +270,7 @@ Module {Gadget}
 			;{ _____ Border ____
 			If {Gadget}()\Flags & #Border
 				DrawingMode(#PB_2DDrawing_Outlined)
-				Box(0, 0, dpiX({Gadget}()\Size\Width), dpiY({Gadget}()\Size\Height), {Gadget}()\Color\Border)
+				Box(0, 0, dpiX(GadgetWidth({Gadget}()\CanvasNum)), dpiY(GadgetHeight({Gadget}()\CanvasNum)), {Gadget}()\Color\Border)
 			EndIf ;}
 
 			StopDrawing()
@@ -283,10 +286,20 @@ Module {Gadget}
 
       ForEach {Gadget}()
         
+        If IsFont(ModuleEx::ThemeGUI\Font\Num)
+          {Gadget}()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
+        EndIf
+
         {Gadget}()\Color\Front  = ModuleEx::ThemeGUI\FrontColor
 				{Gadget}()\Color\Back   = ModuleEx::ThemeGUI\BackColor
 				{Gadget}()\Color\Border = ModuleEx::ThemeGUI\BorderColor
-        
+				
+				If ModuleEx::ThemeGUI\WindowColor > 0
+          If IsWindow({Gadget}()\Window\Num)
+            SetWindowColor({Gadget}()\Window\Num, ModuleEx::ThemeGUI\WindowColor) 
+          EndIf  
+        EndIf 
+				
         Draw_()
       Next
       
@@ -418,7 +431,7 @@ Module {Gadget}
 							ResizeGadget({Gadget}()\CanvasNum, X, Y, Width, Height)
 
 						Else
-							ResizeGadget({Gadget}()\CanvasNum, #PB_Ignore, #PB_Ignore, GadgetWidth({Gadget}()\CanvasNum) + OffSetX, GadgetHeight({Gadget}()\CanvasNum) + OffsetY)
+							ResizeGadget({Gadget}()\CanvasNum, #PB_Ignore, #PB_Ignore, {Gadget}()\Size\Width + OffSetX, {Gadget}()\Size\Height + OffsetY)
 						EndIf
 
 						Draw_()
@@ -461,8 +474,22 @@ Module {Gadget}
 
 	Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
 		Define DummyNum, Result.i
-
-		Result = CanvasGadget(GNum, X, Y, Width, Height)
+		
+		CompilerIf Defined(ModuleEx, #PB_Module)
+      If #Version < ModuleEx::#Version : Debug "Please update ModuleEx.pbi" : EndIf 
+    CompilerEndIf 
+		
+		If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
+      If IsGadget(GNum)
+        Result = #True
+      Else
+        ProcedureReturn #False
+      EndIf
+      ;}
+    Else
+      Result = CanvasGadget(GNum, X, Y, Width, Height)
+    EndIf
+		
 		If Result
 
 			If GNum = #PB_Any : GNum = Result : EndIf
@@ -640,9 +667,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 540
-; FirstLine = 174
-; Folding = 9GAgDARI9
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 289
+; FirstLine = 97
+; Folding = EEAgGADhw
 ; EnableXP
 ; DPIAware

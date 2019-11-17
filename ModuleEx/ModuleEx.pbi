@@ -58,7 +58,7 @@
 
 DeclareModule ModuleEx
   
-  #Version = 15111900
+  #Version = 19111500
   
   #Enable_Tabulator_Management = #True
   
@@ -1251,8 +1251,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 75
+; CursorPosition = 60
 ; FirstLine = 23
-; Folding = EMRQAACgAAAC+
+; Folding = UMRQAACgAAAC+
 ; EnableXP
 ; DPIAware
