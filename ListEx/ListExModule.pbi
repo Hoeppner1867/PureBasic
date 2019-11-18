@@ -132,7 +132,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19111800
+  #Version  = 19111801
   #ModuleEx = 19111702
   
   #Enable_Validation  = #True
@@ -3256,6 +3256,8 @@ Module ListEx
     If ListEx()\String\Flag   = #True : ProcedureReturn #False : EndIf
     If ListEx()\ComboBox\Flag = #True : ProcedureReturn #False : EndIf
     If ListEx()\Date\Flag     = #True : ProcedureReturn #False : EndIf
+    
+    If Row < 0 Or Column < 0 : ProcedureReturn #False : EndIf 
     
     If SelectElement(ListEx()\Rows(), Row)
       If SelectElement(ListEx()\Cols(), Column)
@@ -7516,9 +7518,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 134
-; FirstLine = 15
-; Folding = 9PAAAQAEAMQEIBMgw-AhHqfIJqofUwCB9-PBQ64nAIBoJwBIQ0BAAgAAAAAAg88
+; CursorPosition = 7119
+; FirstLine = 1851
+; Folding = 9PAAAQAEAMQEIBMgw-AhHqfIJqofUwCB9-fBQ64nAIBoJwBYQ0BAAgAAAAAIg88
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
