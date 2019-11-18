@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 17.11.2019
+; Last Update: 18.11.2019
 ;
 ; - Added: SetCondition() for editable cells
 ; - Added: Attribute #MaxChars for SetAttribute() or SetColumnAttribute()
@@ -132,7 +132,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 17111902
+  #Version  = 19111800
   #ModuleEx = 19111702
   
   #Enable_Validation  = #True
@@ -571,19 +571,7 @@ Module ListEx
     Height.f
     Flags.i
   EndStructure ;}
-  
-  Structure Cols_Header_Structure       ;{ ListEx()\Cols()\Header\...
-    Title.s
-    Direction.i
-    Sort.i
-    Align.i
-    FontID.i
-    Image.Image_Structure
-    FrontColor.i
-    BackColor.i
-    Flags.i
-  EndStructure ;}
-  
+
   Structure ComboBox_Item_Structure     ;{ ListEx()\ComboBox\Column('num')\...
     List Items.s()
   EndStructure ;}
@@ -650,35 +638,7 @@ Module ListEx
     Mark2.i
   EndStructure ;}
   
-  Structure ListEx_Col_Structure        ;{ ListEx()\Col\...
-    Current.i
-    Number.i
-    Width.f
-    Padding.i
-    OffsetX.f
-    MouseX.i
-    Resize.i
-    CheckBoxes.i
-  EndStructure ;}
-  
-  Structure ListEx_Cols_Structure       ;{ ListEx()\Cols()\...
-    Type.i
-    X.f
-    Key.s
-    Width.f
-    Align.i
-    FontID.i
-    Mask.s
-    MaxWidth.i
-    MaxChars.i
-    Currency.s
-    Term.s
-    Flags.i
-    FrontColor.i
-    BackColor.i
-    Header.Cols_Header_Structure
-  EndStructure ;}  
-  
+
   Structure ListEx_ProgressBar          ;{ ListEx()\ProgressBar\...
     Minimum.i
     Maximum.i
@@ -761,6 +721,49 @@ Module ListEx
     FontID.i
   EndStructure ;}   
   
+  
+  Structure ListEx_Col_Structure        ;{ ListEx()\Col\...
+    Current.i
+    Counter.i
+    Width.f
+    Padding.i
+    OffsetX.f
+    MouseX.i
+    Resize.i
+    CheckBoxes.i
+  EndStructure ;}
+  
+  Structure Cols_Header_Structure       ;{ ListEx()\Cols()\Header\...
+    Title.s
+    Direction.i
+    Sort.i
+    Align.i
+    FontID.i
+    Image.Image_Structure
+    FrontColor.i
+    BackColor.i
+    Flags.i
+  EndStructure ;}
+  
+  Structure ListEx_Cols_Structure       ;{ ListEx()\Cols()\...
+    Type.i
+    X.f
+    Key.s
+    Width.f
+    Align.i
+    FontID.i
+    Mask.s
+    MaxWidth.i
+    MaxChars.i
+    Currency.s
+    Term.s
+    Flags.i
+    FrontColor.i
+    BackColor.i
+    Header.Cols_Header_Structure
+  EndStructure ;}  
+  
+
   Structure ListEx_Row_Structure        ;{ ListEx()\Row\...
     Current.i
     CurrentKey.i
@@ -787,6 +790,7 @@ Module ListEx
     Color.Color_Structure
     Map Column.Rows_Column_Structure()
   EndStructure ;}  
+  
   
   Structure ListEx_Scroll_Structure     ;{ ListEx()\VScroll\...
     MinPos.f
@@ -1764,6 +1768,16 @@ Module ListEx
   
   ;- __________ Theme __________ 
   
+  Procedure.i BlendColor_(Color1.i, Color2.i, Scale.i=50)
+    Define.i R1, G1, B1, R2, G2, B2
+    Define.f Blend = Scale / 100
+    
+    R1 = Red(Color1): G1 = Green(Color1): B1 = Blue(Color1)
+    R2 = Red(Color2): G2 = Green(Color2): B2 = Blue(Color2)
+    
+    ProcedureReturn RGB((R1*Blend) + (R2 * (1-Blend)), (G1*Blend) + (G2 * (1-Blend)), (B1*Blend) + (B2 * (1-Blend)))
+  EndProcedure
+  
   Procedure   ColorTheme_(Theme.i)
 
     Select Theme
@@ -1893,16 +1907,6 @@ Module ListEx
   Procedure.i CurrentColumn_()
     ProcedureReturn ListIndex(ListEx()\Cols())
   EndProcedure  
-  
-  Procedure.i BlendColor_(Color1.i, Color2.i, Scale.i=50)
-    Define.i R1, G1, B1, R2, G2, B2
-    Define.f Blend = Scale / 100
-    
-    R1 = Red(Color1): G1 = Green(Color1): B1 = Blue(Color1)
-    R2 = Red(Color2): G2 = Green(Color2): B2 = Blue(Color2)
-    
-    ProcedureReturn RGB((R1*Blend) + (R2 * (1-Blend)), (G1*Blend) + (G2 * (1-Blend)), (B1*Blend) + (B2 * (1-Blend)))
-  EndProcedure
   
   
   Procedure   FitColumns_()
@@ -5314,7 +5318,8 @@ Module ListEx
         
         If Flags & #FitColumn : ListEx()\FitCols = #True : EndIf
         
-        ListEx()\Col\Number               = ListSize(ListEx()\Cols())
+        ListEx()\Col\Counter + 1
+        
         ListEx()\Cols()\Header\Title      = Title
         ListEx()\Cols()\Header\Align      = #PB_Default
         ListEx()\Cols()\Header\FontID     = #PB_Default
@@ -5329,7 +5334,7 @@ Module ListEx
         If Label
           ListEx()\Cols()\Key = Label
         Else
-          ListEx()\Cols()\Key = Str(ListEx()\Col\Number - 1)
+          ListEx()\Cols()\Key = Str(ListEx()\Col\Counter)
         EndIf
         
         CompilerIf #Enable_Validation
@@ -5352,7 +5357,7 @@ Module ListEx
       
     EndIf
     
-    ProcedureReturn ListEx()\Col\Number
+    ProcedureReturn ListIndex(ListEx()\Cols())
   EndProcedure
   
   Procedure.i AddComboBoxItems(GNum.i, Column.i, Text.s)
@@ -5817,7 +5822,7 @@ Module ListEx
           ListEx()\Cols()\Key               = ColLabel
           ListEx()\Cols()\FrontColor        = #PB_Default
           ListEx()\Cols()\BackColor         = #PB_Default
-          ListEx()\Col\Number = 1      ; Number of columns
+          ListEx()\Col\Counter = 1
         EndIf
         
         ListEx()\Size\Cols           = ListEx()\Cols()\Width ; Width of all columns
@@ -6270,8 +6275,6 @@ Module ListEx
         DeleteMapElement(ListEx()\Date\Column(), Key$)
         
         DeleteElement(ListEx()\Cols())
-        
-        ListEx()\Col\Number = ListSize(ListEx()\Cols())
         
         UpdateColumnX_()
         
@@ -7312,7 +7315,7 @@ CompilerIf #PB_Compiler_IsMainFile
       
       ; --- Add different types of columns  ---
       ListEx::AddColumn(#List, 1, "Link", 75, "link",   ListEx::#Links)    ; |ListEx::#FitColumn
-      ListEx::AddColumn(#List, 2, "Edit", 85, "edit",   ListEx::#Editable) ; |ListEx::#FitColumn
+      ListEx::AddColumn(#List, 2, "Edit", 185, "edit",   ListEx::#Editable) ; |ListEx::#FitColumn
       ListEx::AddColumn(#List, ListEx::#LastItem, "Combo",   78, "combo",  ListEx::#ComboBoxes)
       ListEx::AddColumn(#List, ListEx::#LastItem, "Date",    76, "date",   ListEx::#Dates)
       ListEx::AddColumn(#List, ListEx::#LastItem, "Buttons", 60, "button", ListEx::#Buttons) ; ListEx::#Hide
@@ -7407,8 +7410,9 @@ CompilerIf #PB_Compiler_IsMainFile
       ;CompilerEndIf
 
       ; --- max. number of characters ---
-      ;ListEx::SetAttribute(#List, ListEx::#MaxChars, 5)
-  
+      ;ListEx::SetAttribute(#List, ListEx::#MaxChars, 6)
+      ;ListEx::SetColumnAttribute(#List, 2, ListEx::#MaxChars, 14)
+      
       ; --- GUI theme support ---
       ;ModuleEx::LoadTheme("Theme_Green.xml")
       
@@ -7512,9 +7516,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 7376
-; FirstLine = 1894
-; Folding = 9PAAAAAEAOUEIBMgwfAhHqfIJqofUwCB9-PBRZ4nAIBgJwBYQ2BAAAAAAAAAg88
+; CursorPosition = 134
+; FirstLine = 15
+; Folding = 9PAAAQAEAMQEIBMgw-AhHqfIJqofUwCB9-PBQ64nAIBoJwBIQ0BAAgAAAAAAg88
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
