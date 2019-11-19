@@ -9,12 +9,12 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
   
-; Last Update: 17.11.2019
+; Last Update: 19.11.2019
 ;
+; Added: #NoWindow (use container or gadget instead of window for resizing)
+
 ; Added: ClearItems() / Disable()
-;
 ; Added: #UseExistingCanvas
-; Added: #Container (use container instead of window for resizing)
 ; Added: StatusBar::Hide()
 
 ;{ ===== MIT License =====
@@ -79,7 +79,7 @@
 
 DeclareModule StatusBar
   
-  #Version  = 19111700
+  #Version  = 19111900
   #ModuleEx = 19111703
   
   ;- ===========================================================================
@@ -106,7 +106,7 @@ DeclareModule StatusBar
     #Gadget
     #Popup
     #SizeHandle
-    #Container
+    #NoWindow
     #UseExistingCanvas
   EndEnumeration
   
@@ -439,9 +439,7 @@ Module StatusBar
         
         DrawingMode(#PB_2DDrawing_Outlined)
         Box(X, 0, Width, StBEx()\Size\Height, StBEx()\Color\Border)
-        
-        If StBEx()\Flags & #SizeHandle : SizeBox_() : EndIf
-        
+
         ;{ --- Font ---
         If StBEx()\Fields()\Flags & #Font
           DrawingFont(FontID(StBEx()\Fields()\Font))
@@ -525,6 +523,8 @@ Module StatusBar
         
         StBEx()\Fields()\endX = X - dpiX(1)
       Next  
+      
+      If StBEx()\Flags & #SizeHandle : SizeBox_() : EndIf
       
       ;{ _____ Border _____
       If StBEx()\Flags & #Border
@@ -714,7 +714,7 @@ Module StatusBar
     
   EndProcedure
   
-  Procedure _ResizeContainerHandler()
+  Procedure _ResizeGadgetHandler()
     Define.f OffSetX, OffSetY
     
     ForEach StBEx()
@@ -940,20 +940,20 @@ Module StatusBar
   
   
   Procedure.i Gadget(GNum.i, WindowNum.i, MenuNum.i=#False, Flags.i=#False)
-    ; Flag #Container: WindowNum = ContainerGadgetNum
+    ; Flag #NoWindow: WindowNum = Container or Gadget Number for resizing
     Define.i DummyNum, Result, Y, Width, Height
     
     CompilerIf Defined(ModuleEx, #PB_Module)
       If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
-    CompilerEndIf 
+    CompilerEndIf
     
-    If Flags & #Container ;{ Container
+    If Flags & #NoWindow ;{ Container
       
       If IsGadget(WindowNum)
         Width  = GadgetWidth(WindowNum)
         Height = GadgetHeight(WindowNum)
         Y = Height - #StatusBar_Height
-        BindGadgetEvent(WindowNum, @_ResizeContainerHandler(), #PB_EventType_Resize)
+        BindGadgetEvent(WindowNum, @_ResizeGadgetHandler(), #PB_EventType_Resize)
       Else
         ProcedureReturn #False
       EndIf
@@ -1562,7 +1562,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
   
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 11
-; Folding = 9AAA5vAAAYAII1
+; CursorPosition = 81
+; Folding = 9AAghZAEA5AAAg
 ; EnableXP
 ; DPIAware

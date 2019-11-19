@@ -11,7 +11,7 @@
 ; - Creates cursor events for gadgets of a window (#CursorEvent)
 ; - Provides event types for PostEvent() for other modules
 
-; Last Update: 14.11.2019
+; Last Update: 17.11.2019
 ;
 ; Added: GUI theme for all supportet gadgets
 ;
@@ -58,7 +58,7 @@
 
 DeclareModule ModuleEx
   
-  #Version = 19111500
+  #Version = 19111703
   
   #Enable_Tabulator_Management = #True
   
@@ -88,23 +88,25 @@ DeclareModule ModuleEx
   
   Enumeration #PB_EventType_FirstCustomValue ;{ #EventType
     #EventType_Button
+    #EventType_Change
     #EventType_CheckBox
     #EventType_ComboBox
     #EventType_Date
+    #EventType_Day
     #EventType_DropDown
+    #EventType_Focus
     #EventType_Header
     #EventType_HyperLink
     #EventType_ImageButton
     #EventType_Link
+    #EventType_LostFocus
+    #EventType_Month
+    #EventType_RightClick
+    #EventType_Row
     #EventType_SpinBox
     #EventType_String
-    #EventType_Row
-    #EventType_Day
-    #EventType_Month
-    #EventType_Year
-    #EventType_Focus
-    #EventType_RightClick
     #EventType_TrackBar
+    #EventType_Year
   EndEnumeration ;}
   
   #Event_Tabulator      = 64000
@@ -1050,7 +1052,7 @@ Module ModuleEx
         ThemeGUI\Header\LightColor  = $F6EDE2
         ThemeGUI\Button\FrontColor  = $490000
         ThemeGUI\Button\BackColor   = $E3E3E3
-        ThemeGUI\Button\BorderColor = $A0A0A0
+        ThemeGUI\Button\BorderColor = $B48246
         ThemeGUI\Title\FrontColor   = $FCF9F5
         ThemeGUI\Title\BackColor    = $764200
         ThemeGUI\Title\BorderColor  = $3A2100
@@ -1252,7 +1254,6 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 60
-; FirstLine = 23
-; Folding = UMRQAACgAAAC+
+; Folding = kNRQAACgAAAD+
 ; EnableXP
 ; DPIAware

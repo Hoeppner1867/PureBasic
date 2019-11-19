@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 8.11.19
+; Last Update: 19.11.19
 ;
 ; Added: #UseExistingCanvas
 ;
@@ -55,6 +55,9 @@
 
 DeclareModule TextEx
   
+  #Version  = 19111900
+  #ModuleEx = 19111702
+  
   ;- ===========================================================================
   ;-   DeclareModule - Constants / Structures
   ;- =========================================================================== 
@@ -84,6 +87,12 @@ DeclareModule TextEx
     #GradientColor
     #BorderColor
   EndEnumeration
+  
+  CompilerIf Defined(ModuleEx, #PB_Module)
+
+		#Event_Theme = ModuleEx::#Event_Theme
+
+	CompilerEndIf
   
   ;- ===========================================================================
   ;-   DeclareModule
@@ -294,9 +303,19 @@ Module TextEx
 
       ForEach TextEx()
         
+        If IsFont(ModuleEx::ThemeGUI\Font\Num)
+          TextEx()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
+        EndIf
+        
         TextEx()\Color\Front    = ModuleEx::ThemeGUI\FrontColor
         TextEx()\Color\Back     = ModuleEx::ThemeGUI\GadgetColor
-
+        
+        If ModuleEx::ThemeGUI\WindowColor > 0
+          If IsWindow(TextEx()\Window\Num)
+            SetWindowColor(TextEx()\Window\Num, ModuleEx::ThemeGUI\WindowColor) 
+          EndIf  
+        EndIf 
+        
         Draw_()
       Next
       
@@ -451,6 +470,10 @@ Module TextEx
   Procedure   Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Text.s, Flags.i=#False, WindowNum.i=#PB_Default)
     Define.i Result, txtNum
     
+    CompilerIf Defined(ModuleEx, #PB_Module)
+      If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
+    CompilerEndIf
+    
     If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
       If IsGadget(GNum)
         Result = #True
@@ -535,6 +558,10 @@ Module TextEx
         
         BindGadgetEvent(TextEx()\CanvasNum,  @_ResizeHandler(), #PB_EventType_Resize)
         
+        CompilerIf Defined(ModuleEx, #PB_Module)
+          BindEvent(#Event_Theme, @_ThemeHandler())
+        CompilerEndIf
+        
         If Flags & #AutoResize
           If IsWindow(WindowNum)
             TextEx()\Window\Width  = WindowWidth(WindowNum)
@@ -577,14 +604,15 @@ CompilerIf #PB_Compiler_IsMainFile
     
     ;TextEx::SetAutoResizeFlags(#Text, TextEx::#MoveY|TextEx::#ResizeWidth)
     
+    ;ModuleEx::SetTheme(ModuleEx::#Theme_Green)
+    
     Repeat
       Event = WaitWindowEvent()
     Until Event = #PB_Event_CloseWindow
     
   EndIf
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 301
-; FirstLine = 204
-; Folding = eCsvw3-
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 474
+; Folding = cAAFAD-
 ; EnableXP

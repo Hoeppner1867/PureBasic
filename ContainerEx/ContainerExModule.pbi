@@ -56,7 +56,7 @@
 
 DeclareModule ContainerEx
   
-  #Version  = 19111700
+  #Version  = 19111900
   #ModuleEx = 19111702
   
 	;- ===========================================================================
@@ -334,8 +334,8 @@ Module ContainerEx
 				ContainerEx()\Color\Border = ModuleEx::ThemeGUI\BorderColor
 
 				If ModuleEx::ThemeGUI\WindowColor > 0
-          If IsWindow(ListEx()\Window\Num)
-            SetWindowColor(ListEx()\Window\Num, ModuleEx::ThemeGUI\WindowColor) 
+          If IsWindow(ContainerEx()\Window\Num)
+            SetWindowColor(ContainerEx()\Window\Num, ModuleEx::ThemeGUI\WindowColor) 
           EndIf  
         EndIf 
 				
@@ -417,8 +417,8 @@ Module ContainerEx
 	
 	
 	Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
-		Define DummyNum, Result.i
-		
+	  Define DummyNum, Result.i
+	  
 		CompilerIf Defined(ModuleEx, #PB_Module)
       If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
     CompilerEndIf
@@ -645,8 +645,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 423
-; FirstLine = 206
-; Folding = sYCUYEg-
+; CursorPosition = 54
+; Folding = sYCwZEg-
 ; EnableXP
 ; DPIAware

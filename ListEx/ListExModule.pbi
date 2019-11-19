@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 18.11.2019
+; Last Update: 19.11.2019
 ;
 ; - Added: SetCondition() for editable cells
 ; - Added: Attribute #MaxChars for SetAttribute() or SetColumnAttribute()
@@ -133,7 +133,7 @@
 DeclareModule ListEx
   
   #Version  = 19111801
-  #ModuleEx = 19111702
+  #ModuleEx = 19111703
   
   #Enable_Validation  = #True
   #Enable_MarkContent = #True
@@ -2712,7 +2712,7 @@ Module ListEx
               EndIf
             EndIf ;}
             
-            If ListEx()\Cols()\Flags & #CheckBoxes      ;{ CheckBox
+            If ListEx()\Cols()\Flags & #CheckBoxes                        ;{ CheckBox
               
               If ListEx()\Focus And ListIndex(ListEx()\Rows()) = ListEx()\Row\Focus
                 CheckBox_(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), TextHeight("X") - dpiY(3), FocusColor, ListEx()\Rows()\Column(Key$)\State)
@@ -2778,7 +2778,7 @@ Module ListEx
                 
               EndIf
               ;}
-            ElseIf ListEx()\Cols()\Flags & #Buttons     ;{ Button
+            ElseIf ListEx()\Cols()\Flags & #Buttons                       ;{ Button
               
               CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
                 ClipOutput(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height))
@@ -2813,7 +2813,7 @@ Module ListEx
                 UnclipOutput()
               CompilerEndIf  
               ;}
-            ElseIf ListEx()\Cols()\Flags & #ProgressBar ;  ProgressBar
+            ElseIf ListEx()\Cols()\Flags & #ProgressBar                   ;  ProgressBar
               CompilerIf #Enable_ProgressBar
                 
                 If Flags & #CellFont : DrawingFont(ListEx()\Rows()\Column(Key$)\FontID) : EndIf
@@ -2823,7 +2823,7 @@ Module ListEx
                 If Flags & #CellFont : DrawingFont(RowFontID) : EndIf
                 
               CompilerEndIf 
-            ElseIf Flags & #Image                       ;{ Image
+            ElseIf Flags & #Image                                         ;{ Image
               
               CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
                 ClipOutput(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height))
@@ -2898,7 +2898,7 @@ Module ListEx
                 UnclipOutput()
               CompilerEndIf
               ;}
-            Else                                        ;{ Text
+            Else                                                          ;{ Text
               
               Text$ = ListEx()\Rows()\Column(Key$)\Value
               If Text$ <> ""
@@ -7348,6 +7348,10 @@ CompilerIf #PB_Compiler_IsMainFile
       ListEx::AddItem(#List, ListEx::#LastItem, "Thomas"   + #LF$ + "Roberts"  + #LF$ + #LF$ + #LF$ + "Push")
       ListEx::AddItem(#List, ListEx::#LastItem, "Harriet"  + #LF$ + "Smith"    + #LF$ + #LF$ + #LF$ + "Push")
       
+      ;For m = 1 To 100
+      ;  ListEx::AddItem(#List, ListEx::#LastItem, RSet(Str(m),3,"0")  + " Harriet"  + #LF$ + "Smith"    + #LF$ + #LF$ + #LF$ + "Push")
+      ;Next
+      
       ; --- Set focus to row 9 ---
       ; ListEx::SetState(#List, 9)
       
@@ -7518,9 +7522,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 7119
-; FirstLine = 1851
-; Folding = 9PAAAQAEAMQEIBMgw-AhHqfIJqofUwCB9-fBQ64nAIBoJwBYQ0BAAgAAAAAIg88
+; CursorPosition = 11
+; Folding = 9PAACAAEAMQEIBMgw-GhHrXIJIgdUwCB9-fBQ64nAIBoJwBYAwBAAgAgAIAQh88
 ; EnableXP
 ; DPIAware
 ; EnableUnicode

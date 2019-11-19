@@ -11,7 +11,7 @@
 ; - Creates cursor events for gadgets of a window (#CursorEvent)
 ; - Provides event types for PostEvent() for other modules
 
-; Last Update: 17.11.2019
+; Last Update: 19.11.2019
 ;
 ; Added: GUI theme for all supportet gadgets
 ;
@@ -58,7 +58,7 @@
 
 DeclareModule ModuleEx
   
-  #Version = 19111703
+  #Version = 19111900
   
   #Enable_Tabulator_Management = #True
   
@@ -1060,7 +1060,7 @@ Module ModuleEx
         ThemeGUI\Progress\BackColor     = $CB9755 
         ThemeGUI\Progress\GradientColor = $B06400
         ;}
-        SaveTheme_("Theme_Blue.xml")
+        ;SaveTheme_("Theme_Blue.xml")
       Case #Theme_Green ;{ Green Theme
         ; $2A3A1F $142D05 $295B0A $3E8910 $7EB05F $BED7AF $D4E4C9 $E2EDDB $F5F9F3
         ThemeGUI\FrontColor         = $0F2203
@@ -1084,7 +1084,7 @@ Module ModuleEx
         ThemeGUI\Progress\BackColor     = $7EB05F
         ThemeGUI\Progress\GradientColor = $3E8910
         ;}
-        SaveTheme_("Theme_Green.xml")
+        ;SaveTheme_("Theme_Green.xml")
       Case #Theme_Dark
         ;  $3A2100 $43321C $764200 $B06400 $CB9755 $E5CBAA $EDDCC6 $F6EDE2 $FCF9F5
         ThemeGUI\FrontColor         = $FCF9F5
@@ -1111,7 +1111,7 @@ Module ModuleEx
         ThemeGUI\WindowColor = $342B1D
         ThemeGUI\GadgetColor = $342B1D
 
-        SaveTheme_("Theme_Dark.xml")
+        ;SaveTheme_("Theme_Dark.xml")
       Default           ;{ Default Theme
         
         ThemeGUI\RowColor          = $FCFCFC
@@ -1170,7 +1170,7 @@ Module ModuleEx
             ThemeGUI\ScrollbarColor     = $C8C8C8
         CompilerEndSelect
         ;}
-        SaveTheme_("Theme_Default.xml")
+        ;SaveTheme_("Theme_Default.xml")
     EndSelect
     
     PostEvent(#Event_Theme)
@@ -1254,6 +1254,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 60
+; FirstLine = 12
 ; Folding = kNRQAACgAAAD+
 ; EnableXP
 ; DPIAware
