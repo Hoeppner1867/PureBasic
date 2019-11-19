@@ -10,7 +10,7 @@
 ;/
 
 
-; Last Update: 8.11.19
+; Last Update: 19.11.19
 ;
 ; Added: #UseExistingCanvas
 ;
@@ -111,6 +111,9 @@
  ; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule Chart
+  
+  #Version  = 19111900
+  #ModuleEx = 19111702
   
   #Enable_PieChart       = #True
   #Enable_DataSeries     = #True
@@ -3704,6 +3707,10 @@ Module Chart
 
       ForEach Chart()
         
+        If IsFont(ModuleEx::ThemeGUI\Font\Num)
+          Chart()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
+        EndIf
+        
         Chart()\Color\Front     = ModuleEx::ThemeGUI\FrontColor
         Chart()\Color\Back      = ModuleEx::ThemeGUI\BackColor
         Chart()\Color\Border    = ModuleEx::ThemeGUI\BorderColor
@@ -5666,6 +5673,10 @@ Module Chart
   Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
     Define txtNum, Result.i
     
+    CompilerIf Defined(ModuleEx, #PB_Module)
+      If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
+    CompilerEndIf
+    
     If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
       If IsGadget(GNum)
         Result = #True
@@ -6840,9 +6851,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 6419
-; FirstLine = 3479
-; Folding = Y--------futf5--------------xf-40v39AHASUAAxB78VF6-f78+P---
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 5677
+; FirstLine = 3364
+; Folding = c--------futf5--------------xf-40v39AHASUAAxB34rKy--140f+--
 ; EnableXP
 ; DPIAware

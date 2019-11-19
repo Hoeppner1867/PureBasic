@@ -59,7 +59,10 @@
 ; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule PreView
-
+  
+  #Version  = 19111900
+  #ModuleEx = 19111702
+  
 	;- ===========================================================================
 	;-   DeclareModule - Constants
 	;- ===========================================================================
@@ -914,6 +917,10 @@ Module PreView
 
       ForEach PreView()
         
+        If IsFont(ModuleEx::ThemeGUI\Font\Num)
+          PreView()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
+        EndIf
+        
         PreView()\Color\Front     = ModuleEx::ThemeGUI\FrontColor
         PreView()\Color\Back      = ModuleEx::ThemeGUI\BackColor
         PreView()\Color\Gadget    = ModuleEx::ThemeGUI\GadgetColor
@@ -1272,6 +1279,10 @@ Module PreView
   
 	Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
 		Define DummyNum, Result.i
+		
+		CompilerIf Defined(ModuleEx, #PB_Module)
+      If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
+    CompilerEndIf
 		
 		If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
       If IsGadget(GNum)
@@ -1676,8 +1687,9 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf 
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 12
-; Folding = 9GD4TPQ5RwMg-
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 1284
+; FirstLine = 549
+; Folding = 9GD4TPQ5RwZA-
 ; EnableXP
 ; DPIAware

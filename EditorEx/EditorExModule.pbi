@@ -133,7 +133,7 @@
 
 DeclareModule EditEx
   
-  #Version  = 19111900
+  #Version  = 19111901
   #ModuleEx = 19111702
   
   ;- ============================================================================
@@ -2571,13 +2571,7 @@ Module EditEx
         EditEx()\Color\HighlightText = ModuleEx::ThemeGUI\Focus\FrontColor
         EditEx()\Color\Highlight     = ModuleEx::ThemeGUI\Focus\BackColor
         EditEx()\Color\ScrollBar     = ModuleEx::ThemeGUI\ScrollbarColor
-        
-        If ModuleEx::ThemeGUI\WindowColor > 0
-          If IsWindow(EditEx()\Window\Num)
-            SetWindowColor(EditEx()\Window\Num, ModuleEx::ThemeGUI\WindowColor) 
-          EndIf  
-        EndIf 
-        
+
         Draw_()
       Next
       
@@ -5229,8 +5223,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 130
-; FirstLine = 15
+; CursorPosition = 135
+; FirstLine = 18
 ; Folding = 5XnRAgBAAIAEgBIA9BgiJACYBABOAwoiAgRwhgQgAg1EAQAfsTQ9-
 ; Markers = 892
 ; EnableXP

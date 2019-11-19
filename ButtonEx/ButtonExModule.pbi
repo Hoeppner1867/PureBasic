@@ -65,7 +65,7 @@
 
 DeclareModule ButtonEx
   
-  #Version  = 19111900
+  #Version  = 19111901
   #ModuleEx = 19111703
   
 	;- ===========================================================================
@@ -139,6 +139,8 @@ DeclareModule ButtonEx
 	Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Text.s, Flags.i, WindowNum.i=#PB_Default)
 	
 	Declare.i GetState(GNum.i)
+	
+	Declare   Hide(GNum.i, State.i=#True)
 	
 	Declare   SetAutoResizeFlags(GNum.i, Flags.i)
 	Declare   SetColor(GNum.i, ColorType.i, Color.i)
@@ -221,6 +223,8 @@ Module ButtonEx
 		Toggle.i
 		FontID.i
 		State.i
+		
+		Hide.i
 		Flags.i
 		
 		; Fit Text
@@ -353,7 +357,9 @@ Module ButtonEx
 		Define.f X, Y, Width, Height, txtWidth
 		Define.s Text, Row
 		Define.i lf, s, CountLF, idx, BackColor, BorderColor
-
+		
+		If BtEx()\Hide : ProcedureReturn #False : EndIf
+		
 		If BtEx()\Flags & #MultiLine
 			NewList Rows.s()
 		EndIf
@@ -616,7 +622,7 @@ Module ButtonEx
     Procedure _ThemeHandler()
 
       ForEach BtEx()
-        
+
         If IsFont(ModuleEx::ThemeGUI\Font\Num)
           BtEx()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
         EndIf
@@ -626,13 +632,7 @@ Module ButtonEx
         BtEx()\Color\Focus  = ModuleEx::ThemeGUI\Focus\BackColor
         BtEx()\Color\Border = ModuleEx::ThemeGUI\Button\BorderColor
         BtEx()\Color\Gadget = ModuleEx::ThemeGUI\GadgetColor
-        
-        If ModuleEx::ThemeGUI\WindowColor > 0
-          If IsWindow(BtEx()\Window\Num)
-            SetWindowColor(BtEx()\Window\Num, ModuleEx::ThemeGUI\WindowColor) 
-          EndIf  
-        EndIf 
-        
+
         Draw_()
       Next
       
@@ -970,7 +970,24 @@ Module ButtonEx
 
 	EndProcedure
 	
+	Procedure   Hide(GNum.i, State.i=#True)
+    
+    If FindMapElement(BtEx(), Str(GNum))
+      
+      If State
+        BtEx()\Hide = #True
+        HideGadget(GNum, #True)
+      Else
+        BtEx()\Hide = #False
+        HideGadget(GNum, #False)
+        Draw_()
+      EndIf
+    
+    EndIf  
+    
+  EndProcedure  
 	
+  
 	Procedure   SetAutoResizeFlags(GNum.i, Flags.i)
 
 		If FindMapElement(BtEx(), Str(GNum))
@@ -1233,7 +1250,8 @@ CompilerIf #PB_Compiler_IsMainFile
 
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 67
-; Folding = 9FI3--5MMQ-
+; CursorPosition = 989
+; FirstLine = 701
+; Folding = 9FI3--5MMp+
 ; EnableXP
 ; DPIAware

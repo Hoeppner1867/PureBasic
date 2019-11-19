@@ -10,7 +10,7 @@
 ;/ Pattern based on (http://tug.org/tex-hyphen/)
 ;/
 
-; Last Update: 8.11.19
+; Last Update: 19.11.19
 ;
 ; Added: #UseExistingCanvas
 ;
@@ -92,6 +92,9 @@
 ; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule ViewerEx
+  
+  #Version  = 19111900
+  #ModuleEx = 19111702
   
   #Enable_Hyphenation         = #True
   #Enable_AddViewerContent    = #True ; Set it to #False to enable buttons
@@ -1147,6 +1150,10 @@ Module ViewerEx
     Procedure _ThemeHandler()
 
       ForEach VGEx()
+        
+        If IsFont(ModuleEx::ThemeGUI\Font\Num)
+          VGEx()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
+        EndIf
         
         VGEx()\Color\Front     = ModuleEx::ThemeGUI\FrontColor
         VGEx()\Color\Back      = ModuleEx::ThemeGUI\BackColor
@@ -2293,6 +2300,10 @@ Module ViewerEx
   Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
     Define.i Result, Num
     
+    CompilerIf Defined(ModuleEx, #PB_Module)
+      If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
+    CompilerEndIf
+    
     If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
       If IsGadget(GNum)
         Result = #True
@@ -2786,9 +2797,10 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 91
-; Folding = MCAAgBAACYwCAAAMAAA1lAS+
-; Markers = 1815
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 2304
+; FirstLine = 334
+; Folding = MCAAgBAACYwCAAAMAAAsLBk9
+; Markers = 1822
 ; EnableXP
 ; DPIAware

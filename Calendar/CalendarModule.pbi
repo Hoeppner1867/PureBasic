@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (07/2019)
 ;/
 
-; Last Update: 12.11.2019
+; Last Update: 19.11.2019
 ;
 ; Added: Theme support
 ;
@@ -82,11 +82,15 @@
 ; Calendar::UpdatePopupText()    - update menu item text with this mask
 ;}
 
-XIncludeFile "ModuleEx.pbi"
+;XIncludeFile "ModuleEx.pbi"
+
 XIncludeFile "CanvasTooltipModule.pbi"
 XIncludeFile "Date64Module.pbi"
 
 DeclareModule Calendar
+  
+  #Version  = 19111800
+  #ModuleEx = 19111702
   
   #Enable_iCalFormat = #True
   
@@ -1474,6 +1478,10 @@ Module Calendar
 
       ForEach Calendar()
         
+        If IsFont(ModuleEx::ThemeGUI\Font\Num)
+          Calendar()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
+        EndIf
+        
         Calendar()\Color\Front        = ModuleEx::ThemeGUI\FrontColor
         Calendar()\Color\Back         = ModuleEx::ThemeGUI\BackColor
         Calendar()\Color\Grid         = ModuleEx::ThemeGUI\LineColor
@@ -2245,6 +2253,10 @@ Module Calendar
   Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
     Define d, m, DummyNum, Result.i
     
+    CompilerIf Defined(ModuleEx, #PB_Module)
+      If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
+    CompilerEndIf
+    
     If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
       If IsGadget(GNum)
         Result = #True
@@ -2389,6 +2401,10 @@ Module Calendar
         BindGadgetEvent(Calendar()\CanvasNum,  @_LeftButtonDownHandler(),  #PB_EventType_LeftButtonDown)
         BindGadgetEvent(Calendar()\CanvasNum,  @_LeftButtonUpHandler(),    #PB_EventType_LeftButtonUp)
         
+        CompilerIf Defined(ModuleEx, #PB_Module)
+          BindEvent(#Event_Theme, @_ThemeHandler())
+        CompilerEndIf
+        
         If IsGadget(Calendar()\ListNum)
           BindGadgetEvent(Calendar()\ListNum, @_ListGadgetHandler(), #PB_EventType_LeftClick)
         EndIf 
@@ -2411,9 +2427,7 @@ Module Calendar
             ToolTip::SetColor(Calendar()\CanvasNum, ToolTip::#TitleBackColor,   $B48246)
             ToolTip::SetColor(Calendar()\CanvasNum, ToolTip::#TitleColor,       $FFFFFF)
           EndIf
-          
-          BindEvent(#Event_Theme, @_ThemeHandler())
-          
+
         CompilerEndIf
         
         Draw_()
@@ -3001,7 +3015,7 @@ CompilerIf #PB_Compiler_IsMainFile
     	
       CompilerEndIf
       
-      ModuleEx::SetTheme(ModuleEx::#Theme_Blue)
+      ;ModuleEx::SetTheme(ModuleEx::#Theme_Blue)
       
       CompilerSelect #Example
         CompilerCase 2
@@ -3087,10 +3101,10 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 3007
-; FirstLine = 721
-; Folding = MgPIAAEAgAAAw8eQEMRAAVAACCk1
-; Markers = 1049,2640
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 84
+; FirstLine = 28
+; Folding = MgPIAAEAgAAAw8WQEMRAArBAIIQS-
+; Markers = 1053,2654
 ; EnableXP
 ; DPIAware

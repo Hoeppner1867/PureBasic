@@ -79,7 +79,7 @@
 
 DeclareModule StatusBar
   
-  #Version  = 19111900
+  #Version  = 19111901
   #ModuleEx = 19111703
   
   ;- ===========================================================================
@@ -554,13 +554,7 @@ Module StatusBar
         StBEx()\Color\Front     = ModuleEx::ThemeGUI\FrontColor
         StBEx()\Color\Back      = ModuleEx::ThemeGUI\GadgetColor
         StBEx()\Color\Separator = ModuleEx::ThemeGUI\Button\BorderColor
-        StBEx()\Color\Border    = ModuleEx::ThemeGUI\BorderColor
-        
-        If ModuleEx::ThemeGUI\WindowColor > 0
-          If IsWindow(StBEx()\Window\Num)
-            SetWindowColor(StBEx()\Window\Num, ModuleEx::ThemeGUI\WindowColor) 
-          EndIf  
-        EndIf 
+        StBEx()\Color\Border    = ModuleEx::ThemeGUI\BorderColor 
         
         Draw_()
       Next
@@ -1563,6 +1557,6 @@ CompilerEndIf
   
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 81
-; Folding = 9AAghZAEA5AAAg
+; Folding = 9AAgh6AEAYAAAg
 ; EnableXP
 ; DPIAware

@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (06/2019)
 ;/
 
-; Last Update: 13.11.19
+; Last Update: 19.11.19
 ;
 ; Added: #UseExistingCanvas
 ;
@@ -51,9 +51,12 @@
 ; ProgressEx::SetText()            - similar to SetGadgetText()
 ;}
 
-XIncludeFile "ModuleEx.pbi"
+;XIncludeFile "ModuleEx.pbi"
 
 DeclareModule ProgressEx
+  
+  #Version  = 19111900
+  #ModuleEx = 19111702
   
   ;- ===========================================================================
   ;-   DeclareModule - Constants / Structures
@@ -368,6 +371,10 @@ Module ProgressEx
 
       ForEach PBarEx()
         
+        If IsFont(ModuleEx::ThemeGUI\Font\Num)
+          PBarEx()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
+        EndIf
+        
         PBarEx()\Color\Front       = ModuleEx::ThemeGUI\Progress\FrontColor
         PBarEx()\Color\Back        = ModuleEx::ThemeGUI\GadgetColor
         PBarEx()\Color\ProgressBar = ModuleEx::ThemeGUI\Progress\BackColor
@@ -445,6 +452,10 @@ Module ProgressEx
   
   Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Minimum.i=0, Maximum.i=100, Flags.i=#False, WindowNum.i=#PB_Default)
     Define.i txtNum, Result
+    
+    CompilerIf Defined(ModuleEx, #PB_Module)
+      If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
+    CompilerEndIf
     
     If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
       If IsGadget(GNum)
@@ -691,7 +702,7 @@ CompilerIf #PB_Compiler_IsMainFile
     ButtonGadget(#BT, 45, 44, 30, 22, "Set")
     
     CompilerIf Defined(ModuleEx, #PB_Module)
-      ModuleEx::SetTheme(ModuleEx::#Theme_Blue)
+      ModuleEx::SetTheme(ModuleEx::#Theme_Dark)
     CompilerEndIf
     
     Repeat
@@ -710,8 +721,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 11
-; Folding = UEecDB5
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 457
+; FirstLine = 240
+; Folding = UEecHCw-
 ; EnableXP
 ; DPIAware

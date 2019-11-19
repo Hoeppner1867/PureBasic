@@ -9,7 +9,7 @@
 ;/ © 2019 by Thorsten Hoeppner (07/2019)
 ;/
 
-; Last Update: 13.07.2019
+; Last Update: 19.11.2019
 
 ; ToolTip is now a separate window and not just a gadget
 
@@ -52,7 +52,10 @@
 ; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule ToolTip
-
+  
+  #Version  = 19111900
+  #ModuleEx = 19111702
+  
 	;- ===========================================================================
 	;-   DeclareModule - Constants
 	;- ===========================================================================
@@ -505,6 +508,10 @@ Module ToolTip
 
       ForEach ToolTip()
         
+        If IsFont(ModuleEx::ThemeGUI\Font\Num)
+          ToolTip()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
+        EndIf
+        
         ToolTip()\Color\Front       = ModuleEx::ThemeGUI\FrontColor
 				ToolTip()\Color\Back        = ModuleEx::ThemeGUI\BackColor
 				ToolTip()\Color\Border      = ModuleEx::ThemeGUI\BorderColor
@@ -840,6 +847,10 @@ Module ToolTip
   Procedure.i Create(Gadget.i, Window.i, Flags.i=#False)
 		Define DummyNum, GNum.i, WNum.i
 		
+		CompilerIf Defined(ModuleEx, #PB_Module)
+      If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
+    CompilerEndIf
+		
 		WNum = OpenWindow(#PB_Any, 0, 0, 0, 0, "ToolTip", #PB_Window_BorderLess|#PB_Window_Invisible, WindowID(Window))
 		If WNum
 		  
@@ -1110,8 +1121,9 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf 
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 51
-; Folding = 9BIBgBOiD9
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 851
+; FirstLine = 267
+; Folding = 9BIBgBOiH5
 ; EnableXP
 ; DPIAware

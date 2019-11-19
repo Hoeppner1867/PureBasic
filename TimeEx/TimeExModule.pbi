@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 8.11.19
+; Last Update: 19.11.19
 ;
 ; Added: #UseExistingCanvas
 ;
@@ -52,6 +52,9 @@
 
 DeclareModule TimeEx
   
+  #Version  = 19111900
+  #ModuleEx = 19111702
+  
   ;- ===========================================================================
   ;-   DeclareModule - Constants / Structures
   ;- =========================================================================== 
@@ -72,6 +75,19 @@ DeclareModule TimeEx
     #HighlightColor
     #HighlightTextColor
   EndEnumeration ;}
+  
+  CompilerIf Defined(ModuleEx, #PB_Module)
+
+		#Event_Gadget = ModuleEx::#Event_Gadget
+		#Event_Theme  = ModuleEx::#Event_Theme
+		
+	CompilerElse
+
+		Enumeration #PB_Event_FirstCustomValue
+			#Event_Gadget
+		EndEnumeration
+
+	CompilerEndIf
   
   ;- ===========================================================================
   ;-   DeclareModule
@@ -437,7 +453,34 @@ Module TimeEx
   EndProcedure
   
   ;- __________ Events __________
+  
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure _ThemeHandler()
 
+      ForEach TGEx()
+        
+        If IsFont(ModuleEx::ThemeGUI\Font\Num)
+          TGEx()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
+        EndIf
+
+        TGEx()\Color\Front         = ModuleEx::ThemeGUI\FrontColor
+        TGEx()\Color\Back          = ModuleEx::ThemeGUI\BackColor
+        TGEx()\Color\Focus         = ModuleEx::ThemeGUI\Focus\BackColor
+        TGEx()\Color\Border        = ModuleEx::ThemeGUI\BorderColor
+        TGEx()\Color\Highlight     = ModuleEx::ThemeGUIFocus\BackColor
+        TGEx()\Color\HighlightText = ModuleEx::ThemeGUI\Focus\FrontColor
+        TGEx()\Color\Button        = ModuleEx::ThemeGUI\Button\BackColor
+        TGEx()\Color\ButtonBorder  = ModuleEx::ThemeGUI\\Button\BorderColor
+				
+        Draw_()
+      Next
+      
+    EndProcedure
+    
+  CompilerEndIf 
+  
+  
   Procedure _FocusHandler()
     Define.i GNum = EventGadget()
     
@@ -855,6 +898,10 @@ Module TimeEx
   Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Time.s, Flags.i=#False, WindowNum.i=#PB_Default) 
     Define Result.i, txtNum
     
+    CompilerIf Defined(ModuleEx, #PB_Module)
+      If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
+    CompilerEndIf
+    
     If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
       If IsGadget(GNum)
         Result = #True
@@ -958,6 +1005,10 @@ Module TimeEx
         BindGadgetEvent(GNum, @_LeftButtonUpHandler(),   #PB_EventType_LeftButtonUp)
         BindGadgetEvent(GNum, @_InputHandler(),          #PB_EventType_Input)
         BindGadgetEvent(GNum, @_KeyDownHandler(),        #PB_EventType_KeyDown)
+        
+        CompilerIf Defined(ModuleEx, #PB_Module)
+          BindEvent(#Event_Theme, @_ThemeHandler())
+        CompilerEndIf
         
       EndIf
       
@@ -1093,9 +1144,8 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 866
-; FirstLine = 198
-; Folding = 9BTIBAwD9
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 51
+; Folding = 9DmQOAA+E+
 ; EnableXP
 ; DPIAware

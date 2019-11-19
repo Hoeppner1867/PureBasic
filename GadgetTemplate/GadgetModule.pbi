@@ -295,12 +295,6 @@ Module {Gadget}
 				{Gadget}()\Color\Back   = ModuleEx::ThemeGUI\BackColor
 				{Gadget}()\Color\Border = ModuleEx::ThemeGUI\BorderColor
 				
-				If ModuleEx::ThemeGUI\WindowColor > 0
-          If IsWindow({Gadget}()\Window\Num)
-            SetWindowColor({Gadget}()\Window\Num, ModuleEx::ThemeGUI\WindowColor) 
-          EndIf  
-        EndIf 
-				
         Draw_()
       Next
       
@@ -479,7 +473,7 @@ Module {Gadget}
 		
 		CompilerIf Defined(ModuleEx, #PB_Module)
       If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
-    CompilerEndIf 
+    CompilerEndIf
 		
 		If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
       If IsGadget(GNum)
@@ -671,8 +665,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 480
-; FirstLine = 123
+; CursorPosition = 296
+; FirstLine = 98
 ; Folding = EEAgGADhw
 ; EnableXP
 ; DPIAware

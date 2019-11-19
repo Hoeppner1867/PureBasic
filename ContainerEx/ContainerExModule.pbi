@@ -56,7 +56,7 @@
 
 DeclareModule ContainerEx
   
-  #Version  = 19111901
+  #Version  = 19111902
   #ModuleEx = 19111702
   
 	;- ===========================================================================
@@ -333,11 +333,6 @@ Module ContainerEx
 				ContainerEx()\Color\Back   = ModuleEx::ThemeGUI\BackColor
 				ContainerEx()\Color\Border = ModuleEx::ThemeGUI\BorderColor
         ContainerEx()\Color\Gadget = ModuleEx::ThemeGUI\GadgetColor
-				If ModuleEx::ThemeGUI\WindowColor > 0
-          If IsWindow(ContainerEx()\Window\Num)
-            SetWindowColor(ContainerEx()\Window\Num, ModuleEx::ThemeGUI\WindowColor) 
-          EndIf  
-        EndIf 
 				
         Draw_()
       Next

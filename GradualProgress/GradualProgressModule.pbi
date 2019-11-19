@@ -11,7 +11,7 @@
 ;/ © 2019  by Thorsten (11/2019)
 ;/
 
-; Last Update: 8.11.19
+; Last Update: 19.11.19
 ;
 ; Added: #UseExistingCanvas
 ;
@@ -56,7 +56,10 @@
 ; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule Gradual
-
+  
+  #Version  = 19111900
+  #ModuleEx = 19111702
+  
 	;- ===========================================================================
 	;-   DeclareModule - Constants
 	;- ===========================================================================
@@ -454,6 +457,10 @@ Module Gradual
 
       ForEach Gradual()
         
+        If IsFont(ModuleEx::ThemeGUI\Font\Num)
+          ()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
+        EndIf
+        
         Gradual()\Color\Front         = ModuleEx::ThemeGUI\FrontColor
 				Gradual()\Color\Back          = ModuleEx::ThemeGUI\BackColor
 				Gradual()\Color\Border        = ModuleEx::ThemeGUI\BorderColor
@@ -608,6 +615,10 @@ Module Gradual
 
 	Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Steps.i, Flags.i=#False, WindowNum.i=#PB_Default)
 		Define DummyNum, Result.i
+		
+		CompilerIf Defined(ModuleEx, #PB_Module)
+      If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
+    CompilerEndIf
 		
 		If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
       If IsGadget(GNum)
@@ -887,9 +898,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 55
-; FirstLine = 6
-; Folding = 9GAA5DCB9+
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 620
+; FirstLine = 158
+; Folding = 9GAA5DGC50
 ; EnableXP
 ; DPIAware

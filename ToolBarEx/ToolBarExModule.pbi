@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 14.11.19
+; Last Update: 19.11.19
 ;
 ; Added: #UseExistingCanvas
 ;
@@ -82,6 +82,9 @@
 ; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule ToolBar
+  
+  #Version  = 19111900
+  #ModuleEx = 19111702
   
   #EnableToolBarGadgets = #True
   
@@ -783,6 +786,10 @@ Module ToolBar
     Procedure _ThemeHandler()
 
       ForEach TBEx()
+        
+        If IsFont(ModuleEx::ThemeGUI\Font\Num)
+          TBEx()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
+        EndIf
         
         TBEx()\Color\Front     = ModuleEx::ThemeGUI\FrontColor
         TBEx()\Color\Back      = ModuleEx::ThemeGUI\GadgetColor
@@ -1523,6 +1530,10 @@ Module ToolBar
     Define Result.i, ImageSize .f
     
     CompilerIf Defined(ModuleEx, #PB_Module)
+      If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
+    CompilerEndIf
+    
+    CompilerIf Defined(ModuleEx, #PB_Module)
       If WindowNum = #PB_Default
         WindowNum = ModuleEx::GetGadgetWindow()
       EndIf
@@ -2120,9 +2131,10 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf  
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 81
-; Folding = 9BAEcQHz1mUAAmHAo74
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 1533
+; FirstLine = 554
+; Folding = 9BAEcQHz1mUAAOPAQ2v
 ; EnableXP
 ; DPIAware
 ; Executable = Test.exe

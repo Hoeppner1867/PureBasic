@@ -51,11 +51,11 @@
 
 ;}
 
-;XIncludeFile "ModuleEx.pbi"
+; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule TextEx
   
-  #Version  = 19111900
+  #Version  = 19111901
   #ModuleEx = 19111702
   
   ;- ===========================================================================
@@ -101,6 +101,7 @@ DeclareModule TextEx
   Declare   Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Text.s, Flags.i=#False, WindowNum.i=#PB_Default)
   Declare.i GetColor(GNum.i, ColorType.i)
   Declare.s GetText(GNum.i)
+  Declare   Hide(GNum.i, State.i=#True)
   Declare   SetColor(GNum.i, ColorType.i, Value.i)
   Declare   SetFont(GNum.i, FontID.i)
   Declare   SetText(GNum.i, Text.s)
@@ -147,6 +148,9 @@ Module TextEx
     FontID.i
     
     Text.s
+    
+    Hide.i
+    
     Flags.i
     
     Color.TextEx_Color_Structure
@@ -230,6 +234,8 @@ Module TextEx
     Define.i TextHeight, Rows, r
     Define.s Text
     
+    If TextEx()\Hide : ProcedureReturn #False : EndIf
+    
     If StartDrawing(CanvasOutput(TextEx()\CanvasNum))
       
       ;{ _____ Background _____
@@ -276,6 +282,7 @@ Module TextEx
       
       ;{ _____ Border ____
       If TextEx()\Flags & #Border
+        
         DrawingMode(#PB_2DDrawing_Outlined)
         
         If TextEx()\Color\Border = #PB_Default
@@ -309,13 +316,7 @@ Module TextEx
         
         TextEx()\Color\Front    = ModuleEx::ThemeGUI\FrontColor
         TextEx()\Color\Back     = ModuleEx::ThemeGUI\GadgetColor
-        
-        If ModuleEx::ThemeGUI\WindowColor > 0
-          If IsWindow(TextEx()\Window\Num)
-            SetWindowColor(TextEx()\Window\Num, ModuleEx::ThemeGUI\WindowColor) 
-          EndIf  
-        EndIf 
-        
+
         Draw_()
       Next
       
@@ -386,6 +387,23 @@ Module TextEx
   ;-   Module - Declared Procedures
   ;- ==========================================================================  
   
+  Procedure   Hide(GNum.i, State.i=#True)
+    
+    If FindMapElement(TextEx(), Str(GNum))
+      
+      If State
+        TextEx()\Hide = #True
+        HideGadget(GNum, #True)
+      Else
+        TextEx()\Hide = #False
+        HideGadget(GNum, #False)
+        Draw_()
+      EndIf
+    
+    EndIf  
+    
+  EndProcedure  
+
   Procedure   SetAutoResizeFlags(GNum.i, Flags.i)
     
     If FindMapElement(TextEx(), Str(GNum))
@@ -457,6 +475,7 @@ Module TextEx
     
   EndProcedure
   
+  
   Procedure.s GetText(GNum.i)
     
     If FindMapElement(TextEx(), Str(GNum))
@@ -466,6 +485,7 @@ Module TextEx
     EndIf  
     
   EndProcedure
+  
   
   Procedure   Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Text.s, Flags.i=#False, WindowNum.i=#PB_Default)
     Define.i Result, txtNum
@@ -594,7 +614,7 @@ CompilerIf #PB_Compiler_IsMainFile
   If OpenWindow(#Window, 0, 0, 180, 60, "Example", #PB_Window_SystemMenu | #PB_Window_ScreenCentered | #PB_Window_SizeGadget)
     
     TextEx::Gadget(#Text, 5, 5, 170, 50, "Gradient Background", TextEx::#Center|TextEx::#Border|TextEx::#Gradient|TextEx::#AutoResize|TextEx::#MultiLine, #Window)
-    
+ 
     TextEx::SetColor(#Text, TextEx::#FrontColor,    $FFFFFF)
     TextEx::SetColor(#Text, TextEx::#BackColor,     $DEC4B0)
     TextEx::SetColor(#Text, TextEx::#GradientColor, $783C0A)
@@ -604,7 +624,7 @@ CompilerIf #PB_Compiler_IsMainFile
     
     ;TextEx::SetAutoResizeFlags(#Text, TextEx::#MoveY|TextEx::#ResizeWidth)
     
-    ;ModuleEx::SetTheme(ModuleEx::#Theme_Green)
+    ;ModuleEx::SetTheme(ModuleEx::#Theme_Dark)
     
     Repeat
       Event = WaitWindowEvent()
@@ -613,6 +633,7 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 474
-; Folding = cAAFAD-
+; CursorPosition = 103
+; FirstLine = 66
+; Folding = cEQNDE+
 ; EnableXP

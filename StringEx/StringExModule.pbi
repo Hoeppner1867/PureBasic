@@ -845,13 +845,7 @@ Module StringEx
         StrgEx()\Color\Button        = ModuleEx::ThemeGUI\Button\BackColor
         StrgEx()\Color\HighlightText = ModuleEx::ThemeGUI\Focus\FrontColor
         StrgEx()\Color\Highlight     = ModuleEx::ThemeGUI\Focus\BackColor
-        
-        If ModuleEx::ThemeGUI\WindowColor > 0
-          If IsWindow(StrgEx()\Window\Num)
-            SetWindowColor(StrgEx()\Window\Num, ModuleEx::ThemeGUI\WindowColor) 
-          EndIf  
-        EndIf 
-        
+
         Draw_()
       Next
       
@@ -2192,9 +2186,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 76
-; FirstLine = 18
-; Folding = UHAEAgAgEQBAABBFEUwAAg+
+; CursorPosition = 847
+; FirstLine = 202
+; Folding = UHAEAgAg1QBAABBFEUwAAg+
 ; EnableThread
 ; EnableXP
 ; DPIAware
