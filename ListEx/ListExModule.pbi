@@ -132,7 +132,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19111801
+  #Version  = 19111900
   #ModuleEx = 19111703
   
   #Enable_Validation  = #True
@@ -3505,13 +3505,7 @@ Module ListEx
         ListEx()\Color\Gradient     = ModuleEx::ThemeGUI\Progress\GradientColor
         ListEx()\Color\ButtonBack   = ModuleEx::ThemeGUI\Button\BackColor
         ListEx()\Color\ButtonBorder = ModuleEx::ThemeGUI\Button\BorderColor
-        
-        If ModuleEx::ThemeGUI\WindowColor > 0
-          If IsWindow(ListEx()\Window\Num)
-            SetWindowColor(ListEx()\Window\Num, ModuleEx::ThemeGUI\WindowColor) 
-          EndIf  
-        EndIf 
-        
+
         Draw_()
       Next
       
@@ -7522,8 +7516,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 11
-; Folding = 9PAACAAEAMQEIBMgw-GhHrXIJIgdUwCB9-fBQ64nAIBoJwBYAwBAAgAgAIAQh88
+; CursorPosition = 3507
+; FirstLine = 1026
+; Folding = 9PAACAAEAMQEIBMgw-GhHrXIJIgdUwiB9-fBQ64nAIBoJwBYAwBAAgAgAIAQh88
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
