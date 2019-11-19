@@ -11,11 +11,13 @@
   
 ; Last Update: 19.11.2019
 ;
+; Bugfix: DPI
+;
 ; Added: #NoWindow (use container or gadget instead of window for resizing)
-
 ; Added: ClearItems() / Disable()
 ; Added: #UseExistingCanvas
 ; Added: StatusBar::Hide()
+
 
 ;{ ===== MIT License =====
 ;
@@ -79,7 +81,7 @@
 
 DeclareModule StatusBar
   
-  #Version  = 19111901
+  #Version  = 19111902
   #ModuleEx = 19111703
   
   ;- ===========================================================================
@@ -409,7 +411,7 @@ Module StatusBar
       Box(0, 0, dpiX(GadgetWidth(StBEx()\CanvasNum)), dpiY(GadgetHeight(StBEx()\CanvasNum)), StBEx()\Color\Back)
       ;}
       
-      Height = dpiX(StBEx()\Size\Height)
+      Height = dpiY(GadgetHeight(StBEx()\CanvasNum))
       
       ;  _____ Fields _____
       
@@ -438,7 +440,11 @@ Module StatusBar
         If StBEx()\Fields()\Flags & #BackColor  : BackColor  = StBEx()\Fields()\Color\Back  : EndIf 
         
         DrawingMode(#PB_2DDrawing_Outlined)
-        Box(X, 0, Width, StBEx()\Size\Height, StBEx()\Color\Border)
+        If StBEx()\Flags & #SizeHandle And ListIndex(StBEx()\Fields()) = ListSize(StBEx()\Fields()) - 1
+          Box(X, 0, Width + dpiX(#SizeBox_Width), Height, StBEx()\Color\Border)
+        Else  
+          Box(X, 0, Width, Height, StBEx()\Color\Border)
+        EndIf
 
         ;{ --- Font ---
         If StBEx()\Fields()\Flags & #Font
@@ -1556,7 +1562,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
   
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 81
-; Folding = 9AAgh6AEAYAAAg
+; CursorPosition = 83
+; FirstLine = 12
+; Folding = 9AAIBwAEgYAAAw
 ; EnableXP
 ; DPIAware
