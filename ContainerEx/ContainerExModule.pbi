@@ -56,7 +56,7 @@
 
 DeclareModule ContainerEx
   
-  #Version  = 19111900
+  #Version  = 19111901
   #ModuleEx = 19111702
   
 	;- ===========================================================================
@@ -332,7 +332,7 @@ Module ContainerEx
         ContainerEx()\Color\Front  = ModuleEx::ThemeGUI\FrontColor
 				ContainerEx()\Color\Back   = ModuleEx::ThemeGUI\BackColor
 				ContainerEx()\Color\Border = ModuleEx::ThemeGUI\BorderColor
-
+        ContainerEx()\Color\Gadget = ModuleEx::ThemeGUI\GadgetColor
 				If ModuleEx::ThemeGUI\WindowColor > 0
           If IsWindow(ContainerEx()\Window\Num)
             SetWindowColor(ContainerEx()\Window\Num, ModuleEx::ThemeGUI\WindowColor) 
@@ -645,7 +645,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 54
-; Folding = sYCwZEg-
+; CursorPosition = 58
+; Folding = scC9ZMg-
 ; EnableXP
 ; DPIAware
