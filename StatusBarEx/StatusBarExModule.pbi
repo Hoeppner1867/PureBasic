@@ -11,7 +11,7 @@
   
 ; Last Update: 19.11.2019
 ;
-; Bugfix: DPI
+; Bugfix: DPI & SizeHandle
 ;
 ; Added: #NoWindow (use container or gadget instead of window for resizing)
 ; Added: ClearItems() / Disable()
@@ -81,7 +81,7 @@
 
 DeclareModule StatusBar
   
-  #Version  = 19111902
+  #Version  = 19111903
   #ModuleEx = 19111703
   
   ;- ===========================================================================
@@ -379,17 +379,19 @@ Module StatusBar
   EndProcedure
   
   Procedure SizeBox_()
-    Define.i h, v
+    Define.i h, v, dots
     Define.f x, y
     
-    X = dpiX(GadgetWidth(StBEx()\CanvasNum)) - 13
-    Y = dpiY(GadgetHeight(StBEx()\CanvasNum)) - 4
+    X = dpiX(GadgetWidth(StBEx()\CanvasNum))  - dpiY(2)
+    Y = dpiY(GadgetHeight(StBEx()\CanvasNum)) - dpiY(4)
     
-    For h=3 To 1 Step -1
-      For v=1 To h
-        Box(X + (v * dpiX(3)), Y, dpiX(2), dpiY(2), StBEx()\Color\Border)
+    dots = 3
+    
+    For v=1 To 3
+      For h=1 To Dots
+        Box(X - (h * dpiX(3)), Y, dpiX(2), dpiY(2), StBEx()\Color\Border)
       Next
-      X + dpiX(3)
+      dots - 1
       Y - dpiX(3)
     Next
     
@@ -1563,7 +1565,6 @@ CompilerEndIf
   
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 83
-; FirstLine = 12
-; Folding = 9AAIBwAEgYAAAw
+; Folding = 9AAoBwAEgYAAAw
 ; EnableXP
 ; DPIAware
