@@ -73,7 +73,7 @@
 
 DeclareModule StringEx
   
-  #Version  = 19111700
+  #Version  = 19111900
   #ModuleEx = 19111703
   
   #Enable_AutoComplete       = #True
@@ -845,7 +845,7 @@ Module StringEx
         StrgEx()\Color\Button        = ModuleEx::ThemeGUI\Button\BackColor
         StrgEx()\Color\HighlightText = ModuleEx::ThemeGUI\Focus\FrontColor
         StrgEx()\Color\Highlight     = ModuleEx::ThemeGUI\Focus\BackColor
-
+        
         Draw_()
       Next
       
@@ -2186,8 +2186,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 847
-; FirstLine = 202
+; CursorPosition = 75
+; FirstLine = 11
 ; Folding = UHAEAgAg1QBAABBFEUwAAg+
 ; EnableThread
 ; EnableXP
