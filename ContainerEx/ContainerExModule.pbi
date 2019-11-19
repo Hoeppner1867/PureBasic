@@ -9,7 +9,9 @@
 ;/ © 2019  by Thorsten Hoeppner (11/2019)
 ;/
 
-; Last Update: 17.11.2019
+; Last Update: 19.11.2019
+;
+; Added: ContainerEx::Hide()
 ;
 ; Added: #UseExistingCanvas
 ; Added: #TitleBox
@@ -56,7 +58,7 @@
 
 DeclareModule ContainerEx
   
-  #Version  = 19111902
+  #Version  = 19111903
   #ModuleEx = 19111702
   
 	;- ===========================================================================
@@ -115,6 +117,7 @@ DeclareModule ContainerEx
 	Declare   Close(GNum.i)
   Declare   DisableReDraw(GNum.i, State.i=#False)
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
+  Declare   Hide(GNum.i, State.i=#True)
   Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetColor(GNum.i, ColorTyp.i, Value.i)
@@ -163,7 +166,8 @@ Module ContainerEx
 		Padding.i
 		
 		ReDraw.i
-
+		Hide.i
+		
 		Flags.i
 
 		ToolTip.i
@@ -243,6 +247,8 @@ Module ContainerEx
 	Procedure   Draw_()
 		Define.i X, Y, Width, Height, TextHeight, TextWidth
 		Define.i BackColor, Padding
+		
+		If ContainerEx()\Hide : ProcedureReturn #False : EndIf 
 		
 		Width  = dpiX(GadgetWidth(ContainerEx()\CanvasNum))
 		Height = dpiY(GadgetHeight(ContainerEx()\CanvasNum))
@@ -527,6 +533,23 @@ Module ContainerEx
 	EndProcedure  
 	
 	
+	Procedure   Hide(GNum.i, State.i=#True)
+	  
+	  If FindMapElement(ContainerEx(), Str(GNum))
+	    
+	    If State
+	      ContainerEx()\Hide = #True
+	      HideGadget(GNum.i, #True)
+	    Else
+	      ContainerEx()\Hide = #False
+	      HideGadget(GNum.i, #False)
+	      Draw_()
+	    EndIf
+	    
+	  EndIf
+	  
+	EndProcedure  
+	
 	Procedure   SetAttribute(GNum.i, Attribute.i, Value.i)
     
     If FindMapElement(ContainerEx(), Str(GNum))
@@ -630,6 +653,8 @@ CompilerIf #PB_Compiler_IsMainFile
       ContainerEx::Close(#Container)
     EndIf
     
+    ;ContainerEx::Hide(#Container, #True)
+    
     Repeat
       Event = WaitWindowEvent()       
     Until Event = #PB_Event_CloseWindow
@@ -640,7 +665,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 58
-; Folding = scC9ZMg-
+; CursorPosition = 655
+; FirstLine = 280
+; Folding = scC9RMA-
 ; EnableXP
 ; DPIAware
