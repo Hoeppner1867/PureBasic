@@ -132,7 +132,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19111900
+  #Version  = 19111901
   #ModuleEx = 19111703
   
   #Enable_Validation  = #True
@@ -2966,9 +2966,8 @@ Module ListEx
       colX = dpiX(ListEx()\Size\X) - dpiX(ListEx()\Col\OffsetX)
       rowY = dpiY(ListEx()\Size\Y)
       
-      DrawingMode(#PB_2DDrawing_Default)
-      
-      Line(0, dpiX(ListEx()\Header\Height), colWidth, dpiY(1), ListEx()\Color\HeaderLine) 
+      DrawingMode(#PB_2DDrawing_Outlined)
+      Box(0, 0, colWidth, dpiY(ListEx()\Header\Height) + 1, ListEx()\Color\HeaderLine)
       
       ;{ _____ ScrollBars ______
       If ListEx()\VScroll\Hide = #False
@@ -7516,8 +7515,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 3507
-; FirstLine = 1026
+; CursorPosition = 134
+; FirstLine = 15
 ; Folding = 9PAACAAEAMQEIBMgw-GhHrXIJIgdUwiB9-fBQ64nAIBoJwBYAwBAAgAgAIAQh88
 ; EnableXP
 ; DPIAware
