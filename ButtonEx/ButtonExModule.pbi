@@ -7,11 +7,11 @@
 ;/ Â© 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 17.11.2019
+; Last Update: 19.11.2019
 ;
 ; Bugfix: Themes
 ;
-; Added: #UseExistingCanvas
+; Added:   #UseExistingCanvas
 ; Changed: #ResizeWidth -> #Width / #ResizeHeight -> #Height
 ; Added:   SetDynamicFont() / FitText() / SetFitText()       [needs ModuleEx.pbi]
 ; Added:   Flags '#FitText' & '#FixPadding' for Autoresize   [needs ModuleEx.pbi]
@@ -65,7 +65,7 @@
 
 DeclareModule ButtonEx
   
-  #Version  = 19111700
+  #Version  = 19111900
   #ModuleEx = 19111703
   
 	;- ===========================================================================
@@ -311,7 +311,7 @@ Module ButtonEx
 	Procedure.i Arrow_(X.i, Y.i, Width.i, Height.i)
 		Define.i aX, aY, aWidth, aHeight, Color
 
-		Color = BlendColor_($000000, BtEx()\Color\Back, 60)
+		Color = BlendColor_(BtEx()\Color\Front, BtEx()\Color\Back, 60)
 
 		aWidth = dpiX(8)
 		aHeight = dpiX(4)
@@ -370,41 +370,41 @@ Module ButtonEx
 			;{ _____ Background _____
 			DrawingMode(#PB_2DDrawing_Default)
 			If BtEx()\State & #Click And BtEx()\State & #DropDown ;{ DropDown-Button - Click
-				BackColor = BlendColor_(BtEx()\Color\Focus, $FFFFFF, 20)
+				BackColor = BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 20)
 				If BtEx()\Flags & #MacOS
 					If BtEx()\Toggle
-						Box_(0, 0, dpiX(GadgetWidth(BtEx()\CanvasNum)), dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, $FFFFFF, 20))
+						Box_(0, 0, dpiX(GadgetWidth(BtEx()\CanvasNum)), dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 20))
 					Else
-						Box_(0, 0, dpiX(GadgetWidth(BtEx()\CanvasNum)), dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, $FFFFFF, 10))
+						Box_(0, 0, dpiX(GadgetWidth(BtEx()\CanvasNum)), dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 10))
 					EndIf
 					Line(Width - dpiX(1), 0, dpiX(1), dpiY(GadgetHeight(BtEx()\CanvasNum)), BorderColor)
-					FillArea(Width + dpiX(1), dpiX(1), BorderColor, BlendColor_(BtEx()\Color\Focus, $FFFFFF, 20))
+					FillArea(Width + dpiX(1), dpiX(1), BorderColor, BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 20))
 				Else
 					If BtEx()\Toggle
-						Box_(0, 0, Width, dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, $FFFFFF, 20))
+						Box_(0, 0, Width, dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 20))
 					Else
-						Box_(0, 0, Width, dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, $FFFFFF, 10))
+						Box_(0, 0, Width, dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 10))
 					EndIf
-					Box_(Width, 0, dpiX(#DropDownWidth), dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, $FFFFFF, 20))
+					Box_(Width, 0, dpiX(#DropDownWidth), dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 20))
 				EndIf
 				BorderColor = BtEx()\Color\Focus
 				;}
 			ElseIf BtEx()\Toggle And BtEx()\Flags & #DropDownButton ;{ DropDown-Button - Toggle
 				If BtEx()\Flags & #MacOS
-					Box_(0, 0, dpiX(GadgetWidth(BtEx()\CanvasNum)), dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, $FFFFFF, 20))
+					Box_(0, 0, dpiX(GadgetWidth(BtEx()\CanvasNum)), dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 20))
 					Line(Width - dpiX(1), 0, dpiX(1), dpiY(GadgetHeight(BtEx()\CanvasNum)), BorderColor)
 					If BtEx()\State & #Focus
-						FillArea(Width + dpiX(1), dpiX(1), BorderColor, BlendColor_(BtEx()\Color\Focus, $FFFFFF, 10))
+						FillArea(Width + dpiX(1), dpiX(1), BorderColor, BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 10))
 					Else
 						FillArea(Width + dpiX(1), dpiX(1), BorderColor, BtEx()\Color\Back)
 					EndIf
 				Else
 					If BtEx()\State & #Focus
-						Box_(Width, 0, dpiX(#DropDownWidth), dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, $FFFFFF, 10))
+						Box_(Width, 0, dpiX(#DropDownWidth), dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 10))
 					Else
 						Box_(Width, 0, dpiX(#DropDownWidth), dpiY(GadgetHeight(BtEx()\CanvasNum)), BtEx()\Color\Back)
 					EndIf
-					Box_(0, 0, Width, dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, $FFFFFF, 20))
+					Box_(0, 0, Width, dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 20))
 				EndIf
 				BorderColor = BtEx()\Color\Focus
 				;}
@@ -1189,7 +1189,7 @@ CompilerIf #PB_Compiler_IsMainFile
 		  ButtonEx::SetDynamicFont(#ButtonML, "Arial", 9, #PB_Font_Bold)
 		  ButtonEx::SetAutoResizeFlags(#ButtonML, ButtonEx::#Width|ButtonEx::#Height|ButtonEx::#FitText) ; |ButtonEx::#FixPadding
 
-		  ModuleEx::SetTheme(ModuleEx::#Theme_Dark)
+		  ;ModuleEx::SetTheme(ModuleEx::#Theme_Dark)
 		  
 		CompilerEndIf
 		
@@ -1233,7 +1233,7 @@ CompilerIf #PB_Compiler_IsMainFile
 
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 68
-; Folding = 9FIwc55MMQ-
+; CursorPosition = 67
+; Folding = 9FI3--5MMQ-
 ; EnableXP
 ; DPIAware
