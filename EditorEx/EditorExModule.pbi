@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 8.11.19
+; Last Update: 19.11.19
 ;
 ; Added: #UseExistingCanvas
 ;
@@ -129,16 +129,19 @@
   
 ;} ===========================
 
-; XIncludeFile "ModuleEx.pbi"
+ XIncludeFile "ModuleEx.pbi"
 
 DeclareModule EditEx
+  
+  #Version  = 19111900
+  #ModuleEx = 19111702
   
   ;- ============================================================================
   ;-   DeclareModule - Constants
   ;- ============================================================================
   
-  #Enable_Hyphenation     = #True  ; Requires file with hyphenation patterns => LoadHyphenationPattern()
-  #Enable_SpellChecking   = #True  ; Requires file with dictionary           => LoadDictionary()
+  #Enable_Hyphenation     = #False  ; Requires file with hyphenation patterns => LoadHyphenationPattern()
+  #Enable_SpellChecking   = #False  ; Requires file with dictionary           => LoadDictionary()
   #Enable_SyntaxHighlight = #False
   #Enable_UndoRedo        = #True 
   
@@ -2260,6 +2263,8 @@ Module EditEx
           ;}
         Else                                                           ;{ no WordWrap
           
+          AddRow_(Pos, PosX, PosY) 
+          
           Words = CountString(Row$, " ") + 1
           For w=1 To Words
             
@@ -2555,6 +2560,10 @@ Module EditEx
 
       ForEach EditEx()
         
+        If IsFont(ModuleEx::ThemeGUI\Font\Num)
+          EditEx()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
+        EndIf
+        
         EditEx()\Color\Front         = ModuleEx::ThemeGUI\FrontColor
         EditEx()\Color\Back          = ModuleEx::ThemeGUI\BackColor
         EditEx()\Color\Border        = ModuleEx::ThemeGUI\BorderColor
@@ -2562,7 +2571,13 @@ Module EditEx
         EditEx()\Color\HighlightText = ModuleEx::ThemeGUI\Focus\FrontColor
         EditEx()\Color\Highlight     = ModuleEx::ThemeGUI\Focus\BackColor
         EditEx()\Color\ScrollBar     = ModuleEx::ThemeGUI\ScrollbarColor
-
+        
+        If ModuleEx::ThemeGUI\WindowColor > 0
+          If IsWindow(EditEx()\Window\Num)
+            SetWindowColor(EditEx()\Window\Num, ModuleEx::ThemeGUI\WindowColor) 
+          EndIf  
+        EndIf 
+        
         Draw_()
       Next
       
@@ -2596,26 +2611,29 @@ Module EditEx
     
   EndProcedure
   
-  Procedure _ButtonHandler()
-    Define.i GNum
-    Define.s Word$
-    Define.i ButtonNum.i = EventGadget()
+  CompilerIf #Enable_SpellChecking
     
-    GNum = GetGadgetData(ButtonNum)
-    If FindMapElement(EditEx(), Str(GNum))
+    Procedure _ButtonHandler()
+      Define.i GNum
+      Define.s Word$
+      Define.i ButtonNum.i = EventGadget()
       
-      HideWindow(EditEx()\WinNum, #True)
-      
-      Word$ = GetSelection_()
-      If Word$ : AddToUserDictionary_(Word$) : EndIf
-
-      EditEx()\Visible\WordList = #False
-      
-      ReDraw_()
-    EndIf
-
-  EndProcedure
+      GNum = GetGadgetData(ButtonNum)
+      If FindMapElement(EditEx(), Str(GNum))
+        
+        HideWindow(EditEx()\WinNum, #True)
+        
+        Word$ = GetSelection_()
+        If Word$ : AddToUserDictionary_(Word$) : EndIf
   
+        EditEx()\Visible\WordList = #False
+        
+        ReDraw_()
+      EndIf
+  
+    EndProcedure
+    
+  CompilerEndIf
   
   ;- --- Cursor-Handler ---  
   
@@ -3680,8 +3698,6 @@ Module EditEx
             Thread\Active = #False
           EndIf
         CompilerEndIf
-        
-        If IsWindow(EditEx()\WinNum) : CloseWindow(EditEx()\WinNum) : EndIf
         
       EndIf
       
@@ -4753,6 +4769,10 @@ Module EditEx
   Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
     Define.i Result, txtNum, WNum, GadgetList
     
+    CompilerIf Defined(ModuleEx, #PB_Module)
+      If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
+    CompilerEndIf
+    
     If Flags & #WordWrap Or Flags & #Hyphenation
       Flags | #ScrollBar_Vertical
     ElseIf Flags & #ScrollBar_Horizontal = #False And  Flags & #ScrollBar_Vertical = #False
@@ -4846,13 +4866,17 @@ Module EditEx
         
         EditEx()\Flags = Flags
         
-        If SpellCheck\Flags & #AutoSpellCheck : EditEx()\Flags | #AutoSpellCheck : EndIf
-        If SpellCheck\Flags & #Suggestions    : EditEx()\Flags | #Suggestions    : EndIf
+        CompilerIf #Enable_SpellChecking
+          If SpellCheck\Flags & #AutoSpellCheck : EditEx()\Flags | #AutoSpellCheck : EndIf
+          If SpellCheck\Flags & #Suggestions    : EditEx()\Flags | #Suggestions    : EndIf
+        CompilerEndIf
         
-        If Hypenation\Flags & #Hyphenation 
-          EditEx()\Flags | #Hyphenation
-          EditEx()\Flags & ~#ScrollBar_Horizontal
-        EndIf        
+        CompilerIf #Enable_Hyphenation
+          If Hypenation\Flags & #Hyphenation 
+            EditEx()\Flags | #Hyphenation
+            EditEx()\Flags & ~#ScrollBar_Horizontal
+          EndIf        
+        CompilerEndIf
         
         EditEx()\SyntaxHighlight = #CaseSensitiv
         
@@ -5204,10 +5228,10 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 5165
-; FirstLine = 995
-; Folding = 5XnRAgBAAIAEgBIA9BAkBBCYAgAHAYURAwIwQQIQAQaCAIgHOBx-
-; Markers = 889
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 130
+; FirstLine = 15
+; Folding = 5XnRAgBAAIAEgBIA9BgiJACYBABOAwoiAgRwhgQgAg1EAQAfsTQ9-
+; Markers = 892
 ; EnableXP
 ; DPIAware
