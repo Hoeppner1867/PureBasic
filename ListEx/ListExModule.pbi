@@ -9,12 +9,13 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 19.11.2019
+; Last Update: 20.11.2019
+;
+; - Bugfix 
 ;
 ; - Added: SetCondition() for editable cells
 ; - Added: Attribute #MaxChars for SetAttribute() or SetColumnAttribute()
 ; - Added: #EventType_Change for string gadget
-;
 ; - Added: gadget number 'ListEx::#Theme' (#PB_Default) changes all gadgets for suitable commands
 ; - Bugfix: #LockCell and Drag & Drop
 ; - Bugfix: Cash
@@ -132,7 +133,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19112002
+  #Version  = 19112003
   #ModuleEx = 19112002
   
   #Enable_Validation  = #True
@@ -2519,7 +2520,7 @@ Module ListEx
 
   Procedure   Draw_()
     Define.f colX, rowY, textY, textX, colW0, colWidth, rowHeight, imgY, imgX, imgWidth
-    Define.i Width, Height
+    Define.i Width, Height, PageRows
     Define.i Flags, imgFlags, Align, Mark, Row
     Define.i FrontColor, FocusColor, RowColor, FontID, RowFontID, Time
     Define.s Key$, Text$
@@ -2527,6 +2528,8 @@ Module ListEx
     If ListEx()\Hide : ProcedureReturn #False : EndIf
     
     AdjustScrollBars_()
+    
+    PageRows = GetPageRows_()
     
     If ListEx()\HScroll\Hide
       Height = dpiY(GadgetWidth(ListEx()\CanvasNum))
@@ -2986,11 +2989,11 @@ Module ListEx
           colX + dpiX(ListEx()\Cols()\Width)
           ;}
         Next
+
+        If Row > PageRows + ListEx()\Row\Offset : Break : EndIf 
         
         rowY + dpiY(ListEx()\Row\Height)
-        
-        If rowY > Height : Break : EndIf
-        
+
       Next
 
       colX = dpiX(ListEx()\Size\X) - dpiX(ListEx()\Col\OffsetX)
@@ -7500,9 +7503,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 7400
-; FirstLine = 2155
-; Folding = 9PAACAAEAMQEIBMgw-HhXvXYLqgdUwCA9-fBQ64nAIBoJwBYAwAAQAEwAEAow00
+; CursorPosition = 135
+; FirstLine = 12
+; Folding = 9PAACAAEAMQEIBMgw-HhXvXYBqgdCgCA9-PAQ64nAIBoJwBYAwAAQAEwAEAow00
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
