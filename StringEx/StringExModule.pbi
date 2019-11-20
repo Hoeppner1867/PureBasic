@@ -7,10 +7,11 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 17.11.19
+; Last Update: 20.11.19
+;
+; Added: StringEx::Disable()
 ;
 ; Added: #EventType_Change / #EventType_Focus / #EventType_LostFocus 
-;
 ; Added: StringEx::Hide()
 ; Added: #UseExistingCanvas
 ; Changed: #ResizeWidth -> #Width / #ResizeHeight -> #Height
@@ -73,7 +74,7 @@
 
 DeclareModule StringEx
   
-  #Version  = 19111900
+  #Version  = 19112000
   #ModuleEx = 19111703
   
   #Enable_AutoComplete       = #True
@@ -171,6 +172,7 @@ DeclareModule StringEx
   Declare   Copy(GNum.i)
   Declare   Cut(GNum.i)
   Declare   Delete(GNum.i)
+  Declare   Disable(GNum.i, State.i=#True)
   Declare   Free(GNum.i)
   Declare.i GetAttribute(GNum.i, Attribute.i)
   Declare.i GetColor(GNum.i, ColorType.i)
@@ -288,6 +290,7 @@ Module StringEx
     Focus.i
     Border.i
     Cursor.i
+    Gadget.i
     Highlight.i
     HighlightText.i
     Button.i
@@ -324,7 +327,9 @@ Module StringEx
     Mouse.i
     MaxLength.i
     Padding.i
+    
     Hide.i
+    Disable.i
     
     ; Fit Text
     PaddingX.i
@@ -715,10 +720,15 @@ Module StringEx
     
     If StartDrawing(CanvasOutput(StrgEx()\CanvasNum))
       
-      BackColor   = StrgEx()\Color\Back
-      BorderColor = StrgEx()\Color\Border
       TextColor   = StrgEx()\Color\Front
+      BorderColor = StrgEx()\Color\Border
       
+      If StrgEx()\Disable
+        BackColor = StrgEx()\Color\Gadget
+      Else  
+        BackColor = StrgEx()\Color\Back
+      EndIf  
+
       If StrgEx()\State & #Focus
         BorderColor = StrgEx()\Color\Focus
       EndIf
@@ -841,6 +851,7 @@ Module StringEx
         StrgEx()\Color\Back          = ModuleEx::ThemeGUI\BackColor
         StrgEx()\Color\Focus         = ModuleEx::ThemeGUI\Focus\BackColor
         StrgEx()\Color\Border        = ModuleEx::ThemeGUI\BorderColor
+        StrgEx()\Color\Gadget        = ModuleEx::ThemeGUI\GadgetColor
         StrgEx()\Color\Cursor        = ModuleEx::ThemeGUI\FrontColor
         StrgEx()\Color\Button        = ModuleEx::ThemeGUI\Button\BackColor
         StrgEx()\Color\HighlightText = ModuleEx::ThemeGUI\Focus\FrontColor
@@ -1605,6 +1616,19 @@ Module StringEx
     
   EndProcedure
   
+  Procedure   Disable(GNum.i, State.i=#True)
+    
+    If FindMapElement(StrgEx(), Str(GNum))
+
+      StrgEx()\Disable = State
+      DisableGadget(GNum, State)
+      
+      Draw_()
+      
+    EndIf  
+    
+  EndProcedure  
+  
   Procedure   Free(GNum.i)
     
     If FindMapElement(StrgEx(), Str(GNum))
@@ -1728,6 +1752,7 @@ Module StringEx
         StrgEx()\Color\Back          = $FFFFFF
         StrgEx()\Color\Focus         = $D77800
         StrgEx()\Color\Border        = $A0A0A0
+        StrgEx()\Color\Gadget        = $EDEDED
         StrgEx()\Color\Cursor        = $800000
         StrgEx()\Color\Button        = $E3E3E3
         StrgEx()\Color\Highlight     = $D77800
@@ -1739,6 +1764,7 @@ Module StringEx
             StrgEx()\Color\Front         = GetSysColor_(#COLOR_WINDOWTEXT)
             StrgEx()\Color\Back          = GetSysColor_(#COLOR_WINDOW)
             StrgEx()\Color\Focus         = GetSysColor_(#COLOR_HIGHLIGHT)
+            StrgEx()\Color\Gadget        = GetSysColor_(#COLOR_MENU)
             StrgEx()\Color\Button        = GetSysColor_(#COLOR_3DLIGHT)
             StrgEx()\Color\Border        = GetSysColor_(#COLOR_WINDOWFRAME)
             StrgEx()\Color\WordColor     = GetSysColor_(#COLOR_HOTLIGHT)
@@ -1748,6 +1774,7 @@ Module StringEx
             StrgEx()\Color\Front         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
             StrgEx()\Color\Back          = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
             StrgEx()\Color\Focus         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor keyboardFocusIndicatorColor"))
+            StrgEx()\Color\Gadget        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
             StrgEx()\Color\Button        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
             StrgEx()\Color\Border        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
             StrgEx()\Color\Highlight     = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedTextBackgroundColor"))
@@ -2145,6 +2172,8 @@ CompilerIf #PB_Compiler_IsMainFile
   	  
     CompilerEndIf
     
+    ;DisableGadget(#String, #True)
+    ;StringEx::Disable(#StringEx, #True)
     
     Repeat
       Event = WaitWindowEvent()
@@ -2186,9 +2215,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 75
-; FirstLine = 11
-; Folding = UHAEAgAg1QBAABBFEUwAAg+
+; CursorPosition = 76
+; Folding = UHIFAgAk1QBAABBNAogBAA-
 ; EnableThread
 ; EnableXP
 ; DPIAware

@@ -9,7 +9,7 @@
 ;/ © 2019 by Thorsten Hoeppner (07/2019)
 ;/
 
-; Last Update: 19.11.2019
+; Last Update: 20.11.2019
 
 ; ToolTip is now a separate window and not just a gadget
 
@@ -53,7 +53,7 @@
 
 DeclareModule ToolTip
   
-  #Version  = 19111900
+  #Version  = 19112000
   #ModuleEx = 19111702
   
 	;- ===========================================================================
@@ -781,7 +781,7 @@ Module ToolTip
         If IsWindow(ToolTip()\Number)
           CloseWindow(ToolTip()\Number)
         EndIf
-      
+        
         DeleteMapElement(ToolTip())
       EndIf
       
@@ -1122,8 +1122,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 851
-; FirstLine = 267
-; Folding = 9BIBgBOiH5
+; CursorPosition = 782
+; FirstLine = 304
+; Folding = 9BIBgHOmH5
 ; EnableXP
 ; DPIAware
