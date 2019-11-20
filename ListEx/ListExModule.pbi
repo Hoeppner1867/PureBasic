@@ -133,7 +133,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19112003
+  #Version  = 19112004
   #ModuleEx = 19112002
   
   #Enable_Validation  = #True
@@ -4856,7 +4856,7 @@ Module ListEx
               
             Else
               
-              ResizeGadget(ListEx()\CanvasNum, #PB_Ignore, #PB_Ignore, ListEx()\Size\Width + OffSetX, Height + OffsetY)
+              ResizeGadget(ListEx()\CanvasNum, #PB_Ignore, #PB_Ignore, ListEx()\Size\Width + OffSetX, ListEx()\Size\Height + OffsetY)
               
             EndIf
             
@@ -7504,8 +7504,8 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 135
-; FirstLine = 12
-; Folding = 9PAACAAEAMQEIBMgw-HhXvXYBqgdCgCA9-PAQ64nAIBoJwBYAwAAQAEwAEAow00
+; FirstLine = 9
+; Folding = 9PAACAAEAMQEIBMgw-HhXvXYBqgdCgCA9-PAQ64nEIAgJwBQAwAAQAEQAEAow00
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
