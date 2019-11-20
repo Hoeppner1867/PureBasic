@@ -65,8 +65,8 @@
 
 DeclareModule ButtonEx
   
-  #Version  = 19112000
-  #ModuleEx = 19111703
+  #Version  = 19112001
+  #ModuleEx = 19112001
   
 	;- ===========================================================================
 	;- DeclareModule - Constants / Structures
@@ -135,13 +135,10 @@ DeclareModule ButtonEx
 
 	Declare   AddDropDown(GNum.i, PopupNum.i)
 	Declare   AddImage(GNum.i, ImageNum.i, Width.i=#PB_Default, Height.i=#PB_Default, Flags.i=#Left)
-	
+	Declare   Disable(GNum.i, State.i=#True)
 	Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Text.s, Flags.i, WindowNum.i=#PB_Default)
-	
 	Declare.i GetState(GNum.i)
-	
 	Declare   Hide(GNum.i, State.i=#True)
-	
 	Declare   SetAutoResizeFlags(GNum.i, Flags.i)
 	Declare   SetColor(GNum.i, ColorType.i, Color.i)
 	Declare   SetFont(GNum.i, FontNum.i)
@@ -232,7 +229,7 @@ Module ButtonEx
 		Toggle.i
 		FontID.i
 		State.i
-		
+		Disable.i
 		Hide.i
 		Flags.i
 		
@@ -365,7 +362,7 @@ Module ButtonEx
 	Procedure   Draw_()
 		Define.f X, Y, Width, Height, txtWidth
 		Define.s Text, Row
-		Define.i lf, s, CountLF, idx, BackColor, BorderColor
+		Define.i lf, s, CountLF, idx, FrontColor, BackColor, BorderColor
 		
 		If BtEx()\Hide : ProcedureReturn #False : EndIf
 		
@@ -374,7 +371,9 @@ Module ButtonEx
 		EndIf
 
 		If StartDrawing(CanvasOutput(BtEx()\CanvasNum))
-
+		  
+		  FrontColor = BtEx()\Color\Front
+		  
 			If BtEX()\Flags & #DropDownButton
 			  Width = dpiX(GadgetWidth(BtEx()\CanvasNum)) - dpiX(#DropDownWidth)
 			  BtEx()\Size\Text = Width
@@ -384,8 +383,14 @@ Module ButtonEx
       
 			;{ _____ Background _____
 			DrawingMode(#PB_2DDrawing_Default)
-			If BtEx()\State & #Click And BtEx()\State & #DropDown   ;{ DropDown-Button - Click
-				BackColor = BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 20)
+			If BtEx()\Disable
+			  FrontColor = BlendColor_(BtEx()\Color\Front, BtEx()\Color\Back)
+			  BackColor  = BlendColor_(BtEx()\Color\Border, BtEx()\Color\Back, 30)
+			  Box_(0, 0, dpiX(GadgetWidth(BtEx()\CanvasNum)), dpiY(GadgetHeight(BtEx()\CanvasNum)), BackColor)
+			  BorderColor = BackColor
+			ElseIf BtEx()\State & #Click And BtEx()\State & #DropDown ;{ DropDown-Button - Click
+			  BackColor   = BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 20)
+			  BorderColor = BtEx()\Color\Focus
 				If BtEx()\Flags & #MacOS
 					If BtEx()\Toggle
 						Box_(0, 0, dpiX(GadgetWidth(BtEx()\CanvasNum)), dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 20))
@@ -402,10 +407,10 @@ Module ButtonEx
 					EndIf
 					Box_(Width, 0, dpiX(#DropDownWidth), dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 20))
 				EndIf
-				BorderColor = BtEx()\Color\Focus
 				;}
-			ElseIf BtEx()\Toggle And BtEx()\Flags & #DropDownButton ;{ DropDown-Button - Toggle
-				If BtEx()\Flags & #MacOS
+			ElseIf BtEx()\Toggle And BtEx()\Flags & #DropDownButton   ;{ DropDown-Button - Toggle
+			  BorderColor = BtEx()\Color\Focus
+			  If BtEx()\Flags & #MacOS
 					Box_(0, 0, dpiX(GadgetWidth(BtEx()\CanvasNum)), dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 20))
 					Line(Width - dpiX(1), 0, dpiX(1), dpiY(GadgetHeight(BtEx()\CanvasNum)), BorderColor)
 					If BtEx()\State & #Focus
@@ -421,12 +426,11 @@ Module ButtonEx
 					EndIf
 					Box_(0, 0, Width, dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 20))
 				EndIf
-				BorderColor = BtEx()\Color\Focus
 				;}
-			ElseIf BtEx()\State & #Click Or BtEx()\Toggle           ;{ Button - Click / Toggle
+			ElseIf BtEx()\State & #Click Or BtEx()\Toggle             ;{ Button - Click / Toggle
 				Box_(0, 0, dpiX(GadgetWidth(BtEx()\CanvasNum)), dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 20))
 				BorderColor = BtEx()\Color\Focus ;}
-			ElseIf BtEx()\State & #Focus                            ;{ Button - Focus
+			ElseIf BtEx()\State & #Focus                              ;{ Button - Focus
 				Box_(0, 0, dpiX(GadgetWidth(BtEx()\CanvasNum)), dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 10))
 				BorderColor = BtEx()\Color\Focus ;}
 			Else
@@ -458,9 +462,9 @@ Module ButtonEx
 					Y = (dpiY(GadgetHeight(BtEx()\CanvasNum)) - TextHeight(BtEx()\Text)) / 2
 					DrawingMode(#PB_2DDrawing_Transparent)
 					If BtEx()\Image\Flags & #Right
-						DrawText(X, Y, BtEx()\Text, BtEx()\Color\Front)
+						DrawText(X, Y, BtEx()\Text, FrontColor)
 					Else
-						DrawText(X + BtEx()\Image\Width + dpiX(4), Y, BtEx()\Text, BtEx()\Color\Front)
+						DrawText(X + BtEx()\Image\Width + dpiX(4), Y, BtEx()\Text, FrontColor)
 					EndIf
 					
 					BtEx()\Size\Text = Width - BtEx()\Image\Width
@@ -547,15 +551,11 @@ Module ButtonEx
     					EndIf
           
   						Height = ListSize(Rows()) * TextHeight(BtEx()\Text)
-  						Y = (dpiY(GadgetHeight(BtEx()\CanvasNum)) - Height) / 2
-  						If Y < 0
-  						  Debug "Height: " + Str(Height) + " / Y: " + Str(Y)
-  						  Debug "Rows: "   + Str(ListSize(Rows())) + " / " + Str(CountLF+1)
-  						EndIf  
+  						Y = (dpiY(GadgetHeight(BtEx()\CanvasNum)) - Height) / 2 
   						ForEach Rows()
   							X = GetAlignOffset_(Rows(), Width, BtEx()\Flags)
   							DrawingMode(#PB_2DDrawing_Transparent)
-  							DrawText(X, Y, Rows(), BtEx()\Color\Front)
+  							DrawText(X, Y, Rows(), FrontColor)
   							Y + TextHeight(Rows())
   						Next
   						;}
@@ -573,7 +573,7 @@ Module ButtonEx
   						ForEach Rows()
   							X = GetAlignOffset_(Rows(), Width, BtEx()\Flags)
   							DrawingMode(#PB_2DDrawing_Transparent)
-  							DrawText(X, Y, Rows(), BtEx()\Color\Front)
+  							DrawText(X, Y, Rows(), FrontColor)
   							Y + TextHeight(Rows())
   						Next
   						;}
@@ -582,7 +582,7 @@ Module ButtonEx
     					X = GetAlignOffset_(BtEx()\Text, Width, BtEx()\Flags)
     					Y = (dpiY(GadgetHeight(BtEx()\CanvasNum)) - TextHeight(BtEx()\Text)) / 2
     					DrawingMode(#PB_2DDrawing_Transparent)
-    					DrawText(X, Y, BtEx()\Text, BtEx()\Color\Front)
+    					DrawText(X, Y, BtEx()\Text, FrontColor)
     					;}
   					EndIf
   					
@@ -591,7 +591,7 @@ Module ButtonEx
   					X = GetAlignOffset_(BtEx()\Text, Width, BtEx()\Flags)
   					Y = (dpiY(GadgetHeight(BtEx()\CanvasNum)) - TextHeight(BtEx()\Text)) / 2
   					DrawingMode(#PB_2DDrawing_Transparent)
-  					DrawText(X, Y, BtEx()\Text, BtEx()\Color\Front)
+  					DrawText(X, Y, BtEx()\Text, FrontColor)
   					
   				EndIf
   				
@@ -845,6 +845,18 @@ Module ButtonEx
 
 	EndProcedure
 	
+	Procedure   Disable(GNum.i, State.i=#True)
+    
+    If FindMapElement(BtEx(), Str(GNum))
+
+      BtEx()\Disable = State
+      DisableGadget(GNum, State)
+      
+      Draw_()
+      
+    EndIf  
+    
+  EndProcedure 
 	
 	Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Text.s, Flags.i, WindowNum.i=#PB_Default)
 		Define Result.i, txtNum
@@ -1224,7 +1236,10 @@ CompilerIf #PB_Compiler_IsMainFile
 		;ButtonEx::SetColor(#ButtonML, ButtonEx::#FrontColor, $00D7FF)
 		;ButtonEx::SetColor(#ButtonML, ButtonEx::#BorderColor, $32CD9A)
 		;ButtonEx::SetFont(#ButtonML, #Font)
-
+		
+		DisableGadget(#Button, #True)
+		ButtonEx::Disable(#ButtonEx)
+		
 		Repeat
 			Event = WaitWindowEvent()
 			Select Event
@@ -1260,8 +1275,8 @@ CompilerIf #PB_Compiler_IsMainFile
 
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 63
-; FirstLine = 2
-; Folding = 9FI3QOFywk7-
+; CursorPosition = 386
+; FirstLine = 247
+; Folding = 9FJ3AvFKhJ2-
 ; EnableXP
 ; DPIAware

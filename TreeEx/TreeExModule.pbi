@@ -45,7 +45,7 @@
 
 DeclareModule TreeEx
   
-  #Version  = 19112000
+  #Version  = 19112001
   #ModuleEx = 19112000
   
   #Enable_ProgressBar = #True
@@ -466,7 +466,7 @@ Module TreeEx
 	  Define.i Width
 	  
 	  Width = GadgetWidth(TreeEx()\CanvasNum)
-	  
+
 	  ForEach TreeEx()\Cols()
 	    If ListIndex(TreeEx()\Cols()) = 0 : Continue : EndIf ; Ignore tree coloumn
 	    Width - TreeEx()\Cols()\Width
@@ -593,20 +593,23 @@ Module TreeEx
   CompilerIf #Enable_ProgressBar
     
     Procedure   DrawProgressBar_(X.f, Y.f, Width.f, Height.f, State.i, Text.s, Flags.i, FontID.i)
-      Define.f Factor
-      Define.i pbWidth, pbHeight, txtX, txtY, BorderColor,  Progress, Percent, TextColor
+      Define.f Factor, pbWidth, pbHeight, txtX, txtY
+      Define.i BorderColor, Progress, Percent, TextColor
       
       If State < TreeEx()\ProgressBar\Minimum : State = TreeEx()\ProgressBar\Minimum : EndIf
       If State > TreeEx()\ProgressBar\Maximum : State = TreeEx()\ProgressBar\Maximum : EndIf
       
+      X + dpiX(3)
+      Y + dpiX(3)
+      
       pbWidth  = Width  - dpiX(6)
       pbHeight = Height - dpiY(6)
-      
+
       DrawingMode(#PB_2DDrawing_Default)
       If TreeEx()\Color\ProgressBack <> #PB_Default
-        Box(X + dpiX(3),  Y + dpiY(3), pbWidth, pbHeight, TreeEx()\Color\ProgressBack)
+        Box(X, Y, pbWidth, pbHeight, TreeEx()\Color\ProgressBack)
       Else  
-        Box(X + dpiX(3),  Y + dpiY(3), pbWidth, pbHeight, BlendColor_(TreeEx()\Color\ProgressFront, TreeEx()\Color\Back, 6))
+        Box(X, Y, pbWidth, pbHeight, BlendColor_(TreeEx()\Color\ProgressFront, TreeEx()\Color\Back, 6))
       EndIf   
       
       If State > TreeEx()\ProgressBar\Minimum
@@ -615,20 +618,20 @@ Module TreeEx
           Progress = pbWidth
         Else
           Factor   = pbWidth / (TreeEx()\ProgressBar\Maximum - TreeEx()\ProgressBar\Minimum)
-          Progress = dpiX((State - TreeEx()\ProgressBar\Minimum) * Factor)
+          Progress = (State - TreeEx()\ProgressBar\Minimum) * Factor
         EndIf
         
         DrawingMode(#PB_2DDrawing_Gradient)
         FrontColor(TreeEx()\Color\ProgressFront)
         BackColor(TreeEx()\Color\ProgressGradient)
-        LinearGradient(X + dpiX(3), Y + dpiY(3), X + dpiX(3) + Progress, Y + dpiX(3) + pbHeight)
-        Box(X + dpiX(3), Y + dpiY(3), Progress, pbHeight)
+        LinearGradient(X, Y, X + Progress, Y + pbHeight)
+        Box(X, Y, Progress, pbHeight)
   
       EndIf
       
       Percent = ((State - TreeEx()\ProgressBar\Minimum) * 100) /  (TreeEx()\ProgressBar\Maximum - TreeEx()\ProgressBar\Minimum)
       
-      If Text
+      If Text ;{ Draw Text
         
         TextColor = TreeEx()\Color\ProgressText
         If TreeEx()\Cols()\Color\Front <> #PB_Default : TextColor = TreeEx()\Cols()\Color\Front : EndIf
@@ -645,24 +648,24 @@ Module TreeEx
           txtX = dpiX(4)
         EndIf  
         
-        txtY = (Height - TextHeight(Text)) / 2
+        txtY = (pbHeight - TextHeight(Text)) / 2
         
         DrawingMode(#PB_2DDrawing_Transparent)
-        DrawText(dpiX(X) + txtX, dpiY(Y) + txtY, Text, TextColor)
+        DrawText(X + txtX, Y + txtY, Text, TextColor)
         
       ElseIf Flags & #ShowPercent
         
         DrawingFont(FontID)
         
         Text  = Str(Percent) + "%"
-        txtX = Progress - TextWidth(Text)
-        txtY = (Height - TextHeight(Text)) / 2
+        txtX = Progress - TextWidth(Text) - dpiX(2)
+        txtY = (pbHeight - TextHeight(Text)) / 2
         
         If txtX < dpiX(5) : txtX = dpiX(5) : EndIf
         
         DrawingMode(#PB_2DDrawing_Transparent)
         DrawText(X + txtX, Y + txtY, Text, TextColor)
-        
+        ;}
       EndIf
       
       If TreeEx()\Cols()\Color\Border <> #PB_Default
@@ -672,7 +675,7 @@ Module TreeEx
       EndIf  
       
       DrawingMode(#PB_2DDrawing_Outlined)
-      Box(X + dpiX(3),  Y + dpiY(3), pbWidth, pbHeight, BorderColor)
+      Box(X, Y, pbWidth, pbHeight, BorderColor)
       
     EndProcedure
     
@@ -745,9 +748,9 @@ Module TreeEx
 	EndProcedure  
 	
 	Procedure   Draw_()
-	  Define.i X, Y, Width, Height, TreeWidth, ColumnWidth, txtHeight, RowHeight, ImageWidth, ImageHeight, LineHeight
-	  Define.i Row, btY, txtX, txtY, OffsetX, OffsetY, LastX, LastY, LineY
-	  Define.i FrontColor, BackColor, CheckBoxSize, FontID
+	  Define.f X, Y, Width, Height, TreeWidth, ColumnWidth, txtHeight, RowHeight, ImageWidth, ImageHeight, LineHeight
+	  Define.f btY, txtX, txtY, OffsetX, OffsetY, LastX, LastY, LineY
+	  Define.i Row, FrontColor, BackColor, CheckBoxSize, FontID
 	  Define.i LevelWidth, NextLevel, LevelX, Level = 0
 	  Define.f Factor
 		Define.s Key$, Level$, Text$
@@ -885,7 +888,7 @@ Module TreeEx
 			
 			;{ _____ Draw Rows _____
 			ForEach TreeEx()\Rows()
-			  
+
 			  X = 0
 			  
 			  BackColor = TreeEx()\Color\Back
@@ -1095,7 +1098,7 @@ Module TreeEx
 
   			TreeEx()\Rows()\Y = Y
   			
-			  Y + TreeEx()\Row\Height
+			  Y + dpiY(TreeEx()\Row\Height)
   		Next ;}
   		
   		;{ _____ Lines _____
@@ -1208,9 +1211,6 @@ Module TreeEx
     
   CompilerEndIf 
   
-  
-
-
 	Procedure _LeftButtonDownHandler()
 		Define.i X, Y
 		Define.i GNum = EventGadget()
@@ -2277,8 +2277,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1328
-; FirstLine = 425
-; Folding = 9cDAQAGAUkBGQAhJBAgBA+-
+; CursorPosition = 47
+; Folding = 9cDAQAMCoIDIAACTCAADA9-
 ; EnableXP
 ; DPIAware
