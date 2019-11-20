@@ -132,8 +132,8 @@
 
 DeclareModule ListEx
   
-  #Version  = 19112001
-  #ModuleEx = 19111703
+  #Version  = 19112002
+  #ModuleEx = 19112002
   
   #Enable_Validation  = #True
   #Enable_MarkContent = #True
@@ -625,6 +625,7 @@ Module ListEx
     Canvas.i
     Focus.i
     Edit.i
+    ButtonFront.i
     ButtonBack.i
     ButtonBorder.i
     ProgressBar.i
@@ -1783,7 +1784,7 @@ Module ListEx
     Select Theme
       Case #Theme_Blue
         
-        ListEx()\Color\Front        = 0
+        ListEx()\Color\Front        = $000000
         ListEx()\Color\Back         = 16645114
         ListEx()\Color\Line         = 13092807
         ListEx()\Color\HeaderFront  = 4270875
@@ -1791,11 +1792,12 @@ Module ListEx
         ListEx()\Color\HeaderLine   = 8750469
         ListEx()\Color\ProgressBar  = 11369795
         ListEx()\Color\Gradient     = 13874833
-        ListEx()\Color\AlternateRow = ListEx()\Color\Back
+        ListEx()\Color\AlternateRow = #PB_Default
+        ListEx()\Color\ButtonFront  = $000000
         
       Case #Theme_Green
         
-        ListEx()\Color\Front        = 0
+        ListEx()\Color\Front        = $000000
         ListEx()\Color\Back         = 16383222
         ListEx()\Color\Line         = 13092807
         ListEx()\Color\HeaderFront  = 2374163
@@ -1803,34 +1805,64 @@ Module ListEx
         ListEx()\Color\HeaderLine   = 8750469
         ListEx()\Color\ProgressBar  = 2263842
         ListEx()\Color\Gradient     = 7527538
-        ListEx()\Color\AlternateRow = ListEx()\Color\Back
+        ListEx()\Color\AlternateRow = #PB_Default
+        ListEx()\Color\ButtonFront  = $000000
         
       Default
         
         ListEx()\Color\Front        = $000000
         ListEx()\Color\Back         = $FFFFFF
-        ListEx()\Color\Line         = $E3E3E3
+        ListEx()\Color\Canvas       = $FFFFFF
+        ListEx()\Color\ScrollBar    = $F0F0F0
+        ListEx()\Color\Focus        = $D77800
         ListEx()\Color\HeaderFront  = $000000
         ListEx()\Color\HeaderBack   = $FAFAFA
         ListEx()\Color\HeaderLine   = $A0A0A0
-        ListEx()\Color\AlternateRow = ListEx()\Color\Back
-
+        ListEx()\Color\Line         = $E3E3E3
+        ListEx()\Color\ButtonFront  = $000000
+        ListEx()\Color\ButtonBack   = $E3E3E3
+        ListEx()\Color\ButtonBorder = $A0A0A0
+        ListEx()\Color\ProgressBar  = $32CD32
+        ListEx()\Color\Gradient     = $00FC7C
+        ListEx()\Color\Edit         = $BE7D61
+        ListEx()\Color\Link         = $8B0000
+        ListEx()\Color\ActiveLink   = $FF0000
+        ListEx()\Color\WrongFront   = $0000FF
+        ListEx()\Color\WrongBack    = $FFFFFF
+        ListEx()\Color\Mark1        = $008B45
+        ListEx()\Color\Mark2        = $0000FF
+        
         CompilerSelect  #PB_Compiler_OS
           CompilerCase #PB_OS_Windows
-          ListEx()\Color\HeaderFront  = GetSysColor_(#COLOR_WINDOWTEXT)
-          ListEx()\Color\HeaderLine   = GetSysColor_(#COLOR_3DSHADOW)
-          ListEx()\Color\Front        = GetSysColor_(#COLOR_WINDOWTEXT)
-          ListEx()\Color\Back         = GetSysColor_(#COLOR_WINDOW)
-          ListEx()\Color\Line         = GetSysColor_(#COLOR_3DLIGHT)
-        CompilerCase #PB_OS_MacOS
-          ListEx()\Color\HeaderFront  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
-          ListEx()\Color\HeaderLine   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
-          ListEx()\Color\Front        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
-          ListEx()\Color\Back         = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
-          ListEx()\Color\Line         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
-        CompilerCase #PB_OS_Linux
-       
-      CompilerEndSelect
+            ListEx()\Color\HeaderFront  = GetSysColor_(#COLOR_WINDOWTEXT)
+            ;ListEx()\Color\HeaderBack   = GetSysColor_(#COLOR_3DLIGHT)
+            ListEx()\Color\HeaderLine   = GetSysColor_(#COLOR_3DSHADOW)
+            ListEx()\Color\Front        = GetSysColor_(#COLOR_WINDOWTEXT)
+            ListEx()\Color\Back         = GetSysColor_(#COLOR_WINDOW)
+            ListEx()\Color\Line         = GetSysColor_(#COLOR_3DLIGHT)
+            ListEx()\Color\Canvas       = GetSysColor_(#COLOR_WINDOW)
+            ListEx()\Color\ScrollBar    = GetSysColor_(#COLOR_MENU)
+            ListEx()\Color\Focus        = GetSysColor_(#COLOR_MENUHILIGHT)
+            ListEx()\Color\ButtonBack   = GetSysColor_(#COLOR_3DLIGHT)
+            ListEx()\Color\ButtonBorder = GetSysColor_(#COLOR_3DSHADOW) 
+          CompilerCase #PB_OS_MacOS
+            ListEx()\Color\HeaderFront  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
+            ;ListEx()\Color\HeaderBack   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
+            ListEx()\Color\HeaderLine   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+            ListEx()\Color\Front        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
+            ListEx()\Color\Back         = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
+            ListEx()\Color\Canvas       = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
+            ListEx()\Color\Line         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+            ListEx()\Color\ScrollBar    = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
+            ListEx()\Color\Focus        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedControlColor"))
+            ListEx()\Color\ButtonBack   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
+            ListEx()\Color\ButtonBorder = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+          CompilerCase #PB_OS_Linux
+            
+        CompilerEndSelect
+        
+        ListEx()\Color\AlternateRow = #PB_Default
+        
     EndSelect
     
   EndProcedure  
@@ -2135,18 +2167,16 @@ Module ListEx
     
   EndProcedure
 
-  Procedure.i Button_(X.f, Y.f, Width.f, Height.f, Text.s, ColorFlag.i=#False, TextColor.i=#PB_Default, FontID.i=#PB_Default)
+  Procedure.i Button_(X.f, Y.f, Width.f, Height.f, Text.s, ColorFlag.i=#False, FontID.i=#PB_Default)
     Define.f textX, textY
     Define.i BackColor, BorderColor
-    
-    If TextColor = #PB_Default : TextColor = ListEx()\Color\Front : EndIf
-    
+
     If ColorFlag & #Click
-      BackColor   = BlendColor_(ListEx()\Color\Focus, ListEx()\Color\Back, 20)
-      BorderColor = ListEx()\Color\Focus
+      BackColor   = BlendColor_(ListEx()\Color\Focus, ListEx()\Color\ButtonBack, 20)
+      BorderColor = BlendColor_(ListEx()\Color\Focus, ListEx()\Color\ButtonBorder, 20)
     ElseIf ColorFlag & #Focus
-      BackColor   = BlendColor_(ListEx()\Color\Focus, ListEx()\Color\Back, 10)
-      BorderColor = ListEx()\Color\Focus
+      BackColor   = BlendColor_(ListEx()\Color\Focus, ListEx()\Color\ButtonBack, 10)
+      BorderColor = BlendColor_(ListEx()\Color\Focus, ListEx()\Color\ButtonBorder, 10)
     Else  
       BackColor   = ListEx()\Color\ButtonBack
       BorderColor = ListEx()\Color\ButtonBorder
@@ -2172,7 +2202,7 @@ Module ListEx
     DrawingMode(#PB_2DDrawing_Transparent)
     textX = GetAlignOffset_(Text, Width, #Center)
     textY = (Height - TextHeight("Abc")) / 2
-    DrawText(X + textX, Y + textY, Text, TextColor)
+    DrawText(X + textX, Y + textY, Text, ListEx()\Color\ButtonFront)
     
   EndProcedure
   
@@ -2293,9 +2323,9 @@ Module ListEx
       Height = dpiY(Height)
       
       If FontID > 0
-        Button_(X, Y, Width, Height, Text, ColorFlag, TextColor, FontID)
+        Button_(X, Y, Width, Height, Text, ColorFlag, FontID)
       Else
-        Button_(X, Y, Width, Height, Text, ColorFlag, TextColor)
+        Button_(X, Y, Width, Height, Text, ColorFlag)
       EndIf
       
       If *Image\ID ;{ Image 
@@ -2629,7 +2659,7 @@ Module ListEx
         Row = ListIndex(ListEx()\Rows())
         
         ;{ Alternate Color
-        If ListEx()\Color\Back <> ListEx()\Color\AlternateRow 
+        If ListEx()\Color\AlternateRow <> #PB_Default
           If Mod(ListIndex(ListEx()\Rows()), 2)
             Box(colX, rowY, dpiX(ListEx()\Size\Cols), dpiY(ListEx()\Rows()\Height), ListEx()\Color\AlternateRow)
           Else
@@ -2742,7 +2772,7 @@ Module ListEx
                 DrawingFont(FontID)
                 
                 If Flags & #Buttons
-                  Button_(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), ListEx()\Rows()\Column(Key$)\Value, #False, FrontColor, FontID)
+                  Button_(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), ListEx()\Rows()\Column(Key$)\Value, #False, FontID)
                 EndIf 
                 
                 textY = (dpiY(ListEx()\Rows()\Height) - TextHeight("Abc")) / 2 + dpiY(1)
@@ -2786,7 +2816,7 @@ Module ListEx
               
               If Flags & #CellFont : FontID = ListEx()\Rows()\Column(Key$)\FontID : EndIf
 
-              Button_(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), ListEx()\Rows()\Column(Key$)\Value, #False, FrontColor, FontID)
+              Button_(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), ListEx()\Rows()\Column(Key$)\Value, #False, FontID)
               
               If Flags & #Image
                 
@@ -3502,6 +3532,7 @@ Module ListEx
         ListEx()\Color\HeaderLine   = ModuleEx::ThemeGUI\Header\BorderColor
         ListEx()\Color\ProgressBar  = ModuleEx::ThemeGUI\Progress\FrontColor
         ListEx()\Color\Gradient     = ModuleEx::ThemeGUI\Progress\GradientColor
+        ListEx()\Color\ButtonFront  = ModuleEx::ThemeGUI\Button\FrontColor
         ListEx()\Color\ButtonBack   = ModuleEx::ThemeGUI\Button\BackColor
         ListEx()\Color\ButtonBorder = ModuleEx::ThemeGUI\Button\BorderColor
 
@@ -5826,59 +5857,7 @@ Module ListEx
         ListEx()\AutoResize\Column   = #PB_Ignore
         ;} 
         
-        ;{ Default Colors
-        ListEx()\Color\Front        = $000000
-        ListEx()\Color\Back         = $FFFFFF
-        ListEx()\Color\Canvas       = $FFFFFF
-        ListEx()\Color\ScrollBar    = $F0F0F0
-        ListEx()\Color\Focus        = $D77800
-        ListEx()\Color\HeaderFront  = $000000
-        ListEx()\Color\HeaderBack   = $FAFAFA
-        ListEx()\Color\HeaderLine   = $A0A0A0
-        ListEx()\Color\Line         = $E3E3E3
-        ListEx()\Color\ButtonBack   = $E3E3E3
-        ListEx()\Color\ButtonBorder = $A0A0A0
-        ListEx()\Color\ProgressBar  = $32CD32
-        ListEx()\Color\Gradient     = $00FC7C
-        ListEx()\Color\Edit         = $BE7D61
-        ListEx()\Color\Link         = $8B0000
-        ListEx()\Color\ActiveLink   = $FF0000
-        ListEx()\Color\WrongFront   = $0000FF
-        ListEx()\Color\WrongBack    = $FFFFFF
-        ListEx()\Color\Mark1        = $008B45
-        ListEx()\Color\Mark2        = $0000FF
-        
-        CompilerSelect  #PB_Compiler_OS
-          CompilerCase #PB_OS_Windows
-            ListEx()\Color\HeaderFront  = GetSysColor_(#COLOR_WINDOWTEXT)
-            ;ListEx()\Color\HeaderBack   = GetSysColor_(#COLOR_3DLIGHT)
-            ListEx()\Color\HeaderLine   = GetSysColor_(#COLOR_3DSHADOW)
-            ListEx()\Color\Front        = GetSysColor_(#COLOR_WINDOWTEXT)
-            ListEx()\Color\Back         = GetSysColor_(#COLOR_WINDOW)
-            ListEx()\Color\Line         = GetSysColor_(#COLOR_3DLIGHT)
-            ListEx()\Color\Canvas       = GetSysColor_(#COLOR_WINDOW)
-            ListEx()\Color\ScrollBar    = GetSysColor_(#COLOR_MENU)
-            ListEx()\Color\Focus        = GetSysColor_(#COLOR_MENUHILIGHT)
-            ListEx()\Color\ButtonBack   = GetSysColor_(#COLOR_3DLIGHT)
-            ListEx()\Color\ButtonBorder = GetSysColor_(#COLOR_3DSHADOW) 
-          CompilerCase #PB_OS_MacOS
-            ListEx()\Color\HeaderFront  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
-            ;ListEx()\Color\HeaderBack   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
-            ListEx()\Color\HeaderLine   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
-            ListEx()\Color\Front        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
-            ListEx()\Color\Back         = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
-            ListEx()\Color\Canvas       = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
-            ListEx()\Color\Line         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
-            ListEx()\Color\ScrollBar    = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
-            ListEx()\Color\Focus        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedControlColor"))
-            ListEx()\Color\ButtonBack   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
-            ListEx()\Color\ButtonBorder = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
-          CompilerCase #PB_OS_Linux
-            
-        CompilerEndSelect
-        
-        ListEx()\Color\AlternateRow = ListEx()\Color\Back
-        ;}
+        ColorTheme_(#Theme_Default)
         
         BindGadgetEvent(ListEx()\CanvasNum,  @_RightClickHandler(),      #PB_EventType_RightClick)
         BindGadgetEvent(ListEx()\CanvasNum,  @_LeftButtonDownHandler(),  #PB_EventType_LeftButtonDown)
@@ -7394,8 +7373,8 @@ CompilerIf #PB_Compiler_IsMainFile
       CompilerEndIf
       
       ; --- Use color theme ---
-      ListEx::SetColorTheme(#List, ListEx::#Theme_Blue)
-      ListEx::SetColor(#List, ListEx::#AlternateRowColor, $FBF7F5)
+      ;ListEx::SetColorTheme(#List, ListEx::#Theme_Blue)
+      ;ListEx::SetColor(#List, ListEx::#AlternateRowColor, $FBF7F5)
       
       ; --- Use images ---
       If LoadImage(#Image, "Delete.png")
@@ -7419,7 +7398,7 @@ CompilerIf #PB_Compiler_IsMainFile
       ;ListEx::SetColumnAttribute(#List, 2, ListEx::#MaxChars, 14)
       
       ; --- GUI theme support ---
-      ;ModuleEx::LoadTheme("Theme_Green.xml")
+      ;ModuleEx::SetTheme(ModuleEx::#Theme_DarkBlue)
       
       ListEx::DisableReDraw(#List, #False) 
     EndIf
@@ -7521,9 +7500,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 6151
-; FirstLine = 1621
-; Folding = 9PAACAAEAMQEIBMgw-HhHrXYJIgdUwiB9-fBQ64nAIBoJwBYAwBAIgIgBIAQh88
+; CursorPosition = 7400
+; FirstLine = 2155
+; Folding = 9PAACAAEAMQEIBMgw-HhXvXYLqgdUwCA9-fBQ64nAIBoJwBYAwAAQAEwAEAow00
 ; EnableXP
 ; DPIAware
 ; EnableUnicode

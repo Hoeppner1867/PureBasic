@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (07/2019)
 ;/
 
-; Last Update: 19.11.2019
+; Last Update: 20.11.2019
 ;
 ; Added: Theme support
 ;
@@ -89,8 +89,8 @@ XIncludeFile "Date64Module.pbi"
 
 DeclareModule Calendar
   
-  #Version  = 19111800
-  #ModuleEx = 19111702
+  #Version  = 19112000
+  #ModuleEx = 19112002
   
   #Enable_iCalFormat = #True
   
@@ -3007,7 +3007,7 @@ CompilerIf #PB_Compiler_IsMainFile
       Calendar::SetState(#Calendar, Date())
       
       
-     CompilerIf Defined(ModuleEx, #PB_Module)
+      CompilerIf Defined(ModuleEx, #PB_Module)
        
         Calendar::SetAutoResizeFlags(#Calendar, Calendar::#Width|Calendar::#Height|Calendar::#FitText)
     	  Calendar::SetDynamicFont(#Calendar, "Arial", 9)
@@ -3015,7 +3015,7 @@ CompilerIf #PB_Compiler_IsMainFile
     	
       CompilerEndIf
       
-      ;ModuleEx::SetTheme(ModuleEx::#Theme_Blue)
+      ;ModuleEx::SetTheme(ModuleEx::#Theme_DarkBlue)
       
       CompilerSelect #Example
         CompilerCase 2
@@ -3102,8 +3102,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 84
-; FirstLine = 28
+; CursorPosition = 3017
+; FirstLine = 702
 ; Folding = MgPIAAEAgAAAw8WQEMRAArBAIIQS-
 ; Markers = 1053,2654
 ; EnableXP

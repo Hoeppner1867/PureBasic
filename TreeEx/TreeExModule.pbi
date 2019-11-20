@@ -9,8 +9,6 @@
 ;/ © 2019  by Thorsten Hoeppner (11/2019)
 ;/
 
-; TODO: Label
-
 ; Last Update:
 
 
@@ -40,13 +38,44 @@
 
 ;{ _____ TreeEx - Commands _____
 
+; TreeEx::AddColumn()          - similar to 'AddGadgetColumn()'
+; TreeEx::AddItem()            - similar to 'AddGadgetItem()'
+; TreeEx::ClearItems()         - similar to 'ClearGadgetItems()'
+; TreeEx::CountItems()         - similar to 'CountGadgetItems()'
+; TreeEx::DisableReDraw()      - disable redraw
+; TreeEx::Gadget()             - similar to 'TreeGadget()'
+; TreeEx::GetItemColor()       - similar to 'GetGadgetItemColor()'
+; TreeEx::GetItemData()        - similar to 'GetGadgetItemData()'
+; TreeEx::GetItemState()       - similar to 'GetGadgetItemState()'
+; TreeEx::GetItemText()        - similar to 'GetGadgetItemText()'
+; TreeEx::GetLabelState()      - similar to 'GetGadgetItemState()', but label instead of column
+; TreeEx::GetLabelText()       - similar to 'GetGadgetItemText()',  but label instead of column
+; TreeEx::GetState()           - similar to 'GetGadgetState()'
+; TreeEx::Hide()               - similar to 'HideGadget()'
+; TreeEx::RemoveItem()         - similar to 'RemoveGadgetItem()'
+; TreeEx::SaveColorTheme()     - save a custom color theme
+; TreeEx::SetAutoResizeFlags() - [#MoveX|#MoveY|#Width|#Height]
+; TreeEx::SetColor()           - similar to 'SetGadgetColor()'
+; TreeEx::SetColorTheme()      - set or load a color theme
+; TreeEx::SetFont()            - similar to 'SetGadgetFont()'
+; TreeEx::SetHeaderAttribute() - set header attribute (e.g. align)
+; TreeEx::SetHeaderFont()      - set header font
+; TreeEx::SetItemColor()       - similar to 'SetGadgetItemColor()'
+; TreeEx::SetItemData()        - similar to 'SetGadgetItemData()'
+; TreeEx::SetItemImage()       - similar to 'SetGadgetItemImage()'
+; TreeEx::SetItemState()       - similar to 'SetGadgetItemState()'
+; TreeEx::SetItemText()        - similar to 'SetGadgetItemText()'
+; TreeEx::SetLabelState()      - similar to 'SetGadgetItemState()', but label instead of column
+; TreeEx::SetLabelText()       - similar to 'SetGadgetItemText()',  but label instead of column
+; TreeEx::SetState()           - similar to 'SetGadgetState()'
 ;}
 
+; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule TreeEx
   
-  #Version  = 19112001
-  #ModuleEx = 19112000
+  #Version  = 19112002
+  #ModuleEx = 19112002
   
   #Enable_ProgressBar = #True
   
@@ -62,6 +91,7 @@ DeclareModule TreeEx
   #LastItem   = -1
   #Theme      = -1
   
+  #Tree$     = "tree"
   #Progress$ = "{Percent}"
   
   EnumerationBinary ;{ Gadget Flags
@@ -164,6 +194,8 @@ DeclareModule TreeEx
   Declare.i GetItemData(GNum.i, Row.i)
   Declare.i GetItemState(GNum.i, Row.i, Column.i=#PB_Ignore)
   Declare.s GetItemText(GNum.i, Row.i, Column.i=#PB_Ignore)
+  Declare.i GetLabelState(GNum.i, Row.i, Label.s=#Tree$)
+  Declare.s GetLabelText(GNum.i, Row.i, Label.s=#Tree$) 
   Declare.i GetState(GNum.i)
   Declare   Hide(GNum.i, State.i=#True)
   Declare   RemoveItem(GNum.i, Row.i)
@@ -179,6 +211,8 @@ DeclareModule TreeEx
   Declare   SetItemImage(GNum.i, Row.i, Image.i, Flags.i=#False, Column.i=#TreeColumn)
   Declare   SetItemState(GNum.i, Row.i, State.i, Column.i=#PB_Ignore)
   Declare   SetItemText(GNum.i, Row.i, Text.s, Column.i=#TreeColumn)
+  Declare   SetLabelState(GNum.i, Row.i, State.i, Label.s=#Tree$)
+  Declare   SetLabelText(GNum.i, Row.i, Text.s, Label.s=#Tree$)
   Declare   SetState(GNum.i, State.i)
   
 EndDeclareModule
@@ -192,7 +226,6 @@ Module TreeEx
 	;- ============================================================================
 	
 	#ButtonSize = 9
-	#Tree$ = "tree"
 	
 	;- ============================================================================
 	;-   Module - Structures
@@ -609,7 +642,7 @@ Module TreeEx
       If TreeEx()\Color\ProgressBack <> #PB_Default
         Box(X, Y, pbWidth, pbHeight, TreeEx()\Color\ProgressBack)
       Else  
-        Box(X, Y, pbWidth, pbHeight, BlendColor_(TreeEx()\Color\ProgressFront, TreeEx()\Color\Back, 6))
+        Box(X, Y, pbWidth, pbHeight, BlendColor_(TreeEx()\Color\ProgressFront, TreeEx()\Color\Gadget, 30))
       EndIf   
       
       If State > TreeEx()\ProgressBar\Minimum
@@ -631,11 +664,13 @@ Module TreeEx
       
       Percent = ((State - TreeEx()\ProgressBar\Minimum) * 100) /  (TreeEx()\ProgressBar\Maximum - TreeEx()\ProgressBar\Minimum)
       
+      TextColor = TreeEx()\Color\ProgressText
+      If TreeEx()\Cols()\Color\Front <> #PB_Default
+        TextColor = TreeEx()\Cols()\Color\Front
+      EndIf
+      
       If Text ;{ Draw Text
-        
-        TextColor = TreeEx()\Color\ProgressText
-        If TreeEx()\Cols()\Color\Front <> #PB_Default : TextColor = TreeEx()\Cols()\Color\Front : EndIf
-        
+
         DrawingFont(FontID)
         
         Text = ReplaceString(Text, #Progress$, Str(Percent) + "%")
@@ -1202,7 +1237,7 @@ Module TreeEx
         TreeEx()\Color\ProgressFront    = ModuleEx::ThemeGUI\Progress\FrontColor
         TreeEx()\Color\ProgressBack     = #PB_Default
         TreeEx()\Color\ProgressGradient = ModuleEx::ThemeGUI\Progress\GradientColor
-        TreeEx()\Color\ProgressBorder   = ModuleEx::
+        TreeEx()\Color\ProgressBorder   = ModuleEx::ThemeGUI\Progress\BorderColor
 				
         Draw_()
       Next
@@ -1382,8 +1417,8 @@ Module TreeEx
           TreeEx()\Cols()\Key = Str(TreeEx()\Col\Counter)
         EndIf         
         
-        TreeEx()\Cols()\Header\Title      = Title
-        TreeEx()\Cols()\Header\FontID     = #PB_Default
+        TreeEx()\Cols()\Header\Title       = Title
+        TreeEx()\Cols()\Header\FontID      = #PB_Default
         TreeEx()\Cols()\Header\Color\Front = #PB_Default
         TreeEx()\Cols()\Header\Color\Back  = #PB_Default
         
@@ -1735,6 +1770,41 @@ Module TreeEx
 	 
 	EndProcedure
 	
+	
+	Procedure.i GetLabelState(GNum.i, Row.i, Label.s=#Tree$)
+	  
+	  If FindMapElement(TreeEx(), Str(GNum))
+	    
+	    If Row = #Header
+	    Else 
+	      
+	      If SelectElement(TreeEx()\Rows(), Row)
+      	  ProcedureReturn TreeEx()\Rows()\Column(Label)\State
+      	EndIf
+      	
+  	  EndIf
+  	  
+	  EndIf  
+	 
+	EndProcedure
+	
+	Procedure.s GetLabelText(GNum.i, Row.i, Label.s=#Tree$) 
+	  If FindMapElement(TreeEx(), Str(GNum))
+	    
+	    If Row = #Header
+      Else
+        
+  	    If SelectElement(TreeEx()\Rows(), Row)
+  	      ProcedureReturn TreeEx()\Rows()\Column(Label)\Value
+  	    EndIf
+  	    
+  	  EndIf
+  	  
+  	EndIf 
+  	
+  EndProcedure
+  
+  
 	Procedure.i GetState(GNum.i)
 	  
 	  If FindMapElement(TreeEx(), Str(GNum))
@@ -2181,6 +2251,38 @@ Module TreeEx
 	 
 	EndProcedure
 	
+	
+  Procedure   SetLabelState(GNum.i, Row.i, State.i, Label.s=#Tree$)
+    
+    If FindMapElement(TreeEx(), Str(GNum))
+      
+	    If Row = #Header
+	    Else 
+	      
+	      If SelectElement(TreeEx()\Rows(), Row)
+      	  TreeEx()\Rows()\Column(Label)\State = State
+    	  EndIf
+    	  
+  	  EndIf  
+	    
+	    If TreeEx()\ReDraw : Draw_() : EndIf
+	  EndIf  
+	 
+	EndProcedure	
+	
+	Procedure   SetLabelText(GNum.i, Row.i, Text.s, Label.s=#Tree$)
+	  
+	  If FindMapElement(TreeEx(), Str(GNum))
+
+	    If SelectElement(TreeEx()\Rows(), Row)
+  	    TreeEx()\Rows()\Column(Label)\Value = Text
+	    EndIf
+  	  
+	  EndIf  
+	 
+	EndProcedure
+	
+	
 	Procedure   SetState(GNum.i, State.i)
 	  
 	  If FindMapElement(TreeEx(), Str(GNum))
@@ -2250,6 +2352,8 @@ CompilerIf #PB_Compiler_IsMainFile
     
     ;TreeEx::SetColorTheme(#TreeEx, TreeEx::#Theme_Green)
     
+    ; ModuleEx::SetTheme(ModuleEx::#Theme_DarkBlue)
+    
     Repeat
       Event = WaitWindowEvent()
       Select Event
@@ -2277,7 +2381,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 47
-; Folding = 9cDAQAMCoIDIAACTCAADA9-
+; CursorPosition = 2354
+; FirstLine = 639
+; Folding = 1cDAAAcCoIDMABADCAAMAA-
 ; EnableXP
 ; DPIAware
