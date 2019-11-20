@@ -132,7 +132,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19112000
+  #Version  = 19112001
   #ModuleEx = 19111703
   
   #Enable_Validation  = #True
@@ -2516,7 +2516,7 @@ Module ListEx
       
       ;{ _____ Background _____
       DrawingMode(#PB_2DDrawing_Default)
-      Box(0, 0, dpiX(GadgetWidth(ListEx()\CanvasNum)), dpiY(GadgetHeight(ListEx()\CanvasNum)), ListEx()\Color\Canvas)
+      Box(0, 0, dpiX(GadgetWidth(ListEx()\CanvasNum)), dpiY(GadgetHeight(ListEx()\CanvasNum)), ListEx()\Color\Back)
       ;}
 
       colX     = dpiX(ListEx()\Size\X)    - dpiX(ListEx()\Col\OffsetX)
@@ -6148,8 +6148,14 @@ Module ListEx
     
     If FindMapElement(ListEx(), Str(GNum))
       
-      ListEx()\Hide  = State
-      HideGadget(GNum, State)
+      If State
+        ListEx()\Hide = #True
+        HideGadget(GNum, #True)
+      Else
+        ListEx()\Hide = #False
+        HideGadget(GNum, #False)
+        Draw_()
+      EndIf   
 
     EndIf
     
@@ -7515,9 +7521,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 134
-; FirstLine = 9
-; Folding = 9PAACAAEAMQEIBMgw-HhHrXIJIgdUwiB9-fBQ64nAIBoJwBYAwBAAgIgBIAQh88
+; CursorPosition = 6151
+; FirstLine = 1621
+; Folding = 9PAACAAEAMQEIBMgw-HhHrXYJIgdUwiB9-fBQ64nAIBoJwBYAwBAIgIgBIAQh88
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
