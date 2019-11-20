@@ -7,7 +7,7 @@
 ;/ Â© 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 19.11.2019
+; Last Update: 20.11.2019
 ;
 ; Bugfix: Themes
 ;
@@ -65,7 +65,7 @@
 
 DeclareModule ButtonEx
   
-  #Version  = 19111901
+  #Version  = 19112000
   #ModuleEx = 19111703
   
 	;- ===========================================================================
@@ -166,8 +166,17 @@ Module ButtonEx
 	;- Module - Constants
 	;- ===========================================================================
 
-	#DropDownWidth = 18
-
+	#DropDownWidth  = 18
+	
+	CompilerSelect #PB_Compiler_OS
+		CompilerCase #PB_OS_Windows
+			#PopupMenuWidth = 123
+		CompilerCase #PB_OS_MacOS
+      #PopupMenuWidth = 125
+		CompilerCase #PB_OS_Linux
+      #PopupMenuWidth = 125
+	CompilerEndSelect
+	
 	EnumerationBinary
 		#Focus
 		#Click
@@ -375,7 +384,7 @@ Module ButtonEx
       
 			;{ _____ Background _____
 			DrawingMode(#PB_2DDrawing_Default)
-			If BtEx()\State & #Click And BtEx()\State & #DropDown ;{ DropDown-Button - Click
+			If BtEx()\State & #Click And BtEx()\State & #DropDown   ;{ DropDown-Button - Click
 				BackColor = BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 20)
 				If BtEx()\Flags & #MacOS
 					If BtEx()\Toggle
@@ -414,12 +423,12 @@ Module ButtonEx
 				EndIf
 				BorderColor = BtEx()\Color\Focus
 				;}
-			ElseIf BtEx()\State & #Click Or BtEx()\Toggle
+			ElseIf BtEx()\State & #Click Or BtEx()\Toggle           ;{ Button - Click / Toggle
 				Box_(0, 0, dpiX(GadgetWidth(BtEx()\CanvasNum)), dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 20))
-				BorderColor = BtEx()\Color\Focus
-			ElseIf BtEx()\State & #Focus
+				BorderColor = BtEx()\Color\Focus ;}
+			ElseIf BtEx()\State & #Focus                            ;{ Button - Focus
 				Box_(0, 0, dpiX(GadgetWidth(BtEx()\CanvasNum)), dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 10))
-				BorderColor = BtEx()\Color\Focus
+				BorderColor = BtEx()\Color\Focus ;}
 			Else
 				Box_(0, 0, dpiX(GadgetWidth(BtEx()\CanvasNum)), dpiY(GadgetHeight(BtEx()\CanvasNum)), BtEx()\Color\Back)
 				BorderColor = BtEx()\Color\Border
@@ -667,9 +676,9 @@ Module ButtonEx
 	EndProcedure
 
 	Procedure _LeftButtonUpHandler()
-		Define.i X, dX, dY
+		Define.i X, dX, dY, OffsetX
 		Define.i GNum = EventGadget()
-
+		
 		If FindMapElement(BtEx(), Str(GNum))
 
 			X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
@@ -679,7 +688,8 @@ Module ButtonEx
 					If IsWindow(BtEx()\Window\Num)
 						dX = WindowX(BtEx()\Window\Num, #PB_Window_InnerCoordinate) + GadgetX(BtEx()\CanvasNum)
 						dY = WindowY(BtEx()\Window\Num, #PB_Window_InnerCoordinate) + GadgetY(BtEx()\CanvasNum) + GadgetHeight(BtEx()\CanvasNum)
-						DisplayPopupMenu(BtEx()\PopupNum, WindowID(BtEx()\Window\Num), dpiX(dX), dpiY(dY))
+						OffsetX = GadgetWidth(BtEx()\CanvasNum) - #PopupMenuWidth
+						DisplayPopupMenu(BtEx()\PopupNum, WindowID(BtEx()\Window\Num), dpiX(dX) + OffsetX, dpiY(dY))
 					EndIf
 					PostEvent(#Event_Gadget, BtEx()\Window\Num, BtEx()\CanvasNum, #EventType_DropDown)
 					PostEvent(#PB_Event_Gadget, BtEx()\Window\Num, BtEx()\CanvasNum, #EventType_DropDown)
@@ -1182,7 +1192,7 @@ CompilerIf #PB_Compiler_IsMainFile
 
 		ButtonGadget(#Button, 15, 19, 90, 27, "Button")
 
-		ButtonEx::Gadget(#ButtonEx, 125, 20, 90, 25, "ButtonEx", #False, #Window) ; ButtonEx::#MacOS 
+		ButtonEx::Gadget(#ButtonEx, 120, 20, 90, 25, "ButtonEx", #False, #Window) ; ButtonEx::#MacOS 
 		ButtonEx::AddDropDown(#ButtonEx, #DropDown)
 		;ButtonEx::SetColor(#ButtonEx, ButtonEx::#FrontColor, $800000)
 		;ButtonEx::SetColor(#ButtonEx, ButtonEx::#BorderColor, $B48246)
@@ -1250,8 +1260,8 @@ CompilerIf #PB_Compiler_IsMainFile
 
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 989
-; FirstLine = 701
-; Folding = 9FI3--5MMp+
+; CursorPosition = 63
+; FirstLine = 2
+; Folding = 9FI3QOFywk7-
 ; EnableXP
 ; DPIAware
