@@ -58,7 +58,7 @@
 
 DeclareModule ModuleEx
   
-  #Version = 19111900
+  #Version = 19112000
   
   #Enable_Tabulator_Management = #True
   
@@ -151,9 +151,11 @@ DeclareModule ModuleEx
   EndStructure  
   
   Structure Theme_Progress_Structure ;{ ThemeGUI\Progress\...
+    TextColor.i
     FrontColor.i
     BackColor.i
     GradientColor.i
+    BorderColor.i
   EndStructure ;}
   
   Structure Theme_Header_Structure   ;{ ThemeGUI\Header\...
@@ -1056,9 +1058,11 @@ Module ModuleEx
         ThemeGUI\Title\FrontColor   = $FCF9F5
         ThemeGUI\Title\BackColor    = $764200
         ThemeGUI\Title\BorderColor  = $3A2100
-        ThemeGUI\Progress\FrontColor    = $FCF9F5
-        ThemeGUI\Progress\BackColor     = $CB9755 
+        ThemeGUI\Progress\TextColor     = $FCF9F5
+        ThemeGUI\Progress\FrontColor    = $CB9755
+        ThemeGUI\Progress\BackColor     = #PB_Default 
         ThemeGUI\Progress\GradientColor = $B06400
+        ThemeGUI\Progress\BorderColor   = $764200
         ;}
         ;SaveTheme_("Theme_Blue.xml")
       Case #Theme_Green ;{ Green Theme
@@ -1080,9 +1084,11 @@ Module ModuleEx
         ThemeGUI\Title\FrontColor   = $F5F9F3
         ThemeGUI\Title\BackColor    = $295B0A
         ThemeGUI\Title\BorderColor  = $142D05
-        ThemeGUI\Progress\FrontColor    = $F5F9F3
-        ThemeGUI\Progress\BackColor     = $7EB05F
-        ThemeGUI\Progress\GradientColor = $3E8910
+        ThemeGUI\Progress\TextColor     = $F5F9F3
+        ThemeGUI\Progress\FrontColor    = $BED7AF
+        ThemeGUI\Progress\BackColor     = #PB_Default
+        ThemeGUI\Progress\GradientColor = $7EB05F
+        ThemeGUI\Progress\BorderColor   = $295B0A
         ;}
         ;SaveTheme_("Theme_Green.xml")
       Case #Theme_Dark
@@ -1104,10 +1110,11 @@ Module ModuleEx
         ThemeGUI\Title\FrontColor   = $FCF9F5
         ThemeGUI\Title\BackColor    = $764200
         ThemeGUI\Title\BorderColor  = $3A2100
-        ThemeGUI\Progress\FrontColor    = $F6EDE2
-        ThemeGUI\Progress\BackColor     = $B06400 
-        ThemeGUI\Progress\GradientColor = $764200
-
+        ThemeGUI\Progress\TextColor     = $F6EDE2
+        ThemeGUI\Progress\FrontColor    =  $CB9755
+        ThemeGUI\Progress\BackColor     = #PB_Default
+        ThemeGUI\Progress\GradientColor = $B06400
+        ThemeGUI\Progress\BorderColor   = $B06400
         ThemeGUI\WindowColor = $342B1D
         ThemeGUI\GadgetColor = $342B1D
 
@@ -1121,9 +1128,11 @@ Module ModuleEx
         
         ThemeGUI\Header\LightColor = $F6EDE2
         
-        ThemeGUI\Progress\FrontColor    = $F9FEF8
-        ThemeGUI\Progress\BackColor     = $31EE07
+        ThemeGUI\Progress\TextColor     = $F9FEF8
+        ThemeGUI\Progress\FrontColor    = $31EE07
+        ThemeGUI\Progress\BackColor     = #PB_Default
         ThemeGUI\Progress\GradientColor = $25B006
+        ThemeGUI\Progress\BorderColor   = $A0A0A0
         
         CompilerSelect  #PB_Compiler_OS
           CompilerCase #PB_OS_Windows
@@ -1253,8 +1262,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 60
-; FirstLine = 12
-; Folding = kNRQAACgAAAD+
+; CursorPosition = 1108
+; FirstLine = 310
+; Folding = kdQAAAAgAAAP+
 ; EnableXP
 ; DPIAware

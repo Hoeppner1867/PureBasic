@@ -46,7 +46,7 @@
 
 DeclareModule {Gadget}
   
-  #Version  = 
+  #Version  = 19112000
   #ModuleEx = 19111702
   
 	;- ===========================================================================
@@ -95,6 +95,7 @@ DeclareModule {Gadget}
   Declare   AttachPopupMenu(GNum.i, PopUpNum.i)
   Declare   DisableReDraw(GNum.i, State.i=#False)
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
+  Declare   Hide(GNum.i, State.i=#True)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetColor(GNum.i, ColorTyp.i, Value.i)
   Declare   SetFont(GNum.i, FontID.i) 
@@ -150,7 +151,8 @@ Module {Gadget}
 		FontID.i
 
 		ReDraw.i
-
+		Hide.i
+		
 		Flags.i
 
 		ToolTip.i
@@ -252,7 +254,9 @@ Module {Gadget}
 
 	Procedure   Draw_()
 		Define.i X, Y, Width, Height
-
+		
+		If {Gadget}()\Hide : ProcedureReturn #False : EndIf 
+		
 		X = dpiX({Gadget}()\Margin\Left)
 		Y = dpiY({Gadget}()\Margin\Top)
 
@@ -580,6 +584,23 @@ Module {Gadget}
 
 	EndProcedure
 	
+	Procedure   Hide(GNum.i, State.i=#True)
+	  
+	  If FindMapElement({Gadget}(), Str(GNum))
+	    
+	    If State
+	      {Gadget}()\Hide = #True
+	      HideGadget(GNum, #True)
+	    Else
+	      {Gadget}()\Hide = #False
+	      HideGadget(GNum, #False)
+	      Draw_()
+	    EndIf  
+	    
+	  EndIf  
+	  
+	EndProcedure
+	
 	
 	Procedure   SetAutoResizeFlags(GNum.i, Flags.i)
     
@@ -665,8 +686,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 296
-; FirstLine = 98
-; Folding = EEAgGADhw
+; CursorPosition = 48
+; FirstLine = 5
+; Folding = EEAwGACNh
 ; EnableXP
 ; DPIAware

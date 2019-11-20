@@ -55,7 +55,7 @@
 
 DeclareModule ProgressEx
   
-  #Version  = 19111900
+  #Version  = 19112000
   #ModuleEx = 19111702
   
   ;- ===========================================================================
@@ -377,7 +377,7 @@ Module ProgressEx
         
         PBarEx()\Color\Front       = ModuleEx::ThemeGUI\Progress\FrontColor
         PBarEx()\Color\Back        = ModuleEx::ThemeGUI\GadgetColor
-        PBarEx()\Color\ProgressBar = ModuleEx::ThemeGUI\Progress\BackColor
+        PBarEx()\Color\ProgressBar = ModuleEx::ThemeGUI\Progress\FrontColor
         PBarEx()\Color\Gradient    = ModuleEx::ThemeGUI\Progress\GradientColor
         PBarEx()\Color\Border      = ModuleEx::ThemeGUI\BorderColor
 
@@ -722,8 +722,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 457
-; FirstLine = 240
+; CursorPosition = 57
+; FirstLine = 1
 ; Folding = UEecHCw-
 ; EnableXP
 ; DPIAware

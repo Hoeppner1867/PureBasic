@@ -132,7 +132,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19111901
+  #Version  = 19112000
   #ModuleEx = 19111703
   
   #Enable_Validation  = #True
@@ -3500,7 +3500,7 @@ Module ListEx
         ListEx()\Color\HeaderFront  = ModuleEx::ThemeGUI\Header\FrontColor
         ListEx()\Color\HeaderBack   = ModuleEx::ThemeGUI\Header\BackColor
         ListEx()\Color\HeaderLine   = ModuleEx::ThemeGUI\Header\BorderColor
-        ListEx()\Color\ProgressBar  = ModuleEx::ThemeGUI\Progress\BackColor
+        ListEx()\Color\ProgressBar  = ModuleEx::ThemeGUI\Progress\FrontColor
         ListEx()\Color\Gradient     = ModuleEx::ThemeGUI\Progress\GradientColor
         ListEx()\Color\ButtonBack   = ModuleEx::ThemeGUI\Button\BackColor
         ListEx()\Color\ButtonBorder = ModuleEx::ThemeGUI\Button\BorderColor
@@ -7516,8 +7516,8 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 134
-; FirstLine = 15
-; Folding = 9PAACAAEAMQEIBMgw-GhHrXIJIgdUwiB9-fBQ64nAIBoJwBYAwBAAgAgAIAQh88
+; FirstLine = 9
+; Folding = 9PAACAAEAMQEIBMgw-HhHrXIJIgdUwiB9-fBQ64nAIBoJwBYAwBAAgIgBIAQh88
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
