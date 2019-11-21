@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 20.11.19
+; Last Update: 21.11.19
 ;
 ; Added: #EventType_Change
 ; 
@@ -134,16 +134,16 @@
 
 DeclareModule EditEx
   
-  #Version  = 19112001
+  #Version  = 19112100
   #ModuleEx = 19111702
   
   ;- ============================================================================
   ;-   DeclareModule - Constants
   ;- ============================================================================
   
-  #Enable_Hyphenation     = #False  ; Requires file with hyphenation patterns => LoadHyphenationPattern()
-  #Enable_SpellChecking   = #False  ; Requires file with dictionary           => LoadDictionary()
-  #Enable_SyntaxHighlight = #False
+  #Enable_Hyphenation     = #True  ; Requires file with hyphenation patterns => LoadHyphenationPattern()
+  #Enable_SpellChecking   = #True  ; Requires file with dictionary           => LoadDictionary()
+  #Enable_SyntaxHighlight = #True
   #Enable_UndoRedo        = #True 
   
   ;{ _____ Constants _____
@@ -224,6 +224,7 @@ DeclareModule EditEx
   
   CompilerIf Defined(ModuleEx, #PB_Module)
     
+    #Event_Gadget     = ModuleEx::#Event_Gadget
     #Event_Cursor     = ModuleEx::#Event_Cursor
     #Event_Theme      = ModuleEx::#Event_Theme
     #EventType_Change = ModuleEx::#EventType_Change
@@ -232,6 +233,7 @@ DeclareModule EditEx
     
     Enumeration #PB_Event_FirstCustomValue
       #Event_Cursor
+      #Event_Gadget
     EndEnumeration
     
     Enumeration #PB_EventType_FirstCustomValue
@@ -1901,8 +1903,8 @@ Module EditEx
         EditEx()\Cursor\Pos = EditEx()\Undo\CursorPos
       EndIf
       
-      PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
-      PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+      PostEvent(#Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
+      PostEvent(#PB_Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
       
     EndProcedure
     
@@ -3028,8 +3030,8 @@ Module EditEx
               AddUndo_()
             CompilerEndIf
             
-            PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
-            PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+            PostEvent(#Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
+            PostEvent(#PB_Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
             
             ReDraw = #True
           EndIf
@@ -3055,8 +3057,8 @@ Module EditEx
               ;}
             EndIf
             
-            PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
-            PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+            PostEvent(#Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
+            PostEvent(#PB_Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
             
             RemoveSelection_()
             
@@ -3084,8 +3086,8 @@ Module EditEx
               
             EndIf
             
-            PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
-            PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+            PostEvent(#Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
+            PostEvent(#PB_Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
             
             RemoveSelection_()
             
@@ -3123,8 +3125,8 @@ Module EditEx
                 AddUndo_()
               CompilerEndIf
               
-              PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
-              PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+              PostEvent(#Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
+              PostEvent(#PB_Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
               
               ReDraw = #True
             EndIf
@@ -3148,8 +3150,8 @@ Module EditEx
                 
               EndIf
               
-              PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
-              PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+              PostEvent(#Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
+              PostEvent(#PB_Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
               
               RemoveSelection_()
               
@@ -3175,8 +3177,8 @@ Module EditEx
               EditEx()\Text$ = InsertString(EditEx()\Text$, Text$, EditEx()\Cursor\Pos + 1)
               EditEx()\Cursor\Pos + Len(Text$)
               
-              PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
-              PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+              PostEvent(#Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
+              PostEvent(#PB_Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
               
               CompilerIf #Enable_UndoRedo
                 AddUndo_()
@@ -3204,8 +3206,8 @@ Module EditEx
             EditEx()\Text$ = InsertString(EditEx()\Text$, #SoftHyphen$, EditEx()\Cursor\Pos)
             EditEx()\Cursor\Pos + 1
             
-            PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
-            PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+            PostEvent(#Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
+            PostEvent(#PB_Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
             
             ReDraw = #True
           EndIf
@@ -3228,8 +3230,8 @@ Module EditEx
             
             If Modifier & #PB_Canvas_Control
               Undo_()
-              PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
-              PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+              PostEvent(#Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
+              PostEvent(#PB_Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
               ReDraw = #True
             EndIf 
 
@@ -3240,8 +3242,8 @@ Module EditEx
           If Modifier & #PB_Canvas_Control
             DeleteSelection_()
             EditEx()\Cursor\Pos = Pos1
-            PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
-            PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+            PostEvent(#Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
+            PostEvent(#PB_Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
             ReDraw = #True
           EndIf
           ;}
@@ -3297,8 +3299,8 @@ Module EditEx
           
         CompilerEndIf
         
-        PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
-        PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+        PostEvent(#Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
+        PostEvent(#PB_Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
         
         ReDraw_()
         
@@ -4144,8 +4146,8 @@ Module EditEx
           EditEx()\Text$ = Text$
           EditEx()\Cursor\Pos = EditEx()\Undo\CursorPos
           
-          PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
-          PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+          PostEvent(#Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
+          PostEvent(#PB_Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
           
           ReDraw_()
           
@@ -4218,8 +4220,8 @@ Module EditEx
             AddUndo_()
           CompilerEndIf
           
-          PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
-          PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+          PostEvent(#Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
+          PostEvent(#PB_Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
           
           ReDraw_()
         EndIf
@@ -4262,8 +4264,8 @@ Module EditEx
           AddUndo_()
         CompilerEndIf
         
-        PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
-        PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+        PostEvent(#Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
+        PostEvent(#PB_Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
         
         ReDraw_()
         
@@ -4309,8 +4311,8 @@ Module EditEx
            CompilerIf #Enable_UndoRedo
             AddUndo_()
           CompilerEndIf
-          PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
-          PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+          PostEvent(#Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
+          PostEvent(#PB_Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
         EndIf
 
         ReDraw_()
@@ -4351,8 +4353,8 @@ Module EditEx
           AddUndo_()
         CompilerEndIf
         
-        PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
-        PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+        PostEvent(#Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
+        PostEvent(#PB_Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
         
         ReDraw_()
         
@@ -5274,9 +5276,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 136
-; FirstLine = 21
-; Folding = 5XnRAgBAAIAEgBIC9BgiJACYBABOAwACAgRghgQgAgEEAQAfsTQ9-
-; Markers = 898
+; CursorPosition = 145
+; FirstLine = 30
+; Folding = 5XnRAgBAAIAEgBIC+FgiJACYBBBOA6V4DgRghgQgEyOEAQAfsTQ9-
+; Markers = 900
 ; EnableXP
 ; DPIAware
