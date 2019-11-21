@@ -46,8 +46,8 @@
 
 DeclareModule {Gadget}
   
-  #Version  = 19112000
-  #ModuleEx = 19111702
+  #Version  = 19112100
+  #ModuleEx = 19112100
   
 	;- ===========================================================================
 	;-   DeclareModule - Constants
@@ -127,6 +127,8 @@ Module {Gadget}
 		Front.i
 		Back.i
 		Border.i
+		DisableFront.i
+		DisableBack.i
 	EndStructure  ;}
 
 	Structure {Gadget}_Window_Structure  ;{ {Gadget}()\Window\...
@@ -152,6 +154,7 @@ Module {Gadget}
 
 		ReDraw.i
 		Hide.i
+		Disable.i
 		
 		Flags.i
 
@@ -254,6 +257,7 @@ Module {Gadget}
 
 	Procedure   Draw_()
 		Define.i X, Y, Width, Height
+		Define.i FrontColor.i, BackColor.i, BorderColor.i
 		
 		If {Gadget}()\Hide : ProcedureReturn #False : EndIf 
 		
@@ -264,10 +268,14 @@ Module {Gadget}
 		Height = dpiY(GadgetHeight({Gadget}()\CanvasNum)) - dpiY({Gadget}()\Margin\Top)  - dpiY({Gadget}()\Margin\Bottom)
 
 		If StartDrawing(CanvasOutput({Gadget}()\CanvasNum))
-
+		  
+		  FrontColor  = {Gadget}()\Color\Front
+		  BackColor   = {Gadget}()\Color\Back
+		  BorderColor = {Gadget}()\Color\Border
+		  
 			;{ _____ Background _____
 			DrawingMode(#PB_2DDrawing_Default)
-			Box(0, 0, dpiX(GadgetWidth({Gadget}()\CanvasNum)), dpiY(GadgetHeight({Gadget}()\CanvasNum)))
+			Box(0, 0, dpiX(GadgetWidth({Gadget}()\CanvasNum)), dpiY(GadgetHeight({Gadget}()\CanvasNum)), BackColor)
 			;}
 
 			DrawingFont({Gadget}()\FontID)
@@ -275,7 +283,7 @@ Module {Gadget}
 			;{ _____ Border ____
 			If {Gadget}()\Flags & #Border
 				DrawingMode(#PB_2DDrawing_Outlined)
-				Box(0, 0, dpiX(GadgetWidth({Gadget}()\CanvasNum)), dpiY(GadgetHeight({Gadget}()\CanvasNum)), {Gadget}()\Color\Border)
+				Box(0, 0, dpiX(GadgetWidth({Gadget}()\CanvasNum)), dpiY(GadgetHeight({Gadget}()\CanvasNum)), BorderColor)
 			EndIf ;}
 
 			StopDrawing()
@@ -295,9 +303,11 @@ Module {Gadget}
           {Gadget}()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
         EndIf
 
-        {Gadget}()\Color\Front  = ModuleEx::ThemeGUI\FrontColor
-				{Gadget}()\Color\Back   = ModuleEx::ThemeGUI\BackColor
-				{Gadget}()\Color\Border = ModuleEx::ThemeGUI\BorderColor
+        {Gadget}()\Color\Front        = ModuleEx::ThemeGUI\FrontColor
+				{Gadget}()\Color\Back         = ModuleEx::ThemeGUI\BackColor
+				{Gadget}()\Color\Border       = ModuleEx::ThemeGUI\BorderColor
+				{Gadget}()\Color\DisableFront = ModuleEx::ThemeGUI\Disable\FrontColor
+		    {Gadget}()\Color\DisableBack  = ModuleEx::ThemeGUI\Disable\BackColor
 				
         Draw_()
       Next
@@ -539,10 +549,12 @@ Module {Gadget}
 
 				{Gadget}()\ReDraw = #True
 
-				{Gadget}()\Color\Front  = $000000
-				{Gadget}()\Color\Back   = $EDEDED
-				{Gadget}()\Color\Border = $A0A0A0
-
+				{Gadget}()\Color\Front        = $000000
+				{Gadget}()\Color\Back         = $EDEDED
+				{Gadget}()\Color\Border       = $A0A0A0
+				{Gadget}()\Color\DisableFront = $72727D
+				{Gadget}()\Color\DisableBack  = $CCCCCA
+				
 				CompilerSelect #PB_Compiler_OS ;{ Color
 					CompilerCase #PB_OS_Windows
 						{Gadget}()\Color\Front         = GetSysColor_(#COLOR_WINDOWTEXT)
@@ -686,8 +698,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 48
-; FirstLine = 5
-; Folding = EEAwGACNh
+; CursorPosition = 277
+; FirstLine = 121
+; Folding = EUCwHIDNh
 ; EnableXP
 ; DPIAware

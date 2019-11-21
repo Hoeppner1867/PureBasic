@@ -7,7 +7,7 @@
 ;/ Â© 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 20.11.2019
+; Last Update: 21.11.2019
 ;
 ; Bugfix: Themes
 ;
@@ -48,10 +48,13 @@
 ; Button::Gadget()             - similar to 'ButtonGadget()'
 ; Button::GetState()           - similar to 'GetGadgetState()'
 ; Button::SetState()           - similar to 'SetGadgetState()'
+; Button::SetAutoResizeFlags() - [#MoveX|#MoveY|#Width|#Height]
+; Button::SetAttribute()       - similar to 'SetGadgetAttribute()'
 ; Button::SetFont()            - similar to 'SetGadgetFont()'
 ; Button::SetColor()           - similar to 'SetGadgetColor()'
 ; Button::SetText()            - similar to 'SetGadgetText()'
-; Button::SetAutoResizeFlags() - [#MoveX|#MoveY|#Width|#Height]
+
+
 
 ; _____ ModuleEx.pbi _____
 
@@ -65,22 +68,15 @@
 
 DeclareModule ButtonEx
   
-  #Version  = 19112001
-  #ModuleEx = 19112001
+  #Version  = 19112100
+  #ModuleEx = 19112100
   
 	;- ===========================================================================
 	;- DeclareModule - Constants / Structures
 	;- ===========================================================================
 
 	;{ _____ Constants _____
-	Enumeration Color 1
-		#FrontColor
-		#BackColor
-		#BorderColor
-		#FocusColor
-	EndEnumeration
-
-	EnumerationBinary Flags
+	EnumerationBinary ;{ GadgetFlags
 		#Default   = #PB_Button_Default
 		#Left      = #PB_Button_Left
 		#Right     = #PB_Button_Right
@@ -97,15 +93,27 @@ DeclareModule ButtonEx
 		#FitText
 		#FixPadding
 		#UseExistingCanvas
-	EndEnumeration
-
-	EnumerationBinary
+	EndEnumeration ;}
+	
+	Enumeration 1     ;{ Attribute
+	  #Corner
+	EndEnumeration ;}
+	
+	Enumeration 1     ;{ Colors
+		#FrontColor
+		#BackColor
+		#BorderColor
+		#FocusColor
+	EndEnumeration ;}
+	
+	EnumerationBinary ;{ AutoResize
 		#MoveX
 		#MoveY
 		#Width
 		#Height
-	EndEnumeration
-
+	EndEnumeration ;}
+	
+	
 	CompilerIf Defined(ModuleEx, #PB_Module)
 	  
 	  #Event_Gadget       = ModuleEx::#Event_Gadget
@@ -139,6 +147,7 @@ DeclareModule ButtonEx
 	Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Text.s, Flags.i, WindowNum.i=#PB_Default)
 	Declare.i GetState(GNum.i)
 	Declare   Hide(GNum.i, State.i=#True)
+	Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
 	Declare   SetAutoResizeFlags(GNum.i, Flags.i)
 	Declare   SetColor(GNum.i, ColorType.i, Color.i)
 	Declare   SetFont(GNum.i, FontNum.i)
@@ -197,6 +206,8 @@ Module ButtonEx
 		Focus.i
 		Border.i
 		Gadget.i
+		DisableFront.i
+    DisableBack.i
 	EndStructure ;}
 
 	Structure ButtonEx_Size_Structure    ;{ ButtonEx()\Size\...
@@ -224,13 +235,16 @@ Module ButtonEx
 	Structure ButtonEx_Structure         ;{ ButtonEx()\...
 		CanvasNum.i
 		PopupNum.i
-
+		
+		FontID.i
+		
 		Text.s
 		Toggle.i
-		FontID.i
 		State.i
+		
 		Disable.i
 		Hide.i
+		Radius.i
 		Flags.i
 		
 		; Fit Text
@@ -239,7 +253,6 @@ Module ButtonEx
     PFactor.f
     
     Font.ButtonEx_Font_Structure
-    
 		Color.ButtonEx_Color_Structure
 		Image.ButtonEx_Image_Structure
 		Size.ButtonEx_Size_Structure
@@ -310,9 +323,9 @@ Module ButtonEx
 	EndProcedure
 
 	Procedure   Box_(X.i, Y.i, Width.i, Height.i, Color.i)
-		If BtEX()\Flags & #MacOS
+		If BtEX()\Radius
 			Box(X, Y, Width, Height, BtEx()\Color\Gadget)
-			RoundBox(X, Y, Width, Height, 7, 7, Color)
+			RoundBox(X, Y, Width, Height, BtEx()\Radius, BtEx()\Radius, Color)
 		Else
 			Box(X, Y, Width, Height, Color)
 		EndIf
@@ -383,15 +396,17 @@ Module ButtonEx
       
 			;{ _____ Background _____
 			DrawingMode(#PB_2DDrawing_Default)
+			Box(0, 0, dpiX(GadgetWidth(BtEx()\CanvasNum)), dpiY(GadgetHeight(BtEx()\CanvasNum)), BtEx()\Color\Gadget)
+			
 			If BtEx()\Disable
-			  FrontColor = BlendColor_(BtEx()\Color\Front, BtEx()\Color\Back)
-			  BackColor  = BlendColor_(BtEx()\Color\Border, BtEx()\Color\Back, 30)
+			  FrontColor = BtEx()\Color\DisableFront
+			  BackColor  = BtEx()\Color\DisableBack
 			  Box_(0, 0, dpiX(GadgetWidth(BtEx()\CanvasNum)), dpiY(GadgetHeight(BtEx()\CanvasNum)), BackColor)
 			  BorderColor = BackColor
 			ElseIf BtEx()\State & #Click And BtEx()\State & #DropDown ;{ DropDown-Button - Click
 			  BackColor   = BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 20)
 			  BorderColor = BtEx()\Color\Focus
-				If BtEx()\Flags & #MacOS
+				If BtEx()\Radius
 					If BtEx()\Toggle
 						Box_(0, 0, dpiX(GadgetWidth(BtEx()\CanvasNum)), dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 20))
 					Else
@@ -410,7 +425,7 @@ Module ButtonEx
 				;}
 			ElseIf BtEx()\Toggle And BtEx()\Flags & #DropDownButton   ;{ DropDown-Button - Toggle
 			  BorderColor = BtEx()\Color\Focus
-			  If BtEx()\Flags & #MacOS
+			  If BtEx()\Radius
 					Box_(0, 0, dpiX(GadgetWidth(BtEx()\CanvasNum)), dpiY(GadgetHeight(BtEx()\CanvasNum)), BlendColor_(BtEx()\Color\Focus, BtEx()\Color\Back, 20))
 					Line(Width - dpiX(1), 0, dpiX(1), dpiY(GadgetHeight(BtEx()\CanvasNum)), BorderColor)
 					If BtEx()\State & #Focus
@@ -604,9 +619,10 @@ Module ButtonEx
 
 			;{ _____ Border ____
 			If BtEX()\Flags & #Borderless = #False
+			  
 				DrawingMode(#PB_2DDrawing_Outlined)
-				If BtEX()\Flags & #MacOS
-					RoundBox(0, 0, dpiX(GadgetWidth(BtEx()\CanvasNum)), dpiY(GadgetHeight(BtEx()\CanvasNum)), 7, 7, BorderColor)
+				If BtEX()\Radius 
+					RoundBox(0, 0, dpiX(GadgetWidth(BtEx()\CanvasNum)), dpiY(GadgetHeight(BtEx()\CanvasNum)), BtEx()\Radius, BtEx()\Radius, BorderColor)
 					If BtEX()\Flags & #DropDownButton
 						Line(Width - dpiX(1), 0, dpiX(1), dpiY(GadgetHeight(BtEx()\CanvasNum)), BorderColor)
 					EndIf
@@ -616,6 +632,7 @@ Module ButtonEx
 						Box(Width - dpiX(1), 0, dpiX(#DropDownWidth), dpiY(GadgetHeight(BtEx()\CanvasNum)), BorderColor)
 					EndIf
 				EndIf
+				
 			EndIf
 			;}
 
@@ -636,12 +653,14 @@ Module ButtonEx
           BtEx()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
         EndIf
         
-        BtEx()\Color\Front  = ModuleEx::ThemeGUI\Button\FrontColor
-        BtEx()\Color\Back   = ModuleEx::ThemeGUI\Button\BackColor
-        BtEx()\Color\Focus  = ModuleEx::ThemeGUI\Focus\BackColor
-        BtEx()\Color\Border = ModuleEx::ThemeGUI\Button\BorderColor
-        BtEx()\Color\Gadget = ModuleEx::ThemeGUI\GadgetColor
-
+        BtEx()\Color\Front        = ModuleEx::ThemeGUI\Button\FrontColor
+        BtEx()\Color\Back         = ModuleEx::ThemeGUI\Button\BackColor
+        BtEx()\Color\Focus        = ModuleEx::ThemeGUI\Focus\BackColor
+        BtEx()\Color\Border       = ModuleEx::ThemeGUI\Button\BorderColor
+        BtEx()\Color\Gadget       = ModuleEx::ThemeGUI\GadgetColor
+        BtEx()\Color\DisableFront = ModuleEx::ThemeGUI\Disable\FrontColor
+		    BtEx()\Color\DisableBack  = ModuleEx::ThemeGUI\Disable\BackColor
+        
         Draw_()
       Next
       
@@ -907,8 +926,10 @@ Module ButtonEx
 				BtEx()\PaddingX = 8
 				BtEx()\PaddingY = 8
 				
-				BtEx()\Text = Text
+				BtEx()\Text  = Text
 				BtEx()\Flags = Flags
+				
+				If Flags & #MacOS : BtEx()\Radius = 7 : EndIf
 				
 				If Flags & #FitText    : BtEx()\Size\Flags | #FitText    : EndIf
 				If Flags & #FixPadding : BtEx()\Size\Flags | #FixPadding : EndIf
@@ -931,12 +952,14 @@ Module ButtonEx
 				BtEx()\Size\Width  = Width
 				BtEx()\Size\Height = Height
 
-				BtEx()\Color\Front  = $000000
-				BtEx()\Color\Back   = $E3E3E3
-				BtEx()\Color\Focus  = $D77800
-				BtEx()\Color\Border = $A0A0A0
-				BtEx()\Color\Gadget = $F0F0F0
-
+				BtEx()\Color\Front        = $000000
+				BtEx()\Color\Back         = $E3E3E3
+				BtEx()\Color\Focus        = $D77800
+				BtEx()\Color\Border       = $A0A0A0
+				BtEx()\Color\Gadget       = $F0F0F0
+				BtEx()\Color\DisableFront = $72727D
+				BtEx()\Color\DisableBack  = $CCCCCA
+				
 				CompilerSelect #PB_Compiler_OS ;{ Color
 					CompilerCase #PB_OS_Windows
 						BtEx()\Color\Front  = GetSysColor_(#COLOR_BTNTEXT)
@@ -1008,7 +1031,21 @@ Module ButtonEx
     EndIf  
     
   EndProcedure  
-	
+  
+  
+  Procedure   SetAttribute(GNum.i, Attribute.i, Value.i)
+	  
+    If FindMapElement(BtEx(), Str(GNum))
+     
+      Select Attribute
+        Case #Corner
+          BtEx()\Radius = Value
+      EndSelect
+      
+	    Draw_()
+	  EndIf
+	  
+	EndProcedure
   
 	Procedure   SetAutoResizeFlags(GNum.i, Flags.i)
 
@@ -1062,7 +1099,7 @@ Module ButtonEx
 		EndIf
 
 	EndProcedure
-	
+
 	Procedure   SetText(GNum.i, Text.s)
 	  
 		If FindMapElement(BtEx(), Str(GNum))
@@ -1209,12 +1246,15 @@ CompilerIf #PB_Compiler_IsMainFile
 		;ButtonEx::SetColor(#ButtonEx, ButtonEx::#FrontColor, $800000)
 		;ButtonEx::SetColor(#ButtonEx, ButtonEx::#BorderColor, $B48246)
 		;ButtonEx::SetColor(#ButtonEx, ButtonEx::#BackColor, $E6D8AD)
-
+		
+		;ButtonEx::SetAttribute(#ButtonEx, ButtonEx::#Corner, 4)
+		
 		ButtonEx::Gadget(#ButtonImg, 235, 20, 90, 25, "Delete", ButtonEx::#MacOS, #Window) ; ButtonEx::#Toggle|ButtonEx::#MacOS
 		ButtonEx::AddImage(#ButtonImg, #Image, 16, 16, ButtonEx::#Right)
 		ButtonEx::SetFont(#ButtonImg, #Font)
 		;ButtonEx::SetColor(#ButtonImg, ButtonEx::#BackColor, $E1E4FF)
-		;ButtonEx::SetColor(#ButtonImg, ButtonEx::#BorderColor, $0000FF)
+    ;ButtonEx::SetColor(#ButtonImg, ButtonEx::#BorderColor, $0000FF)
+		
 
 		ButtonEx::Gadget(#ButtonML, 345, 20, 90, 40, "MultiLine1 MultiLine2", ButtonEx::#MultiLine|ButtonEx::#AutoResize, #Window) ; ButtonEx::#MacOS
 		ButtonEx::SetAutoResizeFlags(#ButtonML, ButtonEx::#Width|ButtonEx::#Height)
@@ -1237,8 +1277,8 @@ CompilerIf #PB_Compiler_IsMainFile
 		;ButtonEx::SetColor(#ButtonML, ButtonEx::#BorderColor, $32CD9A)
 		;ButtonEx::SetFont(#ButtonML, #Font)
 		
-		DisableGadget(#Button, #True)
-		ButtonEx::Disable(#ButtonEx)
+		;DisableGadget(#Button, #True)
+		;ButtonEx::Disable(#ButtonEx)
 		
 		Repeat
 			Event = WaitWindowEvent()
@@ -1275,8 +1315,8 @@ CompilerIf #PB_Compiler_IsMainFile
 
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 386
-; FirstLine = 247
-; Folding = 9FJ3AvFKhJ2-
+; CursorPosition = 9
+; FirstLine = 21
+; Folding = cQAi1zTgYYCi+
 ; EnableXP
 ; DPIAware

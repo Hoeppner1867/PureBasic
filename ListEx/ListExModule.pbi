@@ -133,8 +133,8 @@
 
 DeclareModule ListEx
   
-  #Version  = 19112004
-  #ModuleEx = 19112002
+  #Version  = 19112100
+  #ModuleEx = 19112100
   
   #Enable_Validation  = #True
   #Enable_MarkContent = #True
@@ -1794,8 +1794,10 @@ Module ListEx
         ListEx()\Color\ProgressBar  = 11369795
         ListEx()\Color\Gradient     = 13874833
         ListEx()\Color\AlternateRow = #PB_Default
-        ListEx()\Color\ButtonFront  = $000000
-        
+        ListEx()\Color\ButtonFront  = $490000
+        ListEx()\Color\ButtonBack   = $E3E3E3
+        ListEx()\Color\ButtonBorder = $B48246
+
       Case #Theme_Green
         
         ListEx()\Color\Front        = $000000
@@ -1807,7 +1809,9 @@ Module ListEx
         ListEx()\Color\ProgressBar  = 2263842
         ListEx()\Color\Gradient     = 7527538
         ListEx()\Color\AlternateRow = #PB_Default
-        ListEx()\Color\ButtonFront  = $000000
+        ListEx()\Color\ButtonFront  = $0F2203
+        ListEx()\Color\ButtonBack   = $E3E3E3
+        ListEx()\Color\ButtonBorder = $A0A0A0
         
       Default
         
@@ -7258,9 +7262,8 @@ CompilerIf #PB_Compiler_IsMainFile
     #MenuItem4
     #MenuItem5
     #B_Green
-    #B_Grey
     #B_Blue
-    #B_Dark
+    #B_Default
   EndEnumeration
 
   #Image = 0
@@ -7287,7 +7290,7 @@ CompilerIf #PB_Compiler_IsMainFile
     EndIf
     
     ButtonGadget(#Button,  420,  10, 70, 20, "Resize")
-    ButtonGadget(#B_Dark,  420,  50, 70, 20, "Dark")
+    ButtonGadget(#B_Default,  420,  50, 70, 20, "Default")
     ButtonGadget(#B_Green, 420,  75, 70, 20, "Green")
     ButtonGadget(#B_Blue,  420, 100, 70, 20, "Blue")
     ButtonGadget(#Export,  420, 140, 70, 20, "Export")
@@ -7439,33 +7442,27 @@ CompilerIf #PB_Compiler_IsMainFile
             Case #Button    ;{ Buttons
               HideGadget(#Button,  #True)
               HideGadget(#B_Green, #True)
-              HideGadget(#B_Grey,  #True)
+              HideGadget(#B_Default,  #True)
               HideGadget(#B_Blue,  #True)
               ResizeGadget(#List, #PB_Ignore, #PB_Ignore, 480, #PB_Ignore)
             Case #B_Green
               CompilerIf Defined(ModuleEx, #PB_Module)
                 ModuleEx::SetTheme(ModuleEx::#Theme_Green)
               CompilerEndIf  
-              ;ListEx::SetColorTheme(#List, ListEx::#Theme_Green)
-              ;ListEx::LoadColorTheme(#List, "Theme_Green.json")
-             Case #B_Dark
+              ListEx::SetColorTheme(#List, ListEx::#Theme_Green)
+              ListEx::SaveColorTheme(#List, "Theme_Green.json")
+             Case #B_Default
               CompilerIf Defined(ModuleEx, #PB_Module)
-                ModuleEx::SetTheme(ModuleEx::#Theme_Dark)
+                ;ModuleEx::SetTheme(ModuleEx::#Theme_Dark)
               CompilerEndIf  
-              ;ListEx::SetColorTheme(#List, #PB_Default)
-              ;ListEx::LoadColorTheme(#List, "Theme_Grey.json")    
-            Case #B_Grey
-              CompilerIf Defined(ModuleEx, #PB_Module)
-                ModuleEx::SetTheme()
-              CompilerEndIf  
-              ;ListEx::SetColorTheme(#List, #PB_Default)
-              ;ListEx::LoadColorTheme(#List, "Theme_Grey.json")  
+              ListEx::SetColorTheme(#List, #PB_Default)
+              ListEx::SaveColorTheme(#List, "Theme_Default.json") 
             Case #B_Blue
               CompilerIf Defined(ModuleEx, #PB_Module)
-                ModuleEx::SetTheme(ModuleEx::#Theme_Blue)
+                ;ModuleEx::SetTheme(ModuleEx::#Theme_Blue)
               CompilerEndIf  
-              ;ListEx::SetColorTheme(#List, ListEx::#Theme_Blue)
-              ;ListEx::LoadColorTheme(#List, "Theme_Blue.json")
+              ListEx::SetColorTheme(#List, ListEx::#Theme_Blue)
+              ListEx::SaveColorTheme(#List, "Theme_Blue.json")
             Case #Export
               ListEx::ExportCSV(#List, "ListEx.csv", ListEx::#HeaderRow)
               ;}
@@ -7481,12 +7478,12 @@ CompilerIf #PB_Compiler_IsMainFile
             Case #MenuItem2
               ListEx::LoadColorTheme(#List, "Theme_Green.json")
             Case #MenuItem3  
-              ListEx::LoadColorTheme(#List, "Theme_Grey.json")
+              ListEx::LoadColorTheme(#List, "Theme_Default.json")
             Case #MenuItem4
-              HideGadget(#Button,  #False)
-              HideGadget(#B_Green, #False)
-              HideGadget(#B_Grey,  #False)
-              HideGadget(#B_Blue,  #False)
+              HideGadget(#Button,    #False)
+              HideGadget(#B_Green,   #False)
+              HideGadget(#B_Default, #False)
+              HideGadget(#B_Blue,    #False)
               ResizeGadget(#List, #PB_Ignore, #PB_Ignore, 400, #PB_Ignore)
             Case #MenuItem5
               CompilerIf ListEx::#Enable_CSV_Support
@@ -7503,9 +7500,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 135
-; FirstLine = 9
-; Folding = 9PAACAAEAMQEIBMgw-HhXvXYBqgdCgCA9-PAQ64nEIAgJwBQAwAAQAEQAEAow00
+; CursorPosition = 136
+; FirstLine = 6
+; Folding = 9PAACAAEAMQEIBMgw-AhHqXQBqgdCgiB9-PAQ64nEIAgJwBYAwAAQAEAAAAIg6-
 ; EnableXP
 ; DPIAware
 ; EnableUnicode

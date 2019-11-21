@@ -11,8 +11,9 @@
 
 ; Last Update: 19.11.2019
 ;
-; Added: ContainerEx::Hide()
+; Added: Atrribute #Corner 
 ;
+; Added: ContainerEx::Hide()
 ; Added: #UseExistingCanvas
 ; Added: #TitleBox
 ;
@@ -58,7 +59,7 @@
 
 DeclareModule ContainerEx
   
-  #Version  = 19111903
+  #Version  = 19112100
   #ModuleEx = 19111702
   
 	;- ===========================================================================
@@ -79,6 +80,7 @@ DeclareModule ContainerEx
 	
 	Enumeration 1    ;{ Attribute
 	  #Padding
+	  #Corner
 	EndEnumeration ;}
 	
 	EnumerationBinary ;{ AutoResize
@@ -164,7 +166,7 @@ Module ContainerEx
 		
 		Text.s
 		Padding.i
-		
+		Radius.i
 		ReDraw.i
 		Hide.i
 		
@@ -243,7 +245,15 @@ Module ContainerEx
 
 		ProcedureReturn RGB((Red1 * Blend) + (Red2 * (1 - Blend)), (Green1 * Blend) + (Green2 * (1 - Blend)), (Blue1 * Blend) + (Blue2 * (1 - Blend)))
 	EndProcedure
-
+	
+  Procedure   Box_(X.i, Y.i, Width.i, Height.i, Color.i)
+		If ContainerEx()\Radius
+			RoundBox(X, Y, Width, Height, ContainerEx()\Radius, ContainerEx()\Radius, Color)
+		Else
+			Box(X, Y, Width, Height, Color)
+		EndIf
+	EndProcedure
+	
 	Procedure   Draw_()
 		Define.i X, Y, Width, Height, TextHeight, TextWidth
 		Define.i BackColor, Padding
@@ -274,13 +284,13 @@ Module ContainerEx
     		If ContainerEx()\Color\Back <> #PB_Default
     		  BackColor = ContainerEx()\Color\Back
     		  DrawingMode(#PB_2DDrawing_Default)
-    		  Box(X, Y, Width, Height, BackColor)
+    		  Box_(X, Y, Width, Height, BackColor)
     		Else
     		  BackColor = ContainerEx()\Color\Gadget
     		EndIf
     		
   			DrawingMode(#PB_2DDrawing_Outlined)
-  			Box(X, Y, Width, Height, ContainerEx()\Color\Border)
+  			Box_(X, Y, Width, Height, ContainerEx()\Color\Border)
   			
   			If ContainerEx()\Text
   			  
@@ -298,13 +308,13 @@ Module ContainerEx
 
     			  If ContainerEx()\Color\TitleBack <> #PB_Default : BackColor = ContainerEx()\Color\TitleBack : EndIf  
     			  DrawingMode(#PB_2DDrawing_Default)
-    			  Box(X, 0, TextWidth + dpiX(Padding * 2), TextHeight, BackColor)
+    			  Box_(X, 0, TextWidth + dpiX(Padding * 2), TextHeight, BackColor)
     			  
     			  DrawingMode(#PB_2DDrawing_Outlined)
     			  If ContainerEx()\Color\TitleBorder <> #PB_Default
-    			    Box(X, 0, TextWidth + dpiX(Padding * 2), TextHeight, ContainerEx()\Color\TitleBorder)
+    			    Box_(X, 0, TextWidth + dpiX(Padding * 2), TextHeight, ContainerEx()\Color\TitleBorder)
     			  Else
-    			    Box(X, 0, TextWidth + dpiX(Padding * 2), TextHeight, ContainerEx()\Color\Border)
+    			    Box_(X, 0, TextWidth + dpiX(Padding * 2), TextHeight, ContainerEx()\Color\Border)
     			  EndIf
 
     			Else  
@@ -502,7 +512,9 @@ Module ContainerEx
 					CompilerCase #PB_OS_Linux
 
 				CompilerEndSelect ;}
-
+				
+				BindGadgetEvent(ContainerEx()\CanvasNum,  @_ResizeHandler(), #PB_EventType_Resize)
+				
 				CompilerIf Defined(ModuleEx, #PB_Module)
           BindEvent(#Event_Theme, @_ThemeHandler())
         CompilerEndIf
@@ -557,6 +569,8 @@ Module ContainerEx
       Select Attribute
         Case #Padding
           ContainerEx()\Padding = Value
+        Case #Corner
+          ContainerEx()\Radius  = Value
       EndSelect
       
     EndIf  
@@ -639,6 +653,8 @@ CompilerIf #PB_Compiler_IsMainFile
     
     If ContainerEx::Gadget(#Container, 10, 10, 180, 80, ContainerEx::#Border|ContainerEx::#AutoResize, #Window)
       
+      ContainerEx::SetAttribute(#Container, ContainerEx::#Corner, 4)
+      
       ContainerEx::SetColor(#Container, ContainerEx::#FrontColor, $800000)
       ContainerEx::SetColor(#Container, ContainerEx::#BackColor,  $FFFCFA)
       
@@ -665,8 +681,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 655
-; FirstLine = 280
-; Folding = scC9RMA-
+; CursorPosition = 13
+; FirstLine = 7
+; Folding = scCMg5A+
 ; EnableXP
 ; DPIAware
