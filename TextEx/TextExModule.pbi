@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 19.11.19
+; Last Update: 21.11.19
 ;
 ; Added: #UseExistingCanvas
 ;
@@ -47,6 +47,7 @@
 ; TextEx::SetColor()           - similar to 'SetGadgetColor()'
 ; TextEx::SetFont()            - similar to 'SetGadgetFont()'
 ; TextEx::SetText()            - similar to 'SetGadgetText()'
+; TextEx::SetAttribute()       - similar to 'SetGadgetAttribute()'
 ; TextEx::SetAutoResizeFlags() - [#MoveX|#MoveY|#ResizeWidth|#ResizeHeight]
 
 ;}
@@ -55,8 +56,8 @@
 
 DeclareModule TextEx
   
-  #Version  = 19111901
-  #ModuleEx = 19111702
+  #Version  = 19112100
+  #ModuleEx = 19112102
   
   ;- ===========================================================================
   ;-   DeclareModule - Constants / Structures
@@ -64,7 +65,7 @@ DeclareModule TextEx
   
   #Left = 0
   
-  EnumerationBinary
+  EnumerationBinary ;{ Gadget Flags
     #Center = #PB_Text_Center
     #Right  = #PB_Text_Right
     #Gradient
@@ -72,21 +73,25 @@ DeclareModule TextEx
     #MultiLine
     #UseExistingCanvas
     #Border = #PB_Text_Border
-  EndEnumeration
+  EndEnumeration ;}
   
-  EnumerationBinary 
+  EnumerationBinary ;{ Autoresize
     #MoveX
     #MoveY
     #ResizeWidth
     #ResizeHeight
-  EndEnumeration  
+  EndEnumeration ;}
   
-  Enumeration 1
+  Enumeration 1     ;{ Attribute
+    #Corner
+  EndEnumeration ;} 
+  
+  Enumeration 1     ;{ Colors
     #FrontColor
     #BackColor
     #GradientColor
     #BorderColor
-  EndEnumeration
+  EndEnumeration ;}
   
   CompilerIf Defined(ModuleEx, #PB_Module)
 
@@ -97,7 +102,8 @@ DeclareModule TextEx
   ;- ===========================================================================
   ;-   DeclareModule
   ;- ===========================================================================
-  
+	
+	Declare   Disable(GNum.i, State.i=#True)
   Declare   Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Text.s, Flags.i=#False, WindowNum.i=#PB_Default)
   Declare.i GetColor(GNum.i, ColorType.i)
   Declare.s GetText(GNum.i)
@@ -105,6 +111,7 @@ DeclareModule TextEx
   Declare   SetColor(GNum.i, ColorType.i, Value.i)
   Declare   SetFont(GNum.i, FontID.i)
   Declare   SetText(GNum.i, Text.s)
+  Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   
 EndDeclareModule
@@ -139,7 +146,10 @@ Module TextEx
     Front.i
     Back.i
     Gradient.i
+    Gadget.i
     Border.i
+    DisableFront.i
+    DisableBack.i
   EndStructure  ;}
   
   Structure TextEx_Structure       ;{ TextEx()\...
@@ -149,6 +159,9 @@ Module TextEx
     
     Text.s
     
+    Radius.i
+    
+    Disable.i
     Hide.i
     
     Flags.i
@@ -229,26 +242,59 @@ Module TextEx
  
   EndProcedure  
   
+  Procedure   Box_(X.i, Y.i, Width.i, Height.i, Color.i)
+    
+    If TextEx()\Radius
+      Box(X, Y, Width, Height, TextEx()\Color\Gadget)
+      If Color = #PB_Default
+        RoundBox(X, Y, Width, Height, TextEx()\Radius, TextEx()\Radius)
+      Else
+        RoundBox(X, Y, Width, Height, TextEx()\Radius, TextEx()\Radius, Color)
+      EndIf
+		Else
+		  If Color = #PB_Default
+		    Box(X, Y, Width, Height)
+		  Else  
+		    Box(X, Y, Width, Height, Color)
+		  EndIf   
+		EndIf
+		
+	EndProcedure 
+  
+  
   Procedure Draw_()
     Define.f textY, textX, OffsetX
     Define.i TextHeight, Rows, r
+    Define.i FrontColor, BackColor, BorderColor, GradientColor
     Define.s Text
     
     If TextEx()\Hide : ProcedureReturn #False : EndIf
     
     If StartDrawing(CanvasOutput(TextEx()\CanvasNum))
       
+      FrontColor    = TextEx()\Color\Front
+      BackColor     = TextEx()\Color\Back
+      BorderColor   = TextEx()\Color\Border
+      GradientColor = TextEx()\Color\Gradient
+      
+      If TextEx()\Disable
+        FrontColor    = TextEx()\Color\DisableFront
+        BackColor     = BlendColor_(TextEx()\Color\DisableBack, TextEx()\Color\Back, 90)
+        GradientColor = BlendColor_(TextEx()\Color\DisableBack, TextEx()\Color\Gradient, 80)
+        BorderColor   = TextEx()\Color\DisableBack
+      EndIf
+      
       ;{ _____ Background _____
       If TextEx()\Flags & #Gradient
         DrawingMode(#PB_2DDrawing_Gradient)
-        FrontColor(TextEx()\Color\Back)
-        BackColor(TextEx()\Color\Gradient)
+        FrontColor(BackColor)
+        BackColor(GradientColor)
         LinearGradient(0, 0, TextEx()\Size\Width, TextEx()\Size\Height)
-        Box(0, 0, TextEx()\Size\Width, TextEx()\Size\Height)
+        Box_(0, 0, TextEx()\Size\Width, TextEx()\Size\Height, #PB_Default)
         OffsetX = dpiX(5)
       Else
         DrawingMode(#PB_2DDrawing_Default)
-        Box(0, 0, TextEx()\Size\Width, TextEx()\Size\Height, TextEx()\Color\Back)
+        Box_(0, 0, TextEx()\Size\Width, TextEx()\Size\Height, BackColor)
       EndIf ;}
       
       ;{ _____ Text _____
@@ -267,7 +313,7 @@ Module TextEx
         For r = 1 To Rows
           Text  = StringField(TextEx()\Text, r, #LF$)
           textX = GetOffsetX_(Text, OffsetX)
-          DrawText(textX, textY, Text, TextEx()\Color\Front)
+          DrawText(textX, textY, Text, FrontColor)
           textY + TextHeight
         Next
         
@@ -276,7 +322,7 @@ Module TextEx
         textY = (TextEx()\Size\Height - TextHeight) / 2
         textX = GetOffsetX_(TextEx()\Text, OffsetX) 
         
-        DrawText(textX, textY, TextEx()\Text, TextEx()\Color\Front)
+        DrawText(textX, textY, TextEx()\Text, FrontColor)
         
       EndIf ;}
       
@@ -287,12 +333,12 @@ Module TextEx
         
         If TextEx()\Color\Border = #PB_Default
           If TextEx()\Flags & #Gradient
-            Box(0, 0, TextEx()\Size\Width, TextEx()\Size\Height, BlendColor_(TextEx()\Color\Back, TextEx()\Color\Gradient, 20))
+            Box_(0, 0, TextEx()\Size\Width, TextEx()\Size\Height, BlendColor_(TextEx()\Color\Back, GradientColor, 20))
           Else
-            Box(0, 0, TextEx()\Size\Width, TextEx()\Size\Height, BlendColor_(TextEx()\Color\Back, TextEx()\Color\Front))
+            Box_(0, 0, TextEx()\Size\Width, TextEx()\Size\Height, BlendColor_(TextEx()\Color\Back, FrontColor))
           EndIf
         Else
-          Box(0, 0, TextEx()\Size\Width, TextEx()\Size\Height, TextEx()\Color\Border)
+          Box_(0, 0, TextEx()\Size\Width, TextEx()\Size\Height, BorderColor)
         EndIf
         
       EndIf ;}
@@ -314,9 +360,11 @@ Module TextEx
           TextEx()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
         EndIf
         
-        TextEx()\Color\Front    = ModuleEx::ThemeGUI\FrontColor
-        TextEx()\Color\Back     = ModuleEx::ThemeGUI\GadgetColor
-
+        TextEx()\Color\Front        = ModuleEx::ThemeGUI\FrontColor
+        TextEx()\Color\Back         = ModuleEx::ThemeGUI\GadgetColor
+        TextEx()\Color\DisableFront = ModuleEx::ThemeGUI\Disable\FrontColor
+        TextEx()\Color\DisableBack  = ModuleEx::ThemeGUI\Disable\BackColor
+        
         Draw_()
       Next
       
@@ -387,6 +435,19 @@ Module TextEx
   ;-   Module - Declared Procedures
   ;- ==========================================================================  
   
+	Procedure   Disable(GNum.i, State.i=#True)
+    
+    If FindMapElement(TextEx(), Str(GNum))
+
+      TextEx()\Disable = State
+      DisableGadget(GNum, State)
+      
+      Draw_()
+      
+    EndIf  
+    
+  EndProcedure 	  
+  
   Procedure   Hide(GNum.i, State.i=#True)
     
     If FindMapElement(TextEx(), Str(GNum))
@@ -403,7 +464,21 @@ Module TextEx
     EndIf  
     
   EndProcedure  
-
+  
+  Procedure SetAttribute(GNum.i, Attribute.i, Value.i)
+    
+    If FindMapElement(TextEx(), Str(GNum))
+      
+      Select Attribute
+        Case #Corner
+          TextEx()\Radius  = Value
+      EndSelect
+      
+      Draw_()
+    EndIf
+    
+  EndProcedure
+  
   Procedure   SetAutoResizeFlags(GNum.i, Flags.i)
     
     If FindMapElement(TextEx(), Str(GNum))
@@ -558,18 +633,23 @@ Module TextEx
         
         TextEx()\Text = Text
         
-        TextEx()\Color\Front    = $000000
-        TextEx()\Color\Back     = $EDEDED
-        TextEx()\Color\Gradient = $C0C0C0
-        TextEx()\Color\Border   = #PB_Default
+        TextEx()\Color\Front        = $000000
+        TextEx()\Color\Back         = $EDEDED
+        TextEx()\Color\Gradient     = $C0C0C0
+        TextEx()\Color\Border       = #PB_Default
+        TextEx()\Color\Gadget       = $EDEDED
+        TextEx()\Color\DisableFront = $72727D
+        TextEx()\Color\DisableBack  = $CCCCCA
         
         CompilerSelect #PB_Compiler_OS ;{ window background color (if possible)
           CompilerCase #PB_OS_Windows
-            TextEx()\Color\Front = GetSysColor_(#COLOR_WINDOWTEXT)
-            TextEx()\Color\Back  = GetSysColor_(#COLOR_MENU)
+            TextEx()\Color\Front  = GetSysColor_(#COLOR_WINDOWTEXT)
+            TextEx()\Color\Back   = GetSysColor_(#COLOR_MENU)
+            TextEx()\Color\Gadget = GetSysColor_(#COLOR_MENU)
           CompilerCase #PB_OS_MacOS
-            TextEx()\Color\Front = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
-            TextEx()\Color\Back  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
+            TextEx()\Color\Front  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
+            TextEx()\Color\Back   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
+            TextEx()\Color\Gadget = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
           CompilerCase #PB_OS_Linux
             
         CompilerEndSelect ;}
@@ -620,11 +700,15 @@ CompilerIf #PB_Compiler_IsMainFile
     TextEx::SetColor(#Text, TextEx::#GradientColor, $783C0A)
     
     TextEx::SetFont(#Text, FontID(#Font))
-    ;TextEx::SetText(#Text, "Row 1" + #LF$ + "Row 2")
+    TextEx::SetText(#Text, "Row 1" + #LF$ + "Row 2")
     
     ;TextEx::SetAutoResizeFlags(#Text, TextEx::#MoveY|TextEx::#ResizeWidth)
     
+    TextGadget(2, 5, 5, 170, 50, "Gradient Background")
+   
     ;ModuleEx::SetTheme(ModuleEx::#Theme_Dark)
+    
+    TextEx::SetAttribute(#Text, TextEx::#Corner, 4)
     
     Repeat
       Event = WaitWindowEvent()
@@ -633,7 +717,7 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 103
-; FirstLine = 66
-; Folding = cEQNDE+
+; CursorPosition = 639
+; FirstLine = 318
+; Folding = mGBcHGM9
 ; EnableXP
