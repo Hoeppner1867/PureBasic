@@ -9,8 +9,10 @@
 ;/ © 2019 by Thorsten Hoeppner (07/2019)
 ;/
 
-; Last Update: 20.11.2019
+; Last Update: 21.11.2019
 
+; Added: Container support
+;
 ; ToolTip is now a separate window and not just a gadget
 
 ;{ ===== MIT License =====
@@ -53,7 +55,7 @@
 
 DeclareModule ToolTip
   
-  #Version  = 19112000
+  #Version  = 19112100
   #ModuleEx = 19111702
   
 	;- ===========================================================================
@@ -221,7 +223,9 @@ Module ToolTip
 	  Number.i
 	  WindowNum.i
 	  CanvasNum.i
-    GadgetNum.i
+	  GadgetNum.i
+	  ContainerNum.i
+	  
 	  MouseX.i
 	  MouseY.i
 	  
@@ -351,10 +355,10 @@ Module ToolTip
 	  If IsGadget(ToolTip()\GadgetNum)
   	  wX = dpiX(GadgetX(ToolTip()\GadgetNum, #PB_Gadget_ScreenCoordinate))
   	  wY = dpiY(GadgetY(ToolTip()\GadgetNum, #PB_Gadget_ScreenCoordinate))
-  	  gX = dpiX(GadgetX(ToolTip()\GadgetNum))
-  	  gY = dpiY(GadgetY(ToolTip()\GadgetNum))
+  	  gX = dpiX(GadgetX(ToolTip()\GadgetNum, #PB_Gadget_WindowCoordinate))
+  	  gY = dpiY(GadgetY(ToolTip()\GadgetNum, #PB_Gadget_WindowCoordinate))
   	  gWidth  = dpiX(GadgetWidth(ToolTip()\GadgetNum))
-      gHeight = dpiY(GadgetHeight(ToolTip()\GadgetNum))
+  	  gHeight = dpiY(GadgetHeight(ToolTip()\GadgetNum)) 
   	EndIf 
   	
   	If IsWindow(ToolTip()\WindowNum)
@@ -537,6 +541,7 @@ Module ToolTip
 	    ForEach Timer()
 	      
 	      If Timer()\Focus And Timer()\State
+
 	        If Timer()\Active
 	          
 	          Timer()\Value + 100
@@ -669,8 +674,8 @@ Module ToolTip
           If IsGadget(MouseEvent()\Gadget\Last)
             If GadgetType(MouseEvent()\Gadget\Last) <> #PB_GadgetType_Canvas
               If MouseEvent()\Gadget\Num = #PB_Default Or MouseEvent()\Gadget\Last = MouseEvent()\Gadget\Num
-                MouseEvent()\Gadget\MouseX = MouseEvent()\Window\MouseX - GadgetX(MouseEvent()\Gadget\Last)
-                MouseEvent()\Gadget\MouseY = MouseEvent()\Window\MouseY - GadgetY(MouseEvent()\Gadget\Last)
+                MouseEvent()\Gadget\MouseX = MouseEvent()\Window\MouseX - GadgetX(MouseEvent()\Gadget\Last, #PB_Gadget_WindowCoordinate)
+                MouseEvent()\Gadget\MouseY = MouseEvent()\Window\MouseY - GadgetY(MouseEvent()\Gadget\Last, #PB_Gadget_WindowCoordinate)
                 PostEvent(#PB_Event_Gadget, MouseEvent()\Window\Num, MouseEvent()\Gadget\Last, #PB_EventType_MouseMove)
               EndIf  
             EndIf
@@ -712,6 +717,8 @@ Module ToolTip
 	    Timer(Str(GadgetNum))\State  = #False
 	    UnlockMutex(Mutex)
 	    
+	    HideWindow(ToolTip()\Number, #True)
+	    
 	    SetActiveWindow(ToolTip()\WindowNum)
 	  EndIf
 	  
@@ -731,8 +738,10 @@ Module ToolTip
         Y = GetMouseEventAttribute_(ToolTip()\WindowNum, #MouseY, GadgetNum)
       EndIf
       
+      
+      
       If X <> ToolTip()\MouseX Or Y <> ToolTip()\MouseY
-       
+
         ToolTip()\MouseX = X
         ToolTip()\MouseY = Y
         
@@ -748,21 +757,21 @@ Module ToolTip
           SetActiveWindow(ToolTip()\WindowNum)
         EndIf
         ;}
-
+        
         If X >= ToolTip()\Area\X And X <= ToolTip()\Area\X + ToolTip()\Area\Width
           If Y >= ToolTip()\Area\Y And Y <= ToolTip()\Area\Y + ToolTip()\Area\Height
+            
       	    DetermineSize_() 
             DeterminePosition_(X, Y)                 
             LockMutex(Mutex)
             Timer(Str(GadgetNum))\State = #True
             UnlockMutex(Mutex)
-              
             ProcedureReturn #True
           EndIf 
         EndIf  
-        
+
         Timer()\State = #False
-        
+
       EndIf
       
     EndIf
@@ -861,11 +870,11 @@ Module ToolTip
   		  
   			If AddMapElement(ToolTip(), Str(Gadget))
   			  
-  			  ToolTip()\Number    = WNum
-  				ToolTip()\CanvasNum = GNum
-  				ToolTip()\GadgetNum = Gadget
-  				ToolTip()\WindowNum = Window
-  				
+  			  ToolTip()\Number       = WNum
+  				ToolTip()\CanvasNum    = GNum
+  				ToolTip()\GadgetNum    = Gadget
+  				ToolTip()\WindowNum    = Window
+
   				ToolTip()\Type = #Gadget
   				
   				CompilerSelect #PB_Compiler_OS           ;{ Default Gadget Font
@@ -998,16 +1007,33 @@ Module ToolTip
         EndIf
       Next
 
-      ToolTip()\Area\X = dpiX(X)
-      If X = #PB_Default : ToolTip()\Area\X = 0 : EndIf
-      ToolTip()\Area\Y = dpiY(Y)
-      If Y = #PB_Default : ToolTip()\Area\Y = 0 : EndIf
+      If X = #PB_Default
+        ToolTip()\Area\X = 0
+      Else  
+        ToolTip()\Area\X = dpiX(X)
+      EndIf
       
-      ToolTip()\Area\Width  = dpiX(Width)
-      ToolTip()\Area\Height = dpiY(Height) 
+      ToolTip()\Area\Y = Y
+      If Y = #PB_Default
+        ToolTip()\Area\Y = 0
+      Else
+        ToolTip()\Area\Y = dpiY(Y)
+      EndIf
+
       If IsGadget(GNum)
-        If Width  = #PB_Default : ToolTip()\Area\Width  = dpiX(GadgetWidth(GNum))  : EndIf
-        If Height = #PB_Default : ToolTip()\Area\Height = dpiY(GadgetHeight(GNum)) : EndIf
+        
+        If Width  = #PB_Default
+          ToolTip()\Area\Width  = dpiX(GadgetWidth(GNum))
+        Else  
+          ToolTip()\Area\Width  = dpiX(Width)
+        EndIf
+        
+        If Height = #PB_Default
+          ToolTip()\Area\Height = dpiY(GadgetHeight(GNum))
+        Else
+          ToolTip()\Area\Height = dpiY(Height) 
+        EndIf
+        
       EndIf
     
       DetermineSize_()
@@ -1071,6 +1097,7 @@ CompilerIf #PB_Compiler_IsMainFile
   Enumeration 
     #Window
     #Canvas
+    #Container
     #Font
     #Image
     #Button
@@ -1080,7 +1107,8 @@ CompilerIf #PB_Compiler_IsMainFile
   ;LoadImage(#Image, "Paper.png")
   
   
-  If OpenWindow(#Window, 0, 0, 200, 100, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
+  If OpenWindow(#Window, 0, 0, 210, 100, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
+    
     
     If CanvasGadget(#Canvas, 10, 10, 80, 80, #PB_Canvas_Border)
       If StartDrawing(CanvasOutput(#Canvas))
@@ -1089,10 +1117,16 @@ CompilerIf #PB_Compiler_IsMainFile
         StopDrawing()
       EndIf  
     EndIf
+
+    ;ButtonGadget(#Button, 100, 35, 90, 30, "Button")
     
-    ButtonGadget(#Button, 100, 35, 90, 30, "Button")
+    If ContainerGadget(#Container, 100, 35, 100, 50, #PB_Container_Flat)
+      ButtonGadget(#Button, 10, 10, 80, 30, "Button")
+      CloseGadgetList()
+    EndIf 
     
-    If ToolTip::Create(#Canvas, #Window)
+    
+   If ToolTip::Create(#Canvas, #Window)
       ToolTip::SetContent(#Canvas, "This is Tooltip area.", "CanvasGadget", 30, 30, 20, 20)
       ToolTip::SetFont(#Canvas, #Font, ToolTip::#Title) 
       ToolTip::SetColor(#Canvas, ToolTip::#BorderColor,      $800000)
@@ -1109,7 +1143,6 @@ CompilerIf #PB_Compiler_IsMainFile
       ToolTip::SetColor(#Button, ToolTip::#TitleBorderColor, $0B86B8)
       ToolTip::SetColor(#Button, ToolTip::#TitleBackColor,   $00D7FF)
       ToolTip::SetColor(#Button, ToolTip::#TitleColor,       $0B2851)
-      ;ModuleEx::SetTheme(ModuleEx::#Theme_Green)
     EndIf
     
     
@@ -1122,8 +1155,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 782
-; FirstLine = 304
-; Folding = 9BIBgHOmH5
+; CursorPosition = 1124
+; FirstLine = 633
+; Folding = 9BIjANIzn5
 ; EnableXP
 ; DPIAware
