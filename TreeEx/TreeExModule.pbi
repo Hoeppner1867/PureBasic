@@ -74,7 +74,7 @@
 
 DeclareModule TreeEx
   
-  #Version  = 19112003
+  #Version  = 19112100
   #ModuleEx = 19112002
   
   #Enable_ProgressBar = #True
@@ -176,7 +176,7 @@ DeclareModule TreeEx
 		#Event_Gadget = ModuleEx::#Event_Gadget
 		#Event_Theme  = ModuleEx::#Event_Theme
 		
-		#EventType_Change   = ModuleEx::#EventType_Change
+		#EventType_Row      = ModuleEx::#EventType_Row
 		#EventType_CheckBox = ModuleEx::#EventType_CheckBox
 		
 	CompilerElse
@@ -186,8 +186,8 @@ DeclareModule TreeEx
 		EndEnumeration
 		
 		Enumeration #PB_EventType_FirstCustomValue
-		  #EventType_Change
 		  #EventType_CheckBox
+		  #EventType_Row
     EndEnumeration
     
 	CompilerEndIf
@@ -1296,6 +1296,8 @@ Module TreeEx
 			  ElseIf X >= TreeEx()\Rows()\Text\X And X <= TreeEx()\Rows()\Text\X + TreeEx()\Rows()\Text\Width              ;{ Select row
 			    If Y >= TreeEx()\Rows()\Y And Y <= TreeEx()\Rows()\Y + TreeEx()\Row\Height
 			      TreeEx()\Row\Focus = ListIndex(TreeEx()\Rows())
+            PostEvent(#PB_Event_Gadget, TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Row, TreeEx()\Row\Focus)
+            PostEvent(#Event_Gadget,    TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Row, TreeEx()\Row\Focus)
 			      Draw_()
 			      Break
 			    EndIf ;}
@@ -2376,10 +2378,10 @@ CompilerIf #PB_Compiler_IsMainFile
           Select EventGadget()  
             Case #TreeEx
               Select EventType()
-                Case #PB_EventType_LeftClick       ;{ Left mouse click
-                  Debug "Left Click"
+                Case TreeEx::#EventType_Row      ;{ Select row
+                  Debug "Row seleced: " + Str(EventData())
                   ;}
-                Case TreeEx::#EventType_CheckBox   ;{ Checkbox click
+                Case TreeEx::#EventType_CheckBox ;{ Checkbox click
                   Debug "CheckBox clicked"
                   ;}
               EndSelect
@@ -2393,7 +2395,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 76
-; Folding = 9cDAAAeAoIDUBIADCAAMAA-
+; CursorPosition = 2381
+; FirstLine = 437
+; Folding = 9cAAAAUAoIDUDIADCAAMAA-
 ; EnableXP
 ; DPIAware

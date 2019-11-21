@@ -7500,9 +7500,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 136
-; FirstLine = 6
-; Folding = 9PAACAAEAMQEIBMgw-AhHqXQBqgdCgiB9-PAQ64nEIAgJwBYAwAAQAEAAAAIg6-
+; CursorPosition = 4430
+; FirstLine = 754
+; Folding = 9PAACAAEAMQEIBMgw-AhHqXQBqgdCgiB9-PBA54nEIAgJwBYAwAAQAEAAAAIg6-
 ; EnableXP
 ; DPIAware
 ; EnableUnicode

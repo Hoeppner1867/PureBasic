@@ -64,7 +64,7 @@
 
 ;}
 
-; XIncludeFile "ModuleEx.pbi"
+;XIncludeFile "ModuleEx.pbi"
 
 DeclareModule ButtonEx
   
@@ -324,7 +324,6 @@ Module ButtonEx
 
 	Procedure   Box_(X.i, Y.i, Width.i, Height.i, Color.i)
 		If BtEX()\Radius
-			Box(X, Y, Width, Height, BtEx()\Color\Gadget)
 			RoundBox(X, Y, Width, Height, BtEx()\Radius, BtEx()\Radius, Color)
 		Else
 			Box(X, Y, Width, Height, Color)
@@ -1268,7 +1267,7 @@ CompilerIf #PB_Compiler_IsMainFile
 		  ButtonEx::SetDynamicFont(#ButtonML, "Arial", 9, #PB_Font_Bold)
 		  ButtonEx::SetAutoResizeFlags(#ButtonML, ButtonEx::#Width|ButtonEx::#Height|ButtonEx::#FitText) ; |ButtonEx::#FixPadding
 
-		  ;ModuleEx::SetTheme(ModuleEx::#Theme_Dark)
+		  ModuleEx::SetTheme(ModuleEx::#Theme_Dark)
 		  
 		CompilerEndIf
 		
@@ -1315,8 +1314,8 @@ CompilerIf #PB_Compiler_IsMainFile
 
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 9
-; FirstLine = 21
-; Folding = cQAi1zTgYYCi+
+; CursorPosition = 878
+; FirstLine = 277
+; Folding = MQAC9zbgYYAi-
 ; EnableXP
 ; DPIAware
