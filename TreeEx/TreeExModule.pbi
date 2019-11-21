@@ -74,7 +74,7 @@
 
 DeclareModule TreeEx
   
-  #Version  = 19112002
+  #Version  = 19112003
   #ModuleEx = 19112002
   
   #Enable_ProgressBar = #True
@@ -86,10 +86,15 @@ DeclareModule TreeEx
   ;{ _____ Constants _____
   #TreeColumn = 0
   
-  #Header     = -1
-  #FirstItem  =  1
-  #LastItem   = -1
-  #Theme      = -1
+  #Header      = -1
+  
+  #FirstRow    =  0
+  #LastRow     = -1
+  #LastItem    = -1
+  #FirstColumn =  1
+  #LastColumn  = -1
+  
+  #Theme       = -1
   
   #Tree$     = "tree"
   #Progress$ = "{Percent}"
@@ -171,12 +176,20 @@ DeclareModule TreeEx
 		#Event_Gadget = ModuleEx::#Event_Gadget
 		#Event_Theme  = ModuleEx::#Event_Theme
 		
+		#EventType_Change   = ModuleEx::#EventType_Change
+		#EventType_CheckBox = ModuleEx::#EventType_CheckBox
+		
 	CompilerElse
 
 		Enumeration #PB_Event_FirstCustomValue
 			#Event_Gadget
 		EndEnumeration
 		
+		Enumeration #PB_EventType_FirstCustomValue
+		  #EventType_Change
+		  #EventType_CheckBox
+    EndEnumeration
+    
 	CompilerEndIf
 	;}
 
@@ -482,7 +495,7 @@ Module TreeEx
       Case #HeaderBorderColor
         TreeEx()\Color\HeaderBorder = Value
       Case #ProgressText
-        TreeEx()\Color\ProgressText = Value
+        TreeEx()\Color\ProgressText  = Value
       Case #ProgressFront
         TreeEx()\Color\ProgressFront = Value
       Case #ProgressBack
@@ -583,7 +596,7 @@ Module TreeEx
 				TreeEx()\Color\HeaderFront      = $000000
         TreeEx()\Color\HeaderBack       = $FAFAFA
         TreeEx()\Color\HeaderBorder     = $A0A0A0
-        TreeEx()\Color\ProgressText     = $F9FEF8
+        TreeEx()\Color\ProgressText     = $0F2203
         TreeEx()\Color\ProgressFront    = $32CD32
         TreeEx()\Color\ProgressBack     = #PB_Default
         TreeEx()\Color\ProgressGradient = $00FC7C
@@ -591,7 +604,7 @@ Module TreeEx
         
         CompilerSelect  #PB_Compiler_OS
           CompilerCase #PB_OS_Windows
-          TreeEx()\Color\Front        = GetSysColor_(#COLOR_WINDOWTEXT)
+            TreeEx()\Color\Front        = GetSysColor_(#COLOR_WINDOWTEXT)
 				    TreeEx()\Color\Back         = GetSysColor_(#COLOR_WINDOW)
 				    TreeEx()\Color\Border       = GetSysColor_(#COLOR_WINDOWFRAME)
 				    TreeEx()\Color\ScrollBar    = GetSysColor_(#COLOR_MENU)
@@ -604,7 +617,7 @@ Module TreeEx
 						TreeEx()\Color\HeaderBorder = GetSysColor_(#COLOR_3DSHADOW)
 						TreeEx()\Color\Gadget       = GetSysColor_(#COLOR_MENU)
         CompilerCase #PB_OS_MacOS
-          TreeEx()\Color\Front        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
+            TreeEx()\Color\Front        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
 				    TreeEx()\Color\Back         = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
 				    TreeEx()\Color\Border       = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
 				    TreeEx()\Color\ScrollBar    = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
@@ -1274,6 +1287,8 @@ Module TreeEx
 			      Else  
 			        TreeEx()\Rows()\State | #Checked
 			      EndIf
+			      PostEvent(#PB_Event_Gadget, TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_CheckBox)
+            PostEvent(#Event_Gadget,    TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_CheckBox)
 			      Draw_()
 			      Break
 			    EndIf  
@@ -1388,7 +1403,7 @@ Module TreeEx
 	    
 	    ;{ Add Column
       Select Column
-        Case #LastItem
+        Case #LastColumn
           LastElement(TreeEx()\Cols())
           Result = AddElement(TreeEx()\Cols())
         Default
@@ -1439,10 +1454,10 @@ Module TreeEx
 	    
 	    ;{ Add item
       Select Row
-        Case #FirstItem
+        Case #FirstRow
           FirstElement(TreeEx()\Rows())
           Result = InsertElement(TreeEx()\Rows()) 
-        Case #LastItem
+        Case #LastRow
           LastElement(TreeEx()\Rows())
           Result = AddElement(TreeEx()\Rows())
         Default
@@ -2317,9 +2332,9 @@ CompilerIf #PB_Compiler_IsMainFile
     
     If TreeEx::Gadget(#TreeEx, 10, 10, 280, 180, "Tree", TreeEx::#ShowHeader|TreeEx::#CheckBoxes|TreeEx::#ColumnLines|TreeEx::#AutoResize, #Window) ; |TreeEx::#SelectRow|TreeEx::#NoButtons|TreeEx::#NoLines
       
-      TreeEx::AddColumn(#TreeEx, TreeEx::#LastItem, 24, "",         "image",    TreeEx::#Image)
-      TreeEx::AddColumn(#TreeEx, TreeEx::#LastItem, 50, "Number",   "number",   TreeEx::#Right)    
-      TreeEx::AddColumn(#TreeEx, TreeEx::#LastItem, 80, "Progress", "progress", TreeEx::#ProgressBar|TreeEx::#ShowPercent)
+      TreeEx::AddColumn(#TreeEx, TreeEx::#LastColumn, 24, "",         "image",    TreeEx::#Image)
+      TreeEx::AddColumn(#TreeEx, TreeEx::#LastColumn, 50, "Number",   "number",   TreeEx::#Right)    
+      TreeEx::AddColumn(#TreeEx, TreeEx::#LastColumn, 80, "Progress", "progress", TreeEx::#ProgressBar|TreeEx::#ShowPercent)
       
       TreeEx::SetHeaderAttribute(#TreeEx, TreeEx::#Align, TreeEx::#Center, 2)
       TreeEx::SetHeaderFont(#TreeEx, FontID(#Font))
@@ -2327,13 +2342,13 @@ CompilerIf #PB_Compiler_IsMainFile
       ;TreeEx::SetFont(#TreeEx, FontID(#Font), 3)
       
       ; _____ Add content _____
-      TreeEx::AddItem(#TreeEx, TreeEx::#LastItem, "Item" + #LF$ + #LF$ + "1")
-      TreeEx::AddItem(#TreeEx, TreeEx::#LastItem, "SubItem" + #LF$ + #LF$ + "1.1",   "", #False, 1)
-      TreeEx::AddItem(#TreeEx, TreeEx::#LastItem, "SubItem" + #LF$ + #LF$ + "1.1.1", "", #False, 2)
-      TreeEx::AddItem(#TreeEx, TreeEx::#LastItem, "SubItem" + #LF$ + #LF$ + "1.1.2", "", #False, 2)
-      TreeEx::AddItem(#TreeEx, TreeEx::#LastItem, "Item"    + #LF$ + #LF$ + "2")
-      TreeEx::AddItem(#TreeEx, TreeEx::#LastItem, "SubItem" + #LF$ + #LF$ + "2.1",   "", #False, 1)
-      TreeEx::AddItem(#TreeEx, TreeEx::#LastItem, "SubItem" + #LF$ + #LF$ + "2.2",   "", #False, 1)
+      TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "Item" + #LF$ + #LF$ + "1")
+      TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "1.1",   "", #False, 1)
+      TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "1.1.1", "", #False, 2)
+      TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "1.1.2", "", #False, 2)
+      TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "Item"    + #LF$ + #LF$ + "2")
+      TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "2.1",   "", #False, 1)
+      TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "2.2",   "", #False, 1)
       
       ; _____ Image _____
       TreeEx::SetItemImage(#TreeEx, TreeEx::#Header, #Image, TreeEx::#Center, 1)
@@ -2364,11 +2379,8 @@ CompilerIf #PB_Compiler_IsMainFile
                 Case #PB_EventType_LeftClick       ;{ Left mouse click
                   Debug "Left Click"
                   ;}
-                Case #PB_EventType_LeftDoubleClick ;{ LeftDoubleClick
-                  Debug "Left DoubleClick"
-                  ;}
-                Case #PB_EventType_RightClick      ;{ Right mouse click
-                  Debug "Right Click"
+                Case TreeEx::#EventType_CheckBox   ;{ Checkbox click
+                  Debug "CheckBox clicked"
                   ;}
               EndSelect
           EndSelect ;}
@@ -2381,8 +2393,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 2354
-; FirstLine = 639
-; Folding = 1cDAAAcCoIDMABADCAAMAA-
+; CursorPosition = 76
+; Folding = 9cDAAAeAoIDUBIADCAAMAA-
 ; EnableXP
 ; DPIAware
