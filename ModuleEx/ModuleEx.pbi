@@ -58,7 +58,7 @@
 
 DeclareModule ModuleEx
   
-  #Version = 19112100
+  #Version = 19112101
   
   #Enable_Tabulator_Management = #True
   
@@ -107,6 +107,8 @@ DeclareModule ModuleEx
     #EventType_String
     #EventType_TrackBar
     #EventType_Year
+    #EventType_Collapsed
+    #EventType_Expanded
   EndEnumeration ;}
   
   #Event_Tabulator      = 64000
@@ -1302,8 +1304,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1073
-; FirstLine = 225
+; CursorPosition = 110
+; FirstLine = 25
 ; Folding = EEgAAAAABAAGw
 ; EnableXP
 ; DPIAware

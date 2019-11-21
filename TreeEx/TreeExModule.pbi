@@ -74,7 +74,7 @@
 
 DeclareModule TreeEx
   
-  #Version  = 19112100
+  #Version  = 19112101
   #ModuleEx = 19112002
   
   #Enable_ProgressBar = #True
@@ -176,8 +176,10 @@ DeclareModule TreeEx
 		#Event_Gadget = ModuleEx::#Event_Gadget
 		#Event_Theme  = ModuleEx::#Event_Theme
 		
-		#EventType_Row      = ModuleEx::#EventType_Row
-		#EventType_CheckBox = ModuleEx::#EventType_CheckBox
+		#EventType_Row       = ModuleEx::#EventType_Row
+		#EventType_CheckBox  = ModuleEx::#EventType_CheckBox
+		#EventType_Collapsed = ModuleEx::#EventType_Collapsed
+		#EventType_Expanded  = ModuleEx::#EventType_Expanded
 		
 	CompilerElse
 
@@ -186,8 +188,10 @@ DeclareModule TreeEx
 		EndEnumeration
 		
 		Enumeration #PB_EventType_FirstCustomValue
-		  #EventType_CheckBox
 		  #EventType_Row
+		  #EventType_CheckBox
+		  #EventType_Collapsed
+      #EventType_Expanded
     EndEnumeration
     
 	CompilerEndIf
@@ -1272,7 +1276,17 @@ Module TreeEx
 			  
 			  If X >= TreeEx()\Rows()\Button\X And X <= TreeEx()\Rows()\Button\X + dpiX(#ButtonSize)                       ;{ Button
 			    If Y >= TreeEx()\Rows()\Button\Y And Y <= TreeEx()\Rows()\Button\Y + dpiX(#ButtonSize)
+			      
 			      TreeEx()\Rows()\Button\State ! #True
+			      
+			      If TreeEx()\Rows()\Button\State
+			        PostEvent(#PB_Event_Gadget, TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Expanded, ListIndex(TreeEx()\Rows()))
+              PostEvent(#Event_Gadget,    TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Expanded, ListIndex(TreeEx()\Rows()))
+			      Else
+			        PostEvent(#PB_Event_Gadget, TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Collapsed, ListIndex(TreeEx()\Rows()))
+              PostEvent(#Event_Gadget,    TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Collapsed, ListIndex(TreeEx()\Rows()))
+			      EndIf  
+			      
 			      Draw_()
 			      Break
 			    EndIf
@@ -2378,11 +2392,14 @@ CompilerIf #PB_Compiler_IsMainFile
           Select EventGadget()  
             Case #TreeEx
               Select EventType()
-                Case TreeEx::#EventType_Row      ;{ Select row
+                Case TreeEx::#EventType_Row      ; Select row
                   Debug "Row seleced: " + Str(EventData())
-                  ;}
-                Case TreeEx::#EventType_CheckBox ;{ Checkbox click
+                Case TreeEx::#EventType_CheckBox ; Checkbox click
                   Debug "CheckBox clicked"
+                Case TreeEx::#EventType_Collapsed
+                  Debug "Collapsed: " + Str(EventData())
+                Case TreeEx::#EventType_Expanded
+                  Debug "Expanded: " + Str(EventData())
                   ;}
               EndSelect
           EndSelect ;}
@@ -2395,8 +2412,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 2381
-; FirstLine = 437
-; Folding = 9cAAAAUAoIDUDIADCAAMAA-
+; CursorPosition = 76
+; Folding = 9ZAAAAUAoIDUAIADCAAMAA-
 ; EnableXP
 ; DPIAware
