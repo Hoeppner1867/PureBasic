@@ -7,13 +7,14 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 20.11.19
+; Last Update: 21.11.19
 ;
-; Added: StringEx::Disable()
+; Added:   Attribute '#Corner'
 ;
-; Added: #EventType_Change / #EventType_Focus / #EventType_LostFocus 
-; Added: StringEx::Hide()
-; Added: #UseExistingCanvas
+; Added:   StringEx::Disable()
+; Added:   #EventType_Change / #EventType_Focus / #EventType_LostFocus 
+; Added:   StringEx::Hide()
+; Added:   #UseExistingCanvas
 ; Changed: #ResizeWidth -> #Width / #ResizeHeight -> #Height
 ; Added:   SetDynamicFont() / FitText() / SetFitText()       [needs ModuleEx.pbi]
 ; Added:   Flags '#FitText' & '#FixPadding' for Autoresize   [needs ModuleEx.pbi]
@@ -74,7 +75,7 @@
 
 DeclareModule StringEx
   
-  #Version  = 19112000
+  #Version  = 19112100
   #ModuleEx = 19111703
   
   #Enable_AutoComplete       = #True
@@ -107,6 +108,7 @@ DeclareModule StringEx
   Enumeration Attribute 1
     #MaximumLength = #PB_String_MaximumLength
     #Padding
+    #Corner
   EndEnumeration
   
   Enumeration Color 1 
@@ -291,6 +293,8 @@ Module StringEx
     Border.i
     Cursor.i
     Gadget.i
+    DisableFront.i
+    DisableBack.i
     Highlight.i
     HighlightText.i
     Button.i
@@ -320,16 +324,19 @@ Module StringEx
 
     FontID.i
     State.i
-    Flags.i
+    
     Text.s
+    
     Undo.s
     CanvasCursor.i
     Mouse.i
     MaxLength.i
     Padding.i
+    Radius.i
     
     Hide.i
     Disable.i
+    Flags.i
     
     ; Fit Text
     PaddingX.i
@@ -675,24 +682,35 @@ Module StringEx
     ProcedureReturn RGB((R1*Blend) + (R2 * (1-Blend)), (G1*Blend) + (G2 * (1-Blend)), (B1*Blend) + (B2 * (1-Blend)))
   EndProcedure
   
+  
+  Procedure   Box_(X.i, Y.i, Width.i, Height.i, Color.i)
+    
+    If StrgEx()\Radius
+      Box(X, Y, Width, Height, StrgEx()\Color\Gadget)
+			RoundBox(X, Y, Width, Height, StrgEx()\Radius, StrgEx()\Radius, Color)
+		Else
+			Box(X, Y, Width, Height, Color)
+		EndIf
+		
+	EndProcedure  
+  
   Procedure   Button_(BorderColor.i)
     Define.f X, Y
     
     StrgEx()\Button\X = dpiX(GadgetWidth(StrgEx()\CanvasNum) - #ButtonWidth)
     
+    Line(StrgEx()\Button\X, 0, dpiX(1), dpiY(GadgetHeight(StrgEx()\CanvasNum)), BorderColor)
+    
     If StrgEx()\Button\State & #Click
       DrawingMode(#PB_2DDrawing_Default)
-      Box(StrgEx()\Button\X, 0, dpiX(#ButtonWidth), dpiY(GadgetHeight(StrgEx()\CanvasNum)), BlendColor_(StrgEx()\Color\Focus, StrgEx()\Color\Button, 20))
+      FillArea(StrgEx()\Button\X + dpiX(1), dpiX(1), BorderColor, BlendColor_(StrgEx()\Color\Focus, StrgEx()\Color\Button, 20))
     ElseIf StrgEx()\Button\State & #Focus
       DrawingMode(#PB_2DDrawing_Default)
-      Box(StrgEx()\Button\X, 0, dpiX(#ButtonWidth), dpiY(GadgetHeight(StrgEx()\CanvasNum)), BlendColor_(StrgEx()\Color\Focus, StrgEx()\Color\Button, 15))
+      FillArea(StrgEx()\Button\X + dpiX(1), dpiX(1), BorderColor, BlendColor_(StrgEx()\Color\Focus, StrgEx()\Color\Button, 15))
     Else
       DrawingMode(#PB_2DDrawing_Default)
-      Box(StrgEx()\Button\X, 0, dpiX(#ButtonWidth), dpiY(GadgetHeight(StrgEx()\CanvasNum)), StrgEx()\Color\Button)
+      FillArea(StrgEx()\Button\X + dpiX(1), dpiX(1), BorderColor, StrgEx()\Color\Button)
     EndIf 
-    
-    DrawingMode(#PB_2DDrawing_Outlined)
-    Box(StrgEx()\Button\X, 0, dpiX(#ButtonWidth), dpiY(GadgetHeight(StrgEx()\CanvasNum)), BorderColor)
     
     If IsImage(StrgEx()\Button\ImgNum)
       X = StrgEx()\Button\X + ((dpiX(#ButtonWidth) - StrgEx()\Button\Width)  / 2)
@@ -704,11 +722,12 @@ Module StringEx
     EndIf
     
   EndProcedure
-
+  
+  
   Procedure   Draw_()
     Define.f X, Y, Height, Width, startX
     Define.s Text, Word, strgPart
-    Define.i TextColor, BackColor, BorderColor
+    Define.i TextColor, BackColor, BorderColor, CursorColor
     
     If StrgEx()\Hide : ProcedureReturn #False : EndIf
     
@@ -721,24 +740,25 @@ Module StringEx
     If StartDrawing(CanvasOutput(StrgEx()\CanvasNum))
       
       TextColor   = StrgEx()\Color\Front
+      BackColor   = StrgEx()\Color\Back
       BorderColor = StrgEx()\Color\Border
       
-      If StrgEx()\Disable
-        BackColor = StrgEx()\Color\Gadget
-      Else  
-        BackColor = StrgEx()\Color\Back
-      EndIf  
-
       If StrgEx()\State & #Focus
         BorderColor = StrgEx()\Color\Focus
       EndIf
       
+      If StrgEx()\Disable
+        TextColor   = StrgEx()\Color\DisableFront
+        BackColor   = BlendColor_(StrgEx()\Color\DisableBack, StrgEx()\Color\Gadget, 10)
+        BorderColor = StrgEx()\Color\DisableBack
+      EndIf  
+
       Height = dpiY(GadgetHeight(StrgEx()\CanvasNum))
       Width  = dpiX(GadgetWidth(StrgEx()\CanvasNum))
 
       ;{ _____ Background _____
       DrawingMode(#PB_2DDrawing_Default)
-      Box(0, 0, Width, Height, BackColor)
+      Box_(0, 0, Width, Height, BackColor)       
       ;}
       
       If StrgEx()\Flags & #ShowButton Or StrgEx()\Flags & #EventButton
@@ -758,11 +778,11 @@ Module StringEx
           Text = StrgEx()\Text
         EndIf
         
-        X = GetOffsetX_(Text, Width, StrgEx()\Padding)
+        X = GetOffsetX_(Text, Width, dpiX(StrgEx()\Padding))
         Y = (Height - TextHeight(Text)) / 2
         
         DrawingMode(#PB_2DDrawing_Transparent)
-        DrawText(X, Y, Text, StrgEx()\Color\Front)
+        DrawText(X, Y, Text, TextColor)
         
         CompilerIf #Enable_AutoComplete
           
@@ -778,7 +798,7 @@ Module StringEx
         
       Else
         
-        X = StrgEx()\Padding
+        X = dpiX(StrgEx()\Padding)
         Y = (Height - TextHeight("X")) / 2  
         
       EndIf
@@ -825,7 +845,7 @@ Module StringEx
       ;{ _____ Border ____
       If StrgEx()\Flags & #Borderless = #False
         DrawingMode(#PB_2DDrawing_Outlined)
-        Box(0, 0, dpiX(GadgetWidth(StrgEx()\CanvasNum)), Height, BorderColor)
+        Box_(0, 0, dpiX(GadgetWidth(StrgEx()\CanvasNum)), Height, BorderColor)
       EndIf
       ;}
       
@@ -856,6 +876,8 @@ Module StringEx
         StrgEx()\Color\Button        = ModuleEx::ThemeGUI\Button\BackColor
         StrgEx()\Color\HighlightText = ModuleEx::ThemeGUI\Focus\FrontColor
         StrgEx()\Color\Highlight     = ModuleEx::ThemeGUI\Focus\BackColor
+        StrgEx()\Color\DisableFront  = ModuleEx::ThemeGUI\Disable\FrontColor
+        StrgEx()\Color\DisableBack   = ModuleEx::ThemeGUI\Disable\BackColor
         
         Draw_()
       Next
@@ -866,9 +888,15 @@ Module StringEx
   
   
   Procedure _CursorDrawing() ; Trigger from Thread (PostEvent Change)
+    Define.i BackColor
     Define.i WindowNum = EventWindow()
     
+    
+
     ForEach StrgEx()
+      
+      BackColor = StrgEx()\Color\Back
+      If StrgEx()\Disable : BackColor = BlendColor_(StrgEx()\Color\DisableBack, StrgEx()\Color\Gadget, 10) : EndIf
       
       If StrgEx()\Cursor\Pause = #False
 
@@ -879,16 +907,16 @@ Module StringEx
           If StrgEx()\Cursor\State
             Line(StrgEx()\Cursor\X - 1, StrgEx()\Cursor\Y, 1, StrgEx()\Cursor\Height, StrgEx()\Color\Cursor)
           Else
-            Line(StrgEx()\Cursor\X - 1, StrgEx()\Cursor\Y, 1, StrgEx()\Cursor\Height, StrgEx()\Color\Back)
+            Line(StrgEx()\Cursor\X - 1, StrgEx()\Cursor\Y, 1, StrgEx()\Cursor\Height, BackColor)
           EndIf
           StopDrawing()
         EndIf
         
       ElseIf StrgEx()\Cursor\State
-        
+
         If StartDrawing(CanvasOutput(StrgEx()\CanvasNum))
           DrawingMode(#PB_2DDrawing_Default)
-          Line(StrgEx()\Cursor\X - 1, StrgEx()\Cursor\Y, 1, StrgEx()\Cursor\Height, StrgEx()\Color\Back)
+          Line(StrgEx()\Cursor\X - 1, StrgEx()\Cursor\Y, 1, StrgEx()\Cursor\Height, BackColor)
           StopDrawing()
         EndIf
       
@@ -1737,7 +1765,7 @@ Module StringEx
             StrgEx()\FontID = GetGadgetFont(#PB_Default)
         CompilerEndSelect ;}
         
-        StrgEx()\Padding = dpiX(4)
+        StrgEx()\Padding = 4
         
         StrgEx()\Size\X = X
         StrgEx()\Size\Y = Y
@@ -1753,6 +1781,8 @@ Module StringEx
         StrgEx()\Color\Focus         = $D77800
         StrgEx()\Color\Border        = $A0A0A0
         StrgEx()\Color\Gadget        = $EDEDED
+        StrgEx()\Color\DisableFront  = $72727D
+        StrgEx()\Color\DisableBack   = $CCCCCA
         StrgEx()\Color\Cursor        = $800000
         StrgEx()\Color\Button        = $E3E3E3
         StrgEx()\Color\Highlight     = $D77800
@@ -1905,7 +1935,9 @@ Module StringEx
           Draw_()
         Case #Padding
           If Value < 2 : Value = 2 : EndIf 
-          StrgEx()\Padding = dpiX(Value)
+          StrgEx()\Padding = Value
+        Case #Corner
+          StrgEx()\Radius  = Value
       EndSelect
       
       Draw_()
@@ -2175,6 +2207,8 @@ CompilerIf #PB_Compiler_IsMainFile
     ;DisableGadget(#String, #True)
     ;StringEx::Disable(#StringEx, #True)
     
+    StringEx::SetAttribute(#StringPW, StringEx::#Corner, 4)
+    
     Repeat
       Event = WaitWindowEvent()
       Select Event
@@ -2215,8 +2249,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 76
-; Folding = UHIFAgAk1QBAABBNAogBAA-
+; CursorPosition = 77
+; FirstLine = 6
+; Folding = cHAEAgGAABAAAIDaAQADCI+
 ; EnableThread
 ; EnableXP
 ; DPIAware
