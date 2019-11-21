@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (07/2019)
 ;/
 
-; Last Update: 20.11.2019
+; Last Update: 21.11.2019
 ;
 ; Added: Theme support
 ;
@@ -89,7 +89,7 @@ XIncludeFile "Date64Module.pbi"
 
 DeclareModule Calendar
   
-  #Version  = 19112000
+  #Version  = 19112100
   #ModuleEx = 19112002
   
   #Enable_iCalFormat = #True
@@ -237,6 +237,7 @@ DeclareModule Calendar
   Declare.i CountEntries(GNum.i, DayOfMonth.i)
   Declare.q GetDate(Day.i, Month.i, Year.i, Hour.i=0, Minute.i=0, Second.i=0)
   Declare   DefaultCountry(Code.s)
+  Declare   Disable(GNum.i, State.i=#True)
   Declare   DisableReDraw(GNum.i, State.i=#False)
   Declare.i EventDate(GNum.i)
   Declare.i EventDayOfMonth(GNum.i)
@@ -247,6 +248,7 @@ DeclareModule Calendar
   Declare.i GetMonth(GNum.i) 
   Declare.i GetState(GNum.i) 
   Declare.i GetYear(GNum.i)
+  Declare   Hide(GNum.i, State.i=#True)
   Declare   MonthName(Month.i, Name.s)
   Declare   LoadColorTheme(GNum.i, File.s)
   Declare   RemoveEntry(GNum.i, Label.s)
@@ -482,6 +484,8 @@ Module Calendar
     Today.i
     EntryFront.i
     EntryBack.i
+    DisableFront.i
+    DisableBack.i
   EndStructure  ;}
   
   Structure Calendar_Window_Structure    ;{ Calendar()\Window\...
@@ -511,6 +515,8 @@ Module Calendar
     EntryFontID.i
 
     ReDraw.i
+    Disable.i
+    Hide.i
     
     Flags.i
     
@@ -1052,10 +1058,12 @@ Module Calendar
   Procedure   Draw_()
     Define.i X, Y, Width, Height, PosX, PosY, txtX, txtY, txtHeight
     Define.i c, r, Column, Row, ColumnWidth, RowHeight, bWidth, bHeight, Difference
-    Define.i Date, Month, Year, Day, GreyDay, FirstWeekDay, LastDay
-    Define.i FrontColor, BackColor, BorderColor, CurrentDate, Entries
+    Define.i Date, Month, Year, Day, GreyDay, FirstWeekDay, LastDay, CurrentDate, Entries
+    Define.i FrontColor, BackColor, BorderColor, MonthColor, WeekColor, GridColor 
     Define.s Text$, Month$, Year$, ToolTipMask$
     Define Focus.Border_Structure, Today.Border_Structure
+    
+    If Calendar()\Hide : ProcedureReturn #False : EndIf
     
     X = dpiX(Calendar()\Margin\Left)
     Y = dpiY(Calendar()\Margin\Top)
@@ -1064,6 +1072,22 @@ Module Calendar
     Height = dpiY(GadgetHeight(Calendar()\CanvasNum)) - Calendar()\Margin\Top  - Calendar()\Margin\Bottom
 
     If StartDrawing(CanvasOutput(Calendar()\CanvasNum))
+
+      FrontColor  = Calendar()\Color\Front
+      BackColor   = Calendar()\Color\Back
+      BorderColor = Calendar()\Color\Border
+      MonthColor  = Calendar()\Month\Color\Back
+      WeekColor   = Calendar()\Week\Color\Back
+      GridColor   = Calendar()\Color\Grid
+      
+      If Calendar()\Disable
+        FrontColor  = Calendar()\Color\DisableFront
+        BackColor   = BlendColor_(Calendar()\Color\DisableBack, Calendar()\Color\Gadget, 10)
+        BorderColor = Calendar()\Color\DisableFront
+        GridColor   = Calendar()\Color\DisableFront
+        MonthColor  = BackColor
+        WeekColor   = BackColor
+      EndIf  
       
       ColumnWidth = Round(Width  / 7, #PB_Round_Down)  ; Days of week
       Width       = ColumnWidth *  7
@@ -1111,7 +1135,7 @@ Module Calendar
       ;{ _____ Background _____
       DrawingMode(#PB_2DDrawing_Default)
       Box(0, 0, dpiX(GadgetWidth(Calendar()\CanvasNum)), dpiY(GadgetHeight(Calendar()\CanvasNum)), Calendar()\Color\Gadget)
-      Box(0, 0, Width, Height, Calendar()\Color\Back)
+      Box(0, 0, Width, Height, BackColor)
       ;}
 
       DrawingFont(Calendar()\FontID)
@@ -1122,8 +1146,14 @@ Module Calendar
       FirstWeekDay = FirstWeekDay_(Month, Year)
       LastDay      = LastDayOfMonth_(Month, Year)
       GreyDay      = FirstCalendarDay(Month.i, Year.i)
-      Focus\Day    = Day_(Calendar()\Current\Focus)
-      Today\Day    = Today_(Month, Year)
+      
+      If Calendar()\Disable
+        Focus\Day = 0
+        Today\Day = 0
+      Else  
+        Focus\Day = Day_(Calendar()\Current\Focus)
+        Today\Day = Today_(Month, Year)
+      EndIf
       
       Focus\X = #NotValid
       Focus\Y = #NotValid
@@ -1154,12 +1184,14 @@ Module Calendar
             
             txtHeight = TextHeight(Text$)
             txtY      = (Calendar()\Month\Height - txtHeight) / 2
-           
-            FrontColor = GetColor_(Calendar()\Month\Color\Front, Calendar()\Color\Front)
             
+            If Not Calendar()\Disable
+              FrontColor = GetColor_(Calendar()\Month\Color\Front, FrontColor)
+            EndIf
+          
             If Calendar()\Month\Color\Back <> #PB_Default
               DrawingMode(#PB_2DDrawing_Default)
-              Box(X, PosY, Width, Calendar()\Month\Height, Calendar()\Month\Color\Back)
+              Box(X, PosY, Width, Calendar()\Month\Height, MonthColor)
             EndIf
             
             DrawingMode(#PB_2DDrawing_Transparent) 
@@ -1176,7 +1208,7 @@ Module Calendar
             Calendar()\PostEvent\Height     = txtHeight
             
             DrawingMode(#PB_2DDrawing_Outlined) 
-            Box(X, PosY, Width, Calendar()\Month\Height + dpiY(1), Calendar()\Color\Grid)
+            Box(X, PosY, Width, Calendar()\Month\Height + dpiY(1), GridColor)
             
             PosY + Calendar()\Month\Height
             ;}
@@ -1188,11 +1220,13 @@ Module Calendar
             txtHeight = TextHeight("Abc")
             txtY      = (Calendar()\Week\Height - txtHeight) / 2
             
-            FrontColor = GetColor_(Calendar()\Week\Color\Front, Calendar()\Color\Front)
+            If Not Calendar()\Disable
+              FrontColor = GetColor_(Calendar()\Week\Color\Front, Calendar()\Color\Front)
+            EndIf 
             
             If Calendar()\Month\Color\Back <> #PB_Default
               DrawingMode(#PB_2DDrawing_Default)
-              Box(X, PosY, Width, Calendar()\Week\Height, Calendar()\Week\Color\Back)
+              Box(X, PosY, Width, Calendar()\Week\Height, WeekColor)
             EndIf
             
             For c=1 To 7
@@ -1203,11 +1237,13 @@ Module Calendar
               DrawingMode(#PB_2DDrawing_Transparent) 
               DrawText(PosX + txtX, PosY + txtY, Text$, FrontColor)
               
-              If Calendar()\Week\Color\Grid <> #PB_Default
-                BorderColor = Calendar()\Week\Color\Grid
-              Else
-                BorderColor = Calendar()\Color\Grid
-              EndIf  
+              If Not Calendar()\Disable
+                If Calendar()\Week\Color\Grid <> #PB_Default
+                  BorderColor = Calendar()\Week\Color\Grid
+                Else
+                  BorderColor = GridColor
+                EndIf  
+              EndIf
               
               DrawingMode(#PB_2DDrawing_Outlined) 
               If c =  7
@@ -1254,7 +1290,7 @@ Module Calendar
                 EndIf
                 
                 DrawingMode(#PB_2DDrawing_Outlined) 
-                Box(PosX, PosY, ColumnWidth + dpiX(1), RowHeight + dpiY(1), Calendar()\Color\Grid)
+                Box(PosX, PosY, ColumnWidth + dpiX(1), RowHeight + dpiY(1), GridColor)
                 
                 PosX + ColumnWidth
                 Continue 
@@ -1265,8 +1301,10 @@ Module Calendar
                 Text$ = Str(Day)
                 txtX  = (ColumnWidth - TextWidth("33")) / 2 + (TextWidth("33") - TextWidth(Text$))
                 
-                FrontColor = Calendar()\Color\Front
-                BackColor  = Calendar()\Color\Back
+                If Not Calendar()\Disable
+                  FrontColor = Calendar()\Color\Front
+                  BackColor  = Calendar()\Color\Back
+                EndIf
                 
                 If Day = Today\Day
                   DrawingMode(#PB_2DDrawing_Default)
@@ -1396,7 +1434,7 @@ Module Calendar
                 
                 If Calendar()\Flags & #GreyedDays = #False
                   DrawingMode(#PB_2DDrawing_Outlined) 
-                  Box(PosX, PosY, bWidth, bHeight, Calendar()\Color\Grid)  
+                  Box(PosX, PosY, bWidth, bHeight, GridColor)  
                 EndIf
                 
                 Calendar()\Day(Str(Day))\X      = PosX
@@ -1427,7 +1465,7 @@ Module Calendar
               
               If Calendar()\Flags & #GreyedDays
                 DrawingMode(#PB_2DDrawing_Outlined) 
-                Box(PosX, PosY, bWidth, bHeight, Calendar()\Color\Grid)   
+                Box(PosX, PosY, bWidth, bHeight, GridColor)   
               EndIf
               
               PosX + ColumnWidth
@@ -1443,13 +1481,13 @@ Module Calendar
       
       If Today\Day
         DrawingMode(#PB_2DDrawing_Outlined) 
-        Box(Today\X, Today\Y, Today\Width, Today\Height, BlendColor_(Calendar()\Color\Today, Calendar()\Color\Grid, 40))
+        Box(Today\X, Today\Y, Today\Width, Today\Height, BlendColor_(Calendar()\Color\Today, GridColor, 40))
       EndIf 
       
       ;{ Draw Focus Border
       If Focus\X <> #NotValid And Focus\Y <> #NotValid 
         DrawingMode(#PB_2DDrawing_Outlined) 
-        Box(Focus\X, Focus\Y, Focus\Width, Focus\Height, BlendColor_(Calendar()\Color\Focus, Calendar()\Color\Grid, 60))
+        Box(Focus\X, Focus\Y, Focus\Width, Focus\Height, BlendColor_(Calendar()\Color\Focus, GridColor, 60))
       EndIf
       ;}
       
@@ -1460,9 +1498,13 @@ Module Calendar
       
       ;{ _____ Border ____
       DrawingMode(#PB_2DDrawing_Outlined)
-      Box(0, 0, Width, Height, Calendar()\Color\Grid)
+      Box(0, 0, Width, Height, GridColor)
       If Calendar()\Flags & #Border
-        Box(0, 0, dpiX(GadgetWidth(Calendar()\CanvasNum)), dpiY(GadgetHeight(Calendar()\CanvasNum)), Calendar()\Color\Border)
+        If Calendar()\Disable
+          Box(0, 0, dpiX(GadgetWidth(Calendar()\CanvasNum)), dpiY(GadgetHeight(Calendar()\CanvasNum)), BorderColor)
+        Else
+          Box(0, 0, dpiX(GadgetWidth(Calendar()\CanvasNum)), dpiY(GadgetHeight(Calendar()\CanvasNum)), Calendar()\Color\Border)
+        EndIf  
       EndIf ;}
       
       StopDrawing()
@@ -1490,6 +1532,8 @@ Module Calendar
         Calendar()\Month\Color\Back   = ModuleEx::ThemeGUI\Title\BackColor
         Calendar()\Week\Color\Front   = ModuleEx::ThemeGUI\Header\FrontColor
         Calendar()\Week\Color\Back    = ModuleEx::ThemeGUI\Header\LightColor
+        Calendar()\Color\DisableFront = ModuleEx::ThemeGUI\Disable\FrontColor
+        Calendar()\Color\DisableBack  = ModuleEx::ThemeGUI\Disable\BackColor
         
         Draw_()
       Next
@@ -2360,18 +2404,19 @@ Module Calendar
         
         Calendar()\ReDraw = #True
         
-        Calendar()\Color\Arrow      = $C8C8C8
-        Calendar()\Color\Back       = $FFFFFF
-        Calendar()\Color\Border     = $A0A0A0
-        Calendar()\Color\Gadget     = $EDEDED
-        Calendar()\Color\GreyText   = $6D6D6D
-        Calendar()\Color\Focus      = $D77800
-        Calendar()\Color\Front      = $000000
-        Calendar()\Color\Grid       = $B4B4B4
-        Calendar()\Color\Today      = $0000FF
-        
-        Calendar()\Color\EntryFront = $0000CC
-        Calendar()\Color\EntryBack  = $FFFFFF
+        Calendar()\Color\Arrow        = $C8C8C8
+        Calendar()\Color\Back         = $FFFFFF
+        Calendar()\Color\Border       = $A0A0A0
+        Calendar()\Color\Gadget       = $EDEDED
+        Calendar()\Color\GreyText     = $6D6D6D
+        Calendar()\Color\Focus        = $D77800
+        Calendar()\Color\Front        = $000000
+        Calendar()\Color\Grid         = $B4B4B4
+        Calendar()\Color\Today        = $0000FF
+        Calendar()\Color\DisableFront = $72727D
+        Calendar()\Color\DisableBack  = $CCCCCA
+        Calendar()\Color\EntryFront   = $0000CC
+        Calendar()\Color\EntryBack    = $FFFFFF
         
         CompilerSelect #PB_Compiler_OS ;{ Color
           CompilerCase #PB_OS_Windows
@@ -2507,6 +2552,36 @@ Module Calendar
     EndIf
     
   EndProcedure  
+  
+  Procedure   Hide(GNum.i, State.i=#True)
+    
+    If FindMapElement(Calendar(), Str(GNum))
+      
+      If State
+        Calendar()\Hide = #True
+        HideGadget(GNum, #True)
+      Else
+        Calendar()\Hide = #False
+        HideGadget(GNum, #False)
+        Draw_()
+      EndIf  
+      
+    EndIf  
+    
+  EndProcedure
+  
+  Procedure   Disable(GNum.i, State.i=#True)
+    
+    If FindMapElement(Calendar(), Str(GNum))
+  
+      Calendar()\Disable = State
+      DisableGadget(GNum, State)
+      
+      Draw_()
+      
+    EndIf  
+    
+  EndProcedure 	  
   
 
   Procedure   LoadColorTheme(GNum.i, File.s)
@@ -3005,8 +3080,7 @@ CompilerIf #PB_Compiler_IsMainFile
       Calendar::UpdatePopupText(#Calendar, #ShowEntries, "Show calendar entries for '"   + Calendar::#Date$ + "'.")
       
       Calendar::SetState(#Calendar, Date())
-      
-      
+
       CompilerIf Defined(ModuleEx, #PB_Module)
        
         Calendar::SetAutoResizeFlags(#Calendar, Calendar::#Width|Calendar::#Height|Calendar::#FitText)
@@ -3026,11 +3100,11 @@ CompilerIf #PB_Compiler_IsMainFile
           Calendar::SetColor(#Calendar, Calendar::#Week_FrontColor,  $701919)
           Calendar::SetColor(#Calendar, Calendar::#Week_BackColor,   $FFFAF6)
           Calendar::SetColor(#Calendar, Calendar::#FocusColor,       $00FC7C)
-          ;Calendar::SetColor(#Calendar, Calendar::#Entry_BackColor, $9595FF)
+          ;Calendar::SetColor(#Calendar, Calendar::#Entry_BackColor,  $9595FF)
           Calendar::SetFlags(#Calendar, Calendar::#Gadget, Calendar::#GreyedDays)
         CompilerDefault
           
-          ;Calendar::SetColorTheme(#Calendar, Calendar::#Theme_Green)
+          Calendar::SetColorTheme(#Calendar, Calendar::#Theme_Blue)
           
           Calendar::SetFont(#Calendar, #FontWeekDays, Calendar::#Font_Entry)
           Calendar::SetFlags(#Calendar, Calendar::#Gadget, Calendar::#GreyedDays)
@@ -3048,7 +3122,9 @@ CompilerIf #PB_Compiler_IsMainFile
           Calendar::SetEntryMask(#Calendar,  "Holidy",  "Holiday: " + Calendar::#StartDate$ + " - " + Calendar::#EndDate$)
           
       CompilerEndSelect
-
+      
+      ;Calendar::Disable(#Calendar)
+      
     EndIf
     
     Repeat
@@ -3102,9 +3178,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 3017
-; FirstLine = 702
-; Folding = MgPIAAEAgAAAw8WQEMRAArBAIIQS-
-; Markers = 1053,2654
+; CursorPosition = 91
+; FirstLine = 12
+; Folding = MgPAAQGAgAAAi7BQEMRAArBQggAJ0
+; Markers = 1059,2729
 ; EnableXP
 ; DPIAware

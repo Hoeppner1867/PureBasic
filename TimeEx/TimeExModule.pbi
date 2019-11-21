@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 19.11.19
+; Last Update: 21.11.19
 ;
 ; Added: #UseExistingCanvas
 ;
@@ -52,22 +52,26 @@
 
 DeclareModule TimeEx
   
-  #Version  = 19111900
-  #ModuleEx = 19111702
+  #Version  = 19112100
+  #ModuleEx = 19112102
   
   ;- ===========================================================================
   ;-   DeclareModule - Constants / Structures
   ;- =========================================================================== 
   
   ;{ _____ Constants _____
-  EnumerationBinary Flags
+  EnumerationBinary ;{ Gadget Flags
     #Borderless
     #Format12Hour
     #NoSeconds
     #UseExistingCanvas
-  EndEnumeration
+  EndEnumeration ;}
   
-  Enumeration Color 1 
+  Enumeration 1     ;{ Attribute
+    #Corner
+  EndEnumeration ;}
+  
+  Enumeration 1     ;{ Color
     #FrontColor  = #PB_Gadget_FrontColor
     #BackColor   = #PB_Gadget_BackColor
     #BorderColor = #PB_Gadget_LineColor
@@ -97,6 +101,9 @@ DeclareModule TimeEx
   Declare.i GetState(GNum.i)
   Declare.s GetText(GNum.i, Seperator.s=":")
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Time.s, Flags.i=#False, WindowNum.i=#PB_Default) 
+  Declare   Disable(GNum.i, State.i=#True)
+  Declare   Hide(GNum.i, State.i=#True)
+  Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
   Declare   SetColor(GNum.i, ColorType.i, Color.i)
   Declare   SetFont(GNum.i, FontNum.i)
   Declare   SetState(GNum.i, Seconds.i) 
@@ -172,10 +179,13 @@ Module TimeEx
     Back.i
     Focus.i
     Border.i
+    Gadget.i
     Highlight.i
     HighlightText.i
     Button.i
     ButtonBorder.i
+    DisableFront.i
+    DisableBack.i
   EndStructure ;}
   
   Structure TGEx_Window_Structure    ;{ TGEx()\Window\...
@@ -190,6 +200,10 @@ Module TimeEx
     
     FontID.i
     State.i
+    Radius.i
+    Disable.i
+    Hide.i
+    
     Flags.i
     
     Button.TGEx_Button_Structure
@@ -246,7 +260,7 @@ Module TimeEx
     ProcedureReturn DesktopScaledY(Num)
   EndProcedure
   
-  Procedure  SetInputTime_()
+  Procedure   SetInputTime_()
     
     If TGEx()\State & #Input
       Select TGEx()\Time\State
@@ -308,42 +322,61 @@ Module TimeEx
     
   EndProcedure
   
-  Procedure   Draw_(GNum.i)
+  Procedure   Box_(X.i, Y.i, Width.i, Height.i, Color.i)
+  
+    If TGEx()\Radius
+      Box(X, Y, Width, Height, TGEx()\Color\Gadget)
+  		RoundBox(X, Y, Width, Height, TGEx()\Radius, TGEx()\Radius, Color)
+  	Else
+  		Box(X, Y, Width, Height, Color)
+  	EndIf
+  	
+  EndProcedure
+
+  
+  Procedure   Draw_()
     Define.f X, Y, Width, Height, btX, btY, btHeight
     Define.i TextColor, BackColor, BorderColor, btBackColor, btBorderColor
     Define.s Hour, Minute, Second
     
-    If FindMapElement(TGEx(), Str(GNum))
+    If TGEx()\Hide : ProcedureReturn #False : EndIf
+    
+    If StartDrawing(CanvasOutput(TGEx()\CanvasNum))
       
-      If StartDrawing(CanvasOutput(TGEx()\CanvasNum))
-        
-        BackColor   = TGEx()\Color\Back
-        BorderColor = TGEx()\Color\Border
-        TextColor   = TGEx()\Color\Front
-        
-        If TGEx()\State & #Focus : BorderColor = TGEx()\Color\Focus : EndIf
-        
-        ;{ _____ Background _____
-        DrawingMode(#PB_2DDrawing_Default)
-        Box(0, 0, dpiX(GadgetWidth(TGEx()\CanvasNum)), dpiY(GadgetHeight(TGEx()\CanvasNum)), BackColor)
-        ;}
-        
-        Height = dpiY(GadgetHeight(TGEx()\CanvasNum))
-        Width  = dpiX(GadgetWidth(TGEx()\CanvasNum) - #ButtonWidth - 4)
-        
-        ;{ _____ Buttons _____
-        If DesktopScaledX(100) >= 125
-          TGEx()\Button\X = dpiX(GadgetWidth(TGEx()\CanvasNum) - #ButtonWidth - 1)
-          TGEx()\Button\Height = dpiY((GadgetHeight(TGEx()\CanvasNum) - 5) / 2 )
-          TGEx()\Button\Y1     = dpiY(3)
-        Else
-          TGEx()\Button\X = dpiX(GadgetWidth(TGEx()\CanvasNum) - #ButtonWidth - 2)
-          TGEx()\Button\Height = dpiY((GadgetHeight(TGEx()\CanvasNum) - 4) / 2 )
-          TGEx()\Button\Y1     = dpiY(2)
-        EndIf
-        
-        
+      BackColor   = TGEx()\Color\Back
+      BorderColor = TGEx()\Color\Border
+      TextColor   = TGEx()\Color\Front
+      
+      If TGEx()\State & #Focus : BorderColor = TGEx()\Color\Focus : EndIf
 
+      If TGEx()\Disable
+        TextColor     = TGEx()\Color\DisableFront
+        BackColor     = BlendColor_(TGEx()\Color\DisableBack, TGEx()\Color\Gadget, 10)
+        BorderColor   = TGEx()\Color\DisableBack
+        btBackColor   = TGEx()\Color\DisableBack
+        btBorderColor = TGEx()\Color\DisableBack
+      EndIf  
+      
+      ;{ _____ Background _____
+      DrawingMode(#PB_2DDrawing_Default)
+      Box_(0, 0, dpiX(GadgetWidth(TGEx()\CanvasNum)), dpiY(GadgetHeight(TGEx()\CanvasNum)), BackColor)
+      ;}
+      
+      Height = dpiY(GadgetHeight(TGEx()\CanvasNum))
+      Width  = dpiX(GadgetWidth(TGEx()\CanvasNum) - #ButtonWidth - 4)
+      
+      ;{ _____ Buttons _____
+      If DesktopScaledX(100) >= 125
+        TGEx()\Button\X = dpiX(GadgetWidth(TGEx()\CanvasNum) - #ButtonWidth - 1)
+        TGEx()\Button\Height = dpiY((GadgetHeight(TGEx()\CanvasNum) - 5) / 2 )
+        TGEx()\Button\Y1     = dpiY(3)
+      Else
+        TGEx()\Button\X = dpiX(GadgetWidth(TGEx()\CanvasNum) - #ButtonWidth - 2)
+        TGEx()\Button\Height = dpiY((GadgetHeight(TGEx()\CanvasNum) - 4) / 2 )
+        TGEx()\Button\Y1     = dpiY(2)
+      EndIf
+      
+      If Not TGEx()\Disable
         If TGEx()\Button\State & #ClickUp
           btBackColor   = BlendColor_(TGEx()\Color\Focus, $FFFFFF, 20)
           btBorderColor = TGEx()\Color\Focus
@@ -354,15 +387,17 @@ Module TimeEx
           btBackColor   = TGEx()\Color\Button
           btBorderColor = TGEx()\Color\ButtonBorder
         EndIf
-        
-        DrawingMode(#PB_2DDrawing_Default)
-        Box(TGEx()\Button\X, TGEx()\Button\Y1, dpiX(#ButtonWidth), TGEx()\Button\Height, btBackColor)
-        Arrow_(TGEx()\Button\X, TGEx()\Button\Y1, dpiX(#ButtonWidth), TGEx()\Button\Height, #Up)
-        DrawingMode(#PB_2DDrawing_Outlined)
-        Box(TGEx()\Button\X, TGEx()\Button\Y1, dpiX(#ButtonWidth), TGEx()\Button\Height, btBorderColor)
-        
-        TGEx()\Button\Y2 = dpiY(GadgetHeight(TGEx()\CanvasNum) - 2) - TGEx()\Button\Height
-        
+      EndIf
+      
+      DrawingMode(#PB_2DDrawing_Default)
+      Box_(TGEx()\Button\X, TGEx()\Button\Y1, dpiX(#ButtonWidth), TGEx()\Button\Height, btBackColor)
+      Arrow_(TGEx()\Button\X, TGEx()\Button\Y1, dpiX(#ButtonWidth), TGEx()\Button\Height, #Up)
+      DrawingMode(#PB_2DDrawing_Outlined)
+      Box_(TGEx()\Button\X, TGEx()\Button\Y1, dpiX(#ButtonWidth), TGEx()\Button\Height, btBorderColor)
+      
+      TGEx()\Button\Y2 = dpiY(GadgetHeight(TGEx()\CanvasNum) - 2) - TGEx()\Button\Height
+      
+      If Not TGEx()\Disable
         If TGEx()\Button\State & #ClickDown
           btBackColor   = BlendColor_(TGEx()\Color\Focus, $FFFFFF, 20)
           btBorderColor = TGEx()\Color\Focus
@@ -373,82 +408,82 @@ Module TimeEx
           btBackColor   = TGEx()\Color\Button
           btBorderColor = TGEx()\Color\ButtonBorder
         EndIf
-
-        DrawingMode(#PB_2DDrawing_Default)
-        Box(TGEx()\Button\X, TGEx()\Button\Y2, dpiX(#ButtonWidth), TGEx()\Button\Height, btBackColor)
-        Arrow_(TGEx()\Button\X, TGEx()\Button\Y2, dpiX(#ButtonWidth), TGEx()\Button\Height, #Down)
-        DrawingMode(#PB_2DDrawing_Outlined)
-        Box(TGEx()\Button\X, TGEx()\Button\Y2, dpiX(#ButtonWidth), TGEx()\Button\Height, btBorderColor)
-        ;}
-        
-        ;{ _____ Text ____
-        DrawingFont(TGEx()\FontID)
-        
-        X = dpiX(4)
-        Y = (Height - TextHeight("X")) / 2
-        
-        Hour   = RSet(Str(TGEx()\Time\Hour),   2, "0")
-        Minute = RSet(Str(TGEx()\Time\Minute), 2, "0")
-        Second = RSet(Str(TGEx()\Time\Second), 2, "0")
-        
-        TGEx()\Selection\hX     = X
-        TGEx()\Selection\hWidth = TextWidth(Hour)
-        TGEx()\Selection\mX     = TGEx()\Selection\hX + TGEx()\Selection\hWidth + TextWidth(" : ")
-        TGEx()\Selection\mWidth = TextWidth(Minute)
-        If TGEx()\Flags & #NoSeconds
-          TGEx()\Selection\sX     = 0
-          TGEx()\Selection\sWidth = 0
-        Else
-          TGEx()\Selection\sX     = TGEx()\Selection\mX + TGEx()\Selection\mWidth + TextWidth(" : ")
-          TGEx()\Selection\sWidth = TextWidth(Second)
-        EndIf
-
-        DrawingMode(#PB_2DDrawing_Transparent)
-        If TGEx()\Flags & #Format12Hour
-          TGEx()\Selection\uX     = TGEx()\Selection\sX + TGEx()\Selection\sWidth + TextWidth("  ")
-          TGEx()\Selection\uWidth = TextWidth(TGEx()\Time\AmPm)
-          If TGEx()\Flags & #NoSeconds
-            DrawText(X, Y, Hour + " : " + Minute + "  " + TGEx()\Time\AmPm, TGEx()\Color\Front)
-          Else
-            DrawText(X, Y, Hour + " : " + Minute + " : " + Second + "  " + TGEx()\Time\AmPm, TGEx()\Color\Front)
-          EndIf
-        Else
-          If TGEx()\Flags & #NoSeconds 
-            DrawText(X, Y, Hour + " : " + Minute, TGEx()\Color\Front)
-          Else
-            DrawText(X, Y, Hour + " : " + Minute + " : " + Second, TGEx()\Color\Front)
-          EndIf  
-        EndIf
-        
-        DrawingMode(#PB_2DDrawing_Default)
-        Select TGEx()\Time\State
-          Case #Hour
-            If TGEx()\State & #Input : Hour = RSet(TGEx()\Time\Input, 2, "0") : EndIf
-            DrawText(TGEx()\Selection\hX, Y, Hour,   TGEx()\Color\HighlightText, TGEx()\Color\Highlight)
-          Case #Minute
-            If TGEx()\State & #Input : Minute = RSet(TGEx()\Time\Input, 2, "0") : EndIf
-            DrawText(TGEx()\Selection\mX, Y, Minute, TGEx()\Color\HighlightText, TGEx()\Color\Highlight)
-          Case #Second 
-            If TGEx()\Flags & #NoSeconds = #False
-              If TGEx()\State & #Input : Second = RSet(TGEx()\Time\Input, 2, "0") : EndIf
-              DrawText(TGEx()\Selection\sX, Y, Second, TGEx()\Color\HighlightText, TGEx()\Color\Highlight)
-            EndIf
-          Case #AmPm
-            DrawText(TGEx()\Selection\uX, Y, TGEx()\Time\AmPm, TGEx()\Color\HighlightText, TGEx()\Color\Highlight)
-        EndSelect
-        ;}
-        
-        ;{ _____ Border ____
-        If TGEx()\Flags & #Borderless = #False
-          DrawingMode(#PB_2DDrawing_Outlined)
-          Box(0, 0, dpiX(GadgetWidth(TGEx()\CanvasNum)), dpiY(GadgetHeight(TGEx()\CanvasNum)), BorderColor)
-        EndIf
-        ;}
+      EndIf 
       
-       StopDrawing()
-     EndIf
+      DrawingMode(#PB_2DDrawing_Default)
+      Box_(TGEx()\Button\X, TGEx()\Button\Y2, dpiX(#ButtonWidth), TGEx()\Button\Height, btBackColor)
+      Arrow_(TGEx()\Button\X, TGEx()\Button\Y2, dpiX(#ButtonWidth), TGEx()\Button\Height, #Down)
+      DrawingMode(#PB_2DDrawing_Outlined)
+      Box_(TGEx()\Button\X, TGEx()\Button\Y2, dpiX(#ButtonWidth), TGEx()\Button\Height, btBorderColor)
+      ;}
+      
+      ;{ _____ Text ____
+      DrawingFont(TGEx()\FontID)
+      
+      X = dpiX(4)
+      Y = (Height - TextHeight("X")) / 2
+      
+      Hour   = RSet(Str(TGEx()\Time\Hour),   2, "0")
+      Minute = RSet(Str(TGEx()\Time\Minute), 2, "0")
+      Second = RSet(Str(TGEx()\Time\Second), 2, "0")
+      
+      TGEx()\Selection\hX     = X
+      TGEx()\Selection\hWidth = TextWidth(Hour)
+      TGEx()\Selection\mX     = TGEx()\Selection\hX + TGEx()\Selection\hWidth + TextWidth(" : ")
+      TGEx()\Selection\mWidth = TextWidth(Minute)
+      If TGEx()\Flags & #NoSeconds
+        TGEx()\Selection\sX     = 0
+        TGEx()\Selection\sWidth = 0
+      Else
+        TGEx()\Selection\sX     = TGEx()\Selection\mX + TGEx()\Selection\mWidth + TextWidth(" : ")
+        TGEx()\Selection\sWidth = TextWidth(Second)
+      EndIf
+
+      DrawingMode(#PB_2DDrawing_Transparent)
+      If TGEx()\Flags & #Format12Hour
+        TGEx()\Selection\uX     = TGEx()\Selection\sX + TGEx()\Selection\sWidth + TextWidth("  ")
+        TGEx()\Selection\uWidth = TextWidth(TGEx()\Time\AmPm)
+        If TGEx()\Flags & #NoSeconds
+          DrawText(X, Y, Hour + " : " + Minute + "  " + TGEx()\Time\AmPm, TGEx()\Color\Front)
+        Else
+          DrawText(X, Y, Hour + " : " + Minute + " : " + Second + "  " + TGEx()\Time\AmPm, TGEx()\Color\Front)
+        EndIf
+      Else
+        If TGEx()\Flags & #NoSeconds 
+          DrawText(X, Y, Hour + " : " + Minute, TGEx()\Color\Front)
+        Else
+          DrawText(X, Y, Hour + " : " + Minute + " : " + Second, TGEx()\Color\Front)
+        EndIf  
+      EndIf
+      
+      DrawingMode(#PB_2DDrawing_Default)
+      Select TGEx()\Time\State
+        Case #Hour
+          If TGEx()\State & #Input : Hour = RSet(TGEx()\Time\Input, 2, "0") : EndIf
+          DrawText(TGEx()\Selection\hX, Y, Hour,   TGEx()\Color\HighlightText, TGEx()\Color\Highlight)
+        Case #Minute
+          If TGEx()\State & #Input : Minute = RSet(TGEx()\Time\Input, 2, "0") : EndIf
+          DrawText(TGEx()\Selection\mX, Y, Minute, TGEx()\Color\HighlightText, TGEx()\Color\Highlight)
+        Case #Second 
+          If TGEx()\Flags & #NoSeconds = #False
+            If TGEx()\State & #Input : Second = RSet(TGEx()\Time\Input, 2, "0") : EndIf
+            DrawText(TGEx()\Selection\sX, Y, Second, TGEx()\Color\HighlightText, TGEx()\Color\Highlight)
+          EndIf
+        Case #AmPm
+          DrawText(TGEx()\Selection\uX, Y, TGEx()\Time\AmPm, TGEx()\Color\HighlightText, TGEx()\Color\Highlight)
+      EndSelect
+      ;}
+      
+      ;{ _____ Border ____
+      If TGEx()\Flags & #Borderless = #False
+        DrawingMode(#PB_2DDrawing_Outlined)
+        Box_(0, 0, dpiX(GadgetWidth(TGEx()\CanvasNum)), dpiY(GadgetHeight(TGEx()\CanvasNum)), BorderColor)
+      EndIf
+      ;}
+    
+     StopDrawing()
+   EndIf
      
-    EndIf
     
   EndProcedure
   
@@ -468,10 +503,13 @@ Module TimeEx
         TGEx()\Color\Back          = ModuleEx::ThemeGUI\BackColor
         TGEx()\Color\Focus         = ModuleEx::ThemeGUI\Focus\BackColor
         TGEx()\Color\Border        = ModuleEx::ThemeGUI\BorderColor
+        TGEx()\Color\Gadget        = ModuleEx::ThemeGUI\GadgetColor
         TGEx()\Color\Highlight     = ModuleEx::ThemeGUIFocus\BackColor
         TGEx()\Color\HighlightText = ModuleEx::ThemeGUI\Focus\FrontColor
         TGEx()\Color\Button        = ModuleEx::ThemeGUI\Button\BackColor
         TGEx()\Color\ButtonBorder  = ModuleEx::ThemeGUI\\Button\BorderColor
+				TGEx()\Color\DisableFront  = ModuleEx::ThemeGUI\Disable\FrontColor
+				TGEx()\Color\DisableBack   = ModuleEx::ThemeGUI\Disable\BackColor
 				
         Draw_()
       Next
@@ -488,7 +526,7 @@ Module TimeEx
       
       TGEx()\State | #Focus
       
-      Draw_(GNum)
+      Draw_()
     EndIf
     
   EndProcedure  
@@ -506,7 +544,7 @@ Module TimeEx
       
       TGEx()\Time\State = #False
       
-      Draw_(GNum)
+      Draw_()
     EndIf
     
   EndProcedure      
@@ -519,7 +557,7 @@ Module TimeEx
       TGEx()\Button\State & ~#FocusUp
       TGEx()\Button\State & ~#FocusDown
       
-      Draw_(GNum)
+      Draw_()
     EndIf
     
   EndProcedure
@@ -554,7 +592,7 @@ Module TimeEx
         
       EndIf
    
-      Draw_(GNum) 
+      Draw_() 
     EndIf
     
   EndProcedure  
@@ -582,7 +620,7 @@ Module TimeEx
       
       TGEx()\State | #Focus
 
-      Draw_(GNum)
+      Draw_()
     EndIf
     
   EndProcedure 
@@ -659,7 +697,7 @@ Module TimeEx
       TGEx()\Button\State & ~#ClickDown
       TGEx()\Button\State & ~#ClickUp
       
-      Draw_(GNum)
+      Draw_()
     EndIf
     
   EndProcedure   
@@ -701,7 +739,7 @@ Module TimeEx
             TGEx()\State | #Input
         EndSelect
         
-        Draw_(GNum)
+        Draw_()
       EndIf
     EndIf
     
@@ -819,7 +857,7 @@ Module TimeEx
           EndIf;}
       EndSelect
       
-      Draw_(GNum)
+      Draw_()
       
     EndIf
 
@@ -959,10 +997,13 @@ Module TimeEx
         TGEx()\Color\Back          = $FFFFFF
         TGEx()\Color\Focus         = $D77800
         TGEx()\Color\Border        = $A0A0A0
+        TGEx()\Color\Gadget        = $EDEDED
         TGEx()\Color\Highlight     = $D77800
         TGEx()\Color\HighlightText = $FFFFFF
         TGEx()\Color\Button        = $E3E3E3    
         TGEx()\Color\ButtonBorder  = $A0A0A0
+        TGEx()\Color\DisableFront  = $72727D
+        TGEx()\Color\DisableBack   = $CCCCCA
         
         CompilerSelect #PB_Compiler_OS ;{ Color
           CompilerCase #PB_OS_Windows
@@ -974,6 +1015,7 @@ Module TimeEx
             TGEx()\Color\HighlightText = GetSysColor_(#COLOR_HIGHLIGHTTEXT)
             TGEx()\Color\Button        = GetSysColor_(#COLOR_3DFACE) 
             TGEx()\Color\ButtonBorder  = GetSysColor_(#COLOR_3DSHADOW)
+            TGEx()\Color\Gadget        = GetSysColor_(#COLOR_MENU)
           CompilerCase #PB_OS_MacOS
             TGEx()\Color\Front         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
             TGEx()\Color\Back          = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
@@ -982,6 +1024,7 @@ Module TimeEx
             TGEx()\Color\Highlight     = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedControlColor"))
             TGEx()\Color\Button        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
             TGEx()\Color\ButtonBorder  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+            TGEx()\Color\Gadget        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
           CompilerCase #PB_OS_Linux
 
         CompilerEndSelect ;}
@@ -1012,11 +1055,55 @@ Module TimeEx
         
       EndIf
       
-      Draw_(GNum)
+      Draw_()
     EndIf
     
   EndProcedure
   
+  Procedure   Hide(GNum.i, State.i=#True)
+  
+    If FindMapElement(TGEx(), Str(GNum))
+      
+      If State
+        TGEx()\Hide = #True
+        HideGadget(GNum, #True)
+      Else
+        TGEx()\Hide = #False
+        HideGadget(GNum, #False)
+        Draw_()
+      EndIf  
+      
+    EndIf  
+    
+  EndProcedure
+
+  Procedure   Disable(GNum.i, State.i=#True)
+    
+    If FindMapElement(TGEx(), Str(GNum))
+  
+      TGEx()\Disable = State
+      DisableGadget(GNum, State)
+      
+      Draw_()
+      
+    EndIf  
+    
+  EndProcedure 	
+  
+  
+  Procedure   SetAttribute(GNum.i, Attribute.i, Value.i)
+    
+    If FindMapElement(TGEx(), Str(GNum))
+      
+      Select Attribute
+        Case #Corner
+          TGEx()\Radius  = Value
+      EndSelect
+      
+      Draw_()
+    EndIf
+    
+  EndProcedure
   
   Procedure   SetColor(GNum.i, ColorType.i, Color.i) 
     
@@ -1037,7 +1124,7 @@ Module TimeEx
           TGEx()\Color\HighlightText = Color
       EndSelect
       
-      Draw_(GNum)
+      Draw_()
     EndIf
     
   EndProcedure
@@ -1050,7 +1137,7 @@ Module TimeEx
         TGEx()\FontID = FontID(FontNum)
       EndIf
       
-      Draw_(GNum)
+      Draw_()
     EndIf
     
   EndProcedure
@@ -1077,7 +1164,7 @@ Module TimeEx
       
       TGEx()\Time\Minute = Mod(Minute, 60)
       
-      Draw_(GNum)
+      Draw_()
     EndIf
     
   EndProcedure
@@ -1129,6 +1216,9 @@ CompilerIf #PB_Compiler_IsMainFile
     TimeEx::Gadget(#TimeUS, 189, 15, 106, 25, "9:45 pm", TimeEx::#Format12Hour, #Window)
     ;TimeEx::SetState(#TimeUS, 54900)
     
+    ;TimeEx::Disable(#Time, #True)
+    ;TimeEx::SetAttribute(#Time, TimeEx::#Corner, 4)
+    
     Repeat
       Event = WaitWindowEvent()
       Select Event
@@ -1145,7 +1235,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 51
-; Folding = 9DmQOAA+E+
+; CursorPosition = 55
+; FirstLine = 4
+; Folding = sEwAWAAAoB9
 ; EnableXP
 ; DPIAware
