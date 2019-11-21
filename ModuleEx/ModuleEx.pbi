@@ -58,7 +58,7 @@
 
 DeclareModule ModuleEx
   
-  #Version = 19112101
+  #Version = 19112102
   
   #Enable_Tabulator_Management = #True
   
@@ -1102,6 +1102,9 @@ Module ModuleEx
         ThemeGUI\Progress\BackColor     = #PB_Default
         ThemeGUI\Progress\GradientColor = $7EB05F
         ThemeGUI\Progress\BorderColor   = $295B0A
+        ThemeGUI\Disable\FrontColor     = $72727D
+        ThemeGUI\Disable\BackColor      = $CCCCCA
+        ThemeGUI\Disable\BorderColor    = $72727D
         ;}
         
       Case #Theme_DarkBlue ;{ Dark Blue Theme
@@ -1128,6 +1131,9 @@ Module ModuleEx
         ThemeGUI\Progress\BackColor     = #PB_Default 
         ThemeGUI\Progress\GradientColor = $B06400
         ThemeGUI\Progress\BorderColor   = $B88038
+        ThemeGUI\Disable\FrontColor     = $72727D
+        ThemeGUI\Disable\BackColor      = $CCCCCA
+        ThemeGUI\Disable\BorderColor    = $72727D
         ;}  
         
       Case #Theme_Dark  ;{ Dark 
@@ -1154,18 +1160,25 @@ Module ModuleEx
         ThemeGUI\Progress\BackColor     = #PB_Default
         ThemeGUI\Progress\GradientColor = $B06400
         ThemeGUI\Progress\BorderColor   = $B06400
-        ThemeGUI\WindowColor = $342B1D
-        ThemeGUI\GadgetColor = $342B1D
+        ThemeGUI\WindowColor            = $342B1D
+        ThemeGUI\GadgetColor            = $342B1D
+        ThemeGUI\Disable\FrontColor     = $72727D
+        ThemeGUI\Disable\BackColor      = $CCCCCA
+        ThemeGUI\Disable\BorderColor    = $72727D
         ;}
         
       Default           ;{ Default Theme
         
-        ThemeGUI\RowColor          = $FCFCFC
+        ThemeGUI\RowColor               = $FCFCFC
         
-        ThemeGUI\Title\FrontColor  = $FFFFFF
-        ThemeGUI\Title\BackColor   = $FCF9F5
+        ThemeGUI\Title\FrontColor       = $FFFFFF
+        ThemeGUI\Title\BackColor        = $FCF9F5
         
-        ThemeGUI\Header\LightColor = $F6EDE2
+        ThemeGUI\Header\LightColor      = $F6EDE2
+        
+        ThemeGUI\Disable\FrontColor     = $72727D
+        ThemeGUI\Disable\BackColor      = $CCCCCA
+        ThemeGUI\Disable\BorderColor    = $72727D
         
         ThemeGUI\Progress\TextColor     = $F9FEF8
         ThemeGUI\Progress\FrontColor    = $31EE07
@@ -1216,12 +1229,9 @@ Module ModuleEx
             ThemeGUI\Button\BorderColor  = $A0A0A0
             ThemeGUI\Title\BorderColor   = $B4B4B4
             ThemeGUI\ScrollbarColor      = $C8C8C8
-            ThemeGUI\Disable\FrontColor  = $72727D
-            ThemeGUI\Disable\BackColor   = $CCCCCA
-            ThemeGUI\Disable\BorderColor = $72727D
         CompilerEndSelect
         ;}
-        ;SaveTheme_("Theme_Default.xml")
+      ;SaveTheme_("Theme_Default.xml")
     EndSelect
     
     PostEvent(#Event_Theme)
@@ -1304,8 +1314,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 110
-; FirstLine = 25
-; Folding = EEgAAAAABAAGw
+; CursorPosition = 60
+; FirstLine = 31
+; Folding = EEgAAAAABAACw
 ; EnableXP
 ; DPIAware
