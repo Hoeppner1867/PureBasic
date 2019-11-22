@@ -7,7 +7,7 @@
 ;/ Â© 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 21.11.2019
+; Last Update: 22.11.2019
 ;
 ; Bugfix: Themes
 ;
@@ -68,7 +68,7 @@
 
 DeclareModule ButtonEx
   
-  #Version  = 19112100
+  #Version  = 19112200
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -145,12 +145,15 @@ DeclareModule ButtonEx
 	Declare   AddImage(GNum.i, ImageNum.i, Width.i=#PB_Default, Height.i=#PB_Default, Flags.i=#Left)
 	Declare   Disable(GNum.i, State.i=#True)
 	Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Text.s, Flags.i, WindowNum.i=#PB_Default)
+	Declare.i GetDate(GNum.i)
 	Declare.i GetState(GNum.i)
+	Declare.s GetText(GNum.i)
 	Declare   Hide(GNum.i, State.i=#True)
 	Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
 	Declare   SetAutoResizeFlags(GNum.i, Flags.i)
 	Declare   SetColor(GNum.i, ColorType.i, Color.i)
 	Declare   SetFont(GNum.i, FontNum.i)
+	Declare   SetDate(GNum.i, Value.i)
 	Declare   SetState(GNum.i, State.i)
 	Declare   SetText(GNum.i, Text.s)
 
@@ -875,7 +878,8 @@ Module ButtonEx
     EndIf  
     
   EndProcedure 
-	
+  
+  
 	Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Text.s, Flags.i, WindowNum.i=#PB_Default)
 		Define Result.i, txtNum
 		
@@ -1002,6 +1006,14 @@ Module ButtonEx
 	EndProcedure
 	
 	
+	Procedure.i GetDate(GNum.i)
+	  
+	  If FindMapElement(BtEx(), Str(GNum))
+	    ProcedureReturn GetGadgetData(BtEx()\CanvasNum)
+	  EndIf  
+	  
+	EndProcedure	
+	
 	Procedure.i GetState(GNum.i)
 
 		If FindMapElement(BtEx(), Str(GNum))
@@ -1013,6 +1025,15 @@ Module ButtonEx
 		EndIf
 
 	EndProcedure
+	
+	Procedure.s GetText(GNum.i)
+	  
+	  If FindMapElement(BtEx(), Str(GNum))
+	    ProcedureReturn BtEx()\Text
+	  EndIf  
+	  
+	EndProcedure
+	
 	
 	Procedure   Hide(GNum.i, State.i=#True)
     
@@ -1090,6 +1111,15 @@ Module ButtonEx
 
 	EndProcedure	
 	
+	Procedure   SetDate(GNum.i, Value.i)
+	  
+	  If FindMapElement(BtEx(), Str(GNum))
+	    ProcedureReturn SetGadgetData(BtEx()\CanvasNum, Value)
+	  EndIf  
+	  
+	EndProcedure
+	
+	
 	Procedure   SetState(GNum.i, State.i)
 
 		If FindMapElement(BtEx(), Str(GNum))
@@ -1107,6 +1137,7 @@ Module ButtonEx
 		EndIf
 
 	EndProcedure
+	
 	
 	CompilerIf Defined(ModuleEx, #PB_Module)
 	  
@@ -1314,8 +1345,7 @@ CompilerIf #PB_Compiler_IsMainFile
 
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 873
-; FirstLine = 118
-; Folding = MQAC5zTgQYAi-
+; CursorPosition = 9
+; Folding = MQAC5zTgQYAA9
 ; EnableXP
 ; DPIAware

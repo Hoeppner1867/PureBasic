@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 21.11.19
+; Last Update: 22.11.19
 ;
 ; Added: #EventType_Change
 ; 
@@ -134,7 +134,7 @@
 
 DeclareModule EditEx
   
-  #Version  = 19112100
+  #Version  = 19112200
   #ModuleEx = 19111702
   
   ;- ============================================================================
@@ -179,6 +179,7 @@ DeclareModule EditEx
     #ScrollBar_Vertical
     #ScrollBar_Horizontal
     #UseExistingCanvas
+    #Corner
   EndEnumeration
   
   EnumerationBinary SpellCheck
@@ -308,6 +309,7 @@ DeclareModule EditEx
   Declare   Cut(GNum.i)
   Declare.i CountItems(GNum.i)
   Declare   DeleteSelection(GNum.i, Remove.i=#True)
+  Declare   Disable(GNum.i, State.i=#True)
   Declare   Free(GNum.i)
   Declare   FreeGadgets(WindowNum.i)
   Declare.i GetAttribute(GNum.i, Attribute.i)
@@ -317,6 +319,7 @@ DeclareModule EditEx
   Declare.s GetText(GNum.i, Flags.i=#False)
   Declare   InsertText(GNum.i, Text.s)
   Declare.i IsSelected(GNum.i) 
+  Declare   Hide(GNum.i, State.i=#True)
   Declare   Paste(GNum.i)
   Declare   ReDraw(GNum.i)
   Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
@@ -550,6 +553,7 @@ Module EditEx
     Front.i
     Back.i
     Cursor.i
+    Gadget.i
     SpellCheck.i
     SyntaxHighlight.i
     Highlight.i
@@ -557,6 +561,8 @@ Module EditEx
     ReadOnly.i
     ScrollBar.i
     Border.i
+    DisableFront.i
+    DisableBack.i
   EndStructure ;}
   
   Structure EditEx_Window_Structure  ;{ EditEx()\Window\...
@@ -599,7 +605,10 @@ Module EditEx
     SyntaxHighlight.i
     
     Text$
-
+    
+    Disable.i
+    Hide.i
+    
     Flags.i
     ; ----------------
     Window.EditEx_Window_Structure
@@ -2421,16 +2430,30 @@ Module EditEx
     
     ProcedureReturn #False
   EndProcedure
-
+  
+ 
   Procedure   Draw_()
     Define.i PosX, PosY, PosOffset, RowOffset
+    Define.i FrontColor.i, BackColor.i, BorderColor.i
     Define.s Row$
-
+    
+    If EditEx()\Hide : ProcedureReturn #False : EndIf
+    
     If StartDrawing(CanvasOutput(EditEx()\CanvasNum)) 
-
+      
+      FrontColor  = EditEx()\Color\Front
+      BackColor   = EditEx()\Color\Back
+      BorderColor = EditEx()\Color\Border
+      
+      If EditEx()\Disable
+        FrontColor  = EditEx()\Color\DisableFront
+        BackColor   = BlendColor_(EditEx()\Color\DisableBack, EditEx()\Color\Gadget, 10)
+        BorderColor = EditEx()\Color\DisableFront
+      EndIf  
+      
       ;{ _____ Draw Background _____
-      DrawingMode(#PB_2DDrawing_Default)
-      Box(0, 0, dpiX(GadgetWidth(EditEx()\CanvasNum)), dpiY(GadgetHeight(EditEx()\CanvasNum)), EditEx()\Color\Back)  
+      DrawingMode(#PB_2DDrawing_Default) 
+      Box(0, 0, dpiX(GadgetWidth(EditEx()\CanvasNum)), dpiY(GadgetHeight(EditEx()\CanvasNum)), BackColor)  
       ;}
       
       PosOffset = EditEx()\Visible\PosOffset
@@ -2453,20 +2476,24 @@ Module EditEx
         
         If EditEx()\Flags & #CtrlChars : Row$ = ReplaceString(Row$, #LF$, #Paragraph$) : EndIf
 
-        DrawText(PosX, PosY, RTrim(Row$, #LF$), EditEx()\Color\Front)
+        DrawText(PosX, PosY, RTrim(Row$, #LF$), FrontColor)
         
         DrawingMode(#PB_2DDrawing_Default)
         
-        ForEach EditEx()\Row()\Highlight()
-          PosX = EditEx()\Row()\Highlight()\X - PosOffset
-          DrawText(PosX, PosY, EditEx()\Row()\Highlight()\String, EditEx()\Row()\Highlight()\Color, EditEx()\Color\Back)
-        Next  
+        If Not EditEx()\Disable
+          ForEach EditEx()\Row()\Highlight()
+            PosX = EditEx()\Row()\Highlight()\X - PosOffset
+            DrawText(PosX, PosY, EditEx()\Row()\Highlight()\String, EditEx()\Row()\Highlight()\Color, BackColor)
+          Next  
+        EndIf
         
-        If EditEx()\Row()\Selection\State
-          PosX = EditEx()\Row()\Selection\X - PosOffset
-          DrawText(PosX, PosY, EditEx()\Row()\Selection\String, EditEx()\Color\HighlightText, EditEx()\Color\Highlight)
-        EndIf  
-
+        If Not EditEx()\Disable
+          If EditEx()\Row()\Selection\State
+            PosX = EditEx()\Row()\Selection\X - PosOffset
+            DrawText(PosX, PosY, EditEx()\Row()\Selection\String, EditEx()\Color\HighlightText, EditEx()\Color\Highlight)
+          EndIf  
+        EndIf
+        
         If PosY + EditEx()\Text\Height > dpiY(EditEx()\Visible\Height) : Break : EndIf
         
       Next ;}
@@ -2530,8 +2557,8 @@ Module EditEx
       
       ;{ _____ Padding _____
       DrawingMode(#PB_2DDrawing_Default)
-      Box(0, dpiY(GadgetHeight(EditEx()\CanvasNum) - EditEx()\Size\PaddingY), dpiX(GadgetWidth(EditEx()\CanvasNum)), dpiY(EditEx()\Size\PaddingY), EditEx()\Color\Back)
-      Box(dpiX(GadgetWidth(EditEx()\CanvasNum) - EditEx()\Size\PaddingX), 0, dpiX(EditEx()\Size\PaddingX), dpiY(GadgetHeight(EditEx()\CanvasNum)), EditEx()\Color\Back)
+      Box(0, dpiY(GadgetHeight(EditEx()\CanvasNum) - EditEx()\Size\PaddingY), dpiX(GadgetWidth(EditEx()\CanvasNum)), dpiY(EditEx()\Size\PaddingY), BackColor)
+      Box(dpiX(GadgetWidth(EditEx()\CanvasNum) - EditEx()\Size\PaddingX), 0, dpiX(EditEx()\Size\PaddingX), dpiY(GadgetHeight(EditEx()\CanvasNum)), BackColor)
       If EditEx()\VScroll\Hide = #False
         Box(dpiX(GadgetWidth(EditEx()\CanvasNum)) - dpiX(#Scroll_Width + 1), dpiX(2), dpiX(#Scroll_Width), dpiY(GadgetHeight(EditEx()\CanvasNum)) - dpiY(4), EditEx()\Color\ScrollBar)
       EndIf ;}
@@ -2539,7 +2566,7 @@ Module EditEx
       ;{ _____ Border _____
       If EditEx()\Flags & #Borderless = #False
         DrawingMode(#PB_2DDrawing_Outlined)
-        Box(0, 0, dpiX(GadgetWidth(EditEx()\CanvasNum)), dpiY(GadgetHeight(EditEx()\CanvasNum)), EditEx()\Color\Border)
+        Box(0, 0, dpiX(GadgetWidth(EditEx()\CanvasNum)), dpiY(GadgetHeight(EditEx()\CanvasNum)), BorderColor)
       EndIf ;}
 
       StopDrawing()
@@ -2582,7 +2609,9 @@ Module EditEx
         EditEx()\Color\HighlightText = ModuleEx::ThemeGUI\Focus\FrontColor
         EditEx()\Color\Highlight     = ModuleEx::ThemeGUI\Focus\BackColor
         EditEx()\Color\ScrollBar     = ModuleEx::ThemeGUI\ScrollbarColor
-
+        EditEx()\Color\DisableFront = ModuleEx::ThemeGUI\Disable\FrontColor
+        EditEx()\Color\DisableBack  = ModuleEx::ThemeGUI\Disable\BackColor
+        
         Draw_()
       Next
       
@@ -4398,7 +4427,6 @@ Module EditEx
     EndIf
   EndProcedure   
   
-  
   Procedure.i CountItems(GNum.i)
     
     If FindMapElement(EditEx(), Str(GNum))
@@ -4406,6 +4434,19 @@ Module EditEx
     EndIf  
     
   EndProcedure
+  
+  Procedure   Disable(GNum.i, State.i=#True)
+    
+    If FindMapElement(EditEx(), Str(GNum))
+  
+      EditEx()\Disable = State
+      DisableGadget(GNum, State)
+      
+      Draw_()
+      
+    EndIf  
+    
+  EndProcedure 	
   
   
   Procedure.i GetAttribute(GNum.i, Attribute.i)          ; Similar to GetGadgetAttribute()
@@ -4500,6 +4541,23 @@ Module EditEx
     
   EndProcedure  
   
+  Procedure   Hide(GNum.i, State.i=#True)
+    
+    If FindMapElement(EditEx(), Str(GNum))
+      
+      If State
+        EditEx()\Hide = #True
+        HideGadget(GNum, #True)
+      Else
+        EditEx()\Hide = #False
+        HideGadget(GNum, #False)
+        Draw_()
+      EndIf  
+      
+    EndIf  
+    
+  EndProcedure
+  
   
   Procedure   SetAttribute(GNum.i, Attribute.i, Value.i) ; Similar to SetGadgetAttribute()
     
@@ -4526,7 +4584,7 @@ Module EditEx
             EditEx()\Flags | #CtrlChars 
           Else
             EditEx()\Flags & ~#CtrlChars
-          EndIf  
+          EndIf 
       EndSelect
       
     EndIf
@@ -4969,17 +5027,21 @@ Module EditEx
       EditEx()\Color\Front         = $000000
       EditEx()\Color\Back          = $FFFFFF
       EditEx()\Color\ReadOnly      = $F5F5F5
+      EditEx()\Color\Gadget        = $EDEDED
       EditEx()\Color\Cursor        = $000000
       EditEx()\Color\HighlightText = $FFFFFF
       EditEx()\Color\Highlight     = $D77800
       EditEx()\Color\ScrollBar     = $C8C8C8
       EditEx()\Color\Border        = $E3E3E3
+      EditEx()\Color\DisableFront = $72727D
+      EditEx()\Color\DisableBack  = $CCCCCA
       
       CompilerSelect  #PB_Compiler_OS
         CompilerCase #PB_OS_Windows
           EditEx()\Color\Front         = GetSysColor_(#COLOR_WINDOWTEXT)
           EditEx()\Color\Back          = GetSysColor_(#COLOR_WINDOW)
           EditEx()\Color\ReadOnly      = GetSysColor_(#COLOR_3DLIGHT)
+          EditEx()\Color\Gadget        = GetSysColor_(#COLOR_MENU)
           EditEx()\Color\HighlightText = GetSysColor_(#COLOR_HIGHLIGHTTEXT)
           EditEx()\Color\Highlight     = GetSysColor_(#COLOR_HIGHLIGHT)
           EditEx()\Color\Cursor        = GetSysColor_(#COLOR_WINDOWTEXT)
@@ -4989,6 +5051,7 @@ Module EditEx
           EditEx()\Color\Front         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
           EditEx()\Color\Back          = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 97)
           EditEx()\Color\ReadOnly      = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
+          EditEx()\Color\Gadget        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
           EditEx()\Color\HighlightText = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedTextColor"))
           EditEx()\Color\Highlight     = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedTextBackgroundColor"))
           EditEx()\Color\Cursor        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
@@ -5236,6 +5299,9 @@ CompilerIf #PB_Compiler_IsMainFile
     
     ;ModuleEx::SetTheme(ModuleEx::#Theme_Green)
     
+    EditEx::SetAttribute(#EditEx, EditEx::#Corner, 4)
+    ;EditEx::Disable(#EditEx)
+    
     QuitWindow = #False
     
     Repeat
@@ -5276,9 +5342,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 145
-; FirstLine = 30
-; Folding = 5XnRAgBAAIAEgBIC+FgiJACYBBBOA6V4DgRghgQgEyOEAQAfsTQ9-
-; Markers = 900
+; CursorPosition = 136
+; FirstLine = 21
+; Folding = 5XnRAiBACIAEgBIC+FAiJgBaBBBOA6V4DgRghgQgEyOEABB9wOBx-
+; Markers = 909,2434,4561
 ; EnableXP
 ; DPIAware

@@ -112,7 +112,7 @@
 
 DeclareModule Chart
   
-  #Version  = 19111900
+  #Version  = 19112200
   #ModuleEx = 19111702
   
   #Enable_PieChart       = #True
@@ -293,6 +293,7 @@ DeclareModule Chart
   Declare.s GetItemText(GNum.i, Position.i)
   Declare.i GetLabelColor(GNum.i, Label.s)
   Declare.i GetLabelState(GNum.i, Label.s)
+  Declare   Hide(GNum.i, State.i=#True)
   Declare.i RemoveItem(GNum.i, Position.i)
   Declare   RemoveLabel(GNum.i, Label.s)
   Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
@@ -516,6 +517,8 @@ Module Chart
     Minimum.i
     Maximum.i
     Decimals.i
+    
+    Hide.i
     
     AxisX.Chart_Axis_Structure
     AxisY.Chart_Axis_Structure
@@ -3626,6 +3629,8 @@ Module Chart
   Procedure   Draw_()
     Define.i X, Y, Width, Height
     
+    If Chart()\Hide : ProcedureReturn #False : EndIf
+    
     X = Chart()\Margin\Left
     Y = Chart()\Margin\Top
     
@@ -6024,6 +6029,23 @@ Module Chart
   EndProcedure
   
   
+  Procedure   Hide(GNum.i, State.i=#True)
+  
+    If FindMapElement(Chart(), Str(GNum))
+      
+      If State
+        Chart()\Hide = #True
+        HideGadget(GNum, #True)
+      Else
+        Chart()\Hide = #False
+        HideGadget(GNum, #False)
+        Draw_()
+      EndIf  
+      
+    EndIf  
+    
+  EndProcedure
+  
   Procedure.i RemoveItem(GNum.i, Position.i)
     
     If FindMapElement(Chart(), Str(GNum))
@@ -6852,8 +6874,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 5677
-; FirstLine = 3364
-; Folding = c--------futf5--------------xf-40v39AHASUAAxB34rKy--140f+--
+; CursorPosition = 114
+; FirstLine = 13
+; Folding = c--------futf5--------------xf-40v39AHASUAAxB34rql--pv8-9--
 ; EnableXP
 ; DPIAware

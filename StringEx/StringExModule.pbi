@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 21.11.19
+; Last Update: 22.11.19
 ;
 ; Added:   Attribute '#Corner'
 ;
@@ -75,7 +75,7 @@
 
 DeclareModule StringEx
   
-  #Version  = 19112100
+  #Version  = 19112200
   #ModuleEx = 19111703
   
   #Enable_AutoComplete       = #True
@@ -626,9 +626,9 @@ Module StringEx
     EndIf
     
     If CursorPos > 0
-      ProcedureReturn TextWidth(Left(Text, CursorPos)) + dpiX(4)
+      ProcedureReturn TextWidth(Left(Text, CursorPos))
     Else
-      ProcedureReturn dpiX(4)
+      ProcedureReturn 0
     EndIf
     
   EndProcedure
@@ -818,7 +818,7 @@ Module StringEx
         StrgEx()\Cursor\Pos = StrgEx()\Selection\Pos2
         
         DrawingMode(#PB_2DDrawing_Default)
-        DrawText(startX, Y, strgPart, StrgEx()\Color\HighlightText, StrgEx()\Color\Highlight)
+        DrawText(X + startX, Y, strgPart, StrgEx()\Color\HighlightText, StrgEx()\Color\Highlight)
 
       EndIf 
       ;}
@@ -2180,7 +2180,7 @@ CompilerIf #PB_Compiler_IsMainFile
     StringGadget(#String, 15, 19, 90, 20, "")
     ;SetGadgetAttribute(#String, #PB_String_MaximumLength, 5)
     
-    StringEx::Gadget(#StringEx, 120, 19, 90, 20, "AutoComplete", StringEx::#AutoComplete, #Window) ; StringEx::#ShowButton / StringEx::#Numeric / StringEx::#LowerCase / StringEx::#UpperCase / StringEx::#NotEditable / StringEx::#BorderLess
+    StringEx::Gadget(#StringEx, 120, 19, 90, 20, "AutoComplete", StringEx::#AutoComplete|StringEx::#Center, #Window) ; StringEx::#ShowButton / StringEx::#Numeric / StringEx::#LowerCase / StringEx::#UpperCase / StringEx::#NotEditable / StringEx::#BorderLess
     StringEx::AttachPopupMenu(#StringEx, #Popup)
     ;StringEx::SetAttribute(#StringEx, StringEx::#MaximumLength, 5)
     StringEx::AddWords(#StringEx, "Default Define Declare Degree Debug AutoComplete")
@@ -2249,9 +2249,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1797
-; FirstLine = 586
-; Folding = cHAEAgGKABAAAIDaAxADCK+
+; CursorPosition = 77
+; Folding = cHAEAgGqiAAAAACKAQADAI+
 ; EnableThread
 ; EnableXP
 ; DPIAware
