@@ -6,6 +6,8 @@
 ;/
 ;/ TreeEx - Gadget
 ;/
+;/ On request and with the sponsorship of Cyllceaux
+;/
 ;/ © 2019  by Thorsten Hoeppner (11/2019)
 ;/
 
@@ -74,7 +76,7 @@
 
 DeclareModule TreeEx
   
-  #Version  = 19112101
+  #Version  = 19112200
   #ModuleEx = 19112002
   
   #Enable_ProgressBar = #True
@@ -1280,9 +1282,13 @@ Module TreeEx
 			      TreeEx()\Rows()\Button\State ! #True
 			      
 			      If TreeEx()\Rows()\Button\State
+			        TreeEx()\Rows()\State | #Expanded
+    	        TreeEx()\Rows()\State & ~#Collapsed
 			        PostEvent(#PB_Event_Gadget, TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Expanded, ListIndex(TreeEx()\Rows()))
               PostEvent(#Event_Gadget,    TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Expanded, ListIndex(TreeEx()\Rows()))
-			      Else
+            Else
+              TreeEx()\Rows()\State | #Collapsed
+    	        TreeEx()\Rows()\State & ~#Expanded
 			        PostEvent(#PB_Event_Gadget, TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Collapsed, ListIndex(TreeEx()\Rows()))
               PostEvent(#Event_Gadget,    TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Collapsed, ListIndex(TreeEx()\Rows()))
 			      EndIf  
@@ -2237,8 +2243,12 @@ Module TreeEx
     
     	      If State & #Expanded
     	        TreeEx()\Rows()\Button\State = #True
+    	        TreeEx()\Rows()\State | #Expanded
+    	        TreeEx()\Rows()\State & ~#Collapsed
     	      ElseIf State & #Collapsed
     	        TreeEx()\Rows()\Button\State = #False
+    	        TreeEx()\Rows()\State | #Collapsed
+    	        TreeEx()\Rows()\State & ~#Expanded
     	      EndIf
     	      ;}
     	    Else                   ;{ Column of row
@@ -2412,7 +2422,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 76
-; Folding = 9ZAAAAUAoIDUAIADCAAMAA-
+; CursorPosition = 10
+; Folding = 9ZAAAAUAoIDUAIADCAAMgD-
 ; EnableXP
 ; DPIAware
