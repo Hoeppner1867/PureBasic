@@ -9,7 +9,7 @@
 ;/ © 2019  by Thorsten Hoeppner (07/2019)
 ;/
 
-; Last Update: 19.11.2019
+; Last Update: 21.11.2019
 ;
 ; ToolTip is now a separate window and not just a gadget
 ;
@@ -55,7 +55,7 @@
 
 DeclareModule ToolTip
   
-  #Version  = 19111900
+  #Version  = 19112100
   #ModuleEx = 19111702
   
 	;- ===========================================================================
@@ -236,7 +236,7 @@ Module ToolTip
 
     ExitThread = #True
     
-    Delay(200)
+    Delay(100)
     
     While IsThread(ThreadID)
       KillThread(ThreadID)
@@ -278,8 +278,8 @@ Module ToolTip
 	  If IsGadget(ToolTip()\GadgetNum)
   	  wX = dpiX(GadgetX(ToolTip()\GadgetNum, #PB_Gadget_ScreenCoordinate))
   	  wY = dpiY(GadgetY(ToolTip()\GadgetNum, #PB_Gadget_ScreenCoordinate))
-  	  gX = dpiX(GadgetX(ToolTip()\GadgetNum))
-  	  gY = dpiY(GadgetY(ToolTip()\GadgetNum))
+  	  gX = dpiX(GadgetX(ToolTip()\GadgetNum, #PB_Gadget_WindowCoordinate))
+  	  gY = dpiY(GadgetY(ToolTip()\GadgetNum, #PB_Gadget_WindowCoordinate))
   	  gWidth  = dpiX(GadgetWidth(ToolTip()\GadgetNum))
       gHeight = dpiY(GadgetHeight(ToolTip()\GadgetNum))
   	EndIf 
@@ -840,12 +840,13 @@ CompilerIf #PB_Compiler_IsMainFile
   
   If OpenWindow(#Window, 0, 0, 200, 100, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
     
-    If CanvasGadget(#Gadget, 10, 10, 180, 80, #PB_Canvas_Border)
+    If CanvasGadget(#Gadget, 10, 10, 180, 80, #PB_Canvas_Border|#PB_Canvas_Container)
       If StartDrawing(CanvasOutput(#Gadget))
         DrawingMode(#PB_2DDrawing_Outlined)
 			  Box(DesktopScaledX(80), DesktopScaledY(30), DesktopScaledX(20), DesktopScaledY(20), $800080)
         StopDrawing()
-      EndIf  
+      EndIf
+      CloseGadgetList()
     EndIf
     
     If ToolTip::Create(#Gadget, #Window)
@@ -870,8 +871,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 616
-; FirstLine = 248
-; Folding = 1ACUm1C9
+; CursorPosition = 11
+; Folding = 1ASWu9C9
 ; EnableXP
 ; DPIAware

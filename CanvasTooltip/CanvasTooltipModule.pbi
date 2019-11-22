@@ -9,7 +9,7 @@
 ;/ © 2019  by Thorsten Hoeppner (07/2019)
 ;/
 
-; Last Update: 13.07.2019
+; Last Update: 21.11.2019
 ;
 ; ToolTip is now a separate window and not just a gadget
 ;
@@ -54,7 +54,10 @@
 ;XIncludeFile "ModuleEx.pbi"
 
 DeclareModule ToolTip
-
+  
+  #Version  = 19112100
+  #ModuleEx = 19111702
+  
 	;- ===========================================================================
 	;-   DeclareModule - Constants
 	;- ===========================================================================
@@ -233,7 +236,7 @@ Module ToolTip
 
     ExitThread = #True
     
-    Delay(200)
+    Delay(100)
     
     While IsThread(ThreadID)
       KillThread(ThreadID)
@@ -275,8 +278,8 @@ Module ToolTip
 	  If IsGadget(ToolTip()\GadgetNum)
   	  wX = dpiX(GadgetX(ToolTip()\GadgetNum, #PB_Gadget_ScreenCoordinate))
   	  wY = dpiY(GadgetY(ToolTip()\GadgetNum, #PB_Gadget_ScreenCoordinate))
-  	  gX = dpiX(GadgetX(ToolTip()\GadgetNum))
-  	  gY = dpiY(GadgetY(ToolTip()\GadgetNum))
+  	  gX = dpiX(GadgetX(ToolTip()\GadgetNum, #PB_Gadget_WindowCoordinate))
+  	  gY = dpiY(GadgetY(ToolTip()\GadgetNum, #PB_Gadget_WindowCoordinate))
   	  gWidth  = dpiX(GadgetWidth(ToolTip()\GadgetNum))
       gHeight = dpiY(GadgetHeight(ToolTip()\GadgetNum))
   	EndIf 
@@ -431,6 +434,10 @@ Module ToolTip
 	  Procedure _ThemeHandler()
 
       ForEach ToolTip()
+        
+        If IsFont(ModuleEx::ThemeGUI\Font\Num)
+          ToolTip()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
+        EndIf
         
         ToolTip()\Color\Front       = ModuleEx::ThemeGUI\FrontColor
 				ToolTip()\Color\Back        = ModuleEx::ThemeGUI\BackColor
@@ -604,6 +611,10 @@ Module ToolTip
 
 	Procedure.i Create(Gadget.i, Window.i, Flags.i=#False)
 		Define DummyNum, GNum.i, WNum.i
+		
+		CompilerIf Defined(ModuleEx, #PB_Module)
+      If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
+    CompilerEndIf
 		
 		WNum = OpenWindow(#PB_Any, 0, 0, 0, 0, "ToolTip", #PB_Window_BorderLess|#PB_Window_Invisible, WindowID(Window))
 		If WNum
@@ -829,12 +840,13 @@ CompilerIf #PB_Compiler_IsMainFile
   
   If OpenWindow(#Window, 0, 0, 200, 100, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
     
-    If CanvasGadget(#Gadget, 10, 10, 180, 80, #PB_Canvas_Border)
+    If CanvasGadget(#Gadget, 10, 10, 180, 80, #PB_Canvas_Border|#PB_Canvas_Container)
       If StartDrawing(CanvasOutput(#Gadget))
         DrawingMode(#PB_2DDrawing_Outlined)
 			  Box(DesktopScaledX(80), DesktopScaledY(30), DesktopScaledX(20), DesktopScaledY(20), $800080)
         StopDrawing()
-      EndIf  
+      EndIf
+      CloseGadgetList()
     EndIf
     
     If ToolTip::Create(#Gadget, #Window)
@@ -858,9 +870,8 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf 
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 849
-; FirstLine = 378
-; Folding = 9ACUmUB+
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 11
+; Folding = 1ASWu9C9
 ; EnableXP
 ; DPIAware
