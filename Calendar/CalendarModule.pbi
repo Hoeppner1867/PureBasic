@@ -234,6 +234,7 @@ DeclareModule Calendar
   
   Declare.i AddEntry(GNum.i, Label.s, Summary.s, Description.s, Location.s, StartDate.q, EndDate.q=#PB_Default, Flag.i=#False)
   Declare   AttachPopupMenu(GNum.i, PopUpNum.i)
+  Declare   ClearEntries(GNum.i)
   Declare.i CountEntries(GNum.i, DayOfMonth.i)
   Declare.q GetDate(Day.i, Month.i, Year.i, Hour.i=0, Minute.i=0, Second.i=0)
   Declare   DefaultCountry(Code.s)
@@ -2239,6 +2240,14 @@ Module Calendar
     
   EndProcedure  
   
+  Procedure   ClearEntries(GNum.i)
+    
+    If FindMapElement(Calendar(), Str(GNum))
+      ClearMap(Calendar()\Entries())
+    EndIf  
+  
+  EndProcedure
+  
   Procedure.i CountEntries(GNum.i, DayOfMonth.i)
     
     If FindMapElement(Calendar(), Str(GNum))
@@ -3178,9 +3187,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 91
-; FirstLine = 12
-; Folding = MgPAAQGAgAAAi7BQEMRAArBQggAJ0
-; Markers = 1059,2729
+; CursorPosition = 236
+; FirstLine = 18
+; Folding = MAOAAAGAgAAAi7BQEMRABWDgABBS7
+; Markers = 1060,2738
 ; EnableXP
 ; DPIAware
