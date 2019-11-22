@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 21.11.19
+; Last Update: 22.11.19
 ;
 ; Added: #UseExistingCanvas
 ;
@@ -52,14 +52,14 @@
 
 DeclareModule TimeEx
   
-  #Version  = 19112100
+  #Version  = 19112200
   #ModuleEx = 19112102
   
   ;- ===========================================================================
   ;-   DeclareModule - Constants / Structures
   ;- =========================================================================== 
   
-  ;{ _____ Constants _____
+  ; _____ Constants _____
   EnumerationBinary ;{ Gadget Flags
     #Borderless
     #Format12Hour
@@ -504,10 +504,10 @@ Module TimeEx
         TGEx()\Color\Focus         = ModuleEx::ThemeGUI\Focus\BackColor
         TGEx()\Color\Border        = ModuleEx::ThemeGUI\BorderColor
         TGEx()\Color\Gadget        = ModuleEx::ThemeGUI\GadgetColor
-        TGEx()\Color\Highlight     = ModuleEx::ThemeGUIFocus\BackColor
+        TGEx()\Color\Highlight     = ModuleEx::ThemeGUI\Focus\BackColor
         TGEx()\Color\HighlightText = ModuleEx::ThemeGUI\Focus\FrontColor
         TGEx()\Color\Button        = ModuleEx::ThemeGUI\Button\BackColor
-        TGEx()\Color\ButtonBorder  = ModuleEx::ThemeGUI\\Button\BorderColor
+        TGEx()\Color\ButtonBorder  = ModuleEx::ThemeGUI\Button\BorderColor
 				TGEx()\Color\DisableFront  = ModuleEx::ThemeGUI\Disable\FrontColor
 				TGEx()\Color\DisableBack   = ModuleEx::ThemeGUI\Disable\BackColor
 				
@@ -1235,8 +1235,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 55
-; FirstLine = 4
-; Folding = sEwAWAAAoB9
+; CursorPosition = 54
+; FirstLine = 12
+; Folding = EAYA8AAA1A+
 ; EnableXP
 ; DPIAware
