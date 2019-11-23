@@ -1,0 +1,97 @@
+[Add.png]
+License: http://creativecommons.org/licenses/GPL/2.0/
+Source:  GNOME-Colors (http://code.google.com/p/gnome-colors/)
+
+[AddCrypt.png]
+License: http://creativecommons.org/licenses/by-sa/3.0/ 
+License: http://creativecommons.org/licenses/LGPL/2.1/
+Source:  Oxygen Icons (http://www.oxygen-icons.org/) 
+
+[Broken.png]
+License: http://creativecommons.org/licenses/by/3.0/
+License: http://creativecommons.org/licenses/by/2.5/
+Source:  http://www.famfamfam.com/lab/icons/silk/
+
+[Create.png]
+License: http://creativecommons.org/licenses/GPL/2.0/
+Source:  GNOME-Colors (http://code.google.com/p/gnome-colors/)
+
+[Crypt.png]
+License: http://creativecommons.org/licenses/by-sa/3.0/ 
+License: http://creativecommons.org/licenses/LGPL/2.1/
+Source:  Oxygen Icons (http://www.oxygen-icons.org/)
+
+[CryptPacked.png]
+License: http://creativecommons.org/licenses/by-sa/3.0/ 
+License: http://creativecommons.org/licenses/LGPL/2.1/
+Source:  Oxygen Icons (http://www.oxygen-icons.org/)
+
+[Decrypted.png]
+License: http://creativecommons.org/licenses/by-sa/3.0/ 
+License: http://creativecommons.org/licenses/LGPL/2.1/
+Source:  Oxygen Icons (http://www.oxygen-icons.org/)
+
+[Encrypted.png]
+License: http://creativecommons.org/licenses/by-sa/3.0/ 
+License: http://creativecommons.org/licenses/LGPL/2.1/
+Source:  Oxygen Icons (http://www.oxygen-icons.org/)
+
+[ListAdd.png]
+License: http://creativecommons.org/licenses/by-sa/3.0/ 
+License: http://creativecommons.org/licenses/LGPL/2.1/
+Source:  Oxygen Icons (http://www.oxygen-icons.org/)
+
+[ListRemove.png]
+License: http://creativecommons.org/licenses/by-sa/3.0/ 
+License: http://creativecommons.org/licenses/LGPL/2.1/
+Source:  Oxygen Icons (http://www.oxygen-icons.org/)
+
+[NoCrypt.png]
+License: http://creativecommons.org/licenses/by-sa/3.0/ 
+License: http://creativecommons.org/licenses/LGPL/2.1/
+Source:  Oxygen Icons (http://www.oxygen-icons.org/)
+
+[Open.png]
+License: http://creativecommons.org/licenses/by-sa/3.0/ 
+License: http://creativecommons.org/licenses/LGPL/2.1/
+Source:  Oxygen Icons (http://www.oxygen-icons.org/)
+
+[Packed.png]
+License: http://creativecommons.org/licenses/GPL/2.0/
+Source:  GNOME-Colors (http://code.google.com/p/gnome-colors/) 
+
+[Remove.png]
+License: http://creativecommons.org/licenses/GPL/2.0/
+Source:  GNOME-Colors (http://code.google.com/p/gnome-colors/) 
+
+[SelectAll.png]
+License: MIT
+Source:  Hoeppner1867
+
+[SelectNone.png]
+License: MIZ
+Source:  Hoeppner1867
+
+[Valid.png]
+License: http://creativecommons.org/licenses/by-sa/3.0/ 
+License: http://creativecommons.org/licenses/LGPL/2.1/
+Source:  Oxygen Icons (http://www.oxygen-icons.org/) 
+
+
+[Extract.png] 
+License: http://creativecommons.org/licenses/GPL/2.0/
+Source:  http://code.google.com/p/gnome-colors/
+
+[OK.png] 
+License: http://creativecommons.org/licenses/GPL/2.0/ 
+Source:  http://code.google.com/p/gnome-colors/
+
+
+
+[Show.png] 
+License: http://creativecommons.org/licenses/LGPL/2.1/
+Source:  http://www.icon-king.com/projects/nuvola/
+
+[UnPackEx.ico] 
+License: http://creativecommons.org/licenses/GPL/2.0/
+Source:  http://code.google.com/p/gnome-colors/

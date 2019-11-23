@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 20.11.2019
+; Last Update: 21.11.2019
 ;
 ; - Bugfix 
 ;
@@ -133,7 +133,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19112100
+  #Version  = 19112101
   #ModuleEx = 19112100
   
   #Enable_Validation  = #True
@@ -282,7 +282,7 @@ DeclareModule ListEx
     #MoveX
     #MoveY
     #Width
-    #Height
+    #Height  
   EndEnumeration 
   
   Enumeration 1
@@ -3033,7 +3033,7 @@ Module ListEx
   EndProcedure
  
   ;- __________ ScrollBars _________
-  
+
   Procedure   AdjustScrollBars_(Force.i=#False)
     Define.f WidthOffset
     Define.i Width
@@ -3109,9 +3109,10 @@ Module ListEx
 
       If ListEx()\Size\Cols > Width
         
+        WidthOffset = ListEx()\Size\Cols - Width
+
         If SelectElement(ListEx()\Cols(), ListEx()\AutoResize\Column)
-          
-          WidthOffset = ListEx()\Size\Cols - Width
+
           If ListEx()\Cols()\Width - WidthOffset >= ListEx()\AutoResize\MinWidth
             ListEx()\Cols()\Width  - WidthOffset
             ListEx()\Size\Cols     - WidthOffset
@@ -3119,22 +3120,23 @@ Module ListEx
             UpdateColumnX_()
             HideGadget(ListEx()\HScrollNum, #True) 
             ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width - 1, GadgetHeight(ListEx()\CanvasNum) - 2)
-          Else  
+          Else 
             WidthOffset = ListEx()\AutoResize\Width - ListEx()\Cols()\Width
+            ListEx()\Size\Cols - WidthOffset
             ListEx()\Cols()\Width = ListEx()\AutoResize\Width
             UpdateColumnX_()
           EndIf
           
         EndIf
         
-      ElseIf ListEx()\Size\Cols < Width
+      ElseIf ListEx()\Size\Cols And ListEx()\Size\Cols < Width
         
+        WidthOffset = Width - ListEx()\Size\Cols
+
         If SelectElement(ListEx()\Cols(), ListEx()\AutoResize\Column)
-          
-          WidthOffset = Width - ListEx()\Size\Cols
-          
+
           If ListEx()\AutoResize\maxWidth > #PB_Default And ListEx()\Cols()\Width + WidthOffset > ListEx()\AutoResize\maxWidth
-            ListEx()\Cols()\Width = ListEx()\AutoResize\maxWidth
+            ListEx()\Cols()\Width + ListEx()\AutoResize\maxWidth
           Else  
             ListEx()\Cols()\Width + WidthOffset
           EndIf
@@ -7366,7 +7368,7 @@ CompilerIf #PB_Compiler_IsMainFile
       
       ; --- Define AutoResize ---
       ListEx::SetAutoResizeColumn(#List, 2, 50)
-      ListEx::SetAutoResizeFlags(#List, ListEx::#Height)
+      ListEx::SetAutoResizeFlags(#List, ListEx::#Height|ListEx::#Width) ; 
       
       ; --- Mark content in accordance with certain rules   ---
       CompilerIf ListEx::#Enable_MarkContent
@@ -7500,9 +7502,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 4430
-; FirstLine = 754
-; Folding = 9PAACAAEAMQEIBMgw-AhHqXQBqgdCgiB9-PBA54nEIAgJwBYAwAAQAEAAAAIg6-
+; CursorPosition = 135
+; FirstLine = 9
+; Folding = 9PAACAAEAMQEIBMgwfAhHqXIBqgdCgCB9-PAAY4nAAAgJwBQAwAAAAgBAAAIw6-
+; Markers = 3036
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
