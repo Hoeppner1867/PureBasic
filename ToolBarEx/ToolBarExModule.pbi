@@ -9,11 +9,11 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 19.11.19
+; Last Update: 23.11.19
+;
+; Added: ToolBar::Hide()
 ;
 ; Added: #UseExistingCanvas
-;
-; Bugfix: Focus
 ;
 
 ;{ ===== MIT License =====
@@ -37,6 +37,14 @@
 ; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ; SOFTWARE.
+;}
+
+;{ ===== Additional tea & pizza license =====
+; <purebasic@thprogs.de> has created this code. 
+; If you find the code useful and you want to use it for your programs, 
+; you are welcome to support my work with a cup of tea or a pizza
+; (or the amount of money for it). 
+; [ https://www.paypal.me/Hoeppner1867 ]
 ;}
 
 
@@ -83,7 +91,7 @@
 
 DeclareModule ToolBar
   
-  #Version  = 19111900
+  #Version  = 19112300
   #ModuleEx = 19111702
   
   #EnableToolBarGadgets = #True
@@ -186,6 +194,7 @@ DeclareModule ToolBar
   Declare.i GetIndexFromID(GNum.i, EventID.s) 
   Declare   Height(GNum.i)
   Declare   HideButton(GNum.i, TB_Index.i, State.i)
+  Declare   Hide(GNum.i, State.i=#True)
   Declare   ImageButton(GNum.i, ImageNum.i, EventNum.i=#False, Text.s="", EventID.s="", Flags.i=#False)
   Declare   Separator(GNum.i, Width.i=#PB_Default)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
@@ -329,7 +338,8 @@ Module ToolBar
     LastFocus.i 
     ReDraw.i    ; #True/#False
     Spacer.i    ; Number of spaacer
-
+    Hide.i
+    
     ToolTip.i
     
     PostEvent.i
@@ -584,6 +594,8 @@ Module ToolBar
     Define.f X, Y, btY, btX, imgY, imgX, txtX, txtY, cbY
     Define.i Width, Height, btHeight, TextInside
     Define.i ImageID
+    
+    If TBEx()\Hide : ProcedureReturn #False : EndIf
     
     If StartDrawing(CanvasOutput(TBEx()\CanvasNum))
       
@@ -1752,6 +1764,24 @@ Module ToolBar
     
   EndProcedure
   
+  
+  Procedure   Hide(GNum.i, State.i=#True)
+  
+    If FindMapElement(TBEx(), Str(GNum))
+      
+      If State
+        TBEx()\Hide = #True
+        HideGadget(GNum, #True)
+      Else
+        TBEx()\Hide = #False
+        HideGadget(GNum, #False)
+        Draw_()
+      EndIf  
+      
+    EndIf  
+    
+  EndProcedure 
+  
   Procedure   HideButton(GNum.i, Index.i, State.i)
     
     If FindMapElement(TBEx(), Str(GNum))
@@ -2132,9 +2162,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1533
-; FirstLine = 554
-; Folding = 9BAEcQHz1mUAAOPAQ2v
+; CursorPosition = 196
+; FirstLine = 114
+; Folding = 5DAI5gOmpNpAAceAAV-+
 ; EnableXP
 ; DPIAware
 ; Executable = Test.exe

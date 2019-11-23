@@ -10,7 +10,7 @@
 ;/ Pattern based on (http://tug.org/tex-hyphen/)
 ;/
 
-; Last Update: 19.11.19
+; Last Update: 23.11.19
 ;
 ; Added: #UseExistingCanvas
 ;
@@ -37,6 +37,15 @@
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ; SOFTWARE.
 ;}
+
+;{ ===== Additional tea & pizza license =====
+; <purebasic@thprogs.de> has created this code. 
+; If you find the code useful and you want to use it for your programs, 
+; you are welcome to support my work with a cup of tea or a pizza
+; (or the amount of money for it). 
+; [ https://www.paypal.me/Hoeppner1867 ]
+;}
+
 
 ;{ _____ ViewerEx - Commands _____
 
@@ -93,7 +102,7 @@
 
 DeclareModule ViewerEx
   
-  #Version  = 19111900
+  #Version  = 19112300
   #ModuleEx = 19111702
   
   #Enable_Hyphenation         = #True
@@ -190,6 +199,7 @@ DeclareModule ViewerEx
   Declare   ClearContent(GNum.i)
   Declare.s EventValue(GNum.i)
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
+  Declare   Hide(GNum.i, State.i=#True)
   Declare.i Load(GNum.i, File.s)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetContent(GNum.i, Label.s="")
@@ -378,6 +388,7 @@ Module ViewerEx
     Indent.i
     ReDraw.i
     Cursor.i
+    Hide.i
     
     EventValue.s
     Label.s ; Label for current content
@@ -727,6 +738,8 @@ Module ViewerEx
     Define.s Text, Word, Number
     
     NewList Rows.s()
+    
+    If VGEx()\Hide : ProcedureReturn #False : EndIf
     
     If StartDrawing(CanvasOutput(VGEx()\CanvasNum))
       
@@ -2027,7 +2040,7 @@ Module ViewerEx
       
       ProcedureReturn #False  
     EndProcedure
-    
+
     Procedure   Hyphenation(CNum.i, PatternKey.s)
       
       If FindMapElement(Content(), Str(CNum))
@@ -2460,6 +2473,23 @@ Module ViewerEx
     
   EndProcedure
   
+  Procedure   Hide(GNum.i, State.i=#True)
+    
+    If FindMapElement(VGEx(), Str(GNum))
+      
+      If State
+        VGEx()\Hide = #True
+        HideGadget(GNum, #True)
+      Else
+        VGEx()\Hide = #False
+        HideGadget(GNum, #False)
+        Draw_()
+      EndIf  
+      
+    EndIf  
+    
+  EndProcedure 
+  
   Procedure.i Load(GNum.i, File.s)
     Define.i JSON, Pack, Size, Result = #False
     Define  *Buffer
@@ -2798,9 +2828,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 2304
-; FirstLine = 334
-; Folding = MCAAgBAACYwCAAAMAAAsLBk9
-; Markers = 1822
+; CursorPosition = 155
+; FirstLine = 79
+; Folding = YEAAIDAgEwgFAAAAAQAQHEQy
+; Markers = 1835
 ; EnableXP
 ; DPIAware
