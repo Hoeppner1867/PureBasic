@@ -58,6 +58,21 @@
   
 DeclareModule LSB
   
+  #Version  = 19112300
+  
+  #Enable_KeyCard = #True
+  
+  EnumerationBinary ;{ Text Flags
+	  #Center = #PB_Text_Center
+	  #Right  = #PB_Text_Right
+	  #Left
+	  #Top
+	  #Middle
+	  #Bottom
+	  #FitText
+	  #FixPadding
+	EndEnumeration ;}
+  
   Enumeration 1
     #Image
     #Available
@@ -87,6 +102,14 @@ DeclareModule LSB
   
   Declare.i GetSpace(ID.i, Type.i=#Available)
   
+  CompilerIf #Enable_KeyCard
+    
+    Declare.i KeyCard(ID.i, KeyCode.s)
+    Declare.i AddCardText(ID.i, Text.s, FontNum.i, Color.i=$000000, Flags.i=#False)
+    Declare.i AddCardInfo(ID.i, Label.s, Value.s)
+    
+  CompilerEndIf
+  
 EndDeclareModule
 
 Module LSB
@@ -106,26 +129,53 @@ Module LSB
     #Read
   EndEnumeration
   
-  Structure Memory_Structure   ;{ Memory\...
+  Structure Memory_Structure      ;{ Memory\...
 	  *Buffer
 	  Size.q
 	  Compressed.q
 	EndStructure ;}
-
-	Structure LSB_Item_Structure ;{ LSB()\Item()\...
+	
+	Structure KeyCard_Margins_Structure ;{ ImageEx()\Card\...
+		Top.i
+		Left.i
+		Right.i
+		Bottom.i
+	EndStructure ;}
+	
+	Structure KeyCard_Item_Structure ;{ LSB()\Card\Item\...
+	  Text.s
+	  Color.i
+	  Font.i
+	  Flags.i
+	EndStructure ;}
+	
+	Structure LSB_KeyCard_Structure  ;{ LSB()\Card\...
+	  *Buffer
+	  Size.i
+	  Label.s
+	  Key.s
+	  Map  Entry.s()
+	  List Item.KeyCard_Item_Structure()
+	  Margin.KeyCard_Margins_Structure
+	  ;Flags.i
+	EndStructure ;}
+	
+	Structure LSB_Item_Structure     ;{ LSB()\Item()\...
 	  *Buffer
 	  Size.q
 	  OffSet.q
 	  Compressed.q
 	EndStructure ;}
 
-	Structure LSB_Structure      ;{ LSB('id')\...
+	Structure LSB_Structure          ;{ LSB('id')\...
 	  Image.i
 	  FileName.s
 	  Plugin.i
 	  Key.s
 	  Mode.i
 	  Map Item.LSB_Item_Structure()
+	  Card.LSB_KeyCard_Structure
+	  KeyCard.i
 	  UsedSize.i
 	  EmbedSize.i
 	EndStructure ;}
@@ -609,6 +659,59 @@ Module LSB
     
   EndProcedure  
   
+  CompilerIf #Enable_KeyCard
+    
+    Procedure DrawKeyCard_()
+      Define.i X, Y, tY, bY
+      
+      If IsImage(LSB()\Image)
+      
+        If StartDrawing(ImageOutput(LSB()\Image))
+          
+          tY = LSB()\Card\Margin\Top
+          bY = OutputHeight() - LSB()\Card\Margin\Bottom
+          
+          DrawingMode(#PB_2DDrawing_Transparent)
+          
+          ForEach LSB()\Card\Item()
+            DrawingFont(LSB()\Card\Item()\Font)
+            
+            If LSB()\Card\Item()\Flags & #Center
+              X = (OutputWidth() - TextWidth(LSB()\Card\Item()\Text)) / 2
+            ElseIf LSB()\Card\Item()\Flags & #Right
+              X = OutputWidth() - LSB()\Card\Margin\Right - TextWidth(LSB()\Card\Item()\Text)
+            Else
+              X = LSB()\Card\Margin\Left
+            EndIf  
+            
+            If LSB()\Card\Item()\Flags & #Bottom
+              Y = bY - TextHeight(LSB()\Card\Item()\Text)
+            ElseIf LSB()\Card\Item()\Flags & #Middle
+              Y =  (OutputHeight() - TextHeight(LSB()\Card\Item()\Text)) / 2
+            Else  
+              Y = tY
+            EndIf
+            
+            DrawText(X, Y, LSB()\Card\Item()\Text, LSB()\Card\Item()\Color)
+            
+            If LSB()\Card\Item()\Flags & #Bottom
+              bY - TextHeight(LSB()\Card\Item()\Text)
+            ElseIf LSB()\Card\Item()\Flags & #Center
+              Continue
+            Else  
+              tY + TextHeight(LSB()\Card\Item()\Text)
+            EndIf  
+            
+          Next
+          
+          StopDrawing()
+        EndIf
+        
+      EndIf
+      
+    EndProcedure
+    
+  CompilerEndIf  
   
   ;- ================================
 	;-   Module - Declared Procedures
@@ -1000,11 +1103,10 @@ Module LSB
     ProcedureReturn String
   EndProcedure
   
-  
   ; ------------------------------------------------------------------------------------
   
   Procedure.i Save(ID.i, ImageFile.s="")
-    Define.i JSON, jObject, jFile, jSize, Result
+    Define.i JSON, jObject, jFile, jSize, jMember, Result
     Define.q Size
     Define   Memory.Memory_Structure
     Define   *Buffer, *Pointer
@@ -1015,49 +1117,76 @@ Module LSB
       
       If ImageFile = "" : ImageFile = LSB()\FileName : EndIf
       
-      JSON = CreateJSON(#PB_Any)
-      If JSON
+      If LSB()\KeyCard ;{ Create KeyCard
         
-        jObject = SetJSONObject(JSONValue(JSON))
-        
-        jFile = SetJSONArray(AddJSONMember(jObject, "F"))
-        jSize = SetJSONArray(AddJSONMember(jObject, "S"))
-        
-        ForEach LSB()\Item()
-          SetJSONString(AddJSONElement(jFile), MapKey(LSB()\Item()))
-          SetJSONQuad(AddJSONElement(jSize), LSB()\Item()\Compressed)
-          Size + LSB()\Item()\Compressed
-        Next
-        
-        If Size
-        
-          CompressJSON_(JSON, @Memory)
-  
-          WriteLSB_(Memory\Buffer, Memory\Size, 2)
+        CompilerIf #Enable_KeyCard
           
-          *Buffer = AllocateMemory(Size)
-          If *Buffer
-            
-            *Pointer = *Buffer
-            
-            ForEach LSB()\Item()
-              If LSB()\Item()\Buffer
-                CopyMemory(LSB()\Item()\Buffer, *Pointer, LSB()\Item()\Compressed)
-                FreeMemory(LSB()\Item()\Buffer)
-                *Pointer + LSB()\Item()\Compressed
-              EndIf
-            Next  
-            
-            WriteLSB_(*Buffer, Size)
-            
-            FreeMemory(*Buffer)
+          DrawKeyCard_()
+          
+          JSON = CreateJSON(#PB_Any)
+          If JSON
+            jObject = SetJSONObject(JSONValue(JSON))
+            SetJSONString(AddJSONMember(jObject, "KeyCode"), LSB()\Card\Key)
+            jMember = SetJSONObject(AddJSONMember(jObject, "Entries"))
+            ForEach LSB()\Card\Entry()
+              SetJSONString(AddJSONMember(jMember, MapKey(LSB()\Card\Entry())), LSB()\Card\Entry())
+            Next
+            FreeJSON(JSON)
           EndIf
           
+          CompressJSON_(JSON, @Memory)
+    
+          WriteLSB_(Memory\Buffer, Memory\Size, 1)
+          
+        CompilerEndIf
+        ;}
+      Else             ;{ Embed Files  
+      
+        JSON = CreateJSON(#PB_Any)
+        If JSON
+          
+          jObject = SetJSONObject(JSONValue(JSON))
+          
+          jFile = SetJSONArray(AddJSONMember(jObject, "F"))
+          jSize = SetJSONArray(AddJSONMember(jObject, "S"))
+          
+          ForEach LSB()\Item()
+            SetJSONString(AddJSONElement(jFile), MapKey(LSB()\Item()))
+            SetJSONQuad(AddJSONElement(jSize), LSB()\Item()\Compressed)
+            Size + LSB()\Item()\Compressed
+          Next
+          
+          If Size
+          
+            CompressJSON_(JSON, @Memory)
+    
+            WriteLSB_(Memory\Buffer, Memory\Size, 2)
+            
+            *Buffer = AllocateMemory(Size)
+            If *Buffer
+              
+              *Pointer = *Buffer
+              
+              ForEach LSB()\Item()
+                If LSB()\Item()\Buffer
+                  CopyMemory(LSB()\Item()\Buffer, *Pointer, LSB()\Item()\Compressed)
+                  FreeMemory(LSB()\Item()\Buffer)
+                  *Pointer + LSB()\Item()\Compressed
+                EndIf
+              Next  
+              
+              WriteLSB_(*Buffer, Size)
+              
+              FreeMemory(*Buffer)
+            EndIf
+            
+          EndIf
+          
+          FreeJSON(JSON)
         EndIf
-        
-        FreeJSON(JSON)
-      EndIf 
-
+        ;}
+      EndIf
+      
       Result = SaveImage(LSB()\Image, ImageFile, LSB()\Plugin)
       If Result : ClearMap(LSB()\Item()) : EndIf
       
@@ -1094,13 +1223,64 @@ Module LSB
     
   EndProcedure
   
+  ; ------------------------------------------------------------------------------------
+  
+  CompilerIf #Enable_KeyCard
+    
+    Procedure.i KeyCard(ID.i, KeyCode.s) ; Label: "KeyCode" 
+      
+      If FindMapElement(LSB(), Str(ID))
+        
+        LSB()\KeyCard    = #True
+        LSB()\Card\Key   = KeyCode
+        LSB()\Card\Margin\Left   = 10
+        LSB()\Card\Margin\Top    = 10
+        LSB()\Card\Margin\Bottom = 10
+        LSB()\Card\Margin\Right  = 10
+        
+        ProcedureReturn #True
+      EndIf  
+      
+    EndProcedure
+    
+    Procedure   AddCardText(ID.i, Text.s, FontNum.i, Color.i=$000000, Flags.i=#False)
+      
+      If FindMapElement(LSB(), Str(ID))
+        
+        If AddElement(LSB()\Card\Item())
+          
+          LSB()\Card\Item()\Text  = Text
+          LSB()\Card\Item()\Color = Color
+          LSB()\Card\Item()\Font  = FontNum
+          LSB()\Card\Item()\Flags = Flags
+          
+          ProcedureReturn #True
+        EndIf  
+        
+      EndIf  
+      
+    EndProcedure
+    
+    Procedure   AddCardInfo(ID.i, Label.s, Value.s)
+      
+      If FindMapElement(LSB(), Str(ID))
+        
+        LSB()\Card\Entry(Label) = Value
+        
+        ProcedureReturn #True
+      EndIf 
+      
+    EndProcedure
+    
+  CompilerEndIf
+ 
 EndModule
 
 ;- =======  Example =======
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 5
+  #Example = 6
   
   ; 1: Embed files
   ; 2: Extract files
@@ -1111,13 +1291,14 @@ CompilerIf #PB_Compiler_IsMainFile
   UsePNGImageDecoder()
   UsePNGImageEncoder()
   
-  #LSB = 1
+  #LSB  = 1
+  #Font = 1
   
   Key$ = "18P07W67"
   
   Select #Example
     Case 1 ;{ embed files
-    
+
       If LSB::Create(#LSB, "Test.png", Key$)
         LSB::EmbedFile(#LSB, "Test.txt")
         LSB::EmbedFile(#LSB, "Test.xml")
@@ -1204,13 +1385,28 @@ CompilerIf #PB_Compiler_IsMainFile
         LSB::Close(#LSB)
       EndIf
       ;}
+    Case 6 ;{ KeyCard  
+      CompilerIf LSB::#Enable_KeyCard
+        
+        LoadFont(#Font, "Arial", 16)
+        
+        If LSB::Create(#LSB, "Test.png", Key$)
+          If LSB::KeyCard(#LSB, "T8690352CJ2P1")
+            LSB::AddCardText(#LSB, "Thorsten Hoeppner", #Font, 0, LSB::#Center)
+          EndIf  
+          LSB::Save(#LSB, "LSB.png")
+          LSB::Close(#LSB)
+        EndIf 
+        
+      CompilerEndIf  
+      ;}
   EndSelect
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 1102
-; FirstLine = 118
-; Folding = KwDEAAC+
-; Markers = 76,841
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 60
+; FirstLine = 4
+; Folding = 9A5BCBABBg
+; Markers = 92,945
 ; EnableXP
 ; DPIAware

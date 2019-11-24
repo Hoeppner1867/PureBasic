@@ -53,7 +53,9 @@
 
 
 DeclareModule FontEx
-
+  
+  #Version = 19112300
+  
 	;- ===========================================================================
 	;-   DeclareModule - Constants
 	;- ===========================================================================
@@ -85,6 +87,16 @@ DeclareModule FontEx
   Declare.i SetText(GNum.i, Text.s)
   Declare   FreeFonts()
   Declare   FreeGadgetFonts(GNum.i)
+  
+  Declare.i Load(Font.i, Name.s, Size.i, Style.i=#False)
+  
+  Macro LoadFont(Font, Name, Size, Style = 0)
+    Load(Font, Name, Size, Style)
+  EndMacro
+  
+  Macro PB(Function)
+    Function
+  EndMacro
   
 EndDeclareModule
 
@@ -128,6 +140,7 @@ Module FontEx
 	  Map Gadget.FontEx_Gadget_Structure()
 	  
     Map Font.FontEx_Font_Structure()
+    Map ID.s()
     
 	EndStructure ;}
 	Global FontEx.FontEx_Structure
@@ -168,17 +181,20 @@ Module FontEx
 	  
 	CompilerElse
 	  
-  	Procedure.i LoadFont_(FontName.s, Style.i, Size.i) 
+  	Procedure.i LoadFont_(FontName.s, Style.i, Size.i, Font.i=#PB_Any) 
   	  Define.i FontNum
+  	  Define.s Key = FontName + Str(Style)
   	  
-  	  FontNum = FontEx\Font(FontName + Str(Style))\Size(Str(Size)) ; 
+  	  FontNum = FontEx\Font(Key)\Size(Str(Size)) ; 
       If IsFont(FontNum)
         ProcedureReturn FontNum
       Else  
-        FontNum = LoadFont(#PB_Any, FontName, Size, Style)
+        FontNum = PB(LoadFont)(Font, FontName, Size, Style)
+        If Font = #PB_Any : Font = FontNum : EndIf
         If IsFont(FontNum)
-          FontEx\Font(FontName+Str(Style))\Size(Str(Size)) = FontNum
-          ProcedureReturn FontNum
+          FontEx\Font(Key)\Size(Str(Size)) = FontNum
+          FontEx\ID(Str(FontID(Font)))  = Key
+          ProcedureReturn Font
         EndIf   
       EndIf 
   	  
@@ -437,6 +453,14 @@ Module FontEx
 	  ProcedureReturn FontSize
 	EndProcedure
 	
+	Procedure.i Load(Font.i, Name.s, Size.i, Style.i=#False) 
+	  Define.i FontNum
+	  
+	  FontNum = LoadFont_(Name, Size, Style, Font)
+	  
+	EndProcedure
+	
+	
 	Procedure.i SetText(GNum.i, Text.s)
 	  Define.i FontSize
 	  
@@ -599,9 +623,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 191
-; FirstLine = 106
-; Folding = cAyBA9
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 56
+; Folding = 9BIEgw-
 ; EnableXP
 ; DPIAware

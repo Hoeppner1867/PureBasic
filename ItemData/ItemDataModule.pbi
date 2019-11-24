@@ -34,7 +34,19 @@
 ;}
 
 
+;{ _____ {Gadget} - Commands _____
+
+; Item::SetData()
+; Item::GetData()
+; Item::RemoveData()
+; Item::FreeData()
+
+;}
+
+
 DeclareModule Item
+  
+  #Version = 19042800
   
   Declare   SetData(GId.i, Index.i, Value.s)
   Declare.s GetData(GId.i, Index.i)
@@ -80,7 +92,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   Debug Item::GetData(0, 2)
 CompilerEndIf
-; IDE Options = PureBasic 5.70 LTS (Windows - x86)
-; CursorPosition = 39
-; Folding = 7-
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 48
+; Folding = +-
 ; EnableXP

@@ -38,22 +38,21 @@
 
 ; AppReg::Remove()     - remove this application registry
 ; AppReg::Delete()     - deletes a 'Name' or a 'HKey'
-
 ; AppReg::GetFloat()   - returns the value as float
 ; AppReg::GetInfo()    - returns infos about the application (AppName/Publisher/Date of modification)
 ; AppReg::GetInteger() - returns the value as integer
 ; AppReg::GetValue()   - returns the value as string
-
 ; AppReg::SetFloat()   - store a float number
 ; AppReg::SetInteger() - store an integer number
 ; AppReg::SetValue()   - store a string
-
 ; AppReg::Open()       - open new or existing Application Registry
 ; AppReg::Close()      - close Application Registry and save it to file
   
 ;}
 
 DeclareModule AppReg
+  
+  #Version = 19112300
   
   ;- ===========================================================================
   ;-   DeclareModule
@@ -316,9 +315,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.70 LTS (Windows - x86)
-; CursorPosition = 281
-; FirstLine = 204
-; Folding = u+6
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 54
+; Folding = s+6
 ; EnableXP
 ; EnableUnicode

@@ -14,7 +14,7 @@
 ;
 ; - Added:   Resize gadget text
 ; - Added:   _CloseWindowHandler()
-; - Changed: Free() / Remove() / RemoveWindow() removed
+; - Removed: Free() / Remove() / RemoveWindow()
 ; - Internal improvements
 ;
 
@@ -53,6 +53,8 @@
 ;}
 
 DeclareModule Window
+  
+  #Version  = 19083100
   
   ;- ===========================================================================
   ;-   DeclareModule (Window)
@@ -1141,8 +1143,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf   
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1061
-; FirstLine = 264
-; Folding = AgDgHAAA3-
+; CursorPosition = 56
+; Folding = EgDgHgAAy-
 ; EnableXP
 ; DPIAware

@@ -11,7 +11,7 @@
 
 ; Last Update: 27.07.2019
 ;
-; Added: correction suggestions on the basis of 'Damerau-Levenshtein-Distance'
+; Added: correction suggestions on the basis of  the 'Damerau-Levenshtein-Distance'
 ;
 
 ;{ ===== MIT License =====
@@ -39,19 +39,21 @@
 
 ;{ _____ SpellCheck - Commands _____
 
-; SpellCheck::AddToUserDictionary() - add a word to the user dictionary
-; SpellCheck::ClearCheckedWords()   - clears all check words from map
-; CorrectionSuggestions()           - returns a list with correction suggestions
-; SpellCheck::FreeDictionary()      - removes dictionary from memory
-; SpellCheck::LoadDictionary()      - loads a dictionary
-; SpellCheck::Query()               - returns whether a word is right, misspelled or unknown.
-; SpellCheck::SaveUserDictionary()  - saves user dictionary
-; SpellCheck::Text()                - checks a text for spelling mistakes
-; SpellCheck::Word()                - checks if a word is spelled correctly
+; SpellCheck::AddToUserDictionary()   - add a word to the user dictionary
+; SpellCheck::ClearCheckedWords()     - clears all check words from map
+; SpellCheck::CorrectionSuggestions() - returns a list with correction suggestions (Damerau-Levenshtein-Distance)
+; SpellCheck::FreeDictionary()        - removes dictionary from memory
+; SpellCheck::LoadDictionary()        - loads a dictionary
+; SpellCheck::Query()                 - returns whether a word is right, misspelled or unknown.
+; SpellCheck::SaveUserDictionary()    - saves user dictionary
+; SpellCheck::Text()                  - checks a text for spelling mistakes
+; SpellCheck::Word()                  - checks if a word is spelled correctly
 
 ;}
 
 DeclareModule SpellCheck
+  
+  #Version  = 19072700
   
   ;- ===========================================================================
   ;-   DeclareModule - Constants
@@ -294,68 +296,7 @@ Module SpellCheck
     EndIf
     
   EndProcedure
-  
-  Macro D(i,j) ; DamerauLevenshteinDistance
-    D_(i+1,j+1)
-  EndMacro
 
-  Procedure DamerauLevenshteinDistance(String1$, String2$)
-    Define.i m, n, i, j, k, l, db, min, value, cost, maxDist
-    
-    NewMap DA.i()
-    
-    m = Len(String1$)
-    n = Len(String2$)
-    
-    Dim D_(m+1,n+1)
-    
-    maxDist = m + n
-    D(-1,-1) = maxDist 
-  
-    For i=0 To m
-      D( i,-1) = maxDist
-      D( i, 0) = i
-    Next
-  
-    For j=0 To n
-      D(-1, j) = maxDist
-      D( 0, j) = j
-    Next
-    
-    For i=1 To m
-      
-      db = 0
-      
-      For j=1 To n
-        
-        k = DA(Mid(String2$, j, 1))
-        l = db
-        
-        If Mid(String1$, i, 1) = Mid(String2$, j, 1)
-          cost = 0
-          db = j
-        Else
-          cost = 1
-        EndIf
-        
-        min   = D(i-1,j-1) + cost ; a substitution
-        value = D(i  ,j-1) + 1    ; an insertion
-        If value < min : min = value : EndIf
-        value = D(i-1,j  ) + 1    ; a deletion
-        If value < min : min = value : EndIf
-        value = D(k-1,l-1) + (i-k-1) + 1 + (j-l-1) ; transposition
-        If value < min : min = value : EndIf
-        D(i,j) = min
-        
-      Next
-      
-      DA(Mid(String1$, i, 1)) = i
-      
-    Next  
-    
-    ProcedureReturn D(m,n)
-  EndProcedure
-  
   ;- ==========================================================================
   ;-   Module - Declared Procedures
   ;- ========================================================================== 
@@ -502,7 +443,7 @@ Module SpellCheck
     EndIf
     
   EndProcedure
-    
+ 
   Procedure.i CorrectionSuggestions(Word.s, List Suggestions.s())
     Define.i i, Index, UCase, Count
     Define.s FirstChar, dicWord$
@@ -700,9 +641,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 48
-; FirstLine = 15
-; Folding = aMAAw
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 55
+; Folding = UMgg9
 ; EnableXP
 ; DPIAware

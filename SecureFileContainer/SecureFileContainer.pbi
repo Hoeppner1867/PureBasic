@@ -70,6 +70,8 @@
 
 DeclareModule SFC
   
+  #Version  = 19110707
+  
   ;- ===========================================================================
   ;-   DeclareModule - Constants / Structures
   ;- ===========================================================================  
@@ -1858,9 +1860,9 @@ CompilerIf #PB_Compiler_IsMainFile
   CompilerEndSelect
 
 CompilerEndIf  
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 1762
-; FirstLine = 260
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 72
+; FirstLine = 5
 ; Folding = MGB+eAYAQAYED9
 ; EnableXP
 ; DPIAware

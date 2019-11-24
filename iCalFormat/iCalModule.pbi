@@ -53,6 +53,8 @@
 
 DeclareModule iCal
   
+  #Version = 19101800
+  
   ;- ===========================================================================
 	;-   DeclareModule - Constants
 	;- ===========================================================================
@@ -513,8 +515,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 9
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 55
 ; Folding = kEAQ9
 ; EnableXP
 ; DPIAware

@@ -10,7 +10,6 @@
 ;/
 
 ; [ Extended Packer ]
-
 ; - Add or replace a file to an opened archive
 ; - Remove a file from an open archive
 ; - Move files back to the archive or update them when the archive is closed. [#MoveBack/#Update]
@@ -19,13 +18,10 @@
 ; - Add sound, music or sprite files to the archiv and load them directly from the archive
 
 
-; Last Update: 4.09.2019
+; Last Update: 6.09.2019
 ;
-; - Workaround: umlauts
+; - Added: Embed archive in image (steganography)
 ;
-; - AddText() / DecompressText()
-; - ProgressBar for BasicCoders
-; - Added: ReadContent() => Map: PackEx::Content()
 
 
 ;{ ===== MIT License =====
@@ -50,6 +46,14 @@
 ; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ; SOFTWARE.
+;}
+
+;{ ===== Additional tea & pizza license =====
+; <purebasic@thprogs.de> has created this code. 
+; If you find the code useful and you want to use it for your programs, 
+; you are welcome to support my work with a cup of tea or a pizza
+; (or the amount of money for it). 
+; [ https://www.paypal.me/Hoeppner1867 ]
 ;}
 
 
@@ -83,6 +87,10 @@
 
 
 DeclareModule PackEx
+  
+  #Version  = 19090600
+  
+  #Enable_EmbeddingLSB = #True
   
   ;- ==================================
 	;-   DeclareModule - Constants
@@ -179,6 +187,14 @@ DeclareModule PackEx
   Declare   SetSalt(String.s)
   Declare.s CreateSecureKey(Key.s, Loops.i=2048, ProgressBar.i=#PB_Default)
   
+  CompilerIf #Enable_EmbeddingLSB
+	  
+    Declare.i EmbedSize(ImageFile.s)
+    Declare.i EmbedInImage(ImageFile.s, PackFile.s, ImagePlugin.i=#PB_ImagePlugin_PNG)
+    Declare.i ExtractFromImage(ImageFile.s, PackName.s)
+
+	CompilerEndIf
+	 
 EndDeclareModule
 
 Module PackEx
@@ -241,6 +257,142 @@ Module PackEx
   ;- ==================================
 	;-   Module - Internal Procedures
 	;- ==================================
+  
+  CompilerIf #Enable_EmbeddingLSB
+    
+    Procedure.i EmbedFile(Image.i, File.s, ImageFile.s, Plugin.i=#PB_ImagePlugin_PNG)
+      Define.q Size
+      Define.i f, i, FileID, EmbedSize, Result
+      Define.a iByte, fByte
+      Define   *Image, *File, *fPointer
+      
+      If IsImage(Image)
+        
+        If StartDrawing(ImageOutput(Image))
+          
+          EmbedSize = ((OutputWidth() * OutputHeight() * 3) / 8)
+          
+          *Image = DrawingBuffer()
+          If *Image
+            
+            FileID = ReadFile(#PB_Any, File)
+            If FileID
+              
+              Size = Lof(FileID)
+              
+              If EmbedSize > Size + 8
+                
+                *File = AllocateMemory(Size + 8)
+                If *File
+                  
+                  PokeQ(*File, Size)
+    
+                  ReadData(FileID, *File + 8, Size)
+                  
+                  CloseFile(FileID)
+                  
+                  *fPointer = *File
+                  
+                  For f=1 To Size + 8
+                    
+                    fByte = PeekA(*fPointer)
+                    
+                    For i=0 To 7
+                      iByte = PeekA(*Image)
+                      iByte & ~1
+                      If Bool(fByte & (1 << i)) : iByte | 1 : EndIf
+                      PokeA(*Image, iByte)
+                      *Image + 1
+                    Next
+                    
+                    *fPointer + 1
+                  Next
+      
+                  Result = Size
+                  
+                  FreeMemory(*File)
+                EndIf
+    
+              EndIf
+              
+            EndIf
+            
+          EndIf
+          
+          StopDrawing()
+        EndIf
+    
+        SaveImage(Image, ImageFile, Plugin)
+     
+      EndIf
+      
+      ProcedureReturn  Result
+    EndProcedure
+    
+    Procedure.i ExtractFile(Image.i, File.s)
+      Define.q Size
+      Define.i f, i, FileID, EmbedSize, Result
+      Define.a iByte, fByte
+      Define   *Image, *File, *fPointer
+      
+      If IsImage(Image)
+        
+        If StartDrawing(ImageOutput(Image))
+          
+          EmbedSize = ((OutputWidth() * OutputHeight() * 3) / 8)
+          
+          *Image = DrawingBuffer()
+          If *Image
+    
+            ;{ Read Size (Quad)
+            For i=0 To 63 
+              iByte = PeekB(*Image)
+              If iByte & 1 : Size | 1 << i : EndIf 
+              *Image + 1
+            Next
+            ;}
+            
+            If Size > 0 And Size + 8 < EmbedSize
+            
+              *File = AllocateMemory(Size)
+              If *File
+                
+                *fPointer = *File
+                
+                For f=1 To Size
+                  fByte = 0
+                  For i=0 To 7
+                    iByte = PeekA(*Image)
+                    If iByte & 1 : fByte | 1 << i : EndIf 
+                    *Image + 1
+                  Next
+                  PokeA(*fPointer, fByte)
+                  *fPointer + 1
+                Next  
+                
+                FileID = CreateFile(#PB_Any, File)
+                If FileID
+                  Result = WriteData(FileID, *File, Size)
+                  CloseFile(FileID)
+                EndIf
+                
+                FreeMemory(*File)
+              EndIf
+              
+            EndIf
+            
+          EndIf
+          
+          StopDrawing()
+        EndIf
+     
+      EndIf
+      
+      ProcedureReturn Result
+    EndProcedure
+
+  CompilerEndIf
+  
   
   Procedure.s StrD_(Value.d)
     If Value < 10
@@ -1933,14 +2085,73 @@ Module PackEx
   Procedure   SetSalt(String.s)
 	  qAES\Salt = String
 	EndProcedure
+	
+	;- ___ LSB - Embedding _____
+	
+	CompilerIf #Enable_EmbeddingLSB
+	  
+	  Procedure.i EmbedSize(ImageFile.s)
+	    Define.i Image, EmbedSize
+	    
+	    Image = LoadImage(#PB_Any, ImageFile)
+  	  If Image
+  	    EmbedSize = (ImageHeight(Image) * ImageWidth(Image) * 3) / 8
+  	    FreeImage(Image)
+  	  EndIf
+  	  
+  	  ProcedureReturn EmbedSize
+	  EndProcedure
+	  
+  	Procedure.i EmbedInImage(ImageFile.s, PackFile.s, ImagePlugin.i=#PB_ImagePlugin_PNG)
+  	  Define.i Image, EmbedSize, PackSize, Result, Bit
+  	  Define.s ImgFile
+  	  
+  	  ImgFile = GetPathPart(ImageFile) + GetFilePart(ImageFile, #PB_FileSystem_NoExtension) + " [LSB]." + GetExtensionPart(ImageFile)
 
+  	  PackSize = FileSize(PackFile)
+  	  If PackSize > 0
+  	    
+    	  Image = LoadImage(#PB_Any, ImageFile)
+    	  If Image
+    	    
+    	    EmbedSize = (ImageHeight(Image) * ImageWidth(Image) * 3) / 8
+         
+          If EmbedSize > PackSize + 8
+    	      Result = EmbedFile(Image, PackFile, ImgFile, ImagePlugin)
+    	    EndIf
+    	    
+    	    FreeImage(Image)
+    	  EndIf
+    	  
+    	EndIf
+    	
+  	  ProcedureReturn Result
+  	EndProcedure
+  	
+  	Procedure.i ExtractFromImage(ImageFile.s, PackName.s)
+  	  Define.i Image, EmbedSize, PackSize, Result
+  	  Define.s File
+
+  	  Image = LoadImage(#PB_Any, ImageFile)
+  	  If Image
+
+  	    Result = ExtractFile(Image, PackName)
+  	    
+  	    FreeImage(Image)
+  	  EndIf
+
+  	  ProcedureReturn Result
+  	EndProcedure
+
+  CompilerEndIf
+  
 EndModule
 
 ;- ========  Module - Example ========
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 1
+  #Example = 8
   
   ; 1: normal
   ; 2: encrypted
@@ -1949,6 +2160,7 @@ CompilerIf #PB_Compiler_IsMainFile
   ; 5: JSON
   ; 6: Image
   ; 7: Read Content
+  ; 8: LSB - Embedding
   
   UseZipPacker()
 
@@ -2111,11 +2323,26 @@ CompilerIf #PB_Compiler_IsMainFile
       EndIf
       
       ;}
+    CompilerCase 8 ;{ LSB - Embedding 
+      
+      UsePNGImageDecoder()
+      UsePNGImageEncoder()
+      
+      If PackEx::Create(#Pack, "TestPack.zip")
+        PackEx::AddFile(#Pack, "Test.txt", "Test.txt")
+        PackEx::Close(#Pack)
+      EndIf
+      
+      PackEx::EmbedInImage("Test.png", "TestPack.zip")
+      PackEx::ExtractFromImage("Test [LSB].png", "LSBPack.zip")
+      ;}
   CompilerEndSelect    
   
 CompilerEndIf  
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 23
-; Folding = IMAAAAmQCAAAAB+
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 94
+; FirstLine = 18
+; Folding = 5oAAAAAGAAAAAARA+
 ; EnableXP
 ; DPIAware
+; Executable = ..\..\qAES-Packer\qAES-Packer64.exe

@@ -9,7 +9,7 @@
 ;/ © 2019  by Thorsten Hoeppner (07/2019)
 ;/
 
-; Last Update: 21.11.2019
+; Last Update: 13.07.2019
 ;
 ; ToolTip is now a separate window and not just a gadget
 ;
@@ -51,13 +51,8 @@
 
 ;}
 
-;XIncludeFile "ModuleEx.pbi"
-
 DeclareModule ToolTip
-  
-  #Version  = 19112100
-  #ModuleEx = 19111702
-  
+
 	;- ===========================================================================
 	;-   DeclareModule - Constants
 	;- ===========================================================================
@@ -87,20 +82,10 @@ DeclareModule ToolTip
 	EnumerationBinary ; GadgetFlags
 		#Border ; Draw a border
 	EndEnumeration
-	
-	CompilerIf Defined(ModuleEx, #PB_Module)
-	  
-	  #Event_ToolTip = ModuleEX::#Event_ToolTip
-	  #Event_Theme   = ModuleEx::#Event_Theme
-	  
-	CompilerElse
-	  
-    Enumeration #PB_Event_FirstCustomValue
-  		#Event_ToolTip
-  	EndEnumeration
-  	
-  CompilerEndIf
-  ;}
+
+  Enumeration #PB_Event_FirstCustomValue
+		#Event_ToolTip
+	EndEnumeration ;}
 	
 	;- ===========================================================================
 	;-   DeclareModule
@@ -236,7 +221,7 @@ Module ToolTip
 
     ExitThread = #True
     
-    Delay(100)
+    Delay(200)
     
     While IsThread(ThreadID)
       KillThread(ThreadID)
@@ -278,8 +263,8 @@ Module ToolTip
 	  If IsGadget(ToolTip()\GadgetNum)
   	  wX = dpiX(GadgetX(ToolTip()\GadgetNum, #PB_Gadget_ScreenCoordinate))
   	  wY = dpiY(GadgetY(ToolTip()\GadgetNum, #PB_Gadget_ScreenCoordinate))
-  	  gX = dpiX(GadgetX(ToolTip()\GadgetNum, #PB_Gadget_WindowCoordinate))
-  	  gY = dpiY(GadgetY(ToolTip()\GadgetNum, #PB_Gadget_WindowCoordinate))
+  	  gX = dpiX(GadgetX(ToolTip()\GadgetNum))
+  	  gY = dpiY(GadgetY(ToolTip()\GadgetNum))
   	  gWidth  = dpiX(GadgetWidth(ToolTip()\GadgetNum))
       gHeight = dpiY(GadgetHeight(ToolTip()\GadgetNum))
   	EndIf 
@@ -428,30 +413,6 @@ Module ToolTip
 	EndProcedure
 
 	;- __________ Events __________
-	
-	CompilerIf Defined(ModuleEx, #PB_Module)
-	  
-	  Procedure _ThemeHandler()
-
-      ForEach ToolTip()
-        
-        If IsFont(ModuleEx::ThemeGUI\Font\Num)
-          ToolTip()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
-        EndIf
-        
-        ToolTip()\Color\Front       = ModuleEx::ThemeGUI\FrontColor
-				ToolTip()\Color\Back        = ModuleEx::ThemeGUI\BackColor
-				ToolTip()\Color\Border      = ModuleEx::ThemeGUI\BorderColor
-				ToolTip()\Color\TitleFront  = ModuleEx::ThemeGUI\Title\FrontColor
-				ToolTip()\Color\TitleBack   = ModuleEx::ThemeGUI\Title\BackColor
-				ToolTip()\Color\TitleBorder = ModuleEx::ThemeGUI\Title\BorderColor
-
-        Draw_()
-      Next
-      
-    EndProcedure
-    
-  CompilerEndIf
 	
 	Procedure _TimerThread(Map *Timer())
 	  
@@ -612,10 +573,6 @@ Module ToolTip
 	Procedure.i Create(Gadget.i, Window.i, Flags.i=#False)
 		Define DummyNum, GNum.i, WNum.i
 		
-		CompilerIf Defined(ModuleEx, #PB_Module)
-      If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
-    CompilerEndIf
-		
 		WNum = OpenWindow(#PB_Any, 0, 0, 0, 0, "ToolTip", #PB_Window_BorderLess|#PB_Window_Invisible, WindowID(Window))
 		If WNum
 		  
@@ -674,10 +631,6 @@ Module ToolTip
   				EndIf
   				
   				BindEvent(#Event_ToolTip, @_ToolTipHandler())
-  				
-  				CompilerIf Defined(ModuleEx, #PB_Module)
-            BindEvent(#Event_Theme, @_ThemeHandler())
-          CompilerEndIf
   				
   				If IsWindow(ToolTip()\WindowNum)
             BindEvent(#PB_Event_CloseWindow, @_CloseWindowHandler(), ToolTip()\WindowNum)
@@ -840,13 +793,12 @@ CompilerIf #PB_Compiler_IsMainFile
   
   If OpenWindow(#Window, 0, 0, 200, 100, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
     
-    If CanvasGadget(#Gadget, 10, 10, 180, 80, #PB_Canvas_Border|#PB_Canvas_Container)
+    If CanvasGadget(#Gadget, 10, 10, 180, 80, #PB_Canvas_Border)
       If StartDrawing(CanvasOutput(#Gadget))
         DrawingMode(#PB_2DDrawing_Outlined)
 			  Box(DesktopScaledX(80), DesktopScaledY(30), DesktopScaledX(20), DesktopScaledY(20), $800080)
         StopDrawing()
-      EndIf
-      CloseGadgetList()
+      EndIf  
     EndIf
     
     If ToolTip::Create(#Gadget, #Window)
@@ -859,7 +811,6 @@ CompilerIf #PB_Compiler_IsMainFile
       ToolTip::SetColor(#Gadget, ToolTip::#TitleBackColor,   $B48246)
       ToolTip::SetColor(#Gadget, ToolTip::#TitleColor,       $FFFFFF)
       ;ToolTip::SetImage(#Gadget, #Image)
-      ;ModuleEx::SetTheme(ModuleEx::#Theme_Green)
     EndIf
 
     Repeat
@@ -870,8 +821,9 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf 
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 11
-; Folding = 1ASWu9C9
+; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
+; CursorPosition = 456
+; FirstLine = 201
+; Folding = WABK7i5
 ; EnableXP
 ; DPIAware

@@ -67,7 +67,9 @@
 
 
 DeclareModule Date64
-
+  
+  #Version = 19112300
+  
 	;- ===========================================================================
 	;-   DeclareModule
 	;- ===========================================================================
@@ -733,9 +735,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 195
-; FirstLine = 138
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 70
 ; Folding = cfwgJ0
 ; EnableXP
 ; DPIAware

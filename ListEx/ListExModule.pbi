@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 21.11.2019
+; Last Update: 24.11.2019
 ;
 ; - Bugfix 
 ;
@@ -21,7 +21,6 @@
 ; - Bugfix: Cash
 ; - Added: CSV support (file/clipboard)
 ;
-
 
 ;{ ===== MIT License =====
 ;
@@ -44,6 +43,14 @@
 ; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ; SOFTWARE.
+;}
+
+;{ ===== Additional tea & pizza license =====
+; <purebasic@thprogs.de> has created this code. 
+; If you find the code useful and you want to use it for your programs, 
+; you are welcome to support my work with a cup of tea or a pizza
+; (or the amount of money for it). 
+; [ https://www.paypal.me/Hoeppner1867 ]
 ;}
 
 
@@ -133,7 +140,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19112101
+  #Version  = 19112400
   #ModuleEx = 19112100
   
   #Enable_Validation  = #True
@@ -181,7 +188,7 @@ DeclareModule ListEx
     #ShowPercent
   EndEnumeration
   
-  EnumerationBinary ; Sort Header
+  EnumerationBinary ;{ Sort Header
     #Left   = 1
     #Right  = 1<<1
     #Center = 1<<2
@@ -198,9 +205,9 @@ DeclareModule ListEx
     #HeaderSort
     #SortArrows
     #SwitchDirection
-  EndEnumeration  
+  EndEnumeration ;}
   
-  Enumeration ; Attribute
+  Enumeration       ;{ Attribute
     #Align
     #Font
     #FontID
@@ -211,9 +218,9 @@ DeclareModule ListEx
     #Gadget
     #HeaderFont
     #GadgetFont
-  EndEnumeration
+  EndEnumeration ;}
   
-  EnumerationBinary Flags
+  EnumerationBinary ;{ Gadget Flags
     #Left    = 1
     #Right   = 1<<1
     #Center  = 1<<2
@@ -229,6 +236,7 @@ DeclareModule ListEx
     #ThreeState
     #MultiSelect
     #FitColumn
+    #EditableCombobox
     ; --- Color ---
     #ActiveLinkColor
     #BackColor
@@ -246,9 +254,9 @@ DeclareModule ListEx
     #HeaderBackColor
     #HeaderLineColor
     #AlternateRowColor
-  EndEnumeration
+  EndEnumeration ;}
 
-  EnumerationBinary ColumnFlags
+  EnumerationBinary ;{ Column Flags
     #Left    = 1
     #Right   = 1<<1
     #Center  = 1<<2
@@ -275,7 +283,7 @@ DeclareModule ListEx
     #Number     ; unsigned Integer
     #Time
     #Text
-  EndEnumeration  
+  EndEnumeration ;}
   #Editable = #Strings
   
   EnumerationBinary
@@ -986,7 +994,7 @@ Module ListEx
   EndProcedure
   
   Procedure.i GetPageRows_()    ; all visible Rows
-    ProcedureReturn Int((ListEx()\Size\Height - ListEx()\Header\Height) / ListEx()\Row\Height)
+    ProcedureReturn Int((GadgetHeight(ListEx()\CanvasNum) - ListEx()\Header\Height) / ListEx()\Row\Height)
   EndProcedure  
   
   Procedure.f dpiX(Num.i)
@@ -5095,16 +5103,12 @@ Module ListEx
         UpdateEventData_(#EventType_ComboBox, #NotValid, #NotValid, "", #NotValid, "")
       Else
         If SelectElement(ListEx()\Rows(), ListEx()\ComboBox\Row)
-          If GetGadgetState(ListEx()\ComboNum) <> #NotSelected
-            ListEx()\Rows()\Column(ListEx()\ComboBox\Label)\Value = GetGadgetText(ListEx()\ComboNum)
-            ListEx()\Changed = #True
-            UpdateEventData_(#EventType_ComboBox,ListEx()\ComboBox\Row, ListEx()\ComboBox\Col, GetGadgetText(ListEx()\ComboNum), GetGadgetState(ListEx()\ComboNum), ListEx()\Rows()\ID)
-            If IsWindow(ListEx()\Window\Num)
-              PostEvent(#PB_Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_ComboBox)
-              PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_ComboBox)
-            EndIf
-          Else
-            UpdateEventData_(#EventType_ComboBox, #NotValid, #NotValid, "", #NotValid, "")
+          ListEx()\Rows()\Column(ListEx()\ComboBox\Label)\Value = GetGadgetText(ListEx()\ComboNum)
+          ListEx()\Changed = #True
+          UpdateEventData_(#EventType_ComboBox,ListEx()\ComboBox\Row, ListEx()\ComboBox\Col, GetGadgetText(ListEx()\ComboNum), GetGadgetState(ListEx()\ComboNum), ListEx()\Rows()\ID)
+          If IsWindow(ListEx()\Window\Num)
+            PostEvent(#PB_Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_ComboBox)
+            PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_ComboBox)
           EndIf
         EndIf
       EndIf
@@ -7302,7 +7306,7 @@ CompilerIf #PB_Compiler_IsMainFile
       ListEx::DisableReDraw(#List, #True) 
       
       ; --- Add different types of columns  ---
-      ListEx::AddColumn(#List, 1, "Link", 75, "link",   ListEx::#Links)    ; |ListEx::#FitColumn
+      ListEx::AddColumn(#List, 1, "Link", 75, "link",   ListEx::#Links)     ; |ListEx::#FitColumn
       ListEx::AddColumn(#List, 2, "Edit", 185, "edit",   ListEx::#Editable) ; |ListEx::#FitColumn
       ListEx::AddColumn(#List, ListEx::#LastItem, "Combo",   78, "combo",  ListEx::#ComboBoxes)
       ListEx::AddColumn(#List, ListEx::#LastItem, "Date",    76, "date",   ListEx::#Dates)
@@ -7502,10 +7506,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 135
-; FirstLine = 9
-; Folding = 9PAACAAEAMQEIBMgwfAhHqXIBqgdCgCB9-PAAY4nAAAgJwBQAwAAAAgBAAAIw6-
-; Markers = 3036
+; CursorPosition = 11
+; FirstLine = 3
+; Folding = Y9HAAAAACAGICkAGQ5PgwDFKwDKwOGogA+-HwAsDSAQA1E5AMQYAAAAAAAAAE59-
+; Markers = 3044
 ; EnableXP
 ; DPIAware
 ; EnableUnicode

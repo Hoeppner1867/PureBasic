@@ -13,6 +13,8 @@
 
 ; Last Update:
 
+; TODO: ScrollBars
+
 
 ;{ ===== MIT License =====
 ;
@@ -104,7 +106,8 @@ DeclareModule TreeEx
   EnumerationBinary ;{ Gadget Flags
     #NoButtons = #PB_Tree_NoButtons
     #NoLines   = #PB_Tree_NoLines
-		#AutoResize 
+    #Hide
+    #AutoResize 
 		#Borderless
 		#ColumnLines
 		#CheckBoxes
@@ -112,6 +115,7 @@ DeclareModule TreeEx
 		;#ToolTips 
 		#ShowHeader
 		#SelectRow
+		#FitTreeColumn
 		#AlwaysShowSelection
 		#UseExistingCanvas
 	EndEnumeration ;}
@@ -239,7 +243,17 @@ EndDeclareModule
 Module TreeEx
 
 	EnableExplicit
-
+	
+	;{ OS specific contants
+  CompilerSelect #PB_Compiler_OS
+    CompilerCase #PB_OS_Windows
+      #ScrollBarSize  = 18
+    CompilerCase #PB_OS_MacOS
+      #ScrollBarSize  = 18
+    CompilerCase #PB_OS_Linux
+      #ScrollBarSize  = 18
+  CompilerEndSelect ;}
+	
 	;- ============================================================================
 	;-   Module - Constants
 	;- ============================================================================
@@ -274,6 +288,7 @@ Module TreeEx
   Structure TreeEx_Col_Structure            ;{ TreeEx()\Col\...
     Counter.i
     TreeWidth.i
+    OffsetX.i
   EndStructure ;}
   
   Structure Cols_Header_Structure           ;{ TreeEx()\Cols()\Header\...
@@ -302,6 +317,9 @@ Module TreeEx
   Structure TreeEx_Row_Structure            ;{ TreeEx()\Row\...
     Height.i
     Focus.i
+    Visible.i
+    Offset.i
+    OffSetY.i
     Header.Row_Header_Structure
   EndStructure ;}  
   
@@ -346,16 +364,24 @@ Module TreeEx
     Level.i
     State.i
     
+    Visible.i
+    
     Button.TreeEx_Rows_Button_Structure
     CheckBox.TreeEx_Rows_CheckBox_Structure
     Color.Color_Structure
     Text.TreeEx_Rows_Text_Structure
-    
-    
-    
+
     Map Column.TreeEx_Rows_Column_Structure()
     
   EndStructure ;}  	
+  
+  
+  Structure TreeEx_Scroll_Structure         ;{ TreeEx()\VScroll\...
+    MinPos.f
+    MaxPos.f
+    Position.f
+    Hide.i
+  EndStructure ;}
   
   
 	Structure TreeEx_Color_Structure          ;{ TreeEx()\Color\...
@@ -391,13 +417,17 @@ Module TreeEx
 		Y.f
 		Width.f
 		Height.f
+		Rows.i
+		Cols.i
 		Flags.i
 	EndStructure ;}
 
 
 	Structure TreeEx_Structure                ;{ TreeEx()\...
 		CanvasNum.i
-
+		VScrollNum.i
+		HScrollNum.i
+		
 		FontID.i
 
 		ReDraw.i
@@ -416,6 +446,8 @@ Module TreeEx
 		
 		Row.TreeEx_Row_Structure
 		Col.TreeEx_Col_Structure
+		VScroll.TreeEx_Scroll_Structure
+    HScroll.TreeEx_Scroll_Structure
 		
 		List Cols.TreeEx_Cols_Structure()
 		List Rows.TreeEx_Rows_Structure()
@@ -514,6 +546,22 @@ Module TreeEx
 	  
 	EndProcedure  
 	
+	Procedure.i GetPageRows_()    ; all visible Rows
+	  Define.i Height
+	  
+	  Height = GadgetHeight(TreeEx()\CanvasNum)
+	  
+	  If TreeEx()\Flags & #ShowHeader
+	    Height - TreeEx()\Row\Header\Height  
+	  EndIf
+	  
+	  If TreeEx()\HScroll\Hide = #False
+	    Height - #ScrollBarSize
+	  EndIf  
+	  
+	  ProcedureReturn Int(Height / TreeEx()\Row\Height)
+  EndProcedure 
+	
 	Procedure.i TreeColumnWidth()   
 	  Define.i Width
 	  
@@ -527,6 +575,268 @@ Module TreeEx
 	  ProcedureReturn Width
 	EndProcedure
 	
+	;- __________ ScrollBars __________
+	
+	Procedure   CalcTreeWidth()
+    Define.i TreeWidth, maxWidth, LevelWidth, Level, NextLevel, FontID
+    Define.i btX, txtX, OffsetX, ImageWidth, ImageHeight, RowHeight, CheckBoxSize
+    Define.f Factor
+
+    If StartDrawing(CanvasOutput(TreeEx()\CanvasNum))
+     
+      LevelWidth   = dpiX(#ButtonSize) + dpiX(5)
+      CheckBoxSize = TextHeight("Abc") - dpiX(2)
+      
+      ForEach TreeEx()\Rows()
+        
+        TreeWidth = 0
+        
+        If TreeEx()\Rows()\Level < Level : Level = TreeEx()\Rows()\Level : EndIf
+        
+  		  If TreeEx()\Rows()\Level = Level And TreeEx()\Rows()\Button\State
+  		    Level = TreeEx()\Rows()\Level + 1
+  		  EndIf
+  		  
+  		  If TreeEx()\Rows()\Level > Level : Continue : EndIf
+  		  
+  		  If TreeEx()\Cols()\FontID
+		      FontID = TreeEx()\Cols()\FontID
+		    Else
+		     	FontID = TreeEx()\FontID
+		    EndIf
+		    DrawingFont(FontID)
+		    
+		    ;{ --- Level of the next line ---
+			  PushListPosition(TreeEx()\Rows())
+			  If NextElement(TreeEx()\Rows())
+			    NextLevel = TreeEx()\Rows()\Level
+			  Else
+			    NextLevel = -1
+			  EndIf  
+			  PopListPosition(TreeEx()\Rows())
+			  ;}
+			  
+			  OffsetX   = LevelWidth * TreeEx()\Rows()\Level + dpiX(6)
+			  TreeWidth = dpiX(#ButtonSize + 5) + OffsetX
+
+			  If TreeEx()\Flags & #CheckBoxes : TreeWidth + CheckBoxSize : EndIf
+			  
+			  If IsImage(TreeEx()\Rows()\Column(#Tree$)\Image\Num) ;{ Image
+			    
+			    RowHeight   = dpiY(TreeEx()\Row\Height)
+			    
+			    ImageWidth  = TreeEx()\Rows()\Column(#Tree$)\Image\Width
+          ImageHeight = TreeEx()\Rows()\Column(#Tree$)\Image\Height
+          
+          If TreeEx()\Rows()\Column(#Tree$)\Image\Height > RowHeight - dpiY(2)
+            ImageHeight = RowHeight - dpiY(2)
+            Factor      = ImageHeight / TreeEx()\Rows()\Column(#Tree$)\Image\Height
+            ImageWidth  = ImageWidth * Factor
+          EndIf  
+          
+          TreeWidth + ImageWidth + dpiX(3)
+			    ;}
+			  EndIf  
+			  
+			  TreeWidth + TextWidth(TreeEx()\Rows()\Column(#Tree$)\Value) + dpiX(10)
+			  
+			  If TreeWidth > maxWidth : maxWidth = TreeWidth : EndIf
+			  
+			Next
+			
+			TreeEx()\Col\TreeWidth = maxWidth
+			
+    	StopDrawing()
+    EndIf
+    
+  EndProcedure
+	
+	Procedure   CalcRows()
+    Define.i Level
+    
+    TreeEx()\Size\Rows   = 0
+    TreeEx()\Row\Visible = 0
+    
+    ForEach TreeEx()\Rows()
+      
+      If TreeEx()\Rows()\Level < Level : Level = TreeEx()\Rows()\Level : EndIf
+      
+		  If TreeEx()\Rows()\Level = Level And TreeEx()\Rows()\Button\State
+		    Level = TreeEx()\Rows()\Level + 1
+		  EndIf
+		  
+		  If TreeEx()\Rows()\Level > Level
+		    TreeEx()\Rows()\Visible      = #False
+		    TreeEx()\Rows()\Button\State = #False
+		    Continue
+		  EndIf
+
+		  TreeEx()\Rows()\Visible = #True
+		  
+		  TreeEx()\Row\Visible + 1
+  		TreeEx()\Size\Rows + TreeEx()\Row\Height
+		  
+    Next
+    
+  EndProcedure
+	
+	Procedure   AdjustScrollBars_()
+    Define.i Width
+    Define.i PageRows
+    
+    If IsGadget(TreeEx()\VScrollNum) ;{ Vertical ScrollBar
+      
+      If TreeEx()\Size\Rows > (GadgetHeight(TreeEx()\CanvasNum) - TreeEx()\Row\Header\Height)
+      
+        PageRows = GetPageRows_()
+        
+        If TreeEx()\VScroll\Hide
+          If TreeEx()\HScroll\Hide
+            ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize - 1, GadgetHeight(TreeEx()\CanvasNum) - 2)
+          Else
+            ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize - 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize - 2)
+          EndIf
+          HideGadget(TreeEx()\VScrollNum, #False)
+          TreeEx()\VScroll\Hide = #False
+        EndIf
+        
+        SetGadgetAttribute(TreeEx()\VScrollNum, #PB_ScrollBar_Minimum,    0)
+        SetGadgetAttribute(TreeEx()\VScrollNum, #PB_ScrollBar_Maximum,    ListSize(TreeEx()\Rows()) - 1)
+        SetGadgetAttribute(TreeEx()\VScrollNum, #PB_ScrollBar_PageLength, PageRows)
+        
+        TreeEx()\VScroll\MinPos = 0
+        TreeEx()\VScroll\MaxPos = ListSize(TreeEx()\Rows()) - PageRows + 2
+        
+        If TreeEx()\VScroll\Hide = #False
+          If GadgetHeight(TreeEx()\VScrollNum) < GadgetHeight(TreeEx()\CanvasNum) - 2
+            
+            If TreeEx()\HScroll\Hide
+              ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize - 1, GadgetHeight(TreeEx()\CanvasNum) - 2)
+            Else
+              ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize - 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize - 2)
+            EndIf
+            
+          ElseIf GadgetHeight(TreeEx()\VScrollNum) > GadgetHeight(TreeEx()\CanvasNum)
+            
+            If TreeEx()\HScroll\Hide
+              ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize - 1, GadgetHeight(TreeEx()\CanvasNum) - 2)
+            Else
+              ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize - 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize - 2)
+            EndIf
+            
+          EndIf
+          
+        EndIf
+        
+      ElseIf Not TreeEx()\VScroll\Hide And TreeEx()\Size\Rows < (GadgetHeight(TreeEx()\CanvasNum) - TreeEx()\Row\Header\Height)
+        
+        ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize, GadgetWidth(TreeEx()\CanvasNum) - 1, #ScrollBarSize - 2)
+        HideGadget(TreeEx()\VScrollNum, #True)
+        TreeEx()\Row\Offset   = 0
+        TreeEx()\VScroll\Hide = #True
+        
+        If ListSize(TreeEx()\Rows()) = 0
+          SetGadgetAttribute(TreeEx()\VScrollNum, #PB_ScrollBar_Maximum,    0)
+          SetGadgetAttribute(TreeEx()\VScrollNum, #PB_ScrollBar_PageLength, 0)
+        EndIf 
+        
+      EndIf
+      ;}
+    EndIf
+    
+    If TreeEx()\VScroll\Hide
+      Width = GadgetWidth(TreeEx()\CanvasNum)
+    Else
+      Width = GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize 
+    EndIf
+    
+    If IsGadget(TreeEx()\HScrollNum) ;{ Horizontal Scrollbar
+      
+      If TreeEx()\Size\Cols > Width
+        
+        If TreeEx()\HScroll\Hide
+          If TreeEx()\VScroll\Hide
+            ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize, GadgetWidth(TreeEx()\CanvasNum) - 1, #ScrollBarSize - 1)
+          Else
+            ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 1, #ScrollBarSize - 1)
+          EndIf
+          HideGadget(TreeEx()\HScrollNum, #False)
+          TreeEx()\HScroll\Hide = #False
+        EndIf
+        
+        SetGadgetAttribute(TreeEx()\HScrollNum, #PB_ScrollBar_Minimum,    0)
+        SetGadgetAttribute(TreeEx()\HScrollNum, #PB_ScrollBar_Maximum,    TreeEx()\Size\Cols)
+        SetGadgetAttribute(TreeEx()\HScrollNum, #PB_ScrollBar_PageLength, Width)
+        
+        TreeEx()\HScroll\MinPos = 0
+        TreeEx()\HScroll\MaxPos = TreeEx()\Size\Cols - Width + 1
+        
+        If TreeEx()\HScroll\Hide = #False
+          If GadgetWidth(TreeEx()\HScrollNum) < Width - 2
+            If TreeEx()\VScroll\Hide
+              ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize, GadgetWidth(TreeEx()\CanvasNum) - 1, #ScrollBarSize - 1)
+            Else  
+              ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 1, #ScrollBarSize - 1)
+            EndIf  
+          ElseIf GadgetWidth(TreeEx()\HScrollNum) > Width - 1
+            If TreeEx()\VScroll\Hide
+              ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize, GadgetWidth(TreeEx()\CanvasNum) - 1, #ScrollBarSize - 1)
+            Else  
+              ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 1, #ScrollBarSize - 1)
+            EndIf 
+          EndIf
+          
+        EndIf
+        
+      ElseIf TreeEx()\Size\Cols < Width
+        
+        If TreeEx()\HScroll\Hide = #False
+          ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize - 1, GadgetHeight(TreeEx()\CanvasNum) - 2)
+          HideGadget(TreeEx()\HScrollNum, #True)
+          TreeEx()\HScroll\Hide = #True
+        EndIf
+        
+      EndIf 
+      ;}
+    EndIf
+    
+  EndProcedure
+	
+	Procedure   SetHScrollPosition_()
+    Define.f ScrollPos
+    
+    If IsGadget(TreeEx()\HScrollNum)
+      
+      ScrollPos = TreeEx()\Col\OffsetX
+      
+      If ScrollPos < TreeEx()\HScroll\MinPos : ScrollPos = TreeEx()\HScroll\MinPos : EndIf
+      If ScrollPos > TreeEx()\HScroll\MaxPos : ScrollPos = TreeEx()\HScroll\MaxPos : EndIf
+      
+      TreeEx()\Col\OffsetX      = ScrollPos
+      TreeEx()\HScroll\Position = ScrollPos
+      
+      SetGadgetState(TreeEx()\HScrollNum, ScrollPos)
+      
+    EndIf
+    
+  EndProcedure 
+  
+  Procedure   SetVScrollPosition_()
+    Define.f ScrollPos
+    
+    If IsGadget(TreeEx()\VScrollNum)
+      
+      ScrollPos = TreeEx()\Row\Offset
+      If ScrollPos > TreeEx()\VScroll\MaxPos : ScrollPos = TreeEx()\VScroll\MaxPos : EndIf
+      
+      TreeEx()\VScroll\Position = ScrollPos
+      
+      SetGadgetState(TreeEx()\VScrollNum, ScrollPos)
+      
+    EndIf
+    
+  EndProcedure 
+  
 	;- __________ Drawing __________
 
 	Procedure.i BlendColor_(Color1.i, Color2.i, Factor.i=50)
@@ -641,7 +951,7 @@ Module TreeEx
     EndSelect
     
   EndProcedure  
-	
+
   CompilerIf #Enable_ProgressBar
     
     Procedure   DrawProgressBar_(X.f, Y.f, Width.f, Height.f, State.i, Text.s, Flags.i, FontID.i)
@@ -800,11 +1110,11 @@ Module TreeEx
 	  EndIf  
 
 	EndProcedure  
-	
+
 	Procedure   Draw_()
 	  Define.f X, Y, Width, Height, TreeWidth, ColumnWidth, txtHeight, RowHeight, ImageWidth, ImageHeight, LineHeight
 	  Define.f btY, txtX, txtY, OffsetX, OffsetY, LastX, LastY, LineY
-	  Define.i Row, FrontColor, BackColor, CheckBoxSize, FontID
+	  Define.i Row, PageRows, VisibleRows, FrontColor, BackColor, CheckBoxSize, FontID
 	  Define.i LevelWidth, NextLevel, LevelX, Level = 0
 	  Define.f Factor
 		Define.s Key$, Level$, Text$
@@ -814,6 +1124,8 @@ Module TreeEx
 		
 		If TreeEx()\Hide : ProcedureReturn #False : EndIf
 		
+    TreeEx()\Row\OffSetY = 0
+		
 		Width  = dpiX(GadgetWidth(TreeEx()\CanvasNum))
 		Height = dpiY(GadgetHeight(TreeEx()\CanvasNum))
 		
@@ -821,16 +1133,17 @@ Module TreeEx
 		LineHeight = Height 
 		
 		If StartDrawing(CanvasOutput(TreeEx()\CanvasNum))
-
+		  
+		  PageRows = GetPageRows_()
+		  
 			;{ _____ Background _____
 			DrawingMode(#PB_2DDrawing_Default)
 			Box(0, 0, Width, Height, TreeEx()\Color\Back) ; 
 			;}
 			
+			FontID    = TreeEx()\FontID
 			TreeWidth = TreeColumnWidth()
-			
-			FontID = TreeEx()\FontID
-			
+
 			;{ _____ Draw Header _____
 			If TreeEx()\Flags & #ShowHeader
 			  
@@ -856,7 +1169,13 @@ Module TreeEx
 			    Else
 			      ColumnWidth = dpiX(TreeEx()\Cols()\Width)
 			    EndIf  
-
+			    
+			    If ListIndex(TreeEx()\Cols()) = #TreeColumn
+			      If TreeEx()\Flags & #FitTreeColumn
+			        If ColumnWidth < dpiX(TreeEx()\Col\TreeWidth) : ColumnWidth = dpiX(TreeEx()\Col\TreeWidth) : EndIf
+			      EndIf  
+			    EndIf
+			    
 			    ;{ ----- Column BackColor -----
 			    If TreeEx()\Cols()\Header\Color\Back <> #PB_Default 
 			      DrawingMode(#PB_2DDrawing_Default)
@@ -865,9 +1184,9 @@ Module TreeEx
 			    
 			    ;{ ----- Cell Border -----
 			    DrawingMode(#PB_2DDrawing_Outlined)                
-			    If ListIndex(TreeEx()\Cols())
-			      Box(X - 1, 0, ColumnWidth + 1, RowHeight, TreeEx()\Color\HeaderBorder)
-			      TreeEx()\Cols()\X = X - 1
+			    If ListIndex(TreeEx()\Cols()) < ListSize(TreeEx()\Cols()) - 1
+			      Box(X, 0, ColumnWidth + 1, RowHeight, TreeEx()\Color\HeaderBorder)
+			      TreeEx()\Cols()\X = X
 			    Else
 			      Box(X, 0, ColumnWidth, RowHeight, TreeEx()\Color\HeaderBorder)
 			      TreeEx()\Cols()\X = X
@@ -910,15 +1229,23 @@ Module TreeEx
   			      txtX = dpiX(5)
   			    EndIf ;}
   			    
+  			    CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+              ClipOutput(X, Y, ColumnWidth, RowHeight) 
+            CompilerEndIf
+            
   			    ;{ ----- Draw Text -----
   			    txtY = (RowHeight - TextHeight(TreeEx()\Cols()\Header\Title)) / 2
-  			    
+
   			    DrawingMode(#PB_2DDrawing_Transparent)
   			    If TreeEx()\Cols()\Header\Color\Front <> #PB_Default
   			      DrawText(X + txtX, Y + txtY, TreeEx()\Cols()\Header\Title, TreeEx()\Cols()\Header\Color\Front)
   			    Else
   			      DrawText(X + txtX, Y + txtY, TreeEx()\Cols()\Header\Title, TreeEx()\Color\HeaderFront)
   			    EndIf ;}
+  			    
+  			    CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+              UnclipOutput()
+            CompilerEndIf
   			    
   			  EndIf
 			  
@@ -940,10 +1267,15 @@ Module TreeEx
 			
 			CheckBoxSize = txtHeight - dpiX(2)
 			
-			;{ _____ Draw Rows _____
+			;{ _____ Draw Rows _____	
+			VisibleRows = 0
+			
 			ForEach TreeEx()\Rows()
 
 			  X = 0
+			  
+        TreeEx()\Rows()\Y = 0
+			  TreeEx()\Rows()\Visible = #False
 			  
 			  BackColor = TreeEx()\Color\Back
 			  
@@ -962,10 +1294,18 @@ Module TreeEx
 			    TreeEx()\Rows()\Button\State = #False
 			    Continue
 			  EndIf
-
-			  ForEach TreeEx()\Cols()
+			  
+			  VisibleRows + 1
+			  
+			  If VisibleRows <= TreeEx()\Row\Offset : Continue : EndIf
+			  
+			  TreeEx()\Rows()\Visible = #True
+			  
+			  ForEach TreeEx()\Cols() ;{ Columns
 			    
 			    Key$ = TreeEx()\Cols()\Key
+			    
+			    TreeEx()\Cols()\X = X
 			    
 			    If TreeEx()\Cols()\FontID
 			      FontID = TreeEx()\Cols()\FontID
@@ -988,6 +1328,10 @@ Module TreeEx
 			      btY  = (RowHeight - dpiY(#ButtonSize)) / 2
 			      
 			      If TreeEx()\Cols()\Width = #PB_Default : ColumnWidth = dpiX(TreeWidth) : EndIf
+			      
+			      If TreeEx()\Flags & #FitTreeColumn
+			        If ColumnWidth < dpiX(TreeEx()\Col\TreeWidth) : ColumnWidth = dpiX(TreeEx()\Col\TreeWidth) : EndIf
+			      EndIf 
 			      
     			  ;{ --- Level of the next line ---
     			  PushListPosition(TreeEx()\Rows())
@@ -1061,14 +1405,21 @@ Module TreeEx
 		        
     			  TreeEx()\Rows()\Text\X + dpiX(5)
 			      TreeEx()\Rows()\Text\Width = TextWidth(TreeEx()\Rows()\Column(#Tree$)\Value)
-
+			      
+			      CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+              ClipOutput(TreeEx()\Rows()\Text\X, Y, ColumnWidth - TreeEx()\Rows()\Text\X, RowHeight) 
+            CompilerEndIf
+			      
     			  DrawingMode(#PB_2DDrawing_Transparent)
-    			  
     			  If TreeEx()\Cols()\Color\Front <> #PB_Default
     			    DrawText(TreeEx()\Rows()\Text\X, Y + txtY, TreeEx()\Rows()\Column(#Tree$)\Value, TreeEx()\Cols()\Color\Front)
     			  Else  
     			    DrawText(TreeEx()\Rows()\Text\X, Y + txtY, TreeEx()\Rows()\Column(#Tree$)\Value, TreeEx()\Color\Front)
     			  EndIf
+    			  
+    			  CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+              UnclipOutput()
+            CompilerEndIf
 			      ;}
 			    Else                                        ;{ Additional columns
 			      
@@ -1086,7 +1437,11 @@ Module TreeEx
   			        Box(X, Y + dpiX(2), ColumnWidth, RowHeight - dpiX(4), BackColor)
   			      EndIf  
     			  EndIf ;}
-  			    
+    			  
+    			  CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+              ClipOutput(X, Y, ColumnWidth, RowHeight) 
+            CompilerEndIf
+    			  
 			      If TreeEx()\Cols()\Flags & #ProgressBar ;{ #ProgressBar
 		
 		          CompilerIf #Enable_ProgressBar
@@ -1143,17 +1498,29 @@ Module TreeEx
     			      DrawText(X + txtX, Y + txtY, Text$, TreeEx()\Color\Front)	
     			    EndIf
     			    ;}
-      			EndIf    
+    			  EndIf  
+    			  
+    			  CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+              UnclipOutput()
+            CompilerEndIf
+    			  
 			      ;}
           EndIf 
-          
+
           X + ColumnWidth
-			  Next
+			  Next ;}
 
   			TreeEx()\Rows()\Y = Y
   			
+  			If VisibleRows > PageRows : Break : EndIf
+  			
 			  Y + dpiY(TreeEx()\Row\Height)
   		Next ;}
+  		
+  		TreeEx()\Size\Cols = 0
+  		ForEach TreeEx()\Cols()
+  		  TreeEx()\Size\Cols + TreeEx()\Cols()\Width
+  		Next
   		
   		;{ _____ Lines _____
   		If Not TreeEx()\Flags & #NoLines
@@ -1202,7 +1569,8 @@ Module TreeEx
     	If TreeEx()\Flags & #ColumnLines
     	  ForEach TreeEx()\Cols()
     	    Line(TreeEx()\Cols()\X, LineY, 1, LineHeight, TreeEx()\Color\HeaderBorder)
-    	  Next  
+    	  Next 
+    	  Line(TreeEx()\Cols()\X + TreeEx()\Cols()\Width - 1, LineY, 1, LineHeight, TreeEx()\Color\HeaderBorder)
 	    EndIf
     	;}
   	  
@@ -1225,7 +1593,19 @@ Module TreeEx
 		EndIf
 
 	EndProcedure
-
+	
+	Procedure   ReDraw_()
+	  
+	  CalcRows()
+	  
+	  If TreeEx()\Flags & #FitTreeColumn : CalcTreeWidth() : EndIf 
+	  
+	  AdjustScrollBars_()
+	  
+	  Draw_()
+	  
+	EndProcedure
+	
 	;- __________ Events __________
 	
 	CompilerIf Defined(ModuleEx, #PB_Module)
@@ -1258,7 +1638,7 @@ Module TreeEx
         TreeEx()\Color\ProgressGradient = ModuleEx::ThemeGUI\Progress\GradientColor
         TreeEx()\Color\ProgressBorder   = ModuleEx::ThemeGUI\Progress\BorderColor
 				
-        Draw_()
+        ReDraw_()
       Next
       
     EndProcedure
@@ -1293,7 +1673,7 @@ Module TreeEx
               PostEvent(#Event_Gadget,    TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Collapsed, ListIndex(TreeEx()\Rows()))
 			      EndIf  
 			      
-			      Draw_()
+			      ReDraw_()
 			      Break
 			    EndIf
 			    ;}
@@ -1309,7 +1689,7 @@ Module TreeEx
 			      EndIf
 			      PostEvent(#PB_Event_Gadget, TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_CheckBox)
             PostEvent(#Event_Gadget,    TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_CheckBox)
-			      Draw_()
+			      ReDraw_()
 			      Break
 			    EndIf  
 			    ;}
@@ -1318,7 +1698,7 @@ Module TreeEx
 			      TreeEx()\Row\Focus = ListIndex(TreeEx()\Rows())
             PostEvent(#PB_Event_Gadget, TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Row, TreeEx()\Row\Focus)
             PostEvent(#Event_Gadget,    TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Row, TreeEx()\Row\Focus)
-			      Draw_()
+			      ReDraw_()
 			      Break
 			    EndIf ;}
 			  EndIf  
@@ -1340,10 +1720,10 @@ Module TreeEx
 
 
 
-			TreeEx()\ToolTip = #False
-			GadgetToolTip(GNum, "")
+			;TreeEx()\ToolTip = #False
+			;GadgetToolTip(GNum, "")
 
-			SetGadgetAttribute(GNum, #PB_Canvas_Cursor, #PB_Cursor_Default)
+			;SetGadgetAttribute(GNum, #PB_Canvas_Cursor, #PB_Cursor_Default)
 
 		EndIf
 
@@ -1356,20 +1736,119 @@ Module TreeEx
 	    
 	    If Not TreeEx()\Flags & #AlwaysShowSelection
 	      TreeEx()\Row\Focus = #PB_Default
-	      Draw_()
+	      ReDraw_()
 	    EndIf
 	    
 	  EndIf 
 	EndProcedure
 	
-	Procedure _ResizeHandler()
-		Define.i GadgetID = EventGadget()
+	Procedure _MouseWheelHandler()
+    Define.i GadgetNum = EventGadget()
+    Define.i Delta
+    Define.f ScrollPos
+    
+    If FindMapElement(TreeEx(), Str(GadgetNum))
+      
+      Delta = GetGadgetAttribute(GadgetNum, #PB_Canvas_WheelDelta)
+      
+      If IsGadget(TreeEx()\VScrollNum) And TreeEx()\VScroll\Hide = #False
+        
+        ScrollPos = GetGadgetState(TreeEx()\VScrollNum) - Delta
+        
+        If ScrollPos > TreeEx()\VScroll\MaxPos : ScrollPos = TreeEx()\VScroll\MaxPos : EndIf
+        If ScrollPos < TreeEx()\VScroll\MinPos : ScrollPos = TreeEx()\VScroll\MinPos : EndIf
+        
+        If ScrollPos <> TreeEx()\VScroll\Position
+          
+          TreeEx()\Row\Offset = ScrollPos
+          SetVScrollPosition_()
+          
+          ReDraw_()          
+        EndIf
 
-		If FindMapElement(TreeEx(), Str(GadgetID))
-			Draw_()
-		EndIf
+      EndIf
 
-	EndProcedure
+    EndIf
+    
+  EndProcedure
+	
+	Procedure _SynchronizeScrollCols()
+    Define.i ScrollNum = EventGadget()
+    Define.i GadgetNum = GetGadgetData(ScrollNum)
+    Define.f ScrollPos
+    
+    If FindMapElement(TreeEx(), Str(GadgetNum))
+      
+      ScrollPos = GetGadgetState(ScrollNum)
+      If ScrollPos <> TreeEx()\HScroll\Position
+        
+        If ScrollPos < TreeEx()\Col\OffsetX
+          TreeEx()\Col\OffsetX = ScrollPos
+        ElseIf ScrollPos > TreeEx()\Col\OffsetX
+          TreeEx()\Col\OffsetX = ScrollPos
+        EndIf
+        
+        If TreeEx()\Col\OffsetX < TreeEx()\HScroll\MinPos : TreeEx()\Col\OffsetX = TreeEx()\HScroll\MinPos : EndIf
+        If TreeEx()\Col\OffsetX > TreeEx()\HScroll\MaxPos : TreeEx()\Col\OffsetX = TreeEx()\HScroll\MaxPos : EndIf
+        
+        SetGadgetState(ScrollNum, TreeEx()\Col\OffsetX)
+        SetHScrollPosition_()
+
+        ReDraw_()
+      EndIf
+      
+    EndIf
+    
+  EndProcedure
+  
+  Procedure _SynchronizeScrollRows()
+    Define.i ScrollNum = EventGadget()
+    Define.i GadgetNum = GetGadgetData(ScrollNum)
+    Define.f X, Y, ScrollPos
+    
+    If FindMapElement(TreeEx(), Str(GadgetNum))
+      
+      ScrollPos = GetGadgetState(ScrollNum)
+      Debug "ScrollPos: " + Str(ScrollPos)
+      If ScrollPos <> TreeEx()\VScroll\Position
+        
+        TreeEx()\Row\Offset = ScrollPos 
+
+        SetVScrollPosition_()
+
+        ReDraw_()
+      EndIf
+      
+    EndIf
+    
+  EndProcedure 
+	
+  Procedure _ResizeHandler()
+    Define.i OffsetX, OffSetY
+    Define.i GadgetNum = EventGadget()
+    
+    If FindMapElement(TreeEx(), Str(GadgetNum))
+      
+      If TreeEx()\VScroll\Hide = #False Or TreeEx()\HScroll\Hide = #False
+        
+        If TreeEx()\VScroll\Hide
+          ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize, GadgetWidth(TreeEx()\CanvasNum) - 1, #ScrollBarSize - 1)
+        Else
+          ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 1, #ScrollBarSize - 1)
+        EndIf
+        
+        If TreeEx()\HScroll\Hide
+          ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize - 1, GadgetHeight(TreeEx()\CanvasNum) - 2)
+        Else  
+          ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize - 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize - 2)
+        EndIf
+        
+      EndIf
+
+      ReDraw_()
+    EndIf
+    
+  EndProcedure
 
 	Procedure _ResizeWindowHandler()
 		Define.f X, Y, Width, Height
@@ -1401,7 +1880,7 @@ Module TreeEx
 							ResizeGadget(TreeEx()\CanvasNum, #PB_Ignore, #PB_Ignore, TreeEx()\Size\Width + OffSetX, TreeEx()\Size\Height + OffsetY)
 						EndIf
 
-						Draw_()
+						ReDraw_()
 					EndIf
 
 				EndIf
@@ -1461,7 +1940,7 @@ Module TreeEx
         
       EndIf
       
-      If TreeEx()\ReDraw : Draw_() : EndIf
+      If TreeEx()\ReDraw : ReDraw_() : EndIf
       
       ProcedureReturn ListIndex(TreeEx()\Cols())
 	  EndIf
@@ -1509,7 +1988,7 @@ Module TreeEx
       
       EndIf
       
-      If TreeEx()\ReDraw : Draw_() : EndIf
+      If TreeEx()\ReDraw : ReDraw_() : EndIf
       
       ProcedureReturn ListSize(TreeEx()\Rows())
 	  EndIf
@@ -1522,7 +2001,7 @@ Module TreeEx
 	    
 	    ClearList(TreeEx()\Rows())
 	    
-	    If TreeEx()\ReDraw : Draw_() : EndIf
+	    If TreeEx()\ReDraw : ReDraw_() : EndIf
 	  EndIf  
 	  
 	EndProcedure
@@ -1543,7 +2022,7 @@ Module TreeEx
 				TreeEx()\ReDraw = #False
 			Else
 				TreeEx()\ReDraw = #True
-				Draw_()
+				ReDraw_()
 			EndIf
 			
 		EndIf
@@ -1566,7 +2045,7 @@ Module TreeEx
       EndIf
       ;}
     Else
-      Result = CanvasGadget(GNum, X, Y, Width, Height)
+      Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Container)
     EndIf
 		
 		If Result
@@ -1576,7 +2055,23 @@ Module TreeEx
 			If AddMapElement(TreeEx(), Str(GNum))
 
 				TreeEx()\CanvasNum = GNum
-
+				
+				TreeEx()\HScrollNum = ScrollBarGadget(#PB_Any, 0, 0, 0, 0, 0, 0, 0)
+        If IsGadget(TreeEx()\HScrollNum)
+          SetGadgetData(TreeEx()\HScrollNum, TreeEx()\CanvasNum)
+          TreeEx()\HScroll\Hide = #True
+          HideGadget(TreeEx()\HScrollNum, #True)
+        EndIf
+        
+        TreeEx()\VScrollNum = ScrollBarGadget(#PB_Any, 0, 0, 0, 0, 0, 0, 0, #PB_ScrollBar_Vertical)
+        If IsGadget(TreeEx()\VScrollNum)
+          SetGadgetData(TreeEx()\VScrollNum, TreeEx()\CanvasNum)
+          TreeEx()\VScroll\Hide = #True
+          HideGadget(TreeEx()\VScrollNum, #True)
+        EndIf
+        
+        CloseGadgetList()
+        
 				CompilerIf Defined(ModuleEx, #PB_Module) ; WindowNum = #Default
 					If WindowNum = #PB_Default
 						TreeEx()\Window\Num = ModuleEx::GetGadgetWindow()
@@ -1621,8 +2116,7 @@ Module TreeEx
 				TreeEx()\ReDraw = #True
 				
 				ColorTheme_(#Theme_Default)
-				
-				
+
 				;{ _____ Tree Column _____
 				If AddElement(TreeEx()\Cols())
 				  TreeEx()\Cols()\Key               = #Tree$
@@ -1641,6 +2135,10 @@ Module TreeEx
 				BindGadgetEvent(TreeEx()\CanvasNum,  @_MouseMoveHandler(),       #PB_EventType_MouseMove)
 				BindGadgetEvent(TreeEx()\CanvasNum,  @_LeftButtonDownHandler(),  #PB_EventType_LeftButtonDown)
 				BindGadgetEvent(TreeEx()\CanvasNum,  @_MouseLeaveHandler(),      #PB_EventType_MouseLeave)
+				BindGadgetEvent(TreeEx()\CanvasNum,  @_MouseWheelHandler(),      #PB_EventType_MouseWheel)
+				BindGadgetEvent(TreeEx()\HScrollNum, @_SynchronizeScrollCols(),  #PB_All)
+        BindGadgetEvent(TreeEx()\VScrollNum, @_SynchronizeScrollRows(),  #PB_All) 
+				
 				
 				CompilerIf Defined(ModuleEx, #PB_Module)
           BindEvent(#Event_Theme, @_ThemeHandler())
@@ -1654,7 +2152,7 @@ Module TreeEx
 					EndIf
 				EndIf ;}
 
-				Draw_()
+				ReDraw_()
 
 				ProcedureReturn GNum
 			EndIf
@@ -1860,7 +2358,7 @@ Module TreeEx
 	    Else
 	      TreeEx()\Hide = #False
 	      HideGadget(GNum, #False)
-	      Draw_()
+	      ReDraw_()
 	    EndIf  
 	    
 	  EndIf  
@@ -1878,7 +2376,7 @@ Module TreeEx
   	      
   	      DeleteElement(TreeEx()\Rows())
   	      
-  	      If TreeEx()\ReDraw : Draw_() : EndIf
+  	      If TreeEx()\ReDraw : ReDraw_() : EndIf
   	    EndIf 
   	    
   	  EndIf
@@ -1947,7 +2445,7 @@ Module TreeEx
         
       EndIf
       
-      If TreeEx()\ReDraw : Draw_() : EndIf
+      If TreeEx()\ReDraw : ReDraw_() : EndIf
     EndIf
     
   EndProcedure
@@ -1969,7 +2467,7 @@ Module TreeEx
           ColorTheme_(Theme)
         EndIf
         
-        Draw_()
+        ReDraw_()
       Next
       
       If Theme = #Theme_Custom
@@ -1988,7 +2486,7 @@ Module TreeEx
         ColorTheme_(Theme)
       EndIf
     
-      Draw_()
+      ReDraw_()
     EndIf  
     
   EndProcedure  
@@ -2099,7 +2597,7 @@ Module TreeEx
         
       EndIf
       
-      If TreeEx()\ReDraw : Draw_() : EndIf
+      If TreeEx()\ReDraw : ReDraw_() : EndIf
     EndIf
     
   EndProcedure  
@@ -2215,7 +2713,7 @@ Module TreeEx
           EndIf
         EndIf  
         
-        If TreeEx()\ReDraw : Draw_() : EndIf
+        If TreeEx()\ReDraw : ReDraw_() : EndIf
         
       EndIf
       
@@ -2263,7 +2761,7 @@ Module TreeEx
     	  
   	  EndIf  
 	    
-	    If TreeEx()\ReDraw : Draw_() : EndIf
+	    If TreeEx()\ReDraw : ReDraw_() : EndIf
 	  EndIf  
 	 
 	EndProcedure
@@ -2306,7 +2804,7 @@ Module TreeEx
     	  
   	  EndIf  
 	    
-	    If TreeEx()\ReDraw : Draw_() : EndIf
+	    If TreeEx()\ReDraw : ReDraw_() : EndIf
 	  EndIf  
 	 
 	EndProcedure	
@@ -2330,7 +2828,7 @@ Module TreeEx
 	    
 	    TreeEx()\Row\Focus = State
 	    
-	    If TreeEx()\ReDraw : Draw_() : EndIf
+	    If TreeEx()\ReDraw : ReDraw_() : EndIf
 	  EndIf
 	  
 	EndProcedure
@@ -2356,7 +2854,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   If OpenWindow(#Window, 0, 0, 300, 200, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
     
-    If TreeEx::Gadget(#TreeEx, 10, 10, 280, 180, "Tree", TreeEx::#ShowHeader|TreeEx::#CheckBoxes|TreeEx::#ColumnLines|TreeEx::#AutoResize, #Window) ; |TreeEx::#SelectRow|TreeEx::#NoButtons|TreeEx::#NoLines
+    If TreeEx::Gadget(#TreeEx, 10, 10, 280, 180, "Tree", TreeEx::#ShowHeader|TreeEx::#CheckBoxes|TreeEx::#ColumnLines|TreeEx::#FitTreeColumn|TreeEx::#AutoResize, #Window) ; |TreeEx::#SelectRow|TreeEx::#NoButtons|TreeEx::#NoLines
       
       TreeEx::AddColumn(#TreeEx, TreeEx::#LastColumn, 24, "",         "image",    TreeEx::#Image)
       TreeEx::AddColumn(#TreeEx, TreeEx::#LastColumn, 50, "Number",   "number",   TreeEx::#Right)    
@@ -2375,7 +2873,8 @@ CompilerIf #PB_Compiler_IsMainFile
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "Item"    + #LF$ + #LF$ + "2")
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "2.1",   "", #False, 1)
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "2.2",   "", #False, 1)
-      
+      TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "2.3",   "", #False, 1)
+      TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "2.3",   "", #False, 1)
       ; _____ Image _____
       TreeEx::SetItemImage(#TreeEx, TreeEx::#Header, #Image, TreeEx::#Center, 1)
       TreeEx::SetItemImage(#TreeEx, 4, #Image, TreeEx::#Center, 0)
@@ -2422,7 +2921,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 10
-; Folding = 9ZAAAAUAoIDUAIADCAAMgD-
+; CursorPosition = 1332
+; FirstLine = 539
+; Folding = 96IAABIAQqhGDjlOAEABBAAGgh-
 ; EnableXP
 ; DPIAware

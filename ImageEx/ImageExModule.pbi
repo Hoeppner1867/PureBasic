@@ -58,7 +58,10 @@
 ; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule ImageEx
-
+  
+  #Version  = 19111400
+  #ModuleEx = 19112102
+  
 	;- ===========================================================================
 	;-   DeclareModule - Constants
 	;- ===========================================================================
@@ -124,6 +127,7 @@ DeclareModule ImageEx
   Declare   AttachPopupMenu(GNum.i, PopUpNum.i)
   Declare   DisableReDraw(GNum.i, State.i=#False)
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, ImageNum.i, Flags.i=#False, WindowNum.i=#PB_Default)
+  Declare   Hide(GNum.i, State.i=#True)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetColor(GNum.i, ColorTyp.i, Value.i)
   Declare   SetFont(GNum.i, FontID.i)
@@ -228,7 +232,8 @@ Module ImageEx
 		FontID.i
 
 		ReDraw.i
-
+		Hide.i
+		
 		Flags.i
 
 		ToolTip.i
@@ -305,6 +310,8 @@ Module ImageEx
 	  Define.i X, Y, Width, Height, txtX, txtY
 	  Define.i imgX, imgY, imgWidth, imgHeight
 		Define.f winFactor
+		
+		If ImageEx()\Hide : ProcedureReturn #False : EndIf
 		
 		X = ImageEx()\Margin\Left
 		Y = ImageEx()\Margin\Top
@@ -769,6 +776,24 @@ Module ImageEx
 	EndProcedure
 	
 	
+	Procedure   Hide(GNum.i, State.i=#True)
+  
+    If FindMapElement(ImageEx(), Str(GNum))
+      
+      If State
+        ImageEx()\Hide = #True
+        HideGadget(GNum, #True)
+      Else
+        ImageEx()\Hide = #False
+        HideGadget(GNum, #False)
+        Draw_()
+      EndIf  
+      
+    EndIf  
+    
+  EndProcedure	
+  
+  
 	Procedure   SetAutoResizeFlags(GNum.i, Flags.i)
     
     If FindMapElement(ImageEx(), Str(GNum))
@@ -1034,9 +1059,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 1008
-; FirstLine = 489
-; Folding = cdBAEOYmgas-
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 791
+; Folding = cVBCEOYkA2Y-
 ; EnableXP
 ; DPIAware

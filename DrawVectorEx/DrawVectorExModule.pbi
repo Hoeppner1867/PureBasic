@@ -63,6 +63,8 @@
 
 DeclareModule Draw
   
+  #Version = 19112300
+  
   EnumerationBinary
     #Text_Default  = #PB_VectorText_Default 
     #Text_Visible  = #PB_VectorText_Visible
@@ -536,9 +538,9 @@ CompilerIf #PB_Compiler_IsMainFile
 
   
 CompilerEndIf  
-; IDE Options = PureBasic 5.70 LTS (Windows - x86)
-; CursorPosition = 506
-; FirstLine = 144
-; Folding = OAAA5
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 65
+; FirstLine = 28
+; Folding = OEAC5
 ; EnableXP
 ; DPIAware

@@ -8,6 +8,11 @@
 ;/ ( based on 'PurePDF' by LuckyLuke / ABBKlaus / normeus )
 ;/
 
+; Last Update: 11.11.2019
+; 
+; [11.11.2019] Changed: Embed images
+; [26.08.2019] Bugfix: PDF::Image()
+
 ;{ ===== MIT License =====
 ;
 ; Copyright (c) 2019 Thorsten Hoeppner
@@ -31,10 +36,13 @@
 ; SOFTWARE.
 ;}
 
-; Last Update: 11.11.2019
-; 
-; [11.11.2019] Changed: Embed images
-; [26.08.2019] Bugfix: PDF::Image()
+;{ ===== Additional tea & pizza license =====
+; <purebasic@thprogs.de> has created this code. 
+; If you find the code useful and you want to use it for your programs, 
+; you are welcome to support my work with a cup of tea or a pizza
+; (or the amount of money for it). 
+; [ https://www.paypal.me/Hoeppner1867 ]
+;}
 
 
 ; ----- Description -----
@@ -44,6 +52,7 @@
 ; - Unicode support
 ; - Encryption (Passwords & Permissions)
 ; - PDF forms (AcroForms)
+
 
 ;{ ===== Module Commands ===== 
 
@@ -171,11 +180,14 @@
   
 ;} ===========================
 
+
 ;- ===========================================================================
 ;-   DeclareModule
 ;- ===========================================================================
 
 DeclareModule PDF
+  
+  #Version  = 19111100
   
   #Enable_AcroFormCommands  = #True
   #Enable_Annotations       = #True
@@ -6938,10 +6950,11 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf 
 
 ;- ========================
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 36
-; Folding = MAYBAEAPQAIAEgAAgAAAECBAAAxAAAAAMACAAZQEAhREAAABHAAKIACEAAIYYCMFA9ABAA+
-; Markers = 570,1001,2350,2450,3756,3821
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 189
+; FirstLine = 3
+; Folding = YAwCAIAegAQAIABAABAAIECAAAiBAAAAYAEAAygIACjIAAACOAAUQAEIAAQwwEYKA5BCAA9
+; Markers = 582,1013,2362,2462,3768,3833
 ; EnableXP
 ; DPIAware
 ; EnablePurifier
