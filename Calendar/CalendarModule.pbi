@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (07/2019)
 ;/
 
-; Last Update: 21.11.2019
+; Last Update: 23.11.2019
 ;
 ; Added: Theme support
 ;
@@ -42,6 +42,14 @@
 ; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ; SOFTWARE.
+;}
+
+;{ ===== Additional tea & pizza license =====
+; <purebasic@thprogs.de> has created this code. 
+; If you find the code useful and you want to use it for your programs, 
+; you are welcome to support my work with a cup of tea or a pizza
+; (or the amount of money for it). 
+; [ https://www.paypal.me/Hoeppner1867 ]
 ;}
 
 
@@ -82,14 +90,15 @@
 ; Calendar::UpdatePopupText()    - update menu item text with this mask
 ;}
 
+
 ;XIncludeFile "ModuleEx.pbi"
 
-XIncludeFile "CanvasTooltipModule.pbi"
-XIncludeFile "Date64Module.pbi"
+CompilerIf Not Defined(ToolTip, #PB_Module) : XIncludeFile "CanvasTooltipModule.pbi" : CompilerEndIf
+CompilerIf Not Defined(Date64, #PB_Module)  : XIncludeFile "Date64Module.pbi"        : CompilerEndIf
 
 DeclareModule Calendar
   
-  #Version  = 19112100
+  #Version  = 19112301
   #ModuleEx = 19112002
   
   #Enable_iCalFormat = #True
@@ -694,8 +703,8 @@ Module Calendar
       Text = ReplaceString(Text, #Day$,         MapKey(Calendar()\Day()))
       Text = ReplaceString(Text, #WeekDay$,     Calendar()\Week\Day(Str(DayOfWeek_(Calendar()\Day()\Entry()\StartDate))))
       Text = ReplaceString(Text, #Summary$,     Calendar()\Day()\Entry()\Summary)
-      Text = ReplaceString(Text, #Description$, Calendar()\Day()\Entry()\Summary)
-      Text = ReplaceString(Text, #Location$,    Calendar()\Day()\Entry()\Summary)
+      Text = ReplaceString(Text, #Description$, Calendar()\Day()\Entry()\Description)
+      Text = ReplaceString(Text, #Location$,    Calendar()\Day()\Entry()\Location)
       Text = ReplaceString(Text, #Label$,       Calendar()\Day()\Entry()\Label)
       Text = ReplaceString(Text, #StartDate$,   FormatDate_(Calendar()\DateMask, Calendar()\Day()\Entry()\StartDate))
       Text = ReplaceString(Text, #EndDate$,     FormatDate_(Calendar()\DateMask, Calendar()\Day()\Entry()\EndDate))
@@ -3187,9 +3196,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 236
+; CursorPosition = 100
 ; FirstLine = 18
-; Folding = MAOAAAGAgAAAi7BQEMRABWDgABBS7
-; Markers = 1060,2738
+; Folding = 5BwBAAwAAEEAQ9PAigJCIwaAEIIQS-
+; Markers = 1069,2747
 ; EnableXP
 ; DPIAware

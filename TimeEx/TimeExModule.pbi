@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 22.11.19
+; Last Update: 24.11.19
 ;
 ; Added: #UseExistingCanvas
 ;
@@ -36,6 +36,14 @@
 ; SOFTWARE.
 ;}
 
+;{ ===== Additional tea & pizza license =====
+; <purebasic@thprogs.de> has created this code. 
+; If you find the code useful and you want to use it for your programs, 
+; you are welcome to support my work with a cup of tea or a pizza
+; (or the amount of money for it). 
+; [ https://www.paypal.me/Hoeppner1867 ]
+;}
+
 
 ;{ _____ TimeEx - Commands _____
 
@@ -52,7 +60,7 @@
 
 DeclareModule TimeEx
   
-  #Version  = 19112200
+  #Version  = 19112400
   #ModuleEx = 19112102
   
   ;- ===========================================================================
@@ -113,6 +121,8 @@ EndDeclareModule
 
 
 Module TimeEx
+  
+  
   
   EnableExplicit
   
@@ -1058,6 +1068,7 @@ Module TimeEx
       Draw_()
     EndIf
     
+    ProcedureReturn GNum
   EndProcedure
   
   Procedure   Hide(GNum.i, State.i=#True)
@@ -1235,8 +1246,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 54
+; CursorPosition = 62
 ; FirstLine = 12
-; Folding = EAYA8AAA1A+
+; Folding = IAwA3BAgoB9
 ; EnableXP
 ; DPIAware
