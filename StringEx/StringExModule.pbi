@@ -71,7 +71,7 @@
 ; StringEx::SetAutoResizeFlags() - [#MoveX|#MoveY|#Width|#Height]
 ; StringEx::SetColor()           - similar to 'SetGadgetColor()'
 ; StringEx::SetFlags()           - sets one or more flags
-; StringEx::SetInputMask()       - defines a input mask (e.g. time: "__:__")
+; StringEx::SetInputMask()       - defines a input mask (e.g. time: "__:__" or money: "*.__$")
 ; StringEx::SetText()            - similar to 'SetGadgetText()'
 ; StringEx::Undo()               - undo last input
 
@@ -81,7 +81,7 @@
 
 DeclareModule StringEx
   
-  #Version  = 19112400
+  #Version  = 19112401
   #ModuleEx = 19111703
   
   #Enable_AutoComplete       = #True
@@ -248,6 +248,12 @@ Module StringEx
   ;-   Module - Structures
   ;- ============================================================================
   
+  Structure StrgEx_Mask_Structure    ;{ StrgEx()\Mask\...
+    String.s
+    Pos.i
+    Delimiter.s
+  EndStructure ;}
+  
   Structure StrgEx_Font_Structure    ;{ StrgEx()\Font\...
 	  Num.i
 	  Name.s
@@ -340,8 +346,6 @@ Module StringEx
     MaxLength.i
     Padding.i
     Radius.i
-    Mask.s
-    
     Hide.i
     Disable.i
     Flags.i
@@ -352,6 +356,7 @@ Module StringEx
     PFactor.f
     
     Font.StrgEx_Font_Structure
+    Mask.StrgEx_Mask_Structure
     
     Button.StrgEx_Button_Structure
     Color.StrgEx_Color_Structure
@@ -468,12 +473,30 @@ Module StringEx
   EndProcedure
   
   Procedure.s DeleteMaskPart_(String.s, Position.i, Length.i=1) ; Delete string part at Position (with Length)
+    Define.i MaskPos
     
-      If Position <= 0 : Position = 1 : EndIf
-      If Position > Len(String) : Position = Len(String) : EndIf
+    If Position <= 0 : Position = 1 : EndIf
+    If Position > Len(String) : Position = Len(String) : EndIf
+    
+    If StrgEx()\Mask\Delimiter
       
-      ProcedureReturn Left(String, Position - 1) + Mid(StrgEx()\Mask, Position, 1) + Mid(String, Position + Length)
-    EndProcedure
+      StrgEx()\Mask\Pos = FindString(String, StrgEx()\Mask\Delimiter)
+
+      MaskPos = (Position - StrgEx()\Mask\Pos) + 2
+
+      If StrgEx()\Mask\Pos And Position < StrgEx()\Mask\Pos
+        ProcedureReturn Left(String, Position - 1) + Mid(String, Position + Length)
+      Else
+        If Position = Len(String) : StrgEx()\Cursor\Pos - 1 : EndIf
+        ProcedureReturn Left(String, Position - 1) + Mid(StrgEx()\Mask\String, MaskPos, 1) + Mid(String, Position + Length)
+      EndIf 
+      
+    Else  
+      ProcedureReturn Left(String, Position - 1) + Mid(StrgEx()\Mask\String, Position, 1) + Mid(String, Position + Length)
+    EndIf
+    
+  EndProcedure
+  
   
   Procedure.s StringSegment_(String.s, Pos1.i, Pos2.i=#PB_Ignore) ; Return String from Pos1 to Pos2 
     Define.i Length = Pos2 - Pos1
@@ -674,56 +697,130 @@ Module StringEx
     ProcedureReturn Len(StrgEx()\Text)
   EndProcedure
   
-  
-  Procedure UseInputMask_(Char$)
-    Define.i c, txtLen, maskLen
+  Procedure   UseInputMask_(Char$)
+    Define.i c, txtLen, maskLen, MaskPos
     Define.s Text$
     
     Text$   = StrgEx()\Text
     txtLen  = Len(StrgEx()\Text)
-    maskLen = Len(StrgEx()\Mask)
+    maskLen = Len(StrgEx()\Mask\String)
     
-    
-    If StrgEx()\Cursor\Pos = txtLen ;{ add at the end
-      
-      If StrgEx()\Cursor\Pos >= maskLen : ProcedureReturn #False : EndIf
-      
-      StrgEx()\Cursor\Pos + 1
-      
-      For c = StrgEx()\Cursor\Pos To maskLen
-        If Mid(StrgEx()\Mask, c, 1) = "_"
-          StrgEx()\Text + Char$
-          Break
-        ElseIf Mid(StrgEx()\Mask, c, 1) = Char$
-          StrgEx()\Text + Char$
-          Break
-        Else 
-          StrgEx()\Cursor\Pos + 1
-          StrgEx()\Text + Mid(StrgEx()\Mask, c, 1)
-        EndIf
-      Next
-      ;}
-    Else                            ;{ within the word
-      
-      For c = StrgEx()\Cursor\Pos To maskLen
-        If Mid(StrgEx()\Mask, c + 1, 1) = "_"
-          Text$ = Left(Text$, c) + Char$ + Mid(Text$, c + 2)
-          StrgEx()\Cursor\Pos + 1
-          Break
-        ElseIf Mid(StrgEx()\Mask, c + 1, 1) = Char$
-          Text$ = Left(Text$, c) + Char$ + Mid(Text$, c + 2)
-          StrgEx()\Cursor\Pos + 1
-          Break
-        Else 
-          Text$ = Left(Text$, c) + Mid(StrgEx()\Mask, c + 1, 1) + Mid(Text$, c + 2)
-          StrgEx()\Cursor\Pos + 1
-        EndIf
-      Next
-      
-      StrgEx()\Text = Left(Text$, maskLen)
-      ;}
-    EndIf  
+    If StrgEx()\Mask\Delimiter
 
+      StrgEx()\Mask\Pos = FindString(Text$, StrgEx()\Mask\Delimiter)
+      If StrgEx()\Mask\Pos
+        
+        If Char$ = StrgEx()\Mask\Delimiter
+          If Mid(Text$, StrgEx()\Cursor\Pos + 1, 1) = StrgEx()\Mask\Delimiter
+            StrgEx()\Cursor\Pos + 1
+          EndIf  
+          ProcedureReturn #False
+        EndIf
+        
+        If StrgEx()\Cursor\Pos >= StrgEx()\Mask\Pos
+
+          If StrgEx()\Cursor\Pos = txtLen ;{ add at the end
+            
+            StrgEx()\Cursor\Pos + 1
+            
+            MaskPos = (StrgEx()\Cursor\Pos - StrgEx()\Mask\Pos) + 2
+            For c = MaskPos To maskLen
+
+              If Mid(StrgEx()\Mask\String, c, 1) = "_"
+                StrgEx()\Text + Char$
+                Break  
+              ElseIf Mid(StrgEx()\Mask\String, c, 1) = Char$
+                If Mid(Text$, StrgEx()\Cursor\Pos, 1) <> Char$
+                  StrgEx()\Text + Char$
+                EndIf  
+                Break
+              Else
+                StrgEx()\Text + Mid(StrgEx()\Mask\String, c, 1)
+                StrgEx()\Cursor\Pos + 1
+              EndIf
+
+            Next  
+            ;}
+          Else                            ;{ within the string
+
+            MaskPos = (StrgEx()\Cursor\Pos - StrgEx()\Mask\Pos) + 2
+            For c = MaskPos To maskLen
+
+              If Mid(StrgEx()\Mask\String, c + 1, 1) = "_"
+                StrgEx()\Text = Left(Text$, StrgEx()\Cursor\Pos) + Char$ + Mid(Text$, StrgEx()\Cursor\Pos + 2)
+                StrgEx()\Cursor\Pos + 1
+                Break  
+              ElseIf Mid(StrgEx()\Mask\String, c + 1, 1) = Char$
+                StrgEx()\Text = Left(Text$, StrgEx()\Cursor\Pos) + Char$ + Mid(Text$, StrgEx()\Cursor\Pos + 2)
+                StrgEx()\Cursor\Pos + 1
+                Break
+              Else
+                StrgEx()\Text = Left(Text$, StrgEx()\Cursor\Pos) + Mid(StrgEx()\Mask\String, c + 1, 1) + Mid(Text$, StrgEx()\Cursor\Pos + 2)
+                StrgEx()\Cursor\Pos + 1
+              EndIf
+
+            Next
+             ;}
+          EndIf
+         
+        Else
+          StrgEx()\Cursor\Pos + 1
+          StrgEx()\Text = InsertString(Text$, Char$, StrgEx()\Cursor\Pos)
+        EndIf  
+        
+      Else
+        StrgEx()\Cursor\Pos + 1
+        StrgEx()\Text = InsertString(Text$, Char$, StrgEx()\Cursor\Pos)
+      EndIf
+      
+    Else
+      
+      If StrgEx()\Cursor\Pos = txtLen ;{ add at the end
+        
+        If StrgEx()\Cursor\Pos >= maskLen : ProcedureReturn #False : EndIf
+        
+        StrgEx()\Cursor\Pos + 1
+        
+        For c = StrgEx()\Cursor\Pos To maskLen
+  
+          If Mid(StrgEx()\Mask\String, c, 1) = "_"
+            StrgEx()\Text + Char$
+            Break
+          ElseIf Mid(StrgEx()\Mask\String, c, 1) = Char$
+            StrgEx()\Text + Char$
+            Break
+          Else 
+            StrgEx()\Cursor\Pos + 1
+            StrgEx()\Text + Mid(StrgEx()\Mask\String, c, 1)
+          EndIf
+          
+        Next
+        ;}
+      Else                            ;{ within the string
+        
+        For c = StrgEx()\Cursor\Pos To maskLen
+          
+          If Mid(StrgEx()\Mask\String, c + 1, 1) = "_"
+            Text$ = Left(Text$, c) + Char$ + Mid(Text$, c + 2)
+            StrgEx()\Cursor\Pos + 1
+            Break
+          ElseIf Mid(StrgEx()\Mask\String, c + 1, 1) = Char$
+            Text$ = Left(Text$, c) + Char$ + Mid(Text$, c + 2)
+            StrgEx()\Cursor\Pos + 1
+            Break
+          Else 
+            Text$ = Left(Text$, c) + Mid(StrgEx()\Mask\String, c + 1, 1) + Mid(Text$, c + 2)
+            StrgEx()\Cursor\Pos + 1
+          EndIf
+          
+        Next
+        
+        StrgEx()\Text = Left(Text$, maskLen)
+        ;}
+      EndIf  
+      
+    EndIf
+    
   EndProcedure
   
   ;- __________ Drawing __________
@@ -1073,7 +1170,7 @@ Module StringEx
             If StrgEx()\Flags & #UpperCase : Char$ = UCase(Char$) : EndIf
             If StrgEx()\Flags & #LowerCase : Char$ = LCase(Char$) : EndIf
             
-            If StrgEx()\Mask
+            If StrgEx()\Mask\String
               UseInputMask_(Char$)
             Else  
               StrgEx()\Cursor\Pos + 1
@@ -1207,7 +1304,7 @@ Module StringEx
                 RemoveSelection_()
               Else
                 If StrgEx()\Cursor\Pos > 0
-                  If StrgEx()\Mask
+                  If StrgEx()\Mask\String
                     StrgEx()\Text = DeleteMaskPart_(StrgEx()\Text, StrgEx()\Cursor\Pos) 
                   Else  
                     StrgEx()\Text = DeleteStringPart_(StrgEx()\Text, StrgEx()\Cursor\Pos) 
@@ -1230,7 +1327,7 @@ Module StringEx
                   RemoveSelection_()
                 Else
                   If StrgEx()\Cursor\Pos < Len(StrgEx()\Text)
-                    If StrgEx()\Mask
+                    If StrgEx()\Mask\String
                       StrgEx()\Text = DeleteMaskPart_(StrgEx()\Text, StrgEx()\Cursor\Pos + 1)
                     Else  
                       StrgEx()\Text = DeleteStringPart_(StrgEx()\Text, StrgEx()\Cursor\Pos + 1)
@@ -2082,9 +2179,16 @@ Module StringEx
   EndProcedure
   
   Procedure SetInputMask(GNum.i, Mask.s)
+    
     If FindMapElement(StrgEx(), Str(GNum))
-      StrgEx()\Mask = Mask
+      
+      StrgEx()\Mask\String = Mask
+      If Left(Mask, 1) = "*"
+        StrgEx()\Mask\Delimiter = Mid(Mask, 2, 1)
+      EndIf  
+      
     EndIf
+    
   EndProcedure
   
   Procedure SetText(GNum.i, Text.s) 
@@ -2280,7 +2384,7 @@ CompilerIf #PB_Compiler_IsMainFile
     StringEx::AddButton(#StringDel, #Image)
     StringEx::SetAutoResizeFlags(#StringDel, StringEx::#Width)
     
-    StringEx::SetInputMask(#StringDel, "__.__.____")
+    ;StringEx::SetInputMask(#StringDel, "*.__$")
     
     CompilerIf Defined(ModuleEx, #PB_Module)
 	
@@ -2296,7 +2400,7 @@ CompilerIf #PB_Compiler_IsMainFile
     ;DisableGadget(#String, #True)
     ;StringEx::Disable(#StringEx, #True)
     
-    StringEx::SetAttribute(#StringPW, StringEx::#Corner, 4)
+    ;StringEx::SetAttribute(#StringPW, StringEx::#Corner, 4)
     
     Repeat
       Event = WaitWindowEvent()
@@ -2338,9 +2442,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 53
-; FirstLine = 30
-; Folding = 5OAKmCCAQRAhBAABFAIgBgI7
+; CursorPosition = 2386
+; FirstLine = 495
+; Folding = 9eAUAAEABKCAsAAIoAABMAAR-
 ; EnableThread
 ; EnableXP
 ; DPIAware
