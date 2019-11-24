@@ -77,7 +77,7 @@
 
 DeclareModule TreeEx
   
-  #Version  = 19112400
+  #Version  = 19112401
   #ModuleEx = 19112002
   
   #Enable_ProgressBar = #True
@@ -1621,7 +1621,7 @@ Module TreeEx
     	  ForEach TreeEx()\Cols()
     	    Line(TreeEx()\Cols()\X, LineY, 1, LineHeight, TreeEx()\Color\HeaderBorder)
     	  Next 
-    	  Line(TreeEx()\Cols()\X + TreeEx()\Cols()\Width - 1, LineY, 1, LineHeight, TreeEx()\Color\HeaderBorder)
+    	  Line(TreeEx()\Cols()\X + dpiX(TreeEx()\Cols()\Width) - 1, LineY, 1, LineHeight, TreeEx()\Color\HeaderBorder)
 	    EndIf
     	;}
   	  
@@ -2993,6 +2993,7 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 79
-; Folding = 96AAACA15BAQMMC7QSMEEAIwAM+
+; FirstLine = 12
+; Folding = 96AAACA15NAQMMG7QSMEEAIwAM+
 ; EnableXP
 ; DPIAware
