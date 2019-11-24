@@ -7,17 +7,15 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 22.11.19
+; Last Update: 24.11.19
 ;
-; Added:   Attribute '#Corner'
+; Added: input masks (e.g. date: "____/__/__" or "__.__.____")
 ;
-; Added:   StringEx::Disable()
-; Added:   #EventType_Change / #EventType_Focus / #EventType_LostFocus 
-; Added:   StringEx::Hide()
-; Added:   #UseExistingCanvas
-; Changed: #ResizeWidth -> #Width / #ResizeHeight -> #Height
-; Added:   SetDynamicFont() / FitText() / SetFitText()       [needs ModuleEx.pbi]
-; Added:   Flags '#FitText' & '#FixPadding' for Autoresize   [needs ModuleEx.pbi]
+; Added: Attribute '#Corner'
+; Added: #EventType_Change / #EventType_Focus / #EventType_LostFocus 
+; Added: StringEx::Hide() / StringEx::Disable()
+; Added: SetDynamicFont() / FitText() / SetFitText()       [needs ModuleEx.pbi]
+; Added: Flags '#FitText' & '#FixPadding' for Autoresize   [needs ModuleEx.pbi]
 
 
 ;{ ===== MIT License =====
@@ -43,9 +41,16 @@
 ; SOFTWARE.
 ;}
 
+;{ ===== Additional tea & pizza license =====
+; <purebasic@thprogs.de> has created this code. 
+; If you find the code useful and you want to use it for your programs, 
+; you are welcome to support my work with a cup of tea or a pizza
+; (or the amount of money for it). 
+; [ https://www.paypal.me/Hoeppner1867 ]
+;}
+
 
 ;{ _____ StringEx - Commands _____
-
 
 ; StringEx::AddButton()          - adds a button to the gadget
 ; StringEx::AddWords()           - add words to the autocomplete list
@@ -66,6 +71,7 @@
 ; StringEx::SetAutoResizeFlags() - [#MoveX|#MoveY|#Width|#Height]
 ; StringEx::SetColor()           - similar to 'SetGadgetColor()'
 ; StringEx::SetFlags()           - sets one or more flags
+; StringEx::SetInputMask()       - defines a input mask (e.g. time: "__:__")
 ; StringEx::SetText()            - similar to 'SetGadgetText()'
 ; StringEx::Undo()               - undo last input
 
@@ -75,7 +81,7 @@
 
 DeclareModule StringEx
   
-  #Version  = 19112200
+  #Version  = 19112400
   #ModuleEx = 19111703
   
   #Enable_AutoComplete       = #True
@@ -188,6 +194,7 @@ DeclareModule StringEx
   Declare   SetColor(GNum.i, ColorType.i, Color.i)
   Declare   SetFlags(GNum.i, Flags.i)
   Declare   SetFont(GNum.i, FontNum.i) 
+  Declare   SetInputMask(GNum.i, Mask.s)
   Declare   SetText(GNum.i, Text.s) 
   Declare   Undo(GNum.i)
   
@@ -333,6 +340,7 @@ Module StringEx
     MaxLength.i
     Padding.i
     Radius.i
+    Mask.s
     
     Hide.i
     Disable.i
@@ -455,9 +463,17 @@ Module StringEx
     
     If Position <= 0 : Position = 1 : EndIf
     If Position > Len(String) : Position = Len(String) : EndIf
-    
+
     ProcedureReturn Left(String, Position - 1) + Mid(String, Position + Length)
   EndProcedure
+  
+  Procedure.s DeleteMaskPart_(String.s, Position.i, Length.i=1) ; Delete string part at Position (with Length)
+    
+      If Position <= 0 : Position = 1 : EndIf
+      If Position > Len(String) : Position = Len(String) : EndIf
+      
+      ProcedureReturn Left(String, Position - 1) + Mid(StrgEx()\Mask, Position, 1) + Mid(String, Position + Length)
+    EndProcedure
   
   Procedure.s StringSegment_(String.s, Pos1.i, Pos2.i=#PB_Ignore) ; Return String from Pos1 to Pos2 
     Define.i Length = Pos2 - Pos1
@@ -657,7 +673,59 @@ Module StringEx
     
     ProcedureReturn Len(StrgEx()\Text)
   EndProcedure
- 
+  
+  
+  Procedure UseInputMask_(Char$)
+    Define.i c, txtLen, maskLen
+    Define.s Text$
+    
+    Text$   = StrgEx()\Text
+    txtLen  = Len(StrgEx()\Text)
+    maskLen = Len(StrgEx()\Mask)
+    
+    
+    If StrgEx()\Cursor\Pos = txtLen ;{ add at the end
+      
+      If StrgEx()\Cursor\Pos >= maskLen : ProcedureReturn #False : EndIf
+      
+      StrgEx()\Cursor\Pos + 1
+      
+      For c = StrgEx()\Cursor\Pos To maskLen
+        If Mid(StrgEx()\Mask, c, 1) = "_"
+          StrgEx()\Text + Char$
+          Break
+        ElseIf Mid(StrgEx()\Mask, c, 1) = Char$
+          StrgEx()\Text + Char$
+          Break
+        Else 
+          StrgEx()\Cursor\Pos + 1
+          StrgEx()\Text + Mid(StrgEx()\Mask, c, 1)
+        EndIf
+      Next
+      ;}
+    Else                            ;{ within the word
+      
+      For c = StrgEx()\Cursor\Pos To maskLen
+        If Mid(StrgEx()\Mask, c + 1, 1) = "_"
+          Text$ = Left(Text$, c) + Char$ + Mid(Text$, c + 2)
+          StrgEx()\Cursor\Pos + 1
+          Break
+        ElseIf Mid(StrgEx()\Mask, c + 1, 1) = Char$
+          Text$ = Left(Text$, c) + Char$ + Mid(Text$, c + 2)
+          StrgEx()\Cursor\Pos + 1
+          Break
+        Else 
+          Text$ = Left(Text$, c) + Mid(StrgEx()\Mask, c + 1, 1) + Mid(Text$, c + 2)
+          StrgEx()\Cursor\Pos + 1
+        EndIf
+      Next
+      
+      StrgEx()\Text = Left(Text$, maskLen)
+      ;}
+    EndIf  
+
+  EndProcedure
+  
   ;- __________ Drawing __________
   
   Procedure.f GetOffsetX_(Text.s, Width.i, OffsetX.i) 
@@ -905,9 +973,9 @@ Module StringEx
         If StartDrawing(CanvasOutput(StrgEx()\CanvasNum))
           DrawingMode(#PB_2DDrawing_Default)
           If StrgEx()\Cursor\State
-            Line(StrgEx()\Cursor\X - 1, StrgEx()\Cursor\Y, 1, StrgEx()\Cursor\Height, StrgEx()\Color\Cursor)
+            Line(StrgEx()\Cursor\X, StrgEx()\Cursor\Y, 1, StrgEx()\Cursor\Height, StrgEx()\Color\Cursor)
           Else
-            Line(StrgEx()\Cursor\X - 1, StrgEx()\Cursor\Y, 1, StrgEx()\Cursor\Height, BackColor)
+            Line(StrgEx()\Cursor\X, StrgEx()\Cursor\Y, 1, StrgEx()\Cursor\Height, BackColor)
           EndIf
           StopDrawing()
         EndIf
@@ -1005,10 +1073,13 @@ Module StringEx
             If StrgEx()\Flags & #UpperCase : Char$ = UCase(Char$) : EndIf
             If StrgEx()\Flags & #LowerCase : Char$ = LCase(Char$) : EndIf
             
-            StrgEx()\Cursor\Pos + 1
-            StrgEx()\Text = InsertString(StrgEx()\Text, Char$, StrgEx()\Cursor\Pos)
-            
-            
+            If StrgEx()\Mask
+              UseInputMask_(Char$)
+            Else  
+              StrgEx()\Cursor\Pos + 1
+              StrgEx()\Text = InsertString(StrgEx()\Text, Char$, StrgEx()\Cursor\Pos)
+            EndIf
+
             CompilerIf #Enable_AutoComplete
               
               If StrgEx()\Flags & #AutoComplete
@@ -1136,7 +1207,11 @@ Module StringEx
                 RemoveSelection_()
               Else
                 If StrgEx()\Cursor\Pos > 0
-                  StrgEx()\Text = DeleteStringPart_(StrgEx()\Text, StrgEx()\Cursor\Pos)
+                  If StrgEx()\Mask
+                    StrgEx()\Text = DeleteMaskPart_(StrgEx()\Text, StrgEx()\Cursor\Pos) 
+                  Else  
+                    StrgEx()\Text = DeleteStringPart_(StrgEx()\Text, StrgEx()\Cursor\Pos) 
+                  EndIf
                   StrgEx()\Cursor\Pos - 1
                 EndIf
                 RemoveSelection_()
@@ -1144,7 +1219,7 @@ Module StringEx
               PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
               PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
             EndIf ;}
-          Case #PB_Shortcut_Delete    ;{ Delete / Cut (Shift)
+          Case #PB_Shortcut_Delete         ;{ Delete / Cut (Shift)
             If Modifier & #PB_Canvas_Shift ;{ Cut selected text
               Cut_()
               ;}
@@ -1155,7 +1230,11 @@ Module StringEx
                   RemoveSelection_()
                 Else
                   If StrgEx()\Cursor\Pos < Len(StrgEx()\Text)
-                    StrgEx()\Text = DeleteStringPart_(StrgEx()\Text, StrgEx()\Cursor\Pos + 1)
+                    If StrgEx()\Mask
+                      StrgEx()\Text = DeleteMaskPart_(StrgEx()\Text, StrgEx()\Cursor\Pos + 1)
+                    Else  
+                      StrgEx()\Text = DeleteStringPart_(StrgEx()\Text, StrgEx()\Cursor\Pos + 1)
+                    EndIf  
                     RemoveSelection_()
                   EndIf
                 EndIf
@@ -1906,6 +1985,7 @@ Module StringEx
     
   EndProcedure
   
+  
   Procedure Hide(GNum.i, State.i=#True)
     
     If FindMapElement(StrgEx(), Str(GNum))
@@ -1914,6 +1994,15 @@ Module StringEx
     EndIf  
   
   EndProcedure
+  
+  Procedure RemoveFlag(GNum.i, Flag.i)
+    
+    If FindMapElement(StrgEx(), Str(GNum))
+      StrgEx()\Flags & ~Flag
+    EndIf
+    
+  EndProcedure  
+  
   
   Procedure SetAutoResizeFlags(GNum.i, Flags.i)
     
@@ -1978,15 +2067,7 @@ Module StringEx
     EndIf
     
   EndProcedure
-  
-  Procedure RemoveFlag(GNum.i, Flag.i)
-    
-    If FindMapElement(StrgEx(), Str(GNum))
-      StrgEx()\Flags & ~Flag
-    EndIf
-    
-  EndProcedure
-  
+
   Procedure SetFont(GNum.i, FontNum.i) 
     
     If FindMapElement(StrgEx(), Str(GNum))
@@ -1998,6 +2079,12 @@ Module StringEx
       Draw_()
     EndIf
     
+  EndProcedure
+  
+  Procedure SetInputMask(GNum.i, Mask.s)
+    If FindMapElement(StrgEx(), Str(GNum))
+      StrgEx()\Mask = Mask
+    EndIf
   EndProcedure
   
   Procedure SetText(GNum.i, Text.s) 
@@ -2189,9 +2276,11 @@ CompilerIf #PB_Compiler_IsMainFile
     ;StringEx::SetAttribute(#StringPW, StringEx::#Padding, 6)
     ;StringEx::SetAttribute(#StringPW, StringEx::#MaximumLength, 10)
     
-    StringEx::Gadget(#StringDel, 340, 19, 100, 20, "Delete this", StringEx::#Center|StringEx::#AutoResize, #Window)
+    StringEx::Gadget(#StringDel, 340, 19, 100, 20, "", StringEx::#AutoResize, #Window) ; Delete this
     StringEx::AddButton(#StringDel, #Image)
     StringEx::SetAutoResizeFlags(#StringDel, StringEx::#Width)
+    
+    StringEx::SetInputMask(#StringDel, "__.__.____")
     
     CompilerIf Defined(ModuleEx, #PB_Module)
 	
@@ -2249,8 +2338,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 77
-; Folding = cHAEAgGqiAAAAACKAQADAI+
+; CursorPosition = 53
+; FirstLine = 30
+; Folding = 5OAKmCCAQRAhBAABFAIgBgI7
 ; EnableThread
 ; EnableXP
 ; DPIAware
