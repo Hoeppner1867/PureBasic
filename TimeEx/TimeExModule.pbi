@@ -7,7 +7,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 24.11.19
+; Last Update: 25.11.19
+;
+; Added: Flag #NoButtons
 ;
 ; Added: #UseExistingCanvas
 ;
@@ -44,6 +46,7 @@
 ; [ https://www.paypal.me/Hoeppner1867 ]
 ;}
 
+; TODO: Hide Buttons
 
 ;{ _____ TimeEx - Commands _____
 
@@ -60,7 +63,7 @@
 
 DeclareModule TimeEx
   
-  #Version  = 19112400
+  #Version  = 19112500
   #ModuleEx = 19112102
   
   ;- ===========================================================================
@@ -72,6 +75,7 @@ DeclareModule TimeEx
     #Borderless
     #Format12Hour
     #NoSeconds
+    #NoButtons
     #UseExistingCanvas
   EndEnumeration ;}
   
@@ -376,55 +380,65 @@ Module TimeEx
       Width  = dpiX(GadgetWidth(TGEx()\CanvasNum) - #ButtonWidth - 4)
       
       ;{ _____ Buttons _____
-      If DesktopScaledX(100) >= 125
-        TGEx()\Button\X = dpiX(GadgetWidth(TGEx()\CanvasNum) - #ButtonWidth - 1)
-        TGEx()\Button\Height = dpiY((GadgetHeight(TGEx()\CanvasNum) - 5) / 2 )
-        TGEx()\Button\Y1     = dpiY(3)
+      If TGEx()\Flags & #NoButtons
+        
+        TGEx()\Button\X = 0
+        TGEx()\Button\Height = 0
+        TGEx()\Button\Y1 = 0
+        
       Else
-        TGEx()\Button\X = dpiX(GadgetWidth(TGEx()\CanvasNum) - #ButtonWidth - 2)
-        TGEx()\Button\Height = dpiY((GadgetHeight(TGEx()\CanvasNum) - 4) / 2 )
-        TGEx()\Button\Y1     = dpiY(2)
-      EndIf
-      
-      If Not TGEx()\Disable
-        If TGEx()\Button\State & #ClickUp
-          btBackColor   = BlendColor_(TGEx()\Color\Focus, $FFFFFF, 20)
-          btBorderColor = TGEx()\Color\Focus
-        ElseIf TGEx()\Button\State & #FocusUp
-          btBackColor   = BlendColor_(TGEx()\Color\Focus, $FFFFFF, 10)
-          btBorderColor = TGEx()\Color\Focus
+        
+        If DesktopScaledX(100) >= 125
+          TGEx()\Button\X      = dpiX(GadgetWidth(TGEx()\CanvasNum) - dpiX(#ButtonWidth + 1))
+          TGEx()\Button\Height = dpiY((GadgetHeight(TGEx()\CanvasNum) - 5) / 2 )
+          TGEx()\Button\Y1     = dpiY(3)
         Else
-          btBackColor   = TGEx()\Color\Button
-          btBorderColor = TGEx()\Color\ButtonBorder
+          TGEx()\Button\X = dpiX(GadgetWidth(TGEx()\CanvasNum) - dpiX(#ButtonWidth + 2))
+          TGEx()\Button\Height = dpiY((GadgetHeight(TGEx()\CanvasNum) - 4) / 2 )
+          TGEx()\Button\Y1     = dpiY(2)
         EndIf
-      EndIf
-      
-      DrawingMode(#PB_2DDrawing_Default)
-      Box_(TGEx()\Button\X, TGEx()\Button\Y1, dpiX(#ButtonWidth), TGEx()\Button\Height, btBackColor)
-      Arrow_(TGEx()\Button\X, TGEx()\Button\Y1, dpiX(#ButtonWidth), TGEx()\Button\Height, #Up)
-      DrawingMode(#PB_2DDrawing_Outlined)
-      Box_(TGEx()\Button\X, TGEx()\Button\Y1, dpiX(#ButtonWidth), TGEx()\Button\Height, btBorderColor)
-      
-      TGEx()\Button\Y2 = dpiY(GadgetHeight(TGEx()\CanvasNum) - 2) - TGEx()\Button\Height
-      
-      If Not TGEx()\Disable
-        If TGEx()\Button\State & #ClickDown
-          btBackColor   = BlendColor_(TGEx()\Color\Focus, $FFFFFF, 20)
-          btBorderColor = TGEx()\Color\Focus
-        ElseIf TGEx()\Button\State & #FocusDown
-          btBackColor   = BlendColor_(TGEx()\Color\Focus, $FFFFFF, 10)
-          btBorderColor = TGEx()\Color\Focus
-        Else
-          btBackColor   = TGEx()\Color\Button
-          btBorderColor = TGEx()\Color\ButtonBorder
+
+        If Not TGEx()\Disable
+          If TGEx()\Button\State & #ClickUp
+            btBackColor   = BlendColor_(TGEx()\Color\Focus, $FFFFFF, 20)
+            btBorderColor = TGEx()\Color\Focus
+          ElseIf TGEx()\Button\State & #FocusUp
+            btBackColor   = BlendColor_(TGEx()\Color\Focus, $FFFFFF, 10)
+            btBorderColor = TGEx()\Color\Focus
+          Else
+            btBackColor   = TGEx()\Color\Button
+            btBorderColor = TGEx()\Color\ButtonBorder
+          EndIf
         EndIf
-      EndIf 
-      
-      DrawingMode(#PB_2DDrawing_Default)
-      Box_(TGEx()\Button\X, TGEx()\Button\Y2, dpiX(#ButtonWidth), TGEx()\Button\Height, btBackColor)
-      Arrow_(TGEx()\Button\X, TGEx()\Button\Y2, dpiX(#ButtonWidth), TGEx()\Button\Height, #Down)
-      DrawingMode(#PB_2DDrawing_Outlined)
-      Box_(TGEx()\Button\X, TGEx()\Button\Y2, dpiX(#ButtonWidth), TGEx()\Button\Height, btBorderColor)
+     
+        DrawingMode(#PB_2DDrawing_Default)
+        Box_(TGEx()\Button\X, TGEx()\Button\Y1, dpiX(#ButtonWidth), TGEx()\Button\Height, btBackColor)
+        Arrow_(TGEx()\Button\X, TGEx()\Button\Y1, dpiX(#ButtonWidth), TGEx()\Button\Height, #Up)
+        DrawingMode(#PB_2DDrawing_Outlined)
+        Box_(TGEx()\Button\X, TGEx()\Button\Y1, dpiX(#ButtonWidth), TGEx()\Button\Height, btBorderColor)
+        
+        TGEx()\Button\Y2 = dpiY(GadgetHeight(TGEx()\CanvasNum) - 2) - TGEx()\Button\Height
+        
+        If Not TGEx()\Disable
+          If TGEx()\Button\State & #ClickDown
+            btBackColor   = BlendColor_(TGEx()\Color\Focus, $FFFFFF, 20)
+            btBorderColor = TGEx()\Color\Focus
+          ElseIf TGEx()\Button\State & #FocusDown
+            btBackColor   = BlendColor_(TGEx()\Color\Focus, $FFFFFF, 10)
+            btBorderColor = TGEx()\Color\Focus
+          Else
+            btBackColor   = TGEx()\Color\Button
+            btBorderColor = TGEx()\Color\ButtonBorder
+          EndIf
+        EndIf
+
+        DrawingMode(#PB_2DDrawing_Default)
+        Box_(TGEx()\Button\X, TGEx()\Button\Y2, dpiX(#ButtonWidth), TGEx()\Button\Height, btBackColor)
+        Arrow_(TGEx()\Button\X, TGEx()\Button\Y2, dpiX(#ButtonWidth), TGEx()\Button\Height, #Down)
+        DrawingMode(#PB_2DDrawing_Outlined)
+        Box_(TGEx()\Button\X, TGEx()\Button\Y2, dpiX(#ButtonWidth), TGEx()\Button\Height, btBorderColor)
+        
+      EndIf  
       ;}
       
       ;{ _____ Text ____
@@ -578,6 +592,8 @@ Module TimeEx
     
     If FindMapElement(TGEx(), Str(GNum))
       
+      If TGEx()\Flags & #NoButtons : ProcedureReturn #False : EndIf
+      
       X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
       Y = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
       
@@ -613,6 +629,8 @@ Module TimeEx
     
     If FindMapElement(TGEx(), Str(GNum))
       
+      If TGEx()\Flags & #NoButtons : ProcedureReturn #False : EndIf
+      
       X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
       Y = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
       
@@ -646,7 +664,7 @@ Module TimeEx
       
       SetInputTime_()
       
-      If X > TGEx()\Button\X
+      If Not TGEx()\Flags & #NoButtons And X > TGEx()\Button\X
         
         If Y > TGEx()\Button\Y1 And Y < TGEx()\Button\Y2 - dpiY(2)
           Select TGEx()\Time\State
@@ -1198,6 +1216,7 @@ Module TimeEx
       
     EndIf
     
+    Draw_()
   EndProcedure 
   
 EndModule  
@@ -1219,7 +1238,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   If OpenWindow(#Window, 0, 0, 305, 60, "TimeEx - Gadget", #PB_Window_SystemMenu|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
     
-    TimeEx::Gadget(#Time, 10, 15, 85, 25, "8:30", #False, #Window)
+    TimeEx::Gadget(#Time, 10, 15, 85, 25, "8:30", TimeEx::#NoButtons, #Window)
     ;TimeEx::SetState(#Time, 34245)
     
     TimeEx::Gadget(#TimeNS, 110, 15, 64, 25, "12:15", TimeEx::#NoSeconds, #Window)
@@ -1246,8 +1265,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 62
-; FirstLine = 12
-; Folding = IAwA3BAgoB9
+; CursorPosition = 11
+; Folding = YEwADBAAoB9
 ; EnableXP
 ; DPIAware
