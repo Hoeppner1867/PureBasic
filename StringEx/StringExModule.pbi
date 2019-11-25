@@ -7,8 +7,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 24.11.19
+; Last Update: 25.11.19
 ;
+; Bugfix: Cursor
 ; Added: input masks (e.g. date: "____/__/__" or "__.__.____")
 ;
 ; Added: Attribute '#Corner'
@@ -81,7 +82,7 @@
 
 DeclareModule StringEx
   
-  #Version  = 19112401
+  #Version  = 19112500
   #ModuleEx = 19111703
   
   #Enable_AutoComplete       = #True
@@ -963,7 +964,14 @@ Module StringEx
         
       Else
         
-        X = dpiX(StrgEx()\Padding)
+        If StrgEx()\Flags & #Center
+          X = Width / 2
+        ElseIf StrgEx()\Flags & #Right
+          X = Width - dpiX(StrgEx()\Padding)
+        Else
+          X = dpiX(StrgEx()\Padding)
+        EndIf
+        
         Y = (Height - TextHeight("X")) / 2  
         
       EndIf
@@ -2380,11 +2388,11 @@ CompilerIf #PB_Compiler_IsMainFile
     ;StringEx::SetAttribute(#StringPW, StringEx::#Padding, 6)
     ;StringEx::SetAttribute(#StringPW, StringEx::#MaximumLength, 10)
     
-    StringEx::Gadget(#StringDel, 340, 19, 100, 20, "", StringEx::#AutoResize, #Window) ; Delete this
+    StringEx::Gadget(#StringDel, 340, 19, 100, 20, "", StringEx::#Right|StringEx::#AutoResize, #Window) ; Delete this
     StringEx::AddButton(#StringDel, #Image)
     StringEx::SetAutoResizeFlags(#StringDel, StringEx::#Width)
     
-    ;StringEx::SetInputMask(#StringDel, "*.__$")
+    StringEx::SetInputMask(#StringDel, "*.__$")
     
     CompilerIf Defined(ModuleEx, #PB_Module)
 	
@@ -2442,9 +2450,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 2386
-; FirstLine = 495
-; Folding = 9eAUAAEABKCAsAAIoAABMAAR-
+; CursorPosition = 84
+; FirstLine = 9
+; Folding = 5eAUAAEAjSKCsAAIoAABMAAR-
 ; EnableThread
 ; EnableXP
 ; DPIAware
