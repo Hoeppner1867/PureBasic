@@ -11,7 +11,8 @@
 
 ; Last Update: 25.11.19
 ;
-; Added: ToolBar::Button()
+; Added:   ToolBar::TextButton() [similar to ImageButton()]
+; Renamed: ToolBar::TextButton() => ToolBar::Button() [ButtonGadget()]
 ;
 ; Added: ToolBar::Hide()
 ; Added: #UseExistingCanvas
@@ -93,8 +94,8 @@
 
 DeclareModule ToolBar
   
-  #Version  = 19112500
-  #ModuleEx = 19111702
+  #Version  = 19112501
+  #ModuleEx = 19112500
   
   #EnableToolBarGadgets = #True
   
@@ -156,6 +157,7 @@ DeclareModule ToolBar
     #Event_Theme           = ModuleEx::#Event_Theme
     
     #EventType_ImageButton = ModuleEx::#EventType_ImageButton
+    #EventType_TextButton  = ModuleEx::#EventType_TextButton
     #EventType_ComboBox    = ModuleEx::#EventType_ComboBox
     #EventType_SpinBox     = ModuleEx::#EventType_SpinBox
     #EventType_Button      = ModuleEx::#EventType_Button
@@ -169,9 +171,10 @@ DeclareModule ToolBar
 
     Enumeration #PB_EventType_FirstCustomValue
       #EventType_ImageButton
+      #EventType_TextButton
+      #EventType_Button
       #EventType_ComboBox
       #EventType_SpinBox
-      #EventType_Button
       #EventType_TrackBar
     EndEnumeration
     
@@ -183,7 +186,7 @@ DeclareModule ToolBar
   ;- ===========================================================================
   
   Declare   AttachPopupMenu(GNum.i, TB_Index.i, MenuNum.i)  
-  Declare   Button(GNum.i, Text.s="", EventNum.i=#False, EventID.s="", Flags.i=#False)
+  Declare   TextButton(GNum.i, Text.s="", EventNum.i=#False, EventID.s="", Flags.i=#False)
   Declare   DisableButton(GNum.i, TB_Index.i, State.i)
   Declare   DisableRedraw(GNum.i, State.i=#False)
   Declare.s EventID(GNum.i)
@@ -220,7 +223,7 @@ DeclareModule ToolBar
     Declare   SetItemState(GNum.i, TB_Index.i, State.i)
     Declare   SetItemText(GNum.i, TB_Index.i, Text.s)
     Declare.i SpinBox(GNum.i, Width.i, Height.i, Minimum.i, Maximum.i, EventNum.i=#PB_Ignore, Text.s="", EventID.s="", Flags.i=#False)
-    Declare.i TextButton(GNum.i, Width.i, Height.i, Text.s, EventNum.i=#PB_Ignore, EventID.s="", Flags.i=#False)
+    Declare.i Button(GNum.i, Width.i, Height.i, Text.s, EventNum.i=#PB_Ignore, EventID.s="", Flags.i=#False)
     Declare.i TrackBar(GNum.i, Width.i, Height.i, Minimum.i, Maximum.i, EventNum.i=#PB_Ignore, EventID.s="", Flags.i=#False)
     
   CompilerEndIf
@@ -625,25 +628,25 @@ Module ToolBar
       
       If Flags & #AdjustButtons        ;{ Adjust single buttons width to text
         ForEach TBEx()\Items()
-          If TBEx()\Items()\Type = #ImageButton
+          If TBEx()\Items()\Type = #ImageButton Or TBEx()\Items()\Type = #Button
             If TextWidth(TBEx()\Items()\Text) > TBEx()\Items()\Width
-              TBEx()\Items()\Width = TextWidth(TBEx()\Items()\Text)
+              TBEx()\Items()\Width = TextWidth(TBEx()\Items()\Text) + dpiX(6)
             EndIf
           EndIf  
         Next ;}
       ElseIf Flags & #AdjustAllButtons ;{ Adjust all buttons width to text
         Width = 0
         ForEach TBEx()\Items()
-          If TBEx()\Items()\Type = #ImageButton
-            If TextWidth(TBEx()\Items()\Text) > Width
-              Width = TextWidth(TBEx()\Items()\Text)
+          If TBEx()\Items()\Type = #ImageButton Or TBEx()\Items()\Type = #Button
+            If TextWidth(TBEx()\Items()\Text) + dpiX(6) > Width
+              Width = TextWidth(TBEx()\Items()\Text) + dpiX(6)
             EndIf
           EndIf
         Next
         If TBEx()\Buttons\Width < Width
           TBEx()\Buttons\Width = Width
           ForEach TBEx()\Items()
-            If TBEx()\Items()\Type = #ImageButton
+            If TBEx()\Items()\Type = #ImageButton Or TBEx()\Items()\Type = #Button
               TBEx()\Items()\Width = Width
             EndIf
           Next
@@ -651,7 +654,7 @@ Module ToolBar
       EndIf
  
       If Flags & #AdjustHeight         ;{ Adjust toolbar height (#ButtonText)
-        If TBEx()\Flags & #ButtonText
+        If TBEx()\Flags & #ButtonText Or TBEx()\Items()\Type = #Button
           Height = TextHeight("ABC") + TBEx()\Buttons\Height + (TBEx()\Size\Spacing * 2)
         Else
           Height = TBEx()\Buttons\Height + (TBEx()\Size\Spacing * 2)
@@ -984,6 +987,15 @@ Module ToolBar
                     DrawSingleButton_(btIndex, #Click)
                   EndIf
                   
+                Case #Button
+                  
+                  TBEx()\Event\Type    = #EventType_Button
+                  TBEx()\Event\btIndex = btIndex
+                  
+                  If TBEx()\Event\btIndex > #NoFocus
+                    DrawSingleButton_(btIndex, #Click)
+                  EndIf
+                  
               EndSelect  
               
             EndIf
@@ -1293,7 +1305,7 @@ Module ToolBar
       
     EndProcedure
     
-    Procedure.i TextButton(GNum.i, Width.i, Height.i, Text.s, EventNum.i=#PB_Ignore, EventID.s="", Flags.i=#False)
+    Procedure.i Button(GNum.i, Width.i, Height.i, Text.s, EventNum.i=#PB_Ignore, EventID.s="", Flags.i=#False)
       Define.i GadgetList
   
       If FindMapElement(TBEx(), Str(GNum))
@@ -1481,7 +1493,7 @@ Module ToolBar
     
   EndProcedure  
   
-  Procedure   Button(GNum.i, Text.s="", EventNum.i=#False, EventID.s="", Flags.i=#False)
+  Procedure   TextButton(GNum.i, Text.s="", EventNum.i=#False, EventID.s="", Flags.i=#False)
  
     If FindMapElement(TBEx(), Str(GNum))
       
@@ -2130,7 +2142,7 @@ CompilerIf #PB_Compiler_IsMainFile
     ToolBar::DisableRedraw(#ToolBar, #True)
     
     ;ToolBar::ImageButton(#ToolBar, #IMG_New,   #TB_New,   "New",   "newID") 
-    ToolBar::Button(#ToolBar, "New", #TB_New, "newID") 
+    ToolBar::TextButton(#ToolBar, "New Button", #TB_New, "newID") 
     ToolBar::ImageButton(#ToolBar, #IMG_Save,  #TB_Save,  "Save",  "saveID")
     ToolBar::Separator(#ToolBar)
     ToolBar::ImageButton(#ToolBar, #IMG_Copy,  #TB_Copy,  "Copy",  "copyID")
@@ -2142,7 +2154,7 @@ CompilerIf #PB_Compiler_IsMainFile
       ToolBar::Separator(#ToolBar)
       ToolBar::SpinBox(#ToolBar,  40, 22, 1, 18, #SpinBox, "", "spinID", #PB_Spin_ReadOnly)
       ToolBar::Separator(#ToolBar)
-      ToolBar::TextButton(#ToolBar, 60, 24, "Button", #TextButton, "buttonID", #PB_Button_Toggle)
+      ToolBar::Button(#ToolBar, 60, 24, "Button", #TextButton, "buttonID", #PB_Button_Toggle)
       ToolBar::TrackBar(#ToolBar, 95, 34, 0, 10, #TrackBar, "trackID", #PB_TrackBar_Ticks)
     CompilerEndIf
     ToolBar::Spacer(#ToolBar)
@@ -2236,8 +2248,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 95
-; Folding = 5DAG2PoPIDHAAAg6BEUY8
+; CursorPosition = 96
+; FirstLine = 12
+; Folding = 5CCG2-oNITFCEAgxBEUY8
 ; EnableXP
 ; DPIAware
 ; Executable = Test.exe

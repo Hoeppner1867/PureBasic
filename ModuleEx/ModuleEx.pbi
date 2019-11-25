@@ -11,7 +11,7 @@
 ; - Creates cursor events for gadgets of a window (#CursorEvent)
 ; - Provides event types for PostEvent() for other modules
 
-; Last Update: 21.11.2019
+; Last Update: 25.11.2019
 ;
 ; Added: GUI theme for all supportet gadgets
 ;
@@ -50,15 +50,22 @@
 ; ModuleEx::AddWindow()                - enables the tabulator handling for this window  (#Tabulator|#CursorEvent)
 ; ModuleEx::CursorFrequency()          - changes the cursor frequency (default: 600ms)
 ; ModuleEx::ExitCursorThread()         - exit cursor thread
+; ModuleEx::Font()                     - similar to 'LoadFont()' (supports dynamic fonts)
+; ModuleEx::FreeFonts()                - free dynamic font data
+; ModuleEx::GetGadgetWindow()          - returns the number of the window in which the gadget is located
 ; ModuleEx::LoadTheme()                - load a theme for all supportet gadgets
+; ModuleEx::RequiredFontSize()         - calculates the required font size
+; ModuleEx::SetAttribute()             - [#Padding/#PaddingX/#PaddingY]
+; ModuleEx::SetFont()                  - similar to 'SetGadgetFont()' (supports dynamic fonts)
 ; ModuleEx::SaveTheme()                - save current theme
 ; ModuleEx::SetColor()                 - change the theme color of all supported gadgets
 ; ModuleEx::SetTheme()                 - set a theme for all supportet gadgets
+
 ;}
 
 DeclareModule ModuleEx
   
-  #Version = 19112102
+  #Version = 19112500
   
   #Enable_Tabulator_Management = #True
   
@@ -98,6 +105,7 @@ DeclareModule ModuleEx
     #EventType_Header
     #EventType_HyperLink
     #EventType_ImageButton
+    #EventType_TextButton
     #EventType_Link
     #EventType_LostFocus
     #EventType_Month
@@ -229,7 +237,6 @@ DeclareModule ModuleEx
   Declare.i RequiredFontSize(Text.s, Width.i, Height.i, FontNum.i)
   Declare.i SaveTheme(File.s="ThemeGUI.xml")
   Declare   SetAttribute(GNum.i, Type.i, Value.i)
-  Declare   SetColor(Type.i, Color.i)
   Declare.i SetFont(GNum.i, Name.s, Size.i, Style.i=#False, Flags.i=#False, Type.i=#Gadget) 
   Declare   SetTheme(Theme.i=#PB_Default)
   
@@ -983,55 +990,9 @@ Module ModuleEx
   EndProcedure  
   
   ; _____ GUI Theme _____
-  
-  Procedure   SetColor(Type.i, Color.i)
-    
-    Select Type
-      Case #Color_Gadget
-        ThemeGUI\GadgetColor            = Color
-      Case #Color_Front
-        ThemeGUI\FrontColor             = Color
-      Case #Color_Back
-         ThemeGUI\BackColor             = Color
-      Case #Color_Border   
-        ThemeGUI\BorderColor            = Color
-      Case #Color_Line
-        ThemeGUI\LineColor              = Color
-      Case #Color_Row
-       ThemeGUI\RowColor                = Color
-      Case #Color_FocusFront
-        ThemeGUI\Focus\FrontColor       = Color
-      Case #Color_FocusBack
-        ThemeGUI\Focus\BackColor        = Color
-      Case #Color_HeaderFront    
-        ThemeGUI\Header\FrontColor      = Color
-      Case #Color_HeaderBack    
-        ThemeGUI\Header\BackColor       = Color
-      Case #Color_HeaderLight    
-        ThemeGUI\Header\LightColor      = Color
-      Case #Color_ButtonFront  
-        ThemeGUI\Button\FrontColor      = Color
-      Case #Color_ButtonBack 
-        ThemeGUI\Button\BackColor       = Color
-      Case #Color_ButtonBorder    
-        ThemeGUI\Button\BorderColor     = Color
-      Case #Color_TitleFront
-        ThemeGUI\Title\FrontColor       = Color
-      Case #Color_TitleBack
-        ThemeGUI\Title\BackColor        = Color
-      Case #Color_ProgressFront
-        ThemeGUI\Progress\FrontColor    = Color
-      Case #Color_ProgressBack
-        ThemeGUI\Progress\BackColor     = Color 
-      Case #Color_ProgressGradient
-        ThemeGUI\Progress\GradientColor = Color
-    EndSelect
-    
-    PostEvent(#Event_Theme)
-    
-  EndProcedure
-  
+
   Procedure   SetTheme(Theme.i=#PB_Default)
+    ; On request and with the sponsorship of Cyllceaux
     
     ThemeGUI\Font\Num    = #PB_Default
     ThemeGUI\WindowColor = #PB_Default
@@ -1314,8 +1275,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 60
-; FirstLine = 31
-; Folding = EEgAAAAABAACw
+; CursorPosition = 13
+; FirstLine = 9
+; Folding = EEgAAAAABggB5
 ; EnableXP
 ; DPIAware
