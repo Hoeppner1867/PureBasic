@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 23.11.19
+; Last Update: 24.11.19
 ;
 ; Added: ToolBar::Hide()
 ;
@@ -91,7 +91,7 @@
 
 DeclareModule ToolBar
   
-  #Version  = 19112300
+  #Version  = 19112400
   #ModuleEx = 19111702
   
   #EnableToolBarGadgets = #True
@@ -408,6 +408,8 @@ Module ToolBar
   Procedure.f GetAvailableSpace_()
     Define.f Space
     
+    If ListSize(TBEx()\Items()) = 0 : ProcedureReturn TBEx()\Size\Width : EndIf
+    
     PushListPosition(TBEx()\Items())
     
     Space = TBEx()\Size\Spacing * 2
@@ -513,6 +515,8 @@ Module ToolBar
   Procedure   DrawSingleButton_(btIndex.i, Flags.i)
     Define.i ImageID
     Define.f X, Y, btY, imgY, imgX, txtX, txtY, txtHeight, TextInside
+    
+    If ListSize(TBEx()\Items()) = 0 : ProcedureReturn #False : EndIf 
     
     If StartDrawing(CanvasOutput(TBEx()\CanvasNum))
       
@@ -2162,9 +2166,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 196
-; FirstLine = 114
-; Folding = 5DAI5gOmpNpAAceAAV-+
+; CursorPosition = 2084
+; FirstLine = 808
+; Folding = 5DAAcgOkpNpAAceAAV4+
 ; EnableXP
 ; DPIAware
 ; Executable = Test.exe
