@@ -94,7 +94,7 @@
 
 DeclareModule ToolBar
   
-  #Version  = 19112602
+  #Version  = 19112603
   #ModuleEx = 19112500
   
   #EnableToolBarGadgets = #True
@@ -261,13 +261,13 @@ Module ToolBar
   EndEnumeration
   
   Enumeration Items 1
+    #ImageButton
+    #TextButton
     #Button
     #ComboBox
-    #ImageButton
     #Separator
     #Spacer
     #SpinGadget
-    #TextButton
     #TrackBar
   EndEnumeration
   
@@ -423,15 +423,15 @@ Module ToolBar
     
     PushListPosition(TBEx()\Items())
     
-    Space = TBEx()\Size\Spacing * 2
+    Space = dpiX(TBEx()\Size\Spacing * 2)
     
     ForEach TBEx()\Items()
       
       Select TBEx()\Items()\Type
-        Case #ImageButton 
+        Case #ImageButton, #TextButton
           Space + TBEx()\Items()\Width + TBEx()\Buttons\Spacing
-        Case #TextButton, #ComboBox, #SpinGadget, #TrackBar
-          Space + TBEx()\Items()\Width + dpiX(8) + TBEx()\Buttons\Spacing
+        Case #Button, #ComboBox, #SpinGadget, #TrackBar
+          Space + TBEx()\Items()\Width + TBEx()\Buttons\Spacing + dpiX(8)
         Case #Separator
           Space + TBEx()\Items()\Width + TBEx()\Buttons\Spacing
       EndSelect    
@@ -440,13 +440,13 @@ Module ToolBar
     
     PopListPosition(TBEx()\Items())
     
-    ProcedureReturn TBEx()\Size\Width - Space
+    ProcedureReturn dpiX(GadgetWidth(TBEx()\CanvasNum)) - Space
   EndProcedure
   
   Procedure.f GetButtonY_(Bottom.i=#False)
     Define.f OffsetY
     
-    OffSetY = (TBEx()\Size\Height - TBEx()\Buttons\Height - TBEx()\Buttons\txtHeight) / 2
+    OffSetY = (dpiY(GadgetHeight(TBEx()\CanvasNum)) - TBEx()\Buttons\Height - TBEx()\Buttons\txtHeight) / 2
     
     If Bottom
       ProcedureReturn OffsetY + TBEx()\Buttons\Height
@@ -475,6 +475,43 @@ Module ToolBar
     R2 = Red(Color2): G2 = Green(Color2): B2 = Blue(Color2)
     
     ProcedureReturn RGB((R1*Blend) + (R2 * (1-Blend)), (G1*Blend) + (G2 * (1-Blend)), (B1*Blend) + (B2 * (1-Blend)))
+  EndProcedure
+  
+  
+  Procedure.i AdjustHeight_()
+    Define.i Height, ItemHeight
+    
+    If StartDrawing(CanvasOutput(TBEx()\CanvasNum))
+      
+      If TBEx()\FontID : DrawingFont(TBEx()\FontID) : EndIf
+      
+      ForEach TBEx()\Items()
+        
+        Select TBEx()\Items()\Type
+          Case #ImageButton
+            ItemHeight = TBEx()\Images\Height + dpiY(8)
+          Case #TextButton 
+            ItemHeight = TextHeight(TBEx()\Items()\Text) + dpiY(8)
+          Default
+            ItemHeight = TBEx()\Items()\Height + dpiY(8)
+        EndSelect
+
+        If ItemHeight > Height : Height = ItemHeight : EndIf 
+        
+      Next
+      
+      TBEx()\Buttons\Height = Height
+    
+      If TBEx()\Flags & #ButtonText : Height + TextHeight(TBEx()\Items()\Text) : EndIf 
+      
+      StopDrawing()
+    EndIf
+    
+    Height + dpiY(TBEx()\Size\Spacing * 2)
+    
+    ResizeGadget(TBEx()\CanvasNum, #PB_Ignore, #PB_Ignore, #PB_Ignore, DesktopUnscaledY(Height))
+    
+    ProcedureReturn Height
   EndProcedure
   
   
@@ -523,8 +560,7 @@ Module ToolBar
     EndIf
     
   EndProcedure
-  
-  
+    
   Procedure   DrawSingleButton_(btIndex.i, Flags.i)
     Define.i ImageID,  txtHeight, TextInside
     Define.f X, Y, btY, imgY, imgX, txtX, txtY
@@ -586,7 +622,7 @@ Module ToolBar
             EndIf 
           EndIf
 
-          If TBEx()\Items()\Type = #Button ;{ Text Button
+          If TBEx()\Items()\Type = #TextButton ;{ Text Button
             CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS : ClipOutput(X, btY, TBEx()\Items()\Width, TBEx()\Buttons\Height) : CompilerEndIf
             DrawingMode(#PB_2DDrawing_Transparent)
             If TBEx()\Items()\Flags & #Disable
@@ -619,62 +655,59 @@ Module ToolBar
    
   EndProcedure
   
-  Procedure   Draw_(Flags.i=#False)
+  Procedure.i Draw_(Flags.i=#False)
+    ; DPI: TBEx()\Items()\... / TBEx()\Buttons\...
     Define.f X, Y, btY, btX, imgY, imgX, txtX, txtY, cbY, OffsetY
     Define.i Width, Height, btHeight, TextInside
     Define.i ImageID
     
     If TBEx()\Hide : ProcedureReturn #False : EndIf
-    
+
     If StartDrawing(CanvasOutput(TBEx()\CanvasNum))
       
       If TBEx()\FontID : DrawingFont(TBEx()\FontID) : EndIf
       
       If Flags & #AdjustButtons        ;{ Adjust single buttons width to text
         ForEach TBEx()\Items()
-          If TBEx()\Items()\Type = #ImageButton Or TBEx()\Items()\Type = #Button
+          If TBEx()\Items()\Type = #ImageButton
             If TextWidth(TBEx()\Items()\Text) > TBEx()\Items()\Width
+              TBEx()\Items()\Width = TextWidth(TBEx()\Items()\Text)
+              Debug "Image: " + Str(TBEx()\Items()\Width)
+            EndIf
+          ElseIf TBEx()\Items()\Type = #TextButton
+            If TextWidth(TBEx()\Items()\Text) + dpiX(6) > TBEx()\Items()\Width
               TBEx()\Items()\Width = TextWidth(TBEx()\Items()\Text) + dpiX(6)
+              Debug "Text: " + Str(TBEx()\Items()\Width)
             EndIf
           EndIf  
         Next ;}
       ElseIf Flags & #AdjustAllButtons ;{ Adjust all buttons width to text
         Width = 0
         ForEach TBEx()\Items()
-          If TBEx()\Items()\Type = #ImageButton Or TBEx()\Items()\Type = #Button
-            If TextWidth(TBEx()\Items()\Text) + dpiX(6) > Width
-              Width = TextWidth(TBEx()\Items()\Text) + dpiX(6)
+          If TBEx()\Items()\Type = #ImageButton Or TBEx()\Items()\Type = #TextButton
+            If TextWidth(TBEx()\Items()\Text) > Width
+              Width = TextWidth(TBEx()\Items()\Text)
             EndIf
           EndIf
         Next
         If TBEx()\Buttons\Width < Width
           TBEx()\Buttons\Width = Width
           ForEach TBEx()\Items()
-            If TBEx()\Items()\Type = #ImageButton Or TBEx()\Items()\Type = #Button
-              TBEx()\Items()\Width = Width
+            If TBEx()\Items()\Type = #ImageButton Or TBEx()\Items()\Type = #TextButton
+              TBEx()\Items()\Width = Width + dpiX(6)
             EndIf
           Next
         EndIf ;}
       EndIf
- 
-      If Flags & #AdjustHeight         ;{ Adjust toolbar height (#ButtonText)
-        If TBEx()\Flags & #ButtonText Or TBEx()\Items()\Type = #Button
-          Height = TextHeight("ABC") + TBEx()\Buttons\Height + (TBEx()\Size\Spacing * 2)
-        Else
-          Height = TBEx()\Buttons\Height + (TBEx()\Size\Spacing * 2)
-        EndIf
-        If Height > TBEx()\Size\Height : TBEx()\Size\Height = Height : EndIf
-        ;}
-      EndIf
-      
+
       TBEx()\Buttons\txtHeight = TextHeight("ABC") 
      
       If TBEx()\Flags & #TextInside
         TextInside = TBEx()\Buttons\txtHeight
       EndIf
       
-      X    = TBEx()\Size\Spacing
-      btY  = (TBEx()\Size\Height - TBEx()\Buttons\Height - TBEx()\Buttons\txtHeight) / 2
+      X    = dpiX(TBEx()\Size\Spacing)
+      btY  = (dpiY(GadgetHeight(TBEx()\CanvasNum)) - TBEx()\Buttons\Height - TBEx()\Buttons\txtHeight) / 2
       imgY = (TBEx()\Buttons\Height - TBEx()\Images\Height) / 2 + btY
 
       If TBEx()\Flags & #ButtonText
@@ -683,7 +716,7 @@ Module ToolBar
 
       ;{ _____ Background _____
       DrawingMode(#PB_2DDrawing_Default)
-      Box(0, 0, TBEx()\Size\Width, TBEx()\Size\Height, TBEx()\Color\Back)
+      Box(0, 0, dpiX(GadgetWidth(TBEx()\CanvasNum)), dpiY(GadgetHeight(TBEx()\CanvasNum)), TBEx()\Color\Back)
       ;}
       
       ForEach TBEx()\Items()
@@ -710,32 +743,30 @@ Module ToolBar
         If TBEx()\Items()\Flags & #Hide = #False
           
           Select TBEx()\Items()\Type
-            Case #Button      ;{ Text Button
+            Case #TextButton  ;{ Text Button
               
               TBEx()\Items()\X  = X
               TBEx()\Items()\Y  = btY
               
-              TBEx()\Items()\cX = (TBEx()\Items()\Width - TextWidth(TBEx()\Items()\Text)) / 2 + X
+              TBEx()\Items()\cX = (TBEx()\Items()\Width  - TextWidth(TBEx()\Items()\Text)) / 2 + X
               TBEx()\Items()\cY = (TBEx()\Buttons\Height - TBEx()\Buttons\txtHeight) / 2 + btY
               
               CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS : ClipOutput(X, btY, TBEx()\Items()\Width, TBEx()\Buttons\Height) : CompilerEndIf
-            
               DrawingMode(#PB_2DDrawing_Transparent)
               If TBEx()\Items()\Flags & #Disable
                 DrawText(TBEx()\Items()\cX, TBEx()\Items()\cY, TBEx()\Items()\Text, BlendColor_(TBEx()\Color\Front, TBEx()\Color\Back))
               Else
                 DrawText(TBEx()\Items()\cX, TBEx()\Items()\cY, TBEx()\Items()\Text, TBEx()\Color\Front)
               EndIf
-              
               CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS : UnclipOutput() : CompilerEndIf
-
               X + TBEx()\Items()\Width + TBEx()\Buttons\Spacing
               ;}
             Case #ImageButton ;{ ImageButton
-
+              
               imgX = (TBEx()\Items()\Width - TBEx()\Images\Width) / 2
               
               If IsImage(TBEx()\Items()\ImageNum)
+
                 DrawingMode(#PB_2DDrawing_AlphaBlend)
                 If TBEx()\Items()\Flags & #Disable
                   ImageID = CopyImage(TBEx()\Items()\ImageNum, #PB_Any)
@@ -770,7 +801,7 @@ Module ToolBar
 
               X + TBEx()\Items()\Width + TBEx()\Buttons\Spacing
               ;}
-            Case #ComboBox, #SpinGadget, #TextButton, #TrackBar ;{ ComboBox / SpinGadget / TextButton / TrackBar
+            Case #ComboBox, #SpinGadget, #Button, #TrackBar ;{ ComboBox / SpinGadget / TextButton / TrackBar
  
               If IsGadget(TBEx()\Items()\Num)
                 
@@ -783,7 +814,7 @@ Module ToolBar
                 ElseIf TBEx()\Items()\Flags & #Bottom
                   cbY = btY + TBEx()\Buttons\Height - TBEx()\Items()\Height - dpiX(4)
                 Else
-                  cbY = (TBEx()\Size\Height - TBEx()\Items()\Height - TBEx()\Buttons\txtHeight) / 2
+                  cbY = (dpiY(GadgetHeight(TBEx()\CanvasNum)) - TBEx()\Items()\Height - TBEx()\Buttons\txtHeight) / 2
                 EndIf
 
                 If X <> GadgetX(TBEx()\Items()\Num) Or Y + cbY <> GadgetY(TBEx()\Items()\Num)
@@ -830,13 +861,14 @@ Module ToolBar
       ;{ _____ Border _____
       If TBEx()\Flags & #Border
         DrawingMode(#PB_2DDrawing_Outlined)
-        Box(0, 0, TBEx()\Size\Width, TBEx()\Size\Height, TBEx()\Color\Border)
+        Box(0, 0, dpiX(GadgetWidth(TBEx()\CanvasNum)), dpiY(GadgetHeight(TBEx()\CanvasNum)), TBEx()\Color\Border)
       EndIf
       ;}
       
       StopDrawing()
     EndIf
     
+    ProcedureReturn DesktopUnscaledY(Height)
   EndProcedure
   
   ;- __________ Events __________
@@ -914,7 +946,7 @@ Module ToolBar
                     
                   EndIf
                   ;}
-                Case #TextButton ;{ Textbutton clicked
+                Case #Button ;{ Textbutton clicked
                   
                   TBEx()\Event\Type  = #EventType_Button
                   TBEx()\Event\State = GetGadgetState(GadgetNum)
@@ -991,7 +1023,7 @@ Module ToolBar
                     DrawSingleButton_(btIndex, #Click)
                   EndIf
                   
-                Case #Button
+                Case #TextButton
                   
                   TBEx()\Event\Type    = #EventType_Button
                   TBEx()\Event\btIndex = btIndex
@@ -1159,7 +1191,7 @@ Module ToolBar
                 If Y > TBEx()\Items()\Y And Y < TBEx()\Items()\Y + TBEx()\Buttons\Height
                   
                   Select TBEx()\Items()\Type
-                    Case #ImageButton, #Button ;{ Mouse over ImageButton
+                    Case #ImageButton, #TextButton ;{ Mouse over ImageButton
                       If TBEx()\Items()\Flags & #Disable
                         TBEx()\Buttons\Focus = #NoFocus
                         DisableToolTip_()
@@ -1207,10 +1239,6 @@ Module ToolBar
     Define.i GNum = EventGadget()
     
     If FindMapElement(TBEx(), Str(GNum))
-      
-      TBEx()\Size\Width  = dpiX(GadgetWidth(GNum))
-      TBEx()\Size\Height = dpiY(GadgetHeight(GNum))
-      
       Draw_()
     EndIf  
  
@@ -1306,7 +1334,9 @@ Module ToolBar
             SetGadgetData(TBEx()\Items()\Num, TBEx()\CanvasNum)
             BindGadgetEvent(TBEx()\Items()\Num, @_GadgetHandler(), #PB_EventType_Change)
           EndIf
-  
+          
+          TBEx()\Size\Height = AdjustHeight_()
+          
           If TBEx()\ReDraw : Draw_() : EndIf
           
           ProcedureReturn TBEx()\Items()\Num
@@ -1339,7 +1369,9 @@ Module ToolBar
             SetGadgetData(TBEx()\Items()\Num, TBEx()\CanvasNum)
             BindGadgetEvent(TBEx()\Items()\Num, @_GadgetHandler())
           EndIf
-  
+          
+          TBEx()\Size\Height = AdjustHeight_()
+          
           If TBEx()\ReDraw : Draw_() : EndIf
           
           ProcedureReturn TBEx()\Items()\Num
@@ -1358,7 +1390,7 @@ Module ToolBar
           
           OpenGadgetList(TBEx()\CanvasNum)
   
-          TBEx()\Items()\Type    = #TextButton
+          TBEx()\Items()\Type    = #Button
           TBEx()\Items()\Num     = ButtonGadget(#PB_Any, 0, 0, Width, Height, Text, Flags)
           TBEx()\Items()\Event   = EventNum
           TBEx()\Items()\EventID = EventID
@@ -1371,7 +1403,9 @@ Module ToolBar
             SetGadgetData(TBEx()\Items()\Num, TBEx()\CanvasNum)
             BindGadgetEvent(TBEx()\Items()\Num, @_GadgetHandler())
           EndIf
-  
+          
+          TBEx()\Size\Height = AdjustHeight_()
+          
           If TBEx()\ReDraw : Draw_() : EndIf
           
           ProcedureReturn TBEx()\Items()\Num
@@ -1403,7 +1437,9 @@ Module ToolBar
             SetGadgetData(TBEx()\Items()\Num, TBEx()\CanvasNum)
             BindGadgetEvent(TBEx()\Items()\Num, @_GadgetHandler())
           EndIf
-  
+          
+          TBEx()\Size\Height = AdjustHeight_()
+          
           If TBEx()\ReDraw : Draw_() : EndIf
           
           ProcedureReturn TBEx()\Items()\Num
@@ -1684,8 +1720,8 @@ Module ToolBar
       If Y = #PB_Ignore : Y = 0 : EndIf
       If Width  = #PB_Ignore : Width = WindowWidth(WindowNum, #PB_Window_InnerCoordinate) : EndIf
       If Height = #PB_Ignore
-        Height = ImageSize + dpiY(10)
-        If Flags & #Border :  Height + dpiY(2) : EndIf
+        Height = ImageSize + 10
+        If Flags & #Border :  Height + 4 : EndIf
       EndIf
     EndIf ;}
     
@@ -1704,12 +1740,6 @@ Module ToolBar
       
       If GNum = #PB_Any : GNum = Result : EndIf
       
-      X = dpiX(X)
-      Y = dpiY(Y)
-      Width     = dpiX(Width) 
-      Height    = dpiY(Height)
-      ImageSize = dpiY(ImageSize)
-      
       If AddMapElement(TBEx(), Str(GNum))
         
         TBEx()\CanvasNum  = GNum
@@ -1726,17 +1756,17 @@ Module ToolBar
         TBEx()\Size\Width  = Width
         TBEx()\Size\Height = Height
         
-        TBEx()\Size\Spacing = dpiX(2)
+        TBEx()\Size\Spacing = 3
        
         TBEx()\LastFocus = #NoFocus
         
         TBEx()\Buttons\Focus   = #NoFocus
-        TBEx()\Buttons\Width   = ImageSize + dpiX(8)
-        TBEx()\Buttons\Height  = ImageSize + dpiY(8)
+        TBEx()\Buttons\Width   = dpiX(ImageSize + 8)
+        TBEx()\Buttons\Height  = dpiY(ImageSize + 8)
         TBEx()\Buttons\Spacing = dpiX(2)
         
-        TBEx()\Images\Width    = ImageSize
-        TBEx()\Images\Height   = ImageSize
+        TBEx()\Images\Width    = dpiX(ImageSize)
+        TBEx()\Images\Height   = dpiY(ImageSize)
         
         TBEx()\Color\Front     = $000000
         TBEx()\Color\Back      = $EDEDED
@@ -1760,7 +1790,7 @@ Module ToolBar
         
         TBEx()\Flags  = Flags
         
-        BindGadgetEvent(TBEx()\CanvasNum,  @_ResizeHandler(), #PB_EventType_Resize)
+        BindGadgetEvent(TBEx()\CanvasNum, @_ResizeHandler(), #PB_EventType_Resize)
         
         If Flags & #AutoResize
           If IsWindow(WindowNum)
@@ -1780,15 +1810,14 @@ Module ToolBar
           BindEvent(#Event_Theme, @_ThemeHandler())
         CompilerEndIf        
         
+        If Flags & #AdjustHeight
+          ;TBEx()\Size\Height = AdjustHeight_()
+        EndIf
+        
         TBEx()\ReDraw = #True
         
-        If Flags & #AdjustHeight
-          Draw_(#AdjustHeight)
-          If TBEx()\Size\Height > GadgetHeight(GNum) : ResizeGadget(GNum, #PB_Ignore, #PB_Ignore, #PB_Ignore, TBEx()\Size\Height) : EndIf
-        Else
-          Draw_()
-        EndIf  
-        
+        Draw_()  
+      
       EndIf
       
       CloseGadgetList()
@@ -1805,15 +1834,15 @@ Module ToolBar
       
       Select Attribute
         Case #Height
-          ProcedureReturn DesktopUnscaledY(TBEx()\Size\Height)
+          ProcedureReturn TBEx()\Size\Height
         Case #Spacing
-          ProcedureReturn DesktopUnscaledX(TBEx()\Size\Spacing)
+          ProcedureReturn TBEx()\Size\Spacing
         Case #ButtonHeight
-          ProcedureReturn DesktopUnscaledY(TBEx()\Buttons\Height)
+          ProcedureReturn TBEx()\Buttons\Height
         Case #ButtonWidth
-          ProcedureReturn DesktopUnscaledX(TBEx()\Buttons\Width)
+          ProcedureReturn TBEx()\Buttons\Width
         Case #ButtonSpacing
-          ProcedureReturn DesktopUnscaledX(TBEx()\Buttons\Spacing)
+          ProcedureReturn TBEx()\Buttons\Spacing
       EndSelect
       
       If TBEx()\ReDraw : Draw_() : EndIf
@@ -1871,9 +1900,7 @@ Module ToolBar
   Procedure.i Height(GNum.i)
     
     If FindMapElement(TBEx(), Str(GNum))
-      
-      ProcedureReturn DesktopUnscaledY(TBEx()\Size\Height)
-      
+      ProcedureReturn TBEx()\Size\Height
     EndIf
     
   EndProcedure
@@ -1926,12 +1953,15 @@ Module ToolBar
         TBEx()\Items()\Text       = Text
         TBEx()\Items()\ImageNum   = ImageNum
         TBEx()\Items()\Width      = TBEx()\Buttons\Width
+        TBEx()\Items()\Height     = TBEx()\Buttons\Height
         TBEx()\Items()\PopupMenu = #NotValid
         TBEx()\Items()\Flags      = Flags
         
         If TBEx()\Flags & #ToolTips
           TBEx()\Items()\ToolTip = Text
         EndIf
+        
+        TBEx()\Size\Height = AdjustHeight_()
         
         If TBEx()\Flags & #AdjustAllButtons
           Draw_(#AdjustAllButtons)
@@ -1999,11 +2029,11 @@ Module ToolBar
       
       Select Attribute
         Case #Height
-          TBEx()\Size\Height     = dpiX(Value)
+          TBEx()\Size\Height     = Value
         Case #Spacing
-          TBEx()\Size\Spacing    = dpiX(Value)
+          TBEx()\Size\Spacing    = Value
         Case #ButtonHeight
-          TBEx()\Buttons\Height  = dpiX(Value)
+          TBEx()\Buttons\Height  = dpiY(Value)
         Case #ButtonWidth
           TBEx()\Buttons\Width   = dpiX(Value)
         Case #ButtonSpacing
@@ -2056,7 +2086,7 @@ Module ToolBar
               If IsGadget(TBEx()\Items()\Num)
                 SetGadgetFont(TBEx()\Items()\Num, FontID)
               EndIf ;}
-            Case #TextButton ;{ TextButton Font
+            Case #Button     ;{ TextButton Font
               If IsGadget(TBEx()\Items()\Num)
                 SetGadgetFont(TBEx()\Items()\Num, FontID)
               EndIf ;}  
@@ -2115,7 +2145,7 @@ Module ToolBar
       
       If AddElement(TBEx()\Items())
         
-        TBEx()\Items()\Type       = #Button
+        TBEx()\Items()\Type       = #TextButton
         TBEx()\Items()\Event      = EventNum
         TBEx()\Items()\EventID    = EventID
         TBEx()\Items()\Text       = Text
@@ -2126,6 +2156,8 @@ Module ToolBar
         If TBEx()\Flags & #ToolTips
           TBEx()\Items()\ToolTip = Text
         EndIf
+        
+        TBEx()\Size\Height = AdjustHeight_()
         
         If TBEx()\Flags & #AdjustAllButtons
           Draw_(#AdjustAllButtons)
@@ -2146,7 +2178,7 @@ Module ToolBar
     If FindMapElement(TBEx(), Str(GNum))
       
       If SelectElement(TBEx()\Items(), TB_Index)
-        If TBEx()\Items()\Type = #ComboBox Or TBEx()\Items()\Type = #SpinGadget Or TBEx()\Items()\Type = #TextButton Or TBEx()\Items()\Type = #TrackBar
+        If TBEx()\Items()\Type = #ComboBox Or TBEx()\Items()\Type = #SpinGadget Or TBEx()\Items()\Type = #Button Or TBEx()\Items()\Type = #TrackBar
           If IsGadget(TBEx()\Items()\Num) : GadgetToolTip(TBEx()\Items()\Num, Text) : EndIf
         Else
           TBEx()\Items()\ToolTip = Text
@@ -2163,6 +2195,8 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
+  UsePNGImageDecoder()
+  
   Enumeration 1
     #Window
     #ToolBar
@@ -2170,7 +2204,7 @@ CompilerIf #PB_Compiler_IsMainFile
     #Popup
     #ComboBox
     #SpinBox
-    #TextButton
+    #Button
     #TrackBar
   EndEnumeration
   
@@ -2196,7 +2230,6 @@ CompilerIf #PB_Compiler_IsMainFile
     #TB_Help
   EndEnumeration
   
-  LoadImage(#IMG_New,   "New.png")
   LoadImage(#IMG_Save,  "Save.png")
   LoadImage(#IMG_Copy,  "Copy.png")
   LoadImage(#IMG_Cut,   "Cut.png")
@@ -2220,7 +2253,7 @@ CompilerIf #PB_Compiler_IsMainFile
     ToolBar::DisableRedraw(#ToolBar, #True)
     
     ;ToolBar::ImageButton(#ToolBar, #IMG_New,   #TB_New,   "New",   "newID") 
-    ToolBar::TextButton(#ToolBar, "New Button", #TB_New, "newID") 
+    ToolBar::TextButton(#ToolBar, "New", #TB_New, "newID") 
     ToolBar::ImageButton(#ToolBar, #IMG_Save,  #TB_Save,  "Save",  "saveID")
     ToolBar::Separator(#ToolBar)
     ToolBar::ImageButton(#ToolBar, #IMG_Copy,  #TB_Copy,  "Copy",  "copyID")
@@ -2232,7 +2265,7 @@ CompilerIf #PB_Compiler_IsMainFile
       ToolBar::Separator(#ToolBar)
       ToolBar::SpinBox(#ToolBar,  40, 22, 1, 18, #SpinBox, "", "spinID", #PB_Spin_ReadOnly)
       ToolBar::Separator(#ToolBar)
-      ToolBar::Button(#ToolBar, 60, 24, "Button", #TextButton, "buttonID", #PB_Button_Toggle)
+      ToolBar::Button(#ToolBar, 60, 24, "Button", #Button, "buttonID", #PB_Button_Toggle)
       ToolBar::TrackBar(#ToolBar, 95, 34, 0, 10, #TrackBar, "trackID", #PB_TrackBar_Ticks)
     CompilerEndIf
     ToolBar::Spacer(#ToolBar)
@@ -2288,19 +2321,17 @@ CompilerIf #PB_Compiler_IsMainFile
                 Case ToolBar::#EventType_ComboBox ; EventNum = #PB_Ignore
                   Debug "ComboBox changed: " + Str(ToolBar::EventState(#ToolBar)) + " [ Index: " +Str(EventData())+" / ID: '"+ToolBar::EventID(#ToolBar)+ "' ]"
                 Case ToolBar::#EventType_SpinBox  ; EventNum = #PB_Ignore
-                  Debug "SpinBox changed: " + Str(ToolBar::EventState(#ToolBar))  + " [ Index: " +Str(EventData())+" / ID: '"+ToolBar::EventID(#ToolBar)+ "' ]" 
-                Case ToolBar::#EventType_Button
-                  Debug "TextButton clicked: " + Str(EventData()) + " [ Number: " +Str(ToolBar::EventNumber(#ToolBar))+" / ID: '"+ToolBar::EventID(#ToolBar)+ "' ]"  
+                  Debug "SpinBox changed: " + Str(ToolBar::EventState(#ToolBar))  + " [ Index: " +Str(EventData())+" / ID: '"+ToolBar::EventID(#ToolBar)+ "' ]"  
               EndSelect ;}
             Case #ComboBox   ;{ Gadget (Toolbar)
               Debug "ComboBox State: " + Str(EventData())
             Case #SpinBox  
               Debug "SpinBox State: " + Str(EventData())
-            Case #TextButton
+            Case #Button
               If EventData() = #True
-                Debug "Textbutton: pressed" 
+                Debug "Button: pressed" 
               Else
-                Debug "Textbutton: not pressed" 
+                Debug "Button: not pressed" 
               EndIf 
             Case #TrackBar
               Debug "TrackBar State: " + Str(EventData())  
@@ -2328,9 +2359,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1565
-; FirstLine = 306
-; Folding = oCAA540-JDAUBYAACAQBb-
+; CursorPosition = 96
+; FirstLine = 18
+; Folding = oCAY7-tNoAQEAAgEGASAb-
 ; EnableXP
 ; DPIAware
 ; Executable = Test.exe
