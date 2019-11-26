@@ -82,7 +82,7 @@
 
 DeclareModule StringEx
   
-  #Version  = 19112600
+  #Version  = 19112601
   #ModuleEx = 19111703
   
   #Enable_AutoComplete       = #True
@@ -460,7 +460,7 @@ Module StringEx
     Select Char
       Case 48 To 57
         ProcedureReturn #True
-      Case 43, 45
+      Case 43 To 46
         ProcedureReturn #True
     EndSelect
     ProcedureReturn #False
@@ -2456,7 +2456,7 @@ CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 84
 ; FirstLine = 12
-; Folding = 5eAUAAEABSCAsAgIoAABMAAR-
+; Folding = 5eAUQAEABSCCsAgIoAABMAAR-
 ; EnableThread
 ; EnableXP
 ; DPIAware
