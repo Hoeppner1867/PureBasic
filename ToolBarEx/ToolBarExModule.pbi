@@ -94,7 +94,7 @@
 
 DeclareModule ToolBar
   
-  #Version  = 19112603
+  #Version  = 19112604
   #ModuleEx = 19112500
   
   #EnableToolBarGadgets = #True
@@ -489,20 +489,25 @@ Module ToolBar
         
         Select TBEx()\Items()\Type
           Case #ImageButton
-            ItemHeight = TBEx()\Images\Height + dpiY(8)
+            ItemHeight = TBEx()\Images\Height
           Case #TextButton 
-            ItemHeight = TextHeight(TBEx()\Items()\Text) + dpiY(8)
+            ItemHeight = TextHeight(TBEx()\Items()\Text) 
           Default
-            ItemHeight = TBEx()\Items()\Height + dpiY(8)
+            ItemHeight = TBEx()\Items()\Height 
         EndSelect
 
         If ItemHeight > Height : Height = ItemHeight : EndIf 
         
       Next
       
-      TBEx()\Buttons\Height = Height
-    
-      If TBEx()\Flags & #ButtonText : Height + TextHeight(TBEx()\Items()\Text) : EndIf 
+      If Height = 0
+        Height = TBEx()\Buttons\Height
+      Else  
+        Height + dpiY(8)
+        TBEx()\Buttons\Height = Height
+      EndIf
+
+      If TBEx()\Flags & #ButtonText : Height + TextHeight("Abc") : EndIf 
       
       StopDrawing()
     EndIf
@@ -672,21 +677,23 @@ Module ToolBar
           If TBEx()\Items()\Type = #ImageButton
             If TextWidth(TBEx()\Items()\Text) > TBEx()\Items()\Width
               TBEx()\Items()\Width = TextWidth(TBEx()\Items()\Text)
-              Debug "Image: " + Str(TBEx()\Items()\Width)
             EndIf
           ElseIf TBEx()\Items()\Type = #TextButton
             If TextWidth(TBEx()\Items()\Text) + dpiX(6) > TBEx()\Items()\Width
               TBEx()\Items()\Width = TextWidth(TBEx()\Items()\Text) + dpiX(6)
-              Debug "Text: " + Str(TBEx()\Items()\Width)
             EndIf
           EndIf  
         Next ;}
       ElseIf Flags & #AdjustAllButtons ;{ Adjust all buttons width to text
         Width = 0
         ForEach TBEx()\Items()
-          If TBEx()\Items()\Type = #ImageButton Or TBEx()\Items()\Type = #TextButton
+          If TBEx()\Items()\Type = #ImageButton
             If TextWidth(TBEx()\Items()\Text) > Width
               Width = TextWidth(TBEx()\Items()\Text)
+            EndIf
+          ElseIf TBEx()\Items()\Type = #TextButton
+            If TextWidth(TBEx()\Items()\Text) + dpiX(6) > Width
+              Width = TextWidth(TBEx()\Items()\Text) + dpiX(6)
             EndIf
           EndIf
         Next
@@ -699,8 +706,12 @@ Module ToolBar
           Next
         EndIf ;}
       EndIf
-
-      TBEx()\Buttons\txtHeight = TextHeight("ABC") 
+      
+      If TBEx()\Flags & #ButtonText
+        TBEx()\Buttons\txtHeight = TextHeight("ABC") 
+      Else
+        TBEx()\Buttons\txtHeight = 0
+      EndIf   
      
       If TBEx()\Flags & #TextInside
         TextInside = TBEx()\Buttons\txtHeight
@@ -710,9 +721,7 @@ Module ToolBar
       btY  = (dpiY(GadgetHeight(TBEx()\CanvasNum)) - TBEx()\Buttons\Height - TBEx()\Buttons\txtHeight) / 2
       imgY = (TBEx()\Buttons\Height - TBEx()\Images\Height) / 2 + btY
 
-      If TBEx()\Flags & #ButtonText
-        txtY = btY + TBEx()\Buttons\Height
-      EndIf
+      txtY = btY + TBEx()\Buttons\Height
 
       ;{ _____ Background _____
       DrawingMode(#PB_2DDrawing_Default)
@@ -749,7 +758,7 @@ Module ToolBar
               TBEx()\Items()\Y  = btY
               
               TBEx()\Items()\cX = (TBEx()\Items()\Width  - TextWidth(TBEx()\Items()\Text)) / 2 + X
-              TBEx()\Items()\cY = (TBEx()\Buttons\Height - TBEx()\Buttons\txtHeight) / 2 + btY
+              TBEx()\Items()\cY = (TBEx()\Buttons\Height - TextHeight(TBEx()\Items()\Text)) / 2 + btY
               
               CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS : ClipOutput(X, btY, TBEx()\Items()\Width, TBEx()\Buttons\Height) : CompilerEndIf
               DrawingMode(#PB_2DDrawing_Transparent)
@@ -1689,7 +1698,7 @@ Module ToolBar
   Procedure.i Gadget(GNum.i, X.i=#PB_Ignore, Y.i=#PB_Ignore, Width.i=#PB_Ignore, Height.i=#PB_Ignore, Flags.i=#False, WindowNum.i=#PB_Default)
     ; #ImageSize_16|#ImageSize_24|#ImageSize_32|#ButtonText|#Border|#PopupArrows|#ImageText
     ; #AutoResize|#AdjustButtons|#AdjustAllButtons|#AdjustHeight
-    Define Result.i, ImageSize .f
+    Define Result.i, ImageSize.i, AdjustHeight.i
     
     CompilerIf Defined(ModuleEx, #PB_Module)
       If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
@@ -1718,11 +1727,13 @@ Module ToolBar
     If IsWindow(WindowNum)
       If X = #PB_Ignore : X = 0 : EndIf
       If Y = #PB_Ignore : Y = 0 : EndIf
-      If Width  = #PB_Ignore : Width = WindowWidth(WindowNum, #PB_Window_InnerCoordinate) : EndIf
-      If Height = #PB_Ignore
-        Height = ImageSize + 10
-        If Flags & #Border :  Height + 4 : EndIf
-      EndIf
+      If Width = #PB_Ignore : Width = WindowWidth(WindowNum, #PB_Window_InnerCoordinate) : EndIf
+    EndIf
+    
+    If Height = #PB_Ignore
+      Height = ImageSize + 14
+      AdjustHeight = #True
+      If Flags & #Border :  Height + 4 : EndIf
     EndIf ;}
     
     If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
@@ -1810,9 +1821,7 @@ Module ToolBar
           BindEvent(#Event_Theme, @_ThemeHandler())
         CompilerEndIf        
         
-        If Flags & #AdjustHeight
-          ;TBEx()\Size\Height = AdjustHeight_()
-        EndIf
+        If AdjustHeight : TBEx()\Size\Height = AdjustHeight_() : EndIf 
         
         TBEx()\ReDraw = #True
         
@@ -2247,8 +2256,8 @@ CompilerIf #PB_Compiler_IsMainFile
       MenuItem(#Menu_Item2, "World", ImageID(#IMG_World))
     EndIf
     
-    ToolBar::Gadget(#ToolBar, #PB_Ignore, #PB_Ignore, #PB_Ignore, #PB_Ignore, ToolBar::#Border|ToolBar::#AutoResize|ToolBar::#ButtonText|ToolBar::#AdjustButtons|ToolBar::#AdjustHeight|ToolBar::#RoundFocus|ToolBar::#PopupArrows|ToolBar::#ToolTips, #Window)
-    ; |ToolBar::#TextInside
+    ToolBar::Gadget(#ToolBar, #PB_Ignore, #PB_Ignore, #PB_Ignore, #PB_Ignore, ToolBar::#Border|ToolBar::#AutoResize|ToolBar::#ButtonText|ToolBar::#AdjustButtons|ToolBar::#RoundFocus|ToolBar::#PopupArrows|ToolBar::#ToolTips, #Window)
+    ; |ToolBar::#TextInside|ToolBar::#AdjustHeight
     
     ToolBar::DisableRedraw(#ToolBar, #True)
     
@@ -2360,8 +2369,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 96
-; FirstLine = 18
-; Folding = oCAY7-tNoAQEAAgEGASAb-
+; Folding = oCAYyf5PoAQEAAgMGASAb-
 ; EnableXP
 ; DPIAware
 ; Executable = Test.exe
