@@ -11,7 +11,7 @@
 ; - Creates cursor events for gadgets of a window (#CursorEvent)
 ; - Provides event types for PostEvent() for other modules
 
-; Last Update: 25.11.2019
+; Last Update: 26.11.2019
 ;
 ; Added: GUI theme for all supportet gadgets
 ;
@@ -65,7 +65,7 @@
 
 DeclareModule ModuleEx
   
-  #Version = 19112500
+  #Version = 19112600
   
   #Enable_Tabulator_Management = #True
   
@@ -783,53 +783,83 @@ Module ModuleEx
       
       If FindMapElement(ModuleEx\Window(), Str(WindowNum))
         
-        ProcedureReturn #True
-        
-      Else
-        
-        If AddMapElement(ModuleEx\Window(), Str(WindowNum))
+        If Flags & #CursorEvent ;{ Create cursor event for gadgets in this window
           
-          If Flags & #CursorEvent ;{ Create cursor event for gadgets in this window
-            
-            If ModuleEx\Thread\Frequency = 0 : ModuleEx\Thread\Frequency = #CursorFrequency : EndIf
-            
-            If ModuleEx\Thread\Active = #False
-              ModuleEx\Thread\Active = #True
-              ModuleEx\Thread\Exit   = #False
-              ModuleEx\Thread\Num    = CreateThread(@_CursorThread(), ModuleEx\Thread\Frequency)
-            EndIf
-            ;}  
+          If ModuleEx\Thread\Frequency = 0 : ModuleEx\Thread\Frequency = #CursorFrequency : EndIf
+          
+          If ModuleEx\Thread\Active = #False
+            ModuleEx\Thread\Active = #True
+            ModuleEx\Thread\Exit   = #False
+            ModuleEx\Thread\Num    = CreateThread(@_CursorThread(), ModuleEx\Thread\Frequency)
           EndIf
-          
-          CompilerIf #Enable_Tabulator_Management
-            
-            If Flags & #Tabulator   ;{ Manage tabulator shortcut for this window
-              
-              ModuleEx\Menu = CreateMenu(#PB_Any, WindowID(WindowNum))
-              If IsMenu(ModuleEx\Menu)
-                
-                RemoveKeyboardShortcut(WindowNum, #PB_Shortcut_Tab)
-                RemoveKeyboardShortcut(WindowNum, #PB_Shortcut_Shift|#PB_Shortcut_Tab)
-                
-                AddKeyboardShortcut(WindowNum, #PB_Shortcut_Tab, #Event_Tabulator)
-                AddKeyboardShortcut(WindowNum, #PB_Shortcut_Shift|#PB_Shortcut_Tab, #Event_ShiftTabulator)
-                
-                BindMenuEvent(ModuleEx\Menu, #Event_Tabulator,       @_TabulatorHandler())
-                BindMenuEvent(ModuleEx\Menu, #Event_ShiftTabulator,  @_ShiftTabulatorHandler())
-        
-              EndIf
-              ;}
-            EndIf
-            
-          CompilerEndIf
-        
-          BindEvent(#PB_Event_CloseWindow, @_CloseWindowHandler(), WindowNum)
-          
-          ProcedureReturn #True
+          ;}  
         EndIf
         
-      EndIf
+        CompilerIf #Enable_Tabulator_Management
+
+          If Flags & #Tabulator   ;{ Manage tabulator shortcut for this window
+            
+            ModuleEx\Menu = CreateMenu(#PB_Any, WindowID(WindowNum))
+            If IsMenu(ModuleEx\Menu)
+              
+              RemoveKeyboardShortcut(WindowNum, #PB_Shortcut_Tab)
+              RemoveKeyboardShortcut(WindowNum, #PB_Shortcut_Shift|#PB_Shortcut_Tab)
+              
+              AddKeyboardShortcut(WindowNum, #PB_Shortcut_Tab, #Event_Tabulator)
+              AddKeyboardShortcut(WindowNum, #PB_Shortcut_Shift|#PB_Shortcut_Tab, #Event_ShiftTabulator)
+              
+              BindMenuEvent(ModuleEx\Menu, #Event_Tabulator,       @_TabulatorHandler())
+              BindMenuEvent(ModuleEx\Menu, #Event_ShiftTabulator,  @_ShiftTabulatorHandler())
       
+            EndIf
+            ;}
+          EndIf
+          
+        CompilerEndIf
+        
+        ProcedureReturn #True
+        
+      ElseIf AddMapElement(ModuleEx\Window(), Str(WindowNum))
+        
+        If Flags & #CursorEvent ;{ Create cursor event for gadgets in this window
+          
+          If ModuleEx\Thread\Frequency = 0 : ModuleEx\Thread\Frequency = #CursorFrequency : EndIf
+          
+          If ModuleEx\Thread\Active = #False
+            ModuleEx\Thread\Active = #True
+            ModuleEx\Thread\Exit   = #False
+            ModuleEx\Thread\Num    = CreateThread(@_CursorThread(), ModuleEx\Thread\Frequency)
+          EndIf
+          ;}  
+        EndIf
+        
+        CompilerIf #Enable_Tabulator_Management
+          
+          If Flags & #Tabulator   ;{ Manage tabulator shortcut for this window
+            
+            ModuleEx\Menu = CreateMenu(#PB_Any, WindowID(WindowNum))
+            If IsMenu(ModuleEx\Menu)
+              
+              RemoveKeyboardShortcut(WindowNum, #PB_Shortcut_Tab)
+              RemoveKeyboardShortcut(WindowNum, #PB_Shortcut_Shift|#PB_Shortcut_Tab)
+              
+              AddKeyboardShortcut(WindowNum, #PB_Shortcut_Tab, #Event_Tabulator)
+              AddKeyboardShortcut(WindowNum, #PB_Shortcut_Shift|#PB_Shortcut_Tab, #Event_ShiftTabulator)
+              
+              BindMenuEvent(ModuleEx\Menu, #Event_Tabulator,       @_TabulatorHandler())
+              BindMenuEvent(ModuleEx\Menu, #Event_ShiftTabulator,  @_ShiftTabulatorHandler())
+      
+            EndIf
+            ;}
+          EndIf
+          
+        CompilerEndIf
+      
+        BindEvent(#PB_Event_CloseWindow, @_CloseWindowHandler(), WindowNum)
+        
+        ProcedureReturn #True
+      EndIf
+
     EndIf
     
     ProcedureReturn #False
@@ -1275,8 +1305,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 13
-; FirstLine = 9
-; Folding = EEgAAAAABggB5
+; CursorPosition = 865
+; FirstLine = 179
+; Folding = EEgAAAAAB5EMA-
 ; EnableXP
 ; DPIAware

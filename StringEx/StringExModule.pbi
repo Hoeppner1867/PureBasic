@@ -82,8 +82,8 @@
 
 DeclareModule StringEx
   
-  #Version  = 19112601
-  #ModuleEx = 19111703
+  #Version  = 19112602
+  #ModuleEx = 19112600
   
   #Enable_AutoComplete       = #True
   #Enable_ShowPasswordButton = #True
@@ -1005,6 +1005,9 @@ Module StringEx
       StrgEx()\Cursor\Height = TextHeight("X")
       StrgEx()\Cursor\X = X
       StrgEx()\Cursor\Y = Y
+      If StrgEx()\Cursor\Pause = #False
+        Line(StrgEx()\Cursor\X, StrgEx()\Cursor\Y, 1, StrgEx()\Cursor\Height, StrgEx()\Color\Cursor)
+      EndIf   
       ;}
       
       CompilerIf #Enable_ShowPasswordButton
@@ -2454,9 +2457,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 84
-; FirstLine = 12
-; Folding = 5eAUQAEABSCCsAgIoAABMAAR-
+; CursorPosition = 85
+; FirstLine = 9
+; Folding = 5eAUQAEAxSKCsAgIoAABMAAR-
 ; EnableThread
 ; EnableXP
 ; DPIAware
