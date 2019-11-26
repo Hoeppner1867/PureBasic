@@ -94,7 +94,7 @@
 
 DeclareModule ToolBar
   
-  #Version  = 19112600
+  #Version  = 19112601
   #ModuleEx = 19112500
   
   #EnableToolBarGadgets = #True
@@ -186,7 +186,7 @@ DeclareModule ToolBar
   ;- ===========================================================================
   
   Declare   AttachPopupMenu(GNum.i, TB_Index.i, MenuNum.i)  
-  Declare   TextButton(GNum.i, Text.s="", EventNum.i=#False, EventID.s="", Flags.i=#False)
+  Declare   ClearItems(GNum.i)
   Declare   DisableButton(GNum.i, TB_Index.i, State.i)
   Declare   DisableRedraw(GNum.i, State.i=#False)
   Declare.s EventID(GNum.i)
@@ -202,6 +202,7 @@ DeclareModule ToolBar
   Declare   HideButton(GNum.i, TB_Index.i, State.i)
   Declare   Hide(GNum.i, State.i=#True)
   Declare   ImageButton(GNum.i, ImageNum.i, EventNum.i=#False, Text.s="", EventID.s="", Flags.i=#False)
+  Declare   RemoveItem(GNum.i, Index.i)
   Declare   Separator(GNum.i, Width.i=#PB_Default)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
@@ -209,6 +210,7 @@ DeclareModule ToolBar
   Declare   SetFont(GNum.i, FontID.i)
   Declare   SetPostEvent(GNum.i, Event.i=#Event_Gadget) 
   Declare   Spacer(GNum.i)
+  Declare   TextButton(GNum.i, Text.s="", EventNum.i=#False, EventID.s="", Flags.i=#False)
   Declare   ToolTip(GNum.i, TB_Index.i, Text.s)
   
   CompilerIf #EnableToolBarGadgets
@@ -475,6 +477,7 @@ Module ToolBar
     ProcedureReturn RGB((R1*Blend) + (R2 * (1-Blend)), (G1*Blend) + (G2 * (1-Blend)), (B1*Blend) + (B2 * (1-Blend)))
   EndProcedure
   
+  
   Procedure.i Arrow_(X.i, Y.i, Width.i, Height.i, Direction.i, Color.i=#PB_Default)
     Define.i aX, aY, aWidth, aHeight
 
@@ -520,6 +523,7 @@ Module ToolBar
     EndIf
     
   EndProcedure
+  
   
   Procedure   DrawSingleButton_(btIndex.i, Flags.i)
     Define.i ImageID,  txtHeight, TextInside
@@ -1515,8 +1519,8 @@ Module ToolBar
       
     EndProcedure
     
-    
   CompilerEndIf  
+  
   
   Procedure   AttachPopupMenu(GNum.i, TB_Index.i, MenuNum.i) 
     
@@ -1532,38 +1536,6 @@ Module ToolBar
     EndIf  
     
   EndProcedure  
-  
-  Procedure   TextButton(GNum.i, Text.s="", EventNum.i=#False, EventID.s="", Flags.i=#False)
- 
-    If FindMapElement(TBEx(), Str(GNum))
-      
-      If AddElement(TBEx()\Items())
-        
-        TBEx()\Items()\Type       = #Button
-        TBEx()\Items()\Event      = EventNum
-        TBEx()\Items()\EventID    = EventID
-        TBEx()\Items()\Text       = Text
-        TBEx()\Items()\Width      = TBEx()\Buttons\Width
-        TBEx()\Items()\PopupMenu  = #NotValid
-        TBEx()\Items()\Flags      = Flags
-        
-        If TBEx()\Flags & #ToolTips
-          TBEx()\Items()\ToolTip = Text
-        EndIf
-        
-        If TBEx()\Flags & #AdjustAllButtons
-          Draw_(#AdjustAllButtons)
-        ElseIf TBEx()\Flags & #AdjustButtons
-          Draw_(#AdjustButtons)
-        Else
-          If TBEx()\ReDraw : Draw_() : EndIf
-        EndIf
-
-      EndIf
-      
-    EndIf
-    
-  EndProcedure
   
   Procedure   ButtonText(GNum.i, TB_Index.i, Text.s)
     Define.i Flags
@@ -1590,7 +1562,17 @@ Module ToolBar
     EndIf
     
   EndProcedure
+  
+  Procedure   ClearItems(GNum.i)
+    
+    If FindMapElement(TBEx(), Str(GNum))
+      
+      
+      
+    EndIf  
  
+  EndProcedure
+  
   Procedure   DisableButton(GNum.i, TB_Index.i, State.i)
     
     If FindMapElement(TBEx(), Str(GNum))
@@ -1888,8 +1870,7 @@ Module ToolBar
     EndIf
     
   EndProcedure
-  
-  
+ 
   Procedure   Hide(GNum.i, State.i=#True)
   
     If FindMapElement(TBEx(), Str(GNum))
@@ -1958,6 +1939,20 @@ Module ToolBar
     EndIf
     
   EndProcedure
+  
+  Procedure   RemoveItem(GNum.i, Index.i)
+    
+    If FindMapElement(TBEx(), Str(GNum))
+      
+      If SelectElement(TBEx()\Items(), Index)
+        DeleteElement(TBEx()\Items())
+      EndIf
+      
+      Draw_()
+    EndIf  
+ 
+  EndProcedure
+  
   
   Procedure   Separator(GNum.i, Width.i=#PB_Default)
     
@@ -2100,6 +2095,39 @@ Module ToolBar
       EndIf 
       
     EndIf  
+    
+  EndProcedure
+  
+  
+  Procedure   TextButton(GNum.i, Text.s="", EventNum.i=#False, EventID.s="", Flags.i=#False)
+ 
+    If FindMapElement(TBEx(), Str(GNum))
+      
+      If AddElement(TBEx()\Items())
+        
+        TBEx()\Items()\Type       = #Button
+        TBEx()\Items()\Event      = EventNum
+        TBEx()\Items()\EventID    = EventID
+        TBEx()\Items()\Text       = Text
+        TBEx()\Items()\Width      = TBEx()\Buttons\Width
+        TBEx()\Items()\PopupMenu  = #NotValid
+        TBEx()\Items()\Flags      = Flags
+        
+        If TBEx()\Flags & #ToolTips
+          TBEx()\Items()\ToolTip = Text
+        EndIf
+        
+        If TBEx()\Flags & #AdjustAllButtons
+          Draw_(#AdjustAllButtons)
+        ElseIf TBEx()\Flags & #AdjustButtons
+          Draw_(#AdjustButtons)
+        Else
+          If TBEx()\ReDraw : Draw_() : EndIf
+        EndIf
+
+      EndIf
+      
+    EndIf
     
   EndProcedure
   
@@ -2290,8 +2318,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 11
-; Folding = oCCO0-0-JzI1LIAACYow3
+; CursorPosition = 96
+; Folding = oCAA540-JDAEAYAACAQBb-
 ; EnableXP
 ; DPIAware
 ; Executable = Test.exe
