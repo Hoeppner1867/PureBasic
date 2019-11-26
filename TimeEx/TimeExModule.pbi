@@ -46,7 +46,6 @@
 ; [ https://www.paypal.me/Hoeppner1867 ]
 ;}
 
-; TODO: Hide Buttons
 
 ;{ _____ TimeEx - Commands _____
 
@@ -63,7 +62,7 @@
 
 DeclareModule TimeEx
   
-  #Version  = 19112500
+  #Version  = 19112501
   #ModuleEx = 19112102
   
   ;- ===========================================================================
@@ -213,6 +212,8 @@ Module TimeEx
     CanvasNum.i
     
     FontID.i
+    
+    Cursor.i
     State.i
     Radius.i
     Disable.i
@@ -612,9 +613,46 @@ Module TimeEx
         EndIf
         
       Else
-        
+
         TGEx()\Button\State & ~#FocusUp
         TGEx()\Button\State & ~#FocusDown
+        
+        If X > TGEx()\Selection\hX  And X < TGEx()\Selection\hX + TGEx()\Selection\hWidth
+          
+          If TGEx()\Cursor = #False
+            SetGadgetAttribute(GNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
+            TGEx()\Cursor = #PB_Cursor_Hand
+          EndIf
+          
+        ElseIf X > TGEx()\Selection\mX And X < TGEx()\Selection\mX + TGEx()\Selection\mWidth
+          
+          If TGEx()\Cursor = #False
+            SetGadgetAttribute(GNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
+            TGEx()\Cursor = #PB_Cursor_Hand
+          EndIf
+          
+        ElseIf X > TGEx()\Selection\sX And X < TGEx()\Selection\sX + TGEx()\Selection\sWidth
+          
+          If TGEx()\Cursor = #False
+            SetGadgetAttribute(GNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
+            TGEx()\Cursor = #PB_Cursor_Hand
+          EndIf
+          
+        ElseIf X > TGEx()\Selection\uX And X < TGEx()\Selection\uX + TGEx()\Selection\uWidth
+          
+          If TGEx()\Cursor = #False
+            SetGadgetAttribute(GNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
+            TGEx()\Cursor = #PB_Cursor_Hand
+          EndIf
+          
+        Else
+          
+          If TGEx()\Cursor <> #False
+            SetGadgetAttribute(GNum, #PB_Canvas_Cursor, #PB_Cursor_Default)
+            TGEx()\Cursor = #False
+          EndIf
+          
+        EndIf
         
       EndIf
    
@@ -1265,7 +1303,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 11
-; Folding = YEwADBAAoB9
+; CursorPosition = 64
+; Folding = oF1ADRAAoB9
 ; EnableXP
 ; DPIAware

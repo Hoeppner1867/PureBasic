@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 25.11.19
+; Last Update: 26.11.19
 ;
 ; Added:   ToolBar::TextButton() [similar to ImageButton()]
 ; Renamed: ToolBar::TextButton() => ToolBar::Button() [ButtonGadget()]
@@ -94,7 +94,7 @@
 
 DeclareModule ToolBar
   
-  #Version  = 19112501
+  #Version  = 19112600
   #ModuleEx = 19112500
   
   #EnableToolBarGadgets = #True
@@ -1030,7 +1030,47 @@ Module ToolBar
             btIndex = ListIndex(TBEx()\Items())
             
             Select TBEx()\Event\Type
-              Case #EventType_ImageButton ;{ Button clicked & released
+              Case #EventType_Button      ;{ TextButton clicked & released
+                If TBEx()\Buttons\Focus = btIndex And TBEx()\Event\btIndex = btIndex
+                  
+                  If TBEx()\Items()\PopupMenu = #NotValid
+                    
+                    TBEx()\Event\Num = TBEx()\Items()\Event
+                    TBEx()\Event\ID  = TBEx()\Items()\EventID
+                    If IsWindow(TBEx()\Window\Num)
+                      If TBEx()\PostEvent = #Event_Menu
+                        PostEvent(#PB_Event_Menu, TBEx()\Window\Num, TBEx()\Items()\Event, #EventType_Button, btIndex)
+                      Else
+                        PostEvent(#PB_Event_Gadget, TBEx()\Window\Num, TBEx()\CanvasNum, #EventType_Button, btIndex)
+                        PostEvent(#Event_Gadget, TBEx()\Window\Num, TBEx()\CanvasNum, #EventType_Button, btIndex)
+                      EndIf 
+                    EndIf
+                    
+                  Else
+                    
+                    If IsMenu(TBEx()\Items()\PopupMenu) And IsWindow(TBEx()\Window\Num)
+                      TBEx()\Buttons\Focus = #NoFocus
+                      DisableToolTip_()
+                      If TBEx()\Flags & #PopupArrows
+                        DrawSingleButton_(TBEx()\LastFocus, #Click|#PopupOpen)
+                      Else
+                        DrawSingleButton_(TBEx()\LastFocus, #Click)
+                      EndIf 
+                      X = WindowX(TBEx()\Window\Num, #PB_Window_InnerCoordinate) + TBEx()\Size\X + TBEx()\Items()\X
+                      Y = WindowY(TBEx()\Window\Num, #PB_Window_InnerCoordinate) + TBEx()\Size\Y + GetButtonY_(#True) + TBEx()\Buttons\Spacing
+                      DisplayPopupMenu(TBEx()\Items()\PopupMenu, WindowID(TBEx()\Window\Num), dpiX(X), dpiY(Y))
+                      DrawSingleButton_(TBEx()\LastFocus, #FocusLost)
+                    EndIf
+                    
+                  EndIf
+                  
+                Else
+                  TBEx()\Event\Type    = #False
+                  TBEx()\Event\btIndex = #NoIndex
+                EndIf
+                
+                ;}
+              Case #EventType_ImageButton ;{ ImageButton clicked & released
                 If TBEx()\Buttons\Focus = btIndex And TBEx()\Event\btIndex = btIndex
                   
                   If TBEx()\Items()\PopupMenu = #NotValid
@@ -2205,6 +2245,8 @@ CompilerIf #PB_Compiler_IsMainFile
               Select EventType()
                 Case ToolBar::#EventType_ImageButton
                   Debug "ImageButton clicked: " + Str(EventData()) + " [ Number: " +Str(ToolBar::EventNumber(#ToolBar))+" / ID: '"+ToolBar::EventID(#ToolBar)+ "' ]"
+                Case ToolBar::#EventType_TextButton
+                  Debug "TextButton clicked: " + Str(EventData()) + " [ Number: " +Str(ToolBar::EventNumber(#ToolBar))+" / ID: '"+ToolBar::EventID(#ToolBar)+ "' ]"
                 Case ToolBar::#EventType_ComboBox ; EventNum = #PB_Ignore
                   Debug "ComboBox changed: " + Str(ToolBar::EventState(#ToolBar)) + " [ Index: " +Str(EventData())+" / ID: '"+ToolBar::EventID(#ToolBar)+ "' ]"
                 Case ToolBar::#EventType_SpinBox  ; EventNum = #PB_Ignore
@@ -2248,9 +2290,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 96
-; FirstLine = 12
-; Folding = 5CCG2-oNITFCEAgxBEUY8
+; CursorPosition = 11
+; Folding = oCCO0-0-JzI1LIAACYow3
 ; EnableXP
 ; DPIAware
 ; Executable = Test.exe
