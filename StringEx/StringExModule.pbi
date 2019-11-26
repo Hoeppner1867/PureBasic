@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 25.11.19
+; Last Update: 26.11.19
 ;
 ; Bugfix: Cursor
 ; Added: input masks (e.g. date: "____/__/__" or "__.__.____")
@@ -82,7 +82,7 @@
 
 DeclareModule StringEx
   
-  #Version  = 19112500
+  #Version  = 19112600
   #ModuleEx = 19111703
   
   #Enable_AutoComplete       = #True
@@ -340,6 +340,7 @@ Module StringEx
     State.i
     
     Text.s
+    OffSetX.i
     
     Undo.s
     CanvasCursor.i
@@ -626,8 +627,8 @@ Module StringEx
   Procedure.i CursorPos_(CursorX.i)
     Define.s Text
     Define.i p, Pos.i
-    
-    If CursorX > dpiX(4)
+
+    If CursorX >= StrgEx()\OffSetX
       
       Text = StrgEx()\Text
       If StrgEx()\Flags & #Password And StrgEx()\Button\State & #Click = #False
@@ -639,10 +640,10 @@ Module StringEx
       If StartDrawing(CanvasOutput(StrgEx()\CanvasNum))
         DrawingFont(StrgEx()\FontID)
         For p=1 To Len(Text)
-          If TextWidth(Left(Text, p)) >= CursorX
+          Pos = p
+          If StrgEx()\OffSetX + TextWidth(Left(Text, p)) >= CursorX
             Break
           EndIf
-          Pos = p
         Next
         StopDrawing()
       EndIf
@@ -949,6 +950,7 @@ Module StringEx
         
         DrawingMode(#PB_2DDrawing_Transparent)
         DrawText(X, Y, Text, TextColor)
+        StrgEx()\OffSetX = X
         
         CompilerIf #Enable_AutoComplete
           
@@ -1063,8 +1065,6 @@ Module StringEx
   Procedure _CursorDrawing() ; Trigger from Thread (PostEvent Change)
     Define.i BackColor
     Define.i WindowNum = EventWindow()
-    
-    
 
     ForEach StrgEx()
       
@@ -1496,11 +1496,13 @@ Module StringEx
       EndIf
       
       Pos = CursorPos_(X)
-      StrgEx()\Selection\Pos1 = GetWordStart_(Pos)
-      StrgEx()\Selection\Pos2 = GetWordEnd_(Pos)
-      StrgEx()\Selection\Flag = #Selected
-      StrgEx()\Cursor\Pos     = StrgEx()\Selection\Pos2
-
+      If Pos
+        StrgEx()\Selection\Pos1 = GetWordStart_(Pos)
+        StrgEx()\Selection\Pos2 = GetWordEnd_(Pos)
+        StrgEx()\Selection\Flag = #Selected
+        StrgEx()\Cursor\Pos     = StrgEx()\Selection\Pos2
+      EndIf
+    
       Draw_()
     EndIf
     
@@ -2392,7 +2394,9 @@ CompilerIf #PB_Compiler_IsMainFile
     StringEx::AddButton(#StringDel, #Image)
     StringEx::SetAutoResizeFlags(#StringDel, StringEx::#Width)
     
-    StringEx::SetInputMask(#StringDel, "*.__$")
+    ;StringEx::SetInputMask(#StringDel, "*.__$")
+    StringEx::SetInputMask(#StringDel, "*,__ €")
+    ;StringEx::SetInputMask(#StringDel, "__.__.____")
     
     CompilerIf Defined(ModuleEx, #PB_Module)
 	
@@ -2451,8 +2455,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 84
-; FirstLine = 9
-; Folding = 5eAUAAEAjSKCsAAIoAABMAAR-
+; FirstLine = 12
+; Folding = 5eAUAAEABSCAsAgIoAABMAAR-
 ; EnableThread
 ; EnableXP
 ; DPIAware
