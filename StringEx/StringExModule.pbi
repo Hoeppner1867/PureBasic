@@ -82,7 +82,7 @@
 
 DeclareModule StringEx
   
-  #Version  = 19112602
+  #Version  = 19112603
   #ModuleEx = 19112600
   
   #Enable_AutoComplete       = #True
@@ -1327,7 +1327,7 @@ Module StringEx
               PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
               PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
             EndIf ;}
-          Case #PB_Shortcut_Delete         ;{ Delete / Cut (Shift)
+          Case #PB_Shortcut_Delete    ;{ Delete / Cut (Shift)
             If Modifier & #PB_Canvas_Shift ;{ Cut selected text
               Cut_()
               ;}
@@ -1367,12 +1367,16 @@ Module StringEx
               StrgEx()\Selection\Flag = #Selected
             EndIf ;}
           Case #PB_Shortcut_C         ;{ Copy   (Ctrl)  
-            Copy_()
+            If Modifier & #PB_Canvas_Control
+              Copy_()
+            EndIf  
             ;}
           Case #PB_Shortcut_X         ;{ Cut    (Ctrl) 
-            Cut_()
-            PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
-            PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+            If Modifier & #PB_Canvas_Control
+              Cut_()
+              PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+              PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+            EndIf
             ;}
           Case #PB_Shortcut_D         ;{ Ctrl-D (Delete selection)
             If Not StrgEx()\Flags & #NotEditable
@@ -1384,15 +1388,19 @@ Module StringEx
             EndIf ;} 
           Case #PB_Shortcut_V         ;{ Paste  (Ctrl) 
             If Not StrgEx()\Flags & #NotEditable
-              Paste_()
-              PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
-              PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+              If Modifier & #PB_Canvas_Control
+                Paste_()
+                PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+                PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+              EndIf
             EndIf ;} 
           Case #PB_Shortcut_Z         ;{ Crtl-Z (Undo)  
             If Not StrgEx()\Flags & #NotEditable
-              Undo_()
-              PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
-              PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+              If Modifier & #PB_Canvas_Control
+                Undo_()
+                PostEvent(#Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+                PostEvent(#PB_Event_Gadget, StrgEx()\Window\Num, StrgEx()\CanvasNum, #EventType_Change)
+              EndIf 
             EndIf
             ;}
           Case #PB_Shortcut_Return    ;{ Return
@@ -2398,7 +2406,7 @@ CompilerIf #PB_Compiler_IsMainFile
     StringEx::SetAutoResizeFlags(#StringDel, StringEx::#Width)
     
     ;StringEx::SetInputMask(#StringDel, "*.__$")
-    StringEx::SetInputMask(#StringDel, "*,__ €")
+    ;StringEx::SetInputMask(#StringDel, "*,__ €")
     ;StringEx::SetInputMask(#StringDel, "__.__.____")
     
     CompilerIf Defined(ModuleEx, #PB_Module)
@@ -2457,9 +2465,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 85
-; FirstLine = 9
-; Folding = 5eAUQAEAxSKCsAgIoAABMAAR-
+; CursorPosition = 84
+; Folding = 5eAUQAEAxSKKAAgIoAABMAAR-
 ; EnableThread
 ; EnableXP
 ; DPIAware
