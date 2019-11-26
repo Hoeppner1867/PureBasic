@@ -94,7 +94,7 @@
 
 DeclareModule ToolBar
   
-  #Version  = 19112601
+  #Version  = 19112602
   #ModuleEx = 19112500
   
   #EnableToolBarGadgets = #True
@@ -1567,8 +1567,15 @@ Module ToolBar
     
     If FindMapElement(TBEx(), Str(GNum))
       
+      ForEach TBEx()\Items()
+        If TBEx()\Items()\Num
+          If IsGadget(TBEx()\Items()\Num) : FreeGadget(TBEx()\Items()\Num) : EndIf
+        EndIf 
+      Next  
       
+      ClearList(TBEx()\Items())
       
+      Draw_()
     EndIf  
  
   EndProcedure
@@ -1945,6 +1952,9 @@ Module ToolBar
     If FindMapElement(TBEx(), Str(GNum))
       
       If SelectElement(TBEx()\Items(), Index)
+        If TBEx()\Items()\Num
+          If IsGadget(TBEx()\Items()\Num) : FreeGadget(TBEx()\Items()\Num) : EndIf
+        EndIf 
         DeleteElement(TBEx()\Items())
       EndIf
       
@@ -2318,8 +2328,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 96
-; Folding = oCAA540-JDAEAYAACAQBb-
+; CursorPosition = 1565
+; FirstLine = 306
+; Folding = oCAA540-JDAUBYAACAQBb-
 ; EnableXP
 ; DPIAware
 ; Executable = Test.exe
