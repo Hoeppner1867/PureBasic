@@ -116,11 +116,11 @@
 
 ;}
 
- ; XIncludeFile "ModuleEx.pbi"
+; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule Chart
   
-  #Version  = 19112700
+  #Version  = 19112701
   #ModuleEx = 19111702
   
   #Enable_PieChart       = #True
@@ -491,6 +491,7 @@ Module Chart
   Structure Chart_Color_Structure      ;{ Chart()\Color\...
     Front.i
     Back.i
+    Gadget.i
     Axis.i
     Bar.i
     BarBorder.i
@@ -1206,7 +1207,7 @@ Module Chart
           For n = 0 To ScaleLines
             PosY = Y + Round(n * SpaceY, #PB_Round_Nearest)
             If Chart()\Flags & #ShowLines
-              Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
+              Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Gadget, 10))
             EndIf 
             Line(X - dpiX(2), PosY, dpiX(5), 1, Chart()\Color\Axis)
             If Chart()\Line\Flags & #Descending
@@ -1498,7 +1499,7 @@ Module Chart
             startAngle = endAngle
             endAngle   = startAngle + (Factor * 360)
             
-            CircleSector_(X, Y, Radius, startAngle, endAngle, Color, Chart()\Item()\Color, BlendColor_(Chart()\Item()\Color, Chart()\Color\Back, 60))
+            CircleSector_(X, Y, Radius, startAngle, endAngle, Color, Chart()\Item()\Color, BlendColor_(Chart()\Item()\Color, Chart()\Color\Gadget, 60))
             
             Chart()\Item()\sAngle = startAngle
             Chart()\Item()\eAngle = endAngle
@@ -1579,7 +1580,7 @@ Module Chart
             lY = (Chart()\Size\Height - lHeight) / 2
             
             DrawingMode(#PB_2DDrawing_Default)
-            Box(lX, lY, lWidth, lHeight, $FFFFFF)
+            Box(lX, lY, lWidth, lHeight, Chart()\Color\Back)
             
             DrawingMode(#PB_2DDrawing_Outlined)
             Box(lX, lY, lWidth, lHeight, Chart()\Color\Border)
@@ -1760,7 +1761,7 @@ Module Chart
           ForEach Chart()\AxisY\Label()
             PosY = Y + Round((Chart()\AxisY\Label()\Value - Chart()\Scatter\MinimumY) * Factor, #PB_Round_Nearest)
             If Chart()\Flags & #ShowLines
-              Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
+              Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Gadget, 10))
             EndIf 
             Line(X - dpiX(2), PosY, dpiX(5), 1, Chart()\Color\Axis)
             txtX = X - TextWidth(Chart()\AxisY\Label()\Text) - dpix(4)
@@ -1788,7 +1789,7 @@ Module Chart
             For n = 0 To ScaleLines - 1
               PosY = Y + Round(n * SpaceY, #PB_Round_Nearest)
               If Chart()\Flags & #ShowLines
-                Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
+                Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Gadget, 10))
               EndIf 
               Line(X - dpiX(2), PosY, dpiX(5), 1, Chart()\Color\Axis)
               If Chart()\Scatter\Flags & #Descending
@@ -1826,7 +1827,7 @@ Module Chart
             PosX = X + Round((Chart()\AxisX\Label()\Value - Chart()\Scatter\MinimumX) * Factor, #PB_Round_Nearest)
             If PosX > X + Width : PosX = X + Width : EndIf 
             If Chart()\Flags & #ShowLines
-              Line(PosX, Y, 1, Height, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
+              Line(PosX, Y, 1, Height, BlendColor_(Chart()\Color\Axis, Chart()\Color\Gadget, 10))
             EndIf
             Line(PosX, Y + pHeight - dpiX(2), 1, dpiX(5), Chart()\Color\Axis)
             txtX = PosX - Round(TextWidth(Chart()\AxisX\Label()\Text) / 2, #PB_Round_Nearest)
@@ -1858,7 +1859,7 @@ Module Chart
             For n = 0 To ScaleLines
               PosX = X + Round(n * SpaceX, #PB_Round_Nearest)
               If Chart()\Flags & #ShowLines
-                Line(PosX, Y, 1, Height, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
+                Line(PosX, Y, 1, Height, BlendColor_(Chart()\Color\Axis, Chart()\Color\Gadget, 10))
               EndIf 
               Line(PosX, Y + pHeight - dpiX(2), 1, dpiX(5), Chart()\Color\Axis)
               If Chart()\Scatter\Flags & #Descending
@@ -2050,7 +2051,7 @@ Module Chart
             lY = Y + Height + txtHeight + dpiY(8)
             
             DrawingMode(#PB_2DDrawing_Default)
-            Box(lX, lY, lWidth, lHeight, $FFFFFF)
+            Box(lX, lY, lWidth, lHeight, Chart()\Color\Back)
             
             DrawingMode(#PB_2DDrawing_Outlined)
             Box(lX, lY, lWidth, lHeight, Chart()\Color\Border)
@@ -2228,7 +2229,7 @@ Module Chart
           For n = 0 To ScaleLines
             PosY = Y + Round(n * SpaceY, #PB_Round_Nearest)
             If Chart()\Flags & #ShowLines
-              Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
+              Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Gadget, 10))
             EndIf 
             Line(X - dpiX(2), PosY, dpiX(5), 1, Chart()\Color\Axis)
             Text$ = Str(Chart()\Current\MaximumY - (Quotient * n))
@@ -2240,7 +2241,7 @@ Module Chart
           ;If Chart()\Current\MinimumY
           ;  PosY = Y + Height
           ;  If Chart()\Flags & #ShowLines
-          ;    Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
+          ;    Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Gadget, 10))
           ;  EndIf
           ;  Line(X - dpiX(2), PosY, dpiX(6), 1, Chart()\Color\Axis)
           ;  Text$ = Str(Chart()\Current\MinimumY)
@@ -2312,7 +2313,7 @@ Module Chart
                 If Color = #PB_Default : Color = Chart()\Color\Bar : EndIf
                 
                 Gradient = Chart()\Series()\Gradient
-                If Gradient = #PB_Default : Gradient = BlendColor_(Color, Chart()\Color\Back, 60) : EndIf
+                If Gradient = #PB_Default : Gradient = BlendColor_(Color, Chart()\Color\Gadget, 60) : EndIf
                 
                 If (Chart()\Series()\Item()\Value >= Chart()\Current\MinimumY And Chart()\Series()\Item()\Value <= Chart()\Current\MaximumY) Or Chart()\Bar\Flags & #OutOfRange
                 
@@ -2398,7 +2399,7 @@ Module Chart
                         txtY = Y + dpiY(5)
                       EndIf
                       If Chart()\Series()\Item()\Color = #PB_Default
-                        DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Color\Back, 60))
+                        DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Color\Gadget, 60))
                       Else
                         DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Series()\Color, 60))
                       EndIf
@@ -2456,7 +2457,7 @@ Module Chart
               If Chart()\Bar\Flags & #OutOfRange
                 If Chart()\Bar\Flags & #Colored
                   If Chart()\Item()\Color = #PB_Default
-                    DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Color\Back, 30))
+                    DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Color\Gadget, 30))
                   Else
                     DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Item()\Color, 30))
                   EndIf
@@ -2496,7 +2497,7 @@ Module Chart
             lY = Y + Height + txtHeight + dpiY(8)
             
             DrawingMode(#PB_2DDrawing_Default)
-            Box(lX, lY, lWidth, lHeight, $FFFFFF)
+            Box(lX, lY, lWidth, lHeight, Chart()\Color\Back)
             
             DrawingMode(#PB_2DDrawing_Outlined)
             Box(lX, lY, lWidth, lHeight, Chart()\Color\Border)
@@ -2669,7 +2670,7 @@ Module Chart
           For n = 0 To ScaleLines
             PosY = Y + Round(n * SpaceY, #PB_Round_Nearest)
             If Chart()\Flags & #ShowLines
-              Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
+              Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Gadget, 10))
             EndIf 
             Line(X - dpiX(2), PosY, dpiX(5), 1, Chart()\Color\Axis)
             If Chart()\Line\Flags & #Descending
@@ -2839,7 +2840,7 @@ Module Chart
                 If Color = #PB_Default : Color = Chart()\Color\Bar : EndIf
                 
                 ;Gradient = Chart()\Series()\Gradient
-                ;If Gradient = #PB_Default : Gradient = BlendColor_(Color, Chart()\Color\Back, 60) : EndIf
+                ;If Gradient = #PB_Default : Gradient = BlendColor_(Color, Chart()\Color\Gadget, 60) : EndIf
                 
                 Circle_(PosX + Radius, PosY - cHeight, Radius, BlendColor_(Color, Chart()\Color\Border, 50), Color)
               
@@ -2977,7 +2978,7 @@ Module Chart
             lY = Y + Height + txtHeight + dpiY(8)
             
             DrawingMode(#PB_2DDrawing_Default)
-            Box(lX, lY, lWidth, lHeight, $FFFFFF)
+            Box(lX, lY, lWidth, lHeight, Chart()\Color\Back)
             
             DrawingMode(#PB_2DDrawing_Outlined)
             Box(lX, lY, lWidth, lHeight, Chart()\Color\Border)
@@ -3139,7 +3140,7 @@ Module Chart
             PosX = X + Round(n * SpaceX, #PB_Round_Nearest)
             
             If Chart()\Flags & #ShowLines
-              Line(PosX, Y, 1, Height, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
+              Line(PosX, Y, 1, Height, BlendColor_(Chart()\Color\Axis, Chart()\Color\Gadget, 10))
             EndIf
             
             Line(PosX, PosY - dpiX(2), 1, dpiX(5), Chart()\Color\Axis)
@@ -3149,18 +3150,6 @@ Module Chart
             DrawText(txtX, txtY, Text$, Chart()\Color\Front)
           Next
     
-          ;If Chart()\Current\MinimumY
-          ;  PosY = Y + Height
-          ;  If Chart()\Flags & #ShowLines
-          ;    Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
-          ;  EndIf
-          ;  Line(X - dpiX(2), PosY, dpiX(6), 1, Chart()\Color\Axis)
-          ;  Text$ = Str(Chart()\Current\MinimumY)
-          ;  txtX = X - TextWidth(Text$) - dpix(4)
-          ;  txtY = PosY - Round(txtHeight / 2, #PB_Round_Nearest)
-          ;  DrawText(txtX, txtY, Text$, Chart()\Color\Front)
-          ;EndIf
-          
           Line(X, Y, 1, Height, Chart()\Color\Axis)
           
         EndIf ;} 
@@ -3194,7 +3183,7 @@ Module Chart
           If Color = #PB_Default : Color = Chart()\Color\Bar : EndIf
           
           Gradient = Chart()\Item()\Gradient
-          If Gradient = #PB_Default : Gradient = BlendColor_(Color, Chart()\Color\Back, 60) : EndIf
+          If Gradient = #PB_Default : Gradient = BlendColor_(Color, Chart()\Color\Gadget, 60) : EndIf
           
           If (Chart()\Item()\Value >= Chart()\Current\MinimumY And Chart()\Item()\Value <= Chart()\Current\MaximumY)  Or Chart()\Bar\Flags & #OutOfRange
             
@@ -3271,7 +3260,7 @@ Module Chart
                   txtX = X + Width - TextWidth(Text$) - dpiY(5)
                 EndIf
                 If Chart()\Item()\Color = #PB_Default
-                  DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Color\Back, 60))
+                  DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Color\Gadget, 60))
                 Else  
                   DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Item()\Color, 60))
                 EndIf
@@ -3299,7 +3288,7 @@ Module Chart
             If Chart()\Bar\Flags & #OutOfRange
               If Chart()\Bar\Flags & #Colored
                 If Chart()\Item()\Color = #PB_Default
-                  DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Color\Back, 30))
+                  DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Color\Gadget, 30))
                 Else
                   DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Item()\Color, 30))
                 EndIf
@@ -3421,7 +3410,7 @@ Module Chart
         For n = 0 To ScaleLines
           PosY = Y + Round(n * SpaceY, #PB_Round_Nearest)
           If Chart()\Flags & #ShowLines
-            Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
+            Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Gadget, 10))
           EndIf 
           Line(X - dpiX(2), PosY, dpiX(5), 1, Chart()\Color\Axis)
           Text$ = Str(Chart()\Current\MaximumY - (Quotient * n))
@@ -3433,7 +3422,7 @@ Module Chart
         ;If Chart()\Current\MinimumY
         ;  PosY = Y + Height
         ;  If Chart()\Flags & #ShowLines
-        ;    Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Back, 10))
+        ;    Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Gadget, 10))
         ;  EndIf
         ;  Line(X - dpiX(2), PosY, dpiX(6), 1, Chart()\Color\Axis)
         ;  Text$ = Str(Chart()\Current\MinimumY)
@@ -3487,7 +3476,7 @@ Module Chart
         If Color = #PB_Default : Color = Chart()\Color\Bar : EndIf
         
         Gradient = Chart()\Item()\Gradient
-        If Gradient = #PB_Default : Gradient = BlendColor_(Color, Chart()\Color\Back, 60) : EndIf
+        If Gradient = #PB_Default : Gradient = BlendColor_(Color, Chart()\Color\Gadget, 60) : EndIf
         
         If (Chart()\Item()\Value >= Chart()\Current\MinimumY And Chart()\Item()\Value <= Chart()\Current\MaximumY) Or Chart()\Bar\Flags & #OutOfRange
           
@@ -3578,7 +3567,7 @@ Module Chart
                 txtY = Y + dpiY(5)
               EndIf
               If Chart()\Item()\Color = #PB_Default
-                DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Color\Back, 60))
+                DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Color\Gadget, 60))
               Else  
                 DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Item()\Color, 60))
               EndIf
@@ -3609,7 +3598,7 @@ Module Chart
           If Chart()\Bar\Flags & #OutOfRange
             If Chart()\Bar\Flags & #Colored
               If Chart()\Item()\Color = #PB_Default
-                DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Color\Back, 30))
+                DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Color\Gadget, 30))
               Else
                 DrawText(txtX, txtY, Text$, BlendColor_(Chart()\Color\Front, Chart()\Item()\Color, 30))
               EndIf
@@ -3649,7 +3638,7 @@ Module Chart
 
       ;{ _____ Background _____
       DrawingMode(#PB_2DDrawing_Default)
-      Box(0, 0, Chart()\Size\Width, Chart()\Size\Height, Chart()\Color\Back)
+      Box(0, 0, Chart()\Size\Width, Chart()\Size\Height, Chart()\Color\Gadget)
       ;}
 
       StopDrawing()
@@ -3727,6 +3716,7 @@ Module Chart
         Chart()\Color\Front     = ModuleEx::ThemeGUI\FrontColor
         Chart()\Color\Back      = ModuleEx::ThemeGUI\BackColor
         Chart()\Color\Border    = ModuleEx::ThemeGUI\BorderColor
+        Chart()\Color\Gadget    = ModuleEx::ThemeGUI\GadgetColor
         Chart()\Color\Axis      = ModuleEx::ThemeGUI\FrontColor
         Chart()\Color\Bar       = ModuleEx::ThemeGUI\Progress\BackColor
         Chart()\Color\BarBorder = ModuleEx::ThemeGUI\Header\FrontColor
@@ -5795,7 +5785,8 @@ Module Chart
         Chart()\ReDraw = #True
         
         Chart()\Color\Front     = $000000
-        Chart()\Color\Back      = $EDEDED
+        Chart()\Color\Back      = $FFFFFF
+        Chart()\Color\Gadget    = $EDEDED
         Chart()\Color\Border    = $A0A0A0
         Chart()\Color\Axis      = $000000
         Chart()\Color\Bar       = $B48246
@@ -5804,13 +5795,15 @@ Module Chart
         
         CompilerSelect #PB_Compiler_OS ;{ Color
           CompilerCase #PB_OS_Windows
-            Chart()\Color\Front         = GetSysColor_(#COLOR_WINDOWTEXT)
-            Chart()\Color\Back          = GetSysColor_(#COLOR_MENU)
-            Chart()\Color\Border        = GetSysColor_(#COLOR_WINDOWFRAME)
+            Chart()\Color\Front  = GetSysColor_(#COLOR_WINDOWTEXT)
+            Chart()\Color\Back   = GetSysColor_(#COLOR_WINDOW)
+            Chart()\Color\Border = GetSysColor_(#COLOR_WINDOWFRAME)
+            Chart()\Color\Gadget = GetSysColor_(#COLOR_MENU)
           CompilerCase #PB_OS_MacOS
-            Chart()\Color\Front         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
-            Chart()\Color\Back          = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
-            Chart()\Color\Border        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+            Chart()\Color\Front  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
+            Chart()\Color\Back   = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
+            Chart()\Color\Border = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+            Chart()\Color\Gadget = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
           CompilerCase #PB_OS_Linux
 
         CompilerEndSelect ;}        
@@ -6785,7 +6778,7 @@ CompilerIf #PB_Compiler_IsMainFile
     StringGadget(#Value, 95, 200, 30, 20, "")
     ButtonGadget(#Button, 130, 200, 40, 20, "Apply")
     
-    ; ModuleEx::SetTheme(ModuleEx::#Theme_Green)
+    ;ModuleEx::SetTheme(ModuleEx::#Theme_Dark)
     
     Repeat
       Event = WaitWindowEvent()
@@ -6880,8 +6873,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 122
-; FirstLine = 9
-; Folding = 5+--------cb-w------------8-h-+v8ft6JOAkqAAiDsvXVL--Tf4-6f0
+; CursorPosition = 118
+; Folding = 55------f+ez8AwfIBdEI-----8-z-+v8ft6JOAkqAAiDEuXVL--bf4-xP5
 ; EnableXP
 ; DPIAware
