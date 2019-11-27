@@ -10,7 +10,7 @@
 ;/
 
 
-; Last Update: 19.11.19
+; Last Update: 27.11.19
 ;
 ; Added: #UseExistingCanvas
 ;
@@ -38,6 +38,14 @@
 ; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ; SOFTWARE.
+;}
+
+;{ ===== Additional tea & pizza license =====
+; <purebasic@thprogs.de> has created this code. 
+; If you find the code useful and you want to use it for your programs, 
+; you are welcome to support my work with a cup of tea or a pizza
+; (or the amount of money for it). 
+; [ https://www.paypal.me/Hoeppner1867 ]
 ;}
 
 
@@ -112,7 +120,7 @@
 
 DeclareModule Chart
   
-  #Version  = 19112200
+  #Version  = 19112700
   #ModuleEx = 19111702
   
   #Enable_PieChart       = #True
@@ -5050,15 +5058,14 @@ Module Chart
         If FindMapElement(Chart()\Index(), Scatter)           ; ScatterPlot Label
           If SelectElement(Chart()\Series(), Chart()\Index()) ; ScatterPlot Element
 
-            DeleteMapElement(Chart()\Index())
-            DeleteElement(Chart()\Series())
-            
             ForEach Chart()\VisibleData()
               If Chart()\VisibleData() = ListIndex(Chart()\Series())
                 DeleteElement(Chart()\VisibleData())
               EndIf 
             Next
             
+            DeleteMapElement(Chart()\Index())
+            DeleteElement(Chart()\Series())
             DeleteMapElement(Chart()\VisibleIndex(), Scatter)
             
             If Chart()\ReDraw : Draw_() : EndIf
@@ -5402,15 +5409,14 @@ Module Chart
         If FindMapElement(Chart()\Index(), Series)            ; Data Series Label
           If SelectElement(Chart()\Series(), Chart()\Index()) ; Data Series Element
 
-            DeleteMapElement(Chart()\Index())
-            DeleteElement(Chart()\Series())
-            
             ForEach Chart()\VisibleData()
               If Chart()\VisibleData() = ListIndex(Chart()\Series())
                 DeleteElement(Chart()\VisibleData())
               EndIf 
             Next
             
+            DeleteMapElement(Chart()\Index())
+            DeleteElement(Chart()\Series())
             DeleteMapElement(Chart()\VisibleIndex(), Series)
             
             If Chart()\ReDraw : Draw_() : EndIf
@@ -6450,7 +6456,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   ; ----- Select Example -----
   
-  #Example = 1
+  #Example = 10
   
   ; --- Bar Chart ---
   ;  1: automatically adjust maximum value (#PB_Default)
@@ -6874,8 +6880,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 114
-; FirstLine = 13
-; Folding = c--------futf5--------------xf-40v39AHASUAAxB34rql--pv8-9--
+; CursorPosition = 122
+; FirstLine = 9
+; Folding = 5+--------cb-w------------8-h-+v8ft6JOAkqAAiDsvXVL--Tf4-6f0
 ; EnableXP
 ; DPIAware

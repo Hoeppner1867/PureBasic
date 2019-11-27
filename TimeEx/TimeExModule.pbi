@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 25.11.19
+; Last Update: 27.11.19
 ;
 ; Added: Flag #NoButtons
 ;
@@ -62,7 +62,7 @@
 
 DeclareModule TimeEx
   
-  #Version  = 19112501
+  #Version  = 19112700
   #ModuleEx = 19112102
   
   ;- ===========================================================================
@@ -390,11 +390,11 @@ Module TimeEx
       Else
         
         If DesktopScaledX(100) >= 125
-          TGEx()\Button\X      = dpiX(GadgetWidth(TGEx()\CanvasNum) - dpiX(#ButtonWidth + 1))
-          TGEx()\Button\Height = dpiY((GadgetHeight(TGEx()\CanvasNum) - 5) / 2 )
+          TGEx()\Button\X      = dpiX(GadgetWidth(TGEx()\CanvasNum) - #ButtonWidth - 1)
+          TGEx()\Button\Height = dpiY((GadgetHeight(TGEx()\CanvasNum) - 5)) / 2
           TGEx()\Button\Y1     = dpiY(3)
         Else
-          TGEx()\Button\X = dpiX(GadgetWidth(TGEx()\CanvasNum) - dpiX(#ButtonWidth + 2))
+          TGEx()\Button\X      = dpiX(GadgetWidth(TGEx()\CanvasNum) - #ButtonWidth - 2)
           TGEx()\Button\Height = dpiY((GadgetHeight(TGEx()\CanvasNum) - 4) / 2 )
           TGEx()\Button\Y1     = dpiY(2)
         EndIf
@@ -1303,7 +1303,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 64
-; Folding = oF1ADRAAoB9
+; CursorPosition = 9
+; FirstLine = 9
+; Folding = oF1EFVFgIB9
 ; EnableXP
 ; DPIAware
