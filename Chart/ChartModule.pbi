@@ -10,10 +10,9 @@
 ;/
 
 
-; Last Update: 27.11.19
+; Last Update: 28.11.19
 ;
 ; Added: #UseExistingCanvas
-;
 ; Added: #Time flag for axis / AddAxisLabel()
 ;
 
@@ -120,7 +119,7 @@
 
 DeclareModule Chart
   
-  #Version  = 19112701
+  #Version  = 19112800
   #ModuleEx = 19111702
   
   #Enable_PieChart       = #True
@@ -224,6 +223,7 @@ DeclareModule Chart
   Enumeration 1
     #FrontColor
     #BackColor
+    #LegendColor
     #BorderColor
     #AxisColor
     #BarColor
@@ -2237,22 +2237,10 @@ Module Chart
             txtY = PosY - Round(txtHeight / 2, #PB_Round_Nearest)
             DrawText(txtX, txtY, Text$, Chart()\Color\Front)
           Next
-    
-          ;If Chart()\Current\MinimumY
-          ;  PosY = Y + Height
-          ;  If Chart()\Flags & #ShowLines
-          ;    Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Gadget, 10))
-          ;  EndIf
-          ;  Line(X - dpiX(2), PosY, dpiX(6), 1, Chart()\Color\Axis)
-          ;  Text$ = Str(Chart()\Current\MinimumY)
-          ;  txtX = X - TextWidth(Text$) - dpix(4)
-          ;  txtY = PosY - Round(txtHeight / 2, #PB_Round_Nearest)
-          ;  DrawText(txtX, txtY, Text$, Chart()\Color\Front)
-          ;EndIf
 
         EndIf
         
-        Line(X, Y + Height, Width, 1, Chart()\Color\Axis)
+        Line(X, Y + pHeight, Width, 1, Chart()\Color\Axis)
         ;} 
         
         If Items : Dim Label.s(Items - 1) : EndIf
@@ -3418,19 +3406,7 @@ Module Chart
           txtY = PosY - Round(txtHeight / 2, #PB_Round_Nearest)
           DrawText(txtX, txtY, Text$, Chart()\Color\Front)
         Next
-  
-        ;If Chart()\Current\MinimumY
-        ;  PosY = Y + Height
-        ;  If Chart()\Flags & #ShowLines
-        ;    Line(X, PosY, Width, 1, BlendColor_(Chart()\Color\Axis, Chart()\Color\Gadget, 10))
-        ;  EndIf
-        ;  Line(X - dpiX(2), PosY, dpiX(6), 1, Chart()\Color\Axis)
-        ;  Text$ = Str(Chart()\Current\MinimumY)
-        ;  txtX = X - TextWidth(Text$) - dpix(4)
-        ;  txtY = PosY - Round(txtHeight / 2, #PB_Round_Nearest)
-        ;  DrawText(txtX, txtY, Text$, Chart()\Color\Front)
-        ;EndIf
-        
+      
         Line(X, Y + pHeight, Width, 1, Chart()\Color\Axis)
         
       EndIf ;} 
@@ -5191,7 +5167,7 @@ Module Chart
     EndProcedure
     
   CompilerEndIf  
-   
+
   CompilerIf #Enable_DataSeries
     
     Procedure.i AddDataSeries(GNum.i, Label.s, Color.i=#PB_Default, GradientColor.i=#PB_Default, BorderColor.i=#PB_Default)
@@ -6210,6 +6186,8 @@ Module Chart
         Case #FrontColor
           Chart()\Color\Front     = Color
         Case #BackColor
+          Chart()\Color\Gadget    = Color
+        Case #LegendColor
           Chart()\Color\Back      = Color
         Case #AxisColor
           Chart()\Color\Axis      = Color   
@@ -6873,7 +6851,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 118
-; Folding = 55------f+ez8AwfIBdEI-----8-z-+v8ft6JOAkqAAiDEuXVL--bf4-xP5
+; CursorPosition = 121
+; Folding = 59------f7GRQAAKABNEIn-fAe5-z-+v8ft6BOAkoAAiDAuXVI--Df4-xP5
 ; EnableXP
 ; DPIAware
