@@ -102,12 +102,12 @@
 
 DeclareModule ViewerEx
   
-  #Version  = 19112900
+  #Version  = 19112902
   #ModuleEx = 19111702
   
   #Enable_Hyphenation         = #True
-  #Enable_AddViewerContent    = #True ; Set it to #False to enable buttons
-  #Enable_CreateViewerContent = #True
+  #Enable_AddViewerContent    = #True; Set it to #False to enable buttons
+  #Enable_CreateViewerContent = #False
 
   EnumerationBinary Gadget
     #AutoResize
@@ -172,7 +172,6 @@ DeclareModule ViewerEx
     Declare.i AddURL(GNum.i, URL.s, StyleKey.s="", String.s="", Indent.i=0, Flags.i=#Left)
     Declare.i DefineHeading(GNum.i, HeadingKey.s, FontKey.s, Level.i=0, Spacing.i=0, Ident.i=0, FrontColor.i=#PB_Default, BackColor.i=#PB_Default, Flags.i=#Left)
     Declare.i DefineStyle(GNum.i, Name.s, FontKey.s="", Indent.i=0, FrontColor.i=#PB_Default, BackColor.i=#PB_Default)
-    Declare   DisableReDraw(GNum.i, State.i=#True)
     Declare   Save(GNum.i, File.s)
     Declare   SetHyphenation(GNum.i, PatternKey.s)
     Declare   SetMargin(GNum.i, Attribute.i, Value.i)
@@ -200,8 +199,8 @@ DeclareModule ViewerEx
 	Declare.s GetID(GNum.i)
   Declare   SetData(GNum.i, Value.q)
 	Declare   SetID(GNum.i, String.s)
-  
-  Declare   ClearContent(GNum.i)
+	Declare   ClearContent(GNum.i)
+	Declare   DisableReDraw(GNum.i, State.i=#True)
   Declare.s EventValue(GNum.i)
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
   Declare   Hide(GNum.i, State.i=#True)
@@ -730,10 +729,11 @@ Module ViewerEx
   
   Procedure   DrawText_(X.i, Y.i, Text.s, FrontColor.i, BackColor.i)
     
-    If BackColor = #PB_Default
+    
+    If BackColor <> #PB_Default
       DrawingMode(#PB_2DDrawing_Transparent)
       DrawText(X, Y, Text, FrontColor)
-    Else
+    Else  
       DrawingMode(#PB_2DDrawing_Default)
       DrawText(X, Y, Text, FrontColor, BackColor)
     EndIf
@@ -805,7 +805,7 @@ Module ViewerEx
                 txtHeight = TextHeight(Text)
                 
                 aX = AlignX_(Text, VGEx()\Content\Heading()\Indent, VGEx()\Content\Text()\Flags)
-                If visible : DrawText_(X + aX, Y, Text, FrontColor, VGEx()\Content\Heading()\BackColor) : EndIf 
+                If visible : DrawText_(X + aX, Y, Text, FrontColor, BackColor) : EndIf 
                 
                 VGEx()\Indent = VGEx()\Content\Heading()\Indent + TextWidth(Number + " ")
                 
@@ -1307,8 +1307,8 @@ Module ViewerEx
         maxOffset = VGEx()\Size\Content - VGEx()\Size\Height - dpiY(8) + 1
         If maxOffset < 0 : maxOffset = 0 : EndIf
         
-        VGEx()\Size\OffSet = GetGadgetState(VGEx()\ScrollBar\Num) - dpiY(Delta * 10)
-        
+        VGEx()\Size\OffSet = GetGadgetState(VGEx()\ScrollBar\Num) - Delta * dpiY(10)
+
         If VGEx()\Size\OffSet < 0 : VGEx()\Size\OffSet = 0 : EndIf
         If VGEx()\Size\OffSet > maxOffset : VGEx()\Size\OffSet = maxOffset : EndIf
         
@@ -1748,22 +1748,7 @@ Module ViewerEx
       
       ProcedureReturn #False 
     EndProcedure
-    
-    
-    Procedure   DisableReDraw(GNum.i, State.i=#True)
-      
-      If FindMapElement(VGEx(), Str(GNum))
-        Select State
-          Case #True
-            VGEx()\ReDraw = #False
-          Case #False
-            VGEx()\ReDraw = #True
-            ReDraw_() 
-        EndSelect
-      EndIf  
-      
-    EndProcedure
-    
+
     Procedure.i Save(GNum.i, File.s)
       Define.i JSON, Pack, Size, Result = #False
       Define   *Buffer
@@ -2062,8 +2047,6 @@ Module ViewerEx
         
         If AddMapElement(Content()\Heading(), HeadingKey)
           
-          If FrontColor = #PB_Default : FrontColor = Color\Front : EndIf
-          
           If FindMapElement(Resource\Font(), FontKey)
             Content()\Heading()\FontKey = FontKey
             Content()\Font(FontKey)\Name  = Resource\Font()\Name
@@ -2239,9 +2222,7 @@ Module ViewerEx
       If FindMapElement(Content(), Str(CNum))
         
         If AddMapElement(Content()\Style(), StyleKey)
-          
-          If FrontColor = #PB_Default : FrontColor = Color\Front : EndIf
-          
+         
           If FindMapElement(Resource\Font(), FontKey)
             Content()\Style()\FontKey = FontKey
             Content()\Font(FontKey)\Name  = Resource\Font()\Name
@@ -2389,7 +2370,21 @@ Module ViewerEx
 	
   
   ;- ___ Gadget() ___
-  
+	
+	Procedure   DisableReDraw(GNum.i, State.i=#True)
+   
+    If FindMapElement(VGEx(), Str(GNum))
+      Select State
+        Case #True
+          VGEx()\ReDraw = #False
+        Case #False
+          VGEx()\ReDraw = #True
+          ReDraw_() 
+      EndSelect
+    EndIf  
+    
+  EndProcedure
+	
   Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
     Define.i Result, Num
     
@@ -2908,8 +2903,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 104
-; Folding = YEAAIDAgEYjBAADAAQA52DBk9
-; Markers = 1882
+; CursorPosition = 2844
+; FirstLine = 744
+; Folding = 5FAAIDAgmSBBwADEAAA9yDBk0
+; Markers = 1867
 ; EnableXP
 ; DPIAware
