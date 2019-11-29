@@ -149,7 +149,7 @@ DeclareModule ButtonEx
 	Declare   AddImage(GNum.i, ImageNum.i, Width.i=#PB_Default, Height.i=#PB_Default, Flags.i=#Left)
 	Declare   Disable(GNum.i, State.i=#True)
 	Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Text.s, Flags.i, WindowNum.i=#PB_Default)
-	Declare.i GetData(GNum.i)
+	Declare.q GetData(GNum.i)
 	Declare.s GetID(GNum.i)
 	Declare.i GetState(GNum.i)
 	Declare.s GetText(GNum.i)
@@ -158,7 +158,7 @@ DeclareModule ButtonEx
 	Declare   SetAutoResizeFlags(GNum.i, Flags.i)
 	Declare   SetColor(GNum.i, ColorType.i, Color.i)
 	Declare   SetFont(GNum.i, FontNum.i)
-	Declare   SetData(GNum.i, Value.i)
+	Declare   SetData(GNum.i, Value.q)
 	Declare   SetID(GNum.i, String.s)
 	Declare   SetState(GNum.i, State.i)
 	Declare   SetText(GNum.i, Text.s)
@@ -1131,7 +1131,7 @@ Module ButtonEx
 	Procedure   SetData(GNum.i, Value.q)
 	  
 	  If FindMapElement(BtEx(), Str(GNum))
-	    BtEx()\ID = Value
+	    BtEx()\Quad = Value
 	  EndIf  
 	  
 	EndProcedure
@@ -1369,8 +1369,8 @@ CompilerIf #PB_Compiler_IsMainFile
 
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 74
-; FirstLine = 9
-; Folding = YggEwnnAhwAQg-
+; CursorPosition = 1017
+; FirstLine = 197
+; Folding = YggEwnnAhwHYg-
 ; EnableXP
 ; DPIAware

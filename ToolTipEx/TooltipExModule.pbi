@@ -9,7 +9,7 @@
 ;/ © 2019 by Thorsten Hoeppner (07/2019)
 ;/
 
-; Last Update: 21.11.2019
+; Last Update: 29.11.2019
 
 ; Added: Container support
 ;
@@ -55,7 +55,7 @@
 
 DeclareModule ToolTip
   
-  #Version  = 19112100
+  #Version  = 19112900
   #ModuleEx = 19111702
   
 	;- ===========================================================================
@@ -115,7 +115,12 @@ DeclareModule ToolTip
 	;- ===========================================================================
 	;-   DeclareModule
 	;- ===========================================================================
-
+  
+  Declare.q GetData(GNum.i)
+	Declare.s GetID(GNum.i)
+  Declare   SetData(GNum.i, Value.q)
+	Declare   SetID(GNum.i, String.s)
+  
 	Declare.i Create(Gadget.i, Window.i, Flags.i=#False)
 	Declare   SetAttribute(GNum.i, Attribute.i, Value.i) 
   Declare   SetColor(GNum.i, ColorTyp.i, Value.i)
@@ -220,6 +225,9 @@ Module ToolTip
 	EndStructure ;}
   
 	Structure ToolTip_Structure         ;{ ToolTip()\...
+	  ID.s
+    Quad.i
+	  
 	  Number.i
 	  WindowNum.i
 	  CanvasNum.i
@@ -853,6 +861,39 @@ Module ToolTip
 	;-   Module - Declared Procedures
 	;- ==========================================================================
   
+  Procedure.q GetData(GNum.i)
+	  
+	  If FindMapElement(ToolTip(), Str(GNum))
+	    ProcedureReturn ToolTip()\Quad
+	  EndIf  
+	  
+	EndProcedure	
+	
+	Procedure.s GetID(GNum.i)
+	  
+	  If FindMapElement(ToolTip(), Str(GNum))
+	    ProcedureReturn ToolTip()\ID
+	  EndIf
+	  
+	EndProcedure
+
+  Procedure   SetData(GNum.i, Value.q)
+	  
+	  If FindMapElement(ToolTip(), Str(GNum))
+	    ToolTip()\Quad = Value
+	  EndIf  
+	  
+	EndProcedure
+	
+	Procedure   SetID(GNum.i, String.s)
+	  
+	  If FindMapElement(ToolTip(), Str(GNum))
+	    ToolTip()\ID = String
+	  EndIf
+	  
+	EndProcedure
+  
+  
   Procedure.i Create(Gadget.i, Window.i, Flags.i=#False)
 		Define DummyNum, GNum.i, WNum.i
 		
@@ -1155,8 +1196,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1124
-; FirstLine = 633
-; Folding = 9BIjANIzn5
+; CursorPosition = 57
+; Folding = 9AIrANIj4J+
 ; EnableXP
 ; DPIAware

@@ -46,7 +46,7 @@
 
 DeclareModule {Gadget}
   
-  #Version  = 19112100
+  #Version  = 19112900
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -56,7 +56,7 @@ DeclareModule {Gadget}
 	;{ _____ Constants _____
 	EnumerationBinary ;{ GadgetFlags
 		#AutoResize ; Automatic resizing of the gadget
-		#Border     ; Draw a border
+		#Borderless ; Draw no border
 		#ToolTips   ; Show tooltips
 		#UseExistingCanvas ; e.g. for dialogs
 	EndEnumeration ;}
@@ -67,7 +67,11 @@ DeclareModule {Gadget}
 		#Width
 		#Height
 	EndEnumeration ;}
-
+	
+	Enumeration       ;{ Attribute
+	  #Corner
+	EndEnumeration ;}
+	
 	Enumeration 1     ;{ Color
 		#FrontColor
 		#BackColor
@@ -91,12 +95,18 @@ DeclareModule {Gadget}
 	;- ===========================================================================
 	;-   DeclareModule
 	;- ===========================================================================
-
+	
+	Declare.q GetData(GNum.i)
+	Declare.s GetID(GNum.i)
+  Declare   SetData(GNum.i, Value.q)
+	Declare   SetID(GNum.i, String.s)
+	
   Declare   AttachPopupMenu(GNum.i, PopUpNum.i)
   Declare   DisableReDraw(GNum.i, State.i=#False)
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
   Declare   Hide(GNum.i, State.i=#True)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
+  Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
   Declare   SetColor(GNum.i, ColorTyp.i, Value.i)
   Declare   SetFont(GNum.i, FontID.i) 
   
@@ -116,17 +126,11 @@ Module {Gadget}
 	;-   Module - Structures
 	;- ============================================================================
 
-	Structure {Gadget}_Margins_Structure ;{ {Gadget}()\Margin\...
-		Top.i
-		Left.i
-		Right.i
-		Bottom.i
-	EndStructure ;}
-
 	Structure {Gadget}_Color_Structure   ;{ {Gadget}()\Color\...
 		Front.i
 		Back.i
 		Border.i
+		Gadget.i
 		DisableFront.i
 		DisableBack.i
 	EndStructure  ;}
@@ -149,9 +153,13 @@ Module {Gadget}
 	Structure {Gadget}_Structure         ;{ {Gadget}()\...
 		CanvasNum.i
 		PopupNum.i
-
+		
+		ID.s
+		Quad.i
+		
 		FontID.i
-
+		
+    Radius.i
 		ReDraw.i
 		Hide.i
 		Disable.i
@@ -162,7 +170,6 @@ Module {Gadget}
 		ToolTipText.s
 
 		Color.{Gadget}_Color_Structure
-		Margin.{Gadget}_Margins_Structure
 		Window.{Gadget}_Window_Structure
 		Size.{Gadget}_Size_Structure
 		
@@ -254,18 +261,28 @@ Module {Gadget}
 
 		ProcedureReturn RGB((Red1 * Blend) + (Red2 * (1 - Blend)), (Green1 * Blend) + (Green2 * (1 - Blend)), (Blue1 * Blend) + (Blue2 * (1 - Blend)))
 	EndProcedure
-
+	
+	Procedure   Box_(X.i, Y.i, Width.i, Height.i, Color.i)
+  
+    If {Gadget}()\Radius
+  		RoundBox(X, Y, Width, Height, {Gadget}()\Radius, {Gadget}()\Radius, Color)
+  	Else
+  		Box(X, Y, Width, Height, Color)
+  	EndIf
+  	
+  EndProcedure
+	
 	Procedure   Draw_()
 		Define.i X, Y, Width, Height
 		Define.i FrontColor.i, BackColor.i, BorderColor.i
 		
 		If {Gadget}()\Hide : ProcedureReturn #False : EndIf 
 		
-		X = dpiX({Gadget}()\Margin\Left)
-		Y = dpiY({Gadget}()\Margin\Top)
+		X = 0
+		Y = 0
 
-		Width  = dpiX(GadgetWidth({Gadget}()\CanvasNum))  - dpiX({Gadget}()\Margin\Left) - dpiX({Gadget}()\Margin\Right)
-		Height = dpiY(GadgetHeight({Gadget}()\CanvasNum)) - dpiY({Gadget}()\Margin\Top)  - dpiY({Gadget}()\Margin\Bottom)
+		Width  = dpiX(GadgetWidth({Gadget}()\CanvasNum)) 
+		Height = dpiY(GadgetHeight({Gadget}()\CanvasNum))
 
 		If StartDrawing(CanvasOutput({Gadget}()\CanvasNum))
 		  
@@ -273,17 +290,24 @@ Module {Gadget}
 		  BackColor   = {Gadget}()\Color\Back
 		  BorderColor = {Gadget}()\Color\Border
 		  
+		  If {Gadget}()\Disable
+		    FrontColor  = {Gadget}()\Color\DisableFront
+		    BackColor   = {Gadget}()\Color\DisableBack
+		    BorderColor = {Gadget}()\Color\DisableFront ; or {Gadget}()\Color\DisableBack
+		  EndIf  
+		  
 			;{ _____ Background _____
-			DrawingMode(#PB_2DDrawing_Default)
-			Box(0, 0, dpiX(GadgetWidth({Gadget}()\CanvasNum)), dpiY(GadgetHeight({Gadget}()\CanvasNum)), BackColor)
+		  DrawingMode(#PB_2DDrawing_Default)
+		  Box(0, 0, dpiX(GadgetWidth({Gadget}()\CanvasNum)), dpiY(GadgetHeight({Gadget}()\CanvasNum)), {Gadget}()\Color\Gadget) ; needed for rounded corners
+			Box_(0, 0, dpiX(GadgetWidth({Gadget}()\CanvasNum)), dpiY(GadgetHeight({Gadget}()\CanvasNum)), BackColor)
 			;}
 
 			DrawingFont({Gadget}()\FontID)
 
 			;{ _____ Border ____
-			If {Gadget}()\Flags & #Border
+			If {Gadget}()\Flags & #Borderless = #False
 				DrawingMode(#PB_2DDrawing_Outlined)
-				Box(0, 0, dpiX(GadgetWidth({Gadget}()\CanvasNum)), dpiY(GadgetHeight({Gadget}()\CanvasNum)), BorderColor)
+				Box_(0, 0, dpiX(GadgetWidth({Gadget}()\CanvasNum)), dpiY(GadgetHeight({Gadget}()\CanvasNum)), BorderColor)
 			EndIf ;}
 
 			StopDrawing()
@@ -306,6 +330,7 @@ Module {Gadget}
         {Gadget}()\Color\Front        = ModuleEx::ThemeGUI\FrontColor
 				{Gadget}()\Color\Back         = ModuleEx::ThemeGUI\BackColor
 				{Gadget}()\Color\Border       = ModuleEx::ThemeGUI\BorderColor
+				{Gadget}()\Color\Gadget       = ModuleEx::ThemeGUI\GadgetColor
 				{Gadget}()\Color\DisableFront = ModuleEx::ThemeGUI\Disable\FrontColor
 		    {Gadget}()\Color\DisableBack  = ModuleEx::ThemeGUI\Disable\BackColor
 				
@@ -465,7 +490,21 @@ Module {Gadget}
 		EndIf
 
 	EndProcedure
+	
+	
+	Procedure   Disable(GNum.i, State.i=#True)
+    
+    If FindMapElement({Gadget}(), Str(GNum))
 
+      {Gadget}()\Disable = State
+      DisableGadget(GNum, State)
+      
+      Draw_()
+      
+    EndIf  
+    
+  EndProcedure 	
+	
 	Procedure   DisableReDraw(GNum.i, State.i=#False)
 
 		If FindMapElement({Gadget}(), Str(GNum))
@@ -540,30 +579,28 @@ Module {Gadget}
 				{Gadget}()\Size\Width  = Width
 				{Gadget}()\Size\Height = Height
 
-				{Gadget}()\Margin\Left   = 10
-				{Gadget}()\Margin\Right  = 10
-				{Gadget}()\Margin\Top    = 10
-				{Gadget}()\Margin\Bottom = 10
-
 				{Gadget}()\Flags  = Flags
 
 				{Gadget}()\ReDraw = #True
 
 				{Gadget}()\Color\Front        = $000000
-				{Gadget}()\Color\Back         = $EDEDED
+				{Gadget}()\Color\Back         = $FFFFFF
+				{Gadget}()\Color\Gadget       = $F0F0F0
 				{Gadget}()\Color\Border       = $A0A0A0
 				{Gadget}()\Color\DisableFront = $72727D
 				{Gadget}()\Color\DisableBack  = $CCCCCA
 				
 				CompilerSelect #PB_Compiler_OS ;{ Color
 					CompilerCase #PB_OS_Windows
-						{Gadget}()\Color\Front         = GetSysColor_(#COLOR_WINDOWTEXT)
-						{Gadget}()\Color\Back          = GetSysColor_(#COLOR_MENU)
-						{Gadget}()\Color\Border        = GetSysColor_(#COLOR_WINDOWFRAME)
+						{Gadget}()\Color\Front  = GetSysColor_(#COLOR_WINDOWTEXT)
+						{Gadget}()\Color\Back   = GetSysColor_(#COLOR_WINDOW)
+						{Gadget}()\Color\Border = GetSysColor_(#COLOR_WINDOWFRAME)
+						{Gadget}()\Color\Gadget = GetSysColor_(#COLOR_MENU)
 					CompilerCase #PB_OS_MacOS
-						{Gadget}()\Color\Front         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
-						{Gadget}()\Color\Back          = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
-						{Gadget}()\Color\Border        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+						{Gadget}()\Color\Front  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
+						{Gadget}()\Color\Back   = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
+						{Gadget}()\Color\Border = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+						{Gadget}()\Color\Gadget = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
 					CompilerCase #PB_OS_Linux
 
 				CompilerEndSelect ;}
@@ -596,6 +633,24 @@ Module {Gadget}
 
 	EndProcedure
 	
+	
+	Procedure.q GetData(GNum.i)
+	  
+	  If FindMapElement({Gadget}(), Str(GNum))
+	    ProcedureReturn {Gadget}()\Quad
+	  EndIf  
+	  
+	EndProcedure	
+	
+	Procedure.s GetID(GNum.i)
+	  
+	  If FindMapElement({Gadget}(), Str(GNum))
+	    ProcedureReturn {Gadget}()\ID
+	  EndIf
+	  
+	EndProcedure
+	
+	
 	Procedure   Hide(GNum.i, State.i=#True)
 	  
 	  If FindMapElement({Gadget}(), Str(GNum))
@@ -613,6 +668,20 @@ Module {Gadget}
 	  
 	EndProcedure
 	
+	
+	Procedure   SetAttribute(GNum.i, Attribute.i, Value.i)
+    
+    If FindMapElement({Gadget}(), Str(GNum))
+      
+      Select Attribute
+        Case #Corner
+          {Gadget}()\Radius  = Value
+      EndSelect
+      
+      Draw_()
+    EndIf
+    
+  EndProcedure	
 	
 	Procedure   SetAutoResizeFlags(GNum.i, Flags.i)
     
@@ -642,6 +711,23 @@ Module {Gadget}
     EndIf
     
   EndProcedure
+  
+  Procedure   SetData(GNum.i, Value.q)
+	  
+	  If FindMapElement({Gadget}(), Str(GNum))
+	    {Gadget}()\ID = Value
+	  EndIf  
+	  
+	EndProcedure
+	
+	Procedure   SetID(GNum.i, String.s)
+	  
+	  If FindMapElement({Gadget}(), Str(GNum))
+	    {Gadget}()\Quad = String
+	  EndIf
+	  
+	EndProcedure
+
   
   Procedure   SetFont(GNum.i, FontID.i) 
     
@@ -698,8 +784,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 277
-; FirstLine = 121
-; Folding = EUCwHIDNh
+; CursorPosition = 100
+; FirstLine = 52
+; Folding = cZAgOII3wC-
 ; EnableXP
 ; DPIAware

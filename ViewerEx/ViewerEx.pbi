@@ -10,7 +10,7 @@
 ;/ Pattern based on (http://tug.org/tex-hyphen/)
 ;/
 
-; Last Update: 23.11.19
+; Last Update: 29.11.19
 ;
 ; Added: #UseExistingCanvas
 ;
@@ -98,11 +98,11 @@
 
 ;} -----------------------------
 
-; XIncludeFile "ModuleEx.pbi"
+ XIncludeFile "ModuleEx.pbi"
 
 DeclareModule ViewerEx
   
-  #Version  = 19112300
+  #Version  = 19112900
   #ModuleEx = 19111702
   
   #Enable_Hyphenation         = #True
@@ -195,6 +195,11 @@ DeclareModule ViewerEx
     Declare.i Text(CNum.i, Text.s, StyleKey.s="", Spacing.i=0, Flags.i=#Left)
     Declare.i URL(CNum.i, URL.s, StyleKey.s="", String.s="", Spacing.i=0, Flags.i=#Left)
   CompilerEndIf
+  
+  Declare.q GetData(GNum.i)
+	Declare.s GetID(GNum.i)
+  Declare   SetData(GNum.i, Value.q)
+	Declare   SetID(GNum.i, String.s)
   
   Declare   ClearContent(GNum.i)
   Declare.s EventValue(GNum.i)
@@ -382,6 +387,9 @@ Module ViewerEx
   EndStructure ;}
   
   Structure ViewerEx_Structure           ;{ VGEx('GNum')\...
+    ID.s
+    Quad.i
+    
     CanvasNum.i
 
     FontID.i
@@ -735,6 +743,7 @@ Module ViewerEx
   Procedure   Draw_(visible.i=#True)
     Define.f X, Y, aX, txtHeight, sWidth, txtWidth
     Define.i p, w, i, Paragraphs, Items, Row, Words, Level, Indent, listIdent
+    Define.i FrontColor, BackColor
     Define.s Text, Word, Number
     
     NewList Rows.s()
@@ -771,6 +780,12 @@ Module ViewerEx
                   FindMapElement(VGEx()\Content\Heading(), Str(#PB_Default))
                 EndIf
                 
+                If VGEx()\Content\Style()\FrontColor <> #PB_Default
+                  FrontColor = VGEx()\Content\Style()\FrontColor
+                Else
+                  FrontColor = VGEx()\Color\Front
+                EndIf  
+                
                 DrawingFont_(VGEx()\Content\Heading()\FontKey)
                 
                 Text  = VGEx()\Content\Text()\String
@@ -790,7 +805,7 @@ Module ViewerEx
                 txtHeight = TextHeight(Text)
                 
                 aX = AlignX_(Text, VGEx()\Content\Heading()\Indent, VGEx()\Content\Text()\Flags)
-                If visible : DrawText_(X + aX, Y, Text, VGEx()\Content\Heading()\FrontColor, VGEx()\Content\Heading()\BackColor) : EndIf 
+                If visible : DrawText_(X + aX, Y, Text, FrontColor, VGEx()\Content\Heading()\BackColor) : EndIf 
                 
                 VGEx()\Indent = VGEx()\Content\Heading()\Indent + TextWidth(Number + " ")
                 
@@ -833,6 +848,18 @@ Module ViewerEx
                 If FindMapElement(VGEx()\Content\Style(), VGEx()\Content\Text()\Style) = #False
                   FindMapElement(VGEx()\Content\Style(), Str(#PB_Default))
                 EndIf
+                
+                If VGEx()\Content\Style()\FrontColor <> #PB_Default
+                  FrontColor = VGEx()\Content\Style()\FrontColor
+                Else
+                  FrontColor = VGEx()\Color\Front
+                EndIf  
+                
+                If  VGEx()\Content\Style()\BackColor <> #PB_Default
+                  BackColor = VGEx()\Content\Style()\BackColor
+                Else
+                  BackColor = VGEx()\Color\Back
+                EndIf  
                 
                 DrawingFont_(VGEx()\Content\Style()\FontKey)
                 
@@ -877,14 +904,14 @@ Module ViewerEx
                         Rows() = RemoveString(Rows(), #LF$)
                         
                         If ListIndex(Rows()) = 0
-                          If visible : DrawText_(X + aX, Y, #Bullet$ + " ", VGEx()\Content\Style()\FrontColor, VGEx()\Content\Style()\BackColor) : EndIf
+                          If visible : DrawText_(X + aX, Y, #Bullet$ + " ", FrontColor, BackColor) : EndIf
                         EndIf
                         
                         ax + listIdent
                         
                         For w=1 To Words
                           Word = StringField(Rows(), w, " ")
-                          If visible : DrawText_(X + aX, Y, Word, VGEx()\Content\Style()\FrontColor, VGEx()\Content\Style()\BackColor) : EndIf
+                          If visible : DrawText_(X + aX, Y, Word, FrontColor, BackColor) : EndIf
                           ax + TextWidth(Word + " ") + sWidth
                         Next
   
@@ -895,12 +922,12 @@ Module ViewerEx
                         aX = Indent
                         
                         If ListIndex(Rows()) = 0
-                          If visible : DrawText_(X + aX, Y, #Bullet$ + " ", VGEx()\Content\Style()\FrontColor, VGEx()\Content\Style()\BackColor) : EndIf
+                          If visible : DrawText_(X + aX, Y, #Bullet$ + " ", FrontColor, BackColor) : EndIf
                         EndIf
                         
                         ax + listIdent
                         
-                        If visible : DrawText_(X + aX, Y, Rows(), VGEx()\Content\Style()\FrontColor, VGEx()\Content\Style()\BackColor) : EndIf
+                        If visible : DrawText_(X + aX, Y, Rows(), FrontColor, BackColor) : EndIf
                         
                       EndIf
                       
@@ -917,12 +944,12 @@ Module ViewerEx
                       Words  = CountString(Text, " ") + 1
                       sWidth = Justified_(Text, Indent + listIdent)
                       
-                      If visible : DrawText_(X + aX, Y, #Bullet$ + " ", VGEx()\Content\Style()\FrontColor, VGEx()\Content\Style()\BackColor) : EndIf
+                      If visible : DrawText_(X + aX, Y, #Bullet$ + " ", FrontColor, BackColor) : EndIf
                       ax + listIdent
                       
                       For w=1 To Words
                         Word = StringField(Text, w, " ")
-                        If visible : DrawText_(X + aX, Y, Word, VGEx()\Content\Style()\FrontColor, VGEx()\Content\Style()\BackColor) : EndIf
+                        If visible : DrawText_(X + aX, Y, Word, FrontColor, BackColor) : EndIf
                         ax + TextWidth(Word) + sWidth
                       Next
                   
@@ -932,11 +959,11 @@ Module ViewerEx
                       
                       aX = AlignX_(Text, Indent, VGEx()\Content\Text()\Flags)
 
-                      If visible : DrawText_(X + aX, Y, #Bullet$ + " ", VGEx()\Content\Style()\FrontColor, VGEx()\Content\Style()\BackColor) : EndIf
+                      If visible : DrawText_(X + aX, Y, #Bullet$ + " ", FrontColor, BackColor) : EndIf
                       
                       ax + listIdent
                       
-                      If visible : DrawText_(X + aX, Y, Text, VGEx()\Content\Style()\FrontColor, VGEx()\Content\Style()\BackColor) : EndIf
+                      If visible : DrawText_(X + aX, Y, Text, FrontColor, BackColor) : EndIf
                       
                     EndIf
                     
@@ -963,6 +990,18 @@ Module ViewerEx
                 If FindMapElement(VGEx()\Content\Style(), VGEx()\Content\Text()\Style) = #False
                   FindMapElement(VGEx()\Content\Style(), Str(#PB_Default))
                 EndIf
+                
+                If VGEx()\Content\Style()\FrontColor <> #PB_Default
+                  FrontColor = VGEx()\Content\Style()\FrontColor
+                Else
+                  FrontColor = VGEx()\Color\Front
+                EndIf  
+                
+                If  VGEx()\Content\Style()\BackColor <> #PB_Default
+                  BackColor = VGEx()\Content\Style()\BackColor
+                Else
+                  BackColor = VGEx()\Color\Back
+                EndIf  
                 
                 DrawingFont_(VGEx()\Content\Style()\FontKey)
                 
@@ -994,7 +1033,7 @@ Module ViewerEx
                     CompilerEndIf
                   
                     ForEach Rows()
-                      
+
                       Rows() = LTrim(Rows())
                       
                       If VGEx()\Content\Text()\Flags & #Justified
@@ -1007,7 +1046,7 @@ Module ViewerEx
                         
                         For w=1 To Words
                           Word = StringField(Rows(), w, " ")
-                          If visible : DrawText_(X + aX, Y, Word, VGEx()\Content\Style()\FrontColor, VGEx()\Content\Style()\BackColor) : EndIf
+                          If visible : DrawText_(X + aX, Y, Word, FrontColor, BackColor) : EndIf
                           ax + TextWidth(Word + " ") + sWidth
                         Next
   
@@ -1016,7 +1055,7 @@ Module ViewerEx
                         Rows() = RemoveString(Rows(), #LF$)
                         
                         aX = AlignX_(LTrim(Rows()), Indent, VGEx()\Content\Text()\Flags)
-                        If visible : DrawText_(X + aX, Y, Rows(), VGEx()\Content\Style()\FrontColor, VGEx()\Content\Style()\BackColor) : EndIf
+                        If visible : DrawText_(X + aX, Y, Rows(), FrontColor, BackColor) : EndIf
                         
                       EndIf
                       
@@ -1024,7 +1063,7 @@ Module ViewerEx
                     Next
                     ;}
                   Else                          ;{ Text length smaller than page width
-                    
+
                     If VGEx()\Content\Text()\Flags & #Justified
                       
                       aX     = Indent
@@ -1035,7 +1074,7 @@ Module ViewerEx
                       
                       For w=1 To Words
                         Word = StringField(Text, w, " ")
-                        If visible : DrawText_(X + aX, Y, Word, VGEx()\Content\Style()\FrontColor, VGEx()\Content\Style()\BackColor) : EndIf
+                        If visible : DrawText_(X + aX, Y, Word, FrontColor, BackColor) : EndIf
                         ax + TextWidth(Word) + sWidth
                       Next
                   
@@ -1044,7 +1083,7 @@ Module ViewerEx
                       Text = RemoveString(Text, #LF$)
                       
                       aX = AlignX_(Text, Indent, VGEx()\Content\Text()\Flags)
-                      If visible : DrawText_(X + aX, Y, Text, VGEx()\Content\Style()\FrontColor, VGEx()\Content\Style()\BackColor) : EndIf
+                      If visible : DrawText_(X + aX, Y, Text, FrontColor, BackColor) : EndIf
                       
                     EndIf
                     
@@ -1070,6 +1109,18 @@ Module ViewerEx
                   FindMapElement(VGEx()\Content\Style(), Str(#PB_Default))
                 EndIf
                 
+                If VGEx()\Content\Style()\FrontColor <> #PB_Default
+                  FrontColor = VGEx()\Content\Style()\FrontColor
+                Else
+                  FrontColor = VGEx()\Color\Front
+                EndIf
+                
+                If  VGEx()\Content\Style()\BackColor <> #PB_Default
+                  BackColor = VGEx()\Content\Style()\BackColor
+                Else
+                  BackColor = VGEx()\Color\Back
+                EndIf  
+                
                 DrawingFont_(VGEx()\Content\Style()\FontKey)
                 
                 Indent = VGEx()\Content\Style()\Indent
@@ -1080,7 +1131,7 @@ Module ViewerEx
                 txtWidth  = VGEx()\Size\Width - Indent - VGEx()\Content\Label()\Margin\Left - VGEx()\Content\Label()\Margin\Right
 
                 aX = AlignX_(Text, Indent, VGEx()\Content\Label()\Link()\Flags)
-                If visible : DrawText_(X + aX, Y, Text, VGEx()\Content\Style()\FrontColor, VGEx()\Content\Style()\BackColor) : EndIf
+                If visible : DrawText_(X + aX, Y, Text, FrontColor, BackColor) : EndIf
                 
                 VGEx()\Content\Label()\Link()\X = X + aX
                 VGEx()\Content\Label()\Link()\Y = Y
@@ -1647,8 +1698,6 @@ Module ViewerEx
  
         If AddMapElement(VGEx()\Content\Heading(), HeadingKey)
           
-          If FrontColor = #PB_Default : FrontColor = VGEx()\Color\Front : EndIf
-          
           If FindMapElement(Resource\Font(), FontKey)
             VGEx()\Content\Heading()\FontKey = FontKey
             VGEx()\Content\Font(FontKey)\Name  = Resource\Font()\Name
@@ -1678,9 +1727,7 @@ Module ViewerEx
       If FindMapElement(VGEx(), Str(GNum))
         
         If AddMapElement(VGEx()\Content\Style(), StyleKey)
-          
-          If FrontColor = #PB_Default : FrontColor = VGEx()\Color\Front : EndIf
-          
+
           If FindMapElement(Resource\Font(), FontKey)
             VGEx()\Content\Style()\FontKey = FontKey
             VGEx()\Content\Font(FontKey)\Name  = Resource\Font()\Name
@@ -2308,6 +2355,39 @@ Module ViewerEx
 
   CompilerEndIf
   
+  Procedure.q GetData(GNum.i)
+	  
+	  If FindMapElement(VGEx(), Str(GNum))
+	    ProcedureReturn VGEx()\Quad
+	  EndIf  
+	  
+	EndProcedure	
+	
+	Procedure.s GetID(GNum.i)
+	  
+	  If FindMapElement(VGEx(), Str(GNum))
+	    ProcedureReturn VGEx()\ID
+	  EndIf
+	  
+	EndProcedure
+	
+	Procedure   SetData(GNum.i, Value.q)
+	  
+	  If FindMapElement(VGEx(), Str(GNum))
+	    VGEx()\Quad = Value
+	  EndIf  
+	  
+	EndProcedure
+	
+	Procedure   SetID(GNum.i, String.s)
+	  
+	  If FindMapElement(VGEx(), Str(GNum))
+	    VGEx()\ID = String
+	  EndIf
+	  
+	EndProcedure
+	
+  
   ;- ___ Gadget() ___
   
   Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
@@ -2755,7 +2835,7 @@ CompilerIf #PB_Compiler_IsMainFile
         ViewerEx::SetHyphenation(#Viewer, "english")
         
         ViewerEx::DefineStyle(#Viewer,   "Text", "Arial_11")
-        ViewerEx::DefineStyle(#Viewer,   "Link", "Arial_11U", 0, $8B0000)
+        ViewerEx::DefineStyle(#Viewer,   "Link", "Arial_11U", 0, $8B0000) ; 
         ViewerEx::DefineHeading(#Viewer, "H1",   "Arial_12B", 0, 3)
         ViewerEx::DefineHeading(#Viewer, "H2",   "Arial_11B", 1, 3)
         
@@ -2800,7 +2880,7 @@ CompilerIf #PB_Compiler_IsMainFile
       
     CompilerEndIf
     
-    ; ModuleEx::SetTheme(ModuleEx::#Theme_Blue)
+    ModuleEx::SetTheme(ModuleEx::#Theme_Dark)
     
     Repeat
       Select WaitWindowEvent()
@@ -2828,9 +2908,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 155
-; FirstLine = 79
-; Folding = YEAAIDAgEwgFAAAAAQAQHEQy
-; Markers = 1835
+; CursorPosition = 104
+; Folding = YEAAIDAgEYjBAADAAQA52DBk9
+; Markers = 1882
 ; EnableXP
 ; DPIAware

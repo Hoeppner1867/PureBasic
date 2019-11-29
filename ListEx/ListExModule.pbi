@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 24.11.2019
+; Last Update: 29.11.2019
 ;
 ; - Bugfix 
 ;
@@ -140,7 +140,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19112400
+  #Version  = 19112900
   #ModuleEx = 19112100
   
   #Enable_Validation  = #True
@@ -349,7 +349,12 @@ DeclareModule ListEx
   ;- ===========================================================================
   ;-   DeclareModule
   ;- ===========================================================================
-
+ 
+  Declare.q GetData(GNum.i)
+	Declare.s GetID(GNum.i)
+  Declare   SetData(GNum.i, Value.q)
+	Declare   SetID(GNum.i, String.s)
+  
   Declare.i AddColumn(GNum.i, Column.i, Title.s, Width.f, Label.s="", Flags.i=#False)
   Declare.i AddComboBoxItems(GNum.i, Column.i, Text.s)
   Declare.i AddCells(GNum.i, Row.i=-1, Labels.s="", Text.s="", RowID.s="", Flags.i=#False) 
@@ -826,8 +831,8 @@ Module ListEx
   EndStructure ;}
 
   Structure ListEx_Structure            ;{ ListEx()\...
-    
-    Window.ListEx_Window_Structure
+    ID.s
+    Quad.i
     
     CanvasNum.i
     ComboNum.i
@@ -855,6 +860,7 @@ Module ListEx
     VScroll.ListEx_Scroll_Structure
     HScroll.ListEx_Scroll_Structure
     AutoResize.ListEx_AutoResize_Structure
+    Window.ListEx_Window_Structure
     
     Header.ListEx_Header_Structure
     Row.ListEx_Row_Structure
@@ -2489,10 +2495,10 @@ Module ListEx
       CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
         ClipOutput(dpiX(ListEx()\String\X), dpiY(ListEx()\String\Y), dpiX(ListEx()\String\Width), dpiY(ListEx()\String\Height)) 
       CompilerEndIf
-    
-      ListEx()\Cursor\X = PosX + TextWidth(Left(Text, ListEx()\String\CursorPos)) - 1
-      ListEx()\Cursor\Pos = ListEx()\String\CursorPos
-      ListEx()\Cursor\Y   = PosY
+      
+      ListEx()\Cursor\Pos       = ListEx()\String\CursorPos
+      ListEx()\Cursor\X         = PosX + TextWidth(Left(Text, ListEx()\String\CursorPos)) - 1
+      ListEx()\Cursor\Y         = PosY
       ListEx()\Cursor\ClipX     = maxPosX
       ListEx()\Cursor\Height    = txtHeight
       ListEx()\Cursor\BackColor = BackColor
@@ -5130,6 +5136,39 @@ Module ListEx
   ;-   Module - Declared Procedures
   ;- ==========================================================================  
   
+  Procedure.q GetData(GNum.i)
+	  
+	  If FindMapElement(ListEx(), Str(GNum))
+	    ProcedureReturn ListEx()\Quad
+	  EndIf  
+	  
+	EndProcedure	
+	
+	Procedure.s GetID(GNum.i)
+	  
+	  If FindMapElement(ListEx(), Str(GNum))
+	    ProcedureReturn ListEx()\ID
+	  EndIf
+	  
+	EndProcedure
+	
+	Procedure   SetData(GNum.i, Value.q)
+	  
+	  If FindMapElement(ListEx(), Str(GNum))
+	    ListEx()\Quad = Value
+	  EndIf  
+	  
+	EndProcedure
+	
+	Procedure   SetID(GNum.i, String.s)
+	  
+	  If FindMapElement(ListEx(), Str(GNum))
+	    ListEx()\ID = String
+	  EndIf
+	  
+	EndProcedure
+  
+  
   Procedure DebugList(GNum.i)
     
     If FindMapElement(ListEx(), Str(GNum))
@@ -7506,10 +7545,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 11
-; FirstLine = 3
-; Folding = Y9HAAAAACAGICkAGQ5PgwDFKwDKwOGogA+-HwAsDSAQA1E5AMQYAAAAAAAAAE59-
-; Markers = 3044
+; CursorPosition = 351
+; FirstLine = 171
+; Folding = Y9HAAAAgCAGICkAGQ5PgwDFKwDKwOAYgD+fIwAsDSAwPANBOADkGAAAAEAAAABO-
+; Markers = 3050
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
