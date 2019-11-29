@@ -98,7 +98,7 @@
 
 ;} -----------------------------
 
- XIncludeFile "ModuleEx.pbi"
+; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule ViewerEx
   
@@ -2875,7 +2875,7 @@ CompilerIf #PB_Compiler_IsMainFile
       
     CompilerEndIf
     
-    ModuleEx::SetTheme(ModuleEx::#Theme_Dark)
+;    ModuleEx::SetTheme(ModuleEx::#Theme_Dark)
     
     Repeat
       Select WaitWindowEvent()
@@ -2903,8 +2903,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 2844
-; FirstLine = 744
+; CursorPosition = 2877
+; FirstLine = 786
 ; Folding = 5FAAIDAgmSBBwADEAAA9yDBk0
 ; Markers = 1867
 ; EnableXP
