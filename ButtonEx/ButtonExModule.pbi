@@ -72,7 +72,7 @@
 
 DeclareModule ButtonEx
   
-  #Version  = 19112900
+  #Version  = 19112901
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -150,6 +150,7 @@ DeclareModule ButtonEx
 	Declare   Disable(GNum.i, State.i=#True)
 	Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Text.s, Flags.i, WindowNum.i=#PB_Default)
 	Declare.i GetData(GNum.i)
+	Declare.s GetID(GNum.i)
 	Declare.i GetState(GNum.i)
 	Declare.s GetText(GNum.i)
 	Declare   Hide(GNum.i, State.i=#True)
@@ -158,6 +159,7 @@ DeclareModule ButtonEx
 	Declare   SetColor(GNum.i, ColorType.i, Color.i)
 	Declare   SetFont(GNum.i, FontNum.i)
 	Declare   SetData(GNum.i, Value.i)
+	Declare   SetID(GNum.i, String.s)
 	Declare   SetState(GNum.i, State.i)
 	Declare   SetText(GNum.i, Text.s)
 
@@ -240,7 +242,10 @@ Module ButtonEx
 	EndStructure ;}
 	
 	Structure ButtonEx_Structure         ;{ ButtonEx()\...
-		CanvasNum.i
+	  ID.s
+	  Quad.q
+	  
+	  CanvasNum.i
 		PopupNum.i
 		
 		FontID.i
@@ -1010,13 +1015,21 @@ Module ButtonEx
 	EndProcedure
 	
 	
-	Procedure.i GetData(GNum.i)
+	Procedure.q GetData(GNum.i)
 	  
 	  If FindMapElement(BtEx(), Str(GNum))
-	    ProcedureReturn GetGadgetData(BtEx()\CanvasNum)
+	    ProcedureReturn BtEx()\Quad
 	  EndIf  
 	  
 	EndProcedure	
+	
+	Procedure.s GetID(GNum.i)
+	  
+	  If FindMapElement(BtEx(), Str(GNum))
+	    ProcedureReturn BtEx()\ID
+	  EndIf
+	  
+	EndProcedure
 	
 	Procedure.i GetState(GNum.i)
 
@@ -1115,14 +1128,21 @@ Module ButtonEx
 
 	EndProcedure	
 	
-	Procedure   SetData(GNum.i, Value.i)
+	Procedure   SetData(GNum.i, Value.q)
 	  
 	  If FindMapElement(BtEx(), Str(GNum))
-	    ProcedureReturn SetGadgetData(BtEx()\CanvasNum, Value)
+	    BtEx()\ID = Value
 	  EndIf  
 	  
 	EndProcedure
 	
+	Procedure   SetID(GNum.i, String.s)
+	  
+	  If FindMapElement(BtEx(), Str(GNum))
+	    BtEx()\ID = String
+	  EndIf
+	  
+	EndProcedure
 	
 	Procedure   SetState(GNum.i, State.i)
 
@@ -1350,6 +1370,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 74
-; Folding = YgAEwnnAhwBE5
+; FirstLine = 9
+; Folding = YggEwnnAhwAQg-
 ; EnableXP
 ; DPIAware
