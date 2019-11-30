@@ -6,162 +6,38 @@
 ;/
 ;/ Calendar - Gadget 
 ;/
-;/ © 2019 Thorsten1867 (07/2019)
+;/ © 2019 Thorsten1867 (11/2019)
 ;/
 
-; Last Update: 23.11.2019
-;
-; Added: Theme support
-;
-; Added:  #UseExistingCanvas
-;
-; Added:  Today Color
-; Bugfix: Resize
-;
-; Changed: #ResizeWidth -> #Width / #ResizeHeight -> #Height
-;
-
-;{ ===== MIT License =====
-;
-; Copyright (c) 2019 Thorsten Hoeppner
-;
-; Permission is hereby granted, free of charge, to any person obtaining a copy
-; of this software and associated documentation files (the "Software"), to deal
-; in the Software without restriction, including without limitation the rights
-; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-; copies of the Software, and to permit persons to whom the Software is
-; furnished to do so, subject to the following conditions:
-; 
-; The above copyright notice and this permission notice shall be included in all
-; copies or substantial portions of the Software.
-;
-; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-; SOFTWARE.
-;}
-
-;{ ===== Additional tea & pizza license =====
-; <purebasic@thprogs.de> has created this code. 
-; If you find the code useful and you want to use it for your programs, 
-; you are welcome to support my work with a cup of tea or a pizza
-; (or the amount of money for it). 
-; [ https://www.paypal.me/Hoeppner1867 ]
-;}
-
-
-;{ _____ Calendar - Commands _____
-
-; Calendar::AddEntry()           - add an entry to the calendar
-; Calendar::AttachPopupMenu()    - attachs a popup menu to the chart
-; Calendar::CountEntries()       - counts entries of the day of current month
-; Calendar::GetDate()            - similar to Date()
-; Calendar::DefaultCountry()     - set country code for default language [DE/AT/FR/ES/GB/US]
-; Calendar::DisableReDraw()      - disable/enable redrawing
-; Calendar::ExportDay()          - exports the events of this day as a file    (iCal)
-; Calendar::ExportLabel()        - exports the event with this label as a file (iCal)
-; Calendar::EventDate()          - returns date after event
-; Calendar::EventDayOfMonth()    - returns the day of month
-; Calendar::EventEntries()       - returns calendar entries after event as linked list (Calendar::Entries_Structure)
-; Calendar::Gadget()             - create a new gadget
-; Calendar::GetDay()             - returns day of selected date
-; Calendar::GetEntries()         - all entries on this date as linked list (Calendar::Entries_Structure)
-; Calendar::GetMonth()           - returns month of selected date
-; Calendar::GetState()           - returns selected date
-; Calendar::GetYear()            - returns year of selected date
-; Calendar::ImportEvent()        - imports an event from a file (iCal)
-; Calendar::MonthName()          - defines name of the month
-; Calendar::RemoveEntry()        - removes an entry form the calendar
-; Calendar::SetAttribute()       - similar to SetGadgetAttribute()
-; Calendar::SetAutoResizeFlags() - [#MoveX|#MoveY|#Width|#Height]
-; Calendar::SetDate()            - similar to SetGadgetState()
-; Calendar::SetEntryColor(GNum.i, Label.s, ColorType.i, Value.i)
-; Calendar::SetEntryMask(GNum.i, Label.s, String.s)
-; Calendar::SetColor()           - similar to SetGadgetColor()
-; Calendar::SetFlags()           - set flags [#Year/#Month/#Gadget]
-; Calendar::SetFont()            - similar to SetGadgetFont()
-; Calendar::SetMask()            - define mask for time or date
-; Calendar::SetState()           - similar to SetGadgetState()
-; Calendar::ToolTipText()        - define mask for tooltips
-; Calendar::WeekDayName()        - defines name of the weekday
-; Calendar::UpdatePopupText()    - update menu item text with this mask
-;}
-
+; Last Update:
 
 ;XIncludeFile "ModuleEx.pbi"
 
-CompilerIf Not Defined(ToolTip, #PB_Module) : XIncludeFile "CanvasTooltipModule.pbi" : CompilerEndIf
-CompilerIf Not Defined(Date64, #PB_Module)  : XIncludeFile "Date64Module.pbi"        : CompilerEndIf
+CompilerIf Not Defined(Date64, #PB_Module)  : XIncludeFile "Date64Module.pbi" : CompilerEndIf
 
 DeclareModule Calendar
   
-  #Version  = 19112301
-  #ModuleEx = 19112002
-  
-  #Enable_iCalFormat = #True
-  
+  #Version  = 19112900
+  #ModuleEx = 19112900
+
   ;- ===========================================================================
   ;-   DeclareModule - Constants / Structures
   ;- =========================================================================== 
   
-  ;{ _____ Constants _____
-  #Day$         = "{Day}"
-  #Description$ = "{Description}"
-  #Month$       = "{Month}"
-  #Year$        = "{Year}"
-  #Date$        = "{Date}"
-  #Duration$    = "{Duration}"
-  #EndDate$     = "{EndDate}"
-  #EndTime$     = "{EndTime}"
-  #Label$       = "{Label}"
-  #Location$    = "{Location}"
-  #StartDate$   = "{StartDate}"
-  #Summary$     = "{Summary}"
-  #StartTime$   = "{StartTime}"
-  #WeekDay$     = "{Weekday}"
-  
-  EnumerationBinary ;{ calendar entry flags
-    #FullDay
-    #StartTime
-    #Duration
-  EndEnumeration  
-  ;}  
-  
   EnumerationBinary ;{ GadgetFlags
-    #AutoResize    ; Automatic resizing of the gadget
-    #Border        ; Draw a border  
-    #FixDayOfMonth ; Don't change day of month
-    #FixMonth      ; Don't change month
-    #FixYear       ; Don't change year
-    #GreyedDays    ; Show days of the previous month
-    #PostEvent     ; Send PostEvents
-    #ToolTips      ; Show tooltips
-    #FitText
-    #FixPadding
+    #AutoResize        ; Automatic resizing of the gadget
+    #Border            ; Draw a border  
     #UseExistingCanvas
   EndEnumeration ;}
   
   Enumeration 1     ;{ Attribute
-    #Spacing         ; Horizontal spacing for month name
-    #Height_Month    ; Row height for month and year
-    #Height_WeekDays ; Row height for weekdays
-    #Maximum         ; Year (SpinGadget)
-    #Minimum         ; Year (SpinGadget)
-    #Date            ; Mask date
-    #Time            ; Mask time 
-    #ToolTipText     ; Mask for tooltip text
-    #ToolTipTitle    ; Mask for tooltip title (requires 'CanvasTooltipModule.pbi')
+    #Spacing ; Horizontal spacing for month name
   EndEnumeration ;}
   
   Enumeration 1     ;{ FontType
     #Font_Gadget
     #Font_Month
     #Font_WeekDays
-    #Font_Entry
-    #Font_ToolTip
   EndEnumeration ;}
   
   Enumeration 1     ;{ FlagType
@@ -186,108 +62,62 @@ DeclareModule Calendar
     #TodayColor
     #GreyTextColor
     #LineColor
-    #Entry_FrontColor
-    #Entry_BackColor
     #Month_FrontColor
     #Month_BackColor
     #Week_FrontColor
     #Week_BackColor
   EndEnumeration ;}
-  
-  Enumeration 1     ;{ Theme
-    #Theme_Blue  
-    #Theme_Green
-  EndEnumeration ;}
-  
+
   CompilerIf Defined(ModuleEx, #PB_Module)
     
-    #Event_Gadget         = ModuleEx::#Event_Gadget
-    #Event_Theme          = ModuleEx::#Event_Theme
+    #Event_Cursor     = ModuleEx::#Event_Cursor
+    #Event_Gadget     = ModuleEx::#Event_Gadget
+    #Event_Theme      = ModuleEx::#Event_Theme
     
-    #EventType_Day        = ModuleEx::#EventType_Day
-    #EventType_Month      = ModuleEx::#EventType_Month
-    #EventType_Year       = ModuleEx::#EventType_Year
-    #EventType_Focus      = ModuleEx::#EventType_Focus
-    #EventType_RightClick = ModuleEx::#EventType_RightClick
+    #EventType_Select = ModuleEx::#EventType_Select
     
   CompilerElse
     
     Enumeration #PB_Event_FirstCustomValue
+      #Event_Cursor
       #Event_Gadget
     EndEnumeration
     
     Enumeration #PB_EventType_FirstCustomValue
-      #EventType_Day
-      #EventType_Month
-      #EventType_Year
-      #EventType_Focus
-      #EventType_RightClick
+      #EventType_Select
     EndEnumeration
     
   CompilerEndIf
   ;}
-  
-  Structure Entries_Structure
-    Label.s
-    StartDate.q
-    EndDate.q
-    Summary.s
-    Description.s
-    Location.s
-    Flags.i
-  EndStructure
 
   ;- ===========================================================================
   ;-   DeclareModule
   ;- ===========================================================================
   
-  Declare.i AddEntry(GNum.i, Label.s, Summary.s, Description.s, Location.s, StartDate.q, EndDate.q=#PB_Default, Flag.i=#False)
-  Declare   AttachPopupMenu(GNum.i, PopUpNum.i)
-  Declare   ClearEntries(GNum.i)
-  Declare.i CountEntries(GNum.i, DayOfMonth.i)
-  Declare.q GetDate(Day.i, Month.i, Year.i, Hour.i=0, Minute.i=0, Second.i=0)
+  Declare.q GetData(GNum.i)
+	Declare.s GetID(GNum.i)
+  Declare   SetData(GNum.i, Value.q)
+	Declare   SetID(GNum.i, String.s)
+  
   Declare   DefaultCountry(Code.s)
   Declare   Disable(GNum.i, State.i=#True)
   Declare   DisableReDraw(GNum.i, State.i=#False)
-  Declare.i EventDate(GNum.i)
-  Declare.i EventDayOfMonth(GNum.i)
-  Declare   EventEntries(GNum.i, List Entries.Entries_Structure())
-  Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
+  Declare.i Gadget(GNum.i, X.i, Y.i, Width.i=#PB_Default, Height.i=#PB_Default, Date.i=#PB_Default, Flags.i=#False, WindowNum.i=#PB_Default)
+  Declare.i GetAttribute(GNum.i, Attribute.i)
+  Declare.q GetDate(Day.i, Month.i, Year.i, Hour.i=0, Minute.i=0, Second.i=0)
   Declare.i GetDay(GNum.i)
-  Declare.i GetEntries(GNum.i, Date.q, List Entries.Entries_Structure())
   Declare.i GetMonth(GNum.i) 
-  Declare.i GetState(GNum.i) 
+  Declare.i GetState(GNum.i)
+  Declare.s GetText(GNum.i, Mask.s="")
   Declare.i GetYear(GNum.i)
   Declare   Hide(GNum.i, State.i=#True)
   Declare   MonthName(Month.i, Name.s)
-  Declare   LoadColorTheme(GNum.i, File.s)
-  Declare   RemoveEntry(GNum.i, Label.s)
-  Declare   SaveColorTheme(GNum.i, File.s)
-  Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetColor(GNum.i, ColorType.i, Value.i)
-  Declare   SetColorTheme(GNum.i, Theme.i=#PB_Default)
   Declare   SetDate(GNum.i, Year.i, Month.i, Day.i=1, Hour.i=0, Minute.i=0, Second.i=0)
-  Declare   SetEntryColor(GNum.i, Label.s, ColorType.i, Value.i)
-  Declare   SetEntryMask(GNum.i, Label.s, String.s)
-  Declare   SetFlags(GNum.i, Type.i, Flags.i)
   Declare   SetFont(GNum.i, FontNum.i, FontType.i=#Font_Gadget)
-  Declare   SetMask(GNum.i, Type.i, String.s)
   Declare   SetState(GNum.i, Date.q)
-  Declare   ToolTipText(GNum.i, String.s) 
   Declare   WeekDayName(WeekDay.i, Name.s)
-  Declare   UpdatePopupText(GNum.i, MenuItem.i, Text.s)
-  
-  CompilerIf Defined(ModuleEx, #PB_Module)
-	  Declare.i FitText(GNum.i, PaddingX.i=#PB_Default, PaddingY.i=#PB_Default)
-	  Declare.i SetDynamicFont(GNum.i, Name.s, Size.i, Style.i=#False)  
-	CompilerEndIf
-  
-  CompilerIf #Enable_iCalFormat
-    Declare.i ExportDay(GNum.i, DayOfMonth.i, File.s)
-    Declare.i ExportLabel(GNum.i, Label.s, File.s)
-    Declare.i ImportEvent(GNum.i, Label.s, File.s)
-  CompilerEndIf
   
 EndDeclareModule
 
@@ -299,7 +129,9 @@ Module Calendar
   ;-   Module - Constants
   ;- ============================================================================ 
   
-  #JSON = 1
+  #CursorFrequency = 600
+
+  #ScrollBarSize = 16
   
   #NotValid = -1
   
@@ -309,43 +141,19 @@ Module Calendar
   #Previous = 1
   #Next     = 2
   #Change   = 1
-  
-  CompilerIf #Enable_iCalFormat
-    #iCal_BeginCalendar = "BEGIN:VCALENDAR" ; Begin iCalendar file
-    #iCal_Version       = "VERSION:2.0"     ; Version of the format
-    #iCal_ProID         = "PRODID:"         ; Instance that created the document.
-    #iCal_Publish       = "METHOD:PUBLISH"  ; Makes the entry appear immediately
-    #iCal_Request       = "METHOD:REQUEST"  ; Packs the entry into a request to the user
-    #iCal_BeginEvent    = "BEGIN:VEVENT"    ; Begin of the area in which the appointment data is contained.
-    #iCal_UID           = "UID:"            ; Unique ID of an ICS file
-    #iCal_Location      = "LOCATION:"       ; Event location
-    #iCal_Summary       = "SUMMARY:"        ; Summary 
-    #iCal_Description   = "DESCRIPTION:"    ; Description
-    #iCal_Public        = "CLASS:PUBLIC"    ; Save appointment publicly 
-    #iCal_Private       = "CLASS:PRIVATE"   ; Save appointment privately 
-    #iCal_DateStart     = "DTSTART:"        ; Start of the calendar entry
-    #iCal_DateEnd       = "DTEND:"          ; End of the calendar entry
-    #iCal_DateStamp     = "DTSTAMP:"        ; Time at which the entry was created
-    #iCal_EndEvent      = "END:VEVENT"      ; End of the area in which the appointment data is contained.
-    #iCal_EndCalendar   = "END:VCALENDAR"   ; End iCalendar file
-  CompilerEndIf
-  
+ 
   ;- ============================================================================
   ;-   Module - Structures
   ;- ============================================================================
 
-  Structure Border_Structure             ;{
+  Structure Border_Structure              ;{
     Day.i
     X.i
     Y.i
     Width.i
     Height.i
   EndStructure ;}
-  
-  Structure UUID_Structure               ;{ UID
-    Byte.b[16]
-  EndStructure ;}
-  
+
   Structure Font_Structure ;{ \Font\...
     Num.i
     Name.s
@@ -353,35 +161,72 @@ Module Calendar
     Style.i
   EndStructure ;}
   
-  Structure Color_Structure              ;{ ...\Color\...
+  Structure Color_Structure               ;{ ...\Color\...
     Front.i
     Back.i
     Grid.i
   EndStructure  ;}
   
-  
-  Structure Theme_Structure              ;{ Theme\...
-    Front.i
-    Back.i
-    Grid.i
-    Focus.i
-    Month.Color_Structure
-    Week.Color_Structure
+  Structure Cursor_Thread_Structure       ;{ Thread\...
+    Num.i
+    Active.i
+    Exit.i
   EndStructure ;}
   
   
-  Structure Entry_Structure              ;{ ...\Entry\...
-    StartDate.q
-    EndDate.q
-    Label.s
-    Summary.s
-    Description.s
-    Location.s
+  Structure ListView_Scroll_Structure     ;{ Calendar()\ListView\Scroll\...
+    Num.i
+    Position.f
+    Hide.i
+  EndStructure ;}
+  
+  Structure ListView_Item_Structure       ;{ Calendar()\ListView\Item()\...
+    ID.s
+    Y.i
+    String.s
+  EndStructure ;}
+  
+  Structure Calendar_ListView_Structure   ;{ Calendar()\ListView\...
+    X.f
+    Y.f
+    Width.f
+    Height.f
+    Offset.i
+    RowHeight.i
+    FontID.i
+    FrontColor.i
+    Focus.i
+    State.i
+    Visible.i
+    ScrollBar.ListView_Scroll_Structure
+    List Item.ListView_Item_Structure()
+  EndStructure ;}
+  
+  
+  Structure Calendar_Cursor_Structure     ;{ Calendar()\Cursor\...
+    X.i
+    Y.i
+    Pos.i
+    Height.i
+    State.i
+    Frequency.i
+    Thread.i
     FrontColor.i
     BackColor.i
-    ToolTipMask.s
-    Flags.i
   EndStructure ;}
+  
+  Structure Calendar_String_Structure     ;{ Calendar()\String\...
+    X.f
+    Y.f
+    Width.f
+    Height.f
+    Text.s
+    CursorPos.i
+    FontID.i
+    FrontColor.i
+    Visible.i
+  EndStructure ;}
+  
   
   Structure Button_Size_Structure        ;{ Calendar()\Button\...
     prevX.i
@@ -390,69 +235,33 @@ Module Calendar
     Width.i
     Height.i
   EndStructure  ;}
-    
-  Structure Event_Entries_Structure      ;{ Calendar()\Event\Entries\...
-    Label.s
-    StartDate.q
-    EndDate.q
-    Summary.s
-    Description.s
-    Location.s
-    Flags.i
-  EndStructure ;}
-  
-  Structure Calendar_Event_Structure     ;{ Calendar()\Event\
-    Day.i
-    Month.i
-    Year.i
-    List Entries.Event_Entries_Structure()
-  EndStructure ;}
-  
-  Structure Calendar_PostEvent_Structure ;{ Calendar()\PostEvent\
-    MonthX.i
-    YearX.i
-    Y.i
-    MonthWidth.i
-    YearWidth.i
-    Height.i
-  EndStructure ;}
 
   Structure Calendar_Day_Structure       ;{ Calendar()\Day\...
     X.i
     Y.i
     Width.i
     Height.i
-    List Entry.Entry_Structure()
-    ToolTip.s
-    ToolTipTitle.s
-  EndStructure ;}
-  
-  Structure Calendar_Entry_Structure     ;{ ...\Entry\...
-    StartDate.q
-    EndDate.q
-    Summary.s
-    Description.s
-    Location.s
-    FrontColor.i
-    BackColor.i
-    ToolTipMask.s
-    Flags.i
   EndStructure ;}
   
   Structure Calendar_Month_Structure     ;{ Calendar()\Month\...
+    X.i
     Y.i
+    Width.i
     Height.i
-    defHeight.i
+    listY.i
     Spacing.i
     Font.i
     Flags.i
     State.i
     Color.Color_Structure
     Map Name.s()
-    List Entries.Entry_Structure()
   EndStructure ;}
   
   Structure Calendar_Year_Structure      ;{ Calendar()\Year\...
+    X.i
+    Y.i
+    Width.i
+    Height.i
     Minimum.i
     Maximum.i
     State.i
@@ -462,7 +271,6 @@ Module Calendar
   Structure Calendar_Week_Structure      ;{ Calendar()\Week\...
     Y.i
     Height.i
-    defHeight.i
     Font.i
     Color.Color_Structure
     Map Day.s()
@@ -475,25 +283,17 @@ Module Calendar
     Year.i
   EndStructure ;}
   
-  Structure Calendar_Margins_Structure   ;{ Calendar()\Margin\...
-    Top.i
-    Left.i
-    Right.i
-    Bottom.i
-  EndStructure ;}
-  
   Structure Calendar_Color_Structure     ;{ Calendar()\Color\...
-    Arrow.i
+    Front.i
     Back.i
     Border.i
-    Focus.i
     Gadget.i
-    Front.i
     Grid.i
+    Arrow.i
+    FocusBack.i
+    FocusText.i
     GreyText.i
     Today.i
-    EntryFront.i
-    EntryBack.i
     DisableFront.i
     DisableBack.i
   EndStructure  ;}
@@ -507,22 +307,18 @@ Module Calendar
   Structure Calendar_Size_Structure      ;{ Calendar()\Size\...
     X.f
     Y.f
-    colWidth.i
-    colHeight.i
     Width.f
     Height.f
     Flags.i
   EndStructure ;} 
   
   Structure Calendar_Structure           ;{ Calendar()\...
+    ID.s
+		Quad.i
+    
     CanvasNum.i
-    SpinNum.i
-    ListNum.i
-    PopupNum.i
-    TooltipNum.i
     
     FontID.i
-    EntryFontID.i
 
     ReDraw.i
     Disable.i
@@ -530,42 +326,31 @@ Module Calendar
     
     Flags.i
     
-    DateMask.s
-    TimeMask.s
-    
-    ToolTip.i
-    ToolTipText.s
-    ToolTipTitle.s
-    
-    PaddingX.i
-    PaddingY.i
-    PFactor.f
-    
-    Font.Font_Structure
-    
+    Size.Calendar_Size_Structure
+    Window.Calendar_Window_Structure
     Color.Calendar_Color_Structure
+    
     Current.Calendar_Current_Structure
+    Year.Calendar_Year_Structure
+    Month.Calendar_Month_Structure
+    Week.Calendar_Week_Structure
+    
     
     Button.Button_Size_Structure
-    Event.Calendar_Event_Structure
-    Margin.Calendar_Margins_Structure
-    Month.Calendar_Month_Structure
-    PostEvent.Calendar_PostEvent_Structure
-    Size.Calendar_Size_Structure
-    Week.Calendar_Week_Structure
-    Window.Calendar_Window_Structure
-    Year.Calendar_Year_Structure
+    Cursor.Calendar_Cursor_Structure
+    String.Calendar_String_Structure
+    ListView.Calendar_ListView_Structure
     
     Map Day.Calendar_Day_Structure()
     Map PopUpItem.s()
-    
-    Map Entries.Calendar_Entry_Structure()
     
   EndStructure ;}
   Global NewMap Calendar.Calendar_Structure()
   
   Global CountryCode.s
   Global NewMap NameOfMonth.s(), NewMap NameOfWeekDay.s()
+  
+  Global Thread.Cursor_Thread_Structure
   
   ;- ============================================================================
   ;-   Module - Date 32Bit / 64Bit
@@ -681,42 +466,9 @@ Module Calendar
 	    ProcedureReturn DesktopScaledY(Num)
 	  EndIf  
 	EndProcedure
-  
-  Procedure.s GetPopUpText_(Text.s)
-    Define.i Date
-    
-    If Text
-      Date = Date_(Calendar()\Current\Year, Calendar()\Current\Month, Val(MapKey(Calendar()\Day())))
-      Text = ReplaceString(Text, #Day$,     MapKey(Calendar()\Day()))
-      Text = ReplaceString(Text, #Month$,   Str(Calendar()\Current\Month))
-      Text = ReplaceString(Text, #Year$,    Str(Calendar()\Current\Year))
-      Text = ReplaceString(Text, #WeekDay$, Calendar()\Week\Day(Str(DayOfWeek_(Date))))
-      Text = ReplaceString(Text, #Date$,    FormatDate_(Calendar()\DateMask, Date))
-    EndIf
-    
-    ProcedureReturn Text
-  EndProcedure
-  
-  Procedure.s GetText_(Text.s)
 
-    If Text
-      Text = ReplaceString(Text, #Day$,         MapKey(Calendar()\Day()))
-      Text = ReplaceString(Text, #WeekDay$,     Calendar()\Week\Day(Str(DayOfWeek_(Calendar()\Day()\Entry()\StartDate))))
-      Text = ReplaceString(Text, #Summary$,     Calendar()\Day()\Entry()\Summary)
-      Text = ReplaceString(Text, #Description$, Calendar()\Day()\Entry()\Description)
-      Text = ReplaceString(Text, #Location$,    Calendar()\Day()\Entry()\Location)
-      Text = ReplaceString(Text, #Label$,       Calendar()\Day()\Entry()\Label)
-      Text = ReplaceString(Text, #StartDate$,   FormatDate_(Calendar()\DateMask, Calendar()\Day()\Entry()\StartDate))
-      Text = ReplaceString(Text, #EndDate$,     FormatDate_(Calendar()\DateMask, Calendar()\Day()\Entry()\EndDate))
-      Text = ReplaceString(Text, #StartTime$ ,  FormatDate_(Calendar()\TimeMask, Calendar()\Day()\Entry()\StartDate))
-      Text = ReplaceString(Text, #EndTime$ ,    FormatDate_(Calendar()\TimeMask, Calendar()\Day()\Entry()\EndDate))
-      Text = ReplaceString(Text, #Duration$,    FormatDate_(Calendar()\TimeMask, Calendar()\Day()\Entry()\StartDate) + " - " + FormatDate_(Calendar()\TimeMask, Calendar()\Day()\Entry()\EndDate))
-    EndIf
-    
-    ProcedureReturn Text
-  EndProcedure
   
-  Procedure   MonthNames(Code.s="")
+  Procedure   MonthNames_(Code.s="")
 	  
     Select Code
       Case "AT"
@@ -828,13 +580,13 @@ Module Calendar
 	      Calendar()\Week\Day("6") = "Sa."
 	      Calendar()\Week\Day("7") = "So."
 	    Case "ES"
-	      Calendar()\Week\Day("1") = "Lun."
-	      Calendar()\Week\Day("2") = "Mar."
-	      Calendar()\Week\Day("3") = "Mié."
-	      Calendar()\Week\Day("4") = "Jue."
-	      Calendar()\Week\Day("5") = "Vie."
-	      Calendar()\Week\Day("6") = "Sáb."
-	      Calendar()\Week\Day("7") = "Dom."
+	      Calendar()\Week\Day("1") = "Lun"
+	      Calendar()\Week\Day("2") = "Mar"
+	      Calendar()\Week\Day("3") = "Mié"
+	      Calendar()\Week\Day("4") = "Jue"
+	      Calendar()\Week\Day("5") = "Vie"
+	      Calendar()\Week\Day("6") = "Sáb"
+	      Calendar()\Week\Day("7") = "Dom"
 	    Case "FR"
 	      Calendar()\Week\Day("1") = "Lu."
 	      Calendar()\Week\Day("2") = "Ma."
@@ -844,13 +596,13 @@ Module Calendar
 	      Calendar()\Week\Day("6") = "Sa."
 	      Calendar()\Week\Day("7") = "Di."
 	    Case "GB", "US"
-        Calendar()\Week\Day("1") = "Mon."
-	      Calendar()\Week\Day("2") = "Tue."
-	      Calendar()\Week\Day("3") = "Wed."
-	      Calendar()\Week\Day("4") = "Thu."
-	      Calendar()\Week\Day("5") = "Fri."
-	      Calendar()\Week\Day("6") = "Sat."
-	      Calendar()\Week\Day("7") = "Sun."
+        Calendar()\Week\Day("1") = "Mon"
+	      Calendar()\Week\Day("2") = "Tue"
+	      Calendar()\Week\Day("3") = "Wed"
+	      Calendar()\Week\Day("4") = "Thu"
+	      Calendar()\Week\Day("5") = "Fri"
+	      Calendar()\Week\Day("6") = "Sat"
+	      Calendar()\Week\Day("7") = "Sun"
 	    Default
 	      If MapSize(NameOfWeekDay())
 	        Calendar()\Week\Day("1") = NameOfWeekDay("1")
@@ -861,13 +613,13 @@ Module Calendar
   	      Calendar()\Week\Day("6") = NameOfWeekDay("6") 
   	      Calendar()\Week\Day("7") = NameOfWeekDay("7") 
 	      Else
-  	      Calendar()\Week\Day("1") = "Mon."
-  	      Calendar()\Week\Day("2") = "Tue."
-  	      Calendar()\Week\Day("3") = "Wed."
-  	      Calendar()\Week\Day("4") = "Thu."
-  	      Calendar()\Week\Day("5") = "Fri."
-  	      Calendar()\Week\Day("6") = "Sat."
-  	      Calendar()\Week\Day("7") = "Sun."
+  	      Calendar()\Week\Day("1") = "Mo."
+  	      Calendar()\Week\Day("2") = "Tu."
+  	      Calendar()\Week\Day("3") = "We."
+  	      Calendar()\Week\Day("4") = "Th."
+  	      Calendar()\Week\Day("5") = "Fr."
+  	      Calendar()\Week\Day("6") = "Sa."
+  	      Calendar()\Week\Day("7") = "Su."
   	    EndIf
   	    
   	    Calendar()\Week\Day("0") = Calendar()\Week\Day("1")
@@ -936,81 +688,16 @@ Module Calendar
 	  
 	  ProcedureReturn #False
 	EndProcedure
-	  
-  Procedure   UpdatePopUpMenu_()
-		Define.s Text$
-
-		ForEach Calendar()\PopUpItem()
-		  Text$ = GetPopUpText_(Calendar()\PopUpItem())
-			SetMenuItemText(Calendar()\PopupNum, Val(MapKey(Calendar()\PopUpItem())), Text$)
-		Next
-
-	EndProcedure
 	
-	Procedure.s UpdateToolTipMask(Mask.s, Flags.i)
-	  
-	  If Flags & #FullDay
-	    
-	    Mask = RemoveString(Mask, #StartTime$)
-	    Mask = RemoveString(Mask, #EndTime$)
-	    Mask = RemoveString(Mask, #Duration$)
-	    Mask = ReplaceString(Mask, "  ", " ")
-	    
-	  EndIf
-	  
-	  If Flags & #StartTime
-	    Mask = ReplaceString(Mask, #Duration$, #StartTime$)
-	  EndIf
-
-	  ProcedureReturn Mask
-	EndProcedure
-	
-	Procedure   UpdateCurrentEntries_()
-	  Define.i d, StartDay, EndDay, LastDay
-	  
-	  If MapSize(Calendar()\Entries())
-	    
-  	  LastDay = LastDayOfMonth_(Calendar()\Current\Month, Calendar()\Current\Year)
-  	  
-  	  For d=1 To LastDay
-        
-	      StartDay = Date_(Calendar()\Current\Year, Calendar()\Current\Month, d, 0, 0, 0)
-	      EndDay   = Date_(Calendar()\Current\Year, Calendar()\Current\Month, d, 23, 59, 59)
-
-	      If AddMapElement(Calendar()\Day(), Str(d))
-	        
-	        ForEach Calendar()\Entries()
-
-	          If (Calendar()\Entries()\StartDate >= StartDay And Calendar()\Entries()\EndDate <= EndDay) Or (StartDay >= Calendar()\Entries()\StartDate And EndDay <= Calendar()\Entries()\EndDate)
-
-  	          If AddElement(Calendar()\Day(Str(d))\Entry())
-  	            Calendar()\Day(Str(d))\Entry()\Label       = MapKey(Calendar()\Entries())
-  	            Calendar()\Day(Str(d))\Entry()\StartDate   = Calendar()\Entries()\StartDate
-  	            Calendar()\Day(Str(d))\Entry()\EndDate     = Calendar()\Entries()\EndDate
-  	            Calendar()\Day(Str(d))\Entry()\Summary     = Calendar()\Entries()\Summary
-  	            Calendar()\Day(Str(d))\Entry()\Description = Calendar()\Entries()\Description
-  	            Calendar()\Day(Str(d))\Entry()\Location    = Calendar()\Entries()\Location
-  	            Calendar()\Day(Str(d))\Entry()\FrontColor  = Calendar()\Entries()\FrontColor
-  	            Calendar()\Day(Str(d))\Entry()\BackColor   = Calendar()\Entries()\BackColor
-  	            Calendar()\Day(Str(d))\Entry()\ToolTipMask = Calendar()\Entries()\ToolTipMask
-  	            Calendar()\Day(Str(d))\Entry()\Flags       = Calendar()\Entries()\Flags
-  	          EndIf 
-  	          
-  	        EndIf
-  	        
-  	      Next
-  	      
-  	    EndIf
-  	    
-  	  Next
-  	  
-  	  SortStructuredList(Calendar()\Day()\Entry(), #PB_Sort_Ascending, OffsetOf(Entry_Structure\StartDate), TypeOf(Entry_Structure\StartDate))
-  	  
-  	EndIf  
-
-	EndProcedure
-	
-	;- __________ Drawing __________
+	Procedure.s DeleteStringPart_(String.s, Position.i, Length.i=1) ; Delete string part at Position (with Length)
+    
+    If Position <= 0 : Position = 1 : EndIf
+    If Position > Len(String) : Position = Len(String) : EndIf
+    
+    ProcedureReturn Left(String, Position - 1) + Mid(String, Position + Length)
+  EndProcedure
+  
+	;- ______ Drawing __________
 	
   Procedure.i BlendColor_(Color1.i, Color2.i, Factor.i=50)
     Define.i Red1, Green1, Blue1, Red2, Green2, Blue2
@@ -1022,17 +709,14 @@ Module Calendar
     ProcedureReturn RGB((Red1 * Blend) + (Red2 * (1 - Blend)), (Green1 * Blend) + (Green2 * (1 - Blend)), (Blue1 * Blend) + (Blue2 * (1 - Blend)))
   EndProcedure	
   
-	Procedure.i Arrow_(X.i, Y.i, Width.i, Height.i, Direction.i)
+	Procedure.i Arrow_(X.i, Y.i, Width.i, Height.i, Direction.i, Color.i=#False)
 	  Define.i Color
 	  
-	  If Calendar()\Month\Color\Back = Calendar()\Color\Back
-	    Color = Calendar()\Color\Arrow
-	  Else
-	    Color = BlendColor_(Calendar()\Color\Arrow, Calendar()\Month\Color\Back, 70)
-	  EndIf
-	  
-    Calendar()\Button\Width  = dpiX(5)
-    Calendar()\Button\Height = dpiX(10)
+	  If Color = #False : Color = Calendar()\Color\Arrow : EndIf
+
+	 
+    Calendar()\Button\Width  = dpiX(3)
+    Calendar()\Button\Height = dpiX(6)
     
     Calendar()\Button\Y = Y + (Height - Calendar()\Button\Height) / 2
     
@@ -1041,7 +725,7 @@ Module Calendar
       Select Direction
         Case #Previous
 
-          Calendar()\Button\prevX = X + Width - Calendar()\Button\Width - dpiX(21)
+          Calendar()\Button\prevX = X + Calendar()\Month\Spacing
 
           DrawingMode(#PB_2DDrawing_Default)
           LineXY(Calendar()\Button\prevX, Calendar()\Button\Y + (Calendar()\Button\Height / 2), Calendar()\Button\prevX + Calendar()\Button\Width, Calendar()\Button\Y, Color)
@@ -1051,7 +735,7 @@ Module Calendar
           
         Case #Next
 
-          Calendar()\Button\nextX = X + Width - Calendar()\Button\Width - dpiX(10)
+          Calendar()\Button\nextX = X + Width - Calendar()\Button\Width - Calendar()\Month\Spacing
 
           DrawingMode(#PB_2DDrawing_Default)
           Line(Calendar()\Button\nextX, Calendar()\Button\Y, 1, Calendar()\Button\Height, Color)
@@ -1064,25 +748,173 @@ Module Calendar
     EndIf
     
   EndProcedure
-	
+  
+  Procedure   DrawListView_()
+    Define.i X, Y, RowHeight, maxHeight, PageRows, sX, sY
+    Define.i FrontColor, BackColor, BorderColor
+    
+    If Calendar()\ListView\Visible = #False : ProcedureReturn #False : EndIf 
+    
+    ;{ --- Color --- 
+    FrontColor  = Calendar()\ListView\FrontColor
+    BackColor   = Calendar()\Color\Back
+    BorderColor = BlendColor_(Calendar()\Color\Border, Calendar()\Color\FocusBack)
+    ;}
+    
+    If StartDrawing(CanvasOutput(Calendar()\CanvasNum))
+      
+      ;{ _____ Background _____
+      DrawingMode(#PB_2DDrawing_Default)
+      Box(Calendar()\ListView\X, Calendar()\ListView\Y, Calendar()\ListView\Width, Calendar()\ListView\Height, BackColor)
+      ;}
+      
+      X = Calendar()\ListView\X + dpiX(5)
+      Y = Calendar()\ListView\Y + dpiY(1)
+      
+      DrawingFont(Calendar()\ListView\FontID)
+      
+      ;{ _____ ScrollBar _____
+      RowHeight = TextHeight("Abc")
+      PageRows  = Calendar()\ListView\Height / RowHeight
+
+      If PageRows < 12
+        
+        If Calendar()\ListView\ScrollBar\Hide
+          
+          If IsGadget(Calendar()\ListView\ScrollBar\Num)
+            sX = DesktopUnscaledX(Calendar()\ListView\X  + Calendar()\ListView\Width) - #ScrollBarSize - 1
+            sY = DesktopUnscaledY(Calendar()\ListView\Y) + 1
+            SetGadgetAttribute(Calendar()\ListView\ScrollBar\Num, #PB_ScrollBar_PageLength, PageRows)
+            ResizeGadget(Calendar()\ListView\ScrollBar\Num, sX, sY, #PB_Ignore, DesktopUnscaledY(Calendar()\ListView\Height) - 2)
+            HideGadget(Calendar()\ListView\ScrollBar\Num, #False)
+            Calendar()\ListView\ScrollBar\Hide = #False
+          EndIf
+          
+        EndIf  
+        
+      EndIf ;}
+      
+      ;{ _____ Rows _____
+      CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+        ClipOutput(Calendar()\ListView\X, Calendar()\ListView\Y, Calendar()\ListView\Width - dpiX(3), Calendar()\ListView\Height) 
+      CompilerEndIf
+      
+      DrawingMode(#PB_2DDrawing_Transparent)
+
+      ForEach Calendar()\ListView\Item()
+
+        If ListIndex(Calendar()\ListView\Item()) < Calendar()\ListView\Offset - 1
+          Calendar()\ListView\Item()\Y = 0
+          Continue
+        EndIf  
+        
+        If Calendar()\ListView\State = ListIndex(Calendar()\ListView\Item())
+          Box(X - dpiX(2), Y, Calendar()\ListView\Width - dpiX(6), RowHeight, Calendar()\Color\FocusBack)
+          DrawText(X, Y, Calendar()\ListView\Item()\String, Calendar()\Color\FocusText)
+        Else
+          If Calendar()\ListView\Focus = ListIndex(Calendar()\ListView\Item())
+            Box(X - dpiX(3), Y, TextWidth(Calendar()\ListView\Item()\String) + dpiX(6), RowHeight, BlendColor_(Calendar()\Color\FocusBack, BackColor, 10))
+          EndIf
+          DrawText(X, Y, Calendar()\ListView\Item()\String, FrontColor)
+        EndIf
+        
+        Calendar()\ListView\Item()\Y = Y
+        Y + RowHeight
+        If Y > Calendar()\ListView\Y + Calendar()\ListView\Height : Break : EndIf
+      Next
+      
+      Calendar()\ListView\RowHeight = RowHeight
+      
+      CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+        UnclipOutput() 
+      CompilerEndIf
+      ;}
+
+      ;{ _____ Border _____
+      DrawingMode(#PB_2DDrawing_Outlined)
+      Box(Calendar()\ListView\X, Calendar()\ListView\Y, Calendar()\ListView\Width, Calendar()\ListView\Height, BorderColor)
+      ;}
+      
+      StopDrawing()
+    EndIf
+    
+  EndProcedure
+  
+  Procedure   DrawString_()
+    Define.i p, PosX, PosY, txtHeight, CursorX
+    Define.i FrontColor, BackColor, BorderColor
+    Define.s Text
+    
+    If Calendar()\String\Visible = #False : ProcedureReturn #False : EndIf 
+    
+    ;{ --- Color --- 
+    FrontColor  = Calendar()\String\FrontColor
+    BackColor   = Calendar()\Color\Back
+    BorderColor = BlendColor_(Calendar()\Color\Border, Calendar()\Color\FocusBack, 10)
+    ;}
+    
+    If StartDrawing(CanvasOutput(Calendar()\CanvasNum))
+      
+      DrawingFont(Calendar()\String\FontID)
+
+      ;{ _____ Background _____
+      DrawingMode(#PB_2DDrawing_Default)
+      Box(Calendar()\String\X, Calendar()\String\Y, Calendar()\String\Width, Calendar()\String\Height, BackColor)
+      ;}
+      
+      Text      = Calendar()\String\Text
+      txtHeight = TextHeight(Calendar()\String\Text)
+      
+      PosX    = Calendar()\String\X + dpiX(3)
+      PosY    = Calendar()\String\Y + ((Calendar()\String\Height - txtHeight) / 2) 
+      
+      CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+        ClipOutput(Calendar()\String\X, Calendar()\String\Y, Calendar()\String\Width, Calendar()\String\Height) 
+      CompilerEndIf
+    
+      Calendar()\Cursor\X          = PosX + TextWidth(Left(Text, Calendar()\String\CursorPos)) - 1
+      Calendar()\Cursor\Pos        = Calendar()\String\CursorPos
+      Calendar()\Cursor\Y          = PosY
+      Calendar()\Cursor\Height     = txtHeight
+      Calendar()\Cursor\FrontColor = FrontColor
+      Calendar()\Cursor\BackColor  = BackColor
+
+      DrawingMode(#PB_2DDrawing_Transparent)
+      DrawText(PosX, PosY, Text, FrontColor)
+
+      Line(Calendar()\Cursor\X, PosY, 1, txtHeight, Calendar()\Color\Front)
+      Calendar()\Cursor\State = #True
+      
+      CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+        UnclipOutput()
+      CompilerEndIf
+      
+      ;{ _____ Border _____
+      DrawingMode(#PB_2DDrawing_Outlined)
+      Box(Calendar()\String\X, Calendar()\String\Y, Calendar()\String\Width, Calendar()\String\Height, BorderColor)
+      ;}
+      
+      StopDrawing()
+    EndIf
+  
+  EndProcedure  
+  
   Procedure   Draw_()
-    Define.i X, Y, Width, Height, PosX, PosY, txtX, txtY, txtHeight
-    Define.i c, r, Column, Row, ColumnWidth, RowHeight, bWidth, bHeight, Difference
+    Define.i X, Y, Width, Height, PosX, PosY, txtX, txtY, TextHeight, calcHeight
+    Define.i c, r, Column, Row, ColumnWidth, RowHeight, bWidth, bHeight
     Define.i Date, Month, Year, Day, GreyDay, FirstWeekDay, LastDay, CurrentDate, Entries
     Define.i FrontColor, BackColor, BorderColor, MonthColor, WeekColor, GridColor 
     Define.s Text$, Month$, Year$, ToolTipMask$
     Define Focus.Border_Structure, Today.Border_Structure
     
     If Calendar()\Hide : ProcedureReturn #False : EndIf
-    
-    X = dpiX(Calendar()\Margin\Left)
-    Y = dpiY(Calendar()\Margin\Top)
-    
-    Width  = dpiX(GadgetWidth(Calendar()\CanvasNum))  - Calendar()\Margin\Left - Calendar()\Margin\Right
-    Height = dpiY(GadgetHeight(Calendar()\CanvasNum)) - Calendar()\Margin\Top  - Calendar()\Margin\Bottom
+
+    Width  = dpiX(GadgetWidth(Calendar()\CanvasNum))
+    Height = dpiY(GadgetHeight(Calendar()\CanvasNum))
 
     If StartDrawing(CanvasOutput(Calendar()\CanvasNum))
-
+      
+      ;{ _____ Color _____
       FrontColor  = Calendar()\Color\Front
       BackColor   = Calendar()\Color\Back
       BorderColor = Calendar()\Color\Border
@@ -1097,50 +929,25 @@ Module Calendar
         GridColor   = Calendar()\Color\DisableFront
         MonthColor  = BackColor
         WeekColor   = BackColor
-      EndIf  
+      EndIf ;}
       
       ColumnWidth = Round(Width  / 7, #PB_Round_Down)  ; Days of week
       Width       = ColumnWidth *  7
       
-      Calendar()\Size\colWidth = Width
+      DrawingFont(Calendar()\FontID)
       
-      ;{ Calc Height
-      If Calendar()\Month\defHeight = #PB_Default And Calendar()\Week\defHeight = #PB_Default
-        
-        RowHeight = Round(Height / 8, #PB_Round_Down) ; Month + Weekdays + Rows
-        Calendar()\Month\Height = RowHeight
-        Calendar()\Week\Height  = RowHeight
-        Difference = Height - (RowHeight * 8)
-        
-      ElseIf Calendar()\Month\defHeight = #PB_Default
-        
-        RowHeight = Round((Height - Calendar()\Week\defHeight) / 7, #PB_Round_Down)
-        Calendar()\Month\Height = RowHeight
-        Calendar()\Week\Height  = Calendar()\Week\defHeight
-        
-        Difference = Height - (Calendar()\Week\Height + (RowHeight * 7))
-        
-      ElseIf Calendar()\Week\defHeight = #PB_Default 
-        
-        RowHeight = Round((Height - Calendar()\Month\defHeight) / 7, #PB_Round_Down)
-        Calendar()\Month\Height = Calendar()\Month\defHeight
-        Calendar()\Week\Height  = RowHeight
-        
-        Difference = Height - (Calendar()\Month\Height + (RowHeight * 7))
-        
-      Else
-        
-        RowHeight = Round((Height - Calendar()\Month\defHeight - Calendar()\Week\defHeight) / 6, #PB_Round_Down)
-        Calendar()\Month\Height = Calendar()\Month\defHeight
-        Calendar()\Week\Height  = Calendar()\Week\defHeight
-        
-        Difference = Height - (Calendar()\Month\Height + Calendar()\Week\Height + (RowHeight * 6))
-        
-      EndIf ;}
+      ;{ _____ Calc Height _____
+      TextHeight = TextHeight("Abc")
       
-      Height - Difference
-      
-      Calendar()\Size\colHeight = RowHeight
+      Calendar()\Year\Height  = TextHeight + dpiY(6)
+      Calendar()\Month\Height = TextHeight + dpiY(6)
+      Calendar()\Week\Height  = TextHeight + dpiY(4)
+
+      calcHeight = Height - Calendar()\Month\Height - Calendar()\Week\Height
+      RowHeight  = Round(calcHeight / 6, #PB_Round_Down)
+
+      Calendar()\Month\Height + (calcHeight - (RowHeight * 6))
+      ;}
       
       ;{ _____ Background _____
       DrawingMode(#PB_2DDrawing_Default)
@@ -1148,8 +955,6 @@ Module Calendar
       Box(0, 0, Width, Height, BackColor)
       ;}
 
-      DrawingFont(Calendar()\FontID)
-      
       Month = Calendar()\Current\Month
       Year  = Calendar()\Current\Year
       
@@ -1183,17 +988,13 @@ Module Calendar
         
         Select r
           Case #MonthOfYear ;{ Month & Year
-            
             SetFont_(Calendar()\Month\Font)
-            
-            PosX = X  + Calendar()\Month\Spacing
-            
+
             Month$ = Calendar()\Month\Name(Str(Calendar()\Current\Month))
             Year$  = Str(Calendar()\Current\Year)
-            Text$  = Month$ + "  " + Year$
             
-            txtHeight = TextHeight(Text$)
-            txtY      = (Calendar()\Month\Height - txtHeight) / 2
+            PosX = (Width - TextWidth(Month$) - dpiX(5) - TextWidth(Year$)) / 2
+            txtY = (Calendar()\Month\Height - TextHeight) / 2
             
             If Not Calendar()\Disable
               FrontColor = GetColor_(Calendar()\Month\Color\Front, FrontColor)
@@ -1203,19 +1004,21 @@ Module Calendar
               DrawingMode(#PB_2DDrawing_Default)
               Box(X, PosY, Width, Calendar()\Month\Height, MonthColor)
             EndIf
+
+            Calendar()\Month\X = PosX
+            Calendar()\Month\Y = PosY
+            Calendar()\Month\Width = TextWidth(Month$)
+            Calendar()\Month\listY = PosY+ txtY + TextHeight + dpiY(1)
             
             DrawingMode(#PB_2DDrawing_Transparent) 
-            DrawText(PosX, PosY + txtY, Text$, FrontColor)
+            PosX = DrawText(PosX, PosY + txtY, Month$, FrontColor)
+            PosX + dpiX(5)
             
-            Calendar()\Month\Y      = PosY + txtY
-            Calendar()\Month\Height = Calendar()\Month\Height
+            Calendar()\Year\X = PosX
+            Calendar()\Year\Y = PosY
+            Calendar()\Year\Width = TextWidth(Year$)
             
-            Calendar()\PostEvent\MonthX     = PosX
-            Calendar()\PostEvent\MonthWidth = TextWidth(Month$)
-            Calendar()\PostEvent\YearX      = PosX + Calendar()\PostEvent\MonthWidth + TextWidth("  ")
-            Calendar()\PostEvent\YearWidth  = TextWidth(Year$)
-            Calendar()\PostEvent\Y          = PosY + txtY
-            Calendar()\PostEvent\Height     = txtHeight
+            DrawText(PosX, PosY + txtY, Year$, FrontColor)
             
             DrawingMode(#PB_2DDrawing_Outlined) 
             Box(X, PosY, Width, Calendar()\Month\Height + dpiY(1), GridColor)
@@ -1226,9 +1029,9 @@ Module Calendar
             
             SetFont_(Calendar()\Week\Font)
 
-            PosX      = X
-            txtHeight = TextHeight("Abc")
-            txtY      = (Calendar()\Week\Height - txtHeight) / 2
+            PosX = X
+            TextHeight = TextHeight("Abc")
+            txtY       = (Calendar()\Week\Height - TextHeight) / 2
             
             If Not Calendar()\Disable
               FrontColor = GetColor_(Calendar()\Week\Color\Front, Calendar()\Color\Front)
@@ -1240,9 +1043,9 @@ Module Calendar
             EndIf
             
             For c=1 To 7
-              
+
               Text$ = Calendar()\Week\Day(Str(c))
-              txtX = (ColumnWidth - TextWidth(Text$)) / 2
+              txtX  = (ColumnWidth - TextWidth(Text$)) / 2 + dpiY(1)
               
               DrawingMode(#PB_2DDrawing_Transparent) 
               DrawText(PosX + txtX, PosY + txtY, Text$, FrontColor)
@@ -1278,27 +1081,17 @@ Module Calendar
               Else
                 bWidth = ColumnWidth
               EndIf   
-              
-              Entries = ListSize(Calendar()\Day(Str(Day))\Entry())
-              If Entries
-                DrawingFont(Calendar()\EntryFontID)
-              Else
-                DrawingFont(Calendar()\FontID)
-              EndIf
 
-              txtHeight = TextHeight("Abc")
-              txtY      = (RowHeight - txtHeight) / 2
+              txtY = (RowHeight - TextHeight) / 2
 
               If Day = 1 And c <> FirstWeekDay ;{ Skip weekdays < day 
 
-                If Calendar()\Flags & #GreyedDays
-                  Text$ = Str(GreyDay)
-                  txtX  = (ColumnWidth - TextWidth("33")) / 2 + (TextWidth("33") - TextWidth(Text$))
-                  DrawingMode(#PB_2DDrawing_Transparent) 
-                  DrawText(PosX + txtX, PosY + txtY, Text$, Calendar()\Color\GreyText)
-                  GreyDay + 1
-                EndIf
-                
+                Text$ = Str(GreyDay)
+                txtX  = (ColumnWidth - TextWidth("33")) / 2 + (TextWidth("33") - TextWidth(Text$))
+                DrawingMode(#PB_2DDrawing_Transparent) 
+                DrawText(PosX + txtX, PosY + txtY, Text$, Calendar()\Color\GreyText)
+                GreyDay + 1
+
                 DrawingMode(#PB_2DDrawing_Outlined) 
                 Box(PosX, PosY, ColumnWidth + dpiX(1), RowHeight + dpiY(1), GridColor)
                 
@@ -1325,113 +1118,10 @@ Module Calendar
                   Today\Height = bHeight
                 EndIf 
                 
-                If Entries        ;{ Draw entry background
-                  
-                  If FindMapElement(Calendar()\Day(), Str(Day))
-
-                    Date = Date_(Year, Month, Day, 0, 0, 0)
-                    If Calendar()\ToolTipTitle
-                      Calendar()\Day()\ToolTipTitle = GetText_(Calendar()\ToolTipTitle)
-                    Else
-                      Calendar()\Day()\ToolTipTitle = Calendar()\Week\Day(Str(c)) + "  " + FormatDate_(Calendar()\DateMask, Date)
-                    EndIf
-                    
-                    If Entries = 1 ;{ Single Entry
-
-                      FrontColor = Calendar()\Color\EntryFront
-                      BackColor  = Calendar()\Color\EntryBack
-                      
-                      If FirstElement(Calendar()\Day()\Entry())
-                        
-                        If Calendar()\Day()\Entry()\ToolTipMask
-                          ToolTipMask$ = UpdateToolTipMask(Calendar()\Day()\Entry()\ToolTipMask, Calendar()\Day()\Entry()\Flags)
-                          Calendar()\Day()\ToolTip = GetText_(ToolTipMask$)
-                        ElseIf Calendar()\ToolTipText 
-                          ToolTipMask$ = UpdateToolTipMask(Calendar()\ToolTipText, Calendar()\Day()\Entry()\Flags)
-                          Calendar()\Day()\ToolTip = GetText_(ToolTipMask$)
-                        Else
-                          
-                          If Calendar()\Day()\Entry()\Flags & #FullDay
-                            Calendar()\Day()\ToolTip = Calendar()\Day()\Entry()\Summary
-                          ElseIf Calendar()\Day()\Entry()\Flags & #Duration
-                            Calendar()\Day()\ToolTip = GetText_(#Summary$ + " (" + #Duration$ + ")")
-                          ElseIf Calendar()\Day()\Entry()\Flags & #StartTime
-                            Calendar()\Day()\ToolTip = GetText_(#Summary$ + " (" + #StartTime$ + ")")
-                          Else
-                            Calendar()\Day()\ToolTip = Calendar()\Day()\Entry()\Summary
-                          EndIf  
-                          
-                        EndIf
-                        
-                        If Calendar()\Day()\Entry()\FrontColor <> #PB_Default : FrontColor = Calendar()\Day()\Entry()\FrontColor : EndIf
-                        If Calendar()\Day()\Entry()\BackColor  <> #PB_Default : BackColor  = Calendar()\Day()\Entry()\BackColor  : EndIf
-                        
-                      EndIf
-                      
-                      If BackColor <> Calendar()\Color\Back
-                        DrawingMode(#PB_2DDrawing_Default)
-                        BackColor = BlendColor_(BackColor, Calendar()\Day()\Entry()\BackColor, 30)
-                        Box(PosX, PosY, ColumnWidth, RowHeight, BackColor)
-                      EndIf
-                      ;}
-                    Else           ;{ Multiple Entires
-                      
-                      FrontColor = Calendar()\Color\EntryFront
-                      BackColor  = Calendar()\Color\EntryBack
-                      
-                      CompilerIf Defined(ToolTip, #PB_Module)
-                        
-                        ForEach Calendar()\Day()\Entry()
-                          If Calendar()\Day()\Entry()\ToolTipMask
-                            Calendar()\Day()\ToolTip = GetText_(Calendar()\Day()\Entry()\ToolTipMask) + #LF$
-                          ElseIf Calendar()\ToolTipText 
-                            Calendar()\Day()\ToolTip + GetText_(Calendar()\ToolTipText) + #LF$
-                          Else
-                            
-                            If Calendar()\Day()\Entry()\Flags & #FullDay
-                              Calendar()\Day()\ToolTip = Calendar()\Day()\Entry()\Summary + #LF$
-                            ElseIf Calendar()\Day()\Entry()\Flags & #Duration
-                              Calendar()\Day()\ToolTip = GetText_(#Summary$ + " (" + #Duration$ + ")") + #LF$
-                            ElseIf Calendar()\Day()\Entry()\Flags & #StartTime
-                              Calendar()\Day()\ToolTip = GetText_(#Summary$ + " (" + #StartTime$ + ")") + #LF$
-                            Else
-                              Calendar()\Day()\ToolTip = Calendar()\Day()\Entry()\Summary + #LF$
-                            EndIf  
-
-                          EndIf
-                        Next
-                        
-                        Calendar()\Day()\ToolTip = Trim(RTrim(Calendar()\Day()\ToolTip, #LF$))
-                        
-                      CompilerElse
-                       
-                        ForEach Calendar()\Day()\Entry()
-                          If Calendar()\Day()\Entry()\ToolTipMask
-                            Calendar()\Day()\ToolTip = GetText_(Calendar()\Day()\Entry()\ToolTipMask) + " /"
-                          ElseIf Calendar()\ToolTipText 
-                            Calendar()\Day()\ToolTip + " " + GetText_(Calendar()\ToolTipText) + " /"
-                          Else
-                            Calendar()\Day()\ToolTip + " " + Calendar()\Day()\Entry()\Summary + " /"
-                          EndIf
-                        Next
-                        
-                        Calendar()\Day()\ToolTip = Trim(RTrim(Calendar()\Day()\ToolTip, "/"))
-                        
-                      CompilerEndIf
-                      
-                      DrawingMode(#PB_2DDrawing_Default)
-                      Box(PosX, PosY, ColumnWidth, RowHeight, BackColor)
-                      
-                    EndIf
-                    ;}
-                  EndIf
-                  
-                EndIf ;}
-               
                 If Day = Focus\Day ;{ Draw focus
                   If Month = Month_(Calendar()\Current\Focus) And Year = Year_(Calendar()\Current\Focus)
                     DrawingMode(#PB_2DDrawing_Default)
-                    Box(PosX, PosY, bWidth, bHeight, BlendColor_(Calendar()\Color\Focus, BackColor, 10))
+                    Box(PosX, PosY, bWidth, bHeight, BlendColor_(Calendar()\Color\FocusBack, BackColor, 10))
                     Focus\X = PosX
                     Focus\Y = PosY
                     Focus\Width  = bWidth
@@ -1441,12 +1131,7 @@ Module Calendar
 
                 DrawingMode(#PB_2DDrawing_Transparent) 
                 DrawText(PosX + txtX, PosY + txtY, Text$, FrontColor)
-                
-                If Calendar()\Flags & #GreyedDays = #False
-                  DrawingMode(#PB_2DDrawing_Outlined) 
-                  Box(PosX, PosY, bWidth, bHeight, GridColor)  
-                EndIf
-                
+
                 Calendar()\Day(Str(Day))\X      = PosX
                 Calendar()\Day(Str(Day))\Y      = PosY
                 Calendar()\Day(Str(Day))\Width  = ColumnWidth
@@ -1461,22 +1146,18 @@ Module Calendar
                 Calendar()\Day(Str(Day))\Y = #False
                 Calendar()\Day(Str(Day))\Width  = #False
                 Calendar()\Day(Str(Day))\Height = #False
-                
-                If Calendar()\Flags & #GreyedDays
-                  Text$ = Str(GreyDay)
-                  txtX  = (ColumnWidth - TextWidth("33")) / 2 + (TextWidth("33") - TextWidth(Text$))
-                  DrawingMode(#PB_2DDrawing_Transparent) 
-                  DrawText(PosX + txtX, PosY + txtY, Text$, Calendar()\Color\GreyText)
-                  GreyDay + 1
-                EndIf
+
+                Text$ = Str(GreyDay)
+                txtX  = (ColumnWidth - TextWidth("33")) / 2 + (TextWidth("33") - TextWidth(Text$))
+                DrawingMode(#PB_2DDrawing_Transparent) 
+                DrawText(PosX + txtX + dpiY(1), PosY + txtY, Text$, Calendar()\Color\GreyText)
+                GreyDay + 1
                 
                 Day + 1
               EndIf
-              
-              If Calendar()\Flags & #GreyedDays
-                DrawingMode(#PB_2DDrawing_Outlined) 
-                Box(PosX, PosY, bWidth, bHeight, GridColor)   
-              EndIf
+
+              DrawingMode(#PB_2DDrawing_Outlined) 
+              Box(PosX, PosY, bWidth, bHeight, GridColor)   
               
               PosX + ColumnWidth
             Next
@@ -1497,15 +1178,13 @@ Module Calendar
       ;{ Draw Focus Border
       If Focus\X <> #NotValid And Focus\Y <> #NotValid 
         DrawingMode(#PB_2DDrawing_Outlined) 
-        Box(Focus\X, Focus\Y, Focus\Width, Focus\Height, BlendColor_(Calendar()\Color\Focus, GridColor, 60))
+        Box(Focus\X, Focus\Y, Focus\Width, Focus\Height, BlendColor_(Calendar()\Color\FocusBack, GridColor, 60))
       EndIf
       ;}
       
-      If Calendar()\Flags & #FixMonth = #False
-        Arrow_(X, Y, Width, Calendar()\Month\Height, #Previous)
-        Arrow_(X, Y, Width, Calendar()\Month\Height, #Next)
-      EndIf
-      
+      Arrow_(X, Y, Width, Calendar()\Month\Height, #Previous)
+      Arrow_(X, Y, Width, Calendar()\Month\Height, #Next)
+
       ;{ _____ Border ____
       DrawingMode(#PB_2DDrawing_Outlined)
       Box(0, 0, Width, Height, GridColor)
@@ -1522,6 +1201,94 @@ Module Calendar
     
   EndProcedure
   
+  ;- __________ Event Procedures __________
+  
+  
+  Procedure  ChangeYear_(State.i=#True)
+    Define.i Year, OffsetY, FontID
+    
+    If State
+      
+      OffsetY = (Calendar()\Month\Height - Calendar()\Year\Height + dpiY(2)) / 2
+      
+      Calendar()\String\X          = Calendar()\Year\X - dpiX(2)
+      Calendar()\String\Y          = Calendar()\Year\Y + OffsetY
+      Calendar()\String\Width      = Calendar()\Year\Width + dpiX(6)
+      Calendar()\String\Height     = Calendar()\Year\Height - dpiY(2)
+      Calendar()\String\Text       = Str(Calendar()\Current\Year)
+      Calendar()\String\FrontColor = Calendar()\Color\Front
+      Calendar()\String\Visible       = #True
+
+      If IsFont(Calendar()\Month\Font)
+        Calendar()\String\FontID = FontID(Calendar()\Month\Font)
+      Else
+        Calendar()\String\FontID = Calendar()\FontID
+      EndIf
+      
+      DrawString_()
+      
+      Calendar()\Year\State = #Change
+    Else
+      
+      Year = Val(Calendar()\String\Text)
+      If Year > 1600 And Year < 2100
+        
+        Calendar()\String\Visible = #False
+
+        Calendar()\Current\Year  = Year
+        Calendar()\Current\Date  = Date_(Year, Calendar()\Current\Month, 1, 0, 0, 0)
+        
+        Calendar()\Year\State = #False
+        
+        Draw_()
+
+      Else
+        Calendar()\String\FrontColor = #Red
+        DrawString_()
+      EndIf 
+    
+    EndIf
+    
+  EndProcedure
+  
+  Procedure  ChangeMonth_(State.i=#True)
+    Define.i Month
+    
+    If State
+      
+      Calendar()\ListView\X              = Calendar()\Month\X
+      Calendar()\ListView\Y              = Calendar()\Month\listY
+      Calendar()\ListView\Width          = dpiX(90)
+      Calendar()\ListView\Height         = dpiY(GadgetHeight(Calendar()\CanvasNum)) - Calendar()\Month\Height - dpiY(5)
+      Calendar()\ListView\FrontColor     = Calendar()\Color\Front
+      Calendar()\ListView\FontID         = Calendar()\FontID
+      Calendar()\ListView\Visible        = #True
+      Calendar()\ListView\State          = Calendar()\Current\Month - 1
+      Calendar()\ListView\Focus          = #PB_Default
+      Calendar()\ListView\ScrollBar\Hide = #True
+      
+      DrawListView_()
+      
+      Calendar()\Month\State = #Change
+      
+    Else
+      
+      Calendar()\ListView\Visible = #False
+      Calendar()\Month\State      = #False
+      
+      HideGadget(Calendar()\ListView\ScrollBar\Num, #True)
+      
+      Month = Calendar()\ListView\State + 1
+      If Month >= 1 And Month <= 12
+        Calendar()\Current\Month = Month
+        Calendar()\Current\Date  = Date_(Calendar()\Current\Year, Month, 1, 0, 0, 0)
+      EndIf
+
+      Draw_()
+    EndIf 
+    
+  EndProcedure
+ 
   ;- __________ Events __________
   
   CompilerIf Defined(ModuleEx, #PB_Module)
@@ -1537,7 +1304,9 @@ Module Calendar
         Calendar()\Color\Front        = ModuleEx::ThemeGUI\FrontColor
         Calendar()\Color\Back         = ModuleEx::ThemeGUI\BackColor
         Calendar()\Color\Grid         = ModuleEx::ThemeGUI\LineColor
-        Calendar()\Color\Focus        = ModuleEx::ThemeGUI\Focus\BackColor
+        Calendar()\Color\Arrow        = ModuleEx::ThemeGUI\Button\BackColor
+        Calendar()\Color\FocusText    = ModuleEx::ThemeGUI\Focus\FrontColor
+        Calendar()\Color\FocusBack    = ModuleEx::ThemeGUI\Focus\BackColor
         Calendar()\Month\Color\Front  = ModuleEx::ThemeGUI\Title\FrontColor
         Calendar()\Month\Color\Back   = ModuleEx::ThemeGUI\Title\BackColor
         Calendar()\Week\Color\Front   = ModuleEx::ThemeGUI\Header\FrontColor
@@ -1552,224 +1321,153 @@ Module Calendar
     
   CompilerEndIf
   
-  Procedure  UpdateEvent_()
+  Procedure _CursorDrawing() ; Trigger from Thread (PostEvent Change)
+    Define.i WindowNum = EventWindow()
     
-    Calendar()\Event\Day   = Val(MapKey(Calendar()\Day()))
-    Calendar()\Event\Month = Calendar()\Current\Month
-    Calendar()\Event\Year  = Calendar()\Current\Year
-    
-    ClearList(Calendar()\Event\Entries())
-    If ListSize(Calendar()\Day()\Entry())
-      ForEach Calendar()\Day()\Entry()
-        If AddElement(Calendar()\Event\Entries())
-          Calendar()\Event\Entries()\Label       = Calendar()\Day()\Entry()\Label
-          Calendar()\Event\Entries()\Summary     = Calendar()\Day()\Entry()\Summary
-          Calendar()\Event\Entries()\Description = Calendar()\Day()\Entry()\Description
-          Calendar()\Event\Entries()\Location    = Calendar()\Day()\Entry()\Location
-          Calendar()\Event\Entries()\StartDate   = Calendar()\Day()\Entry()\StartDate
-          Calendar()\Event\Entries()\EndDate     = Calendar()\Day()\Entry()\EndDate
-          Calendar()\Event\Entries()\Flags       = Calendar()\Day()\Entry()\Flags
-        EndIf
-      Next
-    EndIf 
-    
-  EndProcedure
-  
-  Procedure  ChangeYear_(State.i=#True)
-    Define.i X, Y, Width, Height, Year, OffsetY
-    Define.i FontID, spinHeight, spinWidth
-    
-    If IsGadget(Calendar()\SpinNum)
-      
-      If State
-        
-        X = DesktopUnscaledX(Calendar()\PostEvent\YearX)
-        Y = DesktopUnscaledX(Calendar()\PostEvent\Y)
-        Width  = DesktopUnscaledX(Calendar()\PostEvent\YearWidth)
-        Height = DesktopUnscaledX(Calendar()\PostEvent\Height)
-        
-        If IsFont(Calendar()\Month\Font)
-          SetGadgetFont(Calendar()\SpinNum, FontID(Calendar()\Month\Font))
-        Else
-          SetGadgetFont(Calendar()\SpinNum, Calendar()\FontID)
-        EndIf
-        
-        SetGadgetState(Calendar()\SpinNum, Calendar()\Current\Year)
-        
-        spinWidth  = GadgetWidth(Calendar()\SpinNum,  #PB_Gadget_RequiredSize) + 10
-        spinHeight = GadgetHeight(Calendar()\SpinNum, #PB_Gadget_RequiredSize)
-        
-        SetAttribute(Calendar()\SpinNum, #PB_Spin_Minimum, Calendar()\Year\Minimum)
-        SetAttribute(Calendar()\SpinNum, #PB_Spin_Maximum, Calendar()\Year\Maximum)
-        
-        OffsetY = Round((Height - spinHeight) / 2, #PB_Round_Nearest)
-        ResizeGadget(Calendar()\SpinNum, X, Y + OffsetY, spinWidth, spinHeight)
-        
-        HideGadget(Calendar()\SpinNum, #False)
+    ForEach Calendar()
 
-        Calendar()\Year\State = #Change
-      Else
-        
-        HideGadget(Calendar()\SpinNum, #True)
-        
-        Year = GetGadgetState(Calendar()\SpinNum)
-        
-        Calendar()\Current\Year  = Year
-        Calendar()\Current\Date  = Date_(Year, Calendar()\Current\Month, 1, 0, 0, 0)
-        
-        UpdateCurrentEntries_()
-        
-        Draw_()
-        
-        Calendar()\Year\State = #False
+      If Calendar()\String\Visible
+
+        Calendar()\Cursor\State ! #True
+      
+        If StartDrawing(CanvasOutput(Calendar()\CanvasNum))
+          DrawingMode(#PB_2DDrawing_Default)
+          If Calendar()\Cursor\State
+            Line(Calendar()\Cursor\X, Calendar()\Cursor\Y, 1, Calendar()\Cursor\Height, Calendar()\Cursor\FrontColor)
+          Else
+            Line(Calendar()\Cursor\X, Calendar()\Cursor\Y, 1, Calendar()\Cursor\Height, Calendar()\Cursor\BackColor)
+          EndIf
+          StopDrawing()
+        EndIf
+
       EndIf
       
-    EndIf
+    Next
+    
+  EndProcedure 
+  
+  Procedure _CursorThread(Frequency.i)
+    Define.i ElapsedTime
+    
+    Repeat
+      
+      If ElapsedTime >= Frequency
+        PostEvent(#Event_Cursor)
+        ElapsedTime = 0
+      EndIf
+      
+      Delay(100)
+      
+      ElapsedTime + 100
+      
+    Until Thread\Exit
     
   EndProcedure
   
-  Procedure  ChangeMonth_(State.i=#True)
-    Define.i X, Y, Height
+  Procedure _InputHandler()
+    Define   Char.i, Char$
+    Define.i GNum = EventGadget()
     
-    If IsGadget(Calendar()\ListNum)
-      
-      If State
-        X      = DesktopUnscaledX(Calendar()\PostEvent\MonthX)
-        Y      = DesktopUnscaledX(Calendar()\PostEvent\Y + Calendar()\PostEvent\Height) + 1
-        Height = DesktopUnscaledX(GadgetHeight(Calendar()\CanvasNum) - Calendar()\Month\Height) - 5
-        
-        SetGadgetState(Calendar()\ListNum, Calendar()\Current\Month - 1)
-        
-        ResizeGadget(Calendar()\ListNum, X, Y, 90, Height)
-        
-        Calendar()\Month\State = #Change
-        HideGadget(Calendar()\ListNum, #False)
-        
-      Else
-        
-        Calendar()\Month\State = #False
-        HideGadget(Calendar()\ListNum, #True)
-        
-      EndIf 
-      
-    EndIf 
-    
-  EndProcedure
-  
-  
-  Procedure _ListGadgetHandler()
-    Define.i GadgetNum, Selected, Month
-    Define.i ListGadgetNum = EventGadget()
-    
-    GadgetNum = GetGadgetData(ListGadgetNum)
-    If FindMapElement(Calendar(), Str(GadgetNum))
-      
-      Selected = GetGadgetState(ListGadgetNum)
-      If Selected <> -1
-        
-        HideGadget(ListGadgetNum, #True)
-        Calendar()\Month\State = #False
-        
-        Month = Selected + 1
-        If Month >= 1 And Month <= 12
-          Calendar()\Current\Month = Month
-          Calendar()\Current\Date  = Date_(Calendar()\Current\Year, Month, 1, 0, 0, 0)
+    If FindMapElement(Calendar(), Str(GNum))
+
+      If Calendar()\String\Visible
+
+        Char = GetGadgetAttribute(GNum, #PB_Canvas_Input)
+        If Char >= 48 And Char <= 57
           
-          UpdateCurrentEntries_()
+          Char$ = Chr(Char)
           
-          Draw_()
+          If Len(Calendar()\String\Text) = 4
+            
+            If Calendar()\String\CursorPos < 4
+              Calendar()\String\Text = Left(Calendar()\String\Text, Calendar()\String\CursorPos) + Char$ + Mid(Calendar()\String\Text, Calendar()\String\CursorPos + 2)
+              Calendar()\String\CursorPos + 1  
+            EndIf   
+
+          Else 
+            Calendar()\String\CursorPos + 1  
+            Calendar()\String\Text = InsertString(Calendar()\String\Text, Char$, Calendar()\String\CursorPos)
+          EndIf
+          
+          If Len(Calendar()\String\Text) = 4
+            If Val(Calendar()\String\Text) > 1600 And Val(Calendar()\String\Text) < 2100
+              Calendar()\String\FrontColor = Calendar()\Color\Front
+            Else
+              Calendar()\String\FrontColor = #Red
+            EndIf   
+          Else
+            Calendar()\String\FrontColor = Calendar()\Color\Front
+          EndIf  
+          
+          DrawString_()
         EndIf
         
       EndIf
       
     EndIf
     
-  EndProcedure
+  EndProcedure   
   
-  Procedure _LeftDoubleClickHandler()
-    Define.i X, Y
-    Define.i GadgetNum = EventGadget()
-    
-    If FindMapElement(Calendar(), Str(GadgetNum))
+  Procedure _KeyDownHandler()
+    Define.i Key
+    Define.i GNum = EventGadget()
+
+    If FindMapElement(Calendar(), Str(GNum))
       
-      X = GetGadgetAttribute(Calendar()\CanvasNum, #PB_Canvas_MouseX)
-      Y = GetGadgetAttribute(Calendar()\CanvasNum, #PB_Canvas_MouseY)
+      Key= GetGadgetAttribute(GNum, #PB_Canvas_Key)
       
-      If Calendar()\Month\State = #Change : ChangeMonth_(#False) : EndIf
-      If Calendar()\Year\State  = #Change : ChangeYear_(#False)  : EndIf
-      
-      If Y > Calendar()\Week\Y + Calendar()\Week\Height
-        
-        ForEach Calendar()\Day()
-          
-          If Y >= Calendar()\Day()\Y And Y <= Calendar()\Day()\Y + Calendar()\Day()\Height
-            If X >= Calendar()\Day()\X And X <= Calendar()\Day()\X + Calendar()\Day()\Width
-              
-              CompilerIf Defined(ToolTip, #PB_Module)
-                ToolTip::SetState(GadgetNum, #False)
-              CompilerElse
-                GadgetToolTip(GadgetNum, "")
-              CompilerEndIf
-              
-              UpdateEvent_()
-              
-              PostEvent(#Event_Gadget, Calendar()\Window\Num, Calendar()\CanvasNum, #EventType_Day, Val(MapKey(Calendar()\Day())))
-              PostEvent(#PB_Event_Gadget, Calendar()\Window\Num, Calendar()\CanvasNum, #EventType_Day, Val(MapKey(Calendar()\Day())))
-              
-              Break
-            EndIf
+      Select Key
+        Case #PB_Shortcut_Left     ;{ Left
+          If Calendar()\String\CursorPos > 0
+            Calendar()\String\CursorPos - 1
           EndIf
-          
-        Next
-          
+          ;}
+        Case #PB_Shortcut_Right    ;{ Right
+          If Calendar()\String\CursorPos < Len(Calendar()\String\Text)
+            Calendar()\String\CursorPos + 1
+          EndIf  
+          ;}
+        Case #PB_Shortcut_Home     ;{ Home
+          Calendar()\String\CursorPos = 0
+          ;}
+        Case #PB_Shortcut_End      ;{ End
+          Calendar()\String\CursorPos = Len(Calendar()\String\Text)
+          ;}
+        Case #PB_Shortcut_Back     ;{ Delete Back
+          If Calendar()\String\CursorPos > 0
+            Calendar()\String\Text = DeleteStringPart_(Calendar()\String\Text, Calendar()\String\CursorPos)
+            Calendar()\String\CursorPos - 1
+          EndIf  
+          ;}
+        Case #PB_Shortcut_Delete   ;{ Delete
+          If Calendar()\String\CursorPos < Len(Calendar()\String\Text)
+            Calendar()\String\Text = DeleteStringPart_(Calendar()\String\Text, Calendar()\String\CursorPos + 1)
+          EndIf
+          ;} 
+        Case #PB_Shortcut_Return   ;{ Return
+          ChangeYear_(#False) 
+          ;}
+      EndSelect
+      
+      If Calendar()\String\Visible
+        If Len(Calendar()\String\Text) = 4
+          If Val(Calendar()\String\Text) > 1600 And Val(Calendar()\String\Text) < 2100
+            Calendar()\String\FrontColor = Calendar()\Color\Front
+          Else
+            Calendar()\String\FrontColor = #Red
+          EndIf 
+        Else
+          Calendar()\String\FrontColor = Calendar()\Color\Front
+        EndIf  
+        DrawString_()
+      Else  
+        Draw_()
       EndIf   
-      
+
     EndIf
     
   EndProcedure
-  
-  Procedure _RightClickHandler()
-    Define.i X, Y
-    Define.i GadgetNum = EventGadget()
-    
-    If FindMapElement(Calendar(), Str(GadgetNum))
-      
-      X = GetGadgetAttribute(Calendar()\CanvasNum, #PB_Canvas_MouseX)
-      Y = GetGadgetAttribute(Calendar()\CanvasNum, #PB_Canvas_MouseY)
-      
-      If Calendar()\Month\State = #Change : ChangeMonth_(#False) : EndIf
-      If Calendar()\Year\State  = #Change : ChangeYear_(#False)  : EndIf
-      
-      If Y > Calendar()\Week\Y + Calendar()\Week\Height
-        
-        ForEach Calendar()\Day()
-          
-          If Y >= Calendar()\Day()\Y And Y <= Calendar()\Day()\Y + Calendar()\Day()\Height
-            If X >= Calendar()\Day()\X And X <= Calendar()\Day()\X + Calendar()\Day()\Width
-              
-              ToolTip::SetState(GadgetNum, #False)
-              
-              UpdateEvent_()
-              
-              If IsWindow(Calendar()\Window\Num) And IsMenu(Calendar()\PopUpNum)
-                UpdatePopUpMenu_()
-                DisplayPopupMenu(Calendar()\PopUpNum, WindowID(Calendar()\Window\Num))
-              Else  
-                PostEvent(#Event_Gadget,    Calendar()\Window\Num, Calendar()\CanvasNum, #EventType_RightClick, Val(MapKey(Calendar()\Day())))
-                PostEvent(#PB_Event_Gadget, Calendar()\Window\Num, Calendar()\CanvasNum, #EventType_RightClick, Val(MapKey(Calendar()\Day())))
-              EndIf
-              
-            EndIf
-          EndIf
-          
-        Next
-        
-      EndIf
-      
-    EndIf
-    
-  EndProcedure
-  
+
   Procedure _LeftButtonDownHandler()
     Define.i X, Y
     Define.i GadgetNum = EventGadget()
@@ -1779,9 +1477,24 @@ Module Calendar
       X = GetGadgetAttribute(Calendar()\CanvasNum, #PB_Canvas_MouseX)
       Y = GetGadgetAttribute(Calendar()\CanvasNum, #PB_Canvas_MouseY) 
       
-      If Calendar()\Month\State = #Change : ChangeMonth_(#False) : EndIf
-      If Calendar()\Year\State  = #Change : ChangeYear_(#False)  : EndIf
-      
+      If Calendar()\ListView\Visible
+        
+        If X > Calendar()\ListView\X And X < Calendar()\ListView\X + Calendar()\ListView\Width
+          If Y > Calendar()\ListView\Y And Y < Calendar()\ListView\Y + Calendar()\ListView\Height
+            
+            ForEach Calendar()\ListView\Item()
+              If Y >= Calendar()\ListView\Item()\Y And Y <= Calendar()\ListView\Item()\Y + Calendar()\ListView\RowHeight
+                Calendar()\ListView\Focus = ListIndex(Calendar()\ListView\Item())
+                DrawListView_()
+                ProcedureReturn #True
+              EndIf   
+            Next
+            
+          EndIf  
+        EndIf
+        
+      EndIf
+
     EndIf
     
   EndProcedure
@@ -1795,84 +1508,112 @@ Module Calendar
       X = GetGadgetAttribute(Calendar()\CanvasNum, #PB_Canvas_MouseX)
       Y = GetGadgetAttribute(Calendar()\CanvasNum, #PB_Canvas_MouseY)
       
+      If Calendar()\ListView\Visible
+        
+        If X > Calendar()\ListView\X And X < Calendar()\ListView\X + Calendar()\ListView\Width
+          If Y > Calendar()\ListView\Y And Y < Calendar()\ListView\Y + Calendar()\ListView\Height
+            
+            ForEach Calendar()\ListView\Item()
+              If Y >= Calendar()\ListView\Item()\Y And Y <= Calendar()\ListView\Item()\Y + Calendar()\ListView\RowHeight
+                Calendar()\ListView\State = ListIndex(Calendar()\ListView\Item())
+                ChangeMonth_(#False)
+                ProcedureReturn #True
+              EndIf   
+            Next
+
+          EndIf  
+        EndIf
+
+      EndIf  
+      
+      If Calendar()\Month\State = #Change : ChangeMonth_(#False) : EndIf
+      If Calendar()\Year\State  = #Change : ChangeYear_(#False)  : EndIf
+      
       ;{ Buttons: Previous & Next
-      If Calendar()\Flags & #FixMonth = #False
-        If Y >= Calendar()\Button\Y And Y <= Calendar()\Button\Y + Calendar()\Button\Height
-          If X >= Calendar()\Button\prevX And X <= Calendar()\Button\prevX + Calendar()\Button\Width
-            Calendar()\Current\Date  = AddDate_(Calendar()\Current\Date, #PB_Date_Month, -1)
-            Calendar()\Current\Month = Month_(Calendar()\Current\Date)
-            Calendar()\Current\Year  = Year_(Calendar()\Current\Date)
-            UpdateCurrentEntries_()
-            Draw_()
-            ProcedureReturn #True
-          ElseIf X >= Calendar()\Button\nextX And X <= Calendar()\Button\nextX + Calendar()\Button\Width
-            Calendar()\Current\Date  = AddDate_(Calendar()\Current\Date, #PB_Date_Month, 1)
-            Calendar()\Current\Month = Month_(Calendar()\Current\Date)
-            Calendar()\Current\Year  = Year_(Calendar()\Current\Date)
-            UpdateCurrentEntries_()
-            Draw_()
-            ProcedureReturn #True
-          EndIf
-        EndIf  
+      If Y >= Calendar()\Button\Y And Y <= Calendar()\Button\Y + Calendar()\Button\Height
+        If X >= Calendar()\Button\prevX And X <= Calendar()\Button\prevX + Calendar()\Button\Width
+          Calendar()\Current\Date  = AddDate_(Calendar()\Current\Date, #PB_Date_Month, -1)
+          Calendar()\Current\Month = Month_(Calendar()\Current\Date)
+          Calendar()\Current\Year  = Year_(Calendar()\Current\Date)
+          Draw_()
+          ProcedureReturn #True
+        ElseIf X >= Calendar()\Button\nextX And X <= Calendar()\Button\nextX + Calendar()\Button\Width
+          Calendar()\Current\Date  = AddDate_(Calendar()\Current\Date, #PB_Date_Month, 1)
+          Calendar()\Current\Month = Month_(Calendar()\Current\Date)
+          Calendar()\Current\Year  = Year_(Calendar()\Current\Date)
+          Draw_()
+          ProcedureReturn #True
+        EndIf
       EndIf ;}
       
       ;{ Click: Month & Year
-      If Y >= Calendar()\PostEvent\Y And Y <= Calendar()\PostEvent\Y + Calendar()\PostEvent\Height
-        If X >= Calendar()\PostEvent\MonthX And X <= Calendar()\PostEvent\MonthX + Calendar()\PostEvent\MonthWidth
- 
-          If Calendar()\Month\Flags & #PostEvent
-            PostEvent(#Event_Gadget,    Calendar()\Window\Num, Calendar()\CanvasNum, #EventType_Month)
-            PostEvent(#PB_Event_Gadget, Calendar()\Window\Num, Calendar()\CanvasNum, #EventType_Month)
-            ProcedureReturn #True
-          Else
-            ChangeMonth_()
-            ProcedureReturn #True
-          EndIf
-          
-        ElseIf X >= Calendar()\PostEvent\YearX And X <= Calendar()\PostEvent\YearX + Calendar()\PostEvent\YearWidth
-          
-          If Calendar()\Year\Flags & #PostEvent
-            PostEvent(#Event_Gadget,    Calendar()\Window\Num, Calendar()\CanvasNum, #EventType_Year)
-            PostEvent(#PB_Event_Gadget, Calendar()\Window\Num, Calendar()\CanvasNum, #EventType_Year)
-            ProcedureReturn #True
-          ElseIf Calendar()\Year\State = #False
-            ChangeYear_(#True) 
-            ProcedureReturn #True
-          EndIf
-          
+      If Y >= Calendar()\Month\Y And Y <= Calendar()\Month\Y + Calendar()\Month\Height
+        If X >= Calendar()\Month\X And X <= Calendar()\Month\X + Calendar()\Month\Width
+          ChangeMonth_()
+          ProcedureReturn #True 
+        ElseIf X >= Calendar()\Year\X And X <= Calendar()\Year\X + Calendar()\Year\Width
+          ChangeYear_(#True) 
+          ProcedureReturn #True
         EndIf
       EndIf ;} 
       
       ;{ Click: Days of Month
-      If Calendar()\Flags & #FixDayOfMonth = #False
-        If Y > Calendar()\Week\Y + Calendar()\Week\Height
-          ForEach Calendar()\Day()
-            If Y >= Calendar()\Day()\Y And Y <= Calendar()\Day()\Y + Calendar()\Day()\Height
-              If X >= Calendar()\Day()\X And X <= Calendar()\Day()\X + Calendar()\Day()\Width
-                Calendar()\Current\Focus = Date_(Calendar()\Current\Year, Calendar()\Current\Month, Val(MapKey(Calendar()\Day())), 0, 0, 0)
-                Draw_()
-                UpdateEvent_()
-                PostEvent(#Event_Gadget,    Calendar()\Window\Num, Calendar()\CanvasNum, #EventType_Focus, Val(MapKey(Calendar()\Day())))
-                PostEvent(#PB_Event_Gadget, Calendar()\Window\Num, Calendar()\CanvasNum, #EventType_Focus, Val(MapKey(Calendar()\Day())))
-                Break
-              EndIf
+      If Y > Calendar()\Week\Y + Calendar()\Week\Height
+        ForEach Calendar()\Day()
+          If Y >= Calendar()\Day()\Y And Y <= Calendar()\Day()\Y + Calendar()\Day()\Height
+            If X >= Calendar()\Day()\X And X <= Calendar()\Day()\X + Calendar()\Day()\Width
+              Calendar()\Current\Focus = Date_(Calendar()\Current\Year, Calendar()\Current\Month, Val(MapKey(Calendar()\Day())), 0, 0, 0)
+              PostEvent(#PB_Event_Gadget, Calendar()\Window\Num, Calendar()\CanvasNum, #EventType_Select, Calendar()\Current\Focus)
+              PostEvent(#Event_Gadget,    Calendar()\Window\Num, Calendar()\CanvasNum, #EventType_Select, Calendar()\Current\Focus)
+              Draw_()
+              Break
             EndIf
-          Next
-        EndIf   
-      EndIf ;}
-      
+          EndIf
+        Next
+      EndIf   
+      ;}
+
     EndIf
     
   EndProcedure
 
   Procedure _MouseMoveHandler()
-    Define.i X, Y
+    Define.i X, Y, Width
     Define.i GadgetNum = EventGadget()
     
     If FindMapElement(Calendar(), Str(GadgetNum))
       
       X = GetGadgetAttribute(GadgetNum, #PB_Canvas_MouseX)
       Y = GetGadgetAttribute(GadgetNum, #PB_Canvas_MouseY)
+      
+      ;{ ListView: Focus
+      If Calendar()\ListView\Visible
+        
+        Width = Calendar()\ListView\Width
+        
+        If Calendar()\ListView\ScrollBar\Hide = #False
+          Width - dpiX(#ScrollBarSize)
+        EndIf 
+       
+        If X > Calendar()\ListView\X And X < Calendar()\ListView\X + Width
+          If Y > Calendar()\ListView\Y And Y < Calendar()\ListView\Y + Calendar()\ListView\Height
+            
+            ForEach Calendar()\ListView\Item()
+              If Y >= Calendar()\ListView\Item()\Y And Y <= Calendar()\ListView\Item()\Y + Calendar()\ListView\RowHeight
+                If Calendar()\ListView\Focus <> ListIndex(Calendar()\ListView\Item())
+                  ;Calendar()\ListView\Focus = ListIndex(Calendar()\ListView\Item())
+                  ;DrawListView_()
+                EndIf  
+                ProcedureReturn #True
+              EndIf   
+            Next
+            
+          EndIf  
+        EndIf  
+        
+        ;Calendar()\ListView\Focus = #PB_Default
+        ;DrawListView_()
+      EndIf ;}
       
       ;{ Buttons: Previous & Next
       If Y >= Calendar()\Button\Y And Y <= Calendar()\Button\Y + Calendar()\Button\Height
@@ -1886,16 +1627,12 @@ Module Calendar
       EndIf ;}
       
       ;{ Month & Year
-      If Y > Calendar()\PostEvent\Y And Y < Calendar()\PostEvent\Y + Calendar()\PostEvent\Height
-        If X > Calendar()\PostEvent\MonthX And X < Calendar()\PostEvent\MonthX + Calendar()\PostEvent\MonthWidth
-          If Calendar()\Month\Flags & #PostEvent Or Calendar()\Month\Flags & #FixMonth = #False
-            SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
-          EndIf 
+      If Y > Calendar()\Month\Y And Y < Calendar()\Month\Y + Calendar()\Month\Height
+        If X > Calendar()\Month\X And X < Calendar()\Month\X + Calendar()\Month\Width
+          SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
           ProcedureReturn #True
-        ElseIf X > Calendar()\PostEvent\YearX And X < Calendar()\PostEvent\YearX + Calendar()\PostEvent\YearWidth 
-          If Calendar()\Year\Flags & #PostEvent Or Calendar()\Month\Flags & #FixYear = #False
-            SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
-          EndIf
+        ElseIf X > Calendar()\Year\X And X < Calendar()\Year\X + Calendar()\Year\Width 
+          SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
           ProcedureReturn #True
         EndIf
       EndIf ;}
@@ -1904,36 +1641,14 @@ Module Calendar
       
       ;{ Days of Month
       If Y > Calendar()\Week\Y + Calendar()\Week\Height
-        
-        If Calendar()\Year\State = #Change : ChangeYear_(#False) : EndIf
-        
+
         ForEach Calendar()\Day()
           
           If Y >= Calendar()\Day()\Y And Y <= Calendar()\Day()\Y + Calendar()\Day()\Height
             If X >= Calendar()\Day()\X And X <= Calendar()\Day()\X + Calendar()\Day()\Width
-              
-              If Calendar()\ToolTip <> Val(MapKey(Calendar()\Day()))
-                
-                If ListSize(Calendar()\Day()\Entry())
-                
-                  CompilerIf Defined(ToolTip, #PB_Module)
-                    ToolTip::SetContent(GadgetNum, Calendar()\Day()\ToolTip, Calendar()\Day()\ToolTipTitle, DesktopUnscaledX(Calendar()\Day()\X), DesktopUnscaledY(Calendar()\Day()\Y), DesktopUnscaledX(Calendar()\Day()\Width), DesktopUnscaledY(Calendar()\Day()\Height))
-                  CompilerElse
 
-                    GadgetToolTip(GadgetNum, Calendar()\Day()\ToolTip) 
-                   
-                  CompilerEndIf
-                  
-                EndIf
-                
-                Calendar()\ToolTip = Val(MapKey(Calendar()\Day()))
-                
-              EndIf
-
-              If Calendar()\Flags & #FixDayOfMonth = #False
-                SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
-              EndIf
-              
+              SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
+             
               ProcedureReturn #True
             EndIf
           EndIf
@@ -1943,13 +1658,65 @@ Module Calendar
       EndIf ;}
       
       SetGadgetAttribute(GadgetNum, #PB_Canvas_Cursor, #PB_Cursor_Default)
-      
-      Calendar()\ToolTip = #False
-      GadgetToolTip(GadgetNum, "")
      
     EndIf
     
   EndProcedure  
+  
+  Procedure _MouseWheelHandler()
+    Define.i GadgetNum = EventGadget()
+    Define.i Delta, ScrollPos
+    
+    If FindMapElement(Calendar(), Str(GadgetNum))
+      
+      Delta = GetGadgetAttribute(GadgetNum, #PB_Canvas_WheelDelta)
+      
+      If IsGadget(Calendar()\ListView\ScrollBar\Num) And Calendar()\ListView\ScrollBar\Hide = #False
+        
+        ScrollPos = GetGadgetState(Calendar()\ListView\ScrollBar\Num) - Delta
+        
+        If ScrollPos <> Calendar()\ListView\ScrollBar\Position
+
+          Calendar()\ListView\ScrollBar\Position = ScrollPos
+          Calendar()\ListView\Offset             = ScrollPos
+          
+          SetGadgetState(Calendar()\ListView\ScrollBar\Num, ScrollPos)
+          
+          DrawListView_()      
+  
+        EndIf
+
+      EndIf
+
+    EndIf
+    
+  EndProcedure
+  
+  
+  Procedure _SynchronizeScrollBar()
+    Define.i ScrollNum = EventGadget()
+    Define.i GadgetNum = GetGadgetData(ScrollNum)
+    Define.i ScrollPos
+    
+    If FindMapElement(Calendar(), Str(GadgetNum))
+      
+      If Calendar()\ListView\Visible
+        
+        ScrollPos = GetGadgetState(ScrollNum)
+        If ScrollPos <> Calendar()\ListView\ScrollBar\Position
+          
+          Calendar()\ListView\ScrollBar\Position = ScrollPos
+          Calendar()\ListView\Offset             = ScrollPos
+          
+          DrawListView_()      
+        EndIf
+        
+      EndIf 
+      
+    EndIf
+    
+  EndProcedure 
+  
   
   Procedure _ResizeHandler()
     Define.i GadgetID = EventGadget()
@@ -1990,36 +1757,7 @@ Module Calendar
             Else
               ResizeGadget(Calendar()\CanvasNum, #PB_Ignore, #PB_Ignore, Calendar()\Size\Width + OffSetX, Calendar()\Size\Height + OffsetY)
             EndIf
-            
-            CompilerIf Defined(ModuleEx, #PB_Module)
-			
-        		  If Calendar()\Size\Flags & #FitText
-        		    
-        		    If Calendar()\Size\Flags & #FixPadding
-        		      Width  = Calendar()\Size\colWidth  - Calendar()\PaddingX
-                  Height = Calendar()\Size\colHeight - Calendar()\PaddingY
-        		    Else
-        		      Width  = Calendar()\Size\colWidth  - Calendar()\PaddingX
-                  Height = Calendar()\Size\colHeight - (Calendar()\Size\colHeight * Calendar()\PFactor)
-        		    EndIf
-        		    
-        		    If Height < 0 : Height = 0 : EndIf 
-        		    If Width  < 0 : Width  = 0 : EndIf
-        		    
-        		    FontSize = ModuleEx::RequiredFontSize("33", Width, Height, Calendar()\Font\Num)
-        		    
-        		    If FontSize <> Calendar()\Font\Size
-                  Calendar()\Font\Size = FontSize
-                  Calendar()\Font\Num  = ModuleEx::Font(Calendar()\Font\Name, FontSize, Calendar()\Font\Style)
-                  If IsFont(Calendar()\Font\Num) : Calendar()\FontID = FontID(Calendar()\Font\Num) : EndIf
-                  FontNum = ModuleEx::Font(Calendar()\Font\Name, FontSize, #PB_Font_Bold)
-                  If IsFont(FontNum) : Calendar()\EntryFontID = FontID(FontNum) : EndIf
-                EndIf  
-        		    
-        		  EndIf  
-        		  
-        		CompilerEndIf 
-            
+
             Draw_()
           EndIf
           
@@ -2035,238 +1773,38 @@ Module Calendar
   ;-   Module - Declared Procedures
   ;- ========================================================================== 
   
-  CompilerIf #Enable_iCalFormat
-    
-    Procedure.s UniqueID(*UUID.UUID_Structure)
-      Define i.i, UUID$
-      
-      If Not *UUID : ProcedureReturn "" : EndIf
-      
-      For i=0 To 15
-        *UUID\Byte[i]=Random(255)
-      Next
-      
-      *UUID\Byte[9] = 128 + Random(63)
-      *UUID\Byte[7] =  64 + Random(15)
-      
-      For i=0 To 16-1
-        UUID$ + RSet(Hex(*UUID\Byte[i]&$FF), 2, "0")
-      Next
-      
-      ProcedureReturn UUID$
-    EndProcedure
-    
-    Procedure.i ExportDay(GNum.i, DayOfMonth.i, File.s) 
-      Define.i FileID, Result = #False
-      Define   UUID.UUID_Structure
-      
-      If FindMapElement(Calendar(), Str(GNum))
-        
-        If FindMapElement(Calendar()\Day(), Str(DayOfMonth))
-        
-          FileID = CreateFile(#PB_Any, File, #PB_UTF8)
-          If FileID
-            
-            WriteStringN(FileID, #iCal_BeginCalendar, #PB_UTF8)
-            WriteStringN(FileID, #iCal_Version, #PB_UTF8)
-            WriteStringN(FileID, #iCal_ProID + "PureBasic", #PB_UTF8)
-            WriteStringN(FileID, #iCal_Publish, #PB_UTF8)
-            
-            ForEach Calendar()\Day()\Entry() ;{ Entries
-              
-              WriteStringN(FileID, #iCal_BeginEvent, #PB_UTF8)
-              WriteStringN(FileID, #iCal_UID + UniqueID(@UUID), #PB_UTF8)
-              WriteStringN(FileID, #iCal_Location    + Calendar()\Day()\Entry()\Location,    #PB_UTF8)
-              WriteStringN(FileID, #iCal_Summary     + Calendar()\Day()\Entry()\Summary,     #PB_UTF8)
-              WriteStringN(FileID, #iCal_Description + Calendar()\Day()\Entry()\Description, #PB_UTF8)
-              WriteStringN(FileID, #iCal_Private, #PB_UTF8)
-              WriteStringN(FileID, #iCal_DateStart   + FormatDate("%yyyy%mm%ddT%hh%ii%ssZ", Calendar()\Day()\Entry()\StartDate), #PB_UTF8)
-              WriteStringN(FileID, #iCal_DateEnd     + FormatDate("%yyyy%mm%ddT%hh%ii%ssZ", Calendar()\Day()\Entry()\EndDate),   #PB_UTF8)
-              WriteStringN(FileID, #iCal_DateStamp   + FormatDate("%yyyy%mm%ddT%hh%ii%ssZ", Date()), #PB_UTF8)
-              WriteStringN(FileID, #iCal_EndEvent,  #PB_UTF8)
-              ;}
-            Next
-            
-            WriteStringN(FileID, #iCal_EndCalendar, #PB_UTF8)
-            
-            Result = #True
-            CloseFile(FileID)
-          EndIf
-          
-        EndIf
-        
-      EndIf
-      
-      ProcedureReturn Result
-    EndProcedure
-    
-    Procedure.i ExportLabel(GNum.i, Label.s, File.s) 
-      Define.i FileID, Result = #False
-      Define   UUID.UUID_Structure
-      
-      If FindMapElement(Calendar(), Str(GNum))
-        
-        FileID = CreateFile(#PB_Any, File, #PB_UTF8)
-        If FileID
-          
-          WriteStringN(FileID, #iCal_BeginCalendar, #PB_UTF8)
-          WriteStringN(FileID, #iCal_Version, #PB_UTF8)
-          WriteStringN(FileID, #iCal_ProID + "PureBasic", #PB_UTF8)
-          WriteStringN(FileID, #iCal_Publish, #PB_UTF8)
-          
-          If FindMapElement(Calendar()\Entries(), Label) ;{ Entries
-            
-            WriteStringN(FileID, #iCal_BeginEvent, #PB_UTF8)
-            WriteStringN(FileID, #iCal_UID + UniqueID(@UUID), #PB_UTF8)
-            WriteStringN(FileID, #iCal_Location    + Calendar()\Entries()\Location,    #PB_UTF8)
-            WriteStringN(FileID, #iCal_Summary     + Calendar()\Entries()\Summary,     #PB_UTF8)
-            WriteStringN(FileID, #iCal_Description + Calendar()\Entries()\Description, #PB_UTF8)
-            WriteStringN(FileID, #iCal_Private, #PB_UTF8)
-            WriteStringN(FileID, #iCal_DateStart   + FormatDate("%yyyy%mm%ddT%hh%ii%ssZ", Calendar()\Entries()\StartDate), #PB_UTF8)
-            WriteStringN(FileID, #iCal_DateEnd     + FormatDate("%yyyy%mm%ddT%hh%ii%ssZ", Calendar()\Entries()\EndDate),   #PB_UTF8)
-            WriteStringN(FileID, #iCal_DateStamp   + FormatDate("%yyyy%mm%ddT%hh%ii%ssZ", Date()), #PB_UTF8)
-            WriteStringN(FileID, #iCal_EndEvent,  #PB_UTF8)
-            ;}
-          EndIf
-          
-          WriteStringN(FileID, #iCal_EndCalendar, #PB_UTF8)
-          
-          Result = #True
-          CloseFile(FileID)
-        EndIf
-        
-      EndIf
-      
-      ProcedureReturn Result
-    EndProcedure
-    
-    Procedure.i ImportEvent(GNum.i, Label.s, File.s)
-      Define.i FileID, Result = #False
-      Define.s String, Param
-      
-      If FindMapElement(Calendar(), Str(GNum))
-        
-        If FindMapElement(Calendar()\Entries(), Label)
-          Debug "Label already exists"
-          ProcedureReturn #False
-        EndIf 
-        
-        FileID = ReadFile(#PB_Any, File, #PB_UTF8)
-        If FileID
-  
-          While Eof(FileID) = #False
-            
-            String = ReadString(FileID)
-            
-            Select StringField(String, 1, ":")
-              Case "END"    ;{ END:VCALENDAR
-                If StringField(String, 2, ":") = "VCALENDAR"
-                  Result = #True
-                  Break
-                EndIf ;}  
-              Case "BEGIN"  ;{ BEGIN:VEVENT
-                
-                If StringField(String, 2, ":") = "VEVENT" 
-                  
-                  If AddMapElement(Calendar()\Entries(), Label)
-                    Repeat
-                      String = ReadString(FileID)
-                      Select StringField(String, 1, ":")
-                        Case "LOCATION"
-                          Calendar()\Entries()\Location    = StringField(String, 2, ":")
-                        Case "SUMMARY"
-                          Calendar()\Entries()\Summary     = StringField(String, 2, ":")
-                        Case "DESCRIPTION"
-                          Calendar()\Entries()\Description = StringField(String, 2, ":")
-                        Case "DTSTART"
-                          Calendar()\Entries()\StartDate   = ParseDate("%yyyy%mm%ddT%hh%ii%ssZ", StringField(String, 2, ":")) 
-                        Case "DTEND"
-                          Calendar()\Entries()\EndDate     = ParseDate("%yyyy%mm%ddT%hh%ii%ssZ", StringField(String, 2, ":")) 
-                      EndSelect
-                    Until String = "END:VEVENT" Or Eof(FileID)
-                  EndIf
-                  
-                EndIf
-                ;}
-            EndSelect
-  
-          Wend
-          
-          CloseFile(FileID)
-        EndIf
-
-      EndIf 
-      
-      ProcedureReturn Result
-    EndProcedure
-    
-  CompilerEndIf 
-  
-  
-  Procedure.i AddEntry(GNum.i, Label.s, Summary.s, Description.s, Location.s, StartDate.q, EndDate.q=#PB_Default, Flag.i=#False)
-    
-    If FindMapElement(Calendar(), Str(GNum))
-      
-      If FindMapElement(Calendar()\Entries(), Label)
-        Debug "Label already exists"
-        ProcedureReturn #False
-      EndIf 
-      
-      If AddMapElement(Calendar()\Entries(), Label)
-        
-        Calendar()\Entries()\Summary     = Summary
-        Calendar()\Entries()\Description = Description
-        Calendar()\Entries()\Location    = Location
-        Calendar()\Entries()\StartDate   = StartDate
-        
-        If EndDate = #PB_Default
-          Calendar()\Entries()\EndDate   = StartDate
-        Else
-          Calendar()\Entries()\EndDate   = EndDate
-        EndIf
-        
-        Calendar()\Entries()\FrontColor  = #PB_Default
-        Calendar()\Entries()\BackColor   = #PB_Default
-        
-        Calendar()\Entries()\Flags       = Flag
-        
-        UpdateCurrentEntries_()
-        
-        If Calendar()\ReDraw : Draw_() : EndIf
-        
-        ProcedureReturn #True
-      EndIf
-
-    EndIf
-    
-  EndProcedure
-  
-  Procedure   AttachPopupMenu(GNum.i, PopUpNum.i)
-    
-    If FindMapElement(Calendar(), Str(GNum))
-      Calendar()\PopupNum = PopUpNum
-    EndIf
-    
-  EndProcedure  
-  
-  Procedure   ClearEntries(GNum.i)
-    
-    If FindMapElement(Calendar(), Str(GNum))
-      ClearMap(Calendar()\Entries())
-    EndIf  
-  
-  EndProcedure
-  
-  Procedure.i CountEntries(GNum.i, DayOfMonth.i)
-    
-    If FindMapElement(Calendar(), Str(GNum))
-      If FindMapElement(Calendar()\Day(), Str(DayOfMonth))
-        ProcedureReturn ListSize(Calendar()\Day()\Entry())
-      EndIf
-    EndIf
-    
-    ProcedureReturn #False
-  EndProcedure 
+  Procedure.q GetData(GNum.i)
+	  
+	  If FindMapElement(Calendar(), Str(GNum))
+	    ProcedureReturn Calendar()\Quad
+	  EndIf  
+	  
+	EndProcedure	
+	
+	Procedure.s GetID(GNum.i)
+	  
+	  If FindMapElement(Calendar(), Str(GNum))
+	    ProcedureReturn Calendar()\ID
+	  EndIf
+	  
+	EndProcedure
+	
+	Procedure   SetData(GNum.i, Value.q)
+	  
+	  If FindMapElement(Calendar(), Str(GNum))
+	    Calendar()\Quad = Value
+	  EndIf  
+	  
+	EndProcedure
+	
+	Procedure   SetID(GNum.i, String.s)
+	  
+	  If FindMapElement(Calendar(), Str(GNum))
+	    Calendar()\ID = String
+	  EndIf
+	  
+	EndProcedure
+	
   
   Procedure   DefaultCountry(Code.s)
     CountryCode = Code
@@ -2287,37 +1825,16 @@ Module Calendar
     
   EndProcedure  
   
-  Procedure   EventEntries(GNum.i, List Entries.Entries_Structure())
-    
-    If FindMapElement(Calendar(), Str(GNum))
-      CopyList(Calendar()\Event\Entries(), Entries())
-      SortStructuredList(Entries(), #PB_Sort_Ascending, OffsetOf(Entries_Structure\StartDate), TypeOf(Entries_Structure\StartDate))
-    EndIf
-    
-  EndProcedure
   
-  Procedure.i EventDayOfMonth(GNum.i)
-    
-    If FindMapElement(Calendar(), Str(GNum))
-      ProcedureReturn Calendar()\Event\Day
-    EndIf
-    
-  EndProcedure
-  
-  Procedure.i EventDate(GNum.i)
-    
-    If FindMapElement(Calendar(), Str(GNum))
-      ProcedureReturn Date_(Calendar()\Event\Year, Calendar()\Event\Month, Calendar()\Event\Day)
-    EndIf
-    
-  EndProcedure
-  
-  Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
+  Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i=#PB_Default, Height.i=#PB_Default, Date.i=#PB_Default, Flags.i=#False, WindowNum.i=#PB_Default)
     Define d, m, DummyNum, Result.i
     
     CompilerIf Defined(ModuleEx, #PB_Module)
       If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
     CompilerEndIf
+    
+    If Width  = #PB_Default : Width  = 210 : EndIf
+    If Height = #PB_Default : Height = 160 : EndIf
     
     If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
       If IsGadget(GNum)
@@ -2327,17 +1844,23 @@ Module Calendar
       EndIf
       ;}
     Else
-      Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Container)
+      Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Container|#PB_Canvas_Keyboard)
     EndIf
 
     If Result
       
       If GNum = #PB_Any : GNum = Result : EndIf
-
+      
       If AddMapElement(Calendar(), Str(GNum))
         
         Calendar()\CanvasNum = GNum
-      
+        
+        Calendar()\ListView\ScrollBar\Num = ScrollBarGadget(#PB_Any, 0, 0, #ScrollBarSize, 0, 1, 12, 0, #PB_ScrollBar_Vertical)
+        If IsGadget(Calendar()\ListView\ScrollBar\Num)
+          SetGadgetData(Calendar()\ListView\ScrollBar\Num, GNum)
+          HideGadget(Calendar()\ListView\ScrollBar\Num, #True)
+        EndIf
+        
         CompilerIf Defined(ModuleEx, #PB_Module) ; WindowNum = #Default
           If WindowNum = #PB_Default
             Calendar()\Window\Num = ModuleEx::GetGadgetWindow()
@@ -2365,39 +1888,39 @@ Module Calendar
             Calendar()\FontID = GetGadgetFont(#PB_Default)
         CompilerEndSelect ;}
         
-        Calendar()\SpinNum = SpinGadget(#PB_Any, 0, 0, 0, 0, 1900, 2100, #PB_Spin_Numeric|#PB_Spin_ReadOnly)
-        If Calendar()\SpinNum
-          HideGadget(Calendar()\SpinNum, #True)
-        EndIf
+        CompilerIf Defined(ModuleEx, #PB_Module)
+      
+          If ModuleEx::AddWindow(Calendar()\Window\Num, ModuleEx::#Tabulator|ModuleEx::#CursorEvent)
+            ModuleEx::AddGadget(GNum, Calendar()\Window\Num)
+          EndIf
+          
+        CompilerElse
+          
+          If Thread\Active = #False
+            Thread\Exit   = #False
+            Thread\Num    = CreateThread(@_CursorThread(), #CursorFrequency)
+            Thread\Active = #True
+          EndIf
+          
+        CompilerEndIf
         
-        MonthNames(CountryCode)
+        MonthNames_(CountryCode)
         WeekDayNames_(CountryCode)
         
-        Calendar()\ListNum = ListViewGadget(#PB_Any, 0, 0, 0, 0)
-        If Calendar()\ListNum
-          SetGadgetData(Calendar()\ListNum, Calendar()\CanvasNum)
-          HideGadget(Calendar()\ListNum, #True)
-          For m=1 To 12
-            AddGadgetItem(Calendar()\ListNum, -1, Calendar()\Month\Name(Str(m)))
-          Next
-        EndIf
+        For m=1 To 12
+          If AddElement(Calendar()\ListView\Item())
+            Calendar()\ListView\Item()\String = Calendar()\Month\Name(Str(m))
+          EndIf 
+        Next
         
         CloseGadgetList()
-        
-        Calendar()\EntryFontID = Calendar()\FontID
         
         Calendar()\Size\X = X
         Calendar()\Size\Y = Y
         Calendar()\Size\Width  = Width
         Calendar()\Size\Height = Height
-        
-        Calendar()\Margin\Left   = 0
-        Calendar()\Margin\Right  = 0
-        Calendar()\Margin\Top    = 0
-        Calendar()\Margin\Bottom = 0
-        
+
         Calendar()\Month\Spacing     = dpiY(8)
-        Calendar()\Month\defHeight   = #PB_Default
         Calendar()\Month\Color\Front = #PB_Default
         Calendar()\Month\Color\Back  = #PB_Default
         Calendar()\Month\Color\Grid  = #PB_Default
@@ -2405,72 +1928,65 @@ Module Calendar
         Calendar()\Week\Color\Front  = #PB_Default
         Calendar()\Week\Color\Back   = #PB_Default
         Calendar()\Week\Color\Grid   = #PB_Default
-        Calendar()\Week\defHeight    = #PB_Default
         
-        Calendar()\TimeMask = "%hh:%ii"
-        Calendar()\DateMask = "%dd/%mm/%yyyy"
+        If Date <= 0 : Date = Date() : EndIf
+        
+        Calendar()\Current\Date  = Date
+        Calendar()\Current\Focus = Date
+        Calendar()\Current\Month = Month_(Date)
+        Calendar()\Current\Year  = Year_(Date)
         
         Calendar()\Flags  = Flags
-        
-        If Flags & #FitText    : Calendar()\Size\Flags | #FitText    : EndIf
-        If Flags & #FixPadding : Calendar()\Size\Flags | #FixPadding : EndIf
-        
-        If Calendar()\Flags & #PostEvent
-          Calendar()\Month\Flags | #PostEvent
-          Calendar()\Year\Flags  | #PostEvent
-        EndIf
-        
+
         Calendar()\ReDraw = #True
         
-        Calendar()\Color\Arrow        = $C8C8C8
+        Calendar()\Color\Arrow        = $696969
         Calendar()\Color\Back         = $FFFFFF
         Calendar()\Color\Border       = $A0A0A0
         Calendar()\Color\Gadget       = $EDEDED
         Calendar()\Color\GreyText     = $6D6D6D
-        Calendar()\Color\Focus        = $D77800
+        Calendar()\Color\FocusBack    = $D77800
+        Calendar()\Color\FocusText    = $FFFFFF
         Calendar()\Color\Front        = $000000
         Calendar()\Color\Grid         = $B4B4B4
         Calendar()\Color\Today        = $0000FF
         Calendar()\Color\DisableFront = $72727D
         Calendar()\Color\DisableBack  = $CCCCCA
-        Calendar()\Color\EntryFront   = $0000CC
-        Calendar()\Color\EntryBack    = $FFFFFF
         
         CompilerSelect #PB_Compiler_OS ;{ Color
           CompilerCase #PB_OS_Windows
             Calendar()\Color\Back       = GetSysColor_(#COLOR_WINDOW)
             Calendar()\Color\Border     = GetSysColor_(#COLOR_WINDOWFRAME)
-            Calendar()\Color\Focus      = GetSysColor_(#COLOR_MENUHILIGHT)
+            Calendar()\Color\FocusBack  = GetSysColor_(#COLOR_MENUHILIGHT)
             Calendar()\Color\Front      = GetSysColor_(#COLOR_WINDOWTEXT)
             Calendar()\Color\Gadget     = GetSysColor_(#COLOR_MENU)
             Calendar()\Color\Grid       = GetSysColor_(#COLOR_ACTIVEBORDER)
-            Calendar()\Color\EntryBack  = Calendar()\Color\Back
           CompilerCase #PB_OS_MacOS
             Calendar()\Color\Back       = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
             Calendar()\Color\Border     = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
             Calendar()\Color\Gadget     = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
-            Calendar()\Color\Focus      = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedControlColor"))
+            Calendar()\Color\FocusBack  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedControlColor"))
             Calendar()\Color\Front      = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
             Calendar()\Color\Grid       = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
-            Calendar()\Color\EntryBack  = Calendar()\Color\Back
           CompilerCase #PB_OS_Linux
 
         CompilerEndSelect ;} 
         
         BindGadgetEvent(Calendar()\CanvasNum,  @_ResizeHandler(),          #PB_EventType_Resize)
-        BindGadgetEvent(Calendar()\CanvasNum,  @_RightClickHandler(),      #PB_EventType_RightClick)
-        BindGadgetEvent(Calendar()\CanvasNum,  @_LeftDoubleClickHandler(), #PB_EventType_LeftDoubleClick)
         BindGadgetEvent(Calendar()\CanvasNum,  @_MouseMoveHandler(),       #PB_EventType_MouseMove)
+        BindGadgetEvent(Calendar()\CanvasNum,  @_MouseWheelHandler(),      #PB_EventType_MouseWheel)
         BindGadgetEvent(Calendar()\CanvasNum,  @_LeftButtonDownHandler(),  #PB_EventType_LeftButtonDown)
         BindGadgetEvent(Calendar()\CanvasNum,  @_LeftButtonUpHandler(),    #PB_EventType_LeftButtonUp)
+        BindGadgetEvent(Calendar()\CanvasNum,  @_KeyDownHandler(),         #PB_EventType_KeyDown)  
+        BindGadgetEvent(Calendar()\CanvasNum,  @_InputHandler(),           #PB_EventType_Input)
+        
+        BindGadgetEvent(Calendar()\ListView\ScrollBar\Num, @_SynchronizeScrollBar(), #PB_All) 
+        
+        BindEvent(#Event_Cursor, @_CursorDrawing())
         
         CompilerIf Defined(ModuleEx, #PB_Module)
           BindEvent(#Event_Theme, @_ThemeHandler())
         CompilerEndIf
-        
-        If IsGadget(Calendar()\ListNum)
-          BindGadgetEvent(Calendar()\ListNum, @_ListGadgetHandler(), #PB_EventType_LeftClick)
-        EndIf 
       
         If Flags & #AutoResize ;{ Enabel AutoResize
           If IsWindow(Calendar()\Window\Num)
@@ -2480,19 +1996,6 @@ Module Calendar
           EndIf  
         EndIf ;}
         
-        CompilerIf Defined(ToolTip, #PB_Module)
-          
-          Calendar()\TooltipNum = ToolTip::Create(Calendar()\CanvasNum, Calendar()\Window\Num)
-          If Calendar()\TooltipNum
-            ToolTip::SetColor(Calendar()\CanvasNum, ToolTip::#BorderColor,      $800000)
-            ToolTip::SetColor(Calendar()\CanvasNum, ToolTip::#BackColor,        $FFFFFA)
-            ToolTip::SetColor(Calendar()\CanvasNum, ToolTip::#TitleBorderColor, $800000)
-            ToolTip::SetColor(Calendar()\CanvasNum, ToolTip::#TitleBackColor,   $B48246)
-            ToolTip::SetColor(Calendar()\CanvasNum, ToolTip::#TitleColor,       $FFFFFF)
-          EndIf
-
-        CompilerEndIf
-        
         Draw_()
         
         ProcedureReturn Calendar()\CanvasNum
@@ -2501,6 +2004,21 @@ Module Calendar
     EndIf
     
   EndProcedure    
+  
+  
+  Procedure   GetAttribute(GNum.i, Attribute.i)
+    
+    If FindMapElement(Calendar(), Str(GNum))
+      
+      Select Attribute
+        Case #Spacing
+          ProcedureReturn DesktopUnscaledX(Calendar()\Month\Spacing)
+      EndSelect
+      
+      If Calendar()\ReDraw : Draw_() : EndIf
+    EndIf  
+    
+  EndProcedure
   
   Procedure.q GetDate(Day.i, Month.i, Year.i, Hour.i=0, Minute.i=0, Second.i=0)
  
@@ -2514,37 +2032,6 @@ Module Calendar
       ProcedureReturn Day_(Calendar()\Current\Focus)
     EndIf
     
-  EndProcedure
-  
-  Procedure.i GetEntries(GNum.i, Date.q, List Entries.Entries_Structure()) 
-    
-    If FindMapElement(Calendar(), Str(GNum))
-      
-      ClearList(Entries())
-      
-      ForEach Calendar()\Entries()
-        
-        If Date >= Calendar()\Entries()\StartDate And Date <= Calendar()\Entries()\EndDate
-          
-          If AddElement(Entries())
-            Entries()\Label       = MapKey(Calendar()\Entries())
-            Entries()\StartDate   = Calendar()\Entries()\StartDate
-            Entries()\EndDate     = Calendar()\Entries()\EndDate
-            Entries()\Summary     = Calendar()\Entries()\Summary
-            Entries()\Description = Calendar()\Entries()\Description
-            Entries()\Location    = Calendar()\Entries()\Location
-            Entries()\Flags       = Calendar()\Entries()\Flags
-          EndIf  
-          
-        EndIf
-        
-      Next
-      
-      SortStructuredList(Entries(), #PB_Sort_Ascending, OffsetOf(Entries_Structure\StartDate), TypeOf(Entries_Structure\StartDate))
-
-    EndIf
-    
-    ProcedureReturn ListSize(Entries())
   EndProcedure
   
   Procedure.i GetMonth(GNum.i) 
@@ -2570,6 +2057,24 @@ Module Calendar
     EndIf
     
   EndProcedure  
+  
+  Procedure.s GetText(GNum.i, Mask.s="")
+    Define.s String
+    
+    If Mask = "" : Mask = "%yyy/%mm/%dd" : EndIf 
+    
+    If FindMapElement(Calendar(), Str(GNum))
+      String = ReplaceString(Mask,   "%yyyy", Str(Year_(Calendar()\Current\Focus)))
+      
+      String = ReplaceString(String, "%yy",   Right(Str(Year_(Calendar()\Current\Focus)), 2))
+      String = ReplaceString(String, "%mm",   Str(Month_(Calendar()\Current\Focus)))
+      String = ReplaceString(String, "%dd",   Str(Day_(Calendar()\Current\Focus)))
+      
+      ProcedureReturn String
+    EndIf
+    
+  EndProcedure
+  
   
   Procedure   Hide(GNum.i, State.i=#True)
     
@@ -2601,76 +2106,6 @@ Module Calendar
     
   EndProcedure 	  
   
-
-  Procedure   LoadColorTheme(GNum.i, File.s)
-    Define Theme.Theme_Structure
-
-    If FindMapElement(Calendar(), Str(GNum))
-      
-      Calendar()\Color\Front = Theme\Front
-      Calendar()\Color\Back  = Theme\Back
-      Calendar()\Color\Grid  = Theme\Grid
-      Calendar()\Color\Focus = Theme\Focus
-      
-      Calendar()\Month\Color\Front = Theme\Month\Front
-      Calendar()\Month\Color\Back  = Theme\Month\Back
-      Calendar()\Month\Color\Grid  = Theme\Month\Grid
-      
-      Calendar()\Week\Color\Front = Theme\Week\Front
-      Calendar()\Week\Color\Back  = Theme\Week\Back
-      Calendar()\Week\Color\Grid  = Theme\Week\Grid
-      
-      If LoadJSON(#JSON, File)
-        ExtractJSONStructure(JSONValue(#JSON), @Theme, Theme_Structure)
-        FreeJSON(#JSON)
-        If Calendar()\ReDraw : Draw_() : EndIf
-      EndIf
-      
-    EndIf  
-    
-  EndProcedure
-  
-
-  Procedure   RemoveEntry(GNum.i, Label.s)
-    
-    If FindMapElement(Calendar(), Str(GNum))
-      
-      If FindMapElement(Calendar()\Entries(), Label)
-        DeleteMapElement(Calendar()\Entries())
-      EndIf
-      
-    EndIf
-    
-  EndProcedure
-  
-
-  Procedure   SaveColorTheme(GNum.i, File.s)
-    Define Theme.Theme_Structure
-    
-    If FindMapElement(Calendar(), Str(GNum))
-      
-      Theme\Front = Calendar()\Color\Front
-      Theme\Back  = Calendar()\Color\Back
-      Theme\Grid  = Calendar()\Color\Grid
-      Theme\Focus = Calendar()\Color\Focus
-      
-      Theme\Month\Front = Calendar()\Month\Color\Front
-      Theme\Month\Back  = Calendar()\Month\Color\Back
-      Theme\Month\Grid  = Calendar()\Month\Color\Grid
-      
-      Theme\Week\Front = Calendar()\Week\Color\Front
-      Theme\Week\Back  = Calendar()\Week\Color\Back
-      Theme\Week\Grid  = Calendar()\Week\Color\Grid
-      
-      If CreateJSON(#JSON)
-        InsertJSONStructure(JSONValue(#JSON), @Theme, Theme_Structure)
-        SaveJSON(#JSON, File)
-        FreeJSON(#JSON)
-      EndIf
-     
-    EndIf  
-    
-  EndProcedure  
   
   Procedure   SetAttribute(GNum.i, Attribute.i, Value.i)
     
@@ -2678,17 +2113,13 @@ Module Calendar
       
       Select Attribute
         Case #Spacing
-          Calendar()\Month\Spacing   = dpiX(Value)
-        Case #Height_Month
-          Calendar()\Month\defHeight = dpiY(Value)
-        Case #Height_WeekDays
-          Calendar()\Week\defHeight  = dpiY(Value)
+          Calendar()\Month\Spacing = dpiX(Value)
       EndSelect
       
       If Calendar()\ReDraw : Draw_() : EndIf
     EndIf  
     
-  EndProcedure 
+  EndProcedure
   
   Procedure   SetAutoResizeFlags(GNum.i, Flags.i)
     
@@ -2715,23 +2146,17 @@ Module Calendar
         Case #FrontColor
           Calendar()\Color\Front       = Value        
         Case #FocusColor
-          Calendar()\Color\Focus       = Value
+          Calendar()\Color\FocusBack       = Value
         Case #TodayColor
           Calendar()\Color\Today       = Value  
         Case #GreyTextColor
           Calendar()\Color\GreyText    = Value
         Case #LineColor
           Calendar()\Color\Grid        = Value
-        Case #Entry_FrontColor
-          Calendar()\Color\EntryFront  = Value
-        Case #Entry_BackColor
-          Calendar()\Color\EntryBack   = Value
         Case #Month_FrontColor
           Calendar()\Month\Color\Front = Value
-          ;If IsGadget(Calendar()\SpinNum) : SetGadgetColor(Calendar()\SpinNum, #PB_Gadget_FrontColor, Value) : EndIf
         Case #Month_BackColor
           Calendar()\Month\Color\Back  = Value
-          ;If IsGadget(Calendar()\SpinNum) : SetGadgetColor(Calendar()\SpinNum, #PB_Gadget_BackColor, Value) : EndIf
         Case #Week_FrontColor
           Calendar()\Week\Color\Front  = Value
         Case #Week_BackColor  
@@ -2743,64 +2168,6 @@ Module Calendar
     
   EndProcedure  
   
-  Procedure   SetColorTheme(GNum.i, Theme.i=#PB_Default)
-    
-    If FindMapElement(Calendar(), Str(GNum))
-      
-      Select Theme
-        Case #Theme_Blue
-
-          Calendar()\Color\Front        = 0
-          Calendar()\Color\Back         = 16645114
-          Calendar()\Color\Grid         = 13092807
-          Calendar()\Color\Focus        = $B06400
-          Calendar()\Month\Color\Front  = 16775408
-          Calendar()\Month\Color\Back   = 11691264
-          Calendar()\Week\Color\Front   = 5767168
-          Calendar()\Week\Color\Back    = 16775926
-
-        Case #Theme_Green
-          
-          Calendar()\Color\Front        = 0
-          Calendar()\Color\Back         = 16383222
-          Calendar()\Color\Grid         = 13092807
-          Calendar()\Color\Focus        = $3E8910
-          Calendar()\Month\Color\Front  = 16449525
-          Calendar()\Month\Color\Back   = 25600
-          Calendar()\Week\Color\Back    = 15925234
-          
-        Default
-          
-          Calendar()\Color\Focus        = $D77800
-          
-          Calendar()\Color\Front        = 0
-          Calendar()\Color\Back         = 16777215
-          Calendar()\Color\Grid         = 14935011
-          Calendar()\Color\Focus        = $D77800
-          
-          Calendar()\Month\Color\Front  = #PB_Default
-          Calendar()\Month\Color\Back   = #PB_Default
-          Calendar()\Month\Color\Grid = #PB_Default
-          
-          CompilerSelect  #PB_Compiler_OS
-            CompilerCase #PB_OS_Windows
-            Calendar()\Color\Front        = GetSysColor_(#COLOR_WINDOWTEXT)
-            Calendar()\Color\Back         = GetSysColor_(#COLOR_WINDOW)
-            Calendar()\Color\Grid         = GetSysColor_(#COLOR_3DLIGHT)
-          CompilerCase #PB_OS_MacOS
-            Calendar()\Color\Front        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
-            Calendar()\Color\Back         = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
-            Calendar()\Color\Grid         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
-          CompilerCase #PB_OS_Linux
-            
-        CompilerEndSelect
-    EndSelect
-    
-      Draw_()
-    EndIf  
-    
-  EndProcedure    
-  
   Procedure   SetDate(GNum.i, Year.i, Month.i, Day.i=1, Hour.i=0, Minute.i=0, Second.i=0)
 
     If FindMapElement(Calendar(), Str(GNum))
@@ -2810,72 +2177,11 @@ Module Calendar
       Calendar()\Current\Month = Month_(Calendar()\Current\Date)
       Calendar()\Current\Year  = Year_(Calendar()\Current\Date)
       
-      UpdateCurrentEntries_()
-      
       If Calendar()\ReDraw : Draw_() : EndIf
     EndIf
     
   EndProcedure
-  
-  Procedure   SetEntryColor(GNum.i, Label.s, ColorType.i, Value.i)
-    
-    If FindMapElement(Calendar(), Str(GNum))
-      
-      If FindMapElement(Calendar()\Entries(), Label)
-        
-        Select ColorType
-          Case #Entry_FrontColor, #FrontColor
-            Calendar()\Entries()\FrontColor = Value
-          Case #Entry_BackColor, #BackColor
-            Calendar()\Entries()\BackColor  = Value
-        EndSelect
-        
-        UpdateCurrentEntries_()
-        
-        If Calendar()\ReDraw : Draw_() : EndIf
-        
-      EndIf
-      
-    EndIf  
-    
-  EndProcedure
-  
-  Procedure   SetEntryMask(GNum.i, Label.s, String.s)
-    
-    If FindMapElement(Calendar(), Str(GNum))
-      
-      If FindMapElement(Calendar()\Entries(), Label)
-        
-        Calendar()\Entries()\ToolTipMask = String
-        
-        UpdateCurrentEntries_()
-        
-        If Calendar()\ReDraw : Draw_() : EndIf
-        
-      EndIf
-      
-    EndIf  
-    
-  EndProcedure
-  
-  Procedure   SetFlags(GNum.i, Type.i, Flags.i)
-    
-    If FindMapElement(Calendar(), Str(GNum))
-      
-      Select Type
-        Case #Month
-          Calendar()\Month\Flags | Flags
-        Case #Year
-          Calendar()\Year\Flags  | Flags
-        Case #Gadget
-          Calendar()\Flags | Flags
-      EndSelect
-      
-      If Calendar()\ReDraw : Draw_() : EndIf
-    EndIf 
-    
-  EndProcedure
-  
+
   Procedure   SetFont(GNum.i, FontNum.i, FontType.i=#Font_Gadget) 
     
     If FindMapElement(Calendar(), Str(GNum))
@@ -2885,12 +2191,6 @@ Module Calendar
           Calendar()\Month\Font  = FontNum
         Case #Font_Weekdays
           Calendar()\Week\Font   = FontNum
-        Case #Font_ToolTip
-          CompilerIf Defined(ToolTip, #PB_Module)
-            ToolTip::SetFont(Calendar()\CanvasNum, FontNum, ToolTip::#Title)
-          CompilerEndIf  
-        Case #Font_Entry
-          Calendar()\EntryFontID = FontID(FontNum)
         Default
           Calendar()\FontID      = FontID(FontNum)
       EndSelect
@@ -2899,26 +2199,7 @@ Module Calendar
     EndIf
     
   EndProcedure  
-  
-  Procedure   SetMask(GNum.i, Type.i, String.s)
-    
-    If FindMapElement(Calendar(), Str(GNum))
-      
-      Select Type
-        Case #Date
-          Calendar()\DateMask     = String
-        Case #Time
-          Calendar()\TimeMask     = String
-        Case #ToolTipText
-          Calendar()\ToolTipText  = String
-        Case #ToolTipTitle
-          Calendar()\ToolTipTitle = String
-      EndSelect
-      
-    EndIf
-    
-  EndProcedure  
-  
+ 
   Procedure   SetState(GNum.i, Date.q) 
     
     If FindMapElement(Calendar(), Str(GNum))
@@ -2927,40 +2208,19 @@ Module Calendar
       Calendar()\Current\Focus = Date
       Calendar()\Current\Month = Month_(Date)
       Calendar()\Current\Year  = Year_(Date)
-      
-      UpdateCurrentEntries_()
-      
+
       If Calendar()\ReDraw : Draw_() : EndIf
     EndIf
     
   EndProcedure  
   
-  Procedure   ToolTipText(GNum.i, String.s) 
-    
-    If FindMapElement(Calendar(), Str(GNum))
-      Calendar()\ToolTipText = String
-    EndIf  
-    
-  EndProcedure  
-
+  
   Procedure   MonthName(Month.i, Name.s)
     If Month >= 1 And Month <= 12
       NameOfMonth(Str(Month)) = Name
     EndIf
   EndProcedure
-  
-  Procedure   UpdatePopupText(GNum.i, MenuItem.i, Text.s)
-    
-    If FindMapElement(Calendar(), Str(GNum))
-      
-      If AddMapElement(Calendar()\PopUpItem(), Str(MenuItem))
-        Calendar()\PopUpItem() = Text
-      EndIf 
-      
-    EndIf
-    
-  EndProcedure
-  
+
   Procedure   WeekDayName(WeekDay.i, Name.s)
     If WeekDay >= 0 And WeekDay <= 7
       If WeekDay = 0
@@ -2970,225 +2230,40 @@ Module Calendar
       EndIf
     EndIf
   EndProcedure
-  
-  
-  CompilerIf Defined(ModuleEx, #PB_Module)
-	  
-	  Procedure.i SetDynamicFont(GNum.i, Name.s, Size.i, Style.i=#False)
-	    Define.i FontNum
-	    Define   Padding.ModuleEx::Padding_Structure
-	    
-	    If FindMapElement(Calendar(), Str(GNum))
-	      
-	      FontNum = ModuleEx::Font(Name, Size, Style)
-	      If IsFont(FontNum)
-	        
-	        Calendar()\Font\Num   = FontNum
-	        Calendar()\Font\Name  = Name
-	        Calendar()\Font\Size  = Size
-	        Calendar()\Font\Style = Style
-	        Calendar()\FontID     = FontID(FontNum)
-	        
-	        ModuleEx::CalcPadding("33", Calendar()\Size\colHeight, FontNum, Size, @Padding)
-	        Calendar()\PaddingX = Padding\X
-	        Calendar()\PaddingY = Padding\Y
-	        Calendar()\PFactor  = Padding\Factor
-	        
-	        FontNum = ModuleEx::Font(Name, Size, #PB_Font_Bold)
-	        Calendar()\EntryFontID = FontID(FontNum)
-	        
-	        Draw_()
-	      EndIf
-	      
-	    EndIf
-	    
-	    ProcedureReturn FontNum
-	  EndProcedure
-	  
-	  Procedure.i FitText(GNum.i, PaddingX.i=#PB_Default, PaddingY.i=#PB_Default)
-	    Define.i Width, Height, FontSize, FontNum
-	    
-	    If FindMapElement(Calendar(), Str(GNum))
-	      
-	      If IsFont(Calendar()\Font\Num) = #False : ProcedureReturn #False : EndIf 
-	      
-	      If PaddingX <> #PB_Default : Calendar()\PaddingX = PaddingX * 2 : EndIf 
-	      If PaddingY <> #PB_Default : Calendar()\PaddingY = PaddingY * 2 : EndIf 
-	      
-	      If Calendar()\Size\Flags & #FixPadding Or PaddingY <> #PB_Default
-		      Width  = Calendar()\Size\colWidth  - Calendar()\PaddingX
-          Height = Calendar()\Size\colHeight - Calendar()\PaddingY
-		    Else
-		      Width  = Calendar()\Size\colWidth  - Calendar()\PaddingX
-          Height = Calendar()\Size\colHeight - (Calendar()\Size\colHeight * Calendar()\PFactor)
-		    EndIf
-		    
-		    FontSize = ModuleEx::RequiredFontSize("33", Width, Height, Calendar()\Font\Num)
-		    If FontSize <> Calendar()\Font\Size
-          Calendar()\Font\Size = FontSize
-          Calendar()\Font\Num  = ModuleEx::Font(Calendar()\Font\Name, FontSize, Calendar()\Font\Style)
-          Calendar()\FontID    = FontID(Calendar()\Font\Num)
-        EndIf  
-        
-        FontNum = ModuleEx::Font(Calendar()\Font\Name, FontSize, #PB_Font_Bold)
-	      Calendar()\EntryFontID = FontID(FontNum)
-        
-        Draw_()
-      EndIf
-      
-	    ProcedureReturn Calendar()\Font\Num
-	  EndProcedure  
 
-	CompilerEndIf 
-  
-  
 EndModule
 
 
 ;- ========  Module - Example ========
 
 CompilerIf #PB_Compiler_IsMainFile
-  
-  #Example =1
-  
-  ; Example 1: Default 
-  ; Example 2: #GreyedDays
-  ; Example 3: Colors
-  
+
   ;Calendar::DefaultCountry("DE")
   
   Enumeration 1
     #Window
     #Calendar
-    #PopUpMenu
-    #ExportEvent
-    #ShowEntries
   EndEnumeration
-  
-  Enumeration 1
-    #FontGadget
-    #FontMonth
-    #FontWeekDays
-  EndEnumeration  
-  
-  LoadFont(#FontMonth,    "Arial", 11, #PB_Font_Bold)
-  LoadFont(#FontWeekDays, "Arial",  9, #PB_Font_Bold)
-  
-  NewList Entries.Calendar::Entries_Structure()
-  
-  If OpenWindow(#Window, 0, 0, 300, 200, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
-    
-    If CreatePopupMenu(#PopUpMenu)
-      MenuItem(#ExportEvent, "Export calendar entries")
-      MenuBar()
-      MenuItem(#ShowEntries, "Show calendar entries")
-    EndIf
-    
-    If Calendar::Gadget(#Calendar, 10, 10, 280, 180, Calendar::#AutoResize, #Window) ; Calendar::#PostEvent|Calendar::#FixDayOfMonth|Calendar::#FixMonth|Calendar::#FixYear
-      
-      Calendar::AttachPopupMenu(#Calendar, #PopUpMenu)
-      
-      Calendar::SetFont(#Calendar, #FontMonth, Calendar::#Font_Month)
-      Calendar::SetAttribute(#Calendar, Calendar::#Height_Month, 28)
-      
-      Calendar::SetFont(#Calendar, #FontWeekDays, Calendar::#Font_Weekdays)
-      Calendar::SetAttribute(#Calendar, Calendar::#Height_WeekDays, 22)
-      
-      Calendar::UpdatePopupText(#Calendar, #ExportEvent, "Export calendar entries for '" + Calendar::#Date$ + "'.")
-      Calendar::UpdatePopupText(#Calendar, #ShowEntries, "Show calendar entries for '"   + Calendar::#Date$ + "'.")
-      
-      Calendar::SetState(#Calendar, Date())
 
-      CompilerIf Defined(ModuleEx, #PB_Module)
-       
-        Calendar::SetAutoResizeFlags(#Calendar, Calendar::#Width|Calendar::#Height|Calendar::#FitText)
-    	  Calendar::SetDynamicFont(#Calendar, "Arial", 9)
-    	  Calendar::FitText(#Calendar, 4, 4)
-    	
-      CompilerEndIf
-      
-      ;ModuleEx::SetTheme(ModuleEx::#Theme_DarkBlue)
-      
-      CompilerSelect #Example
-        CompilerCase 2
-          Calendar::SetFlags(#Calendar, Calendar::#Gadget, Calendar::#GreyedDays)
-        CompilerCase 3
-          Calendar::SetColor(#Calendar, Calendar::#Month_FrontColor, $FFF8F0)
-          Calendar::SetColor(#Calendar, Calendar::#Month_BackColor,  $701919)
-          Calendar::SetColor(#Calendar, Calendar::#Week_FrontColor,  $701919)
-          Calendar::SetColor(#Calendar, Calendar::#Week_BackColor,   $FFFAF6)
-          Calendar::SetColor(#Calendar, Calendar::#FocusColor,       $00FC7C)
-          ;Calendar::SetColor(#Calendar, Calendar::#Entry_BackColor,  $9595FF)
-          Calendar::SetFlags(#Calendar, Calendar::#Gadget, Calendar::#GreyedDays)
-        CompilerDefault
-          
-          Calendar::SetColorTheme(#Calendar, Calendar::#Theme_Blue)
-          
-          Calendar::SetFont(#Calendar, #FontWeekDays, Calendar::#Font_Entry)
-          Calendar::SetFlags(#Calendar, Calendar::#Gadget, Calendar::#GreyedDays)
-          
-          Calendar::SetMask(#Calendar, Calendar::#ToolTipText, Calendar::#Summary$ + ": " + Calendar::#Label$)
-          Calendar::SetMask(#Calendar, Calendar::#Date, "%dd.%mm.%yyyy")
-          
-          Calendar::AddEntry(#Calendar, "Thorsten", "Birthday",        "", "", Calendar::GetDate(18, 7, 2019))
-          Calendar::AddEntry(#Calendar, "Entry 2",  "2nd appointment", "", "", Calendar::GetDate(18, 7, 2019, 8), Calendar::GetDate(18, 7, 2019, 11, 15), Calendar::#Duration)
-          Calendar::AddEntry(#Calendar, "Entry 3",  "3rd appointment", "", "", Calendar::GetDate(18, 7, 2019, 15, 30), #PB_Default, Calendar::#StartTime)
+  If OpenWindow(#Window, 0, 0, 230, 180, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
+    
+    Calendar::Gadget(#Calendar, 10, 10, #PB_Default, #PB_Default, #False, #Window)
 
-          Calendar::AddEntry(#Calendar,      "Holidy", "Holiday: Summer", "", "", Calendar::GetDate(27, 7, 2019), Calendar::GetDate(9, 8, 2019))
-          Calendar::SetEntryColor(#Calendar, "Holidy", Calendar::#FrontColor, $008000)
-          Calendar::SetEntryColor(#Calendar, "Holidy", Calendar::#BackColor,  $61FFC1)
-          Calendar::SetEntryMask(#Calendar,  "Holidy",  "Holiday: " + Calendar::#StartDate$ + " - " + Calendar::#EndDate$)
-          
-      CompilerEndSelect
-      
-      ;Calendar::Disable(#Calendar)
-      
-    EndIf
+    ;ModuleEx::SetTheme(ModuleEx::#Theme_Blue)
     
     Repeat
       Event = WaitWindowEvent()
       Select Event
         Case Calendar::#Event_Gadget ;{ Module Events
-          Select EventGadget()  
-            Case #Calendar
-              Select EventType()
-                Case Calendar::#EventType_Month
-                  ; 
-                Case Calendar::#EventType_Year
-                  
-                Case Calendar::#EventType_Day
-                  Debug "Day: " + Str(EventData())   
-                Case Calendar::#EventType_Focus
-                  Debug "Focus: " + Str(EventData()) 
-            EndSelect
-          EndSelect ;}
-        Case #PB_Event_Menu          ;{ PopupMenu
-          Select EventMenu()
-            Case  #ExportEvent
-              Debug "Export calendar entries: " + FormatDate("%dd/%mm/%yyyy",  Calendar::EventDate(#Calendar))
-              DayOfMonth.i = Calendar::EventDayOfMonth(#Calendar)
-              Calendar::ExportDay(#Calendar, DayOfMonth, "iCal_Export.ics")
-            Case #ShowEntries  
-              Debug "Show calendar entries: "
-              Calendar::EventEntries(#Calendar, Entries())
-              ForEach Entries()
-                Debug "> " + FormatDate("%dd/%mm/%yyyy",  Entries()\StartDate) + ": " +  Entries()\Summary
-              Next
-          EndSelect ;}
-        Case #PB_Event_Gadget  
-          Select EventGadget()
-            Case #Calendar           ;{ only in use with EventType()  
-              Select EventType()
-                Case Calendar::#EventType_Month
-                  Debug "Select: Month"
-                Case Calendar::#EventType_Year
-                  Debug "Select: Year" 
-              EndSelect ;}
-          EndSelect  
+          If EventType() = Calendar::#EventType_Select
+            Debug "Module Event: " + Date64::FormatDate_("%yyyy/%mm/%dd", EventData())
+          EndIf ;}
+        Case #PB_Event_Gadget        ;{ Gadget Event
+          If EventType() = Calendar::#EventType_Select
+            Debug "Gadget Event: Date selected"
+          EndIf ;}
       EndSelect        
     Until Event = #PB_Event_CloseWindow
-    
-    ;Calendar::SaveColorTheme(#Calendar, "Color.json")
     
     CloseWindow(#Window)
   EndIf 
@@ -3196,9 +2271,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 100
-; FirstLine = 18
-; Folding = 5BwBAAwAAEEAQ9PAigJCIwaAEIIQS-
-; Markers = 1069,2747
+; CursorPosition = 760
+; FirstLine = 314
+; Folding = PMAIAAAACACLQhQAAEAAjBAA9
+; Markers = 903,2171
 ; EnableXP
 ; DPIAware

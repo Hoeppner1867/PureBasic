@@ -2903,8 +2903,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 2877
-; FirstLine = 786
+; CursorPosition = 1435
+; FirstLine = 370
 ; Folding = 5FAAIDAgmSBBwADEAAA9yDBk0
 ; Markers = 1867
 ; EnableXP
