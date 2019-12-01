@@ -77,7 +77,7 @@
 
 DeclareModule TreeEx
   
-  #Version  = 19112401
+  #Version  = 19120100
   #ModuleEx = 19112002
   
   #Enable_ProgressBar = #True
@@ -212,6 +212,10 @@ DeclareModule TreeEx
 	Declare.i CountItems(GNum.i)
 	Declare   DisableReDraw(GNum.i, State.i=#False)
 	Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Title.s="", Flags.i=#False, WindowNum.i=#PB_Default)
+	Declare.q GetData(GNum.i)
+	Declare.s GetID(GNum.i)
+  Declare   SetData(GNum.i, Value.q)
+	Declare   SetID(GNum.i, String.s)
 	Declare.i GetItemColor(GNum.i, Row.i, ColorTyp.i, Column.i=#PB_Ignore)
   Declare.i GetItemData(GNum.i, Row.i)
   Declare.i GetItemState(GNum.i, Row.i, Column.i=#PB_Ignore)
@@ -283,8 +287,7 @@ Module TreeEx
     Back.i
     Border.i
   EndStructure ;}
-  
-  
+
   Structure TreeEx_AutoResize_Structure     ;{ TreeEx()\AutoResize\...
     Column.i
     Width.f
@@ -435,6 +438,9 @@ Module TreeEx
 		VScrollNum.i
 		HScrollNum.i
 		
+		Quad.q
+		ID.s
+		
 		FontID.i
 
 		ReDraw.i
@@ -449,6 +455,7 @@ Module TreeEx
 		Color.TreeEx_Color_Structure
 		Window.TreeEx_Window_Structure
 		Size.TreeEx_Size_Structure
+		
 		
 		ProgressBar.TreeEx_Rows_ProgressBar
 		
@@ -1744,7 +1751,7 @@ Module TreeEx
 			    EndIf  
 			    ;}
 			  ElseIf X >= TreeEx()\Rows()\Text\X And X <= TreeEx()\Rows()\Text\X + TreeEx()\Rows()\Text\Width              ;{ Select row
-			    If Y >= TreeEx()\Rows()\Y And Y <= TreeEx()\Rows()\Y + TreeEx()\Row\Height
+			    If Y >= TreeEx()\Rows()\Y And Y <= TreeEx()\Rows()\Y + dpiY(TreeEx()\Row\Height)
 			      TreeEx()\Row\Focus = ListIndex(TreeEx()\Rows())
             PostEvent(#PB_Event_Gadget, TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Row, TreeEx()\Row\Focus)
             PostEvent(#Event_Gadget,    TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Row, TreeEx()\Row\Focus)
@@ -2211,6 +2218,22 @@ Module TreeEx
 	EndProcedure
 	
 	
+	Procedure.q GetData(GNum.i)
+	  
+	  If FindMapElement(TreeEx(), Str(GNum))
+	    ProcedureReturn TreeEx()\Quad
+	  EndIf  
+	  
+	EndProcedure	
+	
+	Procedure.s GetID(GNum.i)
+	  
+	  If FindMapElement(TreeEx(), Str(GNum))
+	    ProcedureReturn TreeEx()\ID
+	  EndIf
+	  
+	EndProcedure
+	
 	Procedure.i GetItemAttribute(GNum.i, Row.i, Attribute.i)
 	  
 	  If FindMapElement(TreeEx(), Str(GNum))
@@ -2560,6 +2583,14 @@ Module TreeEx
     
   EndProcedure  
   
+  Procedure   SetData(GNum.i, Value.q)
+	  
+	  If FindMapElement(TreeEx(), Str(GNum))
+	    TreeEx()\Quad = Value
+	  EndIf  
+	  
+	EndProcedure
+	
   Procedure   SetHeaderAttribute(GNum.i, Attribute.i, Value.i, Column.i=#PB_Ignore)
     
     If FindMapElement(TreeEx(), Str(GNum))
@@ -2643,6 +2674,14 @@ Module TreeEx
     EndIf
     
   EndProcedure
+  
+	Procedure   SetID(GNum.i, String.s)
+	  
+	  If FindMapElement(TreeEx(), Str(GNum))
+	    TreeEx()\ID = String
+	  EndIf
+	  
+	EndProcedure  
   
   Procedure   SetFont(GNum.i, FontID.i, Column.i=#PB_Ignore)             ; GNum: #Theme => change all gadgets
     
@@ -2992,8 +3031,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 79
-; FirstLine = 12
-; Folding = 96AAACA15NAQMMG7QSMEEAIwAM+
+; CursorPosition = 2680
+; Folding = 96AAACU25PAeMMO3QSI1QAABOAD-
 ; EnableXP
 ; DPIAware

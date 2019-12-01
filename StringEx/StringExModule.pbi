@@ -174,7 +174,7 @@ DeclareModule StringEx
     Declare   ClearWords(GNum.i)
     
   CompilerEndIf
-  
+
   Declare   AddButton(GNum.i, ImageNum.i, Width.i=#PB_Default, Height.i=#PB_Default, Event.i=#PB_Default)
   Declare   AttachPopupMenu(GNum.i, MenuNum.i)
   Declare   Clear(GNum.i)
@@ -182,6 +182,8 @@ DeclareModule StringEx
   Declare   Cut(GNum.i)
   Declare   Delete(GNum.i)
   Declare   Disable(GNum.i, State.i=#True)
+  Declare.q GetData(GNum.i)
+	Declare.s GetID(GNum.i)
   Declare   Free(GNum.i)
   Declare.i GetAttribute(GNum.i, Attribute.i)
   Declare.i GetColor(GNum.i, ColorType.i)
@@ -193,8 +195,10 @@ DeclareModule StringEx
   Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetColor(GNum.i, ColorType.i, Color.i)
+  Declare   SetData(GNum.i, Value.q)
   Declare   SetFlags(GNum.i, Flags.i)
   Declare   SetFont(GNum.i, FontNum.i) 
+  Declare   SetID(GNum.i, String.s)
   Declare   SetInputMask(GNum.i, Mask.s)
   Declare   SetText(GNum.i, Text.s) 
   Declare   Undo(GNum.i)
@@ -335,19 +339,24 @@ Module StringEx
     PopupNum.i
     
     Thread.i
-
+    
+    ID.s
+    Quad.q
+    
     FontID.i
-    State.i
     
     Text.s
+    State.i
+    
     OffSetX.i
+    Mouse.i
+    CanvasCursor.i
     
     Undo.s
-    CanvasCursor.i
-    Mouse.i
     MaxLength.i
     Padding.i
     Radius.i
+    
     Hide.i
     Disable.i
     Flags.i
@@ -2095,6 +2104,23 @@ Module StringEx
     
   EndProcedure  
   
+  Procedure.q GetData(GNum.i)
+	  
+	  If FindMapElement(StrgEx(), Str(GNum))
+	    ProcedureReturn StrgEx()\Quad
+	  EndIf  
+	  
+	EndProcedure	
+	
+	Procedure.s GetID(GNum.i)
+	  
+	  If FindMapElement(StrgEx(), Str(GNum))
+	    ProcedureReturn StrgEx()\ID
+	  EndIf
+	  
+	EndProcedure
+
+
   Procedure.s GetText(GNum.i) 
     
     If FindMapElement(StrgEx(), Str(GNum))
@@ -2104,7 +2130,7 @@ Module StringEx
   EndProcedure
   
   
-  Procedure Hide(GNum.i, State.i=#True)
+  Procedure   Hide(GNum.i, State.i=#True)
     
     If FindMapElement(StrgEx(), Str(GNum))
       HideGadget(GNum, State)
@@ -2113,7 +2139,7 @@ Module StringEx
   
   EndProcedure
   
-  Procedure RemoveFlag(GNum.i, Flag.i)
+  Procedure   RemoveFlag(GNum.i, Flag.i)
     
     If FindMapElement(StrgEx(), Str(GNum))
       StrgEx()\Flags & ~Flag
@@ -2122,7 +2148,7 @@ Module StringEx
   EndProcedure  
   
   
-  Procedure SetAutoResizeFlags(GNum.i, Flags.i)
+  Procedure   SetAutoResizeFlags(GNum.i, Flags.i)
     
     If FindMapElement(StrgEx(), Str(GNum))
       
@@ -2132,7 +2158,7 @@ Module StringEx
    
   EndProcedure
   
-  Procedure SetAttribute(GNum.i, Attribute.i, Value.i)
+  Procedure   SetAttribute(GNum.i, Attribute.i, Value.i)
     
     If FindMapElement(StrgEx(), Str(GNum))
       
@@ -2152,7 +2178,7 @@ Module StringEx
     
   EndProcedure
   
-  Procedure SetColor(GNum.i, ColorType.i, Color.i) 
+  Procedure   SetColor(GNum.i, ColorType.i, Color.i) 
     
     If FindMapElement(StrgEx(), Str(GNum))
       
@@ -2178,7 +2204,15 @@ Module StringEx
     
   EndProcedure
   
-  Procedure SetFlags(GNum.i, Flags.i)
+  Procedure   SetData(GNum.i, Value.q)
+	  
+	  If FindMapElement(StrgEx(), Str(GNum))
+	    StrgEx()\Quad = Value
+	  EndIf  
+	  
+	EndProcedure
+	
+  Procedure   SetFlags(GNum.i, Flags.i)
     
     If FindMapElement(StrgEx(), Str(GNum))
       StrgEx()\Flags | Flags
@@ -2186,7 +2220,7 @@ Module StringEx
     
   EndProcedure
 
-  Procedure SetFont(GNum.i, FontNum.i) 
+  Procedure   SetFont(GNum.i, FontNum.i) 
     
     If FindMapElement(StrgEx(), Str(GNum))
       
@@ -2199,7 +2233,15 @@ Module StringEx
     
   EndProcedure
   
-  Procedure SetInputMask(GNum.i, Mask.s)
+	Procedure   SetID(GNum.i, String.s)
+	  
+	  If FindMapElement(StrgEx(), Str(GNum))
+	    StrgEx()\ID = String
+	  EndIf
+	  
+	EndProcedure  
+  
+  Procedure   SetInputMask(GNum.i, Mask.s)
     
     If FindMapElement(StrgEx(), Str(GNum))
       
@@ -2212,7 +2254,7 @@ Module StringEx
     
   EndProcedure
   
-  Procedure SetText(GNum.i, Text.s) 
+  Procedure   SetText(GNum.i, Text.s) 
     
     If FindMapElement(StrgEx(), Str(GNum))
       StrgEx()\Text = Text
@@ -2222,7 +2264,7 @@ Module StringEx
   EndProcedure
   
   
-  Procedure Undo(GNum.i)
+  Procedure   Undo(GNum.i)
     
     If FindMapElement(StrgEx(), Str(GNum))
       Undo_()
@@ -2465,8 +2507,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 84
-; Folding = 5eAUQAEAxSKKAAgIoAABMAAR-
+; CursorPosition = 1208
+; FirstLine = 466
+; Folding = 5eIUQAEAxACCAAgKoAABMAAQw
 ; EnableThread
 ; EnableXP
 ; DPIAware

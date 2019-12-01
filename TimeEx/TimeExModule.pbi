@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 27.11.19
+; Last Update: 01.12.19
 ;
 ; Added: Flag #NoButtons
 ;
@@ -62,7 +62,7 @@
 
 DeclareModule TimeEx
   
-  #Version  = 19112700
+  #Version  = 19120101
   #ModuleEx = 19112102
   
   ;- ===========================================================================
@@ -93,15 +93,21 @@ DeclareModule TimeEx
   
   CompilerIf Defined(ModuleEx, #PB_Module)
 
-		#Event_Gadget = ModuleEx::#Event_Gadget
-		#Event_Theme  = ModuleEx::#Event_Theme
+		#Event_Gadget     = ModuleEx::#Event_Gadget
+		#Event_Theme      = ModuleEx::#Event_Theme
+		
+		#EventType_Change = ModuleEx::#EventType_Change
 		
 	CompilerElse
 
 		Enumeration #PB_Event_FirstCustomValue
 			#Event_Gadget
 		EndEnumeration
-
+		
+		Enumeration #PB_EventType_FirstCustomValue
+      #EventType_Change
+    EndEnumeration
+    
 	CompilerEndIf
   
   ;- ===========================================================================
@@ -709,9 +715,9 @@ Module TimeEx
             Case #Hour
               TGEx()\Time\Hour   + 1
               If TGEx()\Flags & #Format12Hour
-                If TGEx()\Time\Hour > 12 : TGEx()\Time\Hour = 1 : EndIf
+                If TGEx()\Time\Hour > 11 : TGEx()\Time\Hour = 1 : EndIf
               Else
-                If TGEx()\Time\Hour > 24 : TGEx()\Time\Hour = 1 : EndIf
+                If TGEx()\Time\Hour > 23 : TGEx()\Time\Hour = 1 : EndIf
               EndIf
             Case #Minute
               TGEx()\Time\Minute + 1
@@ -729,9 +735,9 @@ Module TimeEx
             Case #Hour
               TGEx()\Time\Hour   - 1
               If TGEx()\Flags & #Format12Hour
-                If TGEx()\Time\Hour <= 0 : TGEx()\Time\Hour = 12 : EndIf
+                If TGEx()\Time\Hour <= 0 : TGEx()\Time\Hour = 11 : EndIf
               Else
-                If TGEx()\Time\Hour <= 0 : TGEx()\Time\Hour = 24 : EndIf
+                If TGEx()\Time\Hour <= 0 : TGEx()\Time\Hour = 23 : EndIf
               EndIf
             Case #Minute
               TGEx()\Time\Minute - 1
@@ -763,6 +769,9 @@ Module TimeEx
       TGEx()\Button\State & ~#ClickDown
       TGEx()\Button\State & ~#ClickUp
       
+      PostEvent(#Event_Gadget,    TGEx()\Window\Num, TGEx()\CanvasNum, #EventType_Change)
+      PostEvent(#PB_Event_Gadget, TGEx()\Window\Num, TGEx()\CanvasNum, #EventType_Change)
+      
       Draw_()
     EndIf
     
@@ -780,10 +789,10 @@ Module TimeEx
         Num$ = Chr(Char)
         
         If Len(TGEx()\Time\Input) >= 2 : TGEx()\Time\Input = "" : EndIf
-          
+      
         Select TGEx()\Time\State
           Case #Hour
-            If Val(TGEx()\Time\Input + Num$) <= 24
+            If Val(TGEx()\Time\Input + Num$) < 24
               TGEx()\Time\Input + Num$
             Else
               TGEx()\Time\Input = Num$
@@ -804,6 +813,9 @@ Module TimeEx
             EndIf
             TGEx()\State | #Input
         EndSelect
+        
+        PostEvent(#Event_Gadget,    TGEx()\Window\Num, TGEx()\CanvasNum, #EventType_Change)
+        PostEvent(#PB_Event_Gadget, TGEx()\Window\Num, TGEx()\CanvasNum, #EventType_Change)
         
         Draw_()
       EndIf
@@ -1303,8 +1315,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 9
-; FirstLine = 9
-; Folding = oF1EFVFgIB9
+; CursorPosition = 64
+; Folding = 5HwAEBBgoB9
 ; EnableXP
 ; DPIAware
