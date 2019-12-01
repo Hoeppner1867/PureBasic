@@ -77,7 +77,7 @@
 
 DeclareModule TreeEx
   
-  #Version  = 19120100
+  #Version  = 19120101
   #ModuleEx = 19112002
   
   #Enable_ProgressBar = #True
@@ -710,7 +710,7 @@ Module TreeEx
     
     If IsGadget(TreeEx()\VScrollNum) ;{ Vertical ScrollBar
       
-      If TreeEx()\Size\Rows > (GadgetHeight(TreeEx()\CanvasNum) - TreeEx()\Row\Header\Height)
+      If TreeEx()\Size\Rows > GadgetHeight(TreeEx()\CanvasNum) - TreeEx()\Row\Header\Height
       
         PageRows = GetPageRows_()
         
@@ -829,7 +829,7 @@ Module TreeEx
         SetGadgetAttribute(TreeEx()\HScrollNum, #PB_ScrollBar_Minimum,    0)
         SetGadgetAttribute(TreeEx()\HScrollNum, #PB_ScrollBar_Maximum,    TreeEx()\Size\Cols)
         SetGadgetAttribute(TreeEx()\HScrollNum, #PB_ScrollBar_PageLength, Width)
-        
+        ;Debug "ScrollBar: " + Str(Width) + " / " + Str(TreeEx()\Size\Cols)
         TreeEx()\HScroll\MinPos = 0
         TreeEx()\HScroll\MaxPos = TreeEx()\Size\Cols - Width + 1
         
@@ -1209,7 +1209,7 @@ Module TreeEx
 			;{ _____ Draw Header _____
 			If TreeEx()\Flags & #ShowHeader
 			  
-			  X = -TreeEx()\Col\OffsetX
+			  X = -dpiX(TreeEx()\Col\OffsetX)
 			  
 			  RowHeight = dpiY(TreeEx()\Row\Header\Height)
 			  
@@ -1336,7 +1336,7 @@ Module TreeEx
 			
 			ForEach TreeEx()\Rows()
 
-			  X = -TreeEx()\Col\OffsetX
+			  X = -dpiX(TreeEx()\Col\OffsetX)
 			  
         TreeEx()\Rows()\Y = 0
 			  TreeEx()\Rows()\Visible = #False
@@ -3031,8 +3031,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 2680
+; CursorPosition = 79
 ; FirstLine = 12
-; Folding = 5pAAACU25PAeMMO3QSI1QAABOAD-
+; Folding = 96AAACAAQpAOQIO3YSE1QAAAGAD-
 ; EnableXP
 ; DPIAware
