@@ -11,7 +11,7 @@
 ; - Creates cursor events for gadgets of a window (#CursorEvent)
 ; - Provides event types for PostEvent() for other modules
 
-; Last Update: 29.11.2019
+; Last Update: 01.12.2019
 ;
 ; Added: GUI theme for all supportet gadgets
 ;
@@ -65,7 +65,7 @@
 
 DeclareModule ModuleEx
   
-  #Version = 19112900
+  #Version = 19120100
   
   #Enable_Tabulator_Management = #True
   
@@ -111,6 +111,7 @@ DeclareModule ModuleEx
     #EventType_Month
     #EventType_RightClick
     #EventType_Row
+    #EventType_Select
     #EventType_SpinBox
     #EventType_String
     #EventType_TrackBar
@@ -161,7 +162,7 @@ DeclareModule ModuleEx
     Style.i
   EndStructure  
   
-  Structure Theme_Disable_Structure   ;{ ThemeGUI\...
+  Structure Theme_Disable_Structure  ;{ ThemeGUI\...
     FrontColor.i
     BackColor.i
     BorderColor.i
@@ -1076,8 +1077,8 @@ Module ModuleEx
         ThemeGUI\BorderColor        = $9B9B9B
         ThemeGUI\LineColor          = $CCCCCC
         ThemeGUI\RowColor           = $F3F7F0
-        ThemeGUI\Focus\FrontColor   = $F5F9F3
-        ThemeGUI\Focus\BackColor    = $3E8910
+        ThemeGUI\Focus\FrontColor   = $3E8910 
+        ThemeGUI\Focus\BackColor    = $F5F9F3
         ThemeGUI\Header\FrontColor  = $142D05
         ThemeGUI\Header\BackColor   = $BED7AF
         ThemeGUI\Header\BorderColor = $A0A0A0
@@ -1305,8 +1306,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1078
-; FirstLine = 342
-; Folding = EEgAAAAAh5E9A-
+; CursorPosition = 67
+; FirstLine = 10
+; Folding = EAgAAAAAh5E9A-
 ; EnableXP
 ; DPIAware
