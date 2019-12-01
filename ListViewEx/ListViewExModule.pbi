@@ -59,7 +59,7 @@
 ; ListView::GetItemText()        - similar to 'GetGadgetItemText()'
 ; ListView::GetLabelText()       - similar to 'GetGadgetItemText()', but label instead of row
 ; ListView::GetState()           - similar to 'GetGadgetState()'
-; ListView::GetText()            
+; ListView::GetText()            - similar to 'GetGadgetText()'
 ; ListView::Hide()               - similar to 'HideGadget()'
 ; ListView::RemoveItem()         - similar to 'RemoveGadgetItem()'
 ; ListView::SetAutoResizeFlags() - [#MoveX|#MoveY|#Width|#Height]
@@ -67,6 +67,7 @@
 ; ListView::SetData()            - similar to 'SetGadgetData()'
 ; ListView::SetFont()            - similar to 'SetGadgetFont()'
 ; ListView::SetID()              - similar to 'SetGadgetData()', but string instead of quad
+; ListView::SetItemColor()       - similar to 'SetGadgetItemColor()'
 ; ListView::SetItemData()        - similar to 'SetGadgetItemData()'
 ; ListView::SetItemImage()       - similar to 'SetGadgetItemImage()'
 ; ListView::SetItemLabel()       - similar to 'SetGadgetItemData()', but string instead of quad
@@ -84,7 +85,7 @@
 
 DeclareModule ListView
   
-  #Version  = 19120100
+  #Version  = 19120101
   #ModuleEx = 19120100
   
 	;- ===========================================================================
@@ -176,6 +177,7 @@ DeclareModule ListView
   Declare   SetData(GNum.i, Value.q)
   Declare   SetFont(GNum.i, FontID.i) 
   Declare   SetID(GNum.i, String.s)
+  Declare   SetItemColor(GNum.i, Row.i, ColorTyp.i, Value.i)
   Declare   SetItemData(GNum.i, Row.i, Value.q)
   Declare   SetItemImage(GNum.i, Row.i, Image.i, Flags.i=#False)
   Declare   SetItemLabel(GNum.i, Row.i, Label.s)
@@ -216,12 +218,18 @@ Module ListView
     Flags.i
   EndStructure ;}
   
+  Structure Color_Structure            ;{ ListView()\Item()\Color\...
+    Front.i
+    Back.i
+  EndStructure ;}
+  
   Structure ListView_Item_Structure    ;{ ListView()\Item()\...
     ID.s
     Quad.q
     Y.i
     String.s
     Image.Image_Structure
+    Color.Color_Structure
     State.i
     Flags.i
   EndStructure ;}
@@ -383,7 +391,7 @@ Module ListView
 	  Define.i X, Y, Width, Height, OffsetX, OffsetY
 	  Define.i imgX, imgY, imgHeight, imgWidth
 		Define.i TextHeight, RowHeight, maxHeight, PageRows
-    Define.i FrontColor, BackColor, BorderColor
+    Define.i FrontColor, BackColor, BorderColor, ItemFrontColor, ItemBackColor
     Define.f Factor
     
 		If ListView()\Hide : ProcedureReturn #False : EndIf 
@@ -398,6 +406,7 @@ Module ListView
       BackColor   = ListView()\Color\DisableBack
       BorderColor = ListView()\Color\DisableFront
       ListView()\State = #PB_Default
+      ListView()\Focus = #PB_Default
     EndIf  
     ;}
     
@@ -467,6 +476,14 @@ Module ListView
           ListView()\Item()\Y = 0
           Continue
         EndIf  
+
+        If ListView()\Disable
+          ItemFrontColor = ListView()\Color\DisableFront
+          ItemBackColor  = ListView()\Color\DisableBack
+        Else
+          ItemFrontColor = ListView()\Item()\Color\Front
+          ItemBackColor  = ListView()\Item()\Color\Back
+        EndIf   
         
         ListView()\Item()\Y = Y
         
@@ -537,8 +554,16 @@ Module ListView
         Else
           If ListView()\Focus = ListIndex(ListView()\Item())
             Box(X - dpiX(2), Y, TextWidth(ListView()\Item()\String) + dpiX(6), RowHeight, BlendColor_(ListView()\Color\FocusBack, BackColor, 10))
+          ElseIf ListView()\Item()\Color\Back <> #PB_Default
+            Box(X - dpiX(2), Y, Width, RowHeight, ItemBackColor)
           EndIf
-          DrawText(X + OffsetX, Y + OffsetY, ListView()\Item()\String, FrontColor)
+          
+          If ListView()\Item()\Color\Front <> #PB_Default
+            DrawText(X + OffsetX, Y + OffsetY, ListView()\Item()\String, ItemFrontColor)
+          Else
+            DrawText(X + OffsetX, Y + OffsetY, ListView()\Item()\String, FrontColor)
+          EndIf
+          
         EndIf
         
         If ListView()\Item()\Flags & #Image
@@ -893,6 +918,9 @@ Module ListView
 		    ListView()\Item()\ID       = Label
 		    ListView()\Item()\String   = Text
 		    ListView()\Item()\Flags    = Flags
+		    
+		    ListView()\Item()\Color\Front = #PB_Default
+		    ListView()\Item()\Color\Back  = #PB_Default
 		    
 		    If Label
 		      ListView()\Index(Label) = ListIndex(ListView()\Item())
@@ -1285,6 +1313,24 @@ Module ListView
     
   EndProcedure  
   
+  Procedure   SetItemColor(GNum.i, Row.i, ColorTyp.i, Value.i)
+    
+    If FindMapElement(ListView(), Str(GNum))
+      
+      If SelectElement(ListView()\Item(), Row)
+        Select ColorTyp
+          Case #FrontColor
+            ListView()\Item()\Color\Front = Value
+          Case #BackColor
+            ListView()\Item()\Color\Back  = Value
+        EndSelect
+      EndIf
+      
+      If ListView()\ReDraw : Draw_() : EndIf
+    EndIf
+    
+  EndProcedure  
+  
   Procedure   SetItemData(GNum.i, Row.i, Value.q)
 	  
 	  If FindMapElement(ListView(), Str(GNum))
@@ -1479,6 +1525,9 @@ CompilerIf #PB_Compiler_IsMainFile
       ListView::AddItem(#ListView, ListView::#LastItem, "Row 9")
       ListView::AddItem(#ListView, ListView::#LastItem, "Row 10")
       
+      ListView::SetItemColor(#ListView, 3, ListView::#FrontColor, $006400)
+      ListView::SetItemColor(#ListView, 5, ListView::#FrontColor, $800080)
+      
       ListView::SetItemImage(#ListView, 1, #Image) ; , ListView::#Right|ListView::#FitRows
       
     EndIf
@@ -1526,8 +1575,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 82
-; FirstLine = 629
-; Folding = 50AAQIAQAAjAAAOw5
+; CursorPosition = 1528
+; FirstLine = 735
+; Folding = 90GAgRAgABGBAI3Aj
 ; EnableXP
 ; DPIAware
