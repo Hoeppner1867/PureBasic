@@ -6,10 +6,10 @@
 ;/
 ;/ DateEx - Gadget
 ;/
-;/ © {Year}  by {Name} ({Month}/{Year})
+;/ © 2019  by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update:
+; Last Update: 01.12.2019
 
 ;{ ===== MIT License =====
 ;
@@ -68,7 +68,7 @@ CompilerIf Not Defined(Calendar, #PB_Module) : XIncludeFile "CalendarModule.pbi"
 
 DeclareModule DateEx
   
-  #Version  = 19113000
+  #Version  = 19120102
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -111,15 +111,21 @@ DeclareModule DateEx
 
 	CompilerIf Defined(ModuleEx, #PB_Module)
 
-		#Event_Gadget = ModuleEx::#Event_Gadget
-		#Event_Theme  = ModuleEx::#Event_Theme
+		#Event_Gadget     = ModuleEx::#Event_Gadget
+		#Event_Theme      = ModuleEx::#Event_Theme
+		
+		#EventType_Change = ModuleEx::#EventType_Change
 		
 	CompilerElse
 
 		Enumeration #PB_Event_FirstCustomValue
 			#Event_Gadget
 		EndEnumeration
-
+		
+		Enumeration #PB_EventType_FirstCustomValue
+      #EventType_Change
+    EndEnumeration
+		
 	CompilerEndIf
 	;}
 
@@ -537,7 +543,7 @@ Module DateEx
 	EndProcedure
 	
 	Procedure CloseCalendar_()
-	  
+
 	  HideWindow(DateEx()\Calendar\Window, #True)
 	  DateEx()\Calendar\Visible = #False
 	  
@@ -739,6 +745,9 @@ Module DateEx
           
           CloseCalendar_()
           
+          PostEvent(#Event_Gadget,    DateEx()\Window\Num, DateEx()\CanvasNum, #EventType_Change)
+          PostEvent(#PB_Event_Gadget, DateEx()\Window\Num, DateEx()\CanvasNum, #EventType_Change)
+          
           Draw_()
         EndIf
       EndIf
@@ -838,6 +847,9 @@ Module DateEx
                   EndIf ;}
               EndSelect 
               
+              PostEvent(#Event_Gadget,    DateEx()\Window\Num, DateEx()\CanvasNum, #EventType_Change)
+              PostEvent(#PB_Event_Gadget, DateEx()\Window\Num, DateEx()\CanvasNum, #EventType_Change)
+              
             EndIf
           EndIf    
 
@@ -851,7 +863,7 @@ Module DateEx
   EndProcedure
   
   Procedure _KeyDownHandler()
-    Define.i Key, Modifier
+    Define.i Key, Modifier, Value, Days
     Define.i GNum = EventGadget()
     
     If FindMapElement(DateEx(), Str(GNum))
@@ -872,7 +884,6 @@ Module DateEx
               Wend
               ;}
             Case #PB_Shortcut_Right     ;{ Cursor right
-              OpenCalendar_()
               While NextElement(DateEx()\Mask()) 
                 If DateEx()\Mask()\Type <> #PB_Default
                   DateEx()\Input = DateEx()\Mask()\Type
@@ -880,6 +891,159 @@ Module DateEx
                 EndIf
               Wend
               ;} 
+            Case #PB_Shortcut_Up        ;{ Cursor up
+
+              Value = Val(DateEx()\Date(DateEx()\Mask()\String)) - 1
+             
+              Select DateEx()\Mask()\Type
+                Case #Year   ;{ Year
+                  If CountString(DateEx()\DateMask, "%yyyy")
+                    If Value < 1601 : Value = 1601 : EndIf 
+                    If Value < 2100
+                      DateEx()\Date("%yyyy") = RSet(Str(Value), 4, "0")
+                      DateEx()\Date("%yy")   = Right(DateEx()\Date("%yyyy"), 2)
+                    Else
+                      DateEx()\Date("%yyyy") = "2099"
+                      DateEx()\Date("%yy")   = "99"
+                    EndIf  
+                  Else 
+                    If Value < 0 : Value = 0 : EndIf 
+                    If Value < 100
+                      DateEx()\Date("%yy") = RSet(Str(Value), 2, "0")
+                      If Len(DateEx()\Date("%yy")) = 1
+                        DateEx()\Date("%yyyy") = "200" + Len(DateEx()\Date("%yy"))
+                      Else  
+                        DateEx()\Date("%yyyy") = "20"  + Len(DateEx()\Date("%yy"))
+                      EndIf  
+                    Else
+                      DateEx()\Date("%yyyy") = "2099"
+                      DateEx()\Date("%yy")   = "99"
+                    EndIf 
+                  EndIf
+                  Days = GetDaysOfMonth_(Val(DateEx()\Date("%mm")), Val(DateEx()\Date("%yyyy")))
+                  If Val(DateEx()\Date("%dd")) > Days : DateEx()\Date("%dd") = Str(Days): EndIf 
+                  ;}
+                Case #Month  ;{ Month
+                  If Value < 1 : Value = 1 : EndIf
+                  If Value <= 12
+                    DateEx()\Date("%mm") = RSet(Str(Value), 2, "0")
+                  Else   
+                    DateEx()\Date("%mm") = "12"
+                  EndIf
+                  Days = GetDaysOfMonth_(Val(DateEx()\Date("%mm")), Val(DateEx()\Date("%yyyy")))
+                  If Val(DateEx()\Date("%dd")) > Days : DateEx()\Date("%dd") = Str(Days): EndIf 
+                  ;}
+                Case #Day    ;{ Day
+                  Days = GetDaysOfMonth_(Val(DateEx()\Date("%mm")), Val(DateEx()\Date("%yyyy")))
+                  If Value < 1 : Value = 1 : EndIf
+                  If Value <= Days
+                    DateEx()\Date("%dd") = RSet(Str(Value), 2, "0")
+                  Else
+                    DateEx()\Date("%dd") = Str(Days)
+                  EndIf ;} 
+                Case #Hour   ;{ Hour
+                  If Value < 1 : Value = 1 : EndIf
+                  If Value <= 24
+                    DateEx()\Date("%hh") = RSet(Str(Value), 2, "0")
+                  Else
+                    DateEx()\Date("%hh") = "24"
+                  EndIf ;}
+                Case #Minute ;{ Minute
+                  If Value < 0 : Value = 0 : EndIf
+                  If Value < 60
+                    DateEx()\Date("%ii") = RSet(Str(Value), 2, "0")
+                  Else
+                    DateEx()\Date("%ii") = "59"
+                  EndIf ;}
+                Case #Second ;{ Second
+                  If Value < 0 : Value = 0 : EndIf
+                  If Value < 60
+                    DateEx()\Date("%ss") = RSet(Str(Value), 2, "0")
+                  Else
+                    DateEx()\Date("%ss") = "59"
+                  EndIf ;}
+              EndSelect 
+              
+              PostEvent(#Event_Gadget,    DateEx()\Window\Num, DateEx()\CanvasNum, #EventType_Change)
+              PostEvent(#PB_Event_Gadget, DateEx()\Window\Num, DateEx()\CanvasNum, #EventType_Change)
+           
+              Draw_()
+              ;}
+            Case #PB_Shortcut_Down      ;{ Cursor down
+              
+              Value = Val(DateEx()\Date(DateEx()\Mask()\String)) + 1
+             
+              Select DateEx()\Mask()\Type
+                Case #Year   ;{ Year
+                  If CountString(DateEx()\DateMask, "%yyyy")
+                    If Value < 2100
+                      If Value < 1601
+                        DateEx()\Date("%yyyy") = "1601"
+                      Else
+                        DateEx()\Date("%yyyy") = RSet(Str(Value), 4, "0")
+                      EndIf 
+                      DateEx()\Date("%yy") = Right(DateEx()\Date("%yyyy"), 2)
+                    Else
+                      DateEx()\Date("%yyyy") = "2099"
+                      DateEx()\Date("%yy")   = "99"
+                    EndIf  
+                  Else 
+                    If Value < 100
+                      DateEx()\Date("%yy") = RSet(Str(Value), 2, "0")
+                      If Len(DateEx()\Date("%yy")) = 1
+                        DateEx()\Date("%yyyy") = "200" + Len(DateEx()\Date("%yy"))
+                      Else  
+                        DateEx()\Date("%yyyy") = "20"  + Len(DateEx()\Date("%yy"))
+                      EndIf  
+                    Else
+                      DateEx()\Date("%yyyy") = "2099"
+                      DateEx()\Date("%yy")   = "99"
+                    EndIf 
+                  EndIf
+                  Days = GetDaysOfMonth_(Val(DateEx()\Date("%mm")), Val(DateEx()\Date("%yyyy")))
+                  If Val(DateEx()\Date("%dd")) > Days : DateEx()\Date("%dd") = Str(Days): EndIf 
+                  ;}
+                Case #Month  ;{ Month
+                  If Value <= 12
+                    DateEx()\Date("%mm") = RSet(Str(Value), 2, "0")
+                  Else   
+                    DateEx()\Date("%mm") = "12"
+                  EndIf
+                  Days = GetDaysOfMonth_(Val(DateEx()\Date("%mm")), Val(DateEx()\Date("%yyyy")))
+                  If Val(DateEx()\Date("%dd")) > Days : DateEx()\Date("%dd") = Str(Days): EndIf 
+                  ;}
+                Case #Day    ;{ Day
+                  Days = GetDaysOfMonth_(Val(DateEx()\Date("%mm")), Val(DateEx()\Date("%yyyy")))
+                  If Value <= Days
+                    DateEx()\Date("%dd") = RSet(Str(Value), 2, "0")
+                  Else
+                    DateEx()\Date("%dd") = Str(Days)
+                  EndIf ;} 
+                Case #Hour   ;{ Hour
+                  If Value <= 24
+                    DateEx()\Date("%hh") = RSet(Str(Value), 2, "0")
+                  Else
+                    DateEx()\Date("%hh") = "24"
+                  EndIf ;}
+                Case #Minute ;{ Minute
+                  If Value < 60
+                    DateEx()\Date("%ii") = RSet(Str(Value), 2, "0")
+                  Else
+                    DateEx()\Date("%ii") = "59"
+                  EndIf ;}
+                Case #Second ;{ Second
+                  If Value < 60
+                    DateEx()\Date("%ss") = RSet(Str(Value), 2, "0")
+                  Else
+                    DateEx()\Date("%ss") = "59"
+                  EndIf ;}
+              EndSelect 
+              
+              PostEvent(#Event_Gadget,    DateEx()\Window\Num, DateEx()\CanvasNum, #EventType_Change)
+              PostEvent(#PB_Event_Gadget, DateEx()\Window\Num, DateEx()\CanvasNum, #EventType_Change)
+           
+              Draw_()
+              ;}
           EndSelect
         
         EndIf
@@ -1031,7 +1195,21 @@ Module DateEx
     EndIf
     
   EndProcedure 
-
+  
+  Procedure _LostFocusHandler()
+    Define.i GNum = EventGadget()
+    
+    If FindMapElement(DateEx(), Str(GNum))
+      
+      If DateEx()\Calendar\Visible
+        CloseCalendar_()
+        Draw_()
+			EndIf
+		  
+    EndIf
+    
+  EndProcedure 
+  
 	Procedure _ResizeHandler()
 		Define.i GadgetID = EventGadget()
 
@@ -1310,7 +1488,8 @@ Module DateEx
 				BindGadgetEvent(DateEx()\CanvasNum, @_LeftButtonUpHandler(),   #PB_EventType_LeftButtonUp)
 				BindGadgetEvent(DateEx()\CanvasNum, @_InputHandler(),          #PB_EventType_Input)
 				BindGadgetEvent(DateEx()\CanvasNum, @_KeyDownHandler(),        #PB_EventType_KeyDown)
-				
+				BindGadgetEvent(DateEx()\CanvasNum, @_LostFocusHandler(),      #PB_EventType_LostFocus)
+
 				BindEvent(Calendar::#Event_Gadget, @_CalendarHandler())
 				
 				CompilerIf Defined(ModuleEx, #PB_Module)
@@ -1469,6 +1648,9 @@ Module DateEx
   EndProcedure  
   
   ;{ _____ Image _____
+  ; Source:  Oxygen Icons - http://www.oxygen-icons.org/
+  ; License: http://creativecommons.org/licenses/by-sa/3.0/ or http://creativecommons.org/licenses/LGPL/2.1/
+  
   DataSection
     Image:
     Data.q $E5E773F00CEB9C78,$F4F5E0606062E292,$C1CC2002D2020970,$52044FFF3FE52406,$1B0C0C8EBE8EE92C,$8CF902B224FFB9FB,
@@ -1508,11 +1690,11 @@ CompilerIf #PB_Compiler_IsMainFile
     #DateEx
   EndEnumeration
   
-  If OpenWindow(#Window, 0, 0, 240, 200, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
+  If OpenWindow(#Window, 0, 0, 220, 45, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
     
     DateGadget(#Date, 10, 10, 100, 25, "%yyyy/%mm/%dd")
     
-    If DateEx::Gadget(#DateEx, 120, 10, 90, 25)
+    If DateEx::Gadget(#DateEx, 120, 10, 90, 25, "%yyyy/%mm/%dd")
       
     EndIf
     
@@ -1546,7 +1728,6 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 70
-; FirstLine = 34
-; Folding = 5BPAQBAAYAoKAQAAMAj
+; Folding = 5hPAQBAAYDoBEh+jAIAAQ9
 ; EnableXP
 ; DPIAware
