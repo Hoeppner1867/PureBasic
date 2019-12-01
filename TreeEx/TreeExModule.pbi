@@ -3032,6 +3032,7 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 2680
-; Folding = 96AAACU25PAeMMO3QSI1QAABOAD-
+; FirstLine = 12
+; Folding = 5pAAACU25PAeMMO3QSI1QAABOAD-
 ; EnableXP
 ; DPIAware
