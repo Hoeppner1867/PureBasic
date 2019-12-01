@@ -829,7 +829,7 @@ Module TreeEx
         SetGadgetAttribute(TreeEx()\HScrollNum, #PB_ScrollBar_Minimum,    0)
         SetGadgetAttribute(TreeEx()\HScrollNum, #PB_ScrollBar_Maximum,    TreeEx()\Size\Cols)
         SetGadgetAttribute(TreeEx()\HScrollNum, #PB_ScrollBar_PageLength, Width)
-        ;Debug "ScrollBar: " + Str(Width) + " / " + Str(TreeEx()\Size\Cols)
+        
         TreeEx()\HScroll\MinPos = 0
         TreeEx()\HScroll\MaxPos = TreeEx()\Size\Cols - Width + 1
         
@@ -1866,7 +1866,7 @@ Module TreeEx
     If FindMapElement(TreeEx(), Str(GadgetNum))
       
       ScrollPos = GetGadgetState(ScrollNum)
-      Debug "ScrollPos: " + Str(ScrollPos)
+      
       If ScrollPos <> TreeEx()\VScroll\Position
         
         TreeEx()\Row\Offset = ScrollPos 
@@ -3031,8 +3031,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 79
-; FirstLine = 12
-; Folding = 96AAACAAQpAOQIO3YSE1QAAAGAD-
+; CursorPosition = 2092
+; FirstLine = 801
+; Folding = 96AAACAkQpAOQIO3YSM1QAAAGAD-
 ; EnableXP
 ; DPIAware
