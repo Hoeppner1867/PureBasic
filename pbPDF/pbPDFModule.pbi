@@ -8,7 +8,7 @@
 ;/ ( based on 'PurePDF' by LuckyLuke / ABBKlaus / normeus )
 ;/
 
-; Last Update: 11.11.2019
+; Last Update: 02.12.2019
 ; 
 ; [11.11.2019] Changed: Embed images
 ; [26.08.2019] Bugfix: PDF::Image()
@@ -187,7 +187,7 @@
 
 DeclareModule PDF
   
-  #Version  = 19111100
+  #Version  = 19120200
   
   #Enable_AcroFormCommands  = #True
   #Enable_Annotations       = #True
@@ -569,7 +569,7 @@ EndDeclareModule
 
 Module PDF
   
-  #Version = "2.0"
+  #PDFVersion = "2.0"
   
   EnableExplicit
   
@@ -591,9 +591,9 @@ Module PDF
   #JSON = 1
   
   CompilerIf #PB_Compiler_Processor=#PB_Processor_x86
-    #pbPDF_Version = "pbPDF V" + #Version + " for PureBasic X86"
+    #pbPDF_Version = "pbPDF V" + #PDFVersion + " for PureBasic X86"
   CompilerElse
-    #pbPDF_Version = "pbPDF V" + #Version + " for PureBasic X64"
+    #pbPDF_Version = "pbPDF V" + #PDFVersion + " for PureBasic X64"
   CompilerEndIf
   ;}
   
@@ -6951,9 +6951,9 @@ CompilerEndIf
 
 ;- ========================
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 189
-; FirstLine = 3
-; Folding = YAwCAIAegAQAIABAABAAIECAAAiBAAAAYAEAAygIACjIAAACOAAUQAEIAAQwwEYKA5BCAA9
+; CursorPosition = 10
+; FirstLine = 5
+; Folding = YAwCA5AegAQAIABAABAAIECAAAiBAAAAYAEAAygIACjIAAACOAAUQAEIAAQwwEYKA5BCAA9
 ; Markers = 582,1013,2362,2462,3768,3833
 ; EnableXP
 ; DPIAware

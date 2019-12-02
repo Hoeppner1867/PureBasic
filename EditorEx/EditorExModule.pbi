@@ -7,13 +7,10 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 22.11.19
+; Last Update: 02.12.19
 ;
 ; Added: #EventType_Change
-; 
 ; Added: #UseExistingCanvas
-; Bugfixes: DPI
-; List of suggested corrections: Button to add a word to the user dictionary.
 ;
 
 
@@ -38,6 +35,14 @@
 ; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ; SOFTWARE.
+;}
+
+;{ ===== Additional tea & pizza license =====
+; <purebasic@thprogs.de> has created this code. 
+; If you find the code useful and you want to use it for your programs, 
+; you are welcome to support my work with a cup of tea or a pizza
+; (or the amount of money for it). 
+; [ https://www.paypal.me/Hoeppner1867 ]
 ;}
 
 
@@ -134,7 +139,7 @@
 
 DeclareModule EditEx
   
-  #Version  = 19112200
+  #Version  = 19120200
   #ModuleEx = 19111702
   
   ;- ============================================================================
@@ -719,9 +724,9 @@ Module EditEx
   
   Procedure   IsTextArea_(X.i, Y.i)
   
-    If X <= EditEx()\Size\PaddingX Or X > EditEx()\Size\PaddingX + EditEx()\Visible\Width
+    If X <= dpiX(EditEx()\Size\PaddingX) Or X > dpiX(EditEx()\Size\PaddingX + EditEx()\Visible\Width)
       ProcedureReturn #False
-    ElseIf Y <= EditEx()\Size\PaddingY Or Y > EditEx()\Size\PaddingY + EditEx()\Visible\Height
+    ElseIf Y <= dpiY(EditEx()\Size\PaddingY) Or Y > dpiY(EditEx()\Size\PaddingY + EditEx()\Visible\Height)
       ProcedureReturn #False
     EndIf
     
@@ -2329,13 +2334,13 @@ Module EditEx
       ;}
       
       ;{ _____ Cursor _____
-      PosOffset = EditEx()\Visible\PosOffset
+      PosOffset = dpiY(EditEx()\Visible\PosOffset)
       RowOffset = EditEx()\Visible\RowOffset * EditEx()\Text\Height
       
       If EditEx()\Cursor\Pos = 0                     ;{ Empty text
         EditEx()\Cursor\Pos = 1
-        EditEx()\Cursor\X   = EditEx()\Size\PaddingX
-        EditEx()\Cursor\Y   = EditEx()\Size\PaddingY
+        EditEx()\Cursor\X   = dpiX(EditEx()\Size\PaddingX)
+        EditEx()\Cursor\Y   = dpiY(EditEx()\Size\PaddingY)
         EditEx()\Cursor\Row = 0
         EditEx()\Cursor\BackChar = ""
         ;}
@@ -2456,7 +2461,7 @@ Module EditEx
       Box(0, 0, dpiX(GadgetWidth(EditEx()\CanvasNum)), dpiY(GadgetHeight(EditEx()\CanvasNum)), BackColor)  
       ;}
       
-      PosOffset = EditEx()\Visible\PosOffset
+      PosOffset = dpiY(EditEx()\Visible\PosOffset)
       RowOffset = EditEx()\Visible\RowOffset * EditEx()\Text\Height
 
       ;{ _____ Draw Text _____
@@ -2500,8 +2505,8 @@ Module EditEx
       
       ;{ _____ Cursor _____
       If EditEx()\Cursor\Pos = 0                     ;{ Empty text
-        EditEx()\Cursor\X   = EditEx()\Size\PaddingX
-        EditEx()\Cursor\Y   = EditEx()\Size\PaddingY
+        EditEx()\Cursor\X   = dpiX(EditEx()\Size\PaddingX)
+        EditEx()\Cursor\Y   = dpiY(EditEx()\Size\PaddingY)
         EditEx()\Cursor\Row = 0
         EditEx()\Cursor\BackChar = ""
         ;}
@@ -5342,9 +5347,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 136
-; FirstLine = 21
-; Folding = 5XnRAiBACIAEgBIC+FAiJgBaBBBOA6V4DgRghgQgEyOEABB9wOBx-
-; Markers = 909,2434,4561
+; CursorPosition = 141
+; FirstLine = 39
+; Folding = wvOjAEDI2UAIADQE9LAFTm83KCCcAyruDAPCDBhAJkdIACC5hdCi--
+; Markers = 914,2439,2508,4566
 ; EnableXP
 ; DPIAware
