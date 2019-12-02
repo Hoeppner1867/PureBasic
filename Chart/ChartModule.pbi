@@ -10,7 +10,9 @@
 ;/
 
 
-; Last Update: 28.11.19
+; Last Update: 02.12.19
+;
+; Bugfixes
 ;
 ; Added: #UseExistingCanvas
 ; Added: #Time flag for axis / AddAxisLabel()
@@ -52,6 +54,7 @@
 
 ; Chart::AddItem()             - similar to AddGadgetItem()
 ; Chart::AttachPopupMenu()     - attachs a popup menu to the chart
+; Chart::ClearItems()          - clear chart
 ; Chart::DisableReDraw()       - disable/enable redrawing
 ; Chart::EventColor()          - returns the color after the event
 ; Chart::EventIndex()          - returns the item index after the event
@@ -119,7 +122,7 @@
 
 DeclareModule Chart
   
-  #Version  = 19112800
+  #Version  = 19120200
   #ModuleEx = 19111702
   
   #Enable_PieChart       = #True
@@ -288,6 +291,7 @@ DeclareModule Chart
   Declare.i AddAxisLabel(GNum.i, Label.s, Value.f, Type.i=#AxisX)
   Declare.i AddItem(GNum.i, Label.s, Value.i, BarColor.i=#PB_Default, GradientColor.i=#PB_Default, BorderColor.i=#PB_Default)
   Declare   AttachPopupMenu(GNum.i, PopUpNum.i)
+  Declare   ClearItems(GNum.i)
   Declare   DisableReDraw(GNum.i, State.i=#False)
   Declare.i EventColor(GNum.i) 
   Declare.i EventIndex(GNum.i) 
@@ -356,6 +360,11 @@ Module Chart
     DateMask.s
     Flags.i
     List Label.Axis_Label_Structure()
+  EndStructure
+  
+  Structure Chart_Visible_Structure
+    Idx.i
+    State.i
   EndStructure
   
   Structure Chart_EventSize_Structure ;{
@@ -548,8 +557,8 @@ Module Chart
     
     Flags.i
     
-    List VisibleData.i()                 ; visible data series (labels)
-    List Series.Chart_Series_Structure() ; data series
+    List VisibleData.Chart_Visible_Structure() ; visible data series (labels)
+    List Series.Chart_Series_Structure()       ; data series
     List Item.Chart_Item_Structure()
     
     Map  Index.i()                       ; labels with list index
@@ -751,7 +760,8 @@ Module Chart
       MaxValue = Chart()\Maximum
       
       ForEach Chart()\VisibleData()
-        If SelectElement(Chart()\Series(), Chart()\VisibleData())
+        If Chart()\VisibleData()\State = #False : Continue: EndIf 
+        If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
           ForEach Chart()\Series()\Item()
             If Chart()\Series()\Item()\Value > MaxValue
               MaxValue = Chart()\Series()\Item()\Value
@@ -767,7 +777,8 @@ Module Chart
         MaxValue = Chart()\Scatter\MaximumX
         
         ForEach Chart()\VisibleData()
-          If SelectElement(Chart()\Series(), Chart()\VisibleData())
+          If Chart()\VisibleData()\State = #False : Continue: EndIf 
+          If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
             ForEach Chart()\Series()\Item()
               If Chart()\Series()\Item()\DataX > MaxValue
                 MaxValue = Chart()\Series()\Item()\DataX
@@ -781,7 +792,8 @@ Module Chart
         MaxValue = Chart()\Scatter\MaximumY
         
         ForEach Chart()\VisibleData()
-          If SelectElement(Chart()\Series(), Chart()\VisibleData())
+          If Chart()\VisibleData()\State = #False : Continue: EndIf 
+          If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
             ForEach Chart()\Series()\Item()
               If Chart()\Series()\Item()\DataY > MaxValue
                 MaxValue = Chart()\Series()\Item()\DataY
@@ -815,7 +827,8 @@ Module Chart
       MinValue = Chart()\Minimum
       
       ForEach Chart()\VisibleData()
-        If SelectElement(Chart()\Series(), Chart()\VisibleData())
+        If Chart()\VisibleData()\State = #False : Continue: EndIf 
+        If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
           ForEach Chart()\Series()\Item()
             If Chart()\Series()\Item()\Value < MinValue
               MinValue = Chart()\Series()\Item()\Value
@@ -831,7 +844,8 @@ Module Chart
         MinValue = Chart()\Scatter\MinimumX
         
         ForEach Chart()\VisibleData()
-          If SelectElement(Chart()\Series(), Chart()\VisibleData())
+          If Chart()\VisibleData()\State = #False : Continue: EndIf 
+          If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
             ForEach Chart()\Series()\Item()
               If Chart()\Series()\Item()\DataX < MinValue
                 MinValue = Chart()\Series()\Item()\DataX
@@ -845,7 +859,8 @@ Module Chart
         MinValue = Chart()\Scatter\MinimumY
         
         ForEach Chart()\VisibleData()
-          If SelectElement(Chart()\Series(), Chart()\VisibleData())
+          If Chart()\VisibleData()\State = #False : Continue: EndIf 
+          If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
             ForEach Chart()\Series()\Item()
               If Chart()\Series()\Item()\DataY < MinValue
                 MinValue = Chart()\Series()\Item()\DataY
@@ -875,7 +890,8 @@ Module Chart
     Define.i Number
     
     ForEach Chart()\VisibleData()
-      If SelectElement(Chart()\Series(), Chart()\VisibleData())
+      If Chart()\VisibleData()\State = #False : Continue: EndIf 
+      If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
         If Number < ListSize(Chart()\Series()\Item())
           Number = ListSize(Chart()\Series()\Item())
         EndIf
@@ -1897,7 +1913,9 @@ Module Chart
         
         ForEach Chart()\VisibleData()
           
-          If SelectElement(Chart()\Series(), Chart()\VisibleData())
+          If Chart()\VisibleData()\State = #False : Continue: EndIf 
+          
+          If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
             
             ForEach Chart()\Series()\Item()
               
@@ -2039,7 +2057,8 @@ Module Chart
               Next
             Else
               ForEach Chart()\VisibleData()
-                If SelectElement(Chart()\Series(), Chart()\VisibleData())  
+                If Chart()\VisibleData()\State = #False : Continue: EndIf 
+                If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)  
                   lTextWidth + TextWidth(Chart()\Series()\Label)
                 EndIf  
               Next
@@ -2085,8 +2104,10 @@ Module Chart
             Else
               
               ForEach Chart()\VisibleData()
-              
-                If SelectElement(Chart()\Series(), Chart()\VisibleData())
+                
+                If Chart()\VisibleData()\State = #False : Continue: EndIf 
+                
+                If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
                   
                   DrawingMode(#PB_2DDrawing_Default)
                   Box(PosX, PosY, txtHeight, txtHeight, Chart()\Series()\Color)
@@ -2252,9 +2273,11 @@ Module Chart
         
         ForEach Chart()\VisibleData()
           
+          If Chart()\VisibleData()\State = #False : Continue: EndIf 
+          
           PosX = seriesX
           
-          If SelectElement(Chart()\Series(), Chart()\VisibleData())
+          If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
             
             lTextWidth + TextWidth(Chart()\Series()\Label)
 
@@ -2519,8 +2542,10 @@ Module Chart
             Else
               
               ForEach Chart()\VisibleData()
-              
-                If SelectElement(Chart()\Series(), Chart()\VisibleData())
+                
+                If Chart()\VisibleData()\State = #False : Continue: EndIf 
+                
+                If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
                   
                   DrawingMode(#PB_2DDrawing_Default)
                   Box(PosX, PosY, txtHeight, txtHeight, Chart()\Series()\Color)
@@ -2694,7 +2719,10 @@ Module Chart
         EndIf
         
         ForEach Chart()\VisibleData()
-          If SelectElement(Chart()\Series(), Chart()\VisibleData())
+          
+          If Chart()\VisibleData()\State = #False : Continue: EndIf 
+          
+          If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
             
             AlphaColor = RGBA(Red(Chart()\Series()\Color), Green(Chart()\Series()\Color), Blue(Chart()\Series()\Color), 200)
             
@@ -2774,9 +2802,11 @@ Module Chart
         
         ForEach Chart()\VisibleData()
           
+          If Chart()\VisibleData()\State = #False : Continue: EndIf 
+          
           PosX = X + Chart()\Line\Padding
           
-          If SelectElement(Chart()\Series(), Chart()\VisibleData())
+          If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
             
             ForEach Chart()\Series()\Item()
 
@@ -2954,7 +2984,8 @@ Module Chart
               Next
             Else
               ForEach Chart()\VisibleData()
-                If SelectElement(Chart()\Series(), Chart()\VisibleData())  
+                If Chart()\VisibleData()\State = #False : Continue: EndIf 
+                If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)  
                   lTextWidth + TextWidth(Chart()\Series()\Label)
                 EndIf  
               Next
@@ -3000,8 +3031,10 @@ Module Chart
             Else
               
               ForEach Chart()\VisibleData()
-              
-                If SelectElement(Chart()\Series(), Chart()\VisibleData())
+                
+                If Chart()\VisibleData()\State = #False : Continue: EndIf 
+                
+                If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
                   
                   DrawingMode(#PB_2DDrawing_Default)
                   Box(PosX, PosY, txtHeight, txtHeight, Chart()\Series()\Color)
@@ -3792,7 +3825,8 @@ Module Chart
           Else
             
             ForEach Chart()\VisibleData()
-              If SelectElement(Chart()\Series(), Chart()\VisibleData())
+              If Chart()\VisibleData()\State = #False : Continue: EndIf 
+              If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
                 If X > Chart()\Series()\Legend\X And X < Chart()\Series()\Legend\X + Chart()\Series()\Legend\Width
                   If Y > Chart()\Series()\Legend\Y And Y < Chart()\Series()\Legend\Y + Chart()\Series()\Legend\Height
                     
@@ -3809,7 +3843,8 @@ Module Chart
         EndIf
         
         ForEach Chart()\VisibleData()
-          If SelectElement(Chart()\Series(), Chart()\VisibleData())
+          If Chart()\VisibleData()\State = #False : Continue: EndIf 
+          If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
             ForEach Chart()\Series()\Item()
               If X > Chart()\Series()\Item()\X And X < Chart()\Series()\Item()\X + Chart()\Series()\Item()\Width
                 If Y > Chart()\Series()\Item()\Y And Y < Chart()\Series()\Item()\Y + Chart()\Series()\Item()\Height
@@ -3847,7 +3882,8 @@ Module Chart
         EndIf
         
         ForEach Chart()\VisibleData()
-          If SelectElement(Chart()\Series(), Chart()\VisibleData())
+          If Chart()\VisibleData()\State = #False : Continue: EndIf 
+          If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
             ForEach Chart()\Series()\Item()
               If X > Chart()\Series()\Item()\X And X < Chart()\Series()\Item()\X + Chart()\Series()\Item()\Width
                 If Y > Chart()\Series()\Item()\Y And Y < Chart()\Series()\Item()\Y + Chart()\Series()\Item()\Height
@@ -3975,7 +4011,8 @@ Module Chart
           Else
             
             ForEach Chart()\VisibleData()
-              If SelectElement(Chart()\Series(), Chart()\VisibleData())
+              If Chart()\VisibleData()\State = #False : Continue: EndIf 
+              If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
                 If X > Chart()\Series()\Legend\X And X < Chart()\Series()\Legend\X + Chart()\Series()\Legend\Width
                   If Y > Chart()\Series()\Legend\Y And Y < Chart()\Series()\Legend\Y + Chart()\Series()\Legend\Height
                     
@@ -4001,7 +4038,8 @@ Module Chart
         EndIf
         
         ForEach Chart()\VisibleData()         ;{ Bars / Circles
-          If SelectElement(Chart()\Series(), Chart()\VisibleData())
+          If Chart()\VisibleData()\State = #False : Continue: EndIf 
+          If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
             ForEach Chart()\Series()\Item()
               
               If X > Chart()\Series()\Item()\X And X < Chart()\Series()\Item()\X + Chart()\Series()\Item()\Width
@@ -4056,7 +4094,8 @@ Module Chart
           Else
             
             ForEach Chart()\VisibleData()
-              If SelectElement(Chart()\Series(), Chart()\VisibleData())
+              If Chart()\VisibleData()\State = #False : Continue: EndIf 
+              If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
                 If X > Chart()\Series()\Legend\X And X < Chart()\Series()\Legend\X + Chart()\Series()\Legend\Width
                   If Y > Chart()\Series()\Legend\Y And Y < Chart()\Series()\Legend\Y + Chart()\Series()\Legend\Height
                     
@@ -4082,7 +4121,8 @@ Module Chart
         EndIf
         
         ForEach Chart()\VisibleData()         ;{ Circles
-          If SelectElement(Chart()\Series(), Chart()\VisibleData())
+          If Chart()\VisibleData()\State = #False : Continue: EndIf 
+          If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
             ForEach Chart()\Series()\Item()
               
               If X > Chart()\Series()\Item()\X And X < Chart()\Series()\Item()\X + Chart()\Series()\Item()\Width
@@ -4170,7 +4210,10 @@ Module Chart
               Radius = Chart()\Series()\Item()\Width / 2
               
               ForEach Chart()\VisibleData()
-                If SelectElement(Chart()\Series(), Chart()\VisibleData())
+                
+                If Chart()\VisibleData()\State = #False : Continue: EndIf 
+                
+                If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
                   
                   ForEach Chart()\Series()\Item()
 
@@ -4298,7 +4341,8 @@ Module Chart
           Else
             
             ForEach Chart()\VisibleData()
-              If SelectElement(Chart()\Series(), Chart()\VisibleData())
+              If Chart()\VisibleData()\State = #False : Continue: EndIf 
+              If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
                 If X > Chart()\Series()\Legend\X And X < Chart()\Series()\Legend\X + Chart()\Series()\Legend\Width
                   If Y > Chart()\Series()\Legend\Y And Y < Chart()\Series()\Legend\Y + Chart()\Series()\Legend\Height
                     
@@ -4315,7 +4359,10 @@ Module Chart
         EndIf
         
         ForEach Chart()\VisibleData()
-          If SelectElement(Chart()\Series(), Chart()\VisibleData())
+          
+          If Chart()\VisibleData()\State = #False : Continue: EndIf 
+          
+          If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
 
             ForEach Chart()\Series()\Item()
              
@@ -4373,7 +4420,10 @@ Module Chart
           Else
             
             ForEach Chart()\VisibleData()
-              If SelectElement(Chart()\Series(), Chart()\VisibleData())
+              
+              If Chart()\VisibleData()\State = #False : Continue: EndIf 
+              
+              If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
                 If X > Chart()\Series()\Legend\X And X < Chart()\Series()\Legend\X + Chart()\Series()\Legend\Width
                   If Y > Chart()\Series()\Legend\Y And Y < Chart()\Series()\Legend\Y + Chart()\Series()\Legend\Height
                     
@@ -4390,7 +4440,10 @@ Module Chart
         EndIf
         
         ForEach Chart()\VisibleData()
-          If SelectElement(Chart()\Series(), Chart()\VisibleData())
+          
+          If Chart()\VisibleData()\State = #False : Continue: EndIf 
+          
+          If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
 
             ForEach Chart()\Series()\Item()
              
@@ -4489,7 +4542,8 @@ Module Chart
             Next
           Else
             ForEach Chart()\VisibleData()
-              If SelectElement(Chart()\Series(), Chart()\VisibleData())
+              If Chart()\VisibleData()\State = #False : Continue: EndIf 
+              If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
                 If X > Chart()\Series()\Legend\X And X < Chart()\Series()\Legend\X + Chart()\Series()\Legend\Width
                   If Y > Chart()\Series()\Legend\Y And Y < Chart()\Series()\Legend\Y + Chart()\Series()\Legend\Height
                     
@@ -4536,7 +4590,10 @@ Module Chart
           ElseIf Chart()\Flags & #DataSeries  ;{ Data Series Chart
 
             ForEach Chart()\VisibleData()
-              If SelectElement(Chart()\Series(), Chart()\VisibleData())
+              
+              If Chart()\VisibleData()\State = #False : Continue: EndIf 
+              
+              If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
                 
                 ForEach Chart()\Series()\Item()
                   
@@ -4613,7 +4670,10 @@ Module Chart
           ElseIf Chart()\Flags & #ScatterPlot ;{ Scatter plot chart
             
             ForEach Chart()\VisibleData()
-              If SelectElement(Chart()\Series(), Chart()\VisibleData())
+              
+              If Chart()\VisibleData()\State = #False : Continue: EndIf 
+              
+              If SelectElement(Chart()\Series(), Chart()\VisibleData()\Idx)
                 
                 ForEach Chart()\Series()\Item()
 
@@ -4870,41 +4930,30 @@ Module Chart
         If FindMapElement(Chart()\Index(), Scatter)
           If SelectElement(Chart()\Series(), Chart()\Index())
             
-            If State
+            If FindMapElement(Chart()\VisibleIndex(), Scatter) 
+              
+              If SelectElement(Chart()\VisibleData(), Chart()\VisibleIndex())
+                Chart()\VisibleData()\State = State
+              EndIf  
+
+            Else
               
               If AddElement(Chart()\VisibleData())
                 
-                Chart()\VisibleData() = ListIndex(Chart()\Series())
+                Chart()\VisibleData()\Idx   = ListIndex(Chart()\Series())
+                Chart()\VisibleData()\State = State
                 
                 If AddMapElement(Chart()\VisibleIndex(), Scatter)
-                  
                   Chart()\VisibleIndex() = ListIndex(Chart()\Series())
-                  
-                  If Chart()\ReDraw : Draw_() : EndIf
-                  
-                  ProcedureReturn #True
-                EndIf 
-              EndIf
-              
-            Else
-              
-              If FindMapElement(Chart()\VisibleIndex(), Scatter)
-              
-                ForEach Chart()\VisibleData()
-                  If Chart()\VisibleData() = Chart()\VisibleIndex()
-                    DeleteElement(Chart()\VisibleData())
-                  EndIf 
-                Next
+                EndIf
                 
-                DeleteMapElement(Chart()\VisibleIndex())
-                
-                If Chart()\ReDraw : Draw_() : EndIf
-                
-                ProcedureReturn #True
               EndIf
               
             EndIf
+
+            If Chart()\ReDraw : Draw_() : EndIf
             
+            ProcedureReturn #True
           EndIf
         EndIf
 
@@ -5025,7 +5074,7 @@ Module Chart
           If SelectElement(Chart()\Series(), Chart()\Index()) ; ScatterPlot Element
 
             ForEach Chart()\VisibleData()
-              If Chart()\VisibleData() = ListIndex(Chart()\Series())
+              If Chart()\VisibleData()\Idx = ListIndex(Chart()\Series())
                 DeleteElement(Chart()\VisibleData())
               EndIf 
             Next
@@ -5251,41 +5300,30 @@ Module Chart
         If FindMapElement(Chart()\Index(), Series)
           If SelectElement(Chart()\Series(), Chart()\Index())
             
-            If State
+            If FindMapElement(Chart()\VisibleIndex(), Series)
               
-              If AddElement(Chart()\VisibleData())
-                
-                Chart()\VisibleData() = ListIndex(Chart()\Series())
-                
-                If AddMapElement(Chart()\VisibleIndex(), Series)
-                  
-                  Chart()\VisibleIndex() = ListIndex(Chart()\Series())
-                  
-                  If Chart()\ReDraw : Draw_() : EndIf
-                  
-                  ProcedureReturn #True
-                EndIf 
-              EndIf
+              If SelectElement(Chart()\VisibleData(), Chart()\VisibleIndex())
+                Chart()\VisibleData()\State = State
+              EndIf  
               
             Else
               
-              If FindMapElement(Chart()\VisibleIndex(), Series)
-              
-                ForEach Chart()\VisibleData()
-                  If Chart()\VisibleData() = Chart()\VisibleIndex()
-                    DeleteElement(Chart()\VisibleData())
-                  EndIf 
-                Next
+              If AddElement(Chart()\VisibleData())
                 
-                DeleteMapElement(Chart()\VisibleIndex())
+                Chart()\VisibleData()\Idx   = ListIndex(Chart()\Series())
+                Chart()\VisibleData()\State = State
                 
-                If Chart()\ReDraw : Draw_() : EndIf
+                If AddMapElement(Chart()\VisibleIndex(), Series)
+                  Chart()\VisibleIndex() = ListIndex(Chart()\Series())
+                EndIf
                 
-                ProcedureReturn #True
               EndIf
               
             EndIf
+
+            If Chart()\ReDraw : Draw_() : EndIf
             
+            ProcedureReturn #True
           EndIf
         EndIf
 
@@ -5376,7 +5414,7 @@ Module Chart
           If SelectElement(Chart()\Series(), Chart()\Index()) ; Data Series Element
 
             ForEach Chart()\VisibleData()
-              If Chart()\VisibleData() = ListIndex(Chart()\Series())
+              If Chart()\VisibleData()\Idx = ListIndex(Chart()\Series())
                 DeleteElement(Chart()\VisibleData())
               EndIf 
             Next
@@ -5597,6 +5635,24 @@ Module Chart
     EndIf
     
   EndProcedure
+  
+  Procedure   ClearItems(GNum.i)
+    
+    If FindMapElement(Chart(), Str(GNum))
+      
+      ClearMap(Chart()\Index())
+      ClearList(Chart()\Item())
+      
+      CompilerIf #Enable_DataSeries Or #Enable_ScatterPlot
+        ClearList(Chart()\Series())
+        ClearList(Chart()\VisibleData())
+        ClearMap(Chart()\VisibleIndex())
+      CompilerEndIf  
+      
+      Draw_()
+    EndIf
+ 
+  EndProcedure  
   
   Procedure   DisableReDraw(GNum.i, State.i=#False)
     
@@ -6462,6 +6518,7 @@ CompilerIf #PB_Compiler_IsMainFile
     #Value
     #Button
     #PopUp
+    #Menu_Clear
     #Menu_Hide
     #Menu_Display
     #Font
@@ -6477,6 +6534,8 @@ CompilerIf #PB_Compiler_IsMainFile
       MenuItem(#Menu_Display, "Display data series")
       MenuBar()
       MenuItem(#Menu_Hide, "Hide data series")
+      MenuBar()
+      MenuItem(#Menu_Clear, "Clear chart")
     EndIf 
     
     CompilerSelect #Example
@@ -6825,6 +6884,16 @@ CompilerIf #PB_Compiler_IsMainFile
                 CompilerElseIf #Example = 16
                   Chart::DisplayScatterPlot(#Chart, Chart::EventDataSeries(#Chart), #False)  
                 CompilerEndIf
+              CompilerEndIf 
+            Case #Menu_Clear
+              CompilerIf Chart::#Enable_DataSeries
+                CompilerIf #Example = 10
+                  Chart::ClearItems(#Chart)
+                CompilerElseIf #Example = 15
+                  Chart::ClearItems(#Chart)
+                CompilerElseIf #Example = 16
+                  Chart::ClearItems(#Chart)
+                CompilerEndIf
               CompilerEndIf  
           EndSelect
         Case #PB_Event_Gadget
@@ -6851,7 +6920,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 121
-; Folding = 59------f7GRQAAKABNEIn-fAe5-z-+v8ft6BOAkoAAiDAuXVI--Df4-xP5
+; CursorPosition = 13
+; FirstLine = 12
+; Folding = 5EAA----f7GRwgAeEBdUIn-fAe5-z-----08JeAkqAACbA5eVh9-P9dNE-1+
 ; EnableXP
 ; DPIAware
