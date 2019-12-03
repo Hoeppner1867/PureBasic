@@ -187,7 +187,7 @@
 
 DeclareModule PDF
   
-  #Version  = 19120200
+  #Version  = 19120201
   
   #Enable_AcroFormCommands  = #True
   #Enable_Annotations       = #True
@@ -390,7 +390,7 @@ DeclareModule PDF
   #Format_RA2       = "1218.90,1729.13"
   #Format_RA3       = "864.57,1218.90"
   #Format_RA4       = "609.45,864.57"
-  #Format_SRA0      = "2551.18,3628.35)"
+  #Format_SRA0      = "2551.18,3628.35"
   #Format_SRA1      = "1814.17,2551.18"
   #Format_SRA2      = "1275.59,1814.17"
   #Format_SRA3      = "907.09,1275.59"
@@ -6951,9 +6951,9 @@ CompilerEndIf
 
 ;- ========================
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 10
-; FirstLine = 5
-; Folding = YAwCA5AegAQAIABAABAAIECAAAiBAAAAYAEAAygIACjIAAACOAAUQAEIAAQwwEYKA5BCAA9
+; CursorPosition = 189
+; FirstLine = 9
+; Folding = YAwiA5AegAQAIABAABAAIECAAAiBAAAAYAEAAygIACjIAAACOAAUQAEIAAQwwEYKA5BCAA9
 ; Markers = 582,1013,2362,2462,3768,3833
 ; EnableXP
 ; DPIAware

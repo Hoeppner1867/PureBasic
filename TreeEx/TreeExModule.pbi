@@ -77,7 +77,7 @@
 
 DeclareModule TreeEx
   
-  #Version  = 19120101
+  #Version  = 19120300
   #ModuleEx = 19112002
   
   #Enable_ProgressBar = #True
@@ -272,6 +272,7 @@ Module TreeEx
 	  X.i
 	  Y.i
 	  Level.i
+	  NextLevel.i
 	  Button.i
 	EndStructure ;}
 	
@@ -463,7 +464,8 @@ Module TreeEx
 		Col.TreeEx_Col_Structure
 		VScroll.TreeEx_Scroll_Structure
     HScroll.TreeEx_Scroll_Structure
-		
+    
+    List Lines.Tree_Structure()
 		List Cols.TreeEx_Cols_Structure()
 		List Rows.TreeEx_Rows_Structure()
 
@@ -594,13 +596,26 @@ Module TreeEx
 	
 	Procedure   CalcRows()
     Define.i TreeWidth, maxWidth, LevelWidth, Level, NextLevel, FontID
-    Define.i btX, txtX, OffsetX, ImageWidth, ImageHeight, RowHeight, CheckBoxSize
+    Define.i X, Y, btX, txtX, OffsetX, OffsetY, ImageWidth, ImageHeight, RowHeight, CheckBoxSize
     Define.f Factor
 
     If StartDrawing(CanvasOutput(TreeEx()\CanvasNum))
-     
+      
+      ClearList(TreeEx()\Lines())
+
+      RowHeight    = dpiY(TreeEx()\Row\Height)
       LevelWidth   = dpiX(#ButtonSize) + dpiX(5)
       CheckBoxSize = TextHeight("Abc") - dpiX(2)
+      
+      OffsetY = TreeEx()\Row\Offset * RowHeight
+      
+      If TreeEx()\Flags & #ShowHeader
+        Y = dpiY(TreeEx()\Row\Header\Height) - OffsetY
+      Else
+        Y = dpiY(2) - OffsetY
+      EndIf  
+      
+      Y + dpiY(2)
       
       TreeEx()\Size\Rows   = 0
       TreeEx()\Row\Visible = 0
@@ -624,13 +639,14 @@ Module TreeEx
   		  TreeEx()\Rows()\Visible = #True
 		  
 		    TreeEx()\Row\Visible + 1
-  		  TreeEx()\Size\Rows + TreeEx()\Row\Height
+  		  TreeEx()\Size\Rows   + TreeEx()\Row\Height
   		  
   		  If TreeEx()\Cols()\FontID
 		      FontID = TreeEx()\Cols()\FontID
 		    Else
 		     	FontID = TreeEx()\FontID
 		    EndIf
+		   
 		    DrawingFont(FontID)
 		    
 		    ;{ --- Level of the next line ---
@@ -643,15 +659,22 @@ Module TreeEx
 			  PopListPosition(TreeEx()\Rows())
 			  ;}
 			  
-			  OffsetX   = LevelWidth * TreeEx()\Rows()\Level + dpiX(6)
+			  OffsetX = LevelWidth * TreeEx()\Rows()\Level + dpiX(6)
+			  
+	      If AddElement(TreeEx()\Lines())
+			    TreeEx()\Lines()\X         = X + OffsetX + dpiX(#ButtonSize / 2)
+			    TreeEx()\Lines()\Y         = Y + (RowHeight / 2)
+			    TreeEx()\Lines()\Level     = TreeEx()\Rows()\Level
+			    TreeEx()\Lines()\NextLevel = NextLevel
+			    If NextLevel = TreeEx()\Lines()\Level + 1 : TreeEx()\Lines()\Button = #True : EndIf
+			  EndIf 
+	  
 			  TreeWidth = dpiX(#ButtonSize + 5) + OffsetX
-
+			  
 			  If TreeEx()\Flags & #CheckBoxes : TreeWidth + CheckBoxSize : EndIf
 			  
 			  If IsImage(TreeEx()\Rows()\Column(#Tree$)\Image\Num) ;{ Image
-			    
-			    RowHeight   = dpiY(TreeEx()\Row\Height)
-			    
+
 			    ImageWidth  = TreeEx()\Rows()\Column(#Tree$)\Image\Width
           ImageHeight = TreeEx()\Rows()\Column(#Tree$)\Image\Height
           
@@ -669,6 +692,7 @@ Module TreeEx
 			  
 			  If TreeWidth > maxWidth : maxWidth = TreeWidth : EndIf
 			  
+			  Y + dpiY(TreeEx()\Row\Height)
 			Next
 			
 			TreeEx()\Col\TreeWidth = maxWidth
@@ -1174,15 +1198,16 @@ Module TreeEx
 	EndProcedure  
 
 	Procedure   Draw_()
-	  Define.f X, Y, Width, Height, TreeWidth, ColumnWidth, txtHeight, RowHeight, ImageWidth, ImageHeight, LineHeight
-	  Define.f btY, txtX, txtY, OffsetX, OffsetY, LastX, LastY, LineY
+	  Define.f X, Y, Width, Height, TreeWidth, ColumnWidth, txtHeight, RowHeight, ImageWidth, ImageHeight
+	  Define.f btY, txtX, txtY, OffsetX, OffsetY, LastX, LastY, LineY, LineHeight, LineWidth
 	  Define.i Row, PageRows, VisibleRows, FrontColor, BackColor, CheckBoxSize, FontID
 	  Define.i LevelWidth, NextLevel, LevelX, Level = 0
 	  Define.f Factor
 		Define.s Key$, Level$, Text$
 
-		NewList Tree.Tree_Structure()
+		NewMap  LineX.i()
 		NewMap  LineY.i()
+		
 		
 		If TreeEx()\Hide : ProcedureReturn #False : EndIf
 		
@@ -1413,14 +1438,7 @@ Module TreeEx
     			    TreeEx()\Rows()\Button\X = X + OffsetX
     		      TreeEx()\Rows()\Button\Y = Y + btY
       			EndIf 
-      			
-    			  If AddElement(Tree())
-    			    Tree()\Level = TreeEx()\Rows()\Level
-    			    Tree()\X     = X + OffsetX + dpiX(#ButtonSize / 2)
-    			    Tree()\Y     = Y + (RowHeight / 2)
-    			    If NextLevel = Tree()\Level + 1 : Tree()\Button = #True : EndIf
-    			  EndIf  
-    			  
+
     			  ;{ ----- Column BackColor -----
   			    If TreeEx()\Cols()\Color\Back <> #PB_Default 
   			      DrawingMode(#PB_2DDrawing_Default)
@@ -1582,43 +1600,77 @@ Module TreeEx
   		
   		;{ _____ Lines _____
   		If Not TreeEx()\Flags & #NoLines
-    		ForEach Tree()
-  
-    		  If Tree()\Level < Level
-    		    Level$ = Str(Level)
-    		    LineXY(LevelX, LineY(Level$), LevelX, LastY, TreeEx()\Color\Line)
-    		    LineY(Level$) = 0
-    		  EndIf
+  		  
+  		  LineWidth = Round(dpiX(#ButtonSize) / 2, #PB_Round_Up)
+  		  
+    		ForEach TreeEx()\Lines()
+
+    		  If TreeEx()\Lines()\Button 
+    		    
+    		    If Level < TreeEx()\Lines()\Level
+    		      Level$ = Str(Level)
+    		      If LineY(Level$)
+    		        Line(LineX(Level$), LineY(Level$), 1, TreeEx()\Lines()\Y - LineY(Level$))
+    		        Line(LineX(Level$), TreeEx()\Lines()\Y, TreeEx()\Lines()\X - LineX(Level$), 1)
+    		      EndIf
+    		    EndIf
+
+    		    Level$ = Str(TreeEx()\Lines()\Level)
+    		    
+    		    If LineY(Level$) : Line(TreeEx()\Lines()\X, LineY(Level$), 1, TreeEx()\Lines()\Y - LineY(Level$)) : EndIf  
+    		    
+    		    LineX(Level$) = TreeEx()\Lines()\X
+    		    
+    		    PushListPosition(TreeEx()\Lines())
     		  
-    		  Level$ = Str(Tree()\Level)
-    		  If LineY(Level$)
-    		    LineXY(Tree()\X, LineY(Level$), Tree()\X, Tree()\Y, TreeEx()\Color\Line)
-    		    LineY(Level$) = Tree()\Y
+      		  If NextElement(TreeEx()\Lines())
+      		    NextLevel = TreeEx()\Lines()\Level
+      		  Else
+      		    NextLevel = -1
+      		  EndIf
+      		  
+      		  PopListPosition(TreeEx()\Lines())
+
+      		  If NextLevel <> -1 And  NextLevel < TreeEx()\Lines()\Level
+      		    If NextLevel < Level
+      		      LineY(Str(Level)) = 0
+      		    Else
+      		      LineY(Level$) = 0
+      		    EndIf
+      		    Level = NextLevel
+    		    Else  
+    		      LineY(Level$) = TreeEx()\Lines()\Y
+    		      Level = TreeEx()\Lines()\Level
+    		    EndIf  
+    		    
     		  Else
-    		    LineY(Level$) = Tree()\Y
+    		    
+    		    If TreeEx()\Lines()\NextLevel < TreeEx()\Lines()\Level ; Line ends without button
+      		    Level$ = Str(Level)
+      		    If LineY(Level$) : Line(LineX(Level$), LineY(Level$), 1, TreeEx()\Lines()\Y - LineY(Level$)) : EndIf
+      		    Line(LineX(Level$), TreeEx()\Lines()\Y, TreeEx()\Lines()\X - LineX(Level$) + LineWidth, 1)
+      		    If TreeEx()\Lines()\NextLevel < Level
+      		      LineY(Level$) = 0
+      		      Level = TreeEx()\Lines()\NextLevel
+      		    EndIf  
+      		  ElseIf TreeEx()\Lines()\Level > Level
+      		    Level$ = Str(Level)
+    		      Line(LineX(Level$), TreeEx()\Lines()\Y, TreeEx()\Lines()\X - LineX(Level$) + LineWidth, 1)
+      		  Else  
+      		    Level$ = Str(TreeEx()\Lines()\Level)
+    		      Line(LineX(Level$), TreeEx()\Lines()\Y, TreeEx()\Lines()\X - LineX(Level$) + LineWidth, 1)
+    		    EndIf
+    		    
     		  EndIf
-    		  
-    		  If Tree()\Level > Level
-  		      LineXY(LevelX, Tree()\Y, Tree()\X, Tree()\Y, TreeEx()\Color\Line)
-  		    EndIf
-    		  
-  		    If Tree()\Button
-    		    Level  = Tree()\Level
-    		    LevelX = Tree()\X
-    		    Line(Tree()\X, Tree()\Y, dpiX(4), 1, TreeEx()\Color\Line)
-    		  Else
-    		    If Tree()\Level > Level : LineY(Level$) = 0 : EndIf
-    		  EndIf
-  
-    		  LastX = Tree()\X
-    		  LastY = Tree()\Y
     		  
     		Next  
   		
-    		If LastElement(Tree())
-    		  If Tree()\Level > Level
+    		If LastElement(TreeEx()\Lines())
+    		  If TreeEx()\Lines()\Level > Level
     		    Level$ = Str(Level)
-    		    LineXY(LevelX, LineY(Level$), LevelX, Tree()\Y, TreeEx()\Color\Line)
+    		    If LineY(Level$)
+    		      If LineY(Level$) : Line(LineX(Level$), LineY(Level$), 1, TreeEx()\Lines()\Y - LineY(Level$)) : EndIf
+    		    EndIf  
     	    EndIf
     	  EndIf
     	  
@@ -2979,8 +3031,9 @@ CompilerIf #PB_Compiler_IsMainFile
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "Item" + #LF$ + #LF$ + "1")
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "1.1",   "", #False, 1)
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "1.1.1", "", #False, 2)
-      TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "1.1.2", "", #False, 2)
-      TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "Item"    + #LF$ + #LF$ + "2")
+      TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "1.1.1.1", "", #False, 0)
+      TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "1.1.2", "", #False, 0)
+      TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "Item"    + #LF$ + #LF$ + "2", "", 1)
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "2.1",   "", #False, 1)
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "2.2",   "", #False, 1)
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "2.3",   "", #False, 1)
@@ -3031,8 +3084,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 2092
-; FirstLine = 801
-; Folding = 96AAACAkQpAOQIO3YSM1QAAAGAD-
+; CursorPosition = 79
+; Folding = 96AAAAQAAJASAIGyAQAEQAAAGAD-
 ; EnableXP
 ; DPIAware
