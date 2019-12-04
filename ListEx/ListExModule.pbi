@@ -9,10 +9,11 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 30.11.2019
+; Last Update: 04.12.2019
+;
+; - Bugfix: #
 ;
 ; - Added: Multiline support
-;
 ; - Added: SetCondition() for editable cells
 ; - Added: Attribute #MaxChars for SetAttribute() or SetColumnAttribute()
 ; - Added: #EventType_Change for string gadget
@@ -81,7 +82,7 @@
 ; ListEx::GetColumnLabel()          - returns the label of the column
 ; ListEx::GetColumnState()          - similar to 'GetGadgetItemState()' for a specific column
 ; ListEx::GetItemData()             - similar to 'GetGadgetItemData()'
-; ListEx::GetItemID()               - similar to 'GetGadgetItemData()' but with string data
+; ListEx::GetItemLabel()               - similar to 'GetGadgetItemData()' but with string data
 ; ListEx::GetItemState()            - similar to 'GetGadgetItemState()' [#Selected/#Checked/#Inbetween]
 ; ListEx::GetItemText()             - similar to 'GetGadgetItemText()'
 ; ListEx::GetRowFromLabel()         - returns row number for this label
@@ -138,7 +139,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19113000
+  #Version  = 19120400
   #ModuleEx = 19112100
   
   #Enable_Validation  = #True
@@ -175,12 +176,48 @@ DeclareModule ListEx
   
   #Progress$ = "{Percent}"
   
-  EnumerationBinary 
+  EnumerationBinary ;{ Gadget Flags
+    #Left    = 1
+    #Right   = 1<<1
+    #Center  = 1<<2
+    #ChBFlag = 1<<3
+    ; ---Gadget ---
+    #GridLines
+    #NoRowHeader
+    #NumberedColumn
+    #SingleClickEdit
+    #AutoResize
+    #ResizeColumn      ; resize column with mouse
+    #UseExistingCanvas
+    #ThreeState
+    #MultiSelect
+    #FitColumn
+    #EditableCombobox
+    ; --- Color ---
+    #ActiveLinkColor
+    #BackColor
+    #ButtonColor
+    #ButtonBorderColor
+    #ProgressBarColor
+    #GradientColor
+    #EditColor
+    #FocusColor
+    #FrontColor
+    #GadgetBackColor
+    #LineColor
+    #LinkColor
+    #HeaderFrontColor
+    #HeaderBackColor
+    #HeaderLineColor
+    #AlternateRowColor
+  EndEnumeration ;}
+  
+  EnumerationBinary ;{ Row status 
     #Selected   = #PB_ListIcon_Selected
     #Checked    = #PB_ListIcon_Checked
     #Inbetween  = #PB_ListIcon_Inbetween
     #HeaderRow
-  EndEnumeration
+  EndEnumeration ;}
   
   EnumerationBinary ; ProgressBars
     #ShowPercent
@@ -218,42 +255,6 @@ DeclareModule ListEx
     #GadgetFont
   EndEnumeration ;}
   
-  EnumerationBinary ;{ Gadget Flags
-    #Left    = 1
-    #Right   = 1<<1
-    #Center  = 1<<2
-    #ChBFlag = 1<<3
-    ; ---Gadget ---
-    #GridLines
-    #NoRowHeader
-    #NumberedColumn
-    #SingleClickEdit
-    #AutoResize
-    #ResizeColumn
-    #UseExistingCanvas
-    #ThreeState
-    #MultiSelect
-    #FitColumn
-    #EditableCombobox
-    ; --- Color ---
-    #ActiveLinkColor
-    #BackColor
-    #ButtonColor
-    #ButtonBorderColor
-    #ProgressBarColor
-    #GradientColor
-    #EditColor
-    #FocusColor
-    #FrontColor
-    #GadgetBackColor
-    #LineColor
-    #LinkColor
-    #HeaderFrontColor
-    #HeaderBackColor
-    #HeaderLineColor
-    #AlternateRowColor
-  EndEnumeration ;}
-
   EnumerationBinary ;{ Column Flags
     #Left    = 1
     #Right   = 1<<1
@@ -381,7 +382,7 @@ DeclareModule ListEx
   Declare.s GetColumnLabel(GNum.i, Column.i)
   Declare.i GetColumnState(GNum.i, Row.i, Column.i)
   Declare.i GetItemData(GNum.i, Row.i)
-  Declare.s GetItemID(GNum.i, Row.i)
+  Declare.s GetItemLabel(GNum.i, Row.i)
   Declare.i GetItemState(GNum.i, Row.i, Column.i=#PB_Ignore)
   Declare.s GetItemText(GNum.i, Row.i, Column.i)
   Declare.i GetRowFromLabel(GNum.i, Label.s)
@@ -4077,7 +4078,7 @@ Module ListEx
     If FindMapElement(ListEx(), Str(GNum))
       
       ;{ Resize column with mouse
-      If ListEx()\Cursor = #PB_Cursor_LeftRight
+      If ListEx()\Col\Resize <> #PB_Default
         ListEx()\Col\MouseX = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
         ProcedureReturn #True
       EndIf ;}
@@ -4479,9 +4480,10 @@ Module ListEx
       ListEx()\Row\Current = GetRow_(GetGadgetAttribute(GNum, #PB_Canvas_MouseY))
       ListEx()\Col\Current = GetColumn_(GetGadgetAttribute(GNum, #PB_Canvas_MouseX))
       
-      If ListEx()\CanvasCursor = #PB_Cursor_LeftRight Or ListEx()\Col\MouseX
+      If ListEx()\Col\Resize <> #PB_Default
         ListEx()\CanvasCursor = #Cursor_Default
-        ListEx()\Col\MouseX = 0
+        ListEx()\Col\Resize   = #PB_Default 
+        ListEx()\Col\MouseX   = 0
       EndIf
       
       If ListEx()\Row\Current < 0 Or ListEx()\Col\Current < 0 : ProcedureReturn #False : EndIf
@@ -4581,6 +4583,9 @@ Module ListEx
       X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
       Y = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
       
+      Row    = GetRow_(Y)
+      Column = GetColumn_(X)
+      
       If ListEx()\Flags & #ResizeColumn ;{ Resize column with mouse
         
         If ListEx()\CanvasCursor = #PB_Cursor_LeftRight
@@ -4600,25 +4605,24 @@ Module ListEx
             
             Draw_()
             
-            ProcedureReturn #True
+            ProcedureReturn #True ;}
           EndIf
-          ;}
-        Else                                      ;{ Change cursor to #PB_Cursor_LeftRight
+          
+        Else                     ;{ Change cursor to #PB_Cursor_LeftRight
+      
           ForEach ListEx()\Cols()
-            If X = ListEx()\Cols()\X
+            If X >= ListEx()\Cols()\X - dpiX(1) And X <= ListEx()\Cols()\X + dpiX(1)
               ListEx()\CanvasCursor = #PB_Cursor_LeftRight
-              ListEx()\Col\Resize = ListIndex(ListEx()\Cols())
+              ListEx()\Col\Resize   = ListIndex(ListEx()\Cols())
               SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
               ProcedureReturn #True
             EndIf  
-          Next ;}
+          Next
+          ;}
         EndIf
         
       EndIf ;}
-      
-      Row    = GetRow_(Y)
-      Column = GetColumn_(X)
-      
+
       Focus$ = Str(Row)+"|"+Str(Column)
       
       If ListEx()\Button\Focus And ListEx()\Button\Focus <> Focus$
@@ -5904,6 +5908,7 @@ Module ListEx
         ;}
         
         ;{ Column
+        ListEx()\Col\Resize  = #PB_Default
         ListEx()\Col\Padding = 5
         
         If AddElement(ListEx()\Cols())
@@ -6094,7 +6099,7 @@ Module ListEx
     
   EndProcedure
   
-  Procedure.s GetItemID(GNum.i, Row.i)
+  Procedure.s GetItemLabel(GNum.i, Row.i)
     
     If FindMapElement(ListEx(), Str(GNum))
       
@@ -6132,7 +6137,7 @@ Module ListEx
   Procedure.s GetRowLabel(GNum.i, Row.i)
     
     If FindMapElement(ListEx(), Str(GNum))
-      ProcedureReturn GetItemID(GNum, Row)
+      ProcedureReturn GetItemLabel(GNum, Row)
     EndIf
     
   EndProcedure
@@ -7364,15 +7369,17 @@ CompilerIf #PB_Compiler_IsMainFile
       
       CompilerIf #Example = 1
         
-        ListEx::AddColumn(#List, 1, "Text", 275, "text",   ListEx::#Links) 
+        ; If the text contains #LF$, the text is output in multiple lines, if the line height is sufficient.
+        
+        ListEx::AddColumn(#List, 1, "Text", 275, "text") 
         ListEx::SetRowsHeight(#List, 40)
-        ListEx::AddItem(#List, ListEx::#LastItem, "Row 1|Row 2")
+        ListEx::AddItem(#List, ListEx::#LastItem, "Row 1|Row 2") ; | is replaced in the column text by #LF$
         
         If LoadImage(#Image, "Delete.png")
           ListEx::SetItemImage(#List, 0, 1, 16, 16, #Image)
         EndIf 
         
-        ;ListEx::SetItemText(#List, 0, "Row 1" + #LF$ + "Row 2" , 1)
+        ;ListEx::SetItemText(#List, 0, "Row 1" + #LF$ + "Row 2" , 1) ; #LF$ = new row
         
       CompilerElse
         
@@ -7579,10 +7586,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 7310
-; FirstLine = 1468
-; Folding = I9HAAAAkCAHICkAGQ5PgwDFKEEKkJAYgA+fAwAsDSAwPANDOATAGAAAAmAAAgJe+-
-; Markers = 3066
+; CursorPosition = 217
+; FirstLine = 58
+; Folding = YwPABAAIFAIQEIBMgwfBhHKUIIUITAwgBAAADAAHgAgfAYOcAGAOAKAAMBAAQC59-
+; Markers = 3067
 ; EnableXP
 ; DPIAware
 ; EnableUnicode

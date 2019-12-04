@@ -9,7 +9,7 @@
 ;/ © 2019  by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 01.12.2019
+; Last Update: 03.12.2019
 
 ;{ ===== MIT License =====
 ;
@@ -68,7 +68,7 @@ CompilerIf Not Defined(Calendar, #PB_Module) : XIncludeFile "CalendarModule.pbi"
 
 DeclareModule DateEx
   
-  #Version  = 19120102
+  #Version  = 19120300
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -132,9 +132,7 @@ DeclareModule DateEx
 	;- ===========================================================================
 	;-   DeclareModule
   ;- ===========================================================================
-	
-	Declare   Calendar(GNum.i=#PB_Default)
-	
+
 	Declare.q GetData(GNum.i)
 	Declare.s GetID(GNum.i)
   Declare   SetData(GNum.i, Value.q)
@@ -317,6 +315,54 @@ Module DateEx
 
 	CompilerEndIf
 	
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure.i GetGadgetWindow()
+      ProcedureReturn ModuleEx::GetGadgetWindow()
+    EndProcedure
+    
+  CompilerElse  
+    Debug "GetGadgetWindow()"
+    CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+      ; Thanks to mk-soft
+      Import ""
+        PB_Object_EnumerateStart(PB_Objects)
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerElse
+      ImportC ""
+        PB_Object_EnumerateStart( PB_Objects )
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerEndIf
+    
+    Procedure.i GetGadgetWindow()
+      ; Thanks to mk-soft
+      Define.i WindowID, Window, Result = #PB_Default
+      
+      WindowID = UseGadgetList(0)
+      
+      PB_Object_EnumerateStart(PB_Window_Objects)
+      
+      While PB_Object_EnumerateNext(PB_Window_Objects, @Window)
+        If WindowID = WindowID(Window)
+          Result = Window
+          Break
+        EndIf
+      Wend
+      
+      PB_Object_EnumerateAbort(PB_Window_Objects)
+      
+      ProcedureReturn Result
+    EndProcedure
+    
+  CompilerEndIf	
+  
+  
   Procedure.f dpiX(Num.i)
 	  If Num > 0  
 	    ProcedureReturn DesktopScaledX(Num)
@@ -1264,18 +1310,10 @@ Module DateEx
 	;-   Module - Declared Procedures
 	;- ==========================================================================
 	
-	Procedure.i Calendar(GNum.i=#PB_Default)
+	Procedure.i InitCalendar_()
 	  Define *Buffer
 	  
-	  If IsWindow(Calendar\WindowNum)
-	    
-	    If FindMapElement(DateEx(), Str(GNum))
-  	    DateEx()\Calendar\Window = Calendar\WindowNum
-  	    DateEx()\Calendar\Num    = Calendar\GadgetNum
-  	    DateEx()\Button\ImgNum   = Calendar\ImageNum
-  	  EndIf  
-  	  
-  	Else
+    If IsImage(Calendar\ImageNum) = #False
   	  
   	  *Buffer = AllocateMemory(1124)
   	  If *Buffer
@@ -1285,19 +1323,14 @@ Module DateEx
   	    FreeMemory(*Buffer)
   	  EndIf 
   	  
-	    Calendar\WindowNum = OpenWindow(#PB_Any, 0, 0, 210, 160, "", #PB_Window_BorderLess|#PB_Window_Invisible)
-	    If Calendar\WindowNum
-
-	      Calendar\GadgetNum = Calendar::Gadget(#PB_Any, 0, 0, #PB_Default, #PB_Default, #PB_Default, Calendar\WindowNum)
-	      If Calendar\GadgetNum
-	        If FindMapElement(DateEx(), Str(GNum))
-	          DateEx()\Calendar\Window = Calendar\WindowNum
-	          DateEx()\Calendar\Num    = Calendar\GadgetNum
-	          DateEx()\Button\ImgNum   = Calendar\ImageNum
-	        EndIf
-	      EndIf
-	      
-	      StickyWindow(Calendar\WindowNum, #True) 
+  	EndIf
+  	
+    DateEx()\Calendar\Window = OpenWindow(#PB_Any, 0, 0, 210, 160, "", #PB_Window_BorderLess|#PB_Window_Invisible, WindowID(DateEx()\Window\Num))
+    If DateEx()\Calendar\Window
+      
+      DateEx()\Calendar\Num = Calendar::Gadget(#PB_Any, 0, 0, #PB_Default, #PB_Default, #PB_Default, DateEx()\Calendar\Window)
+	    If DateEx()\Calendar\Num
+	      DateEx()\Button\ImgNum = Calendar\ImageNum
 	    EndIf
 	    
 	  EndIf  
@@ -1393,21 +1426,13 @@ Module DateEx
 
 				DateEx()\CanvasNum = GNum
 				
-				Calendar(GNum)
-
-				CompilerIf Defined(ModuleEx, #PB_Module) ; WindowNum = #Default
-					If WindowNum = #PB_Default
-						DateEx()\Window\Num = ModuleEx::GetGadgetWindow()
-					Else
-						DateEx()\Window\Num = WindowNum
-					EndIf
-				CompilerElse
-					If WindowNum = #PB_Default
-						DateEx()\Window\Num = GetActiveWindow()
-					Else
-						DateEx()\Window\Num = WindowNum
-					EndIf
-				CompilerEndIf
+				InitCalendar_()
+				
+				If WindowNum = #PB_Default
+          DateEx()\Window\Num = GetGadgetWindow()
+        Else
+          DateEx()\Window\Num = WindowNum
+        EndIf
 
 				CompilerSelect #PB_Compiler_OS           ;{ Default Gadget Font
 					CompilerCase #PB_OS_Windows
@@ -1727,7 +1752,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 70
-; Folding = 5hPAQBAAYDoBEh+jAIAAQ9
+; CursorPosition = 134
+; FirstLine = 64
+; Folding = 5hPAMQAAAGAKAQofAACAAi
 ; EnableXP
 ; DPIAware
