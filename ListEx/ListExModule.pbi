@@ -139,7 +139,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19120400
+  #Version  = 19120401
   #ModuleEx = 19112100
   
   #Enable_Validation  = #True
@@ -767,6 +767,7 @@ Module ListEx
     Align.i
     FontID.i
     Mask.s
+    minWidth.i
     MaxWidth.i
     MaxChars.i
     Currency.s
@@ -2577,6 +2578,10 @@ Module ListEx
         
         rowY = dpiY(ListEx()\Size\Y)
         
+        ForEach ListEx()\Cols()
+          ListEx()\Cols()\minWidth = dpiX(10)
+        Next  
+        
       Else
 
         DrawingMode(#PB_2DDrawing_Default)
@@ -2585,6 +2590,8 @@ Module ListEx
         ForEach ListEx()\Cols()
           
           If ListEx()\Cols()\Flags & #Hide : Continue : EndIf
+          
+          ListEx()\Cols()\minWidth = 0
           
           If ListEx()\Cols()\Header\FontID = #PB_Default
             DrawingFont(ListEx()\Header\FontID)
@@ -2618,10 +2625,12 @@ Module ListEx
             DrawingMode(#PB_2DDrawing_AlphaBlend)
             DrawImage(ListEx()\Cols()\Header\Image\ID, colX + imgX, rowY + imgY, dpiX(ListEx()\Cols()\Header\Image\Width), dpiY(ListEx()\Cols()\Header\Image\Height)) 
             
+            
+            ListEx()\Cols()\minWidth = TextWidth(ListEx()\Cols()\Header\Title) + dpiX(ListEx()\Cols()\Header\Image\Width) + dpiX(10)
             ListEx()\Cols()\MaxWidth = TextWidth(ListEx()\Cols()\Header\Title) + dpiX(ListEx()\Cols()\Header\Image\Width) + dpiX(4)
             
           Else
-            
+            ListEx()\Cols()\minWidth = TextWidth(ListEx()\Cols()\Header\Title) + dpiX(6)
             ListEx()\Cols()\MaxWidth = TextWidth(ListEx()\Cols()\Header\Title)
             ;}
           EndIf          
@@ -4592,15 +4601,36 @@ Module ListEx
           
           If ListEx()\Col\MouseX ;{ Resize column
             
-            If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize - 1)
-              ListEx()\Cols()\Width - (ListEx()\Col\MouseX - X)   
-            EndIf
-          
             If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize)
+              
+              If ListEx()\Cols()\Width + (ListEx()\Col\MouseX - X) <= ListEx()\Cols()\minWidth
+                ListEx()\CanvasCursor = #Cursor_Default
+                ListEx()\Col\Resize   = #PB_Default 
+                ListEx()\Col\MouseX   = 0
+                ProcedureReturn #False
+              EndIf   
+              
               ListEx()\Cols()\X     = X
               ListEx()\Cols()\Width + (ListEx()\Col\MouseX - X) 
             EndIf
+            
+            If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize - 1)
+              
+              If ListEx()\Cols()\Width - (ListEx()\Col\MouseX - X) <= ListEx()\Cols()\minWidth
+                If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize - 1)
+                  ListEx()\Cols()\Width + (ListEx()\Col\MouseX - X)
+                EndIf
+                ListEx()\Cols()\Width - (ListEx()\Col\MouseX - X)
+                ListEx()\CanvasCursor = #Cursor_Default
+                ListEx()\Col\Resize   = #PB_Default 
+                ListEx()\Col\MouseX   = 0
+                ProcedureReturn #False
+              EndIf   
            
+              ListEx()\Cols()\Width - (ListEx()\Col\MouseX - X)   
+
+            EndIf
+
             ListEx()\Col\MouseX = X
             
             Draw_()
@@ -7586,10 +7616,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 217
-; FirstLine = 58
-; Folding = YwPABAAIFAIQEIBMgwfBhHKUIIUITAwgBAAADAAHgAgfAYOcAGAOAKAAMBAAQC59-
-; Markers = 3067
+; CursorPosition = 141
+; FirstLine = 9
+; Folding = 5wPAAAAJFAIQEIBMgwfBhHKUoJUITAwgBAAACAE-gAgfAYOcAGAOAKAAMBAAQC59-
+; Markers = 3076
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
