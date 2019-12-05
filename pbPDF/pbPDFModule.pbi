@@ -4084,6 +4084,10 @@ Module PDF
             EndIf ;}
             
             ;{ --- Write Stream ---
+            If PDF()\Encryption
+              EncryptMem_(intObj_(objPDF), 0, PDF()\Object()\Stream\Memory, PDF()\Object()\Stream\Size)
+            EndIf
+            
             If PDF()\Object()\Stream\Memory And  PDF()\Object()\Stream\Size
               WriteString(#File, "stream" + #LF$, #PB_Ascii)
               ByteOffset + 7
@@ -6951,9 +6955,9 @@ CompilerEndIf
 
 ;- ========================
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 189
-; FirstLine = 15
-; Folding = YAwiA5AegAQAIABAABAAIECAAAiBAAAAYAEAAygIASjIBAACOAAUQAEIAAQwwEYKA5BCAA9
+; CursorPosition = 3996
+; FirstLine = 791
+; Folding = YAwiA5AegAQAIABAABAgIECAAAiBAAAAYAEAAygIASnoAAACOAAUQAEIAAQwwEYKA5BCAA9
 ; Markers = 582,1013,2362,2462,3768,3833
 ; EnableXP
 ; DPIAware
