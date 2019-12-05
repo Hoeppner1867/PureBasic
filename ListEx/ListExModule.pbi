@@ -9,9 +9,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 04.12.2019
+; Last Update: 05.12.2019
 ;
-; - Bugfix: #
+; - Bugfixes
 ;
 ; - Added: Multiline support
 ; - Added: SetCondition() for editable cells
@@ -139,7 +139,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19120401
+  #Version  = 19120500
   #ModuleEx = 19112100
   
   #Enable_Validation  = #True
@@ -4489,11 +4489,9 @@ Module ListEx
       ListEx()\Row\Current = GetRow_(GetGadgetAttribute(GNum, #PB_Canvas_MouseY))
       ListEx()\Col\Current = GetColumn_(GetGadgetAttribute(GNum, #PB_Canvas_MouseX))
       
-      If ListEx()\Col\Resize <> #PB_Default
-        ListEx()\CanvasCursor = #Cursor_Default
-        ListEx()\Col\Resize   = #PB_Default 
-        ListEx()\Col\MouseX   = 0
-      EndIf
+      ListEx()\CanvasCursor = #Cursor_Default
+      ListEx()\Col\Resize   = #PB_Default 
+      ListEx()\Col\MouseX   = 0
       
       If ListEx()\Row\Current < 0 Or ListEx()\Col\Current < 0 : ProcedureReturn #False : EndIf
       
@@ -4582,7 +4580,7 @@ Module ListEx
   
   Procedure _MouseMoveHandler()
     Define.i Row, Column, Flags
-    Define.f X, Y
+    Define.f X, Y, ColX, ColWidth
     Define.s Key$, Value$, Focus$
     Define   Image.Image_Structure
     Define.i GNum = EventGadget()
@@ -4604,26 +4602,25 @@ Module ListEx
             If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize)
               
               If ListEx()\Cols()\Width + (ListEx()\Col\MouseX - X) <= ListEx()\Cols()\minWidth
-                ListEx()\CanvasCursor = #Cursor_Default
-                ListEx()\Col\Resize   = #PB_Default 
-                ListEx()\Col\MouseX   = 0
+                Draw_()
                 ProcedureReturn #False
               EndIf   
               
-              ListEx()\Cols()\X     = X
+              ColX     = ListEx()\Cols()\X
+              ColWidth = ListEx()\Cols()\Width
+              
+              ListEx()\Cols()\X = X
               ListEx()\Cols()\Width + (ListEx()\Col\MouseX - X) 
             EndIf
             
             If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize - 1)
               
               If ListEx()\Cols()\Width - (ListEx()\Col\MouseX - X) <= ListEx()\Cols()\minWidth
-                If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize - 1)
-                  ListEx()\Cols()\Width + (ListEx()\Col\MouseX - X)
+                If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize)
+                  ListEx()\Cols()\Width = ColWidth
+                  ListEx()\Cols()\X     = ColX
                 EndIf
-                ListEx()\Cols()\Width - (ListEx()\Col\MouseX - X)
-                ListEx()\CanvasCursor = #Cursor_Default
-                ListEx()\Col\Resize   = #PB_Default 
-                ListEx()\Col\MouseX   = 0
+                Draw_()
                 ProcedureReturn #False
               EndIf   
            
@@ -7617,8 +7614,8 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 141
-; FirstLine = 9
-; Folding = 5wPAAAAJFAIQEIBMgwfBhHKUoJUITAwgBAAACAE-gAgfAYOcAGAOAKAAMBAAQC59-
+; FirstLine = 24
+; Folding = 5wPAAAAJFAIQEIBMgwfBhHKUoJUITAwgBAAAAAE-gAgfAYOcAGAOAKAAMBAAQC59-
 ; Markers = 3076
 ; EnableXP
 ; DPIAware
