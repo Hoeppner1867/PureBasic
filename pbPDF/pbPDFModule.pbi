@@ -8,7 +8,7 @@
 ;/ ( based on 'PurePDF' by LuckyLuke / ABBKlaus / normeus )
 ;/
 
-; Last Update: 02.12.2019
+; Last Update: 05.12.2019
 ; 
 ; [11.11.2019] Changed: Embed images
 ; [26.08.2019] Bugfix: PDF::Image()
@@ -187,7 +187,7 @@
 
 DeclareModule PDF
   
-  #Version  = 19120201
+  #Version  = 19120500
   
   #Enable_AcroFormCommands  = #True
   #Enable_Annotations       = #True
@@ -4106,7 +4106,7 @@ Module PDF
       StartXRef = Str(ByteOffset)
       WriteString(#File, "xref" + #LF$, #PB_Ascii)
       WriteString(#File, "0 " + Str(PDF()\Trailer\Size) + #LF$, #PB_Ascii)                                      ; Number of lines in cross-reference table
-      WriteString(#File, "0000000000 65535 f" + #LF$, #PB_Ascii)                                                ; Object 0
+      WriteString(#File, "0000000000 65535 f " + #LF$, #PB_Ascii)                                               ; Object 0
       For obj=1 To MapSize(PDF()\Object())
         objPDF = strObj_(obj)
         WriteString(#File, RSet(Str(PDF()\Object(objPDF)\ByteOffset), 10, "0") + " 00000 n " + #LF$, #PB_Ascii) ; Byte offset of all objects
@@ -6952,8 +6952,8 @@ CompilerEndIf
 ;- ========================
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 189
-; FirstLine = 9
-; Folding = YAwiA5AegAQAIABAABAAIECAAAiBAAAAYAEAAygIACjIAAACOAAUQAEIAAQwwEYKA5BCAA9
+; FirstLine = 15
+; Folding = YAwiA5AegAQAIABAABAAIECAAAiBAAAAYAEAAygIASjIBAACOAAUQAEIAAQwwEYKA5BCAA9
 ; Markers = 582,1013,2362,2462,3768,3833
 ; EnableXP
 ; DPIAware
