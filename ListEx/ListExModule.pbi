@@ -44,7 +44,7 @@
 ; SOFTWARE.
 ;}
 
-;{ ===== Additional tea & pizza license =====
+;{ ===== Tea & Pizza Ware =====
 ; <purebasic@thprogs.de> has created this code. 
 ; If you find the code useful and you want to use it for your programs, 
 ; you are welcome to support my work with a cup of tea or a pizza
@@ -139,7 +139,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19120500
+  #Version  = 19120501
   #ModuleEx = 19112100
   
   #Enable_Validation  = #True
@@ -187,7 +187,8 @@ DeclareModule ListEx
     #NumberedColumn
     #SingleClickEdit
     #AutoResize
-    #ResizeColumn      ; resize column with mouse
+    #ResizeColumn      ; resize column with mouse (changes the width)
+    #AdjustColumns     ; resize column with mouse (no change in width)
     #UseExistingCanvas
     #ThreeState
     #MultiSelect
@@ -4593,15 +4594,16 @@ Module ListEx
       Row    = GetRow_(Y)
       Column = GetColumn_(X)
       
-      If ListEx()\Flags & #ResizeColumn ;{ Resize column with mouse
+      If ListEx()\Flags & #ResizeColumn Or ListEx()\Flags & #AdjustColumns ;{ Resize column with mouse
         
         If ListEx()\CanvasCursor = #PB_Cursor_LeftRight
           
           If ListEx()\Col\MouseX ;{ Resize column
             
-            If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize)
+            If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize - 1)
               
-              If ListEx()\Cols()\Width + (ListEx()\Col\MouseX - X) <= ListEx()\Cols()\minWidth
+              If ListEx()\Cols()\Width - (ListEx()\Col\MouseX - X) <= ListEx()\Cols()\minWidth
+               
                 Draw_()
                 ProcedureReturn #False
               EndIf   
@@ -4609,25 +4611,27 @@ Module ListEx
               ColX     = ListEx()\Cols()\X
               ColWidth = ListEx()\Cols()\Width
               
-              ListEx()\Cols()\X = X
-              ListEx()\Cols()\Width + (ListEx()\Col\MouseX - X) 
-            EndIf
-            
-            If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize - 1)
-              
-              If ListEx()\Cols()\Width - (ListEx()\Col\MouseX - X) <= ListEx()\Cols()\minWidth
-                If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize)
-                  ListEx()\Cols()\Width = ColWidth
-                  ListEx()\Cols()\X     = ColX
-                EndIf
-                Draw_()
-                ProcedureReturn #False
-              EndIf   
-           
               ListEx()\Cols()\Width - (ListEx()\Col\MouseX - X)   
 
             EndIf
 
+            If ListEx()\Flags & #AdjustColumns
+              If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize)
+                
+                If ListEx()\Cols()\Width + (ListEx()\Col\MouseX - X) <= ListEx()\Cols()\minWidth
+                  If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize - 1)
+                    ListEx()\Cols()\Width = ColWidth
+                    ListEx()\Cols()\X     = ColX
+                  EndIf
+                  Draw_()
+                  ProcedureReturn #False
+                EndIf   
+  
+                ListEx()\Cols()\X = X
+                ListEx()\Cols()\Width + (ListEx()\Col\MouseX - X) 
+              EndIf
+            EndIf 
+            
             ListEx()\Col\MouseX = X
             
             Draw_()
@@ -7390,8 +7394,8 @@ CompilerIf #PB_Compiler_IsMainFile
     ButtonGadget(#B_Blue,  420, 100, 70, 20, "Blue")
     ButtonGadget(#Export,  420, 140, 70, 20, "Export")
     
-    If ListEx::Gadget(#List, 10, 10, 395, 230, "", 25, "", ListEx::#GridLines|ListEx::#CheckBoxes|ListEx::#AutoResize|ListEx::#MultiSelect|ListEx::#ResizeColumn, #Window) ; ListEx::#NoRowHeader|ListEx::#ThreeState|ListEx::#NumberedColumn|ListEx::#SingleClickEdit 
-    
+    If ListEx::Gadget(#List, 10, 10, 395, 230, "", 25, "", ListEx::#GridLines|ListEx::#CheckBoxes|ListEx::#AutoResize|ListEx::#MultiSelect|ListEx::#ResizeColumn, #Window)
+      ; ListEx::#NoRowHeader|ListEx::#ThreeState|ListEx::#NumberedColumn|ListEx::#SingleClickEdit|ListEx::#AdjustColumns
       ListEx::DisableReDraw(#List, #True) 
       
       CompilerIf #Example = 1
@@ -7613,10 +7617,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 141
-; FirstLine = 24
-; Folding = 5wPAAAAJFAIQEIBMgwfBhHKUoJUITAwgBAAAAAE-gAgfAYOcAGAOAKAAMBAAQC59-
-; Markers = 3076
+; CursorPosition = 47
+; Folding = 5wPAAAAJFAIQEIBMgwfBhHKUoJUITAwgBAAAAAE-gAgfAYOcAGAOAKAAMBAAQC99-
+; Markers = 3077
 ; EnableXP
 ; DPIAware
 ; EnableUnicode

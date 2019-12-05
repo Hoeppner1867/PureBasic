@@ -34,7 +34,7 @@
 ; SOFTWARE.
 ;}
 
-;{ ===== Additional tea & pizza license =====
+;{ ===== Tea & Pizza Ware =====
 ; <purebasic@thprogs.de> has created this code. 
 ; If you find the code useful and you want to use it for your programs, 
 ; you are welcome to support my work with a cup of tea or a pizza
@@ -1575,8 +1575,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1528
-; FirstLine = 735
-; Folding = 90GAgRAgABGBAI3Aj
+; CursorPosition = 571
+; FirstLine = 319
+; Folding = 90GAgRDgABGBAI3Aj
 ; EnableXP
 ; DPIAware
