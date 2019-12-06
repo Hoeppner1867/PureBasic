@@ -1130,8 +1130,7 @@ Module ComboBoxEx
     
     If ComboEx()\ListView\RowHeight = 0 : CalcRowHeight() : EndIf
     
-    RowsHeight = ListSize(ComboEx()\ListView\Item()) * ComboEx()\ListView\RowHeight
-    RowsHeight + dpiX(4)
+    RowsHeight = ListSize(ComboEx()\ListView\Item()) * DesktopUnscaledY(ComboEx()\ListView\RowHeight)
     If RowsHeight < Height : Height = RowsHeight : EndIf  
     
     SetGadgetData(ComboEx()\ListView\Num, ComboEx()\CanvasNum)
@@ -2640,9 +2639,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1284
-; FirstLine = 356
-; Folding = IMAgAAAAEBAo+XIAgDAEAIEAAAg-
+; CursorPosition = 1132
+; FirstLine = 216
+; Folding = IMAgAAAAABAs+XIAgDAEAIEAAAg-
 ; EnableThread
 ; EnableXP
 ; DPIAware
