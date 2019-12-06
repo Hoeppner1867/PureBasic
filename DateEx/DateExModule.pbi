@@ -9,7 +9,7 @@
 ;/ © 2019  by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 03.12.2019
+; Last Update: 06.12.2019
 
 ;{ ===== MIT License =====
 ;
@@ -68,7 +68,7 @@ CompilerIf Not Defined(Calendar, #PB_Module) : XIncludeFile "CalendarModule.pbi"
 
 DeclareModule DateEx
   
-  #Version  = 19120300
+  #Version  = 19120600
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -1317,7 +1317,7 @@ Module DateEx
   	  
   	  *Buffer = AllocateMemory(1124)
   	  If *Buffer
-  	    If UncompressMemory(?Image, 991, *Buffer, 1124) <> -1
+  	    If UncompressMemory(?Image, 991, *Buffer, 1124, #PB_PackerPlugin_Zip) <> -1
   	      Calendar\ImageNum = CatchImage(#PB_Any, *Buffer, 1124)
   	    EndIf
   	    FreeMemory(*Buffer)
@@ -1752,8 +1752,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 134
-; FirstLine = 64
-; Folding = 5hPAMQAAAGAKAQofAACAAi
+; CursorPosition = 11
+; FirstLine = 11
+; Folding = 5hPAMQAAAGAKAQofABCAAi
 ; EnableXP
 ; DPIAware
