@@ -87,7 +87,7 @@
 
 DeclareModule ComboBoxEx
   
-  #Version  = 19120601
+  #Version  = 19120602
   #ModuleEx = 19112600
   
   ;- ===========================================================================
@@ -1120,7 +1120,7 @@ Module ComboBoxEx
   
   ;- __________ ComboEx __________
   
-  Procedure OpenComboEx_()
+  Procedure OpenListView_()
     Define.i X, Y, RowsHeight, Width, Height
     
     X      = GadgetX(ComboEx()\CanvasNum, #PB_Gadget_ScreenCoordinate)
@@ -1128,7 +1128,7 @@ Module ComboBoxEx
     Width  = GadgetWidth(ComboEx()\CanvasNum)
     Height = ComboEx()\ListView\Height
     
-    If ComboEx()\ListView\RowHeight = 0 : CalcRowHeight() : EndIf
+    CalcRowHeight()
     
     RowsHeight = ListSize(ComboEx()\ListView\Item()) * DesktopUnscaledY(ComboEx()\ListView\RowHeight)
     If RowsHeight < Height : Height = RowsHeight : EndIf  
@@ -1149,7 +1149,7 @@ Module ComboBoxEx
     
   EndProcedure
   
-  Procedure CloseComboEx_()
+  Procedure CloseListView_()
     
     HideWindow(ComboEx()\ListView\Window, #True)
     
@@ -1283,7 +1283,7 @@ Module ComboBoxEx
                 ComboEx()\Text  = ComboEx()\ListView\Item()\String
                 ComboEx()\State = ListIndex(ComboEx()\ListView\Item())
                 DrawListView_()
-                CloseComboEx_()
+                CloseListView_()
                 PostEvent(#Event_Gadget, ComboEx()\Window\Num, ComboEx()\CanvasNum, #EventType_Change)
                 PostEvent(#PB_Event_Gadget, ComboEx()\Window\Num, ComboEx()\CanvasNum, #EventType_Change)
                 ProcedureReturn #True
@@ -1634,9 +1634,9 @@ Module ComboBoxEx
         If X > ComboEx()\Button\X 
           
           If ComboEx()\ListView\Hide
-            OpenComboEx_()
+            OpenListView_()
           Else
-            CloseComboEx_()
+            CloseListView_()
             PostEvent(#Event_Gadget, ComboEx()\Window\Num, ComboEx()\CanvasNum, #EventType_Change)
             PostEvent(#PB_Event_Gadget, ComboEx()\Window\Num, ComboEx()\CanvasNum, #EventType_Change)
           EndIf  
@@ -1654,9 +1654,9 @@ Module ComboBoxEx
       Else                           ;{ normal ComboBox
         
         If ComboEx()\ListView\Hide
-          OpenComboEx_()
+          OpenListView_()
         Else
-          CloseComboEx_()
+          CloseListView_()
           PostEvent(#Event_Gadget, ComboEx()\Window\Num, ComboEx()\CanvasNum, #EventType_Change)
           PostEvent(#PB_Event_Gadget, ComboEx()\Window\Num, ComboEx()\CanvasNum, #EventType_Change)
         EndIf  
@@ -2639,8 +2639,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1132
-; FirstLine = 216
+; CursorPosition = 89
 ; Folding = IMAgAAAAABAs+XIAgDAEAIEAAAg-
 ; EnableThread
 ; EnableXP
