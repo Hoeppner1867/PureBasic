@@ -87,7 +87,7 @@
 
 DeclareModule ComboBoxEx
   
-  #Version  = 19120602
+  #Version  = 19120603
   #ModuleEx = 19112600
   
   ;- ===========================================================================
@@ -189,7 +189,7 @@ DeclareModule ComboBoxEx
   Declare.s GetLabelText(GNum.i, Label.s)
   Declare.i GetState(GNum.i)
   Declare.s GetText(GNum.i) 
-  Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Text.s="", Flags.i=#False, WindowNum.i=#PB_Default)
+  Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, maxListHeight.i, Content.s="", Flags.i=#False, WindowNum.i=#PB_Default)
   Declare   Hide(GNum.i, State.i=#True)
   Declare   Paste(GNum.i)
   Declare   RemoveItem(GNum.i, Row.i)
@@ -1133,9 +1133,11 @@ Module ComboBoxEx
     RowsHeight = ListSize(ComboEx()\ListView\Item()) * DesktopUnscaledY(ComboEx()\ListView\RowHeight)
     If RowsHeight < Height : Height = RowsHeight : EndIf  
     
+    Debug Height
+    
     SetGadgetData(ComboEx()\ListView\Num, ComboEx()\CanvasNum)
     
-    ResizeWindow(ComboEx()\ListView\Window, X, Y + 20, Width, Height)
+    ResizeWindow(ComboEx()\ListView\Window, X, Y + GadgetHeight(ComboEx()\CanvasNum), Width, Height)
     ResizeGadget(ComboEx()\ListView\Num, 0, 0, Width, Height)
 
     HideWindow(ComboEx()\ListView\Window, #False)
@@ -2046,7 +2048,7 @@ Module ComboBoxEx
     
   EndProcedure  
 
-  Procedure   Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Content.s="", Flags.i=#False, WindowNum.i=#PB_Default)
+  Procedure   Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, maxListHeight.i, Content.s="", Flags.i=#False, WindowNum.i=#PB_Default)
     Define.i Result, txtNum
     
     CompilerIf Defined(ModuleEx, #PB_Module)
@@ -2123,11 +2125,11 @@ Module ComboBoxEx
         ComboEx()\Size\X = X
         ComboEx()\Size\Y = Y
         ComboEx()\Size\Width  = Width
-        ComboEx()\Size\Height = 25
+        ComboEx()\Size\Height = Height
+        ComboEx()\ListView\Height = maxListHeight
         
         InitList_()
         
-        ComboEx()\ListView\Height = Height
         ComboEx()\ListView\State  = #PB_Default
         
         ComboEx()\CanvasCursor = #PB_Cursor_Default
@@ -2599,7 +2601,7 @@ CompilerIf #PB_Compiler_IsMainFile
     AddGadgetItem(#ComboBox, -1, "Item 2")
     AddGadgetItem(#ComboBox, -1, "Item 3")
     
-    If ComboBoxEx::Gadget(#ComboEx, 120, 19, 90, 80, "", #False, #Window)
+    If ComboBoxEx::Gadget(#ComboEx, 120, 19, 90, 20, 80, "", #False, #Window)
       ; ComboBoxEx::#LowerCase / ComboBoxEx::#UpperCase / ComboBoxEx::#Editable / ComboBoxEx::#BorderLess
       
       ;ComboBoxEx::SetAttribute(#ComboEx, ComboBoxEx::#Corner, 4)
@@ -2639,8 +2641,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 89
-; Folding = IMAgAAAAABAs+XIAgDAEAIEAAAg-
+; CursorPosition = 2131
+; Folding = IMAiAAAAABAk9XIAgDAFAMEAAAg-
 ; EnableThread
 ; EnableXP
 ; DPIAware
