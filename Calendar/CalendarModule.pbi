@@ -35,7 +35,7 @@
 ; SOFTWARE.
 ;}
 
-;{ ===== Additional tea & pizza license =====
+;{ ===== Tea & Pizza Ware =====
 ; <purebasic@thprogs.de> has created this code. 
 ; If you find the code useful and you want to use it for your programs, 
 ; you are welcome to support my work with a cup of tea or a pizza
@@ -78,8 +78,8 @@ CompilerIf Not Defined(Date64, #PB_Module)  : XIncludeFile "Date64Module.pbi" : 
 
 DeclareModule Calendar
   
-  #Version  = 19010100
-  #ModuleEx = 19112900
+  #Version  = 19120600
+  #ModuleEx = 19120600
 
   ;- ===========================================================================
   ;-   DeclareModule - Constants / Structures
@@ -1374,6 +1374,7 @@ Module Calendar
         Calendar()\Week\Color\Back    = ModuleEx::ThemeGUI\Header\LightColor
         Calendar()\Color\DisableFront = ModuleEx::ThemeGUI\Disable\FrontColor
         Calendar()\Color\DisableBack  = ModuleEx::ThemeGUI\Disable\BackColor
+        Calendar()\Color\GreyText     = ModuleEx::ThemeGUI\GreyTextColor
         
         Draw_()
       Next
@@ -2309,7 +2310,7 @@ CompilerIf #PB_Compiler_IsMainFile
     
     Calendar::Gadget(#Calendar, 10, 10, #PB_Default, #PB_Default, #PB_Default, #Window)
 
-    ModuleEx::SetTheme(ModuleEx::#Theme_Blue)
+    ;ModuleEx::SetTheme(ModuleEx::#Theme_Blue)
     
     Repeat
       Event = WaitWindowEvent()
@@ -2331,8 +2332,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 80
-; Folding = YABAAAAAAAQYBKMAAAAAiBAAg-
-; Markers = 964,2229
+; CursorPosition = 2312
+; FirstLine = 319
+; Folding = YABAAAAAAAQYBKMDAAAAiBAAg-
+; Markers = 964,2230
 ; EnableXP
 ; DPIAware

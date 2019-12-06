@@ -7,11 +7,11 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 26.11.19
+; Last Update: 6.12.19
 ;
-; Bugfix: Cursor
+; Added: StringEx::SetText(#StringEx, "Backtext", StringEx::#Background)
+;
 ; Added: input masks (e.g. date: "____/__/__" or "__.__.____")
-;
 ; Added: Attribute '#Corner'
 ; Added: #EventType_Change / #EventType_Focus / #EventType_LostFocus 
 ; Added: StringEx::Hide() / StringEx::Disable()
@@ -42,7 +42,7 @@
 ; SOFTWARE.
 ;}
 
-;{ ===== Additional tea & pizza license =====
+;{ ===== Tea & Pizza Ware =====
 ; <purebasic@thprogs.de> has created this code. 
 ; If you find the code useful and you want to use it for your programs, 
 ; you are welcome to support my work with a cup of tea or a pizza
@@ -82,8 +82,8 @@
 
 DeclareModule StringEx
   
-  #Version  = 19112603
-  #ModuleEx = 19112600
+  #Version  = 19120600
+  #ModuleEx = 19120600
   
   #Enable_AutoComplete       = #True
   #Enable_ShowPasswordButton = #True
@@ -116,6 +116,7 @@ DeclareModule StringEx
     #MaximumLength = #PB_String_MaximumLength
     #Padding
     #Corner
+    #Background  ; Background text
   EndEnumeration
   
   Enumeration Color 1 
@@ -124,6 +125,7 @@ DeclareModule StringEx
     #BorderColor = #PB_Gadget_LineColor
     #FocusColor
     #CursorColor
+    #GreyTextColor
     #HighlightColor
     #HighlightTextColor
   EndEnumeration
@@ -200,7 +202,7 @@ DeclareModule StringEx
   Declare   SetFont(GNum.i, FontNum.i) 
   Declare   SetID(GNum.i, String.s)
   Declare   SetInputMask(GNum.i, Mask.s)
-  Declare   SetText(GNum.i, Text.s) 
+  Declare   SetText(GNum.i, Text.s, Type.i=#PB_Default) 
   Declare   Undo(GNum.i)
   
   CompilerIf Defined(ModuleEx, #PB_Module)
@@ -311,6 +313,7 @@ Module StringEx
     Border.i
     Cursor.i
     Gadget.i
+    GreyText.i
     DisableFront.i
     DisableBack.i
     Highlight.i
@@ -346,6 +349,7 @@ Module StringEx
     FontID.i
     
     Text.s
+    BackText.s
     State.i
     
     OffSetX.i
@@ -972,8 +976,19 @@ Module StringEx
           EndIf
           
         CompilerEndIf
-        
+
       Else
+        
+        If StrgEx()\BackText
+          
+          X = GetOffsetX_(StrgEx()\BackText, Width, dpiX(StrgEx()\Padding))
+          Y = (Height - TextHeight(StrgEx()\BackText)) / 2
+          
+          DrawingMode(#PB_2DDrawing_Transparent)
+          DrawText(X, Y, StrgEx()\BackText, StrgEx()\Color\GreyText)
+          StrgEx()\OffSetX = X
+          
+        EndIf  
         
         If StrgEx()\Flags & #Center
           X = Width / 2
@@ -1059,6 +1074,7 @@ Module StringEx
         StrgEx()\Color\Focus         = ModuleEx::ThemeGUI\Focus\BackColor
         StrgEx()\Color\Border        = ModuleEx::ThemeGUI\BorderColor
         StrgEx()\Color\Gadget        = ModuleEx::ThemeGUI\GadgetColor
+        StrgEx()\Color\GreyText      = ModuleEx::ThemeGUI\GreyTextColor
         StrgEx()\Color\Cursor        = ModuleEx::ThemeGUI\FrontColor
         StrgEx()\Color\Button        = ModuleEx::ThemeGUI\Button\BackColor
         StrgEx()\Color\HighlightText = ModuleEx::ThemeGUI\Focus\FrontColor
@@ -1987,6 +2003,7 @@ Module StringEx
         StrgEx()\Color\Focus         = $D77800
         StrgEx()\Color\Border        = $A0A0A0
         StrgEx()\Color\Gadget        = $EDEDED
+        StrgEx()\Color\GreyText      = $6D6D6D
         StrgEx()\Color\DisableFront  = $72727D
         StrgEx()\Color\DisableBack   = $CCCCCA
         StrgEx()\Color\Cursor        = $800000
@@ -2184,15 +2201,17 @@ Module StringEx
       
       Select ColorType
         Case #FrontColor
-          StrgEx()\Color\Front = Color
+          StrgEx()\Color\Front     = Color
         Case #BackColor
-          StrgEx()\Color\Back = Color
+          StrgEx()\Color\Back      = Color
         Case #BorderColor
-          StrgEx()\Color\Border = Color
+          StrgEx()\Color\Border    = Color
+        Case #GreyTextColor  
+          StrgEx()\Color\GreyText  = Color
         Case #FocusColor
-          StrgEx()\Color\Focus = Color
+          StrgEx()\Color\Focus     = Color
         Case #CursorColor
-          StrgEx()\Color\Cursor = Color
+          StrgEx()\Color\Cursor    = Color
         Case #HighlightColor
           StrgEx()\Color\Highlight = Color
         Case #HighlightTextColor
@@ -2254,10 +2273,16 @@ Module StringEx
     
   EndProcedure
   
-  Procedure   SetText(GNum.i, Text.s) 
+  Procedure   SetText(GNum.i, Text.s, Type.i=#PB_Default) 
     
     If FindMapElement(StrgEx(), Str(GNum))
-      StrgEx()\Text = Text
+      
+      If Type = #Background
+        StrgEx()\BackText = Text
+      Else  
+        StrgEx()\Text = Text
+      EndIf
+      
       Draw_()
     EndIf
     
@@ -2437,15 +2462,18 @@ CompilerIf #PB_Compiler_IsMainFile
     StringEx::Gadget(#StringEx, 120, 19, 90, 20, "AutoComplete", StringEx::#AutoComplete|StringEx::#Center, #Window) ; StringEx::#ShowButton / StringEx::#Numeric / StringEx::#LowerCase / StringEx::#UpperCase / StringEx::#NotEditable / StringEx::#BorderLess
     StringEx::AttachPopupMenu(#StringEx, #Popup)
     ;StringEx::SetAttribute(#StringEx, StringEx::#MaximumLength, 5)
+
     StringEx::AddWords(#StringEx, "Default Define Declare Degree Debug AutoComplete")
     
     StringEx::Gadget(#StringPW, 225, 19, 100, 20, "Password", StringEx::#Password|StringEx::#ShowButton, #Window)
     ;StringEx::SetAttribute(#StringPW, StringEx::#Padding, 6)
     ;StringEx::SetAttribute(#StringPW, StringEx::#MaximumLength, 10)
     
-    StringEx::Gadget(#StringDel, 340, 19, 100, 20, "", StringEx::#Right|StringEx::#AutoResize, #Window) ; Delete this
+    StringEx::Gadget(#StringDel, 340, 19, 100, 20, "", StringEx::#AutoResize, #Window) ; StringEx::#Right
     StringEx::AddButton(#StringDel, #Image)
     StringEx::SetAutoResizeFlags(#StringDel, StringEx::#Width)
+    
+    StringEx::SetText(#StringDel, "Delete Button", StringEx::#Background)
     
     ;StringEx::SetInputMask(#StringDel, "*.__$")
     ;StringEx::SetInputMask(#StringDel, "*,__ €")
@@ -2507,9 +2535,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1208
-; FirstLine = 466
-; Folding = 5eIUQAEAxACCAAgKoAABMAAQw
+; CursorPosition = 2203
+; FirstLine = 722
+; Folding = 5OgUQAEAxCGwAAAIoAADMACS1
 ; EnableThread
 ; EnableXP
 ; DPIAware

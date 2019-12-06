@@ -11,7 +11,7 @@
 ; - Creates cursor events for gadgets of a window (#CursorEvent)
 ; - Provides event types for PostEvent() for other modules
 
-; Last Update: 01.12.2019
+; Last Update: 06.12.2019
 ;
 ; Added: GUI theme for all supportet gadgets
 ;
@@ -65,7 +65,7 @@
 
 DeclareModule ModuleEx
   
-  #Version = 19120100
+  #Version = 19120600
   
   #Enable_Tabulator_Management = #True
   
@@ -200,6 +200,7 @@ DeclareModule ModuleEx
     BorderColor.i
     RowColor.i
     LineColor.i
+    GreyTextColor.i
     Button.Theme_Border_Structure
     Disable.Theme_Disable_Structure
     Focus.Theme_Color_Structure
@@ -1047,6 +1048,7 @@ Module ModuleEx
         ThemeGUI\BackColor              = $FEFDFB
         ThemeGUI\BorderColor            = $8C8C8C
         ThemeGUI\LineColor              = $C5C5C5
+        ThemeGUI\GreyTextColor          = $6D6D6D
         ThemeGUI\RowColor               = $FAF5EE
         ThemeGUI\Focus\FrontColor       = $FCF9F5
         ThemeGUI\Focus\BackColor        = $B06400
@@ -1072,23 +1074,24 @@ Module ModuleEx
 
       Case #Theme_Green    ;{ Green Theme
         ; $2A3A1F $142D05 $295B0A $3E8910 $7EB05F $BED7AF $D4E4C9 $E2EDDB $F5F9F3
-        ThemeGUI\FrontColor         = $0F2203
-        ThemeGUI\BackColor          = $FCFDFC
-        ThemeGUI\BorderColor        = $9B9B9B
-        ThemeGUI\LineColor          = $CCCCCC
-        ThemeGUI\RowColor           = $F3F7F0
-        ThemeGUI\Focus\FrontColor   = $3E8910 
-        ThemeGUI\Focus\BackColor    = $F5F9F3
-        ThemeGUI\Header\FrontColor  = $142D05
-        ThemeGUI\Header\BackColor   = $BED7AF
-        ThemeGUI\Header\BorderColor = $A0A0A0
-        ThemeGUI\Header\LightColor  = $E2EDDB
-        ThemeGUI\Button\FrontColor  = $0F2203
-        ThemeGUI\Button\BackColor   = $E3E3E3
-        ThemeGUI\Button\BorderColor = $A0A0A0
-        ThemeGUI\Title\FrontColor   = $F5F9F3
-        ThemeGUI\Title\BackColor    = $295B0A
-        ThemeGUI\Title\BorderColor  = $142D05
+        ThemeGUI\FrontColor             = $0F2203
+        ThemeGUI\BackColor              = $FCFDFC
+        ThemeGUI\BorderColor            = $9B9B9B
+        ThemeGUI\LineColor              = $CCCCCC
+        ThemeGUI\GreyTextColor          = $6D6D6D
+        ThemeGUI\RowColor               = $F3F7F0
+        ThemeGUI\Focus\FrontColor       = $3E8910 
+        ThemeGUI\Focus\BackColor        = $F5F9F3
+        ThemeGUI\Header\FrontColor      = $142D05
+        ThemeGUI\Header\BackColor       = $BED7AF
+        ThemeGUI\Header\BorderColor     = $A0A0A0
+        ThemeGUI\Header\LightColor      = $E2EDDB
+        ThemeGUI\Button\FrontColor      = $0F2203
+        ThemeGUI\Button\BackColor       = $E3E3E3
+        ThemeGUI\Button\BorderColor     = $A0A0A0
+        ThemeGUI\Title\FrontColor       = $F5F9F3
+        ThemeGUI\Title\BackColor        = $295B0A
+        ThemeGUI\Title\BorderColor      = $142D05
         ThemeGUI\Progress\TextColor     = $F5F9F3
         ThemeGUI\Progress\FrontColor    = $BED7AF
         ThemeGUI\Progress\BackColor     = #PB_Default
@@ -1105,6 +1108,7 @@ Module ModuleEx
         ThemeGUI\BackColor              = $764200
         ThemeGUI\BorderColor            = $8C8C8C
         ThemeGUI\LineColor              = $E5CBAA
+        ThemeGUI\GreyTextColor          = $6D6D6D
         ThemeGUI\RowColor               = $814700
         ThemeGUI\Focus\FrontColor       = $FFFFFF
         ThemeGUI\Focus\BackColor        = $4AFFB7
@@ -1130,23 +1134,24 @@ Module ModuleEx
         
       Case #Theme_Dark  ;{ Dark 
         ;  $3A2100 $43321C $764200 $B06400 $CB9755 $E5CBAA $EDDCC6 $F6EDE2 $FCF9F5
-        ThemeGUI\FrontColor         = $FCF9F5
-        ThemeGUI\BackColor          = $3A2100
-        ThemeGUI\BorderColor        = $8C8C8C
-        ThemeGUI\LineColor          = $764200
-        ThemeGUI\RowColor           = $422500
-        ThemeGUI\Focus\FrontColor   = $764200
-        ThemeGUI\Focus\BackColor    = $FFFFFF
-        ThemeGUI\Header\FrontColor  = $E5CBAA
-        ThemeGUI\Header\BackColor   = $764200
-        ThemeGUI\Header\BorderColor = $CB9755
-        ThemeGUI\Header\LightColor  = $F6EDE2
-        ThemeGUI\Button\FrontColor  = $FCF9F5
-        ThemeGUI\Button\BackColor   = $5E3400
-        ThemeGUI\Button\BorderColor = $B06400
-        ThemeGUI\Title\FrontColor   = $FCF9F5
-        ThemeGUI\Title\BackColor    = $764200
-        ThemeGUI\Title\BorderColor  = $3A2100
+        ThemeGUI\FrontColor             = $FCF9F5
+        ThemeGUI\BackColor              = $3A2100
+        ThemeGUI\BorderColor            = $8C8C8C
+        ThemeGUI\LineColor              = $764200
+        ThemeGUI\GreyTextColor          = $6D6D6D
+        ThemeGUI\RowColor               = $422500
+        ThemeGUI\Focus\FrontColor       = $764200
+        ThemeGUI\Focus\BackColor        = $FFFFFF
+        ThemeGUI\Header\FrontColor      = $E5CBAA
+        ThemeGUI\Header\BackColor       = $764200
+        ThemeGUI\Header\BorderColor     = $CB9755
+        ThemeGUI\Header\LightColor      = $F6EDE2
+        ThemeGUI\Button\FrontColor      = $FCF9F5
+        ThemeGUI\Button\BackColor       = $5E3400
+        ThemeGUI\Button\BorderColor     = $B06400
+        ThemeGUI\Title\FrontColor       = $FCF9F5
+        ThemeGUI\Title\BackColor        = $764200
+        ThemeGUI\Title\BorderColor      = $3A2100
         ThemeGUI\Progress\TextColor     = $F6EDE2
         ThemeGUI\Progress\FrontColor    =  $CB9755
         ThemeGUI\Progress\BackColor     = #PB_Default
@@ -1162,6 +1167,7 @@ Module ModuleEx
       Default           ;{ Default Theme
         
         ThemeGUI\RowColor               = $FCFCFC
+        ThemeGUI\GreyTextColor          = $6D6D6D
         
         ThemeGUI\Title\FrontColor       = $FFFFFF
         ThemeGUI\Title\BackColor        = $FCF9F5
@@ -1306,8 +1312,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 67
-; FirstLine = 10
-; Folding = EAgAAAAAh5E9A-
+; CursorPosition = 1050
+; FirstLine = 288
+; Folding = EAjAAAAAF5E9H-
 ; EnableXP
 ; DPIAware
