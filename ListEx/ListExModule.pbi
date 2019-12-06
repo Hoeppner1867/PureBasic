@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 05.12.2019
+; Last Update: 06.12.2019
 ;
 ; - Bugfixes
 ;
@@ -139,7 +139,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19120501
+  #Version  = 19120600
   #ModuleEx = 19112100
   
   #Enable_Validation  = #True
@@ -1183,7 +1183,6 @@ Module ListEx
     
   CompilerEndIf  
   
-
   ;- _____ Check Content _____
   
   CompilerIf #Enable_Validation Or #Enable_MarkContent
@@ -3277,7 +3276,6 @@ Module ListEx
     
   EndProcedure  
   
-  
   Procedure   SetRowFocus_(Row.i)
     Define.i PageRows
     
@@ -4603,7 +4601,7 @@ Module ListEx
             If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize - 1)
               
               If ListEx()\Cols()\Width - (ListEx()\Col\MouseX - X) <= ListEx()\Cols()\minWidth
-               
+                UpdateColumnX_()
                 Draw_()
                 ProcedureReturn #False
               EndIf   
@@ -4616,14 +4614,19 @@ Module ListEx
             EndIf
 
             If ListEx()\Flags & #AdjustColumns
+              
               If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize)
                 
                 If ListEx()\Cols()\Width + (ListEx()\Col\MouseX - X) <= ListEx()\Cols()\minWidth
+                  
                   If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize - 1)
                     ListEx()\Cols()\Width = ColWidth
                     ListEx()\Cols()\X     = ColX
                   EndIf
+                  
+                  UpdateColumnX_()
                   Draw_()
+                  
                   ProcedureReturn #False
                 EndIf   
   
@@ -4634,6 +4637,7 @@ Module ListEx
             
             ListEx()\Col\MouseX = X
             
+            UpdateColumnX_()
             Draw_()
             
             ProcedureReturn #True ;}
@@ -7617,9 +7621,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 47
-; Folding = 5wPAAAAJFAIQEIBMgwfBhHKUoJUITAwgBAAAAAE-gAgfAYOcAGAOAKAAMBAAQC99-
-; Markers = 3077
+; CursorPosition = 141
+; FirstLine = 12
+; Folding = 5wPAAAAJFAAQEIAMAwfAhHKEoJUITAwgBAAAAAE-hAgfAaOcAGAOAKAAMBAAQC99-
+; Markers = 3076
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
