@@ -68,7 +68,7 @@ CompilerIf Not Defined(Calendar, #PB_Module) : XIncludeFile "CalendarModule.pbi"
 
 DeclareModule DateEx
   
-  #Version  = 19120600
+  #Version  = 19120601
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -322,7 +322,7 @@ Module DateEx
     EndProcedure
     
   CompilerElse  
-    Debug "GetGadgetWindow()"
+ 
     CompilerIf #PB_Compiler_OS = #PB_OS_Windows
       ; Thanks to mk-soft
       Import ""
@@ -1425,15 +1425,15 @@ Module DateEx
 			If AddMapElement(DateEx(), Str(GNum))
 
 				DateEx()\CanvasNum = GNum
-				
-				InitCalendar_()
-				
+
 				If WindowNum = #PB_Default
           DateEx()\Window\Num = GetGadgetWindow()
         Else
           DateEx()\Window\Num = WindowNum
         EndIf
-
+        
+        InitCalendar_()
+        
 				CompilerSelect #PB_Compiler_OS           ;{ Default Gadget Font
 					CompilerCase #PB_OS_Windows
 						DateEx()\FontID = GetGadgetFont(#PB_Default)
@@ -1752,8 +1752,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 11
-; FirstLine = 11
+; CursorPosition = 70
+; FirstLine = 14
 ; Folding = 5hPAMQAAAGAKAQofABCAAi
 ; EnableXP
 ; DPIAware
