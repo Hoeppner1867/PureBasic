@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 
+; Last Update: 6.12.2019
 ;
 
 
@@ -87,7 +87,7 @@
 
 DeclareModule ComboBoxEx
   
-  #Version  = 19120100
+  #Version  = 19120600
   #ModuleEx = 19112600
   
   ;- ===========================================================================
@@ -1834,34 +1834,7 @@ Module ComboBoxEx
             Else
               ResizeGadget(ComboEx()\CanvasNum, #PB_Ignore, #PB_Ignore, ComboEx()\Size\Width + OffSetX, ComboEx()\Size\Height + OffsetY)
             EndIf
-            
-            CompilerIf Defined(ModuleEx, #PB_Module)
-			
-        		  If ComboEx()\Size\Flags & #FitText
-        		    
-        		    If ComboEx()\Size\Flags & #FixPadding
-        		      Width  = ComboEx()\Size\Text - ComboEx()\PaddingX
-                  Height = GadgetHeight(ComboEx()\CanvasNum) - ComboEx()\PaddingY
-        		    Else
-        		      Width  = ComboEx()\Size\Text - ComboEx()\PaddingX
-                  Height = GadgetHeight(ComboEx()\CanvasNum) - (GadgetHeight(ComboEx()\CanvasNum) * ComboEx()\PFactor)
-        		    EndIf
-        		    
-        		    If Height < 0 : Height = 0 : EndIf 
-        		    If Width  < 0 : Width  = 0 : EndIf
-        		    
-        		    FontSize = ModuleEx::RequiredFontSize(ComboEx()\Text, Width, Height, ComboEx()\Font\Num)
-        		    
-        		    If FontSize <> ComboEx()\Font\Size
-                  ComboEx()\Font\Size = FontSize
-                  ComboEx()\Font\Num  = ModuleEx::Font(ComboEx()\Font\Name, FontSize, ComboEx()\Font\Style)
-                  If IsFont(ComboEx()\Font\Num) : ComboEx()\FontID = FontID(ComboEx()\Font\Num) : EndIf
-                EndIf  
-        		    
-        		  EndIf  
-  		  
-  		      CompilerEndIf 
-            
+
             Draw_()
           EndIf
 
@@ -2643,9 +2616,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1110
-; FirstLine = 234
-; Folding = IMAgAAAACAAS9AAAgBAHAIEAAAg-
+; CursorPosition = 85
+; FirstLine = 5
+; Folding = IMAgAAAAAAAS9AAAgBgDAECAAAw
 ; EnableThread
 ; EnableXP
 ; DPIAware
