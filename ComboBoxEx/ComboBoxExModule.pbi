@@ -87,7 +87,7 @@
 
 DeclareModule ComboBoxEx
   
-  #Version  = 19120600
+  #Version  = 19120601
   #ModuleEx = 19112600
   
   ;- ===========================================================================
@@ -245,6 +245,13 @@ Module ComboBoxEx
   ;- ============================================================================
   ;-   Module - Structures
   ;- ============================================================================
+  
+  Structure ListView_Structure
+    Window.i
+    Gadget.i
+    ScrollBar.i
+  EndStructure
+  Global ListView.ListView_Structure
   
   Structure ComboEx_Scroll_Structure  ;{ ComboEx()\ListView\ScrollBar\...
     Num.i
@@ -478,6 +485,21 @@ Module ComboBoxEx
   CompilerEndIf
   
   
+  Procedure ListViewWindow_()
+    
+    ListView\Window = OpenWindow(#PB_Any, 0, 0, 0, 0, "", #PB_Window_BorderLess|#PB_Window_Invisible) 
+    If ListView\Window
+      ListView\Gadget = CanvasGadget(#PB_Any, 0, 0, 0, 0, #PB_Canvas_Container)
+      If ListView\Gadget
+        ListView\ScrollBar = ScrollBarGadget(#PB_Any, 0, 0, #ScrollBarSize, 0, 1, 100, 0, #PB_ScrollBar_Vertical)
+        CloseGadgetList()
+      EndIf
+      StickyWindow(ListView\Window, #True)
+    EndIf  
+
+  EndProcedure
+  
+  
 	Procedure.f dpiX(Num.i)
 	  If Num > 0  
 	    ProcedureReturn DesktopScaledX(Num)
@@ -489,7 +511,8 @@ Module ComboBoxEx
 	    ProcedureReturn DesktopScaledY(Num)
 	  EndIf  
 	EndProcedure
-
+	
+	
   Procedure.s DeleteStringPart_(String.s, Position.i, Length.i=1) ; Delete string part at Position (with Length)
     
     If Position <= 0 : Position = 1 : EndIf
@@ -809,7 +832,7 @@ Module ComboBoxEx
       DrawingFont(ComboEx()\FontID)
       
       RowHeight = TextHeight("Abc") + dpiY(2)
-      OffsetY   = dpiY(2) 
+      OffsetY   = dpiY(1) 
       
       ;{ _____ ScrollBar _____
       PageRows  = Height / RowHeight
@@ -900,13 +923,13 @@ Module ComboBoxEx
 
         DrawingMode(#PB_2DDrawing_Transparent)
         If ComboEx()\ListView\State = ListIndex(ComboEx()\ListView\Item())
-          Box(X - dpiX(2), Y, Width - dpiX(6), RowHeight, ComboEx()\Color\FocusBack)
+          Box(X + dpiX(3), Y, Width - dpiX(6), RowHeight, ComboEx()\Color\FocusBack)
           DrawText(X + OffsetX, Y + OffsetY, ComboEx()\ListView\Item()\String, ComboEx()\Color\FocusText)
         Else
           If ComboEx()\ListView\Focus = ListIndex(ComboEx()\ListView\Item())
-            Box(X - dpiX(2), Y, Width - dpiX(6), RowHeight, BlendColor_(ComboEx()\Color\FocusBack, BackColor, 10))
+            Box(X + dpiX(3), Y, Width - dpiX(6), RowHeight, BlendColor_(ComboEx()\Color\FocusBack, BackColor, 10))
           EndIf
-          DrawText(X + OffsetX, Y + OffsetY, ComboEx()\ListView\Item()\String, FrontColor)
+          DrawText(X  + OffsetX, Y + OffsetY, ComboEx()\ListView\Item()\String, FrontColor)
         EndIf
 
         ComboEx()\ListView\Item()\Y = Y
@@ -1110,7 +1133,9 @@ Module ComboBoxEx
     RowsHeight = ListSize(ComboEx()\ListView\Item()) * ComboEx()\ListView\RowHeight
     RowsHeight + dpiX(4)
     If RowsHeight < Height : Height = RowsHeight : EndIf  
-  
+    
+    SetGadgetData(ComboEx()\ListView\Num, ComboEx()\CanvasNum)
+    
     ResizeWindow(ComboEx()\ListView\Window, X, Y + 20, Width, Height)
     ResizeGadget(ComboEx()\ListView\Num, 0, 0, Width, Height)
 
@@ -1259,6 +1284,8 @@ Module ComboBoxEx
                 ComboEx()\Text = ComboEx()\ListView\Item()\String
                 DrawListView_()
                 CloseComboEx_()
+                PostEvent(#Event_Gadget, ComboEx()\Window\Num, ComboEx()\CanvasNum, #EventType_Change)
+                PostEvent(#PB_Event_Gadget, ComboEx()\Window\Num, ComboEx()\CanvasNum, #EventType_Change)
                 ProcedureReturn #True
               EndIf
             Next 
@@ -1877,25 +1904,19 @@ Module ComboBoxEx
   
   Procedure   InitList_()
 
-    ComboEx()\ListView\Window = OpenWindow(#PB_Any, 0, 0, ComboEx()\Size\Width, ComboEx()\Size\Height, "", #PB_Window_BorderLess|#PB_Window_Invisible, WindowID(ComboEx()\Window\Num)) 
-    If ComboEx()\ListView\Window
-      ComboEx()\ListView\Num = CanvasGadget(#PB_Any, 0, 0, ComboEx()\Size\Width, ComboEx()\Size\Height, #PB_Canvas_Container)
-      If ComboEx()\ListView\Num
-        
-        SetGadgetData(ComboEx()\ListView\Num, ComboEx()\CanvasNum)
-        
-        ComboEx()\ListView\ScrollBar\Num = ScrollBarGadget(#PB_Any, 0, 0, #ScrollBarSize, 0, 1, 100, 0, #PB_ScrollBar_Vertical)
+    ComboEx()\ListView\Window = ListView\Window
+    If IsWindow(ComboEx()\ListView\Window)
+      ComboEx()\ListView\Num = ListView\Gadget
+      If IsGadget(ComboEx()\ListView\Num)
+        ComboEx()\ListView\ScrollBar\Num = ListView\ScrollBar
         If IsGadget(ComboEx()\ListView\ScrollBar\Num)
           SetGadgetData(ComboEx()\ListView\ScrollBar\Num, ComboEx()\CanvasNum)
           HideGadget(ComboEx()\ListView\ScrollBar\Num, #True)
         EndIf
-        
         BindGadgetEvent(ComboEx()\ListView\Num, @_ListViewHandler())
-        
-        ComboEx()\ListView\Hide = #True
-        CloseGadgetList()
-      EndIf
-    EndIf  
+      EndIf  
+      ComboEx()\ListView\Hide = #True
+    EndIf
   
   EndProcedure  
   
@@ -2550,6 +2571,8 @@ Module ComboBoxEx
     
   EndProcedure
   
+  ListViewWindow_()
+  
 EndModule  
 
 ;- ========  Module - Example ========
@@ -2616,9 +2639,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 85
-; FirstLine = 5
-; Folding = IMAgAAAAAAAS9AAAgBgDAECAAAw
+; CursorPosition = 1904
+; FirstLine = 568
+; Folding = IMAgAAAAEBAo+XIAgDAEAMEAAAg-
 ; EnableThread
 ; EnableXP
 ; DPIAware
