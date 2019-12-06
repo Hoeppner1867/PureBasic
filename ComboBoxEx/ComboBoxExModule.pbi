@@ -1281,7 +1281,8 @@ Module ComboBoxEx
                   ComboEx()\ListView\State = #PB_Default
                   ProcedureReturn  #False
                 EndIf
-                ComboEx()\Text = ComboEx()\ListView\Item()\String
+                ComboEx()\Text  = ComboEx()\ListView\Item()\String
+                ComboEx()\State = ListIndex(ComboEx()\ListView\Item())
                 DrawListView_()
                 CloseComboEx_()
                 PostEvent(#Event_Gadget, ComboEx()\Window\Num, ComboEx()\CanvasNum, #EventType_Change)
@@ -2639,9 +2640,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1904
-; FirstLine = 568
-; Folding = IMAgAAAAEBAo+XIAgDAEAMEAAAg-
+; CursorPosition = 1284
+; FirstLine = 356
+; Folding = IMAgAAAAEBAo+XIAgDAEAIEAAAg-
 ; EnableThread
 ; EnableXP
 ; DPIAware
