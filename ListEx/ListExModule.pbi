@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 06.12.2019
+; Last Update: 07.12.2019
 ;
 ; - Bugfixes
 ;
@@ -139,7 +139,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19120600
+  #Version  = 19120700
   #ModuleEx = 19112100
   
   #Enable_Validation  = #True
@@ -4598,35 +4598,30 @@ Module ListEx
           
           If ListEx()\Col\MouseX ;{ Resize column
             
-            If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize - 1)
+            If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize)
               
-              If ListEx()\Cols()\Width - (ListEx()\Col\MouseX - X) <= ListEx()\Cols()\minWidth
-                UpdateColumnX_()
-                Draw_()
+              If ListEx()\Cols()\Width + (X - ListEx()\Col\MouseX) <= ListEx()\Cols()\minWidth
                 ProcedureReturn #False
               EndIf   
               
               ColX     = ListEx()\Cols()\X
               ColWidth = ListEx()\Cols()\Width
               
-              ListEx()\Cols()\Width - (ListEx()\Col\MouseX - X)   
+              ListEx()\Cols()\Width + (X - ListEx()\Col\MouseX) 
 
             EndIf
 
             If ListEx()\Flags & #AdjustColumns
-              
-              If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize)
+          
+              If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize + 1)
                 
                 If ListEx()\Cols()\Width + (ListEx()\Col\MouseX - X) <= ListEx()\Cols()\minWidth
-                  
                   If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize - 1)
                     ListEx()\Cols()\Width = ColWidth
                     ListEx()\Cols()\X     = ColX
                   EndIf
-                  
                   UpdateColumnX_()
                   Draw_()
-                  
                   ProcedureReturn #False
                 EndIf   
   
@@ -4648,7 +4643,7 @@ Module ListEx
           ForEach ListEx()\Cols()
             If X >= ListEx()\Cols()\X - dpiX(1) And X <= ListEx()\Cols()\X + dpiX(1)
               ListEx()\CanvasCursor = #PB_Cursor_LeftRight
-              ListEx()\Col\Resize   = ListIndex(ListEx()\Cols())
+              ListEx()\Col\Resize   = ListIndex(ListEx()\Cols()) - 1
               SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
               ProcedureReturn #True
             EndIf  
@@ -4790,6 +4785,7 @@ Module ListEx
     
     If FindMapElement(ListEx(), Str(GadgetNum))
       
+      UpdateColumnX_()
       Draw_()
       If ListEx()\String\Flag : DrawString_() : EndIf 
       
@@ -6500,6 +6496,8 @@ Module ListEx
     
     If FindMapElement(ListEx(), Str(GNum))
       
+      ListEx()\Flags & ~#ResizeColumn
+      
       If minWidth = #PB_Default : minWidth = ListEx()\Col\Width : EndIf
       
       ListEx()\AutoResize\Column   = Column
@@ -7484,7 +7482,7 @@ CompilerIf #PB_Compiler_IsMainFile
         ListEx::SetItemFont(#List,  0, FontID(#Font_Arial9B), 2)
         
         ; --- Define AutoResize ---
-        ListEx::SetAutoResizeColumn(#List, 2, 50)
+        ;ListEx::SetAutoResizeColumn(#List, 2, 50)
         ListEx::SetAutoResizeFlags(#List, ListEx::#Height|ListEx::#Width) ; 
         
         ; --- Mark content in accordance with certain rules   ---
@@ -7623,7 +7621,7 @@ CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 141
 ; FirstLine = 12
-; Folding = 5wPAAAAJFAAQEIAMAwfAhHKEoJUITAwgBAAAAAE-hAgfAaOcAGAOAKAAMBAAQC99-
+; Folding = 5wPAAAAJlAAQEIAMAwfAhHKEAAUITKgAAAAAAAA-pAAfAaOcAGAOAKAAMBAAQC90-
 ; Markers = 3076
 ; EnableXP
 ; DPIAware
