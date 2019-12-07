@@ -77,7 +77,7 @@
 
 DeclareModule TreeEx
   
-  #Version  = 19120700
+  #Version  = 19120701
   #ModuleEx = 19112002
   
   #Enable_ProgressBar = #True
@@ -609,17 +609,19 @@ Module TreeEx
       
       OffsetY = TreeEx()\Row\Offset * RowHeight
       
-      If TreeEx()\Flags & #ShowHeader
-        Y = dpiY(TreeEx()\Row\Header\Height) - OffsetY
-      Else
-        Y = dpiY(2) - OffsetY
-      EndIf  
+      X = -dpiX(TreeEx()\Col\OffsetX)
       
+      If TreeEx()\Flags & #ShowHeader
+        Y = dpiY(TreeEx()\Row\Header\Height)
+      Else
+        Y = dpiY(2)
+      EndIf  
+
       Y + dpiY(2)
       
       TreeEx()\Size\Rows   = 0
       TreeEx()\Row\Visible = 0
-      
+
       ForEach TreeEx()\Rows()
         
         TreeWidth = 0
@@ -663,10 +665,12 @@ Module TreeEx
 			  
 	      If AddElement(TreeEx()\Lines())
 			    TreeEx()\Lines()\X         = X + OffsetX + dpiX(#ButtonSize / 2)
-			    TreeEx()\Lines()\Y         = Y + (RowHeight / 2)
+			    TreeEx()\Lines()\Y         = Y + (RowHeight / 2) - OffsetY
 			    TreeEx()\Lines()\Level     = TreeEx()\Rows()\Level
 			    TreeEx()\Lines()\NextLevel = NextLevel
-			    If NextLevel = TreeEx()\Lines()\Level + 1 : TreeEx()\Lines()\Button = #True : EndIf
+			    If NextLevel = TreeEx()\Lines()\Level + 1
+			      TreeEx()\Lines()\Button = #True
+			    EndIf
 			  EndIf 
 	  
 			  TreeWidth = dpiX(#ButtonSize + 5) + OffsetX
@@ -944,8 +948,8 @@ Module TreeEx
 				TreeEx()\Color\Back             = $FEFDFB
 				TreeEx()\Color\Border           = $8C8C8C
 				TreeEx()\Color\Line             = $C5C5C5
-				TreeEx()\Color\ScrollBar        = $C8C8C8
-				TreeEx()\Color\Gadget           = $C8C8C8
+				TreeEx()\Color\ScrollBar        = $F0F0F0
+				TreeEx()\Color\Gadget           = $F0F0F0
 				TreeEx()\Color\FocusFront       = $43321C
 				TreeEx()\Color\FocusBack        = $B06400
 				TreeEx()\Color\ButtonFront      = $490000
@@ -966,8 +970,8 @@ Module TreeEx
 				TreeEx()\Color\Back             = $FCFDFC
 				TreeEx()\Color\Border           = $9B9B9B
 				TreeEx()\Color\Line             = $CCCCCC
-				TreeEx()\Color\ScrollBar        = $C8C8C8
-				TreeEx()\Color\Gadget           = $C8C8C8
+				TreeEx()\Color\ScrollBar        = $F0F0F0
+				TreeEx()\Color\Gadget           = $F0F0F0
 				TreeEx()\Color\FocusFront       = $142D05
 				TreeEx()\Color\FocusBack        = $3E8910
 				TreeEx()\Color\ButtonFront      = $0F2203
@@ -1200,14 +1204,15 @@ Module TreeEx
 	Procedure   Draw_()
 	  Define.f X, Y, Width, Height, TreeWidth, ColumnWidth, txtHeight, RowHeight, ImageWidth, ImageHeight
 	  Define.f btY, txtX, txtY, OffsetX, OffsetY, LastX, LastY, LineY, LineHeight, LineWidth
-	  Define.i Row, PageRows, VisibleRows, FrontColor, BackColor, CheckBoxSize, FontID
+	  Define.i Row, PageRows, FrontColor, BackColor, CheckBoxSize, FontID, Visible, Button
 	  Define.i LevelWidth, NextLevel, LevelX, Level = 0
 	  Define.f Factor
 		Define.s Key$, Level$, Text$
 
 		NewMap  LineX.i()
 		NewMap  LineY.i()
-
+		
+		
 		If TreeEx()\Hide : ProcedureReturn #False : EndIf
 		
     TreeEx()\Row\OffSetY = 0
@@ -1230,133 +1235,27 @@ Module TreeEx
 			FontID    = TreeEx()\FontID
 			TreeWidth = TreeColumnWidth()
 
-			;{ _____ Draw Header _____
+			;{ _____ Header _____
 			If TreeEx()\Flags & #ShowHeader
-			  
-			  X = -dpiX(TreeEx()\Col\OffsetX)
-			  
-			  RowHeight = dpiY(TreeEx()\Row\Header\Height)
-			  
-			  LineY = RowHeight
-			  LineHeight - RowHeight
-			  
-			  DrawingMode(#PB_2DDrawing_Default)
-			  Box(0, 0, dpiX(Width), RowHeight, TreeEx()\Color\HeaderBack)
-			  
-			  ForEach TreeEx()\Cols()
-			    
-			    If TreeEx()\Cols()\Header\FontID
-			      FontID = TreeEx()\Cols()\Header\FontID
-			    Else
-			     	FontID = TreeEx()\FontID
-			    EndIf
-			    DrawingFont(FontID)
-			    
-			    If TreeEx()\Cols()\Width = #PB_Default
-			      ColumnWidth = dpiX(TreeWidth)
-			    Else
-			      ColumnWidth = dpiX(TreeEx()\Cols()\Width)
-			    EndIf  
-			    
-			    If ListIndex(TreeEx()\Cols()) = #TreeColumn
-			      If TreeEx()\Flags & #FitTreeColumn Or ColumnWidth < dpiX(TreeEx()\Col\TreeWidth)
-			        ColumnWidth = dpiX(TreeEx()\Col\TreeWidth)
-			      EndIf  
-			    EndIf
-			    
-			    ;{ ----- Column BackColor -----
-			    If TreeEx()\Cols()\Header\Color\Back <> #PB_Default 
-			      DrawingMode(#PB_2DDrawing_Default)
-			      Box(X, 0, ColumnWidth, RowHeight, TreeEx()\Cols()\Header\Color\Back)
-			    EndIf ;}
-			    
-			    ;{ ----- Cell Border -----
-			    DrawingMode(#PB_2DDrawing_Outlined)                
-			    If ListIndex(TreeEx()\Cols()) < ListSize(TreeEx()\Cols()) - 1
-			      Box(X, 0, ColumnWidth + 1, RowHeight, TreeEx()\Color\HeaderBorder)
-			      TreeEx()\Cols()\X = X
-			    Else
-			      Box(X, 0, ColumnWidth, RowHeight, TreeEx()\Color\HeaderBorder)
-			      TreeEx()\Cols()\X = X
-			    EndIf ;}
-			    
-			    If IsImage(TreeEx()\Cols()\Header\Image\Num) ;{ Image
-			      
-			      ImageWidth  = TreeEx()\Cols()\Header\Image\Width
-	          ImageHeight = TreeEx()\Cols()\Header\Image\Height
-	          
-	          If TreeEx()\Cols()\Header\Image\Height > RowHeight - dpiY(2)
-	            ImageHeight = RowHeight - dpiY(2)
-	            Factor      = ImageHeight / TreeEx()\Cols()\Header\Image\Height
-	            ImageWidth  = ImageWidth * Factor
-	          EndIf  
-	          
-	          If TreeEx()\Cols()\Header\Image\Flags & #Center
-	            OffsetX = (ColumnWidth - ImageWidth) / 2
-	          ElseIf TreeEx()\Cols()\Header\Image\Flags & #Right
-	            OffsetX = ColumnWidth - ImageWidth - dpiX(2)
-	          Else  
-	            OffsetX = dpiX(2)
-	          EndIf 
-	          
-	          OffsetY = (RowHeight - ImageHeight) / 2
-	          
-	          If IsImage(TreeEx()\Cols()\Header\Image\Num)
-	            DrawingMode(#PB_2DDrawing_AlphaBlend)
-	            DrawImage(ImageID(TreeEx()\Cols()\Header\Image\Num), X + OffsetX, Y + OffsetY, ImageWidth, ImageHeight)
-	          EndIf  
-			      ;}
-			    Else  
-			    
-  			    ;{ ----- Text Align -----
-  			    If TreeEx()\Cols()\Header\Flags & #Center
-  			      txtX = (ColumnWidth - TextWidth(TreeEx()\Cols()\Header\Title)) / 2
-  			    ElseIf TreeEx()\Cols()\Header\Flags & #Right
-  			      txtX = ColumnWidth - TextWidth(TreeEx()\Cols()\Header\Title) -dpiX(5)
-  			    Else
-  			      txtX = dpiX(5)
-  			    EndIf ;}
-  			    
-  			    CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
-              ClipOutput(X, Y, ColumnWidth, RowHeight) 
-            CompilerEndIf
-            
-  			    ;{ ----- Draw Text -----
-  			    txtY = (RowHeight - TextHeight(TreeEx()\Cols()\Header\Title)) / 2
-
-  			    DrawingMode(#PB_2DDrawing_Transparent)
-  			    If TreeEx()\Cols()\Header\Color\Front <> #PB_Default
-  			      DrawText(X + txtX, Y + txtY, TreeEx()\Cols()\Header\Title, TreeEx()\Cols()\Header\Color\Front)
-  			    Else
-  			      DrawText(X + txtX, Y + txtY, TreeEx()\Cols()\Header\Title, TreeEx()\Color\HeaderFront)
-  			    EndIf ;}
-  			    
-  			    CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
-              UnclipOutput()
-            CompilerEndIf
-  			    
-  			  EndIf
-			  
-			    X + ColumnWidth
-			  Next
-			  
 			  Y = dpiY(TreeEx()\Row\Header\Height) 
 			Else
 			  Y = dpiY(2)
 			EndIf ;}
-			
-		  Y + dpiY(2)
-		  
+
 		  RowHeight  = dpiY(TreeEx()\Row\Height)
 		  LevelWidth = dpiX(#ButtonSize) + dpiX(5)
 		  txtHeight  = TextHeight("Abc")
+		  
+		  OffsetY = TreeEx()\Row\Offset * RowHeight
+		  
+		  Y - OffsetY + dpiY(2)
 		  
 			txtY = (RowHeight - txtHeight) / 2
 			
 			CheckBoxSize = txtHeight - dpiX(2)
 			
 			;{ _____ Draw Rows _____	
-			VisibleRows = 0
+			Visible = 0
 			
 			ForEach TreeEx()\Rows()
 
@@ -1383,12 +1282,8 @@ Module TreeEx
 			    Continue
 			  EndIf
 			  
-			  VisibleRows + 1
-			  
-			  If VisibleRows <= TreeEx()\Row\Offset : Continue : EndIf
-			  
 			  TreeEx()\Rows()\Visible = #True
-			  
+
 			  ForEach TreeEx()\Cols() ;{ Columns
 			    
 			    Key$ = TreeEx()\Cols()\Key
@@ -1595,6 +1490,7 @@ Module TreeEx
   			Y + dpiY(TreeEx()\Row\Height)
   			
   			If Y > Height : Break : EndIf
+  			
   		Next ;}
   		
   		;{ _____ Lines _____
@@ -1605,6 +1501,8 @@ Module TreeEx
     		ForEach TreeEx()\Lines()
 
     		  If TreeEx()\Lines()\Button 
+    		    
+    		    Button = #True
     		    
     		    If Level < TreeEx()\Lines()\Level
     		      Level$ = Str(Level)
@@ -1655,7 +1553,7 @@ Module TreeEx
       		  ElseIf TreeEx()\Lines()\Level > Level
       		    Level$ = Str(Level)
     		      Line(LineX(Level$), TreeEx()\Lines()\Y, TreeEx()\Lines()\X - LineX(Level$) + LineWidth, 1)
-      		  Else  
+      		  ElseIf Button  
       		    Level$ = Str(TreeEx()\Lines()\Level)
     		      Line(LineX(Level$), TreeEx()\Lines()\Y, TreeEx()\Lines()\X - LineX(Level$) + LineWidth, 1)
     		    EndIf
@@ -1691,7 +1589,129 @@ Module TreeEx
     	    EndIf  
     	  Next
   	  EndIf ;}
+  	  
+  	  DrawingMode(#PB_2DDrawing_Default)
+  	  If Not TreeEx()\VScroll\Hide
+  	    Box(Width - #ScrollBarSize, 0, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum), TreeEx()\Color\ScrollBar)
+  	  EndIf 
+  	  
+  	  If Not TreeEx()\HScroll\Hide
+  	    Box(0, Height - #ScrollBarSize, GadgetWidth(TreeEx()\CanvasNum), #ScrollBarSize, TreeEx()\Color\ScrollBar)  
+  	  EndIf 
+  	  
+  	  ;{ _____ Header _____
+  	  If TreeEx()\Flags & #ShowHeader
+  	    
+  	    X = -dpiX(TreeEx()\Col\OffsetX)
+  	    Y = 0
+  	    
+			  RowHeight = dpiY(TreeEx()\Row\Header\Height)
+			  
+			  LineY = RowHeight
+			  LineHeight - RowHeight
+			  
+			  DrawingMode(#PB_2DDrawing_Default)
+			  Box(0, 0, dpiX(Width), RowHeight, TreeEx()\Color\HeaderBack)
+			  
+			  ForEach TreeEx()\Cols()
+			    
+			    If TreeEx()\Cols()\Header\FontID
+			      FontID = TreeEx()\Cols()\Header\FontID
+			    Else
+			     	FontID = TreeEx()\FontID
+			    EndIf
+			    DrawingFont(FontID)
+			    
+			    If TreeEx()\Cols()\Width = #PB_Default
+			      ColumnWidth = dpiX(TreeWidth)
+			    Else
+			      ColumnWidth = dpiX(TreeEx()\Cols()\Width)
+			    EndIf  
+			    
+			    If ListIndex(TreeEx()\Cols()) = #TreeColumn
+			      If TreeEx()\Flags & #FitTreeColumn Or ColumnWidth < dpiX(TreeEx()\Col\TreeWidth)
+			        ColumnWidth = dpiX(TreeEx()\Col\TreeWidth)
+			      EndIf  
+			    EndIf
+			    
+			    ;{ ----- Column BackColor -----
+			    If TreeEx()\Cols()\Header\Color\Back <> #PB_Default 
+			      DrawingMode(#PB_2DDrawing_Default)
+			      Box(X, 0, ColumnWidth, RowHeight, TreeEx()\Cols()\Header\Color\Back)
+			    EndIf ;}
+			    
+			    ;{ ----- Cell Border -----
+			    DrawingMode(#PB_2DDrawing_Outlined)                
+			    If ListIndex(TreeEx()\Cols()) < ListSize(TreeEx()\Cols()) - 1
+			      Box(X, 0, ColumnWidth + 1, RowHeight, TreeEx()\Color\HeaderBorder)
+			      TreeEx()\Cols()\X = X
+			    Else
+			      Box(X, 0, ColumnWidth, RowHeight, TreeEx()\Color\HeaderBorder)
+			      TreeEx()\Cols()\X = X
+			    EndIf ;}
+			    
+			    If IsImage(TreeEx()\Cols()\Header\Image\Num) ;{ Image
+			      
+			      ImageWidth  = TreeEx()\Cols()\Header\Image\Width
+	          ImageHeight = TreeEx()\Cols()\Header\Image\Height
+	          
+	          If TreeEx()\Cols()\Header\Image\Height > RowHeight - dpiY(2)
+	            ImageHeight = RowHeight - dpiY(2)
+	            Factor      = ImageHeight / TreeEx()\Cols()\Header\Image\Height
+	            ImageWidth  = ImageWidth * Factor
+	          EndIf  
+	          
+	          If TreeEx()\Cols()\Header\Image\Flags & #Center
+	            OffsetX = (ColumnWidth - ImageWidth) / 2
+	          ElseIf TreeEx()\Cols()\Header\Image\Flags & #Right
+	            OffsetX = ColumnWidth - ImageWidth - dpiX(2)
+	          Else  
+	            OffsetX = dpiX(2)
+	          EndIf 
+	          
+	          OffsetY = (RowHeight - ImageHeight) / 2
+	          
+	          If IsImage(TreeEx()\Cols()\Header\Image\Num)
+	            DrawingMode(#PB_2DDrawing_AlphaBlend)
+	            DrawImage(ImageID(TreeEx()\Cols()\Header\Image\Num), X + OffsetX, Y + OffsetY, ImageWidth, ImageHeight)
+	          EndIf  
+			      ;}
+			    Else  
+			    
+  			    ;{ ----- Text Align -----
+  			    If TreeEx()\Cols()\Header\Flags & #Center
+  			      txtX = (ColumnWidth - TextWidth(TreeEx()\Cols()\Header\Title)) / 2
+  			    ElseIf TreeEx()\Cols()\Header\Flags & #Right
+  			      txtX = ColumnWidth - TextWidth(TreeEx()\Cols()\Header\Title) -dpiX(5)
+  			    Else
+  			      txtX = dpiX(5)
+  			    EndIf ;}
+  			    
+  			    CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+              ClipOutput(X, Y, ColumnWidth, RowHeight) 
+            CompilerEndIf
+            
+  			    ;{ ----- Draw Text -----
+  			    txtY = (RowHeight - TextHeight(TreeEx()\Cols()\Header\Title)) / 2
 
+  			    DrawingMode(#PB_2DDrawing_Transparent)
+  			    If TreeEx()\Cols()\Header\Color\Front <> #PB_Default
+  			      DrawText(X + txtX, Y + txtY, TreeEx()\Cols()\Header\Title, TreeEx()\Cols()\Header\Color\Front)
+  			    Else
+  			      DrawText(X + txtX, Y + txtY, TreeEx()\Cols()\Header\Title, TreeEx()\Color\HeaderFront)
+  			    EndIf ;}
+  			    
+  			    CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+              UnclipOutput()
+            CompilerEndIf
+  			    
+  			  EndIf
+			  
+			    X + ColumnWidth
+			  Next
+			  
+  	  EndIf ;}
+  	  
 			;{ _____ Border ____
 			If Not TreeEx()\Flags & #Borderless
 				DrawingMode(#PB_2DDrawing_Outlined)
@@ -2226,14 +2246,14 @@ Module TreeEx
 
 				;{ _____ Tree Column _____
 				If AddElement(TreeEx()\Cols())
-				  TreeEx()\Cols()\Key               = #Tree$
-				  TreeEx()\Cols()\Flags             = #Tree
-				  TreeEx()\Cols()\Width             = #PB_Default
-				  TreeEx()\Cols()\Color\Front       = #PB_Default
-				  TreeEx()\Cols()\Color\Back        = #PB_Default
-				  TreeEx()\Cols()\Color\Border      = #PB_Default
-				  TreeEx()\Cols()\Header\Title      = Title
-				  TreeEx()\Cols()\Header\FontID     = #PB_Default
+				  TreeEx()\Cols()\Key                = #Tree$
+				  TreeEx()\Cols()\Flags              = #Tree
+				  TreeEx()\Cols()\Width              = #PB_Default
+				  TreeEx()\Cols()\Color\Front        = #PB_Default
+				  TreeEx()\Cols()\Color\Back         = #PB_Default
+				  TreeEx()\Cols()\Color\Border       = #PB_Default
+				  TreeEx()\Cols()\Header\Title       = Title
+				  TreeEx()\Cols()\Header\FontID      = #PB_Default
           TreeEx()\Cols()\Header\Color\Front = #PB_Default
           TreeEx()\Cols()\Header\Color\Back  = #PB_Default
 				EndIf	;}	
@@ -3084,7 +3104,6 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 79
-; FirstLine = 12
-; Folding = 9ZAAAAAAApESAICyAQAEQAAAGAD-
+; Folding = 96AAAAgYAJAQQDA1xgIIgAAAMAG+
 ; EnableXP
 ; DPIAware
