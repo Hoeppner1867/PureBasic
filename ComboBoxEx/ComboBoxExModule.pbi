@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 6.12.2019
+; Last Update: 7.12.2019
 ;
 
 
@@ -87,7 +87,7 @@
 
 DeclareModule ComboBoxEx
   
-  #Version  = 19120603
+  #Version  = 19120700
   #ModuleEx = 19112600
   
   ;- ===========================================================================
@@ -1132,9 +1132,7 @@ Module ComboBoxEx
     
     RowsHeight = ListSize(ComboEx()\ListView\Item()) * DesktopUnscaledY(ComboEx()\ListView\RowHeight)
     If RowsHeight < Height : Height = RowsHeight : EndIf  
-    
-    Debug Height
-    
+
     SetGadgetData(ComboEx()\ListView\Num, ComboEx()\CanvasNum)
     
     ResizeWindow(ComboEx()\ListView\Window, X, Y + GadgetHeight(ComboEx()\CanvasNum), Width, Height)
@@ -2641,8 +2639,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 2131
-; Folding = IMAiAAAAABAk9XIAgDAFAMEAAAg-
+; CursorPosition = 89
+; Folding = IMAiAAAAABAk9XIAgDAFAsEAAAg-
 ; EnableThread
 ; EnableXP
 ; DPIAware
