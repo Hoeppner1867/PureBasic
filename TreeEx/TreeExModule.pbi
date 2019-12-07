@@ -77,7 +77,7 @@
 
 DeclareModule TreeEx
   
-  #Version  = 19120701
+  #Version  = 19120702
   #ModuleEx = 19112002
   
   #Enable_ProgressBar = #True
@@ -1205,7 +1205,7 @@ Module TreeEx
 	  Define.f X, Y, Width, Height, TreeWidth, ColumnWidth, txtHeight, RowHeight, ImageWidth, ImageHeight
 	  Define.f btY, txtX, txtY, OffsetX, OffsetY, LastX, LastY, LineY, LineHeight, LineWidth
 	  Define.i Row, PageRows, FrontColor, BackColor, CheckBoxSize, FontID, Visible, Button
-	  Define.i LevelWidth, NextLevel, LevelX, Level = 0
+	  Define.i l, LevelWidth, NextLevel, LevelX, Level = 0
 	  Define.f Factor
 		Define.s Key$, Level$, Text$
 
@@ -1529,11 +1529,9 @@ Module TreeEx
       		  PopListPosition(TreeEx()\Lines())
 
       		  If NextLevel <> -1 And  NextLevel < TreeEx()\Lines()\Level
-      		    If NextLevel < Level
-      		      LineY(Str(Level)) = 0
-      		    Else
-      		      LineY(Level$) = 0
-      		    EndIf
+      		    For l = NextLevel + 1 To Level
+      		      LineY(Str(l)) = 0
+      		    Next  
       		    Level = NextLevel
     		    Else  
     		      LineY(Level$) = TreeEx()\Lines()\Y
@@ -1546,14 +1544,16 @@ Module TreeEx
       		    Level$ = Str(Level)
       		    If LineY(Level$) : Line(LineX(Level$), LineY(Level$), 1, TreeEx()\Lines()\Y - LineY(Level$)) : EndIf
       		    Line(LineX(Level$), TreeEx()\Lines()\Y, TreeEx()\Lines()\X - LineX(Level$) + LineWidth, 1)
-      		    If TreeEx()\Lines()\NextLevel < Level
-      		      LineY(Level$) = 0
-      		      Level = TreeEx()\Lines()\NextLevel
-      		    EndIf  
+      		    If TreeEx()\Lines()\NextLevel >= 0
+        		    For l = TreeEx()\Lines()\NextLevel + 1 To Level
+        		      LineY(Str(l)) = 0
+        		    Next  
+        		    Level = TreeEx()\Lines()\NextLevel
+        		  EndIf  
       		  ElseIf TreeEx()\Lines()\Level > Level
       		    Level$ = Str(Level)
     		      Line(LineX(Level$), TreeEx()\Lines()\Y, TreeEx()\Lines()\X - LineX(Level$) + LineWidth, 1)
-      		  ElseIf Button  
+    		    ElseIf Button  
       		    Level$ = Str(TreeEx()\Lines()\Level)
     		      Line(LineX(Level$), TreeEx()\Lines()\Y, TreeEx()\Lines()\X - LineX(Level$) + LineWidth, 1)
     		    EndIf
@@ -3048,9 +3048,11 @@ CompilerIf #PB_Compiler_IsMainFile
       
       ; _____ Add content _____
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "Item" + #LF$ + #LF$ + "1")
+      TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "Item" + #LF$ + #LF$ + "1")
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "1.1",   "", #False, 1)
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "1.1.1", "", #False, 2)
-      TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "1.1.1.1", "", #False, 0)
+      TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "1.1.1", "", #False, 3)
+      TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "1.1.1.1", "", #False, 4)
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "1.1.2", "", #False, 0)
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "Item"    + #LF$ + #LF$ + "2", "", 1)
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "2.1",   "", #False, 1)
@@ -3104,6 +3106,6 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 79
-; Folding = 96AAAAgYAJAQQDA1xgIIgAAAMAG+
+; Folding = 96AAAAgYAJAQQDA1xgYIgAAAMAG+
 ; EnableXP
 ; DPIAware
