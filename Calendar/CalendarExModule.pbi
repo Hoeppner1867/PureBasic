@@ -9,10 +9,9 @@
 ;/ © 2019 Thorsten1867 (07/2019)
 ;/
 
-; Last Update: 23.11.2019
+; Last Update: 07.12.2019
 ;
 ; Added: Theme support
-;
 ; Added:  #UseExistingCanvas
 ; Added:  Today Color
 ; Changed: #ResizeWidth -> #Width / #ResizeHeight -> #Height
@@ -41,7 +40,7 @@
 ; SOFTWARE.
 ;}
 
-;{ ===== Additional tea & pizza license =====
+;{ ===== Tea & Pizza Ware =====
 ; <purebasic@thprogs.de> has created this code. 
 ; If you find the code useful and you want to use it for your programs, 
 ; you are welcome to support my work with a cup of tea or a pizza
@@ -75,8 +74,8 @@
 ; CalendarEx::SetAttribute()       - similar to SetGadgetAttribute()
 ; CalendarEx::SetAutoResizeFlags() - [#MoveX|#MoveY|#Width|#Height]
 ; CalendarEx::SetDate()            - similar to SetGadgetState()
-; CalendarEx::SetEntryColor(GNum.i, Label.s, ColorType.i, Value.i)
-; CalendarEx::SetEntryMask(GNum.i, Label.s, String.s)
+; CalendarEx::SetEntryColor()      - change color of entry
+; CalendarEx::SetEntryMask()       - change mask of entry
 ; CalendarEx::SetColor()           - similar to SetGadgetColor()
 ; CalendarEx::SetFlags()           - set flags [#Year/#Month/#Gadget]
 ; CalendarEx::SetFont()            - similar to SetGadgetFont()
@@ -95,8 +94,8 @@ CompilerIf Not Defined(Date64, #PB_Module)  : XIncludeFile "Date64Module.pbi"   
 
 DeclareModule CalendarEx
   
-  #Version  = 19112301
-  #ModuleEx = 19112002
+  #Version  = 19120700
+  #ModuleEx = 19120600
   
   #Enable_iCalFormat = #True
   
@@ -240,7 +239,7 @@ DeclareModule CalendarEx
   
   Declare.i AddEntry(GNum.i, Label.s, Summary.s, Description.s, Location.s, StartDate.q, EndDate.q=#PB_Default, Flag.i=#False)
   Declare   AttachPopupMenu(GNum.i, PopUpNum.i)
-  Declare   ClearEntries(GNum.i)
+  Declare   ClearEntries(GNum.i, Year.i=#PB_Default, Month.i=#PB_Default)
   Declare.i CountEntries(GNum.i, DayOfMonth.i)
   Declare.q GetDate(Day.i, Month.i, Year.i, Hour.i=0, Minute.i=0, Second.i=0)
   Declare   DefaultCountry(Code.s)
@@ -368,9 +367,9 @@ Module CalendarEx
   
   
   Structure Entry_Structure              ;{ ...\Entry\...
+    Label.s
     StartDate.q
     EndDate.q
-    Label.s
     Summary.s
     Description.s
     Location.s
@@ -380,6 +379,7 @@ Module CalendarEx
     Flags.i
   EndStructure ;}
   
+  
   Structure Button_Size_Structure        ;{ Calendar()\Button\...
     prevX.i
     nextX.i
@@ -387,23 +387,15 @@ Module CalendarEx
     Width.i
     Height.i
   EndStructure  ;}
-    
-  Structure Event_Entries_Structure      ;{ Calendar()\Event\Entries\...
-    Label.s
-    StartDate.q
-    EndDate.q
-    Summary.s
-    Description.s
-    Location.s
-    Flags.i
+
+  Structure Event_Month_Structure        ;{ Calendar()\Events()\Month('month')\...
+    List Entry.Entry_Structure()
   EndStructure ;}
   
-  Structure Calendar_Event_Structure     ;{ Calendar()\Event\
-    Day.i
-    Month.i
-    Year.i
-    List Entries.Event_Entries_Structure()
+  Structure Event_Year_Structure         ;{ Calendar()\Events('year')\...
+    Map Month.Event_Month_Structure()
   EndStructure ;}
+  
   
   Structure Calendar_PostEvent_Structure ;{ Calendar()\PostEvent\
     MonthX.i
@@ -424,17 +416,24 @@ Module CalendarEx
     ToolTipTitle.s
   EndStructure ;}
   
-  Structure Calendar_Entry_Structure     ;{ ...\Entry\...
+  
+  Structure Event_Entries_Structure      ;{ Calendar()\Event\Entry\...
+    Label.s
     StartDate.q
     EndDate.q
     Summary.s
     Description.s
     Location.s
-    FrontColor.i
-    BackColor.i
-    ToolTipMask.s
     Flags.i
   EndStructure ;}
+  
+  Structure Calendar_Event_Structure     ;{ Calendar()\Event\
+    Day.i
+    Month.i
+    Year.i
+    List Entries.Event_Entries_Structure()
+  EndStructure ;}
+  
   
   Structure Calendar_Month_Structure     ;{ Calendar()\Month\...
     Y.i
@@ -541,22 +540,24 @@ Module CalendarEx
     Font.Font_Structure
     
     Color.Calendar_Color_Structure
-    Current.Calendar_Current_Structure
+    Margin.Calendar_Margins_Structure
+    Size.Calendar_Size_Structure
+    Window.Calendar_Window_Structure
+    
+    PostEvent.Calendar_PostEvent_Structure
     
     Button.Button_Size_Structure
+    Current.Calendar_Current_Structure
     Event.Calendar_Event_Structure
-    Margin.Calendar_Margins_Structure
-    Month.Calendar_Month_Structure
-    PostEvent.Calendar_PostEvent_Structure
-    Size.Calendar_Size_Structure
     Week.Calendar_Week_Structure
-    Window.Calendar_Window_Structure
+    Month.Calendar_Month_Structure
     Year.Calendar_Year_Structure
     
     Map Day.Calendar_Day_Structure()
-    Map PopUpItem.s()
+    Map Label.Event_Entries_Structure()
+    Map Events.Event_Year_Structure()
     
-    Map Entries.Calendar_Entry_Structure()
+    Map PopUpItem.s()
     
   EndStructure ;}
   Global NewMap Calendar.Calendar_Structure()
@@ -933,7 +934,7 @@ Module CalendarEx
 	  
 	  ProcedureReturn #False
 	EndProcedure
-	  
+
   Procedure   UpdatePopUpMenu_()
 		Define.s Text$
 
@@ -964,47 +965,53 @@ Module CalendarEx
 	
 	Procedure   UpdateCurrentEntries_()
 	  Define.i d, StartDay, EndDay, LastDay
-	  
-	  If MapSize(Calendar()\Entries())
-	    
-  	  LastDay = LastDayOfMonth_(Calendar()\Current\Month, Calendar()\Current\Year)
-  	  
-  	  For d=1 To LastDay
-        
-	      StartDay = Date_(Calendar()\Current\Year, Calendar()\Current\Month, d, 0, 0, 0)
-	      EndDay   = Date_(Calendar()\Current\Year, Calendar()\Current\Month, d, 23, 59, 59)
+	  Define.i Year, Month
 
-	      If AddMapElement(Calendar()\Day(), Str(d))
-	        
-	        ForEach Calendar()\Entries()
-
-	          If (Calendar()\Entries()\StartDate >= StartDay And Calendar()\Entries()\EndDate <= EndDay) Or (StartDay >= Calendar()\Entries()\StartDate And EndDay <= Calendar()\Entries()\EndDate)
-
-  	          If AddElement(Calendar()\Day(Str(d))\Entry())
-  	            Calendar()\Day(Str(d))\Entry()\Label       = MapKey(Calendar()\Entries())
-  	            Calendar()\Day(Str(d))\Entry()\StartDate   = Calendar()\Entries()\StartDate
-  	            Calendar()\Day(Str(d))\Entry()\EndDate     = Calendar()\Entries()\EndDate
-  	            Calendar()\Day(Str(d))\Entry()\Summary     = Calendar()\Entries()\Summary
-  	            Calendar()\Day(Str(d))\Entry()\Description = Calendar()\Entries()\Description
-  	            Calendar()\Day(Str(d))\Entry()\Location    = Calendar()\Entries()\Location
-  	            Calendar()\Day(Str(d))\Entry()\FrontColor  = Calendar()\Entries()\FrontColor
-  	            Calendar()\Day(Str(d))\Entry()\BackColor   = Calendar()\Entries()\BackColor
-  	            Calendar()\Day(Str(d))\Entry()\ToolTipMask = Calendar()\Entries()\ToolTipMask
-  	            Calendar()\Day(Str(d))\Entry()\Flags       = Calendar()\Entries()\Flags
-  	          EndIf 
-  	          
-  	        EndIf
-  	        
-  	      Next
-  	      
-  	    EndIf
+    Month = Calendar()\Current\Month
+    Year  = Calendar()\Current\Year
+	 
+  	LastDay = LastDayOfMonth_(Calendar()\Current\Month, Calendar()\Current\Year)
+  	
+  	If FindMapElement(Calendar()\Events(), Str(Year))
+  	  If FindMapElement(Calendar()\Events()\Month(), Str(Month))
   	    
-  	  Next
-  	  
-  	  SortStructuredList(Calendar()\Day()\Entry(), #PB_Sort_Ascending, OffsetOf(Entry_Structure\StartDate), TypeOf(Entry_Structure\StartDate))
-  	  
-  	EndIf  
+  	    For d=1 To LastDay
+  	      
+  	      StartDay = Date_(Calendar()\Current\Year, Calendar()\Current\Month, d, 0, 0, 0)
+	        EndDay   = Date_(Calendar()\Current\Year, Calendar()\Current\Month, d, 23, 59, 59)
+	        
+	        If AddMapElement(Calendar()\Day(), Str(d))
+	          
+	          ForEach Calendar()\Events()\Month()\Entry()
+	            
+	            If (Calendar()\Events()\Month()\Entry()\StartDate >= StartDay And Calendar()\Events()\Month()\Entry()\EndDate <= EndDay) Or (StartDay >= Calendar()\Events()\Month()\Entry()\StartDate And EndDay <= Calendar()\Events()\Month()\Entry()\EndDate)
 
+    	          If AddElement(Calendar()\Day(Str(d))\Entry())
+    	            Calendar()\Day(Str(d))\Entry()\Label       = Calendar()\Events()\Month()\Entry()\Label
+    	            Calendar()\Day(Str(d))\Entry()\StartDate   = Calendar()\Events()\Month()\Entry()\StartDate
+    	            Calendar()\Day(Str(d))\Entry()\EndDate     = Calendar()\Events()\Month()\Entry()\EndDate
+    	            Calendar()\Day(Str(d))\Entry()\Summary     = Calendar()\Events()\Month()\Entry()\Summary
+    	            Calendar()\Day(Str(d))\Entry()\Description = Calendar()\Events()\Month()\Entry()\Description
+    	            Calendar()\Day(Str(d))\Entry()\Location    = Calendar()\Events()\Month()\Entry()\Location
+    	            Calendar()\Day(Str(d))\Entry()\FrontColor  = Calendar()\Events()\Month()\Entry()\FrontColor
+    	            Calendar()\Day(Str(d))\Entry()\BackColor   = Calendar()\Events()\Month()\Entry()\BackColor
+    	            Calendar()\Day(Str(d))\Entry()\ToolTipMask = Calendar()\Events()\Month()\Entry()\ToolTipMask
+    	            Calendar()\Day(Str(d))\Entry()\Flags       = Calendar()\Events()\Month()\Entry()\Flags
+    	          EndIf 
+    	          
+    	        EndIf
+	            
+	          Next
+	          
+	        EndIf
+	        
+	      Next
+	      
+	      SortStructuredList(Calendar()\Day()\Entry(), #PB_Sort_Ascending, OffsetOf(Entry_Structure\StartDate), TypeOf(Entry_Structure\StartDate))
+	      
+  	  EndIf
+  	EndIf
+  	
 	EndProcedure
 	
 	;- __________ Drawing __________
@@ -1535,13 +1542,14 @@ Module CalendarEx
         Calendar()\Color\Back         = ModuleEx::ThemeGUI\BackColor
         Calendar()\Color\Grid         = ModuleEx::ThemeGUI\LineColor
         Calendar()\Color\Focus        = ModuleEx::ThemeGUI\Focus\BackColor
+        Calendar()\Color\GreyText     = ModuleEx::ThemeGUI\GreyTextColor
         Calendar()\Month\Color\Front  = ModuleEx::ThemeGUI\Title\FrontColor
         Calendar()\Month\Color\Back   = ModuleEx::ThemeGUI\Title\BackColor
         Calendar()\Week\Color\Front   = ModuleEx::ThemeGUI\Header\FrontColor
         Calendar()\Week\Color\Back    = ModuleEx::ThemeGUI\Header\LightColor
         Calendar()\Color\DisableFront = ModuleEx::ThemeGUI\Disable\FrontColor
         Calendar()\Color\DisableBack  = ModuleEx::ThemeGUI\Disable\BackColor
-        
+
         Draw_()
       Next
       
@@ -2111,16 +2119,16 @@ Module CalendarEx
           WriteStringN(FileID, #iCal_ProID + "PureBasic", #PB_UTF8)
           WriteStringN(FileID, #iCal_Publish, #PB_UTF8)
           
-          If FindMapElement(Calendar()\Entries(), Label) ;{ Entries
-            
+          If FindMapElement(Calendar()\Label(), Label)   ;{ Entries
+
             WriteStringN(FileID, #iCal_BeginEvent, #PB_UTF8)
             WriteStringN(FileID, #iCal_UID + UniqueID(@UUID), #PB_UTF8)
-            WriteStringN(FileID, #iCal_Location    + Calendar()\Entries()\Location,    #PB_UTF8)
-            WriteStringN(FileID, #iCal_Summary     + Calendar()\Entries()\Summary,     #PB_UTF8)
-            WriteStringN(FileID, #iCal_Description + Calendar()\Entries()\Description, #PB_UTF8)
+            WriteStringN(FileID, #iCal_Location    + Calendar()\Label()\Location,    #PB_UTF8)
+            WriteStringN(FileID, #iCal_Summary     + Calendar()\Label()\Summary,     #PB_UTF8)
+            WriteStringN(FileID, #iCal_Description + Calendar()\Label()\Description, #PB_UTF8)
             WriteStringN(FileID, #iCal_Private, #PB_UTF8)
-            WriteStringN(FileID, #iCal_DateStart   + FormatDate("%yyyy%mm%ddT%hh%ii%ssZ", Calendar()\Entries()\StartDate), #PB_UTF8)
-            WriteStringN(FileID, #iCal_DateEnd     + FormatDate("%yyyy%mm%ddT%hh%ii%ssZ", Calendar()\Entries()\EndDate),   #PB_UTF8)
+            WriteStringN(FileID, #iCal_DateStart   + FormatDate("%yyyy%mm%ddT%hh%ii%ssZ", Calendar()\Label()\StartDate), #PB_UTF8)
+            WriteStringN(FileID, #iCal_DateEnd     + FormatDate("%yyyy%mm%ddT%hh%ii%ssZ", Calendar()\Label()\EndDate),   #PB_UTF8)
             WriteStringN(FileID, #iCal_DateStamp   + FormatDate("%yyyy%mm%ddT%hh%ii%ssZ", Date()), #PB_UTF8)
             WriteStringN(FileID, #iCal_EndEvent,  #PB_UTF8)
             ;}
@@ -2138,12 +2146,13 @@ Module CalendarEx
     EndProcedure
     
     Procedure.i ImportEvent(GNum.i, Label.s, File.s)
+      Define.i y, m, sYear, sMonth, eYear, eMonth
       Define.i FileID, Result = #False
       Define.s String, Param
       
       If FindMapElement(Calendar(), Str(GNum))
         
-        If FindMapElement(Calendar()\Entries(), Label)
+        If FindMapElement(Calendar()\Label(), Label)
           Debug "Label already exists"
           ProcedureReturn #False
         EndIf 
@@ -2165,22 +2174,44 @@ Module CalendarEx
                 
                 If StringField(String, 2, ":") = "VEVENT" 
                   
-                  If AddMapElement(Calendar()\Entries(), Label)
+                  If AddMapElement(Calendar()\Label(), Label)
+                    
                     Repeat
                       String = ReadString(FileID)
                       Select StringField(String, 1, ":")
                         Case "LOCATION"
-                          Calendar()\Entries()\Location    = StringField(String, 2, ":")
+                          Calendar()\Label()\Location    = StringField(String, 2, ":")
                         Case "SUMMARY"
-                          Calendar()\Entries()\Summary     = StringField(String, 2, ":")
+                          Calendar()\Label()\Summary     = StringField(String, 2, ":")
                         Case "DESCRIPTION"
-                          Calendar()\Entries()\Description = StringField(String, 2, ":")
+                          Calendar()\Label()\Description = StringField(String, 2, ":")
                         Case "DTSTART"
-                          Calendar()\Entries()\StartDate   = ParseDate("%yyyy%mm%ddT%hh%ii%ssZ", StringField(String, 2, ":")) 
+                          Calendar()\Label()\StartDate   = ParseDate("%yyyy%mm%ddT%hh%ii%ssZ", StringField(String, 2, ":")) 
                         Case "DTEND"
-                          Calendar()\Entries()\EndDate     = ParseDate("%yyyy%mm%ddT%hh%ii%ssZ", StringField(String, 2, ":")) 
+                          Calendar()\Label()\EndDate     = ParseDate("%yyyy%mm%ddT%hh%ii%ssZ", StringField(String, 2, ":")) 
                       EndSelect
                     Until String = "END:VEVENT" Or Eof(FileID)
+                    
+                    sYear  = Year_(Calendar()\Label()\StartDate)
+                    sMonth = Month_(Calendar()\Label()\StartDate)
+                    eYear  = Year_(Calendar()\Label()\EndDate)
+                    eMonth = Month_(Calendar()\Label()\EndDate)
+                    
+                    For y = sYear To eYear
+                      For m = sMonth To eMonth
+                        If AddElement(Calendar()\Events(Str(y))\Month(Str(m))\Entry())
+                          Calendar()\Events(Str(y))\Month(Str(m))\Entry()\Label       = Label
+                          Calendar()\Events(Str(y))\Month(Str(m))\Entry()\StartDate   = Calendar()\Label()\StartDate
+                          Calendar()\Events(Str(y))\Month(Str(m))\Entry()\EndDate     = Calendar()\Label()\EndDate
+                          Calendar()\Events(Str(y))\Month(Str(m))\Entry()\Summary     = Calendar()\Label()\Summary
+                          Calendar()\Events(Str(y))\Month(Str(m))\Entry()\Description = Calendar()\Label()\Description
+                          Calendar()\Events(Str(y))\Month(Str(m))\Entry()\Location    = Calendar()\Label()\Location
+                          Calendar()\Events(Str(y))\Month(Str(m))\Entry()\FrontColor  = #PB_Default
+                          Calendar()\Events(Str(y))\Month(Str(m))\Entry()\BackColor   = #PB_Default
+                        EndIf
+                      Next
+                    Next
+                    
                   EndIf
                   
                 EndIf
@@ -2201,39 +2232,51 @@ Module CalendarEx
   
   
   Procedure.i AddEntry(GNum.i, Label.s, Summary.s, Description.s, Location.s, StartDate.q, EndDate.q=#PB_Default, Flag.i=#False)
+    Define.i y, m, sYear, sMonth, eYear, eMonth
     
     If FindMapElement(Calendar(), Str(GNum))
       
-      If FindMapElement(Calendar()\Entries(), Label)
+      If FindMapElement(Calendar()\Label(), Label)
         Debug "Label already exists"
         ProcedureReturn #False
       EndIf 
       
-      If AddMapElement(Calendar()\Entries(), Label)
-        
-        Calendar()\Entries()\Summary     = Summary
-        Calendar()\Entries()\Description = Description
-        Calendar()\Entries()\Location    = Location
-        Calendar()\Entries()\StartDate   = StartDate
-        
-        If EndDate = #PB_Default
-          Calendar()\Entries()\EndDate   = StartDate
-        Else
-          Calendar()\Entries()\EndDate   = EndDate
-        EndIf
-        
-        Calendar()\Entries()\FrontColor  = #PB_Default
-        Calendar()\Entries()\BackColor   = #PB_Default
-        
-        Calendar()\Entries()\Flags       = Flag
-        
-        UpdateCurrentEntries_()
-        
-        If Calendar()\ReDraw : Draw_() : EndIf
-        
-        ProcedureReturn #True
+      sYear  = Year_(StartDate)
+      sMonth = Month_(StartDate)
+      eYear  = Year_(EndDate)
+      eMonth = Month_(EndDate)
+      
+      If AddMapElement(Calendar()\Label(), Label)
+        Calendar()\Label()\Label       = Label
+        Calendar()\Label()\StartDate   = StartDate
+        Calendar()\Label()\EndDate     = EndDate
+        Calendar()\Label()\Summary     = Summary
+        Calendar()\Label()\Description = Description
+        Calendar()\Label()\Location    = Location
+        Calendar()\Label()\Flags       = Flag
       EndIf
+      
+      For y = sYear To eYear
+        For m = sMonth To eMonth
+          If AddElement(Calendar()\Events(Str(y))\Month(Str(m))\Entry())
+            Calendar()\Events(Str(y))\Month(Str(m))\Entry()\Label       = Label
+            Calendar()\Events(Str(y))\Month(Str(m))\Entry()\StartDate   = StartDate
+            Calendar()\Events(Str(y))\Month(Str(m))\Entry()\EndDate     = EndDate
+            Calendar()\Events(Str(y))\Month(Str(m))\Entry()\Summary     = Summary
+            Calendar()\Events(Str(y))\Month(Str(m))\Entry()\Description = Description
+            Calendar()\Events(Str(y))\Month(Str(m))\Entry()\Location    = Location
+            Calendar()\Events(Str(y))\Month(Str(m))\Entry()\FrontColor  = #PB_Default
+            Calendar()\Events(Str(y))\Month(Str(m))\Entry()\BackColor   = #PB_Default
+            Calendar()\Events(Str(y))\Month(Str(m))\Entry()\Flags       = Flag
+          EndIf
+        Next
+      Next
 
+      UpdateCurrentEntries_()
+      
+      If Calendar()\ReDraw : Draw_() : EndIf
+      
+      ProcedureReturn #True
     EndIf
     
   EndProcedure
@@ -2246,10 +2289,24 @@ Module CalendarEx
     
   EndProcedure  
   
-  Procedure   ClearEntries(GNum.i)
+  Procedure   ClearEntries(GNum.i, Year.i=#PB_Default, Month.i=#PB_Default)
     
     If FindMapElement(Calendar(), Str(GNum))
-      ClearMap(Calendar()\Entries())
+      
+      If Year = #PB_Default
+        ClearMap(Calendar()\Events())
+      ElseIf Month = #PB_Default
+        If FindMapElement(Calendar()\Events(), Str(Year))
+          ClearMap(Calendar()\Events()\Month())
+        EndIf
+      Else  
+        If FindMapElement(Calendar()\Events(), Str(Year))
+          If FindMapElement(Calendar()\Events()\Month(), Str(Month))
+            ClearList(Calendar()\Events()\Month()\Entry())
+          EndIf  
+        EndIf
+      EndIf  
+      
     EndIf  
   
   EndProcedure
@@ -2514,28 +2571,38 @@ Module CalendarEx
   EndProcedure
   
   Procedure.i GetEntries(GNum.i, Date.q, List Entries.Entries_Structure()) 
+    Define.i Year, Month
     
     If FindMapElement(Calendar(), Str(GNum))
       
+      Year  = Year_(Date)
+      Month = Month_(Date)
+     
       ClearList(Entries())
       
-      ForEach Calendar()\Entries()
-        
-        If Date >= Calendar()\Entries()\StartDate And Date <= Calendar()\Entries()\EndDate
+      If FindMapElement(Calendar()\Events(), Str(Year))
+        If FindMapElement(Calendar()\Events()\Month(), Str(Month))
           
-          If AddElement(Entries())
-            Entries()\Label       = MapKey(Calendar()\Entries())
-            Entries()\StartDate   = Calendar()\Entries()\StartDate
-            Entries()\EndDate     = Calendar()\Entries()\EndDate
-            Entries()\Summary     = Calendar()\Entries()\Summary
-            Entries()\Description = Calendar()\Entries()\Description
-            Entries()\Location    = Calendar()\Entries()\Location
-            Entries()\Flags       = Calendar()\Entries()\Flags
-          EndIf  
+          ForEach Calendar()\Events()\Month()\Entry()
+            
+            If Date >= Calendar()\Events()\Month()\Entry()\StartDate And Date <= Calendar()\Events()\Month()\Entry()\EndDate
+              
+              If AddElement(Entries())
+                Entries()\Label       = Calendar()\Events()\Month()\Entry()\Label
+                Entries()\StartDate   = Calendar()\Events()\Month()\Entry()\StartDate
+                Entries()\EndDate     = Calendar()\Events()\Month()\Entry()\EndDate
+                Entries()\Summary     = Calendar()\Events()\Month()\Entry()\Summary
+                Entries()\Description = Calendar()\Events()\Month()\Entry()\Description
+                Entries()\Location    = Calendar()\Events()\Month()\Entry()\Location
+                Entries()\Flags       = Calendar()\Events()\Month()\Entry()\Flags
+              EndIf  
+              
+            EndIf
+            
+          Next
           
-        EndIf
-        
-      Next
+        EndIf  
+      EndIf
       
       SortStructuredList(Entries(), #PB_Sort_Ascending, OffsetOf(Entries_Structure\StartDate), TypeOf(Entries_Structure\StartDate))
 
@@ -2568,6 +2635,7 @@ Module CalendarEx
     
   EndProcedure  
   
+  
   Procedure   Hide(GNum.i, State.i=#True)
     
     If FindMapElement(Calendar(), Str(GNum))
@@ -2597,7 +2665,6 @@ Module CalendarEx
     EndIf  
     
   EndProcedure 	  
-  
 
   Procedure   LoadColorTheme(GNum.i, File.s)
     Define Theme.Theme_Structure
@@ -2627,17 +2694,45 @@ Module CalendarEx
     
   EndProcedure
   
-
   Procedure   RemoveEntry(GNum.i, Label.s)
+    Define.i StartDate, EndDate
+    Define.i y, m, sYear, sMonth, eYear, eMonth
     
-    If FindMapElement(Calendar(), Str(GNum))
+    If FindMapElement(Calendar()\Label(), Label)
       
-      If FindMapElement(Calendar()\Entries(), Label)
-        DeleteMapElement(Calendar()\Entries())
-      EndIf
+      StartDate = Calendar()\Label()\StartDate
+      EndDate   = Calendar()\Label()\EndDate
       
+      sYear  = Year_(StartDate)
+      sMonth = Month_(StartDate)
+      eYear  = Year_(EndDate)
+      eMonth = Month_(EndDate)
+      
+      DeleteMapElement(Calendar()\Label())
     EndIf
-    
+
+    For y = sYear To eYear
+      
+      If FindMapElement(Calendar()\Events(), Str(y))
+        
+        For m = sMonth To eMonth
+          
+          If FindMapElement(Calendar()\Events()\Month(), Str(m))
+          
+            ForEach Calendar()\Events()\Month()\Entry()
+              If Calendar()\Events()\Month()\Entry()\Label = Label
+                DeleteElement(Calendar()\Events()\Month()\Entry())
+              EndIf
+            Next
+            
+          EndIf
+          
+        Next
+        
+      EndIf  
+      
+    Next
+
   EndProcedure
   
 
@@ -2815,18 +2910,44 @@ Module CalendarEx
   EndProcedure
   
   Procedure   SetEntryColor(GNum.i, Label.s, ColorType.i, Value.i)
+    Define.i y, m, sYear, sMonth, eYear, eMonth
     
     If FindMapElement(Calendar(), Str(GNum))
       
-      If FindMapElement(Calendar()\Entries(), Label)
+      If FindMapElement(Calendar()\Label(), Label)
+
+        sYear  = Year_(Calendar()\Label()\StartDate)
+        sMonth = Month_(Calendar()\Label()\StartDate)
+        eYear  = Year_(Calendar()\Label()\EndDate)
+        eMonth = Month_(Calendar()\Label()\EndDate)
         
-        Select ColorType
-          Case #Entry_FrontColor, #FrontColor
-            Calendar()\Entries()\FrontColor = Value
-          Case #Entry_BackColor, #BackColor
-            Calendar()\Entries()\BackColor  = Value
-        EndSelect
-        
+        For y = sYear To eYear
+      
+          If FindMapElement(Calendar()\Events(), Str(y))
+            
+            For m = sMonth To eMonth
+              
+              If FindMapElement(Calendar()\Events()\Month(), Str(m))
+              
+                ForEach Calendar()\Events()\Month()\Entry()
+                  If Calendar()\Events()\Month()\Entry()\Label = Label
+                    Select ColorType
+                      Case #Entry_FrontColor, #FrontColor
+                        Calendar()\Events()\Month()\Entry()\FrontColor = Value
+                      Case #Entry_BackColor, #BackColor
+                        Calendar()\Events()\Month()\Entry()\BackColor  = Value
+                    EndSelect
+                  EndIf
+                Next
+                
+              EndIf
+              
+            Next
+            
+          EndIf  
+          
+        Next
+
         UpdateCurrentEntries_()
         
         If Calendar()\ReDraw : Draw_() : EndIf
@@ -2838,17 +2959,43 @@ Module CalendarEx
   EndProcedure
   
   Procedure   SetEntryMask(GNum.i, Label.s, String.s)
+    Define.i y, m, sYear, sMonth, eYear, eMonth
     
     If FindMapElement(Calendar(), Str(GNum))
       
-      If FindMapElement(Calendar()\Entries(), Label)
+      If FindMapElement(Calendar()\Label(), Label)
+
+        sYear  = Year_(Calendar()\Label()\StartDate)
+        sMonth = Month_(Calendar()\Label()\StartDate)
+        eYear  = Year_(Calendar()\Label()\EndDate)
+        eMonth = Month_(Calendar()\Label()\EndDate)
         
-        Calendar()\Entries()\ToolTipMask = String
-        
+        For y = sYear To eYear
+      
+          If FindMapElement(Calendar()\Events(), Str(y))
+            
+            For m = sMonth To eMonth
+              
+              If FindMapElement(Calendar()\Events()\Month(), Str(m))
+                
+                ForEach Calendar()\Events()\Month()\Entry()
+                  If Calendar()\Events()\Month()\Entry()\Label = Label
+                    Calendar()\Events()\Month()\Entry()\ToolTipMask = String
+                  EndIf
+                Next
+                
+              EndIf
+              
+            Next
+            
+          EndIf  
+          
+        Next
+
         UpdateCurrentEntries_()
         
         If Calendar()\ReDraw : Draw_() : EndIf
-        
+
       EndIf
       
     EndIf  
@@ -3193,9 +3340,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1852
-; FirstLine = 802
-; Folding = 9BwBAAwAAEGAQ9PASiJCAwaAAJYQ+-
-; Markers = 1066,2744
+; CursorPosition = 96
+; FirstLine = 15
+; Folding = 5AwBCCAAAAAAAAAAEBzUAA2AAAQAM+
+; Markers = 1073,2839
 ; EnableXP
 ; DPIAware

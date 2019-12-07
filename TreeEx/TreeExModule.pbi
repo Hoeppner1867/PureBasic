@@ -77,7 +77,7 @@
 
 DeclareModule TreeEx
   
-  #Version  = 19120300
+  #Version  = 19120700
   #ModuleEx = 19112002
   
   #Enable_ProgressBar = #True
@@ -1207,8 +1207,7 @@ Module TreeEx
 
 		NewMap  LineX.i()
 		NewMap  LineY.i()
-		
-		
+
 		If TreeEx()\Hide : ProcedureReturn #False : EndIf
 		
     TreeEx()\Row\OffSetY = 0
@@ -1593,9 +1592,9 @@ Module TreeEx
 
   			TreeEx()\Rows()\Y = Y
   			
-  			If VisibleRows > PageRows : Break : EndIf
+  			Y + dpiY(TreeEx()\Row\Height)
   			
-			  Y + dpiY(TreeEx()\Row\Height)
+  			If Y > Height : Break : EndIf
   		Next ;}
   		
   		;{ _____ Lines _____
@@ -3085,6 +3084,7 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 79
-; Folding = 96AAAAQAAJASAIGyAQAEQAAAGAD-
+; FirstLine = 12
+; Folding = 9ZAAAAAAApESAICyAQAEQAAAGAD-
 ; EnableXP
 ; DPIAware
