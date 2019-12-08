@@ -137,7 +137,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19120800
+  #Version  = 19120801
   #ModuleEx = 19112100
   
   #Enable_Validation  = #True
@@ -936,6 +936,61 @@ Module ListEx
     
   CompilerEndIf
   
+	CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure.i GetGadgetWindow()
+      ProcedureReturn ModuleEx::GetGadgetWindow()
+    EndProcedure
+    
+  CompilerElse  
+ 
+    CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+      ; Thanks to mk-soft
+      Import ""
+        PB_Object_EnumerateStart(PB_Objects)
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerElse
+      ImportC ""
+        PB_Object_EnumerateStart( PB_Objects )
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerEndIf
+    
+    Procedure.i GetGadgetWindow()
+      ; Thanks to mk-soft
+      Define.i WindowID, Window, Result = #PB_Default
+      
+      WindowID = UseGadgetList(0)
+      
+      PB_Object_EnumerateStart(PB_Window_Objects)
+      
+      While PB_Object_EnumerateNext(PB_Window_Objects, @Window)
+        If WindowID = WindowID(Window)
+          Result = Window
+          Break
+        EndIf
+      Wend
+      
+      PB_Object_EnumerateAbort(PB_Window_Objects)
+      
+      ProcedureReturn Result
+    EndProcedure
+    
+  CompilerEndIf  
+  
+  Procedure.f dpiX(Num.i)
+    ProcedureReturn DesktopScaledX(Num)
+  EndProcedure
+  
+  Procedure.f dpiY(Num.i)
+    ProcedureReturn DesktopScaledY(Num)
+  EndProcedure
+  
   
   Procedure   IsNumber_(String$)
     Define.i c
@@ -960,7 +1015,6 @@ Module ListEx
     
     ProcedureReturn #True
   EndProcedure
-  
   
   Procedure   UpdateColumnX_()
     
@@ -1001,15 +1055,7 @@ Module ListEx
   Procedure.i GetPageRows_()    ; all visible Rows
     ProcedureReturn Int((GadgetHeight(ListEx()\CanvasNum) - ListEx()\Header\Height) / ListEx()\Row\Height)
   EndProcedure  
-  
-  Procedure.f dpiX(Num.i)
-    ProcedureReturn DesktopScaledX(Num)
-  EndProcedure
-  
-  Procedure.f dpiY(Num.i)
-    ProcedureReturn DesktopScaledY(Num)
-  EndProcedure
-  
+ 
   Procedure.i GetRow_(Y.f)
     
     Y = DesktopUnscaledY(Y)
@@ -5805,19 +5851,11 @@ Module ListEx
       
       If AddMapElement(ListEx(), Str(GNum))
 
-        CompilerIf Defined(ModuleEx, #PB_Module)
-          If WindowNum = #PB_Default  
-            ListEx()\Window\Num = ModuleEx::GetGadgetWindow()
-          Else
-            ListEx()\Window\Num = WindowNum
-          EndIf  
-        CompilerElse
-          If WindowNum = #PB_Default 
-            ListEx()\Window\Num = GetActiveWindow()
-          Else
-            ListEx()\Window\Num = WindowNum
-          EndIf  
-        CompilerEndIf
+				If WindowNum = #PB_Default
+          ListEx()\Window\Num = GetGadgetWindow()
+        Else
+          ListEx()\Window\Num = WindowNum
+        EndIf
         
         ListEx()\CanvasNum = GNum
         
@@ -7621,9 +7659,8 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 139
-; FirstLine = 18
-; Folding = 5wPAAAAJlAAQEIAMAwfAhHKEAAUITChAAAAAAAE-pAAfAaOcAGAOAKAAMBAAQC90-
-; Markers = 3074
+; Folding = 5wPAAAAJFAAAEBCADA9HQ5hCBAAFykQIAAAAAAAxfKAwHgmDHgBwBQBAgJAAASgv-
+; Markers = 3120
 ; EnableXP
 ; DPIAware
 ; EnableUnicode

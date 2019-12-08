@@ -9,11 +9,8 @@
 ;/ © 2019 by Thorsten Hoeppner (07/2019)
 ;/
 
-; Last Update: 29.11.2019
+; Last Update: 08.12.2019
 
-; Added: Container support
-;
-; ToolTip is now a separate window and not just a gadget
 
 ;{ ===== MIT License =====
 ;
@@ -38,6 +35,14 @@
 ; SOFTWARE.
 ;}
 
+;{ ===== Tea & Pizza Ware =====
+; <purebasic@thprogs.de> has created this code. 
+; If you find the code useful and you want to use it for your programs, 
+; you are welcome to support my work with a cup of tea or a pizza
+; (or the amount of money for it). 
+; [ https://www.paypal.me/Hoeppner1867 ]
+;}
+
 
 ;{ _____ ToolTip - Commands _____
 
@@ -55,7 +60,7 @@
 
 DeclareModule ToolTip
   
-  #Version  = 19112900
+  #Version  = 19120800
   #ModuleEx = 19111702
   
 	;- ===========================================================================
@@ -175,6 +180,11 @@ Module ToolTip
   EndStructure ;}
   Global NewMap MouseEvent.MouseEvent_Structure()
   
+  Structure Canvas_Structure
+	  Window.i
+	  Gadget.i
+  EndStructure
+  Global Canvas.Canvas_Structure
   
 	Structure Timer_Structure           ;{ Timer()\...
 	  GadgetNum.i
@@ -185,7 +195,7 @@ Module ToolTip
 	  Delay.i
 	  Value.i
 	EndStructure ;}
-	
+
 	Structure ToolTip_Image_Structure   ;{ ToolTip\Image\...
 	  Num.i
 	  Width.i
@@ -308,6 +318,18 @@ Module ToolTip
 	Procedure.f dpiY(Num.i)
 		ProcedureReturn DesktopScaledY(Num)
 	EndProcedure
+	
+	
+	Procedure CanvasWindow_()
+	  
+	  Canvas\Window = OpenWindow(#PB_Any, 0, 0, 0, 0, "ToolTip", #PB_Window_BorderLess|#PB_Window_Invisible)
+	  If Canvas\Window
+	    Canvas\Gadget = CanvasGadget(#PB_Any, 10, 10, 200, 100)
+	    StickyWindow(Canvas\Window, #True)
+	  EndIf
+	  
+	EndProcedure
+	
 	
 	Procedure StartTimerThread()
 
@@ -901,76 +923,71 @@ Module ToolTip
       If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
     CompilerEndIf
 		
-		WNum = OpenWindow(#PB_Any, 0, 0, 0, 0, "ToolTip", #PB_Window_BorderLess|#PB_Window_Invisible, WindowID(Window))
-		If WNum
-		  
-		  StickyWindow(WNum, #True) 
-
-  		GNum = CanvasGadget(#PB_Any, 10, 10, 200, 100)
-  		If GNum
-  		  
-  			If AddMapElement(ToolTip(), Str(Gadget))
-  			  
-  			  ToolTip()\Number       = WNum
-  				ToolTip()\CanvasNum    = GNum
-  				ToolTip()\GadgetNum    = Gadget
-  				ToolTip()\WindowNum    = Window
-
-  				ToolTip()\Type = #Gadget
-  				
-  				CompilerSelect #PB_Compiler_OS           ;{ Default Gadget Font
-  					CompilerCase #PB_OS_Windows
-  						ToolTip()\FontID = GetGadgetFont(#PB_Default)
-  					CompilerCase #PB_OS_MacOS
-  						DummyNum = TextGadget(#PB_Any, 0, 0, 0, 0, " ")
-  						If DummyNum
-  							ToolTip()\FontID = GetGadgetFont(DummyNum)
-  							FreeGadget(DummyNum)
-  						EndIf
-  					CompilerCase #PB_OS_Linux
-  						ToolTip()\FontID = GetGadgetFont(#PB_Default)
-  				CompilerEndSelect ;}
-  				
-  				ToolTip()\Content\TitleFont = #PB_Default
-  				ToolTip()\Content\TextFont  = #PB_Default
-  				
-  				ToolTip()\Area\X = #PB_Default
-  				ToolTip()\Area\Y = #PB_Default
-  				ToolTip()\Area\Width  = #PB_Default
-  				ToolTip()\Area\Height = #PB_Default
-  				
-  				ToolTip()\PaddingX = dpiX(5)
-  				ToolTip()\PaddingY = dpiY(5)
-  				ToolTip()\Spacing  = 0
-  				
-  				ToolTip()\Flags   = Flags
-  
-  				ToolTip()\Color\Front       = $000000
-  				ToolTip()\Color\Back        = $F0FFFF
-  				ToolTip()\Color\Border      = $B4B4B4
-  				ToolTip()\Color\TitleFront  = $000000
-  				ToolTip()\Color\TitleBack   = #PB_Default
-  				ToolTip()\Color\TitleBorder = #PB_Default
-  				
-  				If GadgetType(ToolTip()\GadgetNum) <> #PB_GadgetType_Canvas
-				  
-  				  AddMouseEvents_(ToolTip()\WindowNum, ToolTip()\GadgetNum)
-  				 
-  				EndIf
-  				
-  				If IsGadget(ToolTip()\GadgetNum)
-  				  BindGadgetEvent(ToolTip()\GadgetNum, @_MouseEnterHandler(), #PB_EventType_MouseEnter)
-  				  BindGadgetEvent(ToolTip()\GadgetNum, @_MouseLeaveHandler(), #PB_EventType_MouseLeave)
-  				  BindGadgetEvent(ToolTip()\GadgetNum, @_MouseMoveHandler(),  #PB_EventType_MouseMove)
-  				EndIf
-  				
-  				BindEvent(#Event_ToolTip, @_ToolTipHandler())
-  				
-  				CompilerIf Defined(ModuleEx, #PB_Module)
+    If IsWindow( Canvas\Window)
+      If IsGadget(Canvas\Gadget)
+      
+    		If AddMapElement(ToolTip(), Str(Gadget))
+    		  
+    		  ToolTip()\Number       = Canvas\Window
+    			ToolTip()\CanvasNum    = Canvas\Gadget
+    			ToolTip()\GadgetNum    = Gadget
+    			ToolTip()\WindowNum    = Window
+    
+    			ToolTip()\Type = #Gadget
+    			
+    			CompilerSelect #PB_Compiler_OS           ;{ Default Gadget Font
+    				CompilerCase #PB_OS_Windows
+    					ToolTip()\FontID = GetGadgetFont(#PB_Default)
+    				CompilerCase #PB_OS_MacOS
+    					DummyNum = TextGadget(#PB_Any, 0, 0, 0, 0, " ")
+    					If DummyNum
+    						ToolTip()\FontID = GetGadgetFont(DummyNum)
+    						FreeGadget(DummyNum)
+    					EndIf
+    				CompilerCase #PB_OS_Linux
+    					ToolTip()\FontID = GetGadgetFont(#PB_Default)
+    			CompilerEndSelect ;}
+    			
+    			ToolTip()\Content\TitleFont = #PB_Default
+    			ToolTip()\Content\TextFont  = #PB_Default
+    			
+    			ToolTip()\Area\X = #PB_Default
+    			ToolTip()\Area\Y = #PB_Default
+    			ToolTip()\Area\Width  = #PB_Default
+    			ToolTip()\Area\Height = #PB_Default
+    			
+    			ToolTip()\PaddingX = dpiX(5)
+    			ToolTip()\PaddingY = dpiY(5)
+    			ToolTip()\Spacing  = 0
+    			
+    			ToolTip()\Flags   = Flags
+    
+    			ToolTip()\Color\Front       = $000000
+    			ToolTip()\Color\Back        = $F0FFFF
+    			ToolTip()\Color\Border      = $B4B4B4
+    			ToolTip()\Color\TitleFront  = $000000
+    			ToolTip()\Color\TitleBack   = #PB_Default
+    			ToolTip()\Color\TitleBorder = #PB_Default
+    			
+    			If GadgetType(ToolTip()\GadgetNum) <> #PB_GadgetType_Canvas
+    		  
+    			  AddMouseEvents_(ToolTip()\WindowNum, ToolTip()\GadgetNum)
+    			 
+    			EndIf
+    			
+    			If IsGadget(ToolTip()\GadgetNum)
+    			  BindGadgetEvent(ToolTip()\GadgetNum, @_MouseEnterHandler(), #PB_EventType_MouseEnter)
+    			  BindGadgetEvent(ToolTip()\GadgetNum, @_MouseLeaveHandler(), #PB_EventType_MouseLeave)
+    			  BindGadgetEvent(ToolTip()\GadgetNum, @_MouseMoveHandler(),  #PB_EventType_MouseMove)
+    			EndIf
+    			
+    			BindEvent(#Event_ToolTip, @_ToolTipHandler())
+    			
+    			CompilerIf Defined(ModuleEx, #PB_Module)
             BindEvent(#Event_Theme, @_ThemeHandler())
           CompilerEndIf
-  				
-  				If IsWindow(ToolTip()\WindowNum)
+    			
+    			If IsWindow(ToolTip()\WindowNum)
             BindEvent(#PB_Event_CloseWindow, @_CloseWindowHandler(), ToolTip()\WindowNum)
           EndIf
           
@@ -981,14 +998,13 @@ Module ToolTip
           EndIf
         
           StartTimerThread()
-  				
-  				ProcedureReturn WNum
-  			EndIf
-  
-  		EndIf
-  		
-  	EndIf
-  	
+    			
+    			ProcedureReturn ToolTip()\CanvasNum
+    		EndIf
+    		
+    	EndIf
+    EndIf
+    
 	EndProcedure
 
 	Procedure   SetAttribute(GNum.i, Attribute.i, Value.i) 
@@ -1127,6 +1143,9 @@ Module ToolTip
     
   EndProcedure
   
+  
+  CanvasWindow_()
+  
 EndModule
 
 ;- ========  Module - Example ========
@@ -1196,7 +1215,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 57
-; Folding = 9AIrANIj4J+
+; CursorPosition = 45
+; Folding = 5BAEAEgIAG5
 ; EnableXP
 ; DPIAware

@@ -9,7 +9,7 @@
 ;/ © 2019  by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 06.12.2019
+; Last Update: 08.12.2019
 
 ;{ ===== MIT License =====
 ;
@@ -68,7 +68,7 @@ CompilerIf Not Defined(Calendar, #PB_Module) : XIncludeFile "CalendarModule.pbi"
 
 DeclareModule DateEx
   
-  #Version  = 19120601
+  #Version  = 19120800
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -174,14 +174,11 @@ Module DateEx
 	;- ============================================================================
 	
 	Structure Calendar_Structure        ;{ Calendar\...
-	  WindowNum.i
-	  GadgetNum.i
-	  ImageNum.i
+	  Window.i
+	  Gadget.i
+	  Image.i
 	EndStructure ;} 
 	Global Calendar.Calendar_Structure
-	
-	Calendar\WindowNum = #PB_Default
-	
 
 	Structure DateEx_Calendar_Structure ;{ DateEx()\Calendar\...
 	  Num.i
@@ -362,7 +359,26 @@ Module DateEx
     
   CompilerEndIf	
   
+  Procedure CalendarWindow_()
+    Define *Buffer
+    
+    *Buffer = AllocateMemory(1124)
+	  If *Buffer
+	    If UncompressMemory(?Image, 991, *Buffer, 1124, #PB_PackerPlugin_Zip) <> -1
+	      Calendar\Image = CatchImage(#PB_Any, *Buffer, 1124)
+	    EndIf
+	    FreeMemory(*Buffer)
+	  EndIf 
+    
+	  Calendar\Window = OpenWindow(#PB_Any, 0, 0, 210, 160, "", #PB_Window_BorderLess|#PB_Window_Invisible)
+	  If Calendar\Window
+	    Calendar\Gadget = Calendar::Gadget(#PB_Any, 0, 0, #PB_Default, #PB_Default, #PB_Default, Calendar\Window)
+	    StickyWindow(Calendar\Window, #True)
+	  EndIf
+
+  EndProcedure
   
+ 
   Procedure.f dpiX(Num.i)
 	  If Num > 0  
 	    ProcedureReturn DesktopScaledX(Num)
@@ -570,9 +586,8 @@ Module DateEx
 	  X + DateEx()\Calendar\X
 	  Y + DateEx()\Calendar\Y - 1
 
-	  ResizeWindow(DateEx()\Calendar\Window, X, Y, #PB_Ignore,#PB_Ignore )
+	  ResizeWindow(DateEx()\Calendar\Window, X, Y, #PB_Ignore,#PB_Ignore)
 	  HideWindow(DateEx()\Calendar\Window, #False)
-	  
 	  SetGadgetData(DateEx()\Calendar\Num, DateEx()\CanvasNum)
 	  
   	Year   = Val(DateEx()\Date("%yyyy"))
@@ -583,16 +598,14 @@ Module DateEx
     Second = Val(DateEx()\Date("%ss"))
 	
     Calendar::SetState(DateEx()\Calendar\Num, Date_(Year, Month, Day, Hour, Minute, Second)) 
-
-	  DateEx()\Calendar\Visible = #True
-	  
+    
+    DateEx()\Calendar\Visible = #True
+    
 	EndProcedure
 	
 	Procedure CloseCalendar_()
-
 	  HideWindow(DateEx()\Calendar\Window, #True)
 	  DateEx()\Calendar\Visible = #False
-	  
 	EndProcedure
 	
 	;- __________ Drawing __________
@@ -778,7 +791,7 @@ Module DateEx
     Define.i GNum 
     Define.i Date
     
-    If CalNum = Calendar\GadgetNum
+    If CalNum = Calendar\Gadget
       
       GNum = GetGadgetData(CalNum)
       
@@ -1114,24 +1127,20 @@ Module DateEx
 			If Not DateEx()\Flags & #NoButton
 			  
 			  If X > DateEx()\Button\X And X < DateEx()\Button\X + dpiX(#ButtonWidth)
-			    
+
 			    If DateEx()\Button\State <> #Click
   			    DateEx()\Button\State = #Click
   			    Draw_()
   			  EndIf
-			  
-			    ProcedureReturn #True
+  			  
+          ProcedureReturn #True
 			  EndIf
 			  
 			  If DateEx()\Button\State <> #False
 			    DateEx()\Button\State = #False
 			    Draw_()
 			  EndIf
-			  
-			  If DateEx()\Calendar\Visible
-			    CloseCalendar_()
-			  EndIf   
-			  
+
 			EndIf  
 			
 			ForEach DateEx()\Mask()
@@ -1163,8 +1172,9 @@ Module DateEx
 			If Not DateEx()\Flags & #NoButton
 			  
 			  If X > DateEx()\Button\X And X < DateEx()\Button\X + dpiX(#ButtonWidth)
-			    
-			    If DateEx()\Calendar\Visible = #False
+			    If DateEx()\Calendar\Visible
+			      CloseCalendar_()
+			    Else  
 			      OpenCalendar_()
 			    EndIf
 			    
@@ -1246,8 +1256,8 @@ Module DateEx
     Define.i GNum = EventGadget()
     
     If FindMapElement(DateEx(), Str(GNum))
-      
-      If DateEx()\Calendar\Visible
+
+      If DateEx()\Button\State = #False And DateEx()\Calendar\Visible
         CloseCalendar_()
         Draw_()
 			EndIf
@@ -1306,37 +1316,24 @@ Module DateEx
 
 	EndProcedure
 	
+	;- __________ Calendar Widnow __________
+	
+	Procedure.i InitCalendar_()
+  	
+    DateEx()\Calendar\Window = Calendar\Window
+    If DateEx()\Calendar\Window
+      DateEx()\Calendar\Num = Calendar\Gadget
+	    If DateEx()\Calendar\Num
+	      DateEx()\Button\ImgNum = Calendar\Image
+	    EndIf
+	  EndIf  
+  	
+	EndProcedure 
+	
+	
 	;- ==========================================================================
 	;-   Module - Declared Procedures
 	;- ==========================================================================
-	
-	Procedure.i InitCalendar_()
-	  Define *Buffer
-	  
-    If IsImage(Calendar\ImageNum) = #False
-  	  
-  	  *Buffer = AllocateMemory(1124)
-  	  If *Buffer
-  	    If UncompressMemory(?Image, 991, *Buffer, 1124, #PB_PackerPlugin_Zip) <> -1
-  	      Calendar\ImageNum = CatchImage(#PB_Any, *Buffer, 1124)
-  	    EndIf
-  	    FreeMemory(*Buffer)
-  	  EndIf 
-  	  
-  	EndIf
-  	
-    DateEx()\Calendar\Window = OpenWindow(#PB_Any, 0, 0, 210, 160, "", #PB_Window_BorderLess|#PB_Window_Invisible, WindowID(DateEx()\Window\Num))
-    If DateEx()\Calendar\Window
-      
-      DateEx()\Calendar\Num = Calendar::Gadget(#PB_Any, 0, 0, #PB_Default, #PB_Default, #PB_Default, DateEx()\Calendar\Window)
-	    If DateEx()\Calendar\Num
-	      DateEx()\Button\ImgNum = Calendar\ImageNum
-	    EndIf
-	    
-	  EndIf  
-  	
-	EndProcedure  	
-	
 	
   Procedure.q GetData(GNum.i)
 	  
@@ -1672,6 +1669,9 @@ Module DateEx
     
   EndProcedure  
   
+  
+  CalendarWindow_()
+  
   ;{ _____ Image _____
   ; Source:  Oxygen Icons - http://www.oxygen-icons.org/
   ; License: http://creativecommons.org/licenses/by-sa/3.0/ or http://creativecommons.org/licenses/LGPL/2.1/
@@ -1753,7 +1753,6 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 70
-; FirstLine = 14
-; Folding = 5hPAMQAAAGAKAQofABCAAi
+; Folding = 5hPAIgAAAsB1AgQ-RAMAAe-
 ; EnableXP
 ; DPIAware
