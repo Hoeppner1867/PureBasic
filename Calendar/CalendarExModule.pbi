@@ -2295,13 +2295,22 @@ Module CalendarEx
       
       If Year = #PB_Default
         ClearMap(Calendar()\Events())
+        ClearMap(Calendar()\Label())
       ElseIf Month = #PB_Default
         If FindMapElement(Calendar()\Events(), Str(Year))
+          ForEach Calendar()\Events()\Month()
+            ForEach Calendar()\Events()\Month()\Entry()
+              DeleteMapElement(Calendar()\Label(), Calendar()\Events()\Month()\Entry()\Label)
+            Next  
+          Next  
           ClearMap(Calendar()\Events()\Month())
         EndIf
       Else  
         If FindMapElement(Calendar()\Events(), Str(Year))
           If FindMapElement(Calendar()\Events()\Month(), Str(Month))
+            ForEach Calendar()\Events()\Month()\Entry()
+              DeleteMapElement(Calendar()\Label(), Calendar()\Events()\Month()\Entry()\Label)
+            Next
             ClearList(Calendar()\Events()\Month()\Entry())
           EndIf  
         EndIf
@@ -3340,9 +3349,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 96
-; FirstLine = 15
-; Folding = 5AwBCCAAAAAAAAAAEBzUAA2AAAQAM+
-; Markers = 1073,2839
+; CursorPosition = 2622
+; FirstLine = 344
+; Folding = 5AwBCCAAAAAAAAAAEBzUEA2AAAQAM+
+; Markers = 1073,2848
 ; EnableXP
 ; DPIAware

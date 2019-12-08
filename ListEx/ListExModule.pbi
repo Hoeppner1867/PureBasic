@@ -137,7 +137,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19120803
+  #Version  = 19120804
   #ModuleEx = 19112100
   
   #Enable_Validation  = #True
@@ -3090,13 +3090,15 @@ Module ListEx
       DrawingMode(#PB_2DDrawing_Outlined)
       Box(0, 0, colWidth, dpiY(ListEx()\Header\Height) + 1, ListEx()\Color\HeaderLine)
       
+      DrawingMode(#PB_2DDrawing_Default)
+      
       ;{ _____ ScrollBars ______
       If ListEx()\VScroll\Hide = #False
-        Box(dpiX(GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width), 0, dpiX(#ScrollBar_Width + 1), dpiY(GadgetHeight(ListEx()\CanvasNum)), ListEx()\Color\ScrollBar)
+        Box(dpiX(GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width), 0, dpiX(#ScrollBar_Width), dpiY(GadgetHeight(ListEx()\CanvasNum)), ListEx()\Color\ScrollBar)
       EndIf
       
       If  ListEx()\HScroll\Hide = #False
-        Box(0, dpiY(GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width), dpiX(GadgetWidth(ListEx()\CanvasNum)), dpiY(#ScrollBar_Width + 1), ListEx()\Color\ScrollBar)
+        Box(0, dpiY(GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width), dpiX(GadgetWidth(ListEx()\CanvasNum)), dpiY(#ScrollBar_Width), ListEx()\Color\ScrollBar)
       EndIf ;}
       
       ;{ _____ Border _____
@@ -3131,9 +3133,9 @@ Module ListEx
         
         If ListEx()\VScroll\Hide Or Force
           If ListEx()\HScroll\Hide
-            ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width - 1, GadgetHeight(ListEx()\CanvasNum) - 2)
+            ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width - 1, 1, #ScrollBar_Width, GadgetHeight(ListEx()\CanvasNum) - 2)
           Else
-            ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width - 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width - 2)
+            ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width - 1, 1, #ScrollBar_Width, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width - 2)
           EndIf
           HideGadget(ListEx()\VScrollNum, #False)
           ListEx()\VScroll\Hide = #False
@@ -3150,17 +3152,17 @@ Module ListEx
           If GadgetHeight(ListEx()\VScrollNum) < GadgetHeight(ListEx()\CanvasNum) - 2
             
             If ListEx()\HScroll\Hide
-              ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width - 1, GadgetHeight(ListEx()\CanvasNum) - 2)
+              ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width - 1, 1, #ScrollBar_Width, GadgetHeight(ListEx()\CanvasNum) - 2)
             Else
-              ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width - 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width - 2)
+              ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width - 1, 1, #ScrollBar_Width, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width - 2)
             EndIf
             
           ElseIf GadgetHeight(ListEx()\VScrollNum) > GadgetHeight(ListEx()\CanvasNum)
             
             If ListEx()\HScroll\Hide
-              ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width - 1, GadgetHeight(ListEx()\CanvasNum) - 2)
+              ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width, GadgetHeight(ListEx()\CanvasNum) - 2)
             Else
-              ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width - 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width - 2)
+              ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width - 2)
             EndIf
             
           EndIf
@@ -3169,7 +3171,7 @@ Module ListEx
         
       ElseIf Not ListEx()\VScroll\Hide And ListEx()\Size\Rows < (GadgetHeight(ListEx()\CanvasNum) - ListEx()\Header\Height)
         
-        ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - 1, #ScrollBar_Width - 2)
+        ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - 2, #ScrollBar_Width)
         HideGadget(ListEx()\VScrollNum, #True)
         ListEx()\Row\Offset   = 0
         ListEx()\VScroll\Hide = #True
@@ -3203,7 +3205,7 @@ Module ListEx
             ListEx()\HScroll\Hide  = #True
             UpdateColumnX_()
             HideGadget(ListEx()\HScrollNum, #True) 
-            ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width - 1, GadgetHeight(ListEx()\CanvasNum) - 2)
+            ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width - 1, 1, #ScrollBar_Width, GadgetHeight(ListEx()\CanvasNum) - 2)
           Else 
             WidthOffset = ListEx()\AutoResize\Width - ListEx()\Cols()\Width
             ListEx()\Size\Cols - WidthOffset
@@ -3239,9 +3241,9 @@ Module ListEx
         
         If ListEx()\HScroll\Hide
           If ListEx()\VScroll\Hide
-            ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - 1, #ScrollBar_Width - 1)
+            ResizeGadget(ListEx()\HScrollNum, 0, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum), #ScrollBar_Width)
           Else
-            ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width - 1, #ScrollBar_Width - 1)
+            ResizeGadget(ListEx()\HScrollNum, 0, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, #ScrollBar_Width)
           EndIf
           HideGadget(ListEx()\HScrollNum, #False)
           ListEx()\HScroll\Hide = #False
@@ -3280,6 +3282,10 @@ Module ListEx
         EndIf
         
       EndIf 
+      
+      If Not ListEx()\HScroll\Hide
+        ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width - 1, 1, #ScrollBar_Width, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width - 2)
+      EndIf  
       ;}
     EndIf
     
@@ -4925,15 +4931,15 @@ Module ListEx
       If ListEx()\VScroll\Hide = #False Or ListEx()\HScroll\Hide = #False
         
         If ListEx()\VScroll\Hide
-          ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - 1, #ScrollBar_Width - 1)
+          ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width - 1, GadgetWidth(ListEx()\CanvasNum) - 2, #ScrollBar_Width)
         Else
-          ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width - 1, #ScrollBar_Width - 1)
+          ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width - 1, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width - 2, #ScrollBar_Width)
         EndIf
         
         If ListEx()\HScroll\Hide
-          ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width - 1, GadgetHeight(ListEx()\CanvasNum) - 2)
+          ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width, GadgetHeight(ListEx()\CanvasNum) - 2)
         Else  
-          ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width - 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width - 2)
+          ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width - 2)
         EndIf
         
       EndIf
@@ -7660,8 +7666,9 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 139
-; Folding = 5wPAAAAJFgIAEBCADA9HQ5hCBAAFyEAMAAAAAAAwfJAAEgmDHgBwBQBAgJAAASgv-
-; Markers = 3120
+; FirstLine = 18
+; Folding = 5wfAAAAJFgIAEBCADA9HQ5hCBCAFy9FIAAAAAAAwdAAAAgmDHgBwBQBAgJAAASg--
+; Markers = 3122
 ; EnableXP
 ; DPIAware
 ; EnableUnicode

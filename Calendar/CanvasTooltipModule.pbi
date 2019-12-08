@@ -9,10 +9,7 @@
 ;/ © 2019  by Thorsten Hoeppner (07/2019)
 ;/
 
-; Last Update: 21.11.2019
-;
-; ToolTip is now a separate window and not just a gadget
-;
+; Last Update: 08.12.2019
 
 
 ;{ ===== MIT License =====
@@ -38,6 +35,14 @@
 ; SOFTWARE.
 ;}
 
+;{ ===== Tea & Pizza Ware =====
+; <purebasic@thprogs.de> has created this code. 
+; If you find the code useful and you want to use it for your programs, 
+; you are welcome to support my work with a cup of tea or a pizza
+; (or the amount of money for it). 
+; [ https://www.paypal.me/Hoeppner1867 ]
+;}
+
 
 ;{ _____ ToolTip - Commands _____
 
@@ -55,7 +60,7 @@
 
 DeclareModule ToolTip
   
-  #Version  = 19112100
+  #Version  = 19120800
   #ModuleEx = 19111702
   
 	;- ===========================================================================
@@ -133,6 +138,12 @@ Module ToolTip
 	  Delay.i
 	  Value.i
 	EndStructure ;}
+	
+	Structure Canvas_Structure
+	  Window.i
+	  Gadget.i
+  EndStructure
+  Global Canvas.Canvas_Structure
 	
 	Structure ToolTip_Image_Structure   ;{ ToolTip\Image\...
 	  Num.i
@@ -223,6 +234,18 @@ Module ToolTip
 	Procedure.f dpiY(Num.i)
 		ProcedureReturn DesktopScaledY(Num)
 	EndProcedure
+	
+	
+	Procedure CanvasWindow_()
+	  
+	  Canvas\Window = OpenWindow(#PB_Any, 0, 0, 0, 0, "ToolTip", #PB_Window_BorderLess|#PB_Window_Invisible)
+	  If Canvas\Window
+	    Canvas\Gadget = CanvasGadget(#PB_Any, 10, 10, 200, 100)
+	    StickyWindow(Canvas\Window, #True)
+	  EndIf
+	  
+	EndProcedure
+	
 	
 	Procedure StartTimerThread()
 
@@ -462,8 +485,9 @@ Module ToolTip
 	    LockMutex(Mutex)
 
 	    ForEach Timer()
-	      
+
 	      If Timer()\Focus And Timer()\State
+	        
 	        If Timer()\Active
 	          
 	          Timer()\Value + 100
@@ -475,6 +499,7 @@ Module ToolTip
 	          EndIf
 	          
 	        EndIf
+	        
 	      EndIf
 	      
 	    Next  
@@ -508,7 +533,7 @@ Module ToolTip
 	  Define.i GadgetNum = EventGadget()
 	  
 	  If FindMapElement(ToolTip(), Str(GadgetNum))
-
+      
 	    LockMutex(Mutex)
 	    Timer(Str(GadgetNum))\Focus = #True
 	    Timer(Str(GadgetNum))\Value  = 0
@@ -563,7 +588,7 @@ Module ToolTip
           SetActiveWindow(ToolTip()\WindowNum)
         EndIf
         ;}
-
+        
         If X >= ToolTip()\Area\X And X <= ToolTip()\Area\X + ToolTip()\Area\Width
           If Y >= ToolTip()\Area\Y And Y <= ToolTip()\Area\Y + ToolTip()\Area\Height
             
@@ -576,8 +601,8 @@ Module ToolTip
             ProcedureReturn #True
           EndIf 
         EndIf  
-        
-        Timer()\State = #False
+
+        Timer(Str(GadgetNum))\State = #False
         
       EndIf
       
@@ -591,13 +616,7 @@ Module ToolTip
     ForEach ToolTip()
       
       If ToolTip()\WindowNum = WindowNum
-      
         StopTimerThread()  
-        
-        If IsWindow(ToolTip()\Number)
-          CloseWindow(ToolTip()\Number)
-        EndIf
-      
         DeleteMapElement(ToolTip())
       EndIf
       
@@ -610,24 +629,19 @@ Module ToolTip
 	;- ==========================================================================
 
 	Procedure.i Create(Gadget.i, Window.i, Flags.i=#False)
-		Define DummyNum, GNum.i, WNum.i
+		Define DummyNum
 		
 		CompilerIf Defined(ModuleEx, #PB_Module)
       If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
     CompilerEndIf
 		
-		WNum = OpenWindow(#PB_Any, 0, 0, 0, 0, "ToolTip", #PB_Window_BorderLess|#PB_Window_Invisible, WindowID(Window))
-		If WNum
-		  
-		  ;StickyWindow(WNum, #True) 
-
-  		GNum = CanvasGadget(#PB_Any, 10, 10, 200, 100)
-  		If GNum
+		If IsWindow(Canvas\Window)
+  		If IsGadget(Canvas\Gadget)
   		  
   			If AddMapElement(ToolTip(), Str(Gadget))
-  			  
-  			  ToolTip()\Number    = WNum
-  				ToolTip()\CanvasNum = GNum
+  			  ;Debug "ToolTip(): " +Str(Gadget)
+  			  ToolTip()\Number    = Canvas\Window
+  				ToolTip()\CanvasNum = Canvas\Gadget
   				ToolTip()\GadgetNum = Gadget
   				ToolTip()\WindowNum = Window
   				
@@ -691,11 +705,10 @@ Module ToolTip
         
           StartTimerThread()
   				
-  				ProcedureReturn WNum
+  				ProcedureReturn ToolTip()\CanvasNum
   			EndIf
   
   		EndIf
-  		
   	EndIf
   	
 	EndProcedure
@@ -757,18 +770,31 @@ Module ToolTip
         EndIf
       Next
 
-      ToolTip()\Area\X = dpiX(X)
-      If X = #PB_Default : ToolTip()\Area\X = 0 : EndIf
-      ToolTip()\Area\Y = dpiY(Y)
-      If Y = #PB_Default : ToolTip()\Area\Y = 0 : EndIf
-      
-      ToolTip()\Area\Width  = dpiX(Width)
-      ToolTip()\Area\Height = dpiY(Height) 
-      If IsGadget(GNum)
-        If Width  = #PB_Default : ToolTip()\Area\Width  = dpiX(GadgetWidth(GNum))  : EndIf
-        If Height = #PB_Default : ToolTip()\Area\Height = dpiY(GadgetHeight(GNum)) : EndIf
+      If X = #PB_Default
+        ToolTip()\Area\X = 0
+      Else
+        ToolTip()\Area\X = dpiX(X)
       EndIf
-    
+      
+      If Y = #PB_Default
+        ToolTip()\Area\Y = 0
+      Else
+        ToolTip()\Area\Y = dpiY(Y)
+      EndIf
+
+      If IsGadget(GNum)
+        If Width  = #PB_Default
+          ToolTip()\Area\Width  = dpiX(GadgetWidth(GNum))
+        Else
+          ToolTip()\Area\Width  = dpiX(Width)
+        EndIf
+        If Height = #PB_Default
+          ToolTip()\Area\Height = dpiY(GadgetHeight(GNum))
+        Else
+          ToolTip()\Area\Height = dpiY(Height) 
+        EndIf
+      EndIf
+
       DetermineSize_()
       
       ToolTip()\State = #True
@@ -819,6 +845,9 @@ Module ToolTip
     
   EndProcedure
   
+  
+  CanvasWindow_()
+  
 EndModule
 
 ;- ========  Module - Example ========
@@ -827,7 +856,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
   
-  Enumeration 
+  Enumeration 1
     #Window
     #Gadget
     #Font
@@ -871,7 +900,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 11
-; Folding = 1ASWu9C9
+; CursorPosition = 62
+; Folding = oBkQgqJx
 ; EnableXP
 ; DPIAware

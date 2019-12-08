@@ -791,9 +791,9 @@ Module TreeEx
         
         If TreeEx()\VScroll\Hide
           If TreeEx()\HScroll\Hide
-            ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize - 1, GadgetHeight(TreeEx()\CanvasNum) - 2)
+            ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum) - 2)
           Else
-            ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize - 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize - 2)
+            ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize - 2)
           EndIf
           HideGadget(TreeEx()\VScrollNum, #False)
           TreeEx()\VScroll\Hide = #False
@@ -810,17 +810,17 @@ Module TreeEx
           If GadgetHeight(TreeEx()\VScrollNum) < GadgetHeight(TreeEx()\CanvasNum) - 2
             
             If TreeEx()\HScroll\Hide
-              ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize - 1, GadgetHeight(TreeEx()\CanvasNum) - 2)
+              ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum) - 2)
             Else
-              ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize - 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize - 2)
+              ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize - 2)
             EndIf
             
           ElseIf GadgetHeight(TreeEx()\VScrollNum) > GadgetHeight(TreeEx()\CanvasNum)
             
             If TreeEx()\HScroll\Hide
-              ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize - 1, GadgetHeight(TreeEx()\CanvasNum) - 2)
+              ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum) - 2)
             Else
-              ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize - 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize - 2)
+              ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize - 2)
             EndIf
             
           EndIf
@@ -893,9 +893,9 @@ Module TreeEx
         
         If TreeEx()\HScroll\Hide
           If TreeEx()\VScroll\Hide
-            ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize + 1, GadgetWidth(TreeEx()\CanvasNum) - 2, #ScrollBarSize - 2)
+            ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize, GadgetWidth(TreeEx()\CanvasNum) - 2, #ScrollBarSize)
           Else
-            ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize + 1, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 2, #ScrollBarSize - 2)
+            ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 1, #ScrollBarSize)
           EndIf
           HideGadget(TreeEx()\HScrollNum, #False)
           TreeEx()\HScroll\Hide = #False
@@ -911,15 +911,15 @@ Module TreeEx
         If TreeEx()\HScroll\Hide = #False
           If GadgetWidth(TreeEx()\HScrollNum) < Width - 2
             If TreeEx()\VScroll\Hide
-              ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize, GadgetWidth(TreeEx()\CanvasNum) - 2, #ScrollBarSize - 2)
+              ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize - 1, GadgetWidth(TreeEx()\CanvasNum) - 2, #ScrollBarSize)
             Else  
-              ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 2, #ScrollBarSize - 2)
+              ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize - 1, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 2, #ScrollBarSize)
             EndIf  
           ElseIf GadgetWidth(TreeEx()\HScrollNum) > Width - 2
             If TreeEx()\VScroll\Hide
-              ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize + 1, GadgetWidth(TreeEx()\CanvasNum) - 2, #ScrollBarSize - 2)
+              ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize, GadgetWidth(TreeEx()\CanvasNum) - 2, #ScrollBarSize - 2)
             Else  
-              ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize + 1, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 2, #ScrollBarSize - 2)
+              ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 2, #ScrollBarSize)
             EndIf 
           EndIf
           
@@ -928,12 +928,16 @@ Module TreeEx
       ElseIf TreeEx()\Size\Cols <= Width
         
         If TreeEx()\HScroll\Hide = #False
-          ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize + 1, 1, #ScrollBarSize - 2, GadgetHeight(TreeEx()\CanvasNum) - 2)
+          ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum) - 2)
           HideGadget(TreeEx()\HScrollNum, #True)
           TreeEx()\HScroll\Hide = #True
         EndIf
         
       EndIf 
+      
+      If TreeEx()\HScroll\Hide = #False
+        ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize - 2)
+      EndIf  
       ;}
     EndIf
     
@@ -1624,7 +1628,7 @@ Module TreeEx
     	  ForEach TreeEx()\Cols()
     	    Line(TreeEx()\Cols()\X, LineY, 1, LineHeight, TreeEx()\Color\HeaderBorder)
     	  Next 
-    	  Line(TreeEx()\Cols()\X + dpiX(TreeEx()\Cols()\Width) - 1, LineY, 1, LineHeight, TreeEx()\Color\HeaderBorder)
+    	  Line(TreeEx()\Cols()\X + dpiX(TreeEx()\Cols()\Width), LineY, 1, LineHeight, TreeEx()\Color\HeaderBorder)
 	    EndIf
     	;}
   	  
@@ -1639,11 +1643,11 @@ Module TreeEx
   	  
   	  DrawingMode(#PB_2DDrawing_Default)
   	  If Not TreeEx()\VScroll\Hide
-  	    Box(Width - #ScrollBarSize, 0, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum), TreeEx()\Color\ScrollBar)
+  	    Box(dpiX(GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize), 0, dpiX(#ScrollBarSize), dpiY(GadgetHeight(TreeEx()\CanvasNum)), TreeEx()\Color\ScrollBar)
   	  EndIf 
   	  
   	  If Not TreeEx()\HScroll\Hide
-  	    Box(0, Height - #ScrollBarSize, GadgetWidth(TreeEx()\CanvasNum), #ScrollBarSize, TreeEx()\Color\ScrollBar)  
+  	    Box(0, dpiY(GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize), dpiX(GadgetWidth(TreeEx()\CanvasNum)), dpiY(#ScrollBarSize), TreeEx()\Color\ScrollBar)  
   	  EndIf 
   	  
   	  ;{ _____ Header _____
@@ -1689,13 +1693,9 @@ Module TreeEx
 			    
 			    ;{ ----- Cell Border -----
 			    DrawingMode(#PB_2DDrawing_Outlined)                
-			    If ListIndex(TreeEx()\Cols()) < ListSize(TreeEx()\Cols()) - 1
-			      Box(X, 0, ColumnWidth + 1, RowHeight, TreeEx()\Color\HeaderBorder)
-			      TreeEx()\Cols()\X = X
-			    Else
-			      Box(X, 0, ColumnWidth, RowHeight, TreeEx()\Color\HeaderBorder)
-			      TreeEx()\Cols()\X = X
-			    EndIf ;}
+			    Box(X, 0, ColumnWidth + 1, RowHeight, TreeEx()\Color\HeaderBorder)
+			    TreeEx()\Cols()\X = X
+          ;}
 			    
 			    If IsImage(TreeEx()\Cols()\Header\Image\Num) ;{ Image
 			      
@@ -3144,7 +3144,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 79
-; Folding = 96AAAgEIGQCAE1AAdMICBEAAgBww-
+; CursorPosition = 1645
+; FirstLine = 423
+; Folding = 96AAAgEICQSBGAKQdAICBEAAgBww-
 ; EnableXP
 ; DPIAware
