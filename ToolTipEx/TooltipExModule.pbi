@@ -882,40 +882,7 @@ Module ToolTip
 	;- ==========================================================================
 	;-   Module - Declared Procedures
 	;- ==========================================================================
-  
-  Procedure.q GetData(GNum.i)
-	  
-	  If FindMapElement(ToolTip(), Str(GNum))
-	    ProcedureReturn ToolTip()\Quad
-	  EndIf  
-	  
-	EndProcedure	
-	
-	Procedure.s GetID(GNum.i)
-	  
-	  If FindMapElement(ToolTip(), Str(GNum))
-	    ProcedureReturn ToolTip()\ID
-	  EndIf
-	  
-	EndProcedure
 
-  Procedure   SetData(GNum.i, Value.q)
-	  
-	  If FindMapElement(ToolTip(), Str(GNum))
-	    ToolTip()\Quad = Value
-	  EndIf  
-	  
-	EndProcedure
-	
-	Procedure   SetID(GNum.i, String.s)
-	  
-	  If FindMapElement(ToolTip(), Str(GNum))
-	    ToolTip()\ID = String
-	  EndIf
-	  
-	EndProcedure
-  
-  
   Procedure.i Create(Gadget.i, Window.i, Flags.i=#False)
 		Define DummyNum, GNum.i, WNum.i
 		
@@ -1006,7 +973,25 @@ Module ToolTip
     EndIf
     
 	EndProcedure
-
+	
+	
+  Procedure.q GetData(GNum.i)
+	  
+	  If FindMapElement(ToolTip(), Str(GNum))
+	    ProcedureReturn ToolTip()\Quad
+	  EndIf  
+	  
+	EndProcedure	
+	
+	Procedure.s GetID(GNum.i)
+	  
+	  If FindMapElement(ToolTip(), Str(GNum))
+	    ProcedureReturn ToolTip()\ID
+	  EndIf
+	  
+	EndProcedure	
+	
+	
 	Procedure   SetAttribute(GNum.i, Attribute.i, Value.i) 
     
     If FindMapElement(ToolTip(), Str(GNum))
@@ -1101,6 +1086,14 @@ Module ToolTip
     
   EndProcedure
   
+  Procedure   SetData(GNum.i, Value.q)
+	  
+	  If FindMapElement(ToolTip(), Str(GNum))
+	    ToolTip()\Quad = Value
+	  EndIf  
+	  
+	EndProcedure  
+  
   Procedure   SetFont(GNum.i, FontNum.i, FontType.i=#Text) 
     
     If FindMapElement(ToolTip(), Str(GNum))
@@ -1115,6 +1108,14 @@ Module ToolTip
     EndIf
     
   EndProcedure  
+  
+	Procedure   SetID(GNum.i, String.s)
+	  
+	  If FindMapElement(ToolTip(), Str(GNum))
+	    ToolTip()\ID = String
+	  EndIf
+	  
+	EndProcedure  
   
   Procedure   SetImage(GNum.i, ImageNum.i, Width.i=#PB_Default, Height.i=#PB_Default, Flags.i=#False)
     
@@ -1215,7 +1216,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 45
-; Folding = 5BAEAEgIAG5
+; CursorPosition = 884
+; FirstLine = 220
+; Folding = 5BAAAEgI5Bw
 ; EnableXP
 ; DPIAware

@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 02.12.19
+; Last Update: 08.12.19
 ;
 ; Added: #EventType_Change
 ; Added: #UseExistingCanvas
@@ -139,7 +139,7 @@
 
 DeclareModule EditEx
   
-  #Version  = 19120200
+  #Version  = 19120800
   #ModuleEx = 19111702
   
   ;- ============================================================================
@@ -319,6 +319,8 @@ DeclareModule EditEx
   Declare   FreeGadgets(WindowNum.i)
   Declare.i GetAttribute(GNum.i, Attribute.i)
   Declare.i GetColor(GNum.i, Attribute.i)
+  Declare.q GetData(GNum.i)
+	Declare.s GetID(GNum.i)
   Declare.s GetItemText(GNum.i, Position.i)
   Declare.s GetSelection(GNum.i, Remove.i=#True)
   Declare.s GetText(GNum.i, Flags.i=#False)
@@ -330,8 +332,10 @@ DeclareModule EditEx
   Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetColor(GNum.i, Attribute.i, Color.i)
+  Declare   SetData(GNum.i, Value.q)
   Declare   SetFlags(GNum.i, Flags.i)
   Declare   SetFont(GNum.i, FontID.i)
+  Declare   SetID(GNum.i, String.s)
   Declare   SetItemText(GNum.i, Position.i, Text.s)
   Declare   SetText(GNum.i, Text.s)
   Declare   SetTextWidth(GNum.i, Value.f, unit.s="px")
@@ -605,6 +609,9 @@ Module EditEx
     ButtonNum.i
     WinNum.i
     PopupMenu.i
+    
+    Quad.q
+    ID.s
     FontID.i
     
     SyntaxHighlight.i
@@ -683,6 +690,54 @@ Module EditEx
     
   CompilerEndIf
   
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure.i GetGadgetWindow()
+      ProcedureReturn ModuleEx::GetGadgetWindow()
+    EndProcedure
+    
+  CompilerElse  
+    
+    CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+      ; Thanks to mk-soft
+      Import ""
+        PB_Object_EnumerateStart(PB_Objects)
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerElse
+      ImportC ""
+        PB_Object_EnumerateStart( PB_Objects )
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerEndIf
+    
+    Procedure.i GetGadgetWindow()
+      ; Thanks to mk-soft
+      Define.i WindowID, Window, Result = #PB_Default
+      
+      WindowID = UseGadgetList(0)
+      
+      PB_Object_EnumerateStart(PB_Window_Objects)
+      
+      While PB_Object_EnumerateNext(PB_Window_Objects, @Window)
+        If WindowID = WindowID(Window)
+          Result = Window
+          Break
+        EndIf
+      Wend
+      
+      PB_Object_EnumerateAbort(PB_Window_Objects)
+      
+      ProcedureReturn Result
+    EndProcedure
+    
+  CompilerEndIf	  
+  
+  
 	Procedure.f dpiX(Num.i)
 	  If Num > 0  
 	    ProcedureReturn DesktopScaledX(Num)
@@ -694,7 +749,7 @@ Module EditEx
 	    ProcedureReturn DesktopScaledY(Num)
 	  EndIf  
 	EndProcedure
-   
+
   ;- ----- Strings -----
  
   Procedure.s StringSegment(String.s, Pos1.i, Pos2.i=#PB_Ignore)
@@ -4490,6 +4545,22 @@ Module EditEx
     
   EndProcedure 
   
+    Procedure.q GetData(GNum.i)
+	  
+	  If FindMapElement(EditEx(), Str(GNum))
+	    ProcedureReturn EditEx()\Quad
+	  EndIf  
+	  
+	EndProcedure	
+	
+	Procedure.s GetID(GNum.i)
+	  
+	  If FindMapElement(EditEx(), Str(GNum))
+	    ProcedureReturn EditEx()\ID
+	  EndIf
+	  
+	EndProcedure
+ 
   Procedure.s GetItemText(GNum.i, Row.i)                 ; Return text row from 'Position'
     Define.i Count
     Define.s Text$
@@ -4626,6 +4697,14 @@ Module EditEx
     
   EndProcedure
   
+  Procedure   SetData(GNum.i, Value.q)
+	  
+	  If FindMapElement(EditEx(), Str(GNum))
+	    EditEx()\Quad = Value
+	  EndIf  
+	  
+	EndProcedure
+
   Procedure   SetFlags(GNum.i, Flags.i)
     
     If FindMapElement(EditEx(), Str(GNum))
@@ -4665,6 +4744,14 @@ Module EditEx
     EndIf
     
   EndProcedure  
+  
+	Procedure   SetID(GNum.i, String.s)
+	  
+	  If FindMapElement(EditEx(), Str(GNum))
+	    EditEx()\ID = String
+	  EndIf
+	  
+	EndProcedure  
   
   Procedure   SetItemText(GNum.i, Row.i, Text.s)         ; Replace text row at 'Position'
     Define.i Count, Pos1, Pos2
@@ -4759,6 +4846,7 @@ Module EditEx
     EndIf
     
   EndProcedure
+  
   
   Procedure.s WrapText(Text.s, Width.i, Font.i, Flags.i=#WordWrap) ; Flags: #WordWrap/#Hyphenation | #mm/#cm/#inch
     Define.i r, w, h, Pos, PosX, ImgNum, maxTextWidth, Rows, Words, Hyphen, SoftHyphen
@@ -4923,23 +5011,11 @@ Module EditEx
         EditEx()\Visible\Width  = Width  - 8
         EditEx()\Visible\Height = Height - 4
         
-        CompilerIf Defined(ModuleEx, #PB_Module)
-          
-          If WindowNum = #PB_Default
-            EditEx()\Window\Num = ModuleEx::GetGadgetWindow()
-          Else
-            EditEx()\Window\Num = WindowNum
-          EndIf
-          
-        CompilerElse
-          
-          If WindowNum = #PB_Default
-            EditEx()\Window\Num = GetActiveWindow()
-          Else
-            EditEx()\Window\Num = WindowNum
-          EndIf
-        
-        CompilerEndIf
+        If WindowNum = #PB_Default
+          EditEx()\Window\Num = GetGadgetWindow()
+        Else
+          EditEx()\Window\Num = WindowNum
+        EndIf
 
         CompilerIf Defined(ModuleEx, #PB_Module)
           
@@ -5347,9 +5423,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 141
-; FirstLine = 39
-; Folding = wvOjAEDI2UAIADQE9LAFTm83KCCcAyruDAPCDBhAJkdIACC5hdCi--
-; Markers = 914,2439,2508,4566
+; CursorPosition = 613
+; Folding = QHOhAEDASNFACwAEB-CQxk6utigAHg9q8AwjwQQIQCZHCGQKgH8EE--
+; Markers = 969,2494,2563,4637
 ; EnableXP
 ; DPIAware

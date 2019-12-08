@@ -82,7 +82,7 @@
 
 DeclareModule StringEx
   
-  #Version  = 19120600
+  #Version  = 19120800
   #ModuleEx = 19120600
   
   #Enable_AutoComplete       = #True
@@ -419,6 +419,53 @@ Module StringEx
         rgb = RGB(red * 255.0, green * 255.0, blue * 255.0)
         ProcedureReturn rgb
       EndIf
+    EndProcedure
+    
+  CompilerEndIf
+  
+  CompilerIf Defined(ModuleEx, #PB_Module)
+  
+    Procedure.i GetGadgetWindow()
+      ProcedureReturn ModuleEx::GetGadgetWindow()
+    EndProcedure
+    
+  CompilerElse  
+    
+    CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+      ; Thanks to mk-soft
+      Import ""
+        PB_Object_EnumerateStart(PB_Objects)
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerElse
+      ImportC ""
+        PB_Object_EnumerateStart( PB_Objects )
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerEndIf
+    
+    Procedure.i GetGadgetWindow()
+      ; Thanks to mk-soft
+      Define.i WindowID, Window, Result = #PB_Default
+      
+      WindowID = UseGadgetList(0)
+      
+      PB_Object_EnumerateStart(PB_Window_Objects)
+      
+      While PB_Object_EnumerateNext(PB_Window_Objects, @Window)
+        If WindowID = WindowID(Window)
+          Result = Window
+          Break
+        EndIf
+      Wend
+      
+      PB_Object_EnumerateAbort(PB_Window_Objects)
+      
+      ProcedureReturn Result
     EndProcedure
     
   CompilerEndIf
@@ -905,9 +952,9 @@ Module StringEx
   
   
   Procedure   Draw_()
-    Define.f X, Y, Height, Width, startX
-    Define.s Text, Word, strgPart
+    Define.i X, Y, Height, Width, startX, CursorX, p
     Define.i TextColor, BackColor, BorderColor, CursorColor
+    Define.s Text, Word, strgPart
     
     If StrgEx()\Hide : ProcedureReturn #False : EndIf
     
@@ -916,7 +963,7 @@ Module StringEx
         StrgEx()\Text = Left(StrgEx()\Text, StrgEx()\MaxLength)
       EndIf
     EndIf
-    
+
     If StartDrawing(CanvasOutput(StrgEx()\CanvasNum))
       
       TextColor   = StrgEx()\Color\Front
@@ -951,14 +998,26 @@ Module StringEx
 
       ;{ _____ Text _____
       If StrgEx()\Text
-        Text = StrgEx()\Text
+        
+        X = GetOffsetX_(Text, Width, dpiX(StrgEx()\Padding))
+        
         If StrgEx()\Flags & #Password And StrgEx()\Button\State & #Click = #False
           Text = LSet("", Len(StrgEx()\Text), #PWChar)
         Else
           Text = StrgEx()\Text
         EndIf
         
-        X = GetOffsetX_(Text, Width, dpiX(StrgEx()\Padding))
+        CursorX = X + TextWidth(Left(Text, StrgEx()\Cursor\Pos))
+        If CursorX > Width
+          Text = Left(Text, StrgEx()\Cursor\Pos)
+          For p = Len(Text) To 0 Step -1
+            If X + TextWidth(Right(Text, p)) < Width
+              Text = Right(Text, p)
+              Break  
+            EndIf 
+          Next 
+        EndIf
+        
         Y = (Height - TextHeight(Text)) / 2
         
         DrawingMode(#PB_2DDrawing_Transparent)
@@ -1929,19 +1988,11 @@ Module StringEx
         StrgEx()\Undo      = Content
         StrgEx()\Flags     = Flags
         
-        CompilerIf Defined(ModuleEx, #PB_Module)
-          If WindowNum = #PB_Default
-            StrgEx()\Window\Num = ModuleEx::GetGadgetWindow()
-          Else
-            StrgEx()\Window\Num = WindowNum
-          EndIf
-        CompilerElse
-          If WindowNum = #PB_Default
-            StrgEx()\Window\Num = GetActiveWindow()
-          Else
-            StrgEx()\Window\Num = WindowNum
-          EndIf
-        CompilerEndIf   
+        If WindowNum = #PB_Default
+          StrgEx()\Window\Num = GetGadgetWindow()
+        Else
+          StrgEx()\Window\Num = WindowNum
+        EndIf   
         
         CompilerIf Defined(ModuleEx, #PB_Module)
           
@@ -2201,19 +2252,19 @@ Module StringEx
       
       Select ColorType
         Case #FrontColor
-          StrgEx()\Color\Front     = Color
+          StrgEx()\Color\Front         = Color
         Case #BackColor
-          StrgEx()\Color\Back      = Color
+          StrgEx()\Color\Back          = Color
         Case #BorderColor
-          StrgEx()\Color\Border    = Color
+          StrgEx()\Color\Border        = Color
         Case #GreyTextColor  
-          StrgEx()\Color\GreyText  = Color
+          StrgEx()\Color\GreyText      = Color
         Case #FocusColor
-          StrgEx()\Color\Focus     = Color
+          StrgEx()\Color\Focus         = Color
         Case #CursorColor
-          StrgEx()\Color\Cursor    = Color
+          StrgEx()\Color\Cursor        = Color
         Case #HighlightColor
-          StrgEx()\Color\Highlight = Color
+          StrgEx()\Color\Highlight     = Color
         Case #HighlightTextColor
           StrgEx()\Color\HighlightText = Color
       EndSelect
@@ -2459,7 +2510,7 @@ CompilerIf #PB_Compiler_IsMainFile
     StringGadget(#String, 15, 19, 90, 20, "")
     ;SetGadgetAttribute(#String, #PB_String_MaximumLength, 5)
     
-    StringEx::Gadget(#StringEx, 120, 19, 90, 20, "AutoComplete", StringEx::#AutoComplete|StringEx::#Center, #Window) ; StringEx::#ShowButton / StringEx::#Numeric / StringEx::#LowerCase / StringEx::#UpperCase / StringEx::#NotEditable / StringEx::#BorderLess
+    StringEx::Gadget(#StringEx, 120, 19, 90, 20, "AutoComplete", StringEx::#AutoComplete, #Window) ; StringEx::#ShowButton / StringEx::#Numeric / StringEx::#LowerCase / StringEx::#UpperCase / StringEx::#NotEditable / StringEx::#BorderLess
     StringEx::AttachPopupMenu(#StringEx, #Popup)
     ;StringEx::SetAttribute(#StringEx, StringEx::#MaximumLength, 5)
 
@@ -2535,9 +2586,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 2203
-; FirstLine = 722
-; Folding = 5OgUQAEAxCGwAAAIoAADMACS1
+; CursorPosition = 254
+; FirstLine = 104
+; Folding = 5OAUABABQEABMAAACKAwgBQQi+
 ; EnableThread
 ; EnableXP
 ; DPIAware

@@ -7,7 +7,7 @@
 ;/ Â© 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 29.11.2019
+; Last Update: 08.12.2019
 ;
 ; Bugfix: Themes
 ;
@@ -72,7 +72,7 @@
 
 DeclareModule ButtonEx
   
-  #Version  = 19112901
+  #Version  = 19120800
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -309,7 +309,55 @@ Module ButtonEx
 		EndProcedure
 
 	CompilerEndIf
-
+	
+  CompilerIf Defined(ModuleEx, #PB_Module)
+  
+    Procedure.i GetGadgetWindow()
+      ProcedureReturn ModuleEx::GetGadgetWindow()
+    EndProcedure
+    
+  CompilerElse  
+    
+    CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+      ; Thanks to mk-soft
+      Import ""
+        PB_Object_EnumerateStart(PB_Objects)
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerElse
+      ImportC ""
+        PB_Object_EnumerateStart( PB_Objects )
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerEndIf
+    
+    Procedure.i GetGadgetWindow()
+      ; Thanks to mk-soft
+      Define.i WindowID, Window, Result = #PB_Default
+      
+      WindowID = UseGadgetList(0)
+      
+      PB_Object_EnumerateStart(PB_Window_Objects)
+      
+      While PB_Object_EnumerateNext(PB_Window_Objects, @Window)
+        If WindowID = WindowID(Window)
+          Result = Window
+          Break
+        EndIf
+      Wend
+      
+      PB_Object_EnumerateAbort(PB_Window_Objects)
+      
+      ProcedureReturn Result
+    EndProcedure
+    
+  CompilerEndIf	
+	
+	
 	Procedure.f dpiX(Num.i)
 	  If Num > 0  
 	    ProcedureReturn DesktopScaledX(Num)
@@ -915,19 +963,11 @@ Module ButtonEx
 
 				BtEx()\CanvasNum = GNum
 
-				CompilerIf Defined(ModuleEx, #PB_Module)
-					If WindowNum = #PB_Default
-						BtEx()\Window\Num = ModuleEx::GetGadgetWindow()
-					Else
-						BtEx()\Window\Num = WindowNum
-					EndIf
-				CompilerElse
-					If WindowNum = #PB_Default
-						BtEx()\Window\Num = GetActiveWindow()
-					Else
-						BtEx()\Window\Num = WindowNum
-					EndIf
-				CompilerEndIf
+        If WindowNum = #PB_Default
+          BtEx()\Window\Num = GetGadgetWindow()
+        Else
+          BtEx()\Window\Num = WindowNum
+        EndIf
 
 				CompilerIf Defined(ModuleEx, #PB_Module)
 					If ModuleEx::AddWindow(BtEx()\Window\Num, ModuleEx::#Tabulator)
@@ -1369,8 +1409,7 @@ CompilerIf #PB_Compiler_IsMainFile
 
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1017
-; FirstLine = 197
-; Folding = YggEwnnAhwHYg-
+; CursorPosition = 9
+; Folding = YgAEA96JQAGAA9
 ; EnableXP
 ; DPIAware

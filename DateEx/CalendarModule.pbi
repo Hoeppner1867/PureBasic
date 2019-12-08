@@ -11,14 +11,75 @@
 
 ; Last Update:
 
+
+;{ ===== MIT License =====
+;
+; Copyright (c) 2019 Thorsten Hoeppner
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+;}
+
+;{ ===== Tea & Pizza Ware =====
+; <purebasic@thprogs.de> has created this code. 
+; If you find the code useful and you want to use it for your programs, 
+; you are welcome to support my work with a cup of tea or a pizza
+; (or the amount of money for it). 
+; [ https://www.paypal.me/Hoeppner1867 ]
+;}
+
+
+;{ _____ Calendar - Commands _____
+
+; Calendar::DefaultCountry()     - set default language for all gadgets
+; Calendar::Disable()            - similar to 'DisableGadget()'
+; Calendar::DisableReDraw()      - disable/enable redrawing of the gadget
+; Calendar::Gadget()             - similar to 'CalendarGadget()'
+; Calendar::GetAttribute()       - similar to 'GetGadgetAttribute()'
+; Calendar::GetData()            - similar to 'GetGadgetData()'
+; Calendar::GetDate()            - similar to 'Date()', but 64Bit
+; Calendar::GetDay()             - returns selected day
+; Calendar::GetID()              - similar to 'GetGadgetData()', but string instead of quad
+; Calendar::GetMonth()           - returns selected month
+; Calendar::GetState()           - similar to 'GetGadgetState()'
+; Calendar::GetText()            - similar to 'GetGadgetText()'
+; Calendar::GetYear()            - returns selected year
+; Calendar::Hide()               - similar to 'HideGadget()'
+; Calendar::MonthName()          - returns name of month in the current language
+; Calendar::SetAutoResizeFlags() - [#MoveX|#MoveY|#Width|#Height]
+; Calendar::SetColor()           - similar to 'SetGadgetColor()'
+; Calendar::SetData()            - similar to 'SetGadgetData()'
+; Calendar::SetDate()            - set date
+; Calendar::SetFont()            - similar to 'SetGadgetFont()'
+; Calendar::SetID()              - similar to 'SetGadgetData()', but string instead of quad
+; Calendar::SetState()           - similar to 'SetGadgetState()'
+; Calendar::WeekDayName()        - returns name of weekday in the current language
+
+;}
+
 ;XIncludeFile "ModuleEx.pbi"
 
 CompilerIf Not Defined(Date64, #PB_Module)  : XIncludeFile "Date64Module.pbi" : CompilerEndIf
 
 DeclareModule Calendar
   
-  #Version  = 19113000
-  #ModuleEx = 19112900
+  #Version  = 19120600
+  #ModuleEx = 19120600
 
   ;- ===========================================================================
   ;-   DeclareModule - Constants / Structures
@@ -93,20 +154,17 @@ DeclareModule Calendar
   ;- ===========================================================================
   ;-   DeclareModule
   ;- ===========================================================================
-  
-  Declare.q GetData(GNum.i)
-	Declare.s GetID(GNum.i)
-  Declare   SetData(GNum.i, Value.q)
-	Declare   SetID(GNum.i, String.s)
-  
+
   Declare   DefaultCountry(Code.s)
   Declare   Disable(GNum.i, State.i=#True)
   Declare   DisableReDraw(GNum.i, State.i=#False)
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i=#PB_Default, Height.i=#PB_Default, Date.i=#PB_Default, Flags.i=#False, WindowNum.i=#PB_Default)
   Declare.i GetAttribute(GNum.i, Attribute.i)
+  Declare.q GetData(GNum.i)
   Declare.q GetDate(Day.i, Month.i, Year.i, Hour.i=0, Minute.i=0, Second.i=0)
   Declare.i GetDay(GNum.i)
-  Declare.i GetMonth(GNum.i) 
+  Declare.i GetMonth(GNum.i)
+  Declare.s GetID(GNum.i)
   Declare.i GetState(GNum.i)
   Declare.s GetText(GNum.i, Mask.s="")
   Declare.i GetYear(GNum.i)
@@ -114,8 +172,10 @@ DeclareModule Calendar
   Declare   MonthName(Month.i, Name.s)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetColor(GNum.i, ColorType.i, Value.i)
+  Declare   SetData(GNum.i, Value.q)
   Declare   SetDate(GNum.i, Year.i, Month.i, Day.i=1, Hour.i=0, Minute.i=0, Second.i=0)
   Declare   SetFont(GNum.i, FontNum.i, FontType.i=#Font_Gadget)
+  Declare   SetID(GNum.i, String.s)
   Declare   SetState(GNum.i, Date.q)
   Declare   WeekDayName(WeekDay.i, Name.s)
   
@@ -154,7 +214,7 @@ Module Calendar
     Height.i
   EndStructure ;}
 
-  Structure Font_Structure ;{ \Font\...
+  Structure Font_Structure                ;{ \Font\...
     Num.i
     Name.s
     Size.i
@@ -627,6 +687,7 @@ Module Calendar
 	  EndSelect
 	  
 	EndProcedure
+	
 	
 	Procedure.i GetColor_(Color.i, DefaultColor.i)
 	  
@@ -1313,6 +1374,7 @@ Module Calendar
         Calendar()\Week\Color\Back    = ModuleEx::ThemeGUI\Header\LightColor
         Calendar()\Color\DisableFront = ModuleEx::ThemeGUI\Disable\FrontColor
         Calendar()\Color\DisableBack  = ModuleEx::ThemeGUI\Disable\BackColor
+        Calendar()\Color\GreyText     = ModuleEx::ThemeGUI\GreyTextColor
         
         Draw_()
       Next
@@ -1772,43 +1834,23 @@ Module Calendar
   ;- ==========================================================================
   ;-   Module - Declared Procedures
   ;- ========================================================================== 
-  
-  Procedure.q GetData(GNum.i)
-	  
-	  If FindMapElement(Calendar(), Str(GNum))
-	    ProcedureReturn Calendar()\Quad
-	  EndIf  
-	  
-	EndProcedure	
-	
-	Procedure.s GetID(GNum.i)
-	  
-	  If FindMapElement(Calendar(), Str(GNum))
-	    ProcedureReturn Calendar()\ID
-	  EndIf
-	  
-	EndProcedure
-	
-	Procedure   SetData(GNum.i, Value.q)
-	  
-	  If FindMapElement(Calendar(), Str(GNum))
-	    Calendar()\Quad = Value
-	  EndIf  
-	  
-	EndProcedure
-	
-	Procedure   SetID(GNum.i, String.s)
-	  
-	  If FindMapElement(Calendar(), Str(GNum))
-	    Calendar()\ID = String
-	  EndIf
-	  
-	EndProcedure
-	
-  
+
   Procedure   DefaultCountry(Code.s)
     CountryCode = Code
   EndProcedure
+  
+  Procedure   Disable(GNum.i, State.i=#True)
+    
+    If FindMapElement(Calendar(), Str(GNum))
+  
+      Calendar()\Disable = State
+      DisableGadget(GNum, State)
+      
+      Draw_()
+      
+    EndIf  
+    
+  EndProcedure 
   
   Procedure   DisableReDraw(GNum.i, State.i=#False)
     
@@ -2020,6 +2062,14 @@ Module Calendar
     
   EndProcedure
   
+  Procedure.q GetData(GNum.i)
+	  
+	  If FindMapElement(Calendar(), Str(GNum))
+	    ProcedureReturn Calendar()\Quad
+	  EndIf  
+	  
+	EndProcedure	  
+  
   Procedure.q GetDate(Day.i, Month.i, Year.i, Hour.i=0, Minute.i=0, Second.i=0)
  
     ProcedureReturn Date_(Year, Month, Day, Hour, Minute, Second)
@@ -2033,6 +2083,14 @@ Module Calendar
     EndIf
     
   EndProcedure
+  
+	Procedure.s GetID(GNum.i)
+	  
+	  If FindMapElement(Calendar(), Str(GNum))
+	    ProcedureReturn Calendar()\ID
+	  EndIf
+	  
+	EndProcedure  
   
   Procedure.i GetMonth(GNum.i) 
     
@@ -2093,18 +2151,11 @@ Module Calendar
     
   EndProcedure
   
-  Procedure   Disable(GNum.i, State.i=#True)
-    
-    If FindMapElement(Calendar(), Str(GNum))
-  
-      Calendar()\Disable = State
-      DisableGadget(GNum, State)
-      
-      Draw_()
-      
-    EndIf  
-    
-  EndProcedure 	  
+  Procedure   MonthName(Month.i, Name.s)
+    If Month >= 1 And Month <= 12
+      NameOfMonth(Str(Month)) = Name
+    EndIf
+  EndProcedure  
   
   
   Procedure   SetAttribute(GNum.i, Attribute.i, Value.i)
@@ -2168,6 +2219,14 @@ Module Calendar
     
   EndProcedure  
   
+	Procedure   SetData(GNum.i, Value.q)
+	  
+	  If FindMapElement(Calendar(), Str(GNum))
+	    Calendar()\Quad = Value
+	  EndIf  
+	  
+	EndProcedure
+  
   Procedure   SetDate(GNum.i, Year.i, Month.i, Day.i=1, Hour.i=0, Minute.i=0, Second.i=0)
 
     If FindMapElement(Calendar(), Str(GNum))
@@ -2199,7 +2258,15 @@ Module Calendar
     EndIf
     
   EndProcedure  
- 
+  
+  Procedure   SetID(GNum.i, String.s)
+	  
+	  If FindMapElement(Calendar(), Str(GNum))
+	    Calendar()\ID = String
+	  EndIf
+	  
+	EndProcedure  
+  
   Procedure   SetState(GNum.i, Date.q) 
     
     If FindMapElement(Calendar(), Str(GNum))
@@ -2215,12 +2282,6 @@ Module Calendar
   EndProcedure  
   
   
-  Procedure   MonthName(Month.i, Name.s)
-    If Month >= 1 And Month <= 12
-      NameOfMonth(Str(Month)) = Name
-    EndIf
-  EndProcedure
-
   Procedure   WeekDayName(WeekDay.i, Name.s)
     If WeekDay >= 0 And WeekDay <= 7
       If WeekDay = 0
@@ -2271,9 +2332,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1861
-; FirstLine = 583
-; Folding = DIAIAAAACADLUhBAgEAAjBEg9
-; Markers = 903,2171
+; CursorPosition = 2312
+; FirstLine = 319
+; Folding = YABAAAAAAAQYBKMDAAAAiBAAg-
+; Markers = 964,2230
 ; EnableXP
 ; DPIAware

@@ -6,12 +6,14 @@
 ;/
 ;/ ContainerEx - Gadget
 ;/
+;/ On request and with the sponsorship of Cyllceaux
+;/
 ;/ © 2019  by Thorsten Hoeppner (11/2019)
 ;/
 
-; Last Update: 19.11.2019
+; Last Update: 08.12.2019
 ;
-; Added: Atrribute #Corner 
+; Added: Attibute #Corner 
 ;
 ; Added: ContainerEx::Hide()
 ; Added: #UseExistingCanvas
@@ -59,7 +61,7 @@
 
 DeclareModule ContainerEx
   
-  #Version  = 19112100
+  #Version  = 19120800
   #ModuleEx = 19111702
   
 	;- ===========================================================================
@@ -119,11 +121,15 @@ DeclareModule ContainerEx
 	Declare   Close(GNum.i)
   Declare   DisableReDraw(GNum.i, State.i=#False)
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
+  Declare.q GetData(GNum.i)
+	Declare.s GetID(GNum.i)
   Declare   Hide(GNum.i, State.i=#True)
   Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetColor(GNum.i, ColorTyp.i, Value.i)
+  Declare   SetData(GNum.i, Value.q)
   Declare   SetFont(GNum.i, FontID.i) 
+	Declare   SetID(GNum.i, String.s)
   Declare   SetText(GNum.i, Text.s, Flags.i=#False)
   
 EndDeclareModule
@@ -161,7 +167,10 @@ Module ContainerEx
 
 	Structure ContainerEx_Structure         ;{ ContainerEx()\...
 		CanvasNum.i
-
+		
+		Quad.q
+		ID.s
+		
 		FontID.i
 		
 		Text.s
@@ -221,6 +230,54 @@ Module ContainerEx
 		EndProcedure
 
 	CompilerEndIf
+	
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure.i GetGadgetWindow()
+      ProcedureReturn ModuleEx::GetGadgetWindow()
+    EndProcedure
+    
+  CompilerElse  
+    
+    CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+      ; Thanks to mk-soft
+      Import ""
+        PB_Object_EnumerateStart(PB_Objects)
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerElse
+      ImportC ""
+        PB_Object_EnumerateStart( PB_Objects )
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerEndIf
+    
+    Procedure.i GetGadgetWindow()
+      ; Thanks to mk-soft
+      Define.i WindowID, Window, Result = #PB_Default
+      
+      WindowID = UseGadgetList(0)
+      
+      PB_Object_EnumerateStart(PB_Window_Objects)
+      
+      While PB_Object_EnumerateNext(PB_Window_Objects, @Window)
+        If WindowID = WindowID(Window)
+          Result = Window
+          Break
+        EndIf
+      Wend
+      
+      PB_Object_EnumerateAbort(PB_Window_Objects)
+      
+      ProcedureReturn Result
+    EndProcedure
+    
+  CompilerEndIf	
+  
 	
   Procedure.f dpiX(Num.i)
 	  If Num > 0  
@@ -409,8 +466,16 @@ Module ContainerEx
 
 	;- ==========================================================================
 	;-   Module - Declared Procedures
-	;- ==========================================================================
-
+  ;- ==========================================================================
+	
+	Procedure   Close(GNum.i)
+	  
+	  If FindMapElement(ContainerEx(), Str(GNum))
+	    CloseGadgetList()
+	  EndIf
+	  
+	EndProcedure 	
+	
 	Procedure   DisableReDraw(GNum.i, State.i=#False)
 
 		If FindMapElement(ContainerEx(), Str(GNum))
@@ -453,19 +518,11 @@ Module ContainerEx
 
 				ContainerEx()\CanvasNum = GNum
 
-				CompilerIf Defined(ModuleEx, #PB_Module) ; WindowNum = #Default
-					If WindowNum = #PB_Default
-						ContainerEx()\Window\Num = ModuleEx::GetGadgetWindow()
-					Else
-						ContainerEx()\Window\Num = WindowNum
-					EndIf
-				CompilerElse
-					If WindowNum = #PB_Default
-						ContainerEx()\Window\Num = GetActiveWindow()
-					Else
-						ContainerEx()\Window\Num = WindowNum
-					EndIf
-				CompilerEndIf
+        If WindowNum = #PB_Default
+          ContainerEx()\Window\Num = GetGadgetWindow()
+        Else
+          ContainerEx()\Window\Num = WindowNum
+        EndIf
 
 				CompilerSelect #PB_Compiler_OS           ;{ Default Gadget Font
 					CompilerCase #PB_OS_Windows
@@ -536,14 +593,23 @@ Module ContainerEx
 
 	EndProcedure
 
-	Procedure   Close(GNum.i)
+ 
+	Procedure.q GetData(GNum.i)
 	  
 	  If FindMapElement(ContainerEx(), Str(GNum))
-	    CloseGadgetList()
+	    ProcedureReturn ContainerEx()\Quad
+	  EndIf  
+	  
+	EndProcedure	
+	
+	Procedure.s GetID(GNum.i)
+	  
+	  If FindMapElement(ContainerEx(), Str(GNum))
+	    ProcedureReturn ContainerEx()\ID
 	  EndIf
 	  
-	EndProcedure  
-	
+	EndProcedure
+
 	
 	Procedure   Hide(GNum.i, State.i=#True)
 	  
@@ -561,6 +627,7 @@ Module ContainerEx
 	  EndIf
 	  
 	EndProcedure  
+	
 	
 	Procedure   SetAttribute(GNum.i, Attribute.i, Value.i)
     
@@ -610,6 +677,14 @@ Module ContainerEx
     
   EndProcedure
   
+  Procedure   SetData(GNum.i, Value.q)
+	  
+	  If FindMapElement(ContainerEx(), Str(GNum))
+	    ContainerEx()\Quad = Value
+	  EndIf  
+	  
+	EndProcedure
+
   Procedure   SetFont(GNum.i, FontID.i) 
     
     If FindMapElement(ContainerEx(), Str(GNum))
@@ -620,6 +695,14 @@ Module ContainerEx
     EndIf
     
   EndProcedure  
+  
+	Procedure   SetID(GNum.i, String.s)
+	  
+	  If FindMapElement(ContainerEx(), Str(GNum))
+	    ContainerEx()\ID = String
+	  EndIf
+	  
+	EndProcedure  
   
   Procedure   SetText(GNum.i, Text.s, Flags.i=#False)
     ; Flags: #Left/#Center/#Right | #TitleBox
@@ -681,8 +764,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 13
-; FirstLine = 7
-; Folding = scCMg5A+
+; CursorPosition = 612
+; FirstLine = 209
+; Folding = sMABDQOA9
 ; EnableXP
 ; DPIAware

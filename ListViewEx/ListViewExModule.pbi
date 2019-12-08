@@ -9,7 +9,7 @@
 ;/ © 2019  by Thorsten Hoeppner (11/2019)
 ;/
 
-; Last Update:
+; Last Update: 08.12.2019
 
 ;{ ===== MIT License =====
 ;
@@ -34,7 +34,7 @@
 ; SOFTWARE.
 ;}
 
-;{ ===== Tea & Pizza Ware =====
+;{ ===== Additional tea & pizza license =====
 ; <purebasic@thprogs.de> has created this code. 
 ; If you find the code useful and you want to use it for your programs, 
 ; you are welcome to support my work with a cup of tea or a pizza
@@ -85,7 +85,7 @@
 
 DeclareModule ListView
   
-  #Version  = 19120101
+  #Version  = 19120800
   #ModuleEx = 19120100
   
 	;- ===========================================================================
@@ -338,6 +338,54 @@ Module ListView
 
 	CompilerEndIf
 	
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure.i GetGadgetWindow()
+      ProcedureReturn ModuleEx::GetGadgetWindow()
+    EndProcedure
+    
+  CompilerElse  
+    
+    CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+      ; Thanks to mk-soft
+      Import ""
+        PB_Object_EnumerateStart(PB_Objects)
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerElse
+      ImportC ""
+        PB_Object_EnumerateStart( PB_Objects )
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerEndIf
+    
+    Procedure.i GetGadgetWindow()
+      ; Thanks to mk-soft
+      Define.i WindowID, Window, Result = #PB_Default
+      
+      WindowID = UseGadgetList(0)
+      
+      PB_Object_EnumerateStart(PB_Window_Objects)
+      
+      While PB_Object_EnumerateNext(PB_Window_Objects, @Window)
+        If WindowID = WindowID(Window)
+          Result = Window
+          Break
+        EndIf
+      Wend
+      
+      PB_Object_EnumerateAbort(PB_Window_Objects)
+      
+      ProcedureReturn Result
+    EndProcedure
+    
+  CompilerEndIf		
+  
+  
   Procedure.f dpiX(Num.i)
 	  If Num > 0  
 	    ProcedureReturn DesktopScaledX(Num)
@@ -1023,19 +1071,11 @@ Module ListView
           ListView()\ScrollBar\Hide = #True
         EndIf
 
-				CompilerIf Defined(ModuleEx, #PB_Module) ; WindowNum = #Default
-					If WindowNum = #PB_Default
-						ListView()\Window\Num = ModuleEx::GetGadgetWindow()
-					Else
-						ListView()\Window\Num = WindowNum
-					EndIf
-				CompilerElse
-					If WindowNum = #PB_Default
-						ListView()\Window\Num = GetActiveWindow()
-					Else
-						ListView()\Window\Num = WindowNum
-					EndIf
-				CompilerEndIf
+        If WindowNum = #PB_Default
+          ListView()\Window\Num = GetGadgetWindow()
+        Else
+          ListView()\Window\Num = WindowNum
+        EndIf
 
 				CompilerSelect #PB_Compiler_OS           ;{ Default Gadget Font
 					CompilerCase #PB_OS_Windows
@@ -1509,7 +1549,7 @@ CompilerIf #PB_Compiler_IsMainFile
       MenuItem(#MenuItem2, "Clear items")
     EndIf
     
-    If ListView::Gadget(#ListView, 10, 10, 120, 180, ListView::#AutoResize, #Window) ; ListView::#GridLines|ListView::#ClickSelect|ListView::#MultiSelect
+    If ListView::Gadget(#ListView, 10, 10, 120, 180, ListView::#AutoResize|ListView::#GridLines, #Window) ; ListView::#GridLines|ListView::#ClickSelect|ListView::#MultiSelect
       
       ListView::AttachPopupMenu(#ListView, #PopUpMenu)
       ListView::UpdatePopupText(#ListView, #MenuItem1,  "Remove row " + ListView::#Row$)
@@ -1575,8 +1615,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 571
-; FirstLine = 319
-; Folding = 90GAgRDgABGBAI3Aj
+; CursorPosition = 87
+; Folding = 50GAAYEAIQgJAA4GY9
 ; EnableXP
 ; DPIAware

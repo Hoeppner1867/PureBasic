@@ -41,6 +41,7 @@
 ; Trend::AddItem()             - similar to AddGadgetItem()
 ; Trend::AttachPopupMenu()     - attachs a popup menu to the chart
 ; Trend::DisableReDraw()       - disable/enable redrawing
+; Trend::DisplayValues()       - display all values from start value to end value
 ; Trend::EventColor()          - returns the color after the event
 ; Trend::EventIndex()          - returns the item index after the event
 ; Trend::EventLabel()          - returns the item label after the event
@@ -176,6 +177,8 @@ DeclareModule Trend
   Declare.s EventLabel(GNum.i)
   Declare.i EventValue(GNum.i)
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
+  Declare.q GetData(GNum.i)
+	Declare.s GetID(GNum.i)
   Declare.s GetErrorMessage(GNum.i, Language.s="")
   Declare.i GetItemColor(GNum.i, Position.i)
   Declare.s GetItemLabel(GNum.i, Position.i)
@@ -190,8 +193,10 @@ DeclareModule Trend
   Declare   SetAttribute(GNum.i, Attribute.i, DataY.i)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetColor(GNum.i, ColorType.i, Color.i)
+  Declare   SetData(GNum.i, Value.q)
   Declare   SetFlags(GNum.i, Type.i, Flags.i)
   Declare   SetFont(GNum.i, FontID.i, Flags.i=#False) 
+  Declare   SetID(GNum.i, String.s)
   Declare.i SetItemState(GNum.i, Position.i, State.i)
   Declare.i SetItemText(GNum.i, Position.i, Text.s)
   Declare.i SetLabelState(GNum.i, Label.s, State.i)
@@ -330,6 +335,9 @@ Module Trend
     CanvasNum.i
     PopupNum.i
     
+    Quad.q
+    ID.s
+    
     FontID.i
     
     Minimum.i
@@ -401,6 +409,54 @@ Module Trend
     EndProcedure
     
   CompilerEndIf
+  
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure.i GetGadgetWindow()
+      ProcedureReturn ModuleEx::GetGadgetWindow()
+    EndProcedure
+    
+  CompilerElse  
+    
+    CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+      ; Thanks to mk-soft
+      Import ""
+        PB_Object_EnumerateStart(PB_Objects)
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerElse
+      ImportC ""
+        PB_Object_EnumerateStart( PB_Objects )
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerEndIf
+    
+    Procedure.i GetGadgetWindow()
+      ; Thanks to mk-soft
+      Define.i WindowID, Window, Result = #PB_Default
+      
+      WindowID = UseGadgetList(0)
+      
+      PB_Object_EnumerateStart(PB_Window_Objects)
+      
+      While PB_Object_EnumerateNext(PB_Window_Objects, @Window)
+        If WindowID = WindowID(Window)
+          Result = Window
+          Break
+        EndIf
+      Wend
+      
+      PB_Object_EnumerateAbort(PB_Window_Objects)
+      
+      ProcedureReturn Result
+    EndProcedure
+    
+  CompilerEndIf	  
+  
   
   Procedure.f dpiX(Num.i)
     ProcedureReturn DesktopScaledX(Num)
@@ -1362,19 +1418,11 @@ Module Trend
         
         Trend()\CanvasNum = GNum
         
-        CompilerIf Defined(ModuleEx, #PB_Module)
-          If WindowNum = #PB_Default
-            Trend()\Window\Num = ModuleEx::GetGadgetWindow()
-          Else
-            Trend()\Window\Num = WindowNum
-          EndIf
-        CompilerElse
-          If WindowNum = #PB_Default
-            Trend()\Window\Num = GetActiveWindow()
-          Else
-            Trend()\Window\Num = WindowNum
-          EndIf
-        CompilerEndIf   
+  			If WindowNum = #PB_Default
+          Trend()\Window\Num = GetGadgetWindow()
+        Else
+          Trend()\Window\Num = WindowNum
+        EndIf  
         
         CompilerSelect #PB_Compiler_OS ;{ Font
           CompilerCase #PB_OS_Windows
@@ -1530,6 +1578,22 @@ Module Trend
     
   EndProcedure
   
+  Procedure.q GetData(GNum.i)
+	  
+	  If FindMapElement(Trend(), Str(GNum))
+	    ProcedureReturn Trend()\Quad
+	  EndIf  
+	  
+	EndProcedure	
+	
+	Procedure.s GetID(GNum.i)
+	  
+	  If FindMapElement(Trend(), Str(GNum))
+	    ProcedureReturn Trend()\ID
+	  EndIf
+	  
+	EndProcedure
+
   Procedure.i GetItemColor(GNum.i, Position.i)
     
     If FindMapElement(Trend(), Str(GNum))
@@ -1650,6 +1714,7 @@ Module Trend
     ProcedureReturn #NotValid
   EndProcedure
   
+  
   Procedure   LoadValues(GNum.i, File.s)
     Define.i JSON
     
@@ -1733,6 +1798,7 @@ Module Trend
     EndIf 
     
   EndProcedure
+  
   
   Procedure   SetAttribute(GNum.i, Attribute.i, DataY.i)
     
@@ -1852,6 +1918,22 @@ Module Trend
     EndIf
     
   EndProcedure 
+  
+  Procedure   SetData(GNum.i, Value.q)
+	  
+	  If FindMapElement(Trend(), Str(GNum))
+	    Trend()\Quad = Value
+	  EndIf  
+	  
+	EndProcedure
+	
+	Procedure   SetID(GNum.i, String.s)
+	  
+	  If FindMapElement(Trend(), Str(GNum))
+	    Trend()\ID = String
+	  EndIf
+	  
+	EndProcedure  
   
   Procedure.i SetItemState(GNum.i, Position.i, State.i)
     
@@ -1985,6 +2067,7 @@ Module Trend
     
   EndProcedure
   
+  
   Procedure   ToolTipText(GNum.i, Text.s) ; #Value$ / #Label$
     
     If FindMapElement(Trend(), Str(GNum))
@@ -2115,9 +2198,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 
-; IDE Options = PureBasic 5.71 beta 2 LTS (Windows - x86)
-; CursorPosition = 168
-; FirstLine = 9
-; Folding = EAAQBACwBBAA5FFi-forhg
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 1932
+; FirstLine = 591
+; Folding = kAQMAAgAcQAAE-iCx-PEXDA-
 ; EnableXP
 ; DPIAware

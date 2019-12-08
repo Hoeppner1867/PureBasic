@@ -10,7 +10,7 @@
 ;/
 
 
-; Last Update: 14.11.19
+; Last Update: 08.12.19
 ;
 ; Added: #UseExistingCanvas
 ;
@@ -59,7 +59,7 @@
 
 DeclareModule ImageEx
   
-  #Version  = 19111400
+  #Version  = 19120800
   #ModuleEx = 19112102
   
 	;- ===========================================================================
@@ -127,11 +127,15 @@ DeclareModule ImageEx
   Declare   AttachPopupMenu(GNum.i, PopUpNum.i)
   Declare   DisableReDraw(GNum.i, State.i=#False)
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, ImageNum.i, Flags.i=#False, WindowNum.i=#PB_Default)
+  Declare.q GetData(GNum.i)
+	Declare.s GetID(GNum.i)
   Declare   Hide(GNum.i, State.i=#True)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetColor(GNum.i, ColorTyp.i, Value.i)
+  Declare   SetData(GNum.i, Value.q)
   Declare   SetFont(GNum.i, FontID.i)
   Declare   SetFlags(GNum.i, Flags.i) 
+  Declare   SetID(GNum.i, String.s)
   Declare   SetMargins(GNum.i, Left.i, Top.i, Bottom.i=#PB_Default, Right.i=#PB_Default)
   Declare   SetState(GNum.i, ImageNum.i)
   Declare   SetText(GNum.i, Text.s, Flags.i=#False)
@@ -229,6 +233,9 @@ Module ImageEx
 		Image.ImageEx_Image_Structure
 		Text.ImageEx_Text_Structure
 		
+		Quad.q
+		ID.s
+		
 		FontID.i
 
 		ReDraw.i
@@ -285,7 +292,55 @@ Module ImageEx
 		EndProcedure
 
 	CompilerEndIf
-
+	
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure.i GetGadgetWindow()
+      ProcedureReturn ModuleEx::GetGadgetWindow()
+    EndProcedure
+    
+  CompilerElse  
+    
+    CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+      ; Thanks to mk-soft
+      Import ""
+        PB_Object_EnumerateStart(PB_Objects)
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerElse
+      ImportC ""
+        PB_Object_EnumerateStart( PB_Objects )
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerEndIf
+    
+    Procedure.i GetGadgetWindow()
+      ; Thanks to mk-soft
+      Define.i WindowID, Window, Result = #PB_Default
+      
+      WindowID = UseGadgetList(0)
+      
+      PB_Object_EnumerateStart(PB_Window_Objects)
+      
+      While PB_Object_EnumerateNext(PB_Window_Objects, @Window)
+        If WindowID = WindowID(Window)
+          Result = Window
+          Break
+        EndIf
+      Wend
+      
+      PB_Object_EnumerateAbort(PB_Window_Objects)
+      
+      ProcedureReturn Result
+    EndProcedure
+    
+  CompilerEndIf
+  
+	
 	Procedure.f dpiX(Num.i)
 		ProcedureReturn DesktopScaledX(Num)
 	EndProcedure
@@ -627,7 +682,8 @@ Module ImageEx
 		Next
 
 	EndProcedure
-
+	
+	
 	;- ==========================================================================
 	;-   Module - Declared Procedures
 	;- ==========================================================================
@@ -678,19 +734,11 @@ Module ImageEx
 
 				ImageEx()\CanvasNum = GNum
 
-				CompilerIf Defined(ModuleEx, #PB_Module) ; WindowNum = #Default
-					If WindowNum = #PB_Default
-						ImageEx()\Window\Num = ModuleEx::GetGadgetWindow()
-					Else
-						ImageEx()\Window\Num = WindowNum
-					EndIf
-				CompilerElse
-					If WindowNum = #PB_Default
-						ImageEx()\Window\Num = GetActiveWindow()
-					Else
-						ImageEx()\Window\Num = WindowNum
-					EndIf
-				CompilerEndIf
+  			If WindowNum = #PB_Default
+          ImageEx()\Window\Num = GetGadgetWindow()
+        Else
+          ImageEx()\Window\Num = WindowNum
+        EndIf
 
 				CompilerSelect #PB_Compiler_OS           ;{ Default Gadget Font
 					CompilerCase #PB_OS_Windows
@@ -776,6 +824,23 @@ Module ImageEx
 	EndProcedure
 	
 	
+	  Procedure.q GetData(GNum.i)
+	  
+	  If FindMapElement(ImageEx(), Str(GNum))
+	    ProcedureReturn ImageEx()\Quad
+	  EndIf  
+	  
+	EndProcedure	
+	
+	Procedure.s GetID(GNum.i)
+	  
+	  If FindMapElement(ImageEx(), Str(GNum))
+	    ProcedureReturn ImageEx()\ID
+	  EndIf
+	  
+	EndProcedure
+
+	
 	Procedure   Hide(GNum.i, State.i=#True)
   
     If FindMapElement(ImageEx(), Str(GNum))
@@ -823,6 +888,14 @@ Module ImageEx
     
   EndProcedure
   
+  Procedure   SetData(GNum.i, Value.q)
+	  
+	  If FindMapElement(ImageEx(), Str(GNum))
+	    ImageEx()\Quad = Value
+	  EndIf  
+	  
+	EndProcedure
+	
   Procedure   SetFlags(GNum.i, Flags.i) 
     
     If FindMapElement(ImageEx(), Str(GNum))
@@ -846,6 +919,14 @@ Module ImageEx
     EndIf
     
   EndProcedure  
+  
+	Procedure   SetID(GNum.i, String.s)
+	  
+	  If FindMapElement(ImageEx(), Str(GNum))
+	    ImageEx()\ID = String
+	  EndIf
+	  
+	EndProcedure  
   
   Procedure   SetMargins(GNum.i, Left.i, Top.i, Bottom.i=#PB_Default, Right.i=#PB_Default)
     
@@ -1060,7 +1141,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 791
-; Folding = cVBCEOYkA2Y-
+; CursorPosition = 61
+; FirstLine = 6
+; Folding = cVBCAAAklZix+
 ; EnableXP
 ; DPIAware

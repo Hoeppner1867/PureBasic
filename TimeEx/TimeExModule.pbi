@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 01.12.19
+; Last Update: 08.12.19
 ;
 ; Added: Flag #NoButtons
 ;
@@ -62,7 +62,7 @@
 
 DeclareModule TimeEx
   
-  #Version  = 19120101
+  #Version  = 19120800
   #ModuleEx = 19112102
   
   ;- ===========================================================================
@@ -114,7 +114,9 @@ DeclareModule TimeEx
   ;-   DeclareModule
   ;- ===========================================================================
   
-  Declare.i GetColor(GNum.i, ColorType.i)
+	Declare.i GetColor(GNum.i, ColorType.i)
+	Declare.q GetData(GNum.i)
+	Declare.s GetID(GNum.i)
   Declare.i GetState(GNum.i)
   Declare.s GetText(GNum.i, Seperator.s=":")
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Time.s, Flags.i=#False, WindowNum.i=#PB_Default) 
@@ -122,7 +124,9 @@ DeclareModule TimeEx
   Declare   Hide(GNum.i, State.i=#True)
   Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
   Declare   SetColor(GNum.i, ColorType.i, Color.i)
+  Declare   SetData(GNum.i, Value.q)
   Declare   SetFont(GNum.i, FontNum.i)
+  Declare   SetID(GNum.i, String.s)
   Declare   SetState(GNum.i, Seconds.i) 
   Declare   SetText(GNum.i, Time.s, Seperator.s=":")
   
@@ -217,6 +221,9 @@ Module TimeEx
   Structure TGEx_Structure           ;{ TGEx('GNum')\...
     CanvasNum.i
     
+    Quad.q
+    ID.s
+    
     FontID.i
     
     Cursor.i
@@ -272,6 +279,54 @@ Module TimeEx
     EndProcedure
     
   CompilerEndIf
+  
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure.i GetGadgetWindow()
+      ProcedureReturn ModuleEx::GetGadgetWindow()
+    EndProcedure
+    
+  CompilerElse  
+    
+    CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+      ; Thanks to mk-soft
+      Import ""
+        PB_Object_EnumerateStart(PB_Objects)
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerElse
+      ImportC ""
+        PB_Object_EnumerateStart( PB_Objects )
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerEndIf
+    
+    Procedure.i GetGadgetWindow()
+      ; Thanks to mk-soft
+      Define.i WindowID, Window, Result = #PB_Default
+      
+      WindowID = UseGadgetList(0)
+      
+      PB_Object_EnumerateStart(PB_Window_Objects)
+      
+      While PB_Object_EnumerateNext(PB_Window_Objects, @Window)
+        If WindowID = WindowID(Window)
+          Result = Window
+          Break
+        EndIf
+      Wend
+      
+      PB_Object_EnumerateAbort(PB_Window_Objects)
+      
+      ProcedureReturn Result
+    EndProcedure
+    
+  CompilerEndIf	
+  
   
   Procedure.f dpiX(Num.i)
     ProcedureReturn DesktopScaledX(Num)
@@ -969,6 +1024,22 @@ Module TimeEx
     
   EndProcedure  
   
+  Procedure.q GetData(GNum.i)
+	  
+	  If FindMapElement(TGEx(), Str(GNum))
+	    ProcedureReturn TGEx()\Quad
+	  EndIf  
+	  
+	EndProcedure	
+	
+	Procedure.s GetID(GNum.i)
+	  
+	  If FindMapElement(TGEx(), Str(GNum))
+	    ProcedureReturn TGEx()\ID
+	  EndIf
+	  
+	EndProcedure
+
   Procedure.i GetState(GNum.i) 
     Define.i Time
     
@@ -1038,19 +1109,11 @@ Module TimeEx
         
         TGEx()\Flags = Flags
         
-        CompilerIf Defined(ModuleEx, #PB_Module)
-          If WindowNum = #PB_Default
-            TGEx()\Window\Num = ModuleEx::GetGadgetWindow()
-          Else
-            TGEx()\Window\Num = WindowNum
-          EndIf
-        CompilerElse
-          If WindowNum = #PB_Default
-            TGEx()\Window\Num = GetActiveWindow()
-          Else
-            TGEx()\Window\Num = WindowNum
-          EndIf
-        CompilerEndIf   
+  			If WindowNum = #PB_Default
+          TGEx()\Window\Num = GetGadgetWindow()
+        Else
+          TGEx()\Window\Num = WindowNum
+        EndIf  
         
         CompilerIf Defined(ModuleEx, #PB_Module)
           If ModuleEx::AddWindow(TGEx()\Window\Num, ModuleEx::#Tabulator)
@@ -1208,6 +1271,14 @@ Module TimeEx
     
   EndProcedure
   
+  Procedure   SetData(GNum.i, Value.q)
+	  
+	  If FindMapElement(TGEx(), Str(GNum))
+	    TGEx()\Quad = Value
+	  EndIf  
+	  
+	EndProcedure
+
   Procedure   SetFont(GNum.i, FontNum.i) 
     
     If FindMapElement(TGEx(), Str(GNum))
@@ -1220,6 +1291,14 @@ Module TimeEx
     EndIf
     
   EndProcedure
+  
+	Procedure   SetID(GNum.i, String.s)
+	  
+	  If FindMapElement(TGEx(), Str(GNum))
+	    TGEx()\ID = String
+	  EndIf
+	  
+	EndProcedure   
   
   Procedure   SetState(GNum.i, Seconds.i) 
     Define.i Minute
@@ -1316,6 +1395,6 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 64
-; Folding = 5HwAEBBgoB9
+; Folding = 5H1CARAAmwA5
 ; EnableXP
 ; DPIAware

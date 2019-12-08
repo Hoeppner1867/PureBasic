@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (06/2019)
 ;/
 
-; Last Update: 19.11.19
+; Last Update: 08.12.19
 ;
 ; Added: #UseExistingCanvas
 ;
@@ -37,6 +37,14 @@
 ; SOFTWARE.
 ;}
 
+;{ ===== Additional tea & pizza license =====
+; <purebasic@thprogs.de> has created this code. 
+; If you find the code useful and you want to use it for your programs, 
+; you are welcome to support my work with a cup of tea or a pizza
+; (or the amount of money for it). 
+; [ https://www.paypal.me/Hoeppner1867 ]
+;}
+
 
 ;{ _____ ProgressBarEx - Commands _____
 
@@ -55,7 +63,7 @@
 
 DeclareModule ProgressEx
   
-  #Version  = 19112000
+  #Version  = 19120800
   #ModuleEx = 19111702
   
   ;- ===========================================================================
@@ -109,11 +117,15 @@ DeclareModule ProgressEx
   
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Minimum.i=0, Maximum.i=100, Flags.i=#False, WindowNum.i=#PB_Default)
   Declare.i GetAttribute(GNum.i, Attribute.i)
+  Declare.q GetData(GNum.i)
+	Declare.s GetID(GNum.i)
   Declare.i GetState(GNum.i)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
   Declare   SetColor(GNum.i, ColorType.i, Color.i)
+  Declare   SetData(GNum.i, Value.q)
   Declare   SetFont(GNum.i, FontNum.i)
+  Declare   SetID(GNum.i, String.s)
   Declare   SetState(GNum.i, Value.i)
   Declare   SetText(GNum.i, Text.s, Align.i=#Left)
   
@@ -127,7 +139,7 @@ Module ProgressEx
   ;- ============================================================================
   ;-   Module - Constants / Structures
   ;- ============================================================================  
-   
+ 
   Structure PBarEx_Size_Structure  ;{ PBarEx()\Size\...
     X.f
     Y.f
@@ -149,6 +161,9 @@ Module ProgressEx
   Structure PBarEx_Structure       ;{ PBarEx()\...
     WindowNum.i
     CanvasNum.i
+    
+    Quad.q
+    ID.s
     
     FontID.i
     
@@ -204,6 +219,53 @@ Module ProgressEx
     EndProcedure
     
   CompilerEndIf  
+  
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure.i GetGadgetWindow()
+      ProcedureReturn ModuleEx::GetGadgetWindow()
+    EndProcedure
+    
+  CompilerElse  
+    
+    CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+      ; Thanks to mk-soft
+      Import ""
+        PB_Object_EnumerateStart(PB_Objects)
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerElse
+      ImportC ""
+        PB_Object_EnumerateStart( PB_Objects )
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerEndIf
+    
+    Procedure.i GetGadgetWindow()
+      ; Thanks to mk-soft
+      Define.i WindowID, Window, Result = #PB_Default
+      
+      WindowID = UseGadgetList(0)
+      
+      PB_Object_EnumerateStart(PB_Window_Objects)
+      
+      While PB_Object_EnumerateNext(PB_Window_Objects, @Window)
+        If WindowID = WindowID(Window)
+          Result = Window
+          Break
+        EndIf
+      Wend
+      
+      PB_Object_EnumerateAbort(PB_Window_Objects)
+      
+      ProcedureReturn Result
+    EndProcedure
+    
+  CompilerEndIf	  
   
   
   Procedure.f dpiX(Num.i)
@@ -481,19 +543,11 @@ Module ProgressEx
         
         PBarEx()\CanvasNum = GNum
         
-        CompilerIf Defined(ModuleEx, #PB_Module)
-          If WindowNum = #PB_Default
-            PBarEx()\WindowNum = ModuleEx::GetGadgetWindow()
-          Else
-            PBarEx()\WindowNum = WindowNum
-          EndIf
-        CompilerElse
-          If WindowNum = #PB_Default
-            PBarEx()\WindowNum = GetActiveWindow()
-          Else
-            PBarEx()\WindowNum = WindowNum
-          EndIf
-        CompilerEndIf   
+        If WindowNum = #PB_Default
+          PBarEx()\WindowNum = GetGadgetWindow()
+        Else
+          PBarEx()\WindowNum = WindowNum
+        EndIf   
         
         CompilerIf Defined(ModuleEx, #PB_Module)
           If ModuleEx::AddWindow(PBarEx()\WindowNum, ModuleEx::#Tabulator)
@@ -581,6 +635,22 @@ Module ProgressEx
     
   EndProcedure
   
+  Procedure.q GetData(GNum.i)
+	  
+	  If FindMapElement(PBarEx(), Str(GNum))
+	    ProcedureReturn PBarEx()\Quad
+	  EndIf  
+	  
+	EndProcedure	
+	
+	Procedure.s GetID(GNum.i)
+	  
+	  If FindMapElement(PBarEx(), Str(GNum))
+	    ProcedureReturn PBarEx()\ID
+	  EndIf
+	  
+	EndProcedure
+
   Procedure.i GetState(GNum.i)
     
     If FindMapElement(PBarEx(), Str(GNum))
@@ -637,6 +707,14 @@ Module ProgressEx
     
   EndProcedure
   
+  Procedure   SetData(GNum.i, Value.q)
+	  
+	  If FindMapElement(PBarEx(), Str(GNum))
+	    PBarEx()\Quad = Value
+	  EndIf  
+	  
+	EndProcedure  
+  
   Procedure   SetFont(GNum.i, FontNum.i)
     
     If FindMapElement(PBarEx(), Str(GNum))
@@ -649,6 +727,14 @@ Module ProgressEx
     EndIf  
     
   EndProcedure
+  
+	Procedure   SetID(GNum.i, String.s)
+	  
+	  If FindMapElement(PBarEx(), Str(GNum))
+	    PBarEx()\ID = String
+	  EndIf
+	  
+	EndProcedure  
   
   Procedure   SetState(GNum.i, Value.i)
     
@@ -722,8 +808,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 57
-; FirstLine = 1
-; Folding = UEecHCw-
+; CursorPosition = 548
+; Folding = oAAOOjAA-
 ; EnableXP
 ; DPIAware

@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 26.11.19
+; Last Update: 08.12.19
 ;
 ; Added:   ToolBar::TextButton() [similar to ImageButton()]
 ; Renamed: ToolBar::TextButton() => ToolBar::Button() [ButtonGadget()]
@@ -94,7 +94,7 @@
 
 DeclareModule ToolBar
   
-  #Version  = 19112604
+  #Version  = 19120800
   #ModuleEx = 19112500
   
   #EnableToolBarGadgets = #True
@@ -196,6 +196,8 @@ DeclareModule ToolBar
   Declare.i Gadget(GNum.i, X.i=#PB_Ignore, Y.i=#PB_Ignore, Width.i=#PB_Ignore, Height.i=#PB_Ignore, Flags.i=#False, WindowNum.i=#PB_Default)
   Declare.i GetAttribute(GNum.i, Attribute.i)
   Declare.i GetGadgetNumber(GNum.i, TB_Index.i)
+  Declare.q GetData(GNum.i)
+	Declare.s GetID(GNum.i)
   Declare.i GetIndex(GNum.i, EventNum.i)
   Declare.i GetIndexFromID(GNum.i, EventID.s) 
   Declare   Height(GNum.i)
@@ -207,7 +209,9 @@ DeclareModule ToolBar
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
   Declare   SetColor(GNum.i, ColorType.i, Color.i)
+  Declare   SetData(GNum.i, Value.q)
   Declare   SetFont(GNum.i, FontID.i)
+  Declare   SetID(GNum.i, String.s)
   Declare   SetPostEvent(GNum.i, Event.i=#Event_Gadget) 
   Declare   Spacer(GNum.i)
   Declare   TextButton(GNum.i, Text.s="", EventNum.i=#False, EventID.s="", Flags.i=#False)
@@ -344,7 +348,11 @@ Module ToolBar
     
     CanvasNum.i
     
+    Quad.q
+    ID.s
+    
     FontID.i
+    
     Focus.i
     LastFocus.i 
     ReDraw.i    ; #True/#False
@@ -407,6 +415,53 @@ Module ToolBar
     
   CompilerEndIf
   
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure.i GetGadgetWindow()
+      ProcedureReturn ModuleEx::GetGadgetWindow()
+    EndProcedure
+    
+  CompilerElse  
+    
+    CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+      ; Thanks to mk-soft
+      Import ""
+        PB_Object_EnumerateStart(PB_Objects)
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerElse
+      ImportC ""
+        PB_Object_EnumerateStart( PB_Objects )
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerEndIf
+    
+    Procedure.i GetGadgetWindow()
+      ; Thanks to mk-soft
+      Define.i WindowID, Window, Result = #PB_Default
+      
+      WindowID = UseGadgetList(0)
+      
+      PB_Object_EnumerateStart(PB_Window_Objects)
+      
+      While PB_Object_EnumerateNext(PB_Window_Objects, @Window)
+        If WindowID = WindowID(Window)
+          Result = Window
+          Break
+        EndIf
+      Wend
+      
+      PB_Object_EnumerateAbort(PB_Window_Objects)
+      
+      ProcedureReturn Result
+    EndProcedure
+    
+  CompilerEndIf	  
+  
   
   Procedure.f dpiX(Num.i)
     ProcedureReturn DesktopScaledX(Num)
@@ -415,6 +470,7 @@ Module ToolBar
   Procedure.f dpiY(Num.i)
     ProcedureReturn DesktopScaledY(Num)
   EndProcedure
+  
   
   Procedure.f GetAvailableSpace_()
     Define.f Space
@@ -1704,15 +1760,11 @@ Module ToolBar
       If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
     CompilerEndIf
     
-    CompilerIf Defined(ModuleEx, #PB_Module)
-      If WindowNum = #PB_Default
-        WindowNum = ModuleEx::GetGadgetWindow()
-      EndIf
-    CompilerElse
-      If WindowNum = #PB_Default
-        WindowNum = GetActiveWindow()
-      EndIf
-    CompilerEndIf   
+  	If WindowNum = #PB_Default
+      WindowNum = GetGadgetWindow()
+    Else
+      WindowNum = WindowNum
+    EndIf
     
     ;{ ImageSize
     If Flags & #ImageSize_16
@@ -1872,6 +1924,22 @@ Module ToolBar
     EndIf
     
   EndProcedure
+  
+  Procedure.q GetData(GNum.i)
+	  
+	  If FindMapElement(TBEx(), Str(GNum))
+	    ProcedureReturn TBEx()\Quad
+	  EndIf  
+	  
+	EndProcedure	
+	
+	Procedure.s GetID(GNum.i)
+	  
+	  If FindMapElement(TBEx(), Str(GNum))
+	    ProcedureReturn TBEx()\ID
+	  EndIf
+	  
+	EndProcedure
   
   Procedure.i GetIndex(GNum.i, EventNum.i) 
     
@@ -2076,6 +2144,14 @@ Module ToolBar
     
   EndProcedure
   
+  Procedure   SetData(GNum.i, Value.q)
+	  
+	  If FindMapElement(TBEx(), Str(GNum))
+	    TBEx()\Quad = Value
+	  EndIf  
+	  
+	EndProcedure
+
   Procedure   SetFont(GNum.i, FontID.i)
     Define.i Flags
     
@@ -2119,6 +2195,14 @@ Module ToolBar
     EndIf
     
   EndProcedure
+  
+  Procedure   SetID(GNum.i, String.s)
+	  
+	  If FindMapElement(TBEx(), Str(GNum))
+	    TBEx()\ID = String
+	  EndIf
+	  
+	EndProcedure   
   
   Procedure   SetPostEvent(GNum.i, Event.i=#Event_Gadget)
     
@@ -2369,7 +2453,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 96
-; Folding = oCAYyf5PoAQEAAgMGASAb-
+; FirstLine = 9
+; Folding = oCIAA9D+DKAEBAAgRGAcE3+
 ; EnableXP
 ; DPIAware
 ; Executable = Test.exe

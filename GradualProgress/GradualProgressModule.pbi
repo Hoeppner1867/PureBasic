@@ -11,7 +11,7 @@
 ;/ © 2019  by Thorsten (11/2019)
 ;/
 
-; Last Update: 19.11.19
+; Last Update: 08.12.19
 ;
 ; Added: #UseExistingCanvas
 ;
@@ -57,7 +57,7 @@
 
 DeclareModule Gradual
   
-  #Version  = 19111900
+  #Version  = 19120800
   #ModuleEx = 19111702
   
 	;- ===========================================================================
@@ -113,9 +113,13 @@ DeclareModule Gradual
 
   Declare   DisableReDraw(GNum.i, State.i=#False)
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Steps.i, Flags.i=#False, WindowNum.i=#PB_Default)
+  Declare.q GetData(GNum.i)
+	Declare.s GetID(GNum.i)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetColor(GNum.i, ColorTyp.i, Value.i)
+  Declare   SetData(GNum.i, Value.q)
   Declare   SetFont(GNum.i, FontID.i) 
+  Declare   SetID(GNum.i, String.s)
   Declare   SetItemText(GNum.i, Item.i, Text.s)
   Declare   SetItemTooltip(GNum.i, Item.i, Text.s)
   Declare   SetState(GNum.i, State.i)
@@ -170,8 +174,12 @@ Module Gradual
 	
 	Structure Gradual_Structure         ;{ Gradual()\...
 		CanvasNum.i
-
+		
+		Quad.q
+		ID.s
+		
 		FontID.i
+		
 		ReDraw.i
 		Number.i
 		Flags.i
@@ -225,6 +233,54 @@ Module Gradual
 		EndProcedure
 
 	CompilerEndIf
+	
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure.i GetGadgetWindow()
+      ProcedureReturn ModuleEx::GetGadgetWindow()
+    EndProcedure
+    
+  CompilerElse  
+    
+    CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+      ; Thanks to mk-soft
+      Import ""
+        PB_Object_EnumerateStart(PB_Objects)
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerElse
+      ImportC ""
+        PB_Object_EnumerateStart( PB_Objects )
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerEndIf
+    
+    Procedure.i GetGadgetWindow()
+      ; Thanks to mk-soft
+      Define.i WindowID, Window, Result = #PB_Default
+      
+      WindowID = UseGadgetList(0)
+      
+      PB_Object_EnumerateStart(PB_Window_Objects)
+      
+      While PB_Object_EnumerateNext(PB_Window_Objects, @Window)
+        If WindowID = WindowID(Window)
+          Result = Window
+          Break
+        EndIf
+      Wend
+      
+      PB_Object_EnumerateAbort(PB_Window_Objects)
+      
+      ProcedureReturn Result
+    EndProcedure
+    
+  CompilerEndIf		
+	
 	
   Procedure.f dpiX(Num.i)
 	  If Num > 0  
@@ -639,19 +695,11 @@ Module Gradual
 
 				Gradual()\CanvasNum = GNum
 
-				CompilerIf Defined(ModuleEx, #PB_Module) ; WindowNum = #Default
-					If WindowNum = #PB_Default
-						Gradual()\Window\Num = ModuleEx::GetGadgetWindow()
-					Else
-						Gradual()\Window\Num = WindowNum
-					EndIf
-				CompilerElse
-					If WindowNum = #PB_Default
-						Gradual()\Window\Num = GetActiveWindow()
-					Else
-						Gradual()\Window\Num = WindowNum
-					EndIf
-				CompilerEndIf
+				If WindowNum = #PB_Default
+          Gradual()\Window\Num = GetGadgetWindow()
+        Else
+          Gradual()\Window\Num = WindowNum
+        EndIf
 
 				CompilerSelect #PB_Compiler_OS           ;{ Default Gadget Font
 					CompilerCase #PB_OS_Windows
@@ -725,6 +773,24 @@ Module Gradual
 
 	EndProcedure
 	
+	
+  Procedure.q GetData(GNum.i)
+	  
+	  If FindMapElement(Gradual(), Str(GNum))
+	    ProcedureReturn Gradual()\Quad
+	  EndIf  
+	  
+	EndProcedure	
+	
+	Procedure.s GetID(GNum.i)
+	  
+	  If FindMapElement(Gradual(), Str(GNum))
+	    ProcedureReturn Gradual()\ID
+	  EndIf
+	  
+	EndProcedure
+	
+	
 	Procedure   SetAutoResizeFlags(GNum.i, Flags.i)
     
     If FindMapElement(Gradual(), Str(GNum))
@@ -765,6 +831,14 @@ Module Gradual
     
   EndProcedure
   
+  Procedure   SetData(GNum.i, Value.q)
+	  
+	  If FindMapElement(Gradual(), Str(GNum))
+	    Gradual()\Quad = Value
+	  EndIf  
+	  
+	EndProcedure  
+  
   Procedure   SetFont(GNum.i, FontID.i) 
     
     If FindMapElement(Gradual(), Str(GNum))
@@ -775,6 +849,14 @@ Module Gradual
     EndIf
     
   EndProcedure  
+  
+	Procedure   SetID(GNum.i, String.s)
+	  
+	  If FindMapElement(Gradual(), Str(GNum))
+	    Gradual()\ID = String
+	  EndIf
+	  
+	EndProcedure	  
   
   Procedure   SetItemText(GNum.i, Item.i, Text.s)
     
@@ -899,8 +981,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 620
-; FirstLine = 158
-; Folding = 9GAA5DGC50
+; CursorPosition = 59
+; Folding = 9GAAA+gRzx8
 ; EnableXP
 ; DPIAware

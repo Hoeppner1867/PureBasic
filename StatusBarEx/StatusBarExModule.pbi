@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
   
-; Last Update: 19.11.2019
+; Last Update: 08.12.2019
 ;
 ; Bugfix: DPI & SizeHandle
 ;
@@ -40,6 +40,14 @@
 ; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 ; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 ; SOFTWARE.
+;}
+
+;{ ===== Additional tea & pizza license =====
+; <purebasic@thprogs.de> has created this code. 
+; If you find the code useful and you want to use it for your programs, 
+; you are welcome to support my work with a cup of tea or a pizza
+; (or the amount of money for it). 
+; [ https://www.paypal.me/Hoeppner1867 ]
 ;}
 
 
@@ -81,7 +89,7 @@
 
 DeclareModule StatusBar
   
-  #Version  = 19111903
+  #Version  = 19120800
   #ModuleEx = 19111703
   
   ;- ===========================================================================
@@ -155,6 +163,8 @@ DeclareModule StatusBar
   Declare.i EventState(GNum.i)
   Declare   Free(GNum.i)
   Declare.i Gadget(GNum.i, WindowNum.i, MenuNum.i=#False, Flags.i=#False)
+  Declare.q GetData(GNum.i)
+	Declare.s GetID(GNum.i)
   Declare.i GetState(GNum.i, Field.i)
   Declare.s GetText(GNum.i, Field.i)
   Declare.i Height(GNum.i)
@@ -165,8 +175,10 @@ DeclareModule StatusBar
   Declare   Progress(GNum.i, Field.i, Minimum.i=0, Maximum.i=100)
   Declare   SetAttribute(GNum.i, Field.i, Attribute.i, Value.i)
   Declare   SetColor(GNum.i, ColorType.i, Color.i, Field.i=#PB_Ignore)
+  Declare   SetData(GNum.i, Value.q)
   Declare   SetFont(GNum.i, FontNum.i, Field.i=#PB_Ignore)
   Declare   SetHeight(GNum.i, Height.i)
+  Declare   SetID(GNum.i, String.s)
   Declare   SetState(GNum.i, Field.i, State.i)
   Declare   SetText(GNum.i, Field.i, Text.s)
   Declare   Text(GNum.i, Field.i, Text.s, Flags.i=#False)
@@ -267,6 +279,9 @@ Module StatusBar
   Structure StBEx_Structure ;{ StBEx('GNum')\
     CanvasNum.i
     
+    Quad.q
+    ID.s
+    
     IgnoreNum.i ; Number of fields with #PB_Ignore
     FontID.i
     Focus.i
@@ -325,6 +340,7 @@ Module StatusBar
     
   CompilerEndIf  
   
+  
   Procedure.f dpiX(Num.i)
     ProcedureReturn DesktopScaledX(Num)
   EndProcedure
@@ -332,6 +348,7 @@ Module StatusBar
   Procedure.f dpiY(Num.i)
     ProcedureReturn DesktopScaledY(Num)
   EndProcedure
+
   
   Procedure   DisableToolTip_()
     
@@ -960,7 +977,7 @@ Module StatusBar
         ProcedureReturn #False
       EndIf
       ;}
-    Else                  ;{ Window
+    Else                 ;{ Window
       
       If IsWindow(WindowNum)
         Width  = WindowWidth(WindowNum,  #PB_Window_InnerCoordinate)
@@ -1060,6 +1077,22 @@ Module StatusBar
   EndProcedure
   
   
+  Procedure.q GetData(GNum.i)
+	  
+	  If FindMapElement(StBEx(), Str(GNum))
+	    ProcedureReturn StBEx()\Quad
+	  EndIf  
+	  
+	EndProcedure	
+	
+	Procedure.s GetID(GNum.i)
+	  
+	  If FindMapElement(StBEx(), Str(GNum))
+	    ProcedureReturn StBEx()\ID
+	  EndIf
+	  
+	EndProcedure
+
   Procedure.i GetState(GNum.i, Field.i)
     
     If FindMapElement(StBEx(), Str(GNum))
@@ -1326,6 +1359,14 @@ Module StatusBar
     
   EndProcedure
   
+  Procedure   SetData(GNum.i, Value.q)
+	  
+	  If FindMapElement(StBEx(), Str(GNum))
+	    StBEx()\Quad = Value
+	  EndIf  
+	  
+	EndProcedure
+
   Procedure   SetFont(GNum.i, FontNum.i, Field.i=#PB_Ignore)
     
     If FindMapElement(StBEx(), Str(GNum))
@@ -1364,6 +1405,14 @@ Module StatusBar
     EndIf
   
   EndProcedure
+  
+	Procedure   SetID(GNum.i, String.s)
+	  
+	  If FindMapElement(StBEx(), Str(GNum))
+	    StBEx()\ID = String
+	  EndIf
+	  
+	EndProcedure   
   
   Procedure   SetState(GNum.i, Field.i, State.i)
     
@@ -1564,7 +1613,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
   
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 83
-; Folding = 9AAoBwAEgYAAAw
+; CursorPosition = 91
+; Folding = 5BIAAAAAARgDAI5
 ; EnableXP
 ; DPIAware

@@ -10,13 +10,8 @@
 ;/
 
 
-; Last Update: 02.12.19
-;
-; Bugfixes
-;
-; Added: #UseExistingCanvas
-; Added: #Time flag for axis / AddAxisLabel()
-;
+; Last Update: 08.12.19
+
 
 ;{ ===== MIT License =====
 ;
@@ -122,7 +117,7 @@
 
 DeclareModule Chart
   
-  #Version  = 19120200
+  #Version  = 19120800
   #ModuleEx = 19111702
   
   #Enable_PieChart       = #True
@@ -298,7 +293,9 @@ DeclareModule Chart
   Declare.s EventLabel(GNum.i)
   Declare.i EventValue(GNum.i)
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
+  Declare.q GetData(GNum.i)
   Declare.s GetErrorMessage(GNum.i, Language.s="")
+  Declare.s GetID(GNum.i)
   Declare.i GetItemColor(GNum.i, Position.i)
   Declare.s GetItemLabel(GNum.i, Position.i)
   Declare.i GetItemState(GNum.i, Position.i)
@@ -311,8 +308,10 @@ DeclareModule Chart
   Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetColor(GNum.i, ColorType.i, Color.i)
+  Declare   SetData(GNum.i, Value.q)
   Declare   SetFlags(GNum.i, Type.i, Flags.i)
   Declare   SetFont(GNum.i, FontID.i, Flags.i=#False) 
+  Declare   SetID(GNum.i, String.s)
   Declare.i SetItemState(GNum.i, Position.i, State.i)
   Declare.i SetItemText(GNum.i, Position.i, Text.s)
   Declare.i SetLabelState(GNum.i, Label.s, State.i)
@@ -530,6 +529,9 @@ Module Chart
     CanvasNum.i
     PopupNum.i
     
+    Quad.q
+    ID.s
+    
     FontID.i
     
     Minimum.i
@@ -610,6 +612,54 @@ Module Chart
     EndProcedure
     
   CompilerEndIf
+  
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure.i GetGadgetWindow()
+      ProcedureReturn ModuleEx::GetGadgetWindow()
+    EndProcedure
+    
+  CompilerElse  
+    
+    CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+      ; Thanks to mk-soft
+      Import ""
+        PB_Object_EnumerateStart(PB_Objects)
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerElse
+      ImportC ""
+        PB_Object_EnumerateStart( PB_Objects )
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerEndIf
+    
+    Procedure.i GetGadgetWindow()
+      ; Thanks to mk-soft
+      Define.i WindowID, Window, Result = #PB_Default
+      
+      WindowID = UseGadgetList(0)
+      
+      PB_Object_EnumerateStart(PB_Window_Objects)
+      
+      While PB_Object_EnumerateNext(PB_Window_Objects, @Window)
+        If WindowID = WindowID(Window)
+          Result = Window
+          Break
+        EndIf
+      Wend
+      
+      PB_Object_EnumerateAbort(PB_Window_Objects)
+      
+      ProcedureReturn Result
+    EndProcedure
+    
+  CompilerEndIf	
+  
   
   Procedure.f dpiX(Num.i)
     ProcedureReturn DesktopScaledX(Num)
@@ -4846,6 +4896,8 @@ Module Chart
   ;-   Module - Declared Procedures
   ;- ========================================================================== 
   
+  ;- _____ Scatter Plot _____
+  
   CompilerIf #Enable_ScatterPlot
     
     Procedure   AddScatterPlot(GNum.i, Label.s, Color.i=#PB_Default, GradientColor.i=#PB_Default, BorderColor.i=#PB_Default)
@@ -5216,7 +5268,9 @@ Module Chart
     EndProcedure
     
   CompilerEndIf  
-
+  
+  ;- _____ Data Series _____
+  
   CompilerIf #Enable_DataSeries
     
     Procedure.i AddDataSeries(GNum.i, Label.s, Color.i=#PB_Default, GradientColor.i=#PB_Default, BorderColor.i=#PB_Default)
@@ -5555,6 +5609,7 @@ Module Chart
     
   CompilerEndIf
   
+  ;- _____ Charts _____
   
   Procedure.i AddAxisLabel(GNum.i, Label.s, Value.f, Type.i=#AxisX) ; enable with flag '#Label'
     Define.i i, Count
@@ -5734,19 +5789,11 @@ Module Chart
         
         Chart()\CanvasNum = GNum
         
-        CompilerIf Defined(ModuleEx, #PB_Module)
-          If WindowNum = #PB_Default
-            Chart()\Window\Num = ModuleEx::GetGadgetWindow()
-          Else
-            Chart()\Window\Num = WindowNum
-          EndIf
-        CompilerElse
-          If WindowNum = #PB_Default
-            Chart()\Window\Num = GetActiveWindow()
-          Else
-            Chart()\Window\Num = WindowNum
-          EndIf
-        CompilerEndIf   
+        If WindowNum = #PB_Default
+          Chart()\Window\Num = GetGadgetWindow()
+        Else
+          Chart()\Window\Num = WindowNum
+        EndIf
         
         CompilerSelect #PB_Compiler_OS ;{ Font
           CompilerCase #PB_OS_Windows
@@ -5939,6 +5986,24 @@ Module Chart
     
   EndProcedure
   
+  
+  Procedure.q GetData(GNum.i)
+	  
+	  If FindMapElement(Chart(), Str(GNum))
+	    ProcedureReturn Chart()\Quad
+	  EndIf  
+	  
+	EndProcedure	
+	
+	Procedure.s GetID(GNum.i)
+	  
+	  If FindMapElement(Chart(), Str(GNum))
+	    ProcedureReturn Chart()\ID
+	  EndIf
+	  
+	EndProcedure
+
+
   Procedure.i GetItemColor(GNum.i, Position.i)
     
     If FindMapElement(Chart(), Str(GNum))
@@ -6263,6 +6328,14 @@ Module Chart
     
   EndProcedure
   
+  Procedure   SetData(GNum.i, Value.q)
+	  
+	  If FindMapElement(Chart(), Str(GNum))
+	    Chart()\Quad = Value
+	  EndIf  
+	  
+	EndProcedure
+	
   Procedure   SetFlags(GNum.i, Type.i, Flags.i)
     
     If FindMapElement(Chart(), Str(GNum))
@@ -6318,6 +6391,14 @@ Module Chart
     EndIf
     
   EndProcedure 
+  
+  Procedure   SetID(GNum.i, String.s)
+	  
+	  If FindMapElement(Chart(), Str(GNum))
+	    Chart()\ID = String
+	  EndIf
+	  
+	EndProcedure
   
   Procedure.i SetItemState(GNum.i, Position.i, State.i)
     
@@ -6920,8 +7001,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 13
-; FirstLine = 12
-; Folding = 5EAA----f7GRwgAeEBdUIn-fAe5-z-----08JeAkqAACbA5eVh9-P9dNE-1+
+; CursorPosition = 119
+; FirstLine = 6
+; Folding = 5EAAhz---nuREMIgHRQHFy6-HgH+-9----f-eiDApKAgwEA4vqQ+-H96aI+p0
 ; EnableXP
 ; DPIAware

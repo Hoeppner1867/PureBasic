@@ -10,7 +10,7 @@
 ;/
 
 
-; Last Update: 14.11.19
+; Last Update: 08.12.19
 ;
 ; Added: #UseExistingCanvas
 ;
@@ -60,7 +60,7 @@
 
 DeclareModule PreView
   
-  #Version  = 19111900
+  #Version  = 19120800
   #ModuleEx = 19111702
   
 	;- ===========================================================================
@@ -117,9 +117,14 @@ DeclareModule PreView
 
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
   
+  Declare.q GetData(GNum.i)
+	Declare.s GetID(GNum.i)
+
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetColor(GNum.i, ColorTyp.i, Value.i)
+  Declare   SetData(GNum.i, Value.q)
   Declare   SetFont(GNum.i, Font.i)
+  Declare   SetID(GNum.i, String.s)
   
   Declare   FileImage(GNum.i, File.s)
   Declare   FileJSON(GNum.i, File.s, Font.i=#PB_Default, Flags.i=#PB_UTF8)
@@ -221,7 +226,11 @@ Module PreView
 		
 		ImageNum.i
 		
+		Quad.q
+		ID.s
+		
 		FontID.i
+		
 		Mode.i
 		Flags.i
 
@@ -278,6 +287,53 @@ Module PreView
 		EndProcedure
 
 	CompilerEndIf
+	
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure.i GetGadgetWindow()
+      ProcedureReturn ModuleEx::GetGadgetWindow()
+    EndProcedure
+    
+  CompilerElse  
+    
+    CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+      ; Thanks to mk-soft
+      Import ""
+        PB_Object_EnumerateStart(PB_Objects)
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerElse
+      ImportC ""
+        PB_Object_EnumerateStart( PB_Objects )
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerEndIf
+    
+    Procedure.i GetGadgetWindow()
+      ; Thanks to mk-soft
+      Define.i WindowID, Window, Result = #PB_Default
+      
+      WindowID = UseGadgetList(0)
+      
+      PB_Object_EnumerateStart(PB_Window_Objects)
+      
+      While PB_Object_EnumerateNext(PB_Window_Objects, @Window)
+        If WindowID = WindowID(Window)
+          Result = Window
+          Break
+        EndIf
+      Wend
+      
+      PB_Object_EnumerateAbort(PB_Window_Objects)
+      
+      ProcedureReturn Result
+    EndProcedure
+    
+  CompilerEndIf		
 	
 	
   Procedure.f dpiX(Num.i)
@@ -1324,19 +1380,11 @@ Module PreView
         EndIf
         
         
-				CompilerIf Defined(ModuleEx, #PB_Module) ; WindowNum = #Default
-					If WindowNum = #PB_Default
-						PreView()\Window\Num = ModuleEx::GetGadgetWindow()
-					Else
-						PreView()\Window\Num = WindowNum
-					EndIf
-				CompilerElse
-					If WindowNum = #PB_Default
-						PreView()\Window\Num = GetActiveWindow()
-					Else
-						PreView()\Window\Num = WindowNum
-					EndIf
-				CompilerEndIf
+  			If WindowNum = #PB_Default
+          PreView()\Window\Num = GetGadgetWindow()
+        Else
+          PreView()\Window\Num = WindowNum
+        EndIf
 
 				CompilerSelect #PB_Compiler_OS           ;{ Default Gadget Font
 					CompilerCase #PB_OS_Windows
@@ -1418,6 +1466,23 @@ Module PreView
 	EndProcedure
 	
 	
+  Procedure.q GetData(GNum.i)
+	  
+	  If FindMapElement(PreView(), Str(GNum))
+	    ProcedureReturn PreView()\Quad
+	  EndIf  
+	  
+	EndProcedure	
+	
+	Procedure.s GetID(GNum.i)
+	  
+	  If FindMapElement(PreView(), Str(GNum))
+	    ProcedureReturn PreView()\ID
+	  EndIf
+	  
+	EndProcedure
+
+
 	Procedure   SetAutoResizeFlags(GNum.i, Flags.i)
     
     If FindMapElement(PreView(), Str(GNum))
@@ -1447,6 +1512,14 @@ Module PreView
     
   EndProcedure
   
+  Procedure   SetData(GNum.i, Value.q)
+	  
+	  If FindMapElement(PreView(), Str(GNum))
+	    PreView()\Quad = Value
+	  EndIf  
+	  
+	EndProcedure  
+  
   Procedure   SetFont(GNum.i, Font.i) 
     
     If FindMapElement(PreView(), Str(GNum))
@@ -1460,7 +1533,14 @@ Module PreView
     
   EndProcedure  
   
-  
+	Procedure   SetID(GNum.i, String.s)
+	  
+	  If FindMapElement(PreView(), Str(GNum))
+	    PreView()\ID = String
+	  EndIf
+	  
+	EndProcedure	 
+	
   Procedure   Image(GNum.i, Image.i)
     
     If FindMapElement(PreView(), Str(GNum))   
@@ -1688,8 +1768,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1284
-; FirstLine = 549
-; Folding = 9GD4TPQ5RwZA-
+; CursorPosition = 62
+; FirstLine = 9
+; Folding = 9GAAgwDAAAEfF+
 ; EnableXP
 ; DPIAware

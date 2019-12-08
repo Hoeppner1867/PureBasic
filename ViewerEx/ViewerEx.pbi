@@ -10,7 +10,7 @@
 ;/ Pattern based on (http://tug.org/tex-hyphen/)
 ;/
 
-; Last Update: 29.11.19
+; Last Update: 08.12.19
 ;
 ; Added: #UseExistingCanvas
 ;
@@ -102,7 +102,7 @@
 
 DeclareModule ViewerEx
   
-  #Version  = 19112902
+  #Version  = 19120800
   #ModuleEx = 19111702
   
   #Enable_Hyphenation         = #True
@@ -478,6 +478,54 @@ Module ViewerEx
     EndProcedure
     
   CompilerEndIf  
+  
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure.i GetGadgetWindow()
+      ProcedureReturn ModuleEx::GetGadgetWindow()
+    EndProcedure
+    
+  CompilerElse  
+    
+    CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+      ; Thanks to mk-soft
+      Import ""
+        PB_Object_EnumerateStart(PB_Objects)
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerElse
+      ImportC ""
+        PB_Object_EnumerateStart( PB_Objects )
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerEndIf
+    
+    Procedure.i GetGadgetWindow()
+      ; Thanks to mk-soft
+      Define.i WindowID, Window, Result = #PB_Default
+      
+      WindowID = UseGadgetList(0)
+      
+      PB_Object_EnumerateStart(PB_Window_Objects)
+      
+      While PB_Object_EnumerateNext(PB_Window_Objects, @Window)
+        If WindowID = WindowID(Window)
+          Result = Window
+          Break
+        EndIf
+      Wend
+      
+      PB_Object_EnumerateAbort(PB_Window_Objects)
+      
+      ProcedureReturn Result
+    EndProcedure
+    
+  CompilerEndIf	  
+  
   
   Procedure.f dpiX(Num.i)
     ProcedureReturn DesktopScaledX(Num)
@@ -2422,19 +2470,11 @@ Module ViewerEx
           VGEx()\ScrollBar\Hide = #True
         EndIf
         
-        CompilerIf Defined(ModuleEx, #PB_Module)
-          If WindowNum = #PB_Default
-            VGEx()\Window\Num = ModuleEx::GetGadgetWindow()
-          Else
-            VGEx()\Window\Num = WindowNum
-          EndIf
-        CompilerElse
-          If WindowNum = #PB_Default
-            VGEx()\Window\Num = GetActiveWindow()
-          Else
-            VGEx()\Window\Num = WindowNum
-          EndIf
-        CompilerEndIf   
+  			If WindowNum = #PB_Default
+          VGEx()\Window\Num = GetGadgetWindow()
+        Else
+          VGEx()\Window\Num = WindowNum
+        EndIf  
         
         If IsWindow(VGEx()\Window\Num)
           VGEx()\Window\Width  = WindowWidth(VGEx()\Window\Num)
@@ -2903,9 +2943,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1435
-; FirstLine = 370
-; Folding = 5FAAIDAgmSBBwADEAAA9yDBk0
-; Markers = 1867
+; CursorPosition = 104
+; Folding = 5FAAADAAgpUQAMwABAAAvcIgs
+; Markers = 1915
 ; EnableXP
 ; DPIAware
