@@ -7,8 +7,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 7.12.2019
-;
+; Last Update: 8.12.2019
 
 
 ;{ ===== MIT License =====
@@ -87,7 +86,7 @@
 
 DeclareModule ComboBoxEx
   
-  #Version  = 19120700
+  #Version  = 19120800
   #ModuleEx = 19112600
   
   ;- ===========================================================================
@@ -1154,7 +1153,6 @@ Module ComboBoxEx
     HideWindow(ComboEx()\ListView\Window, #True)
     
     ComboEx()\ListView\Hide  = #True
-    ComboEx()\ListView\State = #PB_Default
     ComboEx()\Button\State & ~#Click
 
     Draw_()
@@ -1276,16 +1274,17 @@ Module ComboBoxEx
             
             ForEach ComboEx()\ListView\Item()
               If Y >= ComboEx()\ListView\Item()\Y And Y <= ComboEx()\ListView\Item()\Y + ComboEx()\ListView\RowHeight
-                If ComboEx()\ListView\State <> ListIndex(ComboEx()\ListView\Item())
-                  ComboEx()\ListView\State = #PB_Default
-                  ProcedureReturn  #False
-                EndIf
-                ComboEx()\Text  = ComboEx()\ListView\Item()\String
-                ComboEx()\State = ListIndex(ComboEx()\ListView\Item())
+                ;If ComboEx()\ListView\State <> ListIndex(ComboEx()\ListView\Item())
+                ;  ComboEx()\ListView\State = #PB_Default
+                ;  ProcedureReturn  #False
+                ;EndIf
+                ComboEx()\Text = ComboEx()\ListView\Item()\String
+                ComboEx()\ListView\State = ListIndex(ComboEx()\ListView\Item())
+                Debug "State: " + Str(ComboEx()\ListView\State)
                 DrawListView_()
                 CloseListView_()
-                PostEvent(#Event_Gadget, ComboEx()\Window\Num, ComboEx()\CanvasNum, #EventType_Change)
-                PostEvent(#PB_Event_Gadget, ComboEx()\Window\Num, ComboEx()\CanvasNum, #EventType_Change)
+                PostEvent(#Event_Gadget, ComboEx()\Window\Num, ComboEx()\CanvasNum, #EventType_Change, ComboEx()\ListView\State)
+                PostEvent(#PB_Event_Gadget, ComboEx()\Window\Num, ComboEx()\CanvasNum, #EventType_Change, ComboEx()\ListView\State)
                 ProcedureReturn #True
               EndIf
             Next 
@@ -1888,7 +1887,7 @@ Module ComboBoxEx
             Thread\Active = #False
           EndIf
         CompilerEndIf
-        
+
         DeleteMapElement(ComboEx())
         
       EndIf
@@ -2628,7 +2627,7 @@ CompilerIf #PB_Compiler_IsMainFile
                 Case #PB_EventType_LostFocus
                  ; Debug ">>> LostFocus"
                 Case ComboBoxEx::#EventType_Change
-                  Debug ">>> Changed"
+                  Debug ">>> Changed: " + Str(ComboBoxEx::GetState(#ComboEx))
               EndSelect    
           EndSelect
       EndSelect        
@@ -2639,8 +2638,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 89
-; Folding = IMAiAAAAABAk9XIAgDAFAsEAAAg-
+; CursorPosition = 88
+; Folding = IMAgEAAAEBYo1eIAQDAMAMEgAA5-
 ; EnableThread
 ; EnableXP
 ; DPIAware

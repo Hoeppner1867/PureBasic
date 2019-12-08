@@ -137,7 +137,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19120801
+  #Version  = 19120803
   #ModuleEx = 19112100
   
   #Enable_Validation  = #True
@@ -4688,7 +4688,8 @@ Module ListEx
         Else                     ;{ Change cursor to #PB_Cursor_LeftRight
       
           ForEach ListEx()\Cols()
-            If X >= ListEx()\Cols()\X - dpiX(1) And X <= ListEx()\Cols()\X + dpiX(1)
+            ColX = ListEx()\Cols()\X - ListEx()\Col\OffsetX
+            If X >= ColX - dpiX(1) And X <= ColX + dpiX(1)
               ListEx()\CanvasCursor = #PB_Cursor_LeftRight
               ListEx()\Col\Resize   = ListIndex(ListEx()\Cols()) - 1
               SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
@@ -5033,10 +5034,10 @@ Module ListEx
         
         SetGadgetState(ScrollNum, ListEx()\Col\OffsetX)
         SetHScrollPosition_()
-        
-        UpdateRowY_()
-        
+
         ScrollEditGadgets_() 
+        
+        UpdateColumnX_()
         
         Draw_()
         If ListEx()\String\Flag : DrawString_() : EndIf 
@@ -7659,7 +7660,7 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 139
-; Folding = 5wPAAAAJFAAAEBCADA9HQ5hCBAAFykQIAAAAAAAxfKAwHgmDHgBwBQBAgJAAASgv-
+; Folding = 5wPAAAAJFgIAEBCADA9HQ5hCBAAFyEAMAAAAAAAwfJAAEgmDHgBwBQBAgJAAASgv-
 ; Markers = 3120
 ; EnableXP
 ; DPIAware
