@@ -9,9 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 07.12.2019
-;
-; - Bugfixes
+; Last Update: 08.12.2019
 ;
 ; - Added: Multiline support
 ; - Added: SetCondition() for editable cells
@@ -139,7 +137,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19120700
+  #Version  = 19120800
   #ModuleEx = 19112100
   
   #Enable_Validation  = #True
@@ -4488,9 +4486,12 @@ Module ListEx
       ListEx()\Row\Current = GetRow_(GetGadgetAttribute(GNum, #PB_Canvas_MouseY))
       ListEx()\Col\Current = GetColumn_(GetGadgetAttribute(GNum, #PB_Canvas_MouseX))
       
-      ListEx()\CanvasCursor = #Cursor_Default
-      ListEx()\Col\Resize   = #PB_Default 
-      ListEx()\Col\MouseX   = 0
+      If ListEx()\CanvasCursor <> #Cursor_Default
+        ListEx()\CanvasCursor = #Cursor_Default
+        ListEx()\Col\Resize   = #PB_Default 
+        ListEx()\Col\MouseX   = 0
+        AdjustScrollBars_()
+      EndIf
       
       If ListEx()\Row\Current < 0 Or ListEx()\Col\Current < 0 : ProcedureReturn #False : EndIf
       
@@ -7619,10 +7620,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 141
-; FirstLine = 12
-; Folding = 5wPAAAAJlAAQEIAMAwfAhHKEAAUITKgAAAAAAAA-pAAfAaOcAGAOAKAAMBAAQC90-
-; Markers = 3076
+; CursorPosition = 139
+; FirstLine = 18
+; Folding = 5wPAAAAJlAAQEIAMAwfAhHKEAAUITChAAAAAAAE-pAAfAaOcAGAOAKAAMBAAQC90-
+; Markers = 3074
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
