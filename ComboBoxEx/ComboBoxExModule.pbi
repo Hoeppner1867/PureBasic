@@ -86,7 +86,7 @@
 
 DeclareModule ComboBoxEx
   
-  #Version  = 19120800
+  #Version  = 19120801
   #ModuleEx = 19112600
   
   ;- ===========================================================================
@@ -1274,13 +1274,12 @@ Module ComboBoxEx
             
             ForEach ComboEx()\ListView\Item()
               If Y >= ComboEx()\ListView\Item()\Y And Y <= ComboEx()\ListView\Item()\Y + ComboEx()\ListView\RowHeight
-                ;If ComboEx()\ListView\State <> ListIndex(ComboEx()\ListView\Item())
-                ;  ComboEx()\ListView\State = #PB_Default
-                ;  ProcedureReturn  #False
-                ;EndIf
+                If ComboEx()\ListView\State <> ListIndex(ComboEx()\ListView\Item())
+                  ComboEx()\ListView\State = #PB_Default
+                  ProcedureReturn  #False
+                EndIf
                 ComboEx()\Text = ComboEx()\ListView\Item()\String
                 ComboEx()\ListView\State = ListIndex(ComboEx()\ListView\Item())
-                Debug "State: " + Str(ComboEx()\ListView\State)
                 DrawListView_()
                 CloseListView_()
                 PostEvent(#Event_Gadget, ComboEx()\Window\Num, ComboEx()\CanvasNum, #EventType_Change, ComboEx()\ListView\State)
@@ -2541,7 +2540,8 @@ Module ComboBoxEx
   Procedure   SetState(GNum.i, State.i)
 	  
 	  If FindMapElement(ComboEx(), Str(GNum))
-      ComboEx()\ListView\State = State
+	    ComboEx()\ListView\State = State
+	    Draw_()
     EndIf
     
 	EndProcedure
@@ -2564,7 +2564,8 @@ Module ComboBoxEx
           EndIf
         Next
         
-      EndIf   
+      EndIf 
+      
       Draw_()
     EndIf
     
@@ -2638,8 +2639,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 88
-; Folding = IMAgEAAAEBYo1eIAQDAMAMEgAA5-
+; CursorPosition = 2091
+; FirstLine = 643
+; Folding = IMAgEAAAEBYo1eIAQDAMAsEgAA5-
 ; EnableThread
 ; EnableXP
 ; DPIAware

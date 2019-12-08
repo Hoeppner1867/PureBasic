@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 6.12.19
+; Last Update: 8.12.19
 ;
 ; Added: StringEx::SetText(#StringEx, "Backtext", StringEx::#Background)
 ;
@@ -82,7 +82,7 @@
 
 DeclareModule StringEx
   
-  #Version  = 19120800
+  #Version  = 19120801
   #ModuleEx = 19120600
   
   #Enable_AutoComplete       = #True
@@ -998,14 +998,14 @@ Module StringEx
 
       ;{ _____ Text _____
       If StrgEx()\Text
-        
-        X = GetOffsetX_(Text, Width, dpiX(StrgEx()\Padding))
-        
+
         If StrgEx()\Flags & #Password And StrgEx()\Button\State & #Click = #False
           Text = LSet("", Len(StrgEx()\Text), #PWChar)
         Else
           Text = StrgEx()\Text
         EndIf
+        
+        X = GetOffsetX_(Text, Width, dpiX(StrgEx()\Padding))
         
         CursorX = X + TextWidth(Left(Text, StrgEx()\Cursor\Pos))
         If CursorX > Width
@@ -2520,7 +2520,7 @@ CompilerIf #PB_Compiler_IsMainFile
     ;StringEx::SetAttribute(#StringPW, StringEx::#Padding, 6)
     ;StringEx::SetAttribute(#StringPW, StringEx::#MaximumLength, 10)
     
-    StringEx::Gadget(#StringDel, 340, 19, 100, 20, "", StringEx::#AutoResize, #Window) ; StringEx::#Right
+    StringEx::Gadget(#StringDel, 340, 19, 100, 20, "", StringEx::#AutoResize|StringEx::#Right, #Window) ; 
     StringEx::AddButton(#StringDel, #Image)
     StringEx::SetAutoResizeFlags(#StringDel, StringEx::#Width)
     
@@ -2586,9 +2586,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 254
-; FirstLine = 104
-; Folding = 5OAUABABQEABMAAACKAwgBQQi+
+; CursorPosition = 84
+; FirstLine = 9
+; Folding = 5OAUABABQsABMAAACKAwgBQQi+
 ; EnableThread
 ; EnableXP
 ; DPIAware
