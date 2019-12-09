@@ -9,7 +9,7 @@
 ;/ © 2019  by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 08.12.2019
+; Last Update: 09.12.2019
 
 ;{ ===== MIT License =====
 ;
@@ -68,7 +68,7 @@ CompilerIf Not Defined(Calendar, #PB_Module) : XIncludeFile "CalendarModule.pbi"
 
 DeclareModule DateEx
   
-  #Version  = 19120800
+  #Version  = 19120900
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -876,6 +876,7 @@ Module DateEx
                   Else   
                     DateEx()\Date("%mm") = "12"
                   EndIf
+                  If DateEx()\Date("%mm") = "00" : DateEx()\Date("%mm") = "01" : EndIf
                   Days = GetDaysOfMonth_(Val(DateEx()\Date("%mm")), Val(DateEx()\Date("%yyyy")))
                   If Val(DateEx()\Date("%dd")) > Days : DateEx()\Date("%dd") = Str(Days): EndIf 
                   ;}
@@ -885,7 +886,9 @@ Module DateEx
                     DateEx()\Date("%dd") + Num$
                   Else
                     DateEx()\Date("%dd") = Str(Days)
-                  EndIf ;} 
+                  EndIf
+                  If DateEx()\Date("%dd") = "00" : DateEx()\Date("%dd") = "01" : EndIf 
+                  ;} 
                 Case #Hour   ;{ Hour
                   If Value <= 24
                     DateEx()\Date("%hh") + Num$
@@ -1116,7 +1119,7 @@ Module DateEx
   
   
 	Procedure _LeftButtonDownHandler()
-		Define.i X, Y
+		Define.i X, Y, Type
 		Define.i GNum = EventGadget()
 
 		If FindMapElement(DateEx(), Str(GNum))
@@ -1142,6 +1145,15 @@ Module DateEx
 			  EndIf
 
 			EndIf  
+			
+			;{ --- Check ---
+			If Val(DateEx()\Date("%yyyy")) <= 1600
+			  DateEx()\Date("%yyyy") = "1601"
+			  DateEx()\Date("%yy")   = "01"
+			EndIf 
+	    If Val(DateEx()\Date("%mm")) <= 0 : DateEx()\Date("%mm") = "01" : EndIf
+	    If Val(DateEx()\Date("%dd")) <= 0 : DateEx()\Date("%dd") = "01" : EndIf
+			;}
 			
 			ForEach DateEx()\Mask()
 			  
@@ -1752,7 +1764,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 70
-; Folding = 5hPAIgAAAsB1AgQ-RAMAAe-
+; CursorPosition = 890
+; FirstLine = 224
+; Folding = 5hTAIgAAAMAUPgQ-BAYQA9+
 ; EnableXP
 ; DPIAware

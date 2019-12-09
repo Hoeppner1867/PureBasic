@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 08.12.2019
+; Last Update: 09.12.2019
 ;
 ; - Added: Multiline support
 ; - Added: SetCondition() for editable cells
@@ -137,7 +137,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19120804
+  #Version  = 19120900
   #ModuleEx = 19112100
   
   #Enable_Validation  = #True
@@ -4127,7 +4127,7 @@ Module ListEx
   EndProcedure  
 
   Procedure _LeftButtonDownHandler()
-    Define.f X, Y, Width, Height
+    Define.i X, Y, Width, Height
     Define.i Flags, FontID, Row, StartRow, EndRow, FrontColor
     Define.s Key$, Value$
     Define   Image.Image_Structure
@@ -4135,8 +4135,11 @@ Module ListEx
     
     If FindMapElement(ListEx(), Str(GNum))
       
+      ListEx()\Row\Current = GetRow_(GetGadgetAttribute(GNum, #PB_Canvas_MouseY))
+      ListEx()\Col\Current = GetColumn_(GetGadgetAttribute(GNum, #PB_Canvas_MouseX))
+      
       ;{ Resize column with mouse
-      If ListEx()\Col\Resize <> #PB_Default
+      If ListEx()\Row\Current = #Header And ListEx()\Col\Resize <> #PB_Default
         ListEx()\Col\MouseX = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
         ProcedureReturn #True
       EndIf ;}
@@ -4156,8 +4159,7 @@ Module ListEx
         Draw_()
       EndIf ;}
       
-      ListEx()\Row\Current = GetRow_(GetGadgetAttribute(GNum, #PB_Canvas_MouseY))
-      ListEx()\Col\Current = GetColumn_(GetGadgetAttribute(GNum, #PB_Canvas_MouseX))
+      
       
       If ListEx()\Row\Current = #Header ;{ Header clicked
         
@@ -4645,67 +4647,68 @@ Module ListEx
       Row    = GetRow_(Y)
       Column = GetColumn_(X)
       
-      If ListEx()\Flags & #ResizeColumn Or ListEx()\Flags & #AdjustColumns ;{ Resize column with mouse
-        
-        If ListEx()\CanvasCursor = #PB_Cursor_LeftRight
+      If Row = #Header
+        If ListEx()\Flags & #ResizeColumn Or ListEx()\Flags & #AdjustColumns ;{ Resize column with mouse
           
-          If ListEx()\Col\MouseX ;{ Resize column
+          If ListEx()\CanvasCursor = #PB_Cursor_LeftRight
             
-            If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize)
+            If ListEx()\Col\MouseX ;{ Resize column
               
-              If ListEx()\Cols()\Width + (X - ListEx()\Col\MouseX) <= ListEx()\Cols()\minWidth
-                ProcedureReturn #False
-              EndIf   
-              
-              ColX     = ListEx()\Cols()\X
-              ColWidth = ListEx()\Cols()\Width
-              
-              ListEx()\Cols()\Width + (X - ListEx()\Col\MouseX) 
-
-            EndIf
-
-            If ListEx()\Flags & #AdjustColumns
-          
-              If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize + 1)
+              If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize)
                 
-                If ListEx()\Cols()\Width + (ListEx()\Col\MouseX - X) <= ListEx()\Cols()\minWidth
-                  If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize - 1)
-                    ListEx()\Cols()\Width = ColWidth
-                    ListEx()\Cols()\X     = ColX
-                  EndIf
-                  UpdateColumnX_()
-                  Draw_()
+                If ListEx()\Cols()\Width + (X - ListEx()\Col\MouseX) <= ListEx()\Cols()\minWidth
                   ProcedureReturn #False
                 EndIf   
+                
+                ColX     = ListEx()\Cols()\X
+                ColWidth = ListEx()\Cols()\Width
+                
+                ListEx()\Cols()\Width + (X - ListEx()\Col\MouseX) 
   
-                ListEx()\Cols()\X = X
-                ListEx()\Cols()\Width + (ListEx()\Col\MouseX - X) 
               EndIf
-            EndIf 
+  
+              If ListEx()\Flags & #AdjustColumns
             
-            ListEx()\Col\MouseX = X
+                If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize + 1)
+                  
+                  If ListEx()\Cols()\Width + (ListEx()\Col\MouseX - X) <= ListEx()\Cols()\minWidth
+                    If SelectElement(ListEx()\Cols(), ListEx()\Col\Resize - 1)
+                      ListEx()\Cols()\Width = ColWidth
+                      ListEx()\Cols()\X     = ColX
+                    EndIf
+                    UpdateColumnX_()
+                    Draw_()
+                    ProcedureReturn #False
+                  EndIf   
+    
+                  ListEx()\Cols()\X = X
+                  ListEx()\Cols()\Width + (ListEx()\Col\MouseX - X) 
+                EndIf
+              EndIf 
+              
+              ListEx()\Col\MouseX = X
+              
+              UpdateColumnX_()
+              Draw_()
+              
+              ProcedureReturn #True ;}
+            EndIf
             
-            UpdateColumnX_()
-            Draw_()
-            
-            ProcedureReturn #True ;}
-          EndIf
-          
-        Else                     ;{ Change cursor to #PB_Cursor_LeftRight
-      
-          ForEach ListEx()\Cols()
+          Else                     ;{ Change cursor to #PB_Cursor_LeftRight
+  
             ColX = ListEx()\Cols()\X - ListEx()\Col\OffsetX
             If X >= ColX - dpiX(1) And X <= ColX + dpiX(1)
               ListEx()\CanvasCursor = #PB_Cursor_LeftRight
               ListEx()\Col\Resize   = ListIndex(ListEx()\Cols()) - 1
               SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
               ProcedureReturn #True
-            EndIf  
-          Next
-          ;}
+            EndIf 
+            ;}
+          EndIf
+          
         EndIf
-        
-      EndIf ;}
+        ;} 
+      EndIf 
 
       Focus$ = Str(Row)+"|"+Str(Column)
       
@@ -5026,6 +5029,22 @@ Module ListEx
     
     If FindMapElement(ListEx(), Str(GadgetNum))
       
+      If ListEx()\String\Flag   ;{ Close String
+        CloseString_()
+        Draw_()
+      EndIf ;}
+      
+      If ListEx()\ComboBox\Flag ;{ Close ComboBox
+        CloseComboBox_()
+        Draw_()
+      EndIf ;}
+      
+      If ListEx()\Date\Flag     ;{ Close DateGadget
+        CloseDate_()
+        Draw_()
+      EndIf ;}
+      
+      
       ScrollPos = GetGadgetState(ScrollNum)
       If ScrollPos <> ListEx()\HScroll\Position
         
@@ -5060,6 +5079,22 @@ Module ListEx
     Define.f X, Y, ScrollPos
     
     If FindMapElement(ListEx(), Str(GadgetNum))
+      
+      If ListEx()\String\Flag   ;{ Close String
+        CloseString_()
+        Draw_()
+      EndIf ;}
+      
+      If ListEx()\ComboBox\Flag ;{ Close ComboBox
+        CloseComboBox_()
+        Draw_()
+      EndIf ;}
+      
+      If ListEx()\Date\Flag     ;{ Close DateGadget
+        CloseDate_()
+        Draw_()
+      EndIf ;}
+      
       
       ScrollPos = GetGadgetState(ScrollNum)
       If ScrollPos <> ListEx()\VScroll\Position
@@ -7666,8 +7701,7 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 139
-; FirstLine = 18
-; Folding = 5wfAAAAJFgIAEBCADA9HQ5hCBCAFy9FIAAAAAAAwdAAAAgmDHgBwBQBAgJAAASg--
+; Folding = 5wfAAAAJFgIAEBCADA9HQ5hCBCAFy9FIAAAAwAAwFEwdAAgmDHgBwBQBAgJAAASg--
 ; Markers = 3122
 ; EnableXP
 ; DPIAware
