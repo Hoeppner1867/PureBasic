@@ -68,7 +68,7 @@ CompilerIf Not Defined(Calendar, #PB_Module) : XIncludeFile "CalendarModule.pbi"
 
 DeclareModule DateEx
   
-  #Version  = 19121000
+  #Version  = 19121001
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -801,9 +801,9 @@ Module DateEx
           
           Date = Calendar::GetState(CalNum) 
           
-          Hour    = Val(Date("%hh"))
-          Minutes = Val(Date("%ii"))
-          Seconds = Val(Date("%ss"))
+          Hour    = Val(DateEx()\Date("%hh"))
+          Minutes = Val(DateEx()\Date("%ii"))
+          Seconds = Val(DateEx()\Date("%ss"))
           
           If Hour    : Date = AddDate_(Date, #PB_Date_Hour, Hour)      : EndIf 
           If Minutes : Date = AddDate_(Date, #PB_Date_Minute, Minutes) : EndIf 
@@ -1337,6 +1337,20 @@ Module DateEx
 
 	EndProcedure
 	
+	Procedure _MoveWindowHandler()
+    
+    ForEach DateEx()
+      
+      If IsGadget(DateEx()\CanvasNum)
+        If IsWindow(DateEx()\Window\Num)
+          If DateEx()\Calendar\Visible : CloseCalendar_() : EndIf
+        EndIf  
+      EndIf
+      
+    Next
+    
+  EndProcedure 
+	
 	;- __________ Calendar Widnow __________
 	
 	Procedure.i InitCalendar_()
@@ -1538,7 +1552,9 @@ Module DateEx
 				CompilerIf Defined(ModuleEx, #PB_Module)
           BindEvent(#Event_Theme, @_ThemeHandler())
         CompilerEndIf
-				
+        
+        If IsWindow(DateEx()\Window\Num) : BindEvent(#PB_Event_MoveWindow, @_MoveWindowHandler(), DateEx()\Window\Num) : EndIf
+        
 				If Flags & #AutoResize ;{ Enabel AutoResize
 					If IsWindow(DateEx()\Window\Num)
 						DateEx()\Window\Width  = WindowWidth(DateEx()\Window\Num)
@@ -1773,7 +1789,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 11
-; Folding = 5hTAIgAAAMA1OgQ-AAYQA9+
+; CursorPosition = 70
+; Folding = 5hTAIgAAAMB1OgQ-AEwgA50
 ; EnableXP
 ; DPIAware

@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 8.12.2019
+; Last Update: 10.12.2019
 
 
 ;{ ===== MIT License =====
@@ -86,7 +86,7 @@
 
 DeclareModule ComboBoxEx
   
-  #Version  = 19120801
+  #Version  = 19121000
   #ModuleEx = 19112600
   
   ;- ===========================================================================
@@ -104,13 +104,10 @@ DeclareModule ComboBoxEx
     #LowerCase
     #Image
     #AutoResize
-    #ShowButton
-    #EventButton
     #Left
     #Right
     #Center
-    #FitText
-    #FixPadding
+    #MultiSelect
     #UseExistingCanvas    
   EndEnumeration ;}
   
@@ -172,6 +169,7 @@ DeclareModule ComboBoxEx
   ;- ===========================================================================
   
   Declare.i AddItem(GNum.i, Row.i, Text.s, Label.s="", Flags.i=#False)
+  Declare.i AddSubItem(GNum.i, Item.i, SubItem.i, Text.s, State.i=#False)
   Declare   AttachPopupMenu(GNum.i, MenuNum.i)
   Declare   Copy(GNum.i)
   Declare   Cut(GNum.i)
@@ -187,6 +185,8 @@ DeclareModule ComboBoxEx
   Declare.s GetItemText(GNum.i, Row.i)
   Declare.s GetLabelText(GNum.i, Label.s)
   Declare.i GetState(GNum.i)
+  Declare.i GetSubItemState(GNum.i, Item.i, SubItem.i)
+  Declare.s GetSubItemText(GNum.i, Item.i, SubItem.i) 
   Declare.s GetText(GNum.i) 
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, maxListHeight.i, Content.s="", Flags.i=#False, WindowNum.i=#PB_Default)
   Declare   Hide(GNum.i, State.i=#True)
@@ -205,6 +205,8 @@ DeclareModule ComboBoxEx
   Declare   SetItemText(GNum.i, Row.i, Text.s, Flags.i=#False)
   Declare   SetLabelText(GNum.i, Label.s, Text.s, Flags.i=#False)
   Declare   SetState(GNum.i, State.i)
+  Declare   SetSubItemState(GNum.i, Item.i, SubItem.i, State.i) 
+  Declare   SetSubItemText(GNum.i, Item.i, SubItem.i, Text.s) 
   Declare   SetText(GNum.i, Text.s) 
 
 EndDeclareModule
@@ -222,7 +224,13 @@ Module ComboBoxEx
   #ScrollBarSize   = 16
   
   #CursorFrequency = 600
- 
+  
+  EnumerationBinary ;{ CheckBox status 
+    #Selected   = #PB_ListIcon_Selected
+    #Checked    = #PB_ListIcon_Checked
+    #Inbetween  = #PB_ListIcon_Inbetween
+  EndEnumeration ;}
+  
   EnumerationBinary State
     #Focus
     #Edit
@@ -252,10 +260,18 @@ Module ComboBoxEx
   EndStructure
   Global ListView.ListView_Structure
   
-  Structure ComboEx_Scroll_Structure  ;{ ComboEx()\ListView\ScrollBar\...
+  Structure ComboEx_Scroll_Structure   ;{ ComboEx()\ListView\ScrollBar\...
     Num.i
     Pos.i
     Hide.i
+  EndStructure ;}
+  
+  Structure CheckBox_Structure         ;{ ComboEx()\ListView\Item()\CheckBox()\...
+    X.i
+    Y.i
+    String.s
+    Size.i
+    State.i
   EndStructure ;}
   
   Structure Image_Structure            ;{ ComboEx()\Button\Image\...
@@ -273,6 +289,7 @@ Module ComboBoxEx
     Image.Image_Structure
     Color.i
     Flags.i
+    List SubItem.CheckBox_Structure()
   EndStructure ;}
   
   Structure ComboEx_ListView_Structure ;{ ComboEx()\ListView\...
@@ -333,6 +350,7 @@ Module ComboBoxEx
     Border.i
     Cursor.i
     Gadget.i
+    CheckBox.i
     DisableFront.i
     DisableBack.i
     Highlight.i
@@ -801,9 +819,59 @@ Module ComboBoxEx
     
   EndProcedure 
   
+	Procedure.i CheckBox_(X.i, Y.i, Width.i, Height.i, boxWidth.i, FrontColor.i, BackColor.i, State.i)
+    Define.i X1, X2, Y1, Y2
+    Define.i bColor, LineColor
+    
+    If boxWidth <= Width And boxWidth <= Height
+      
+      Y + ((Height - boxWidth) / 2)
+      
+      DrawingMode(#PB_2DDrawing_Default)
+      Box(X, Y, boxWidth, boxWidth, BackColor)
+      
+      LineColor = BlendColor_(FrontColor, BackColor, 60)
+      
+      If State & #Checked
+        Debug "#Checked"
+        bColor = BlendColor_(LineColor, ComboEx()\Color\Button)
+        
+        X1 = X + 1
+        X2 = X + boxWidth - 2
+        Y1 = Y + 1
+        Y2 = Y + boxWidth - 2
+        
+        LineXY(X1 + 1, Y1, X2 + 1, Y2, bColor)
+        LineXY(X1 - 1, Y1, X2 - 1, Y2, bColor)
+        LineXY(X2 + 1, Y1, X1 + 1, Y2, bColor)
+        LineXY(X2 - 1, Y1, X1 - 1, Y2, bColor)
+        LineXY(X2, Y1, X1, Y2, LineColor)
+        LineXY(X1, Y1, X2, Y2, LineColor)
+        
+      ElseIf State & #Inbetween
+        
+        DrawingMode(#PB_2DDrawing_Default)
+        Box(X, Y, boxWidth, boxWidth, BlendColor_(LineColor, BackColor, 50))
+        
+      EndIf
+      
+      DrawingMode(#PB_2DDrawing_Outlined)
+      Box(X + 2, Y + 2, boxWidth - 4, boxWidth - 4, BlendColor_(LineColor, BackColor, 5))
+      Box(X + 1, Y + 1, boxWidth - 2, boxWidth - 2, BlendColor_(LineColor, BackColor, 25))
+      Box(X, Y, boxWidth, boxWidth, LineColor)
+      
+      ComboEx()\ListView\Item()\SubItem()\X = X
+      ComboEx()\ListView\Item()\SubItem()\Y = Y
+      ComboEx()\ListView\Item()\SubItem()\Size = boxWidth
+      
+    EndIf
+    
+  EndProcedure  
+  
+  
   Procedure   DrawListView_()
-    Define.i X, Y, Width, Height, OffsetX, OffsetY, RowHeight, maxHeight, PageRows, scrollX
-    Define.i ImgX, ImgY, imgHeight, imgWidth
+    Define.i X, Y, Width, Height, OffsetX, OffsetY, TextHeight, RowHeight, maxHeight, PageRows, scrollX
+    Define.i ImgX, ImgY, imgHeight, imgWidth, boxSize
     Define.i FrontColor, BackColor, BorderColor
     Define.f Factor
     
@@ -830,8 +898,9 @@ Module ComboBoxEx
       
       DrawingFont(ComboEx()\FontID)
       
-      RowHeight = TextHeight("Abc") + dpiY(2)
-      OffsetY   = dpiY(1) 
+      TextHeight = TextHeight("Abc")
+      RowHeight  = TextHeight + dpiY(2)
+      OffsetY    = dpiY(1) 
       
       ;{ _____ ScrollBar _____
       PageRows  = Height / RowHeight
@@ -937,8 +1006,24 @@ Module ComboBoxEx
           DrawingMode(#PB_2DDrawing_AlphaBlend)
           DrawImage(ImageID(ComboEx()\ListView\Item()\Image\Num), X + imgX, Y + imgY, imgWidth, imgHeight)  
         EndIf 
-        
+
         Y + RowHeight
+        
+        If ComboEx()\Flags & #MultiSelect ;{ MultiSelect enabled
+          
+          If ListSize(ComboEx()\ListView\Item()\SubItem())
+            boxSize = TextHeight - dpiY(2)
+            OffSetX = boxSize + dpiX(10)
+            ForEach ComboEx()\ListView\Item()\SubItem()
+              CheckBox_(dpiX(5), Y, Width, RowHeight, boxSize, FrontColor, BackColor, ComboEx()\ListView\Item()\SubItem()\State)
+              DrawingMode(#PB_2DDrawing_Transparent)
+              DrawText(X + OffsetX, Y + OffsetY, ComboEx()\ListView\Item()\SubItem()\String, FrontColor)
+              Y + RowHeight
+            Next
+          EndIf
+          ;}
+        EndIf
+        
         If Y > Y + Height : Break : EndIf
       Next
       
@@ -1120,7 +1205,7 @@ Module ComboBoxEx
   ;- __________ ComboEx __________
   
   Procedure OpenListView_()
-    Define.i X, Y, RowsHeight, Width, Height
+    Define.i X, Y, RowsHeight, Width, Height, SubItems
     
     X      = GadgetX(ComboEx()\CanvasNum, #PB_Gadget_ScreenCoordinate)
     Y      = GadgetY(ComboEx()\CanvasNum, #PB_Gadget_ScreenCoordinate)
@@ -1129,9 +1214,22 @@ Module ComboBoxEx
     
     CalcRowHeight()
     
-    RowsHeight = ListSize(ComboEx()\ListView\Item()) * DesktopUnscaledY(ComboEx()\ListView\RowHeight)
-    If RowsHeight < Height : Height = RowsHeight : EndIf  
-
+    If ComboEx()\Flags & #MultiSelect
+      
+      ForEach ComboEx()\ListView\Item()
+        SubItems = ListSize(ComboEx()\ListView\Item()\SubItem())
+        If SubItems
+          RowsHeight + (SubItems * DesktopUnscaledY(ComboEx()\ListView\RowHeight))
+        EndIf  
+        RowsHeight + DesktopUnscaledY(ComboEx()\ListView\RowHeight) 
+      Next
+      
+    Else  
+      RowsHeight = ListSize(ComboEx()\ListView\Item()) * DesktopUnscaledY(ComboEx()\ListView\RowHeight) 
+    EndIf
+  
+    If RowsHeight < Height : Height = RowsHeight : EndIf
+    
     SetGadgetData(ComboEx()\ListView\Num, ComboEx()\CanvasNum)
     
     ResizeWindow(ComboEx()\ListView\Window, X, Y + GadgetHeight(ComboEx()\CanvasNum), Width, Height)
@@ -1249,7 +1347,7 @@ Module ComboBoxEx
   
   
   Procedure _ListViewHandler()
-    Define.i GNum, Y
+    Define.i GNum, X, Y
     Define.i ComboExNum = EventGadget()
     
     GNum = GetGadgetData(ComboExNum)
@@ -1257,17 +1355,36 @@ Module ComboBoxEx
 
       If ComboExNum = ComboEx()\ListView\Num 
         
+        X = GetGadgetAttribute(ComboExNum, #PB_Canvas_MouseX)
         Y = GetGadgetAttribute(ComboExNum, #PB_Canvas_MouseY)
 
         Select EventType()
           Case #PB_EventType_LeftButtonDown ;{ Left Button Down
             
             ForEach ComboEx()\ListView\Item()
+
+              If ComboEx()\Flags & #MultiSelect ;{ MultiSelect enabled
+                ForEach ComboEx()\ListView\Item()\SubItem()
+                  If Y >= ComboEx()\ListView\Item()\SubItem()\Y And Y <= ComboEx()\ListView\Item()\SubItem()\Y + ComboEx()\ListView\Item()\SubItem()\Size
+                    If X >= ComboEx()\ListView\Item()\SubItem()\X And X <= ComboEx()\ListView\Item()\SubItem()\X + ComboEx()\ListView\Item()\SubItem()\Size
+                      If ComboEx()\ListView\Item()\SubItem()\State & #Checked
+                        ComboEx()\ListView\Item()\SubItem()\State & ~#Checked
+                      Else
+                        ComboEx()\ListView\Item()\SubItem()\State | #Checked
+                      EndIf
+                      DrawListView_()
+                      ProcedureReturn #True
+                    EndIf
+                  EndIf
+                Next ;}
+              EndIf
+              
               If Y >= ComboEx()\ListView\Item()\Y And Y <= ComboEx()\ListView\Item()\Y + ComboEx()\ListView\RowHeight
                 ComboEx()\ListView\State = ListIndex(ComboEx()\ListView\Item())
                 DrawListView_()
                 ProcedureReturn #True
               EndIf
+              
             Next 
             ;}
           Case #PB_EventType_LeftButtonUp   ;{ Left Button Up
@@ -1842,6 +1959,8 @@ Module ComboBoxEx
           
           If IsWindow(ComboEx()\Window\Num)
             
+            If ComboEx()\ListView\Hide = #False : CloseListView_() : EndIf
+            
             OffSetX = WindowWidth(ComboEx()\Window\Num)  - ComboEx()\Window\Width
             OffsetY = WindowHeight(ComboEx()\Window\Num) - ComboEx()\Window\Height
 
@@ -1865,6 +1984,20 @@ Module ComboBoxEx
 
         EndIf
         
+      EndIf
+      
+    Next
+    
+  EndProcedure  
+  
+  Procedure _MoveWindowHandler()
+    
+    ForEach ComboEx()
+      
+      If IsGadget(ComboEx()\CanvasNum)
+        If IsWindow(ComboEx()\Window\Num)
+          If ComboEx()\ListView\Hide = #False : CloseListView_() : EndIf
+        EndIf  
       EndIf
       
     Next
@@ -1959,7 +2092,44 @@ Module ComboBoxEx
 		
     ProcedureReturn ListIndex(ComboEx()\ListView\Item())
 	EndProcedure
-  
+	
+	Procedure.i AddSubItem(GNum.i, Item.i, SubItem.i, Text.s, State.i=#False) 
+	  Define.i Result
+	  
+	  If FindMapElement(ComboEx(), Str(GNum))
+	    
+	    If SelectElement(ComboEx()\ListView\Item(), Item)
+	      
+	      ;{ Add item
+        Select SubItem
+          Case #FirstItem
+            FirstElement(ComboEx()\ListView\Item()\SubItem())
+            Result = InsertElement(ComboEx()\ListView\Item()\SubItem()) 
+          Case #LastItem
+            LastElement(ComboEx()\ListView\Item()\SubItem())
+            Result = AddElement(ComboEx()\ListView\Item()\SubItem())
+          Default
+            If SelectElement(ComboEx()\ListView\Item()\SubItem(), SubItem)
+              Result = InsertElement(ComboEx()\ListView\Item()\SubItem()) 
+            Else
+              LastElement(ComboEx()\ListView\Item()\SubItem())
+              Result = AddElement(ComboEx()\ListView\Item()\SubItem())
+            EndIf
+        EndSelect ;}
+        
+        If Result
+          ComboEx()\ListView\Item()\SubItem()\String = Text
+          ComboEx()\ListView\Item()\SubItem()\State  = State
+          Draw_()
+        EndIf
+      
+	    EndIf  
+	    
+	  EndIf  
+	  
+	  ProcedureReturn ListIndex(ComboEx()\ListView\Item()\SubItem())
+	EndProcedure
+	
   Procedure   AttachPopupMenu(GNum.i, MenuNum.i)
     
     If FindMapElement(ComboEx(), Str(GNum))
@@ -1971,7 +2141,8 @@ Module ComboBoxEx
     EndIf
     
   EndProcedure
-
+  
+  
   Procedure   Copy(GNum.i)
     
     If FindMapElement(ComboEx(), Str(GNum))
@@ -2161,7 +2332,7 @@ Module ComboBoxEx
           CompilerCase #PB_OS_MacOS
             ComboEx()\Color\Front         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
             ComboEx()\Color\FocusBack     = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
-            ComboEx()\Color\FocusBack         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor keyboardFocusIndicatorColor"))
+            ComboEx()\Color\FocusBack     = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor keyboardFocusIndicatorColor"))
             ComboEx()\Color\Gadget        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
             ComboEx()\Color\Button        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
             ComboEx()\Color\Border        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
@@ -2184,14 +2355,12 @@ Module ComboBoxEx
         BindGadgetEvent(GNum, @_LeftDoubleClickHandler(), #PB_EventType_LeftDoubleClick)
         BindGadgetEvent(GNum, @_CursorDrawing(),          #PB_EventType_Change)
         BindGadgetEvent(GNum, @_ResizeHandler(),          #PB_EventType_Resize)
-        
-        ;BindGadgetEvent(ComboEx()\ListView\Num,  @_MouseWheelHandler(), #PB_EventType_MouseWheel)
+
         BindGadgetEvent(ComboEx()\ListView\ScrollBar\Num, @_SynchronizeScrollBar(), #PB_All) 
         
+        If IsWindow(WindowNum) : BindEvent(#PB_Event_MoveWindow, @_MoveWindowHandler(), WindowNum) : EndIf
+        
         If Flags & #AutoResize
-          
-          If Flags & #FitText    : ComboEx()\Size\Flags | #FitText    : EndIf
-          If Flags & #FixPadding : ComboEx()\Size\Flags | #FixPadding : EndIf
           
           If IsWindow(WindowNum)
             ComboEx()\Window\Width  = WindowWidth(WindowNum)
@@ -2331,6 +2500,36 @@ Module ComboBoxEx
       ProcedureReturn ComboEx()\ListView\State
     EndIf
     
+	EndProcedure
+	
+  Procedure.i GetSubItemState(GNum.i, Item.i, SubItem.i) 
+	  Define.i Result
+	  
+	  If FindMapElement(ComboEx(), Str(GNum))
+	    
+	    If SelectElement(ComboEx()\ListView\Item(), Item)
+	      If SelectElement(ComboEx()\ListView\Item()\SubItem(), SubItem)
+	        ProcedureReturn ComboEx()\ListView\Item()\SubItem()\State
+        EndIf 
+	    EndIf  
+	    
+	  EndIf  
+	  
+	EndProcedure
+	
+	Procedure.s GetSubItemText(GNum.i, Item.i, SubItem.i) 
+	  Define.i Result
+	  
+	  If FindMapElement(ComboEx(), Str(GNum))
+	    
+	    If SelectElement(ComboEx()\ListView\Item(), Item)
+	      If SelectElement(ComboEx()\ListView\Item()\SubItem(), SubItem)
+	        ProcedureReturn ComboEx()\ListView\Item()\SubItem()\String
+        EndIf 
+	    EndIf  
+	    
+	  EndIf  
+	  
 	EndProcedure
 	
   Procedure.s GetText(GNum.i) 
@@ -2546,6 +2745,38 @@ Module ComboBoxEx
     
 	EndProcedure
 	
+	Procedure   SetSubItemState(GNum.i, Item.i, SubItem.i, State.i) 
+	  Define.i Result
+	  
+	  If FindMapElement(ComboEx(), Str(GNum))
+	    
+	    If SelectElement(ComboEx()\ListView\Item(), Item)
+	      If SelectElement(ComboEx()\ListView\Item()\SubItem(), SubItem)
+	        ComboEx()\ListView\Item()\SubItem()\State = State
+	        Draw_()
+        EndIf 
+	    EndIf  
+	    
+	  EndIf  
+	  
+	EndProcedure
+	
+	Procedure   SetSubItemText(GNum.i, Item.i, SubItem.i, Text.s) 
+	  Define.i Result
+	  
+	  If FindMapElement(ComboEx(), Str(GNum))
+	    
+	    If SelectElement(ComboEx()\ListView\Item(), Item)
+	      If SelectElement(ComboEx()\ListView\Item()\SubItem(), SubItem)
+	        ComboEx()\ListView\Item()\SubItem()\String = Text
+	        Draw_()
+        EndIf 
+	    EndIf  
+	    
+	  EndIf  
+	  
+	EndProcedure
+	
   Procedure   SetText(GNum.i, Text.s) 
     
     If FindMapElement(ComboEx(), Str(GNum))
@@ -2581,6 +2812,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
   
+  #Example = 2
+  
   #Window  = 0
   
   Enumeration 1
@@ -2590,7 +2823,7 @@ CompilerIf #PB_Compiler_IsMainFile
     #Image
   EndEnumeration
     
-  If OpenWindow(#Window, 0, 0, 225, 60, "Window", #PB_Window_SystemMenu|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
+  If OpenWindow(#Window, 0, 0, 230, 60, "Window", #PB_Window_SystemMenu|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
     
     LoadImage(#Image, "Test.png")
     
@@ -2599,22 +2832,40 @@ CompilerIf #PB_Compiler_IsMainFile
     AddGadgetItem(#ComboBox, -1, "Item 2")
     AddGadgetItem(#ComboBox, -1, "Item 3")
     
-    If ComboBoxEx::Gadget(#ComboEx, 120, 19, 90, 20, 80, "", #False, #Window)
-      ; ComboBoxEx::#LowerCase / ComboBoxEx::#UpperCase / ComboBoxEx::#Editable / ComboBoxEx::#BorderLess
-      
-      ;ComboBoxEx::SetAttribute(#ComboEx, ComboBoxEx::#Corner, 4)
-      ;ComboBoxEx::SetImage(#ComboEx, #Image)
-      
-      ComboBoxEx::AddItem(#ComboEx, ComboBoxEx::#LastItem, "Item 1")
-      ComboBoxEx::AddItem(#ComboEx, ComboBoxEx::#LastItem, "Item 2")
-      ComboBoxEx::AddItem(#ComboEx, ComboBoxEx::#LastItem, "Item 3")
-      
-      ComboBoxEx::SetItemImage(#ComboEx, 1, #Image)
-      ComboBoxEx::SetItemImage(#ComboEx, 2, #Image, ComboBoxEx::#Right)
-      
-      ComboBoxEx::SetItemColor(#ComboEx, 0, #Red)
-      
-    EndIf
+    Select #Example
+      Case 1
+        
+        If ComboBoxEx::Gadget(#ComboEx, 120, 19, 90, 20, 80, "", ComboBoxEx::#Editable, #Window)
+          ; ComboBoxEx::#LowerCase / ComboBoxEx::#UpperCase / ComboBoxEx::#Editable / ComboBoxEx::#BorderLess
+          
+          ;ComboBoxEx::SetAttribute(#ComboEx, ComboBoxEx::#Corner, 4)
+          ;ComboBoxEx::SetImage(#ComboEx, #Image)
+          
+          ComboBoxEx::AddItem(#ComboEx, ComboBoxEx::#LastItem, "Item 1")
+          ComboBoxEx::AddItem(#ComboEx, ComboBoxEx::#LastItem, "Item 2")          
+          ComboBoxEx::AddItem(#ComboEx, ComboBoxEx::#LastItem, "Item 3")
+          
+          ComboBoxEx::SetItemImage(#ComboEx, 1, #Image)
+          ComboBoxEx::SetItemImage(#ComboEx, 2, #Image, ComboBoxEx::#Right)
+          
+          ComboBoxEx::SetItemColor(#ComboEx, 0, #Red)
+          
+        EndIf
+        
+      Case 2
+        
+        If ComboBoxEx::Gadget(#ComboEx, 120, 19, 95, 20, 80, "", ComboBoxEx::#MultiSelect, #Window)
+          ; ComboBoxEx::#LowerCase / ComboBoxEx::#UpperCase / ComboBoxEx::#Editable / ComboBoxEx::#BorderLess
+
+          ComboBoxEx::AddItem(#ComboEx, 0, "All Items")
+          ComboBoxEx::AddItem(#ComboEx, 1, "User Selection")
+          ComboBoxEx::AddSubItem(#ComboEx, 1, ComboBoxEx::#LastItem, "SubItem 1")
+          ComboBoxEx::AddSubItem(#ComboEx, 1, ComboBoxEx::#LastItem, "SubItem 2")
+          ComboBoxEx::AddSubItem(#ComboEx, 1, ComboBoxEx::#LastItem, "SubItem 3")
+
+        EndIf
+        
+    EndSelect
     
     Repeat
       Event = WaitWindowEvent()
@@ -2639,9 +2890,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 2091
-; FirstLine = 643
-; Folding = IMAgEAAAEBYo1eIAQDAMAsEgAA5-
+; CursorPosition = 88
+; Folding = IcAESAAAwIAAJEAAAgBgFAAYAAAAg-
 ; EnableThread
 ; EnableXP
 ; DPIAware
