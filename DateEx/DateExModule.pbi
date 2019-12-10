@@ -9,7 +9,7 @@
 ;/ © 2019  by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 09.12.2019
+; Last Update: 10.12.2019
 
 ;{ ===== MIT License =====
 ;
@@ -68,7 +68,7 @@ CompilerIf Not Defined(Calendar, #PB_Module) : XIncludeFile "CalendarModule.pbi"
 
 DeclareModule DateEx
   
-  #Version  = 19120900
+  #Version  = 19121000
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -789,7 +789,7 @@ Module DateEx
   Procedure _CalendarHandler()
     Define.i CalNum = EventGadget()
     Define.i GNum 
-    Define.i Date
+    Define.i Date, Hour, Minutes, Seconds
     
     If CalNum = Calendar\Gadget
       
@@ -800,6 +800,15 @@ Module DateEx
         If FindMapElement(DateEx(), Str(GNum))
           
           Date = Calendar::GetState(CalNum) 
+          
+          Hour    = Val(Date("%hh"))
+          Minutes = Val(Date("%ii"))
+          Seconds = Val(Date("%ss"))
+          
+          If Hour    : Date = AddDate_(Date, #PB_Date_Hour, Hour)      : EndIf 
+          If Minutes : Date = AddDate_(Date, #PB_Date_Minute, Minutes) : EndIf 
+          If Seconds : Date = AddDate_(Date, #PB_Date_Second, Seconds) : EndIf 
+          
           SetDate_(Date)
           
           CloseCalendar_()
@@ -1764,8 +1773,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 890
-; FirstLine = 224
-; Folding = 5hTAIgAAAMAUPgQ-BAYQA9+
+; CursorPosition = 11
+; Folding = 5hTAIgAAAMA1OgQ-AAYQA9+
 ; EnableXP
 ; DPIAware
