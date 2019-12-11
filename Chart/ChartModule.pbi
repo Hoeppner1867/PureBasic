@@ -10,8 +10,10 @@
 ;/
 
 
-; Last Update: 08.12.19
-
+; Last Update: 11.12.19
+;
+; Added: Flags #Left / #Right for legend
+;
 
 ;{ ===== MIT License =====
 ;
@@ -117,7 +119,7 @@
 
 DeclareModule Chart
   
-  #Version  = 19120800
+  #Version  = 19121100
   #ModuleEx = 19111702
   
   #Enable_PieChart       = #True
@@ -171,8 +173,8 @@ DeclareModule Chart
     #ChangeCursor    ; change the cursor for clickable areas
     #OutOfRange      ; shows value which are out of ranges
     #ModifyByCursor  ; move data points up and down to change the value [#LineChart]
-    #AxisX
-    #AxisY
+    #Right
+    #Left
     #UseExistingCanvas
   EndEnumeration
   
@@ -198,6 +200,8 @@ DeclareModule Chart
     #LineColor     ; (LineChart)
     #FontSize      ; Value/Percent in Chart (LineChart/PieChart)
     #Decimals      ; decimal places for scatter plot data
+    #AxisX
+    #AxisY
   EndEnumeration
 
   #ScaleLinesY   = #ScaleLines
@@ -2116,7 +2120,14 @@ Module Chart
             
             lWidth  = lTextWidth + ((txtHeight + dpiX(5)) * Series) + (dpiX(10) * (Series - 1)) + dpiX(10)
             
-            lX = (Width - lWidth) / 2 + X
+            If Chart()\Legend\Flags & #Left
+              lX = X
+            ElseIf Chart()\Legend\Flags & #Right
+              lX = Width - lWidth + X
+            Else  
+              lX = (Width - lWidth) / 2 + X
+            EndIf
+            
             lY = Y + Height + txtHeight + dpiY(8)
             
             DrawingMode(#PB_2DDrawing_Default)
@@ -2554,7 +2565,14 @@ Module Chart
             
             lWidth  = lTextWidth + ((txtHeight + dpiX(5)) * Series) + (dpiX(10) * (Series - 1)) + dpiX(10)
             
-            lX = (Width - lWidth) / 2 + X
+            If Chart()\Legend\Flags & #Left
+              lX = X
+            ElseIf Chart()\Legend\Flags & #Right
+              lX = Width - lWidth + X
+            Else  
+              lX = (Width - lWidth) / 2 + X
+            EndIf
+            
             lY = Y + Height + txtHeight + dpiY(8)
             
             DrawingMode(#PB_2DDrawing_Default)
@@ -3043,7 +3061,14 @@ Module Chart
             
             lWidth  = lTextWidth + ((txtHeight + dpiX(5)) * Series) + (dpiX(10) * (Series - 1)) + dpiX(10)
             
-            lX = (Width - lWidth) / 2 + X
+            If Chart()\Legend\Flags & #Left
+              lX = X
+            ElseIf Chart()\Legend\Flags & #Right
+              lX = Width - lWidth + X
+            Else  
+              lX = (Width - lWidth) / 2 + X
+            EndIf
+            
             lY = Y + Height + txtHeight + dpiY(8)
             
             DrawingMode(#PB_2DDrawing_Default)
@@ -6668,7 +6693,7 @@ CompilerIf #PB_Compiler_IsMainFile
         Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#DataSeries|Chart::#Border|Chart::#ShowValue|Chart::#ShowLines|Chart::#AutoResize, #Window)
         ;Chart::SetAttribute(#Chart, Chart::#ScaleSpacing, Chart::#Double) ; Chart::#Single / Chart::#Double
         Chart::SetAttribute(#Chart, Chart::#Maximum, 100)
-        Chart::SetFlags(#Chart, Chart::#Legend, Chart::#AllDataSeries|Chart::#PostEvents|Chart::#PopUpMenu) ; |Chart::#Hide
+        Chart::SetFlags(#Chart, Chart::#Legend, Chart::#AllDataSeries|Chart::#PostEvents|Chart::#PopUpMenu|Chart::#Right) ; |Chart::#Hide
         Chart::SetFlags(#Chart, Chart::#BarChart, Chart::#PopUpMenu)
         Chart::SetFont(#Chart, FontID(#Font), Chart::#BarChart)
         Chart::SetFont(#Chart, FontID(#Font), Chart::#Legend)
@@ -7001,8 +7026,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 119
-; FirstLine = 6
-; Folding = 5EAAhz---nuREMIgHRQHFy6-HgH+-9----f-eiDApKAgwEA4vqQ+-H96aI+p0
+; CursorPosition = 14
+; Folding = 5EAAhz---huREEAgDAAAFS5-DgH+v5----f-eiDApKAgyEA4vqQ+-H06aY+p0
+; Markers = 2567
 ; EnableXP
 ; DPIAware
