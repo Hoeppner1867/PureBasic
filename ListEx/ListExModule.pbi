@@ -109,6 +109,7 @@
 ; ListEx::SetColorTheme()           - change the color theme
 ; ListEx::SetColumnAttribute()      - [#Align/#ColumnWidth]
 ; ListEx::SetColumnFlags()          - [#FitColumn | #Left/#Right/#Center]
+; ListEx::SetColumnMask()           - Format content
 ; ListEx::SetColumnState()          - similar to 'SetGadgetItemState()' for a specific column
 ; ListEx::SetCurrency()             - 
 ; ListEx::SetDateMask()             - similar to 'SetGadgetText()' and 'DateGadget()'
@@ -150,7 +151,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19120900
+  #Version  = 19121100
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -424,6 +425,7 @@ DeclareModule ListEx
   Declare   SetColorTheme(GNum.i, Theme.i=#Theme_Default, File.s="") 
   Declare   SetColumnAttribute(GNum.i, Column.i, Attrib.i, Value.i)
   Declare   SetColumnFlags(GNum.i, Column.i, Flags.i)
+  Declare   SetColumnMask(GNum.i, Column.i, Mask.s)
   Declare   SetColumnState(GNum.i, Row.i, Column.i, State.i)
   Declare   SetCurrency(GNum.i, String.s, Column.i=#PB_Ignore)
   Declare   SetFlags(GNum.i, Flags.i)
@@ -7825,10 +7827,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 22
-; FirstLine = 6
-; Folding = 5RQAAAACIAAAICEAGQA9HQ5hCBCiFwwKYNAAAghDgPCg8AAAMBOACgDAAAAAAAAAg+--
-; Markers = 3230
+; CursorPosition = 153
+; FirstLine = 9
+; Folding = QRQAAAACIAAAICEAGQA9HQ5hCBCiFwwKYNAAAghDgPCg8AAAMBOACgDAAAAAQAAAg+--
+; Markers = 3232
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
