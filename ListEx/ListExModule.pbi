@@ -9,8 +9,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 09.12.2019
+; Last Update: 11.12.2019
 ;
+; - Added: Format content (mask)
 ; - Added: Multiline support
 ; - Added: SetCondition() for editable cells
 ; - Added: Attribute #MaxChars for SetAttribute() or SetColumnAttribute()
@@ -101,7 +102,7 @@
 ; ListEx::SetAttribute()            - similar to SetGadgetAttribute()  [#Padding] 
 ; ListEx::SetAutoResizeColumn()     - column that is reduced when the vertical scrollbar is displayed.
 ; ListEx::SetAutoResizeFlags()      - [#MoveX|#MoveY|#Width|#Height]
-; ListEx::SetCellFlags()            - [#LockCell|#Strings|#ComboBoxes|#Dates]
+; ListEx::SetCellFlags()            - [#LockCell|#Strings|#ComboBoxes|#DateGadget]
 ; ListEx::SetCellState()            - similar to 'SetGadgetItemState()' with labels
 ; ListEx::SetCellText()             - similar to 'SetGadgetItemText()'  with labels
 ; ListEx::SetColor()                - similar to 'SetGadgetColor()'
@@ -133,6 +134,18 @@
 
 ;} -----------------------------
 
+
+;{ ___ Format Content (Mask) ___
+
+; Floats:  "0.00" or "0,000"
+; Integer: "." or "," or "1.000" or "1,000"
+; Date:    "%dd.%mm.%yyyy"
+; Time:    "%hh:%ii:%ss"
+; Cash:    "0,00 €" or "$ 0.00"
+
+;}
+
+
 ; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule ListEx
@@ -140,12 +153,12 @@ DeclareModule ListEx
   #Version  = 19120900
   #ModuleEx = 19112100
   
-  #Enable_Validation  = #True
-  #Enable_MarkContent = #True
-  #Enable_ProgressBar = #True
-  #Enable_DragAndDrop = #True
-  #Enable_CSV_Support = #True
-  #Enable_GUI_Theme   = #True
+  #Enable_CSV_Support   = #True
+  #Enable_DragAndDrop   = #True
+  #Enable_FormatContent = #True
+  #Enable_MarkContent   = #True
+  #Enable_ProgressBar   = #True
+  #Enable_Validation    = #True
   
   ;- ===========================================================================
   ;-   DeclareModule - Constants / Structures
@@ -218,7 +231,7 @@ DeclareModule ListEx
     #HeaderRow
   EndEnumeration ;}
   
-  EnumerationBinary ; ProgressBars
+  EnumerationBinary  ; ProgressBars
     #ShowPercent
   EndEnumeration
   
@@ -258,12 +271,12 @@ DeclareModule ListEx
     #Left    = 1
     #Right   = 1<<1
     #Center  = 1<<2
-    #CheckBoxes = #ChBFlag
-    #ComboBoxes
-    #Dates
-    #Strings
-    #Buttons
-    #Links
+    #CheckBoxes  ; checkbox gadget
+    #ComboBoxes  ; combobox gadget
+    #DateGadget       ; date gadget
+    #Strings     ; string gadget
+    #Buttons     ; button
+    #Links       ; link
     #Image
     #ProgressBar
     #MarkContent
@@ -274,13 +287,14 @@ DeclareModule ListEx
     #CellLine
     #LockCell
     ; --------
-    #Cash
-    #Float
-    #Grades
-    #Integer
-    #Number     ; unsigned Integer
-    #Time
-    #Text
+    #Date        ; contains dates
+    #Cash        ; contains cash
+    #Float       ; contains float
+    #Grades      ; contains grades
+    #Integer     ; contains integers
+    #Number      ; contains unsigned integer
+    #Time        ; contains time
+    #Text        ; contains text
   EndEnumeration ;}
   #Editable = #Strings
   
@@ -766,6 +780,7 @@ Module ListEx
     Align.i
     FontID.i
     Mask.s
+    Format.s
     minWidth.i
     MaxWidth.i
     MaxChars.i
@@ -1670,6 +1685,91 @@ Module ListEx
       ProcedureReturn #True
     EndProcedure
     
+  CompilerEndIf
+  
+  ;- _____ Format Content _____
+  
+  CompilerIf #Enable_FormatContent
+    
+    Procedure.s FormatInteger_(String.s, Mask.s)
+      Define.i Decimals
+      Define.s TSep$
+
+      String = ReplaceString(String, ",", ".")
+      
+      If CountString(Mask, ",")
+        TSep$ = ","
+      ElseIf CountString(Mask, ".")
+        TSep$ = "."
+      EndIf  
+      
+      Decimals = CountString(StringField(Mask, 2, DSep$), "0")
+      
+      ProcedureReturn FormatNumber(ValF(String), 0, ".", TSep$)
+    EndProcedure    
+    
+    Procedure.s FormatFloat_(String.s, Mask.s)
+      Define.i Decimals
+      Define.s DSep$, TSep$
+      
+      String = ReplaceString(String, ",", ".")
+      
+      If CountString(Mask, ",") = 1
+        DSep$ = ","
+        TSep$ = "."
+      ElseIf CountString(Mask, ".") = 1
+        DSep$ = "."
+        TSep$ = ","
+      EndIf  
+      
+      Decimals = CountString(StringField(Mask, 2, DSep$), "0")
+      
+      ProcedureReturn FormatNumber(ValF(String), Decimals, DSep$, TSep$)
+    EndProcedure
+    
+    Procedure.s FormatCash_(String.s, Mask.s) 
+      Define.i Decimals
+      Define.s DSep$, TSep$, sMask$, eMask$
+      
+      String = ReplaceString(String, ",", ".")
+      
+      If CountString(Mask, ",") = 1
+        DSep$ = ","
+        TSep$ = "."
+      ElseIf CountString(Mask, ".") = 1
+        DSep$ = "."
+        TSep$ = ","
+      EndIf  
+      
+      sMask$ = RemoveString(StringField(Mask, 1, DSep$), "0")
+      eMask$ = RemoveString(StringField(Mask, 2, DSep$), "0")
+      
+      Decimals = CountString(StringField(Mask, 2, DSep$), "0")
+      
+      ProcedureReturn sMask$ + FormatNumber(ValF(String), Decimals, DSep$, TSep$) + eMask$
+    EndProcedure  
+    
+    
+    Procedure.s FormatContent(String.s, Mask.s, Flags.i)
+      
+      If Flags & #Float
+        ProcedureReturn FormatFloat_(String, Mask)
+      ElseIf Flags & #Cash
+        ProcedureReturn FormatCash_(String, Mask) 
+      ElseIf Flags & #Integer
+        ProcedureReturn String
+      ElseIf Flags & #Number
+        ProcedureReturn String
+      ElseIf Flags & #Date Or Flags & #Time
+        ProcedureReturn FormatDate(Mask, Val(String))
+      ElseIf Flags & #Grades
+        ProcedureReturn String
+      Else
+        ProcedureReturn String
+      EndIf
+     
+    EndProcedure
+   
   CompilerEndIf
   
   ;- _____ Mark Content _____
@@ -2832,7 +2932,7 @@ Module ListEx
                 CheckBox_(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), TextHeight("X") - dpiY(3), ListEx()\Color\Back,  ListEx()\Rows()\State)
               EndIf
               ;}
-            ElseIf Flags & #Buttons Or Flags & #Strings Or Flags & #Dates ;{ Single cells
+            ElseIf Flags & #Buttons Or Flags & #Strings Or Flags & #DateGadget ;{ Single cells
               
               Text$ = ListEx()\Rows()\Column(Key$)\Value
               If Text$ <> ""
@@ -3047,6 +3147,14 @@ Module ListEx
                 textRows = CountString(Text$, #LF$) + 1
                 textY = (dpiY(ListEx()\Rows()\Height) - (TextHeight("Abc") * textRows)) / 2 + dpiY(1)
                 
+                CompilerIf #Enable_FormatContent
+                  
+                  If ListEx()\Cols()\Format
+                    Text$ = FormatContent(Text$, ListEx()\Cols()\Format, ListEx()\Cols()\Flags)
+                  EndIf  
+                  
+                CompilerEndIf
+              
                 If textRows > 1
                   
                   For r=1 To textRows
@@ -3452,7 +3560,7 @@ Module ListEx
           
           EndIf
           ;}
-        ElseIf ListEx()\Cols()\Flags & #Dates Or ListEx()\Rows()\Column(Key$)\Flags & #Dates           ;{ DateGadget
+        ElseIf ListEx()\Cols()\Flags & #DateGadget Or ListEx()\Rows()\Column(Key$)\Flags & #DateGadget           ;{ DateGadget
 
           If IsGadget(ListEx()\DateNum)
             
@@ -3547,7 +3655,7 @@ Module ListEx
             ProcedureReturn ListIndex(ListEx()\Cols())
           ElseIf ListEx()\Cols()\Flags & #ComboBoxes
             ProcedureReturn ListIndex(ListEx()\Cols())
-          ElseIf ListEx()\Cols()\Flags & #Dates
+          ElseIf ListEx()\Cols()\Flags & #DateGadget
             ProcedureReturn ListIndex(ListEx()\Cols())
           EndIf
         Until NextElement(ListEx()\Cols()) = #False
@@ -3561,7 +3669,7 @@ Module ListEx
             ProcedureReturn ListIndex(ListEx()\Cols())
           ElseIf ListEx()\Cols()\Flags & #ComboBoxes
             ProcedureReturn ListIndex(ListEx()\Cols())
-          ElseIf ListEx()\Cols()\Flags & #Dates
+          ElseIf ListEx()\Cols()\Flags & #DateGadget
             ProcedureReturn ListIndex(ListEx()\Cols())
           EndIf
         Wend
@@ -3582,7 +3690,7 @@ Module ListEx
             ProcedureReturn ListIndex(ListEx()\Cols())
           ElseIf ListEx()\Cols()\Flags & #ComboBoxes
             ProcedureReturn ListIndex(ListEx()\Cols())
-          ElseIf ListEx()\Cols()\Flags & #Dates
+          ElseIf ListEx()\Cols()\Flags & #DateGadget
             ProcedureReturn ListIndex(ListEx()\Cols())
           EndIf
         Until PreviousElement(ListEx()\Cols()) = #False
@@ -3596,7 +3704,7 @@ Module ListEx
             ProcedureReturn ListIndex(ListEx()\Cols())
           ElseIf ListEx()\Cols()\Flags & #ComboBoxes
             ProcedureReturn ListIndex(ListEx()\Cols())
-          ElseIf ListEx()\Cols()\Flags & #Dates
+          ElseIf ListEx()\Cols()\Flags & #DateGadget
             ProcedureReturn ListIndex(ListEx()\Cols())
           EndIf
         Wend
@@ -4300,7 +4408,7 @@ Module ListEx
                 Draw_()
               EndIf  
               ;}
-            ElseIf Flags & #Buttons Or Flags & #Strings Or Flags & #Dates ;{ Single cells
+            ElseIf Flags & #Buttons Or Flags & #Strings Or Flags & #DateGadget ;{ Single cells
               
               ListEx()\Focus = #True
               
@@ -4782,7 +4890,7 @@ Module ListEx
                   SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
                 EndIf
                 
-              ElseIf ListEx()\Cols()\Flags & #Dates Or Flags & #Dates
+              ElseIf ListEx()\Cols()\Flags & #DateGadget Or Flags & #DateGadget
                 
                 If ListEx()\CanvasCursor <> #Cursor_Edit
                   ListEx()\CanvasCursor = #Cursor_Edit
@@ -6719,6 +6827,7 @@ Module ListEx
     
   EndProcedure  
   
+  
   Procedure   SetColumnAttribute(GNum.i, Column.i, Attrib.i, Value.i)
     ; Attrib: #Align (#Left/#Right/#Center) / #ColumnWidth / #Font
     
@@ -6760,6 +6869,19 @@ Module ListEx
     
   EndProcedure 
   
+  Procedure   SetColumnMask(GNum.i, Column.i, Mask.s)
+
+    If FindMapElement(ListEx(), Str(GNum))
+      
+      If SelectElement(ListEx()\Cols(), Column)
+        ListEx()\Cols()\Format = Mask
+        If ListEx()\ReDraw : Draw_() : EndIf
+      EndIf
+      
+    EndIf
+    
+  EndProcedure 
+  
   Procedure   SetColumnState(GNum.i, Row.i, Column.i, State.i)
     
     If FindMapElement(ListEx(), Str(GNum))
@@ -6774,6 +6896,7 @@ Module ListEx
     EndIf
     
   EndProcedure  
+  
   
   Procedure   SetCurrency(GNum.i, String.s, Column.i=#PB_Ignore)                 ; GNum: #Theme => change all gadgets
     
@@ -7029,6 +7152,7 @@ Module ListEx
     EndIf
     
   EndProcedure
+  
   
   Procedure   SetItemColor(GNum.i, Row.i, ColorTyp.i, Value.i, Column.i=#PB_Ignore)
     Define.s Key$
@@ -7286,6 +7410,7 @@ Module ListEx
     
   EndProcedure  
   
+  
   CompilerIf #Enable_ProgressBar
     
     Procedure   SetProgressBarAttribute(GNum.i, Attrib.i, Value.i)
@@ -7471,11 +7596,11 @@ CompilerIf #PB_Compiler_IsMainFile
       MenuItem(#MenuItem4, "Reset gadget size")
     EndIf
     
-    ButtonGadget(#Button,  420,  10, 70, 20, "Resize")
-    ButtonGadget(#B_Default,  420,  50, 70, 20, "Default")
-    ButtonGadget(#B_Green, 420,  75, 70, 20, "Green")
-    ButtonGadget(#B_Blue,  420, 100, 70, 20, "Blue")
-    ButtonGadget(#Export,  420, 140, 70, 20, "Export")
+    ButtonGadget(#Button,    420,  10, 70, 20, "Resize")
+    ButtonGadget(#B_Default, 420,  50, 70, 20, "Default")
+    ButtonGadget(#B_Green,   420,  75, 70, 20, "Green")
+    ButtonGadget(#B_Blue,    420, 100, 70, 20, "Blue")
+    ButtonGadget(#Export,    420, 140, 70, 20, "Export")
     
     If ListEx::Gadget(#List, 10, 10, 395, 230, "", 25, "", ListEx::#GridLines|ListEx::#CheckBoxes|ListEx::#AutoResize|ListEx::#MultiSelect|ListEx::#ResizeColumn, #Window)
       ; ListEx::#NoRowHeader|ListEx::#ThreeState|ListEx::#NumberedColumn|ListEx::#SingleClickEdit|ListEx::#AdjustColumns
@@ -7501,7 +7626,7 @@ CompilerIf #PB_Compiler_IsMainFile
         ListEx::AddColumn(#List, 1, "Link", 75, "link",   ListEx::#Links)     ; |ListEx::#FitColumn
         ListEx::AddColumn(#List, 2, "Edit", 185, "edit",   ListEx::#Editable) ; |ListEx::#FitColumn
         ListEx::AddColumn(#List, ListEx::#LastItem, "Combo",   78, "combo",  ListEx::#ComboBoxes)
-        ListEx::AddColumn(#List, ListEx::#LastItem, "Date",    76, "date",   ListEx::#Dates)
+        ListEx::AddColumn(#List, ListEx::#LastItem, "Date",    76, "date",   ListEx::#DateGadget)
         ListEx::AddColumn(#List, ListEx::#LastItem, "Buttons", 60, "button", ListEx::#Buttons) ; ListEx::#Hide
     
         ; --- Test ProgressBar ---
@@ -7700,9 +7825,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 139
-; Folding = 5wfAAAAJFgIAEBCADA9HQ5hCBCAFy9FIAAAAwAAwFEwdAAgmDHgBwBQBAgJAAASg--
-; Markers = 3122
+; CursorPosition = 22
+; FirstLine = 6
+; Folding = 5RQAAAACIAAAICEAGQA9HQ5hCBCiFwwKYNAAAghDgPCg8AAAMBOACgDAAAAAAAAAg+--
+; Markers = 3230
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
