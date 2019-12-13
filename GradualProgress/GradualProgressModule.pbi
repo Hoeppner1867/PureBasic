@@ -39,6 +39,14 @@
 ; SOFTWARE.
 ;}
 
+;{ ===== Tea & Pizza Ware =====
+; <purebasic@thprogs.de> has created this code. 
+; If you find the code useful and you want to use it for your programs, 
+; you are welcome to support my work with a cup of tea or a pizza
+; (or the amount of money for it). 
+; [ https://www.paypal.me/Hoeppner1867 ]
+;}
+
 
 ;{ _____ Gradual - Commands _____
 
@@ -981,7 +989,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 59
-; Folding = 9GAAA+gRzx8
+; CursorPosition = 49
+; Folding = 5NAAA9Bjmj4
 ; EnableXP
 ; DPIAware

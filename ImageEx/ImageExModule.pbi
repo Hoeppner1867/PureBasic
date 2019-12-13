@@ -38,6 +38,14 @@
 ; SOFTWARE.
 ;}
 
+;{ ===== Tea & Pizza Ware =====
+; <purebasic@thprogs.de> has created this code. 
+; If you find the code useful and you want to use it for your programs, 
+; you are welcome to support my work with a cup of tea or a pizza
+; (or the amount of money for it). 
+; [ https://www.paypal.me/Hoeppner1867 ]
+;}
+
 
 ;{ _____ ImageEx - Commands _____
 
@@ -1141,8 +1149,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 61
+; CursorPosition = 39
 ; FirstLine = 6
-; Folding = cVBCAAAklZix+
+; Folding = 5qCEAAAILzEj0
 ; EnableXP
 ; DPIAware
