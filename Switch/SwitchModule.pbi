@@ -66,6 +66,8 @@ DeclareModule Switch
   #Version  = 19112900
   #ModuleEx = 19112100
   
+  #Include_DefaultImages = #True
+  
 	;- ===========================================================================
 	;-   DeclareModule - Constants
 	;- ===========================================================================
@@ -76,6 +78,7 @@ DeclareModule Switch
 		#Borderless        ; Draw no border
 		#ColorText         ; enable on/off text color
 		#ColorBack         ; enable on/off back color
+		#Images            ; Images instead of text 
 		#ToolTips          ; Show tooltips
 		#UseExistingCanvas ; e.g. for dialogs
 	EndEnumeration ;}
@@ -89,6 +92,8 @@ DeclareModule Switch
 	
 	Enumeration 1     ;{ Attribute
 	  #Corner
+	  #ON          ; Image 'ON'
+		#OFF         ; Image 'OFF'
 	EndEnumeration ;}
 	
 	Enumeration 1     ;{ Color
@@ -128,12 +133,15 @@ DeclareModule Switch
   Declare   SetData(GNum.i, Value.q)
   Declare   SetFont(GNum.i, FontID.i) 
   Declare   SetID(GNum.i, String.s)
+  Declare   SetImage(GNum.i, Type.i, Image.i)
   Declare   SetState(GNum.i, State.i)
   
 EndDeclareModule
 
 Module Switch
-
+  
+  UsePNGImageDecoder()
+  
 	EnableExplicit
 
 	;- ============================================================================
@@ -148,6 +156,12 @@ Module Switch
 	  ON.s
 	  OFF.s
 	EndStructure ;}
+	
+	Structure Switch_Image_Structure   ;{ Switch()\Image\...
+	  ON.i
+	  OFF.i
+	EndStructure ;}
+	
 	
 	Structure Switch_Color_Structure   ;{ Switch()\Color\...
 		Front.i
@@ -199,6 +213,7 @@ Module Switch
 		ToolTipText.s
 		
 		Text.Switch_Text_Structure
+		Image.Switch_Image_Structure
 		
 		Color.Switch_Color_Structure
 		Window.Switch_Window_Structure
@@ -206,7 +221,9 @@ Module Switch
 
 	EndStructure ;}
 	Global NewMap Switch.Switch_Structure()
-
+	
+	Global DefaultImage.Switch_Image_Structure
+	
 	;- ============================================================================
 	;-   Module - Internal
 	;- ============================================================================
@@ -304,7 +321,14 @@ Module Switch
 	    ProcedureReturn DesktopScaledY(Num)
 	  EndIf  
 	EndProcedure
-
+	
+	Procedure InitDefaults_()
+	  
+    DefaultImage\ON  = CatchImage(#PB_Any, ?On, 743)
+    DefaultImage\OFF = CatchImage(#PB_Any, ?Off, 714)
+    
+	EndProcedure  
+	
 	;- __________ Drawing __________
 
 	Procedure.i BlendColor_(Color1.i, Color2.i, Factor.i=50)
@@ -328,8 +352,10 @@ Module Switch
   EndProcedure
 	
 	Procedure   Draw_()
-		Define.i X, Y, Width, Height, OffsetX, OffSetY
-		Define.i FrontColor, BackColor, ButtonColor, BorderColor
+	  Define.i X, Y, Width, Height, OffsetX, OffSetY
+	  Define.i Image, ImageWidth, ImageHeight
+	  Define.i FrontColor, BackColor, ButtonColor, BorderColor
+	  Define.f Factor
 		Define.s Text
 		
 		If Switch()\Hide : ProcedureReturn #False : EndIf 
@@ -354,8 +380,11 @@ Module Switch
 		    If Switch()\Flags & #ColorBack : BackColor  = BlendColor_(Switch()\Color\On,  Switch()\Color\Gadget, 10) : EndIf
 		  Else
 		    If Switch()\Flags & #ColorText : FrontColor = Switch()\Color\Off : EndIf
-		    If Switch()\Flags & #ColorBack : BackColor  = BlendColor_(Switch()\Color\Off, Switch()\Color\Gadget, 10) : EndIf
+		    If Switch()\Flags & #ColorBack
+		      BackColor  = BlendColor_(Switch()\Color\Off, Switch()\Color\Gadget, 10)
+		    EndIf
 		  EndIf  
+		  
 		  
 		  If Switch()\Disable
 		    FrontColor  = Switch()\Color\DisableFront
@@ -373,24 +402,39 @@ Module Switch
 			
 			If Switch()\State
 			  X = Switch()\Size\Button
-			  Text = Switch()\Text\ON
+			  Text  = Switch()\Text\ON
+			  Image = Switch()\Image\ON
 			Else
 			  X = 0
-			  Text = Switch()\Text\OFF
+			  Text  = Switch()\Text\OFF
+			  Image = Switch()\Image\OFF
 			EndIf 
 			
 			;{ _____ Switch _____
+			DrawingMode(#PB_2DDrawing_Default)
 			Box_(X, 0, Switch()\Size\Button, Height, ButtonColor)
 			Line(Switch()\Size\Button, 0, dpiX(1), Height, BorderColor)
 			;}			
 			
-			;{ _____ Text _____
-			If Text
+			;{ _____ Text / Image _____
+			If IsImage(Image)
+			  ImageWidth  = ImageWidth(Image)
+			  ImageHeight = ImageHeight(Image)
+			  If ImageHeight > Height - dpiY(8)
+			    ImageHeight = Height  - dpiY(8)
+			    Factor = ImageWidth(Image) / ImageHeight(Image)
+			    ImageWidth = ImageHeight * Factor
+			  EndIf  
+			  OffsetX = (Switch()\Size\Button - ImageWidth) / 2
+			  OffsetY = (Height - ImageHeight) / 2
+			  DrawingMode(#PB_2DDrawing_AlphaBlend)
+			  DrawImage(ImageID(Image), X + OffsetX, Y + OffsetY, ImageWidth, ImageHeight)
+			ElseIf Text
 			  OffsetX = (Switch()\Size\Button - TextWidth(Text)) / 2
 			  OffsetY = (Height - TextHeight(Text)) / 2
 			  DrawingMode(#PB_2DDrawing_Transparent)
 			  DrawText(X + OffsetX, Y + OffsetY, Text, FrontColor)
-			EndIf  
+			EndIf
 			;}
 			
 			;{ _____ Border ____
@@ -419,7 +463,6 @@ Module Switch
         Switch()\Color\Front        = ModuleEx::ThemeGUI\Button\FrontColor
 				Switch()\Color\Back         = ModuleEx::ThemeGUI\Button\BackColor
 				Switch()\Color\Border       = ModuleEx::ThemeGUI\Button\BorderColor
-				Switch()\Color\Button       = ModuleEx::ThemeGUI\Button\SwitchColor
 				Switch()\Color\Gadget       = ModuleEx::ThemeGUI\GadgetColor
 				Switch()\Color\Focus        = ModuleEx::ThemeGUI\Focus\BackColor
 				Switch()\Color\DisableFront = ModuleEx::ThemeGUI\Disable\FrontColor
@@ -579,7 +622,16 @@ Module Switch
 					CompilerCase #PB_OS_Linux
 						Switch()\FontID = GetGadgetFont(#PB_Default)
 				CompilerEndSelect ;}
+				
+				CompilerIf #Include_DefaultImages
 
+				  If Flags & #Images
+				    Switch()\Image\ON  = DefaultImage\ON
+				    Switch()\Image\OFF = DefaultImage\OFF
+				  EndIf  
+				  
+				CompilerEndIf  
+				
 				Switch()\Size\X = X
 				Switch()\Size\Y = Y
 				Switch()\Size\Width  = Width
@@ -594,7 +646,6 @@ Module Switch
 				Switch()\Color\Back         = $E3E3E3
 				Switch()\Color\Gadget       = $F0F0F0
 				Switch()\Color\Border       = $A0A0A0
-				Switch()\Color\Button       = $C8C8C8
 				Switch()\Color\Focus        = $D77800
 				Switch()\Color\On           = $228B22 
 				Switch()\Color\Off          = $0000FF
@@ -605,7 +656,6 @@ Module Switch
 					CompilerCase #PB_OS_Windows
 						Switch()\Color\Front  = GetSysColor_(#COLOR_BTNTEXT)
 						Switch()\Color\Back   = GetSysColor_(#COLOR_3DLIGHT)
-						Switch()\Color\Button = GetSysColor_(#COLOR_SCROLLBAR)
 						Switch()\Color\Border = GetSysColor_(#COLOR_WINDOWFRAME)
 						Switch()\Color\Gadget = GetSysColor_(#COLOR_MENU)
 						Switch()\Color\Focus  = GetSysColor_(#COLOR_MENUHILIGHT)
@@ -613,7 +663,6 @@ Module Switch
 						Switch()\Color\Front  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
 						Switch()\Color\Back   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
 						Switch()\Color\Border = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
-						Switch()\Color\Button = 
 						Switch()\Color\Gadget = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
 						Switch()\Color\Focus  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedControlColor"))
 					CompilerCase #PB_OS_Linux
@@ -751,7 +800,23 @@ Module Switch
 	  EndIf
 	  
 	EndProcedure
-
+	
+	Procedure   SetImage(GNum.i, Type.i, Image.i)
+    
+    If FindMapElement(Switch(), Str(GNum))
+    
+      Select Type
+        Case #ON
+          Switch()\Image\On  = Image
+        Case #OFF
+          Switch()\Image\Off = Image
+      EndSelect
+      
+      Draw_()
+    EndIf
+    
+  EndProcedure
+	
   Procedure   SetFont(GNum.i, Font.i) 
     
     If FindMapElement(Switch(), Str(GNum))
@@ -773,31 +838,93 @@ Module Switch
 	  EndIf  
 	  
 	EndProcedure	
+	
+	
+  ; _____ Image Data _____
   
+  CompilerIf #Include_DefaultImages
+    
+    InitDefaults_()
+    
+    ; Source:  www.inkscape.org
+
+    DataSection
+      On:
+      Data.q $0A1A0A0D474E5089,$524448490D000000,$1000000010000000,$FFF31F0000000608,$4942730400000061,$64087C0808080854,
+             $5948700900000088,$0D0000D70D000073,$0000789B284201D7,$6F53745845741900,$7700657261777466,$63736B6E692E7777,
+             $9B67726F2E657061,$49640200001A3CEE,$5DD3958D38544144,$9DFFF00714511448,$0D5ABF5B7775677B,$840DC0D3509150DA,
+             $2882924A2DC340CC,$E849103021E8BE84,$88235E64B7AA2DA1,$D0312A2327A2297C,$495CC8A84B4A898A,$DB6D4DB6D2A43533,
+             $D17A677B999D7769,$CE77E7FCFBD42D08,$7B9636DB621EF73D,$424EB19926CF4102,$85A2AA8D9A6188C8,$8E6F59F3DA804AC8,
+             $D3DEE06173F06AEC,$A82B48AE2349B35B,$6E71617E765D67BE,$CE079391E5F02929,$E820405962704139,$741F55F7976332A1,
+             $033D1534C821B447,$10059737584B748F,$33B37997E4978E42,$DDD0B75D09B610BD,$81024B8B885C1AAF,$F72AEA5528CDC7A0,
+             $422EED90847F26BB,$5505C42E49DB8BC7,$974E9254024B62D1,$09B6C05932A65717,$6CC75EC684113322,$E3B83E6C0002BEDB,
+             $DB6D92F4A33D7A6C,$81E345549BCE4D77,$655553E4C1C727A0,$FD32F821D313A935,$5668B9C12D75D1B8,$BF4DAE690000CD15,
+             $66B0DB563F5CA583,$81BD6332A3C6DE43,$BA5152DA518727A0,$7462712834E6E995,$68013FC7DF131862,$DB58CC80012C2F9B,
+             $281136594E752DEE,$6319F9B7F95571AF,$1DFBD6CA876528EF,$BD9D17B25C18D891,$FDA2AA8DE72693F7,$E5F0FD1857F33CF9,
+             $1B584A65664E5E7D,$77B558CB1F5AC146,$2C857ECDA5BAE735,$A325A5ADF1F031B9,$248CF7FC7B4554AF,$EC1F1A1FAF393000,
+             $6883C9304F69EF6E,$16466F106C870C3C,$A13D03B620C3C68D,$4B21C2D345C9BAE7,$CEC42E2FDA2AA000,$24749E77AB91336F,
+             $8353931D4C301D0C,$1726FD237D138990,$A2C085A168AA8766,$52A530ED267ED85D,$874F4DE5DF89456B,$85C92CF9783C6DC9,
+             $DCC092F3ED155228,$9B9859D492A66CAB,$54F4F0CC278B169B,$FF828BCD9F96C3EB,$011752A51F10E603,$FFA2D1556AAC2E2C,
+             $7228106A9D06FDCA,$4900000000C6CC2A
+      Data.b $45,$4E,$44,$AE,$42,$60,$82
+      Off:
+      Data.q $0A1A0A0D474E5089,$524448490D000000,$1000000010000000,$FFF31F0000000608,$4942730400000061,$64087C0808080854,
+             $5948700900000088,$0D0000D70D000073,$0000789B284201D7,$6F53745845741900,$7700657261777466,$63736B6E692E7777,
+             $9B67726F2E657061,$49470200001A3CEE,$4153A58D38544144,$90BA537D1840E24F,$E5948BBB8318B696,$5B6B2F478C4CDEC0,
+             $CF627F07B4E071BC,$C481E4F56D1311BD,$22B658401E4F1890,$C1ECE99D2C58B48D,$F7C9A77E2F078885,$7384337BDEF97CDE,
+             $2596B83AB894CF8E,$DA6980841B3366E6,$CB5D12DF4E7E7989,$85C0D80368617312,$5B56AE4753A64815,$5AE3A9D322DAB572,
+             $D7514E041270C6D6,$71AC1048B7AEB25B,$9AB52B6264F80011,$9D060840963E3B59,$DAB2D71DF7EF398E,$9BAF58A707878000,
+             $1D3A0C738129B37A,$0116FC01B7BFBA33,$B16C8972D914A320,$9C1A430DD0861640,$AA8000E870D19A9E,$087DF512186EA6EB,
+             $3840000C65CAF69A,$51C346D3110970E7,$14594A6CDEB3152B,$0033DE7BDC34D041,$4504114598A30CD4,$EF63C70E2CECE0C1,
+             $55929CE4DB5DDDCB,$6A3BAF5262212E0A,$F9B3923A38FC62A5,$8430B0000555391C,$78D1C45C5C18AAA0,$5D39C9B6FDFA15EC,
+             $EBA171108B36B06F,$A8787AABFBBBB68E,$BABA3114420FFE80,$AE1C34A5D1A3879A,$E829462AB8C46F2F,$DAF6590058BA0972,
+             $3DF4A30124D0534C,$2E471D9DC2121B1D,$09259C81C1EA8D97,$4205E5F43AF49272,$3E3F1C75F5D18F3E,$4425C129B264DA7A,
+             $E32DADE476DEDA7C,$7C904B97CCBEFEFB,$BAF8007337370F1E,$38BD7B7F7AACA7B7,$726DA082B6F27A7E,$5F3B254A0800054E,
+             $33674E4346E51A2C,$EF99E376EC314A30,$C6EDD872FF7CCE5F,$21A3728861A4528C,$B5EC952823458BE7,$C71A4534B0318C07,
+             $4512FC6DEDC98000,$8C8F000DB9F9F95E,$4FE7E7633D7A7F39,$EFF7B0534B239C19,$0018A2829C142FC0,$EB5924B7DEE7CC90,
+             $D9CB9C7130DF08FC,$1F546DE4EC615000,$F7B41FF9DFB3E4E1,$000082857FBA4B5D,$42AE444E45490000
+      Data.b $60,$82
+    EndDataSection
+
+	CompilerEndIf
+	
 EndModule
 
 ;- ========  Module - Example ========
 
 CompilerIf #PB_Compiler_IsMainFile
   
+  UsePNGImageDecoder()
+  
   Enumeration 
     #Window
     #Switch1
     #Switch2
+    #Switch3
     #Font
+    #IMG_On
+    #IMG_Off
   EndEnumeration
   
   LoadFont(#Font, "Arial", 8, #PB_Font_Bold)
   
-  If OpenWindow(#Window, 0, 0, 180, 60, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
+  ;LoadImage(#IMG_On,  "ON.png")
+  ;LoadImage(#IMG_Off, "OFF.png")
+  
+  If OpenWindow(#Window, 0, 0, 260, 60, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
     
-    If Switch::Gadget(#Switch1, 20, 20, 60, 20, "ON", "OFF", Switch::#ColorText|Switch::#ColorBack) ; 
+    If Switch::Gadget(#Switch1, 20, 20, 60, 20, "ON", "OFF", Switch::#ColorText|Switch::#ColorBack)
       Switch::SetFont(#Switch1, #Font)
     EndIf
     
-    If Switch::Gadget(#Switch2, 100, 20, 60, 20, "ON", "OFF", Switch::#ColorText|Switch::#ColorBack) ; 
+    If Switch::Gadget(#Switch2, 100, 20, 60, 20, "ON", "OFF", Switch::#ColorText|Switch::#ColorBack)
       Switch::SetFont(#Switch2, #Font)
       Switch::SetAttribute(#Switch2, Switch::#Corner, 4)
+    EndIf
+    
+    If Switch::Gadget(#Switch3, 180, 20, 60, 20, "", "", Switch::#Images)
+      ;Switch::SetImage(#Switch3, Switch::#ON,  #IMG_On)
+      ;Switch::SetImage(#Switch3, Switch::#OFF, #IMG_Off)
     EndIf
     
     Repeat
@@ -817,8 +944,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 56
-; FirstLine = 18
-; Folding = cQAAAAAAA5
+; CursorPosition = 924
+; FirstLine = 332
+; Folding = oQAAmAgYAA9
 ; EnableXP
 ; DPIAware
