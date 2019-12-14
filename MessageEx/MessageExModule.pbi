@@ -10,7 +10,7 @@
 ;/
 
 
-; Last Update:
+; Last Update: 14.12.2019
 
 
 ;{ ===== MIT License =====
@@ -63,7 +63,7 @@
 
 DeclareModule MessageEx
   
-  #Version  = 19121300
+  #Version  = 19121400
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -79,9 +79,9 @@ DeclareModule MessageEx
 	EndEnumeration ;}
 	
 	Enumeration 2     ;{ Result
-  	#Yes
-  	#No
-  	#Cancel
+  	#Result_Yes
+  	#Result_No
+  	#Result_Cancel
   EndEnumeration ;}
   
   #OK = 0
@@ -291,6 +291,17 @@ Module MessageEx
 	  EndIf  
 	EndProcedure
 	
+	
+	Procedure.i BlendColor_(Color1.i, Color2.i, Factor.i=50)
+		Define.i Red1, Green1, Blue1, Red2, Green2, Blue2
+		Define.f Blend = Factor / 100
+
+		Red1 = Red(Color1): Green1 = Green(Color1): Blue1 = Blue(Color1)
+		Red2 = Red(Color2): Green2 = Green(Color2): Blue2 = Blue(Color2)
+
+		ProcedureReturn RGB((Red1 * Blend) + (Red2 * (1 - Blend)), (Green1 * Blend) + (Green2 * (1 - Blend)), (Blue1 * Blend) + (Blue2 * (1 - Blend)))
+	EndProcedure	
+	
 	Procedure InitDefault_()
 	  Define  *Buffer
 	  
@@ -339,17 +350,17 @@ Module MessageEx
 		
 		If AddMapElement(Requester\Button(), "Yes")
 		  Requester\Button()\Text   = "Yes"
-		  Requester\Button()\Result = #Yes
+		  Requester\Button()\Result = #Result_Yes
 		EndIf 
 		
 		If AddMapElement(Requester\Button(), "No")  
 		  Requester\Button()\Text   = "No"
-		  Requester\Button()\Result = #No
+		  Requester\Button()\Result = #Result_No
 		EndIf 
 		
 		If AddMapElement(Requester\Button(), "Cancel")  
 		  Requester\Button()\Text   = "Cancel" 
-		  Requester\Button()\Result = #Cancel
+		  Requester\Button()\Result = #Result_Cancel
 		EndIf   
 		;}
 		
@@ -450,18 +461,7 @@ Module MessageEx
 	  EndIf
 	  
 	EndProcedure  
-	
-	Procedure.i BlendColor_(Color1.i, Color2.i, Factor.i=50)
-		Define.i Red1, Green1, Blue1, Red2, Green2, Blue2
-		Define.f Blend = Factor / 100
 
-		Red1 = Red(Color1): Green1 = Green(Color1): Blue1 = Blue(Color1)
-		Red2 = Red(Color2): Green2 = Green(Color2): Blue2 = Blue(Color2)
-
-		ProcedureReturn RGB((Red1 * Blend) + (Red2 * (1 - Blend)), (Green1 * Blend) + (Green2 * (1 - Blend)), (Blue1 * Blend) + (Blue2 * (1 - Blend)))
-	EndProcedure
-	
-	
 	Procedure   Button_(Key.s, X.i, Y.i)
 	  Define.i Width, Height, OffSetX, OffsetY
 	  Define.i BackColor, BorderColor
@@ -1218,11 +1218,11 @@ CompilerIf #PB_Compiler_IsMainFile
   Select Result
     Case #True
       Debug "OK"
-    Case MessageEx::#Yes
+    Case MessageEx::#Result_Yes
       Debug "Yes"
-    Case MessageEx::#No
+    Case MessageEx::#Result_No
       Debug "No"
-    Case MessageEx::#Cancel
+    Case MessageEx::#Result_Cancel
       Debug "Cancel"
     Default
       Debug "Close window"
@@ -1231,7 +1231,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 37
-; Folding = cABAAqAEAQAw
+; CursorPosition = 65
+; Folding = YDBQQ3hMgUAw
 ; EnableXP
 ; DPIAware
