@@ -5789,7 +5789,9 @@ Module ListEx
     If FindMapElement(ListEx(), Str(GNum))
 
       Index = AddItem_(Row, Text, Label, Flags) 
-
+      
+      SetRowFocus_(Index)
+      
       If ListEx()\ReDraw
         If ListEx()\FitCols : FitColumns_() : EndIf
         UpdateRowY_()
@@ -7831,10 +7833,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 4820
-; FirstLine = 1047
-; Folding = YRQAAAACIAAAICEAGwA9HQ5hCBCiFwwKYNAAAghDgvAg8AAAMBOACgDAAAAAQAAAg+--
-; Markers = 3232
+; CursorPosition = 5792
+; FirstLine = 805
+; Folding = YRQAAAACIAABICEAGwA9HQ5hCBCiFwwKRBAAAAhDgrAg8AAAMDOACgDAAAAAAAAAQ+--
+; Markers = 3232,5797
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
