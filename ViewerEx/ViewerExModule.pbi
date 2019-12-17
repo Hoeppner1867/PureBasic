@@ -10,8 +10,9 @@
 ;/ Pattern based on (http://tug.org/tex-hyphen/)
 ;/
 
-; Last Update: 16.12.19
+; Last Update: 17.12.19
 ;
+; Added: Link and URL are underlined
 ; Added: #UseExistingCanvas
 ;
 
@@ -102,7 +103,7 @@
 
 DeclareModule ViewerEx
   
-  #Version  = 19121600
+  #Version  = 19121601
   #ModuleEx = 19111702
   
   #Enable_Hyphenation         = #True
@@ -828,8 +829,8 @@ Module ViewerEx
                   FindMapElement(VGEx()\Content\Heading(), Str(#PB_Default))
                 EndIf
                 
-                If VGEx()\Content\Style()\FrontColor <> #PB_Default
-                  FrontColor = VGEx()\Content\Style()\FrontColor
+                If VGEx()\Content\Heading()\FrontColor <> #PB_Default
+                  FrontColor = VGEx()\Content\Heading()\FrontColor
                 Else
                   FrontColor = VGEx()\Color\Front
                 EndIf  
@@ -1179,7 +1180,10 @@ Module ViewerEx
                 txtWidth  = VGEx()\Size\Width - Indent - VGEx()\Content\Label()\Margin\Left - VGEx()\Content\Label()\Margin\Right
 
                 aX = AlignX_(Text, Indent, VGEx()\Content\Label()\Link()\Flags)
-                If visible : DrawText_(X + aX, Y, Text, FrontColor, BackColor) : EndIf
+                If visible
+                  DrawText_(X + aX, Y, Text, FrontColor, BackColor)
+                  Line(X + aX, Y + txtHeight - 1, TextWidth(Text), 1, FrontColor)
+                EndIf
                 
                 VGEx()\Content\Label()\Link()\X = X + aX
                 VGEx()\Content\Label()\Link()\Y = Y
@@ -2959,8 +2963,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 104
-; Folding = 5FAAADAAgpUAAAwAJAQAvcIgs
-; Markers = 1915
+; CursorPosition = 14
+; Folding = 5FAAADAAIp1AAAwAJAQAvcIgs
+; Markers = 1919
 ; EnableXP
 ; DPIAware
