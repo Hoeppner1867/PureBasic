@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 11.12.2019
+; Last Update: 17.12.2019
 ;
 ; - Added: Format content (mask)
 ; - Added: Multiline support
@@ -151,7 +151,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19121100
+  #Version  = 19121700
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -1695,7 +1695,7 @@ Module ListEx
     
     Procedure.s FormatInteger_(String.s, Mask.s)
       Define.i Decimals
-      Define.s TSep$
+      Define.s TSep$, DSep$
 
       String = ReplaceString(String, ",", ".")
       
@@ -4817,6 +4817,10 @@ Module ListEx
           EndIf
           
         EndIf
+        
+      Else  
+        ListEx()\Col\MouseX   = 0
+        ListEx()\CanvasCursor = #PB_Cursor_Default
         ;} 
       EndIf 
 
@@ -7827,9 +7831,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 153
-; FirstLine = 9
-; Folding = QRQAAAACIAAAICEAGQA9HQ5hCBCiFwwKYNAAAghDgPCg8AAAMBOACgDAAAAAQAAAg+--
+; CursorPosition = 4820
+; FirstLine = 1047
+; Folding = YRQAAAACIAAAICEAGwA9HQ5hCBCiFwwKYNAAAghDgvAg8AAAMBOACgDAAAAAQAAAg+--
 ; Markers = 3232
 ; EnableXP
 ; DPIAware

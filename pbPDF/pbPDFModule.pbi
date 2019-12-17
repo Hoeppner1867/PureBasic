@@ -8,7 +8,7 @@
 ;/ ( based on 'PurePDF' by LuckyLuke / ABBKlaus / normeus )
 ;/
 
-; Last Update: 05.12.2019
+; Last Update: 17.12.2019
 ; 
 ; [11.11.2019] Changed: Embed images
 ; [26.08.2019] Bugfix: PDF::Image()
@@ -187,7 +187,7 @@
 
 DeclareModule PDF
   
-  #Version  = 19120500
+  #Version  = 19121700
   
   #Enable_AcroFormCommands  = #True
   #Enable_Annotations       = #True
@@ -3661,7 +3661,7 @@ Module PDF
     
     ; --- Page defaults ---
     PDF()\Page\X = PDF()\Margin\Left
-    PDF()\Page\Y = PDF()\Margin\Right
+    PDF()\Page\Y = PDF()\Margin\Top
     
     If Trim(Format) ;{ Change page format
       ptWidth  = ValF(StringField(Format, 1, ","))
@@ -3931,7 +3931,8 @@ Module PDF
             objOutDictionary_("/OpenAction [" + PDF()\Pages()\objNum + " /Fit]",  "", #LF$, #False, PDF()\Trailer\Root)
           Case #PageWidth
             objOutDictionary_("/OpenAction [" + PDF()\Pages()\objNum + " /FitH]", "", #LF$, #False, PDF()\Trailer\Root)
-          Default:
+          Default
+            
             objOutDictionary_("/OpenAction [" + PDF()\Pages()\objNum + " /XYZ 0 0 " + PDF()\Catalog\OpenAction\Zoom + "]", "", #LF$, #False, PDF()\Trailer\Root)
         EndSelect 
       EndIf
@@ -4548,13 +4549,16 @@ Module PDF
   EndProcedure
   
   Procedure SetOpenAction(ID.i, Zoom.s="", Page.i=1)
+    Define.f Factor
     
     If FindMapElement(PDF(), Str(ID))
       
       If Zoom = "" : Zoom = #PageWidth : EndIf
       
       PDF()\Catalog\OpenAction\Page = Page
-      PDF()\Catalog\OpenAction\Zoom = RTrim(Zoom, "%")
+      
+      Factor = Val(RTrim(Zoom, "%")) / 100
+      PDF()\Catalog\OpenAction\Zoom = StrF(Factor, 2)
       
     EndIf
     
@@ -6955,9 +6959,9 @@ CompilerEndIf
 
 ;- ========================
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 3996
-; FirstLine = 791
-; Folding = YAwiA5AegAQAIABAABAgIECAAAiBAAAAYAEAAygIASnoAAACOAAUQAEIAAQwwEYKA5BCAA9
+; CursorPosition = 189
+; FirstLine = 12
+; Folding = YAwiA5AegAQAIABAABAgIECAAAiBAAAAYAEAAzgIAEnoAAACOAAUQAEIAAQwwEYKA5BCAA9
 ; Markers = 582,1013,2362,2462,3768,3833
 ; EnableXP
 ; DPIAware
