@@ -8,10 +8,9 @@
 ;/ ( based on 'PurePDF' by LuckyLuke / ABBKlaus / normeus )
 ;/
 
-; Last Update: 17.12.2019
+; Last Update: 18.12.2019
 ; 
-; [11.11.2019] Changed: Embed images
-; [26.08.2019] Bugfix: PDF::Image()
+
 
 ;{ ===== MIT License =====
 ;
@@ -187,7 +186,7 @@
 
 DeclareModule PDF
   
-  #Version  = 19121700
+  #Version  = 19121800
   
   #Enable_AcroFormCommands  = #True
   #Enable_Annotations       = #True
@@ -3769,6 +3768,7 @@ Module PDF
   Procedure CompleteObjects_()
     Define.i TotalNum, PageNum, ptY
     Define.s objStrg, objPage
+    Define.f Factor
     
     ;{ _____ Annotations _____
     If MapSize(PDF()\Labels()) > 0 ;{ Annotation labels
@@ -3932,8 +3932,8 @@ Module PDF
           Case #PageWidth
             objOutDictionary_("/OpenAction [" + PDF()\Pages()\objNum + " /FitH]", "", #LF$, #False, PDF()\Trailer\Root)
           Default
-            
-            objOutDictionary_("/OpenAction [" + PDF()\Pages()\objNum + " /XYZ 0 0 " + PDF()\Catalog\OpenAction\Zoom + "]", "", #LF$, #False, PDF()\Trailer\Root)
+            Factor = Val(RTrim(PDF()\Catalog\OpenAction\Zoom, "%")) / 100
+            objOutDictionary_("/OpenAction [" + PDF()\Pages()\objNum + " /XYZ 0 0 " + StrF(Factor, 2) + "]", "", #LF$, #False, PDF()\Trailer\Root)
         EndSelect 
       EndIf
     EndIf
@@ -4549,16 +4549,13 @@ Module PDF
   EndProcedure
   
   Procedure SetOpenAction(ID.i, Zoom.s="", Page.i=1)
-    Define.f Factor
-    
+   
     If FindMapElement(PDF(), Str(ID))
       
       If Zoom = "" : Zoom = #PageWidth : EndIf
       
       PDF()\Catalog\OpenAction\Page = Page
-      
-      Factor = Val(RTrim(Zoom, "%")) / 100
-      PDF()\Catalog\OpenAction\Zoom = StrF(Factor, 2)
+      PDF()\Catalog\OpenAction\Zoom = Zoom
       
     EndIf
     
@@ -6959,10 +6956,10 @@ CompilerEndIf
 
 ;- ========================
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 189
-; FirstLine = 12
-; Folding = YAwiA5AegAQAIABAABAgIECAAAiBAAAAYAEAAzgIAEnoAAACOAAUQAEIAAQwwEYKA5BCAA9
-; Markers = 582,1013,2362,2462,3768,3833
+; CursorPosition = 188
+; FirstLine = 24
+; Folding = YAwiA5AegAQAIABAABAgIECAAAiBAAAAYAEAAzgIAEnoAAACOIAUQAEIAAQwwEYKA5BCAA9
+; Markers = 581,1012,2361,2461,3767,3833
 ; EnableXP
 ; DPIAware
 ; EnablePurifier
