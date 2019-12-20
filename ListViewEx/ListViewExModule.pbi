@@ -9,7 +9,10 @@
 ;/ © 2019  by Thorsten Hoeppner (11/2019)
 ;/
 
-; Last Update: 08.12.2019
+; Last Update: 20.12.2019
+;
+; Added: SyntaxHighlight (#Enable_SyntaxHighlight)
+;
 
 ;{ ===== MIT License =====
 ;
@@ -34,7 +37,7 @@
 ; SOFTWARE.
 ;}
 
-;{ ===== Additional tea & pizza license =====
+;{ ===== Tea & Pizza Ware =====
 ; <purebasic@thprogs.de> has created this code. 
 ; If you find the code useful and you want to use it for your programs, 
 ; you are welcome to support my work with a cup of tea or a pizza
@@ -85,13 +88,15 @@
 
 DeclareModule ListView
   
-  #Version  = 19120800
+  #Version  = 19122000
   #ModuleEx = 19120100
-  
+
 	;- ===========================================================================
 	;-   DeclareModule - Constants
 	;- ===========================================================================
-
+  
+  #Enable_SyntaxHighlight = #True
+  
   ;{ _____ Constants _____
   #FirstItem = 0
   #LastItem  = -1
@@ -105,7 +110,9 @@ DeclareModule ListView
 		#AutoResize        ; Automatic resizing of the gadget
 		#Borderless        ; Draw no border
 		#ClickSelect = #PB_ListView_ClickSelect ; must be 8
-		#GridLines         ; Draw gridlines
+		#GridLines                              ; Draw gridlines
+		#ThreeState
+		#CheckBoxes
 		;#ToolTips         ; Show tooltips
 		#UseExistingCanvas ; e.g. for dialogs
 		#MultiSelect = #PB_ListView_MultiSelect ; must be 2048
@@ -118,6 +125,12 @@ DeclareModule ListView
     #Image
     #FitRows
 	EndEnumeration ;}
+	
+	EnumerationBinary ;{ CheckBox status 
+    #Selected   = #PB_ListIcon_Selected
+    #Checked    = #PB_ListIcon_Checked
+    #Inbetween  = #PB_ListIcon_Inbetween
+  EndEnumeration ;}
 	
 	EnumerationBinary ;{ AutoResize
 		#MoveX
@@ -189,6 +202,14 @@ DeclareModule ListView
   Declare   SetText(GNum.i, Text.s)
   Declare   UpdatePopupText(GNum.i, MenuItem.i, Text.s)
   
+  CompilerIf #Enable_SyntaxHighlight
+    
+    Declare AddWord(GNum.i, Word.s, Color.i)
+    Declare DeleteWord(GNum.i, Word.s)
+    Declare ClearWords(GNum.i)
+    
+  CompilerEndIf
+    
 EndDeclareModule
 
 Module ListView
@@ -211,6 +232,12 @@ Module ListView
     Hide.i
   EndStructure ;}
   
+  Structure CheckBox_Structure         ;{ 
+    X.i
+    Y.i
+    Size.i
+  EndStructure ;}
+  
   Structure Image_Structure            ;{ ListView()\Item()\Image\...
     Num.i
     Width.f
@@ -228,6 +255,7 @@ Module ListView
     Quad.q
     Y.i
     String.s
+    CheckBox.CheckBox_Structure
     Image.Image_Structure
     Color.Color_Structure
     State.i
@@ -245,6 +273,7 @@ Module ListView
 		Border.i
 		Gadget.i
 		Grid.i
+		CheckBox.i
 		FocusFront.i
 		FocusBack.i
 		DisableFront.i
@@ -295,8 +324,9 @@ Module ListView
 		
 		List Item.ListView_Item_Structure()
 		Map  Index.i() 
+		Map  Syntax.i()
 		Map  PopUpItem.s()
-
+    
 	EndStructure ;}
 	Global NewMap ListView.ListView_Structure()
 
@@ -434,11 +464,59 @@ Module ListView
 
 		ProcedureReturn RGB((Red1 * Blend) + (Red2 * (1 - Blend)), (Green1 * Blend) + (Green2 * (1 - Blend)), (Blue1 * Blend) + (Blue2 * (1 - Blend)))
 	EndProcedure
+	
+	
+	Procedure.i CheckBox_(X.i, Y.i, Width.i, Height.i, boxWidth.i, FrontColor.i, BackColor.i, State.i)
+    Define.i X1, X2, Y1, Y2
+    Define.i bColor, LineColor
+    
+    If boxWidth <= Width And boxWidth <= Height
+      
+      Y + ((Height - boxWidth) / 2)
+      
+      Box(X, Y, boxWidth, boxWidth, BackColor)
+      
+      LineColor = BlendColor_(FrontColor, BackColor, 60)
+      
+      If State & #Checked
+
+        bColor = BlendColor_(LineColor, ListView()\Color\CheckBox)
+        
+        X1 = X + 1
+        X2 = X + boxWidth - 2
+        Y1 = Y + 1
+        Y2 = Y + boxWidth - 2
+        
+        LineXY(X1 + 1, Y1, X2 + 1, Y2, bColor)
+        LineXY(X1 - 1, Y1, X2 - 1, Y2, bColor)
+        LineXY(X2 + 1, Y1, X1 + 1, Y2, bColor)
+        LineXY(X2 - 1, Y1, X1 - 1, Y2, bColor)
+        LineXY(X2, Y1, X1, Y2, LineColor)
+        LineXY(X1, Y1, X2, Y2, LineColor)
+        
+      ElseIf State & #Inbetween
+        
+        Box(X, Y, boxWidth, boxWidth, BlendColor_(LineColor, BackColor, 50))
+        
+      EndIf
+      
+      DrawingMode(#PB_2DDrawing_Outlined)
+      Box(X + 2, Y + 2, boxWidth - 4, boxWidth - 4, BlendColor_(LineColor, BackColor, 5))
+      Box(X + 1, Y + 1, boxWidth - 2, boxWidth - 2, BlendColor_(LineColor, BackColor, 25))
+      Box(X, Y, boxWidth, boxWidth, LineColor)
+      
+      ListView()\Item()\CheckBox\X    = X
+      ListView()\Item()\CheckBox\Y    = Y
+      ListView()\Item()\CheckBox\Size = boxWidth
+      
+    EndIf
+    
+  EndProcedure
 
 	Procedure   Draw_()
 	  Define.i X, Y, Width, Height, OffsetX, OffsetY
-	  Define.i imgX, imgY, imgHeight, imgWidth
-		Define.i TextHeight, RowHeight, maxHeight, PageRows
+	  Define.i imgX, imgY, imgHeight, imgWidth, Pos, wordX
+		Define.i TextHeight, RowHeight, boxSize, maxHeight, PageRows
     Define.i FrontColor, BackColor, BorderColor, ItemFrontColor, ItemBackColor
     Define.f Factor
     
@@ -535,6 +613,29 @@ Module ListView
         
         ListView()\Item()\Y = Y
         
+        ;{ Row background
+        DrawingMode(#PB_2DDrawing_Default)
+        If ListView()\Flags & #ClickSelect And ListView()\Item()\State & #Selected
+          Box(0, Y, Width, RowHeight, ListView()\Color\FocusBack)
+        ElseIf ListView()\State = ListIndex(ListView()\Item()) Or ListView()\Item()\State & #Selected
+          Box(0, Y, Width, RowHeight, ListView()\Color\FocusBack)
+        Else  
+          If ListView()\Focus = ListIndex(ListView()\Item())
+            Box(X - dpiX(2), Y, TextWidth(ListView()\Item()\String) + dpiX(6), RowHeight, BlendColor_(ListView()\Color\FocusBack, BackColor, 10))
+          ElseIf ListView()\Item()\Color\Back <> #PB_Default
+            Box(X - dpiX(2), Y, Width, RowHeight, ItemBackColor)
+          EndIf
+        EndIf ;}
+        
+        ;{ Checkboxes
+        If ListView()\Flags & #CheckBoxes
+          boxSize = TextHeight - dpiY(2)
+          X = dpiX(3)
+          CheckBox_(X, Y, Width, RowHeight, boxSize, FrontColor, BackColor, ListView()\Item()\State)
+          X + boxSize
+        EndIf  
+        ;}
+        
         ;{ Text Align
         If ListView()\Item()\Flags & #Center
           OffsetX = (Width - TextWidth(ListView()\Item()\String)) / 2
@@ -591,28 +692,31 @@ Module ListView
           EndIf
           
         EndIf
-
+        
+        ;{ Text
         DrawingMode(#PB_2DDrawing_Transparent)
-        If ListView()\Flags & #ClickSelect And ListView()\Item()\State
-          Box(0, Y, Width, RowHeight, ListView()\Color\FocusBack)
-          DrawText(X, Y + OffsetY, ListView()\Item()\String, ListView()\Color\FocusFront)
-        ElseIf ListView()\State = ListIndex(ListView()\Item()) Or ListView()\Item()\State
-          Box(0, Y, Width, RowHeight, ListView()\Color\FocusBack)
+        If ListView()\Flags & #ClickSelect And ListView()\Item()\State & #Selected
+          DrawText(X + OffsetX, Y + OffsetY, ListView()\Item()\String, ListView()\Color\FocusFront)
+        ElseIf ListView()\State = ListIndex(ListView()\Item()) Or ListView()\Item()\State & #Selected
           DrawText(X + OffsetX, Y + OffsetY, ListView()\Item()\String, ListView()\Color\FocusFront)
         Else
-          If ListView()\Focus = ListIndex(ListView()\Item())
-            Box(X - dpiX(2), Y, TextWidth(ListView()\Item()\String) + dpiX(6), RowHeight, BlendColor_(ListView()\Color\FocusBack, BackColor, 10))
-          ElseIf ListView()\Item()\Color\Back <> #PB_Default
-            Box(X - dpiX(2), Y, Width, RowHeight, ItemBackColor)
-          EndIf
-          
           If ListView()\Item()\Color\Front <> #PB_Default
             DrawText(X + OffsetX, Y + OffsetY, ListView()\Item()\String, ItemFrontColor)
           Else
             DrawText(X + OffsetX, Y + OffsetY, ListView()\Item()\String, FrontColor)
           EndIf
-          
-        EndIf
+        EndIf ;}
+        
+        CompilerIf #Enable_SyntaxHighlight
+          ForEach ListView()\Syntax()
+            Pos = FindString(ListView()\Item()\String, MapKey(ListView()\Syntax()))
+            If Pos
+              DrawingMode(#PB_2DDrawing_Default)
+              wordX = TextWidth(Left(ListView()\Item()\String, Pos - 1))
+              DrawText(X + OffsetX + wordX, Y + OffsetY, MapKey(ListView()\Syntax()), ListView()\Syntax(), BackColor)
+            EndIf  
+          Next   
+        CompilerEndIf
         
         If ListView()\Item()\Flags & #Image
           DrawingMode(#PB_2DDrawing_AlphaBlend)
@@ -665,6 +769,7 @@ Module ListView
 				ListView()\Color\Border       = ModuleEx::ThemeGUI\BorderColor
 				ListView()\Color\Gadget       = ModuleEx::ThemeGUI\GadgetColor
 				ListView()\Color\Grid         = ModuleEx::ThemeGUI\LineColor
+				ListView()\Color\CheckBox     = ModuleEx::ThemeGUI\Button\BackColor
 				ListView()\Color\FocusBack    = ModuleEx::ThemeGUI\Focus\FrontColor
         ListView()\Color\FocusFront   = ModuleEx::ThemeGUI\Focus\BackColor
 				ListView()\Color\DisableFront = ModuleEx::ThemeGUI\Disable\FrontColor
@@ -748,40 +853,83 @@ Module ListView
 			  
 			  If Y >= ListView()\Item()\Y And Y <= ListView()\Item()\Y + ListView()\Rows\Height
 			    
+			    If ListView()\Flags & #CheckBoxes ;{ #CheckBoxes enabled
+			      
+  			    If X >= ListView()\Item()\CheckBox\X And X <= ListView()\Item()\CheckBox\X + ListView()\Item()\CheckBox\Size
+  			      
+  			      If ListView()\Flags & #ThreeState ;{ #ThreeState
+  			        
+  			        If ListView()\Item()\State & #Checked
+  			          ListView()\Item()\State & ~#Checked
+  			          ListView()\Item()\State | #Inbetween
+  			        ElseIf ListView()\Item()\State & #Inbetween
+  			          ListView()\Item()\State & ~#Inbetween
+  			        Else
+  			          ListView()\Item()\State | #Checked
+  			        EndIf
+  			        ;}
+  			      Else
+  			        
+  			        If ListView()\Item()\State & #Checked
+  			          ListView()\Item()\State & ~#Checked
+  			        Else
+  			          ListView()\Item()\State | #Checked
+  			        EndIf  
+  			        
+  			      EndIf
+  			      
+  			      Draw_()
+  			      
+  			      ProcedureReturn #True
+  			    EndIf
+  			    ;}
+  			  EndIf
+			  
 			    Select GetGadgetAttribute(ListView()\CanvasNum, #PB_Canvas_Modifiers)
-			      Case #PB_Canvas_Shift
+			      Case #PB_Canvas_Shift   ;{ Shift-Select
 			        
 			        If ListView()\Flags & #MultiSelect
 			          Row = ListIndex(ListView()\Item())
 			        EndIf  
-			        
-			      Case #PB_Canvas_Control
+			        ;}
+			      Case #PB_Canvas_Control ;{ Ctrl-Select
 
 			        If ListView()\Flags & #MultiSelect
 			          If ListView()\State = ListIndex(ListView()\Item())
 			            ListView()\Item()\State = #False
 			            ListView()\State = #PB_Default
 			          Else
-			            ListView()\Item()\State ! #True
+			            If ListView()\Item()\State & #Selected
+			              ListView()\Item()\State & ~#Selected
+			            Else
+			              ListView()\Item()\State | #Selected
+			            EndIf   
 			          EndIf
 			        EndIf 
-			        
-			      Default
+			        ;}
+			      Default                 ;{ Click
 			        
 			        If ListView()\Flags & #ClickSelect
-  			        ListView()\Item()\State ! #True
-  		          If ListView()\Item()\State
+			          
+			          If ListView()\Item()\State & #Selected
+		              ListView()\Item()\State & ~#Selected
+		            Else
+		              ListView()\Item()\State | #Selected
+		            EndIf  
+			          
+  		          If ListView()\Item()\State & #Selected
   		            ListView()\State = ListIndex(ListView()\Item())
   		            PostEvent(#Event_Gadget, ListView()\Window\Num, ListView()\CanvasNum, #PB_EventType_LeftClick, ListIndex(ListView()\Item()))
   		          Else
   		            ListView()\State = #PB_Default
   		          EndIf
+  		          
   		        Else
   		          Clear = #True
   		          ListView()\State = ListIndex(ListView()\Item())
   		          PostEvent(#Event_Gadget, ListView()\Window\Num, ListView()\CanvasNum, #PB_EventType_LeftClick, ListIndex(ListView()\Item()))
   		        EndIf  
-
+              ;}
 			    EndSelect
 			    
 			    Break
@@ -794,7 +942,7 @@ Module ListView
         If Clear ;{ Reset Selection
           
           ForEach ListView()\Item()
-            ListView()\Item()\State = #False
+            ListView()\Item()\State & ~#Selected
           Next  
           ;}
         ElseIf Row <> #PB_Default ;{ Shift - Select
@@ -804,9 +952,9 @@ Module ListView
             ForEach ListView()\Item()
               Index = ListIndex(ListView()\Item())
               If Index >= ListView()\State And Index <= Row
-                ListView()\Item()\State = #True
+                ListView()\Item()\State | #Selected
               Else
-                ListView()\Item()\State = #False
+                ListView()\Item()\State & ~#Selected
               EndIf
             Next
             
@@ -815,16 +963,16 @@ Module ListView
             ForEach ListView()\Item()
               Index = ListIndex(ListView()\Item())
               If Index >= Row And Index <= ListView()\State
-                ListView()\Item()\State = #True
+                ListView()\Item()\State | #Selected
               Else
-                ListView()\Item()\State = #False
+                ListView()\Item()\State & ~#Selected
               EndIf
             Next 
             
           Else
             
             If SelectElement(ListView()\Item(), ListView()\State)
-              ListView()\Item()\State = #True
+              ListView()\Item()\State | #Selected
             EndIf  
             
           EndIf
@@ -939,6 +1087,35 @@ Module ListView
 	;-   Module - Declared Procedures
 	;- ==========================================================================
 	
+	CompilerIf #Enable_SyntaxHighlight
+    
+    Procedure AddWord(GNum.i, Word.s, Color.i)
+      
+      If FindMapElement(ListView(), Str(GNum))
+        ListView()\Syntax(Word)  = Color
+      EndIf
+    
+    EndProcedure
+  
+    Procedure DeleteWord(GNum.i, Word.s)
+      
+      If FindMapElement(ListView(), Str(GNum))
+        DeleteMapElement(ListView()\Syntax(), Word) 
+      EndIf  
+   
+    EndProcedure
+  
+    Procedure ClearWords(GNum.i)
+      
+      If FindMapElement(ListView(), Str(GNum))
+        ClearMap(ListView()\Syntax())
+      EndIf
+      
+    EndProcedure
+    
+  CompilerEndIf
+	
+	
 	Procedure.i AddItem(GNum.i, Row.i, Text.s, Label.s="", Flags.i=#False)
 	  Define.i r, Result
 	  
@@ -963,9 +1140,9 @@ Module ListView
    
       If Result
 
-		    ListView()\Item()\ID       = Label
-		    ListView()\Item()\String   = Text
-		    ListView()\Item()\Flags    = Flags
+		    ListView()\Item()\ID     = Label
+		    ListView()\Item()\String = Text
+		    ListView()\Item()\Flags  = Flags
 		    
 		    ListView()\Item()\Color\Front = #PB_Default
 		    ListView()\Item()\Color\Back  = #PB_Default
@@ -1108,6 +1285,7 @@ Module ListView
 				ListView()\Color\Gadget       = $F0F0F0
 				ListView()\Color\Border       = $A0A0A0
 				ListView()\Color\Grid         = $E3E3E3
+				ListView()\Color\CheckBox     = $E3E3E3
 				ListView()\Color\FocusBack    = $D77800
         ListView()\Color\FocusFront   = $FFFFFF
 				ListView()\Color\DisableFront = $72727D
@@ -1121,6 +1299,7 @@ Module ListView
 						ListView()\Color\Gadget    = GetSysColor_(#COLOR_MENU)
 						ListView()\Color\Grid      = GetSysColor_(#COLOR_3DLIGHT)
 						ListView()\Color\FocusBack = GetSysColor_(#COLOR_MENUHILIGHT)
+						ListView()\Color\CheckBox  = GetSysColor_(#COLOR_3DLIGHT)
 					CompilerCase #PB_OS_MacOS
 						ListView()\Color\Front     = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
 						ListView()\Color\Back      = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
@@ -1128,6 +1307,7 @@ Module ListView
 						ListView()\Color\Gadget    = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
 						ListView()\Color\Grid      = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
 						ListView()\Color\FocusBack = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedControlColor"))
+						ListView()\Color\CheckBox  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
 					CompilerCase #PB_OS_Linux
 
 				CompilerEndSelect ;}
@@ -1549,8 +1729,8 @@ CompilerIf #PB_Compiler_IsMainFile
       MenuItem(#MenuItem2, "Clear items")
     EndIf
     
-    If ListView::Gadget(#ListView, 10, 10, 120, 180, ListView::#AutoResize|ListView::#GridLines, #Window) ; ListView::#GridLines|ListView::#ClickSelect|ListView::#MultiSelect
-      
+    If ListView::Gadget(#ListView, 10, 10, 120, 180, ListView::#CheckBoxes, #Window) ; ListView::#GridLines|ListView::#ClickSelect|ListView::#MultiSelect
+      ;|ListView::#GridLines
       ListView::AttachPopupMenu(#ListView, #PopUpMenu)
       ListView::UpdatePopupText(#ListView, #MenuItem1,  "Remove row " + ListView::#Row$)
       
@@ -1568,6 +1748,10 @@ CompilerIf #PB_Compiler_IsMainFile
       ListView::SetItemColor(#ListView, 3, ListView::#FrontColor, $006400)
       ListView::SetItemColor(#ListView, 5, ListView::#FrontColor, $800080)
       
+      CompilerIf ListView::#Enable_SyntaxHighlight
+        ListView::AddWord(#ListView, "Row", $006400)
+      CompilerEndIf
+    
       ListView::SetItemImage(#ListView, 1, #Image) ; , ListView::#Right|ListView::#FitRows
       
     EndIf
@@ -1586,9 +1770,6 @@ CompilerIf #PB_Compiler_IsMainFile
               Select EventType()
                 Case #PB_EventType_LeftClick       ;{ Left mouse click
                   Debug "Left Click: " + Str(EventData())
-                  ;}
-                Case #PB_EventType_LeftDoubleClick ;{ LeftDoubleClick
-                  Debug "Left DoubleClick : " + Str(EventData())
                   ;}
                 Case #PB_EventType_RightClick      ;{ Right mouse click
                   Debug "Right Click: " + Str(EventData())
@@ -1615,7 +1796,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 87
-; Folding = 50GAAYEAIQgJAA4GY9
+; CursorPosition = 90
+; Folding = o8DAAACBAAAgFAEAAAAc+
+; Markers = 709
 ; EnableXP
 ; DPIAware
