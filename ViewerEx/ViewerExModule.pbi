@@ -10,8 +10,9 @@
 ;/ Pattern based on (http://tug.org/tex-hyphen/)
 ;/
 
-; Last Update: 17.12.19
+; Last Update: 21.12.19
 ;
+; Added: Content Tree
 ; Added: Link and URL are underlined
 ; Added: #UseExistingCanvas
 ;
@@ -103,13 +104,14 @@
 
 DeclareModule ViewerEx
   
-  #Version  = 19121601
+  #Version  = 19122101
   #ModuleEx = 19111702
   
   #Enable_Hyphenation         = #True
   #Enable_AddViewerContent    = #True; Set it to #False to enable buttons
-  #Enable_CreateViewerContent = #False
-
+  #Enable_CreateViewerContent = #True
+  #Enable_ContentTree         = #True
+  
   EnumerationBinary Gadget
     #AutoResize
     #Borderless
@@ -152,6 +154,15 @@ DeclareModule ViewerEx
     
   CompilerEndIf
   
+  CompilerIf #Enable_ContentTree
+    
+    Structure Content_Tree_Structure 
+      Label.s
+      Title.s
+      Level.i
+    EndStructure
+    
+  CompilerEndIf
   
   ;- ============================================================================
   ;-   DeclareModule
@@ -194,6 +205,15 @@ DeclareModule ViewerEx
     Declare.i StyleDefinition(CNum.i, StyleKey.s, FontKey.s="", Indent.i=0, FrontColor.i=#PB_Default, BackColor.i=#PB_Default) 
     Declare.i Text(CNum.i, Text.s, StyleKey.s="", Spacing.i=0, Flags.i=#Left)
     Declare.i URL(CNum.i, URL.s, StyleKey.s="", String.s="", Spacing.i=0, Flags.i=#Left)
+    
+    CompilerIf #Enable_ContentTree
+      Declare.i AddTreeItem(CNum.i, Title.s, Label.s, Level.i=0) 
+    CompilerEndIf
+    
+  CompilerEndIf
+  
+  CompilerIf #Enable_ContentTree
+  	Declare.s GetContentTree(GNum.i, List ContentTree.Content_Tree_Structure())
   CompilerEndIf
   
   Declare.q GetData(GNum.i)
@@ -290,7 +310,6 @@ Module ViewerEx
     Hide.i
   EndStructure ;}
   
-  
   Structure ViewerEx_Size_Structure      ;{ VGEx()\Size\...
     X.f
     Y.f
@@ -301,8 +320,8 @@ Module ViewerEx
     Flags.i
   EndStructure ;}
   
-  
-  Structure Content_Margins_Structure   ;{ VGEx()\Content\Margin\...
+
+  Structure Content_Margins_Structure    ;{ VGEx()\Content\Margin\...
     Top.i
     Left.i
     Right.i
@@ -342,7 +361,7 @@ Module ViewerEx
     Flags.i
   EndStructure ;}
   
-  Structure Content_Link_Structure      ;{ VGEx()\Content\Link()\...
+  Structure Content_Link_Structure       ;{ VGEx()\Content\Link()\...
     String.s
     Url.s
     Label.s
@@ -380,6 +399,7 @@ Module ViewerEx
   Structure ViewerEx_Content_Structure   ;{ VGEx()\Content\...
     List Image.Content_Image_Structure()
     List Text.Content_Text_Structure()
+    List Tree.Content_Tree_Structure()
     Map  Font.Content_Font_Structure()
     Map  Heading.Content_Heading_Structure()
     Map  Style.Content_Style_Structure()
@@ -408,7 +428,7 @@ Module ViewerEx
     Size.ViewerEx_Size_Structure
     Window.ViewerEx_Window_Structure
     
-    Map Heading.i()
+    Map  Heading.i()
     
     Flags.i
   EndStructure ;}
@@ -1485,6 +1505,8 @@ Module ViewerEx
   ;-   Module - Declared Procedures
   ;- ========================================================================== 
   
+  ;- _____ Add Ressources _____ 
+  
   CompilerIf #Enable_AddViewerContent Or #Enable_CreateViewerContent
 
     Procedure.s UseImage(File.s, ImageKey.s="") 
@@ -1525,6 +1547,8 @@ Module ViewerEx
     EndProcedure    
     
   CompilerEndIf  
+  
+  ;- _____ Add Viewer Content _____ 
   
   CompilerIf #Enable_AddViewerContent
 
@@ -1917,6 +1941,8 @@ Module ViewerEx
     
   CompilerEndIf
   
+  ;- _____ Create Viewer Content _____
+  
   CompilerIf #Enable_CreateViewerContent
     
     Procedure.i Create(CNum.i, Label.s)
@@ -1950,12 +1976,12 @@ Module ViewerEx
     EndProcedure
     
     Procedure   Close(CNum.i) 
-      
-      If FindMapElement(Content(), Str(CNum))
-        Label(Str(CNum)) = Str(#PB_Default)
-      EndIf
+ 
+      DeleteMapElement(Content(), Str(CNum))
+      DeleteMapElement(Content(), Str(CNum))
       
     EndProcedure
+    
     
     Procedure   CopyContent(CNum.i, GNum.i)
 
@@ -1965,6 +1991,7 @@ Module ViewerEx
           ;{ Copy content lists
           CopyList(Content()\Image(), VGEx()\Content\Image())
           CopyList(Content()\Text(),  VGEx()\Content\Text())
+          CopyList(Content()\Tree(),  VGEx()\Content\Tree())
           ;}
           
           ;{ Copy content maps
@@ -1984,10 +2011,11 @@ Module ViewerEx
       Define.s File
       Define   *Buffer
       
+      NewMap ImageFile.Resources_Image_Structure()
       NewMap Pattern.Pattern_Structure()
       
       If FindMapElement(Content(), Str(CNum))
-
+        
         Pack = CreatePack(#PB_Any, File, #PB_PackerPlugin_Lzma)
         If Pack
           
@@ -2008,12 +2036,21 @@ Module ViewerEx
           
           ;{ Images
           ForEach Content()\Image()
+            
             If FindMapElement(Resource\Image(), Content()\Image()\Key)
-              If AddPackFile(Pack, Resource\Image()\File, GetFilePart(Resource\Image()\File))
-                Content()\Image()\FileName = GetFilePart(Resource\Image()\File)
-                Content()\Image()\Size     = Resource\Image()\Size
-              EndIf
-            EndIf 
+              If AddMapElement(ImageFile(), GetFilePart(Resource\Image()\File))
+                ImageFile()\File = Resource\Image()\File
+                ImageFile()\Size = Resource\Image()\Size
+              EndIf  
+            EndIf
+            
+          Next
+          
+          ForEach ImageFile()
+            If AddPackFile(Pack, ImageFile()\File, GetFilePart(ImageFile()\File))
+              Content()\Image()\FileName = GetFilePart(ImageFile()\File)
+              Content()\Image()\Size     = ImageFile()\Size
+            EndIf
           Next ;}
           
           ;{ Pattern
@@ -2110,6 +2147,10 @@ Module ViewerEx
     EndProcedure     
     
     Procedure.i HeadingDefinition(CNum.i, HeadingKey.s, FontKey.s, Level.i=0, Spacing.i=0, Indent.i=0, FrontColor.i=#PB_Default, BackColor.i=#PB_Default, Flags.i=#Left)
+      
+      If FindMapElement(Content(), Str(CNum)) = #False
+        AddMapElement(Content(), Str(CNum))
+      EndIf
       
       If FindMapElement(Content(), Str(CNum))
         
@@ -2248,7 +2289,6 @@ Module ViewerEx
       ProcedureReturn #False
     EndProcedure
     
-    
     Procedure   Margin(CNum.i, Attribute.i, Value.i) 
       
       If FindMapElement(Content(), Str(CNum))
@@ -2286,6 +2326,10 @@ Module ViewerEx
     EndProcedure
     
     Procedure.i StyleDefinition(CNum.i, StyleKey.s, FontKey.s="", Indent.i=0, FrontColor.i=#PB_Default, BackColor.i=#PB_Default)    
+      
+      If FindMapElement(Content(), Str(CNum)) = #False
+        AddMapElement(Content(), Str(CNum))
+      EndIf
       
       If FindMapElement(Content(), Str(CNum))
         
@@ -2346,6 +2390,28 @@ Module ViewerEx
       ProcedureReturn #False
     EndProcedure
     
+    CompilerIf #Enable_ContentTree
+    
+      Procedure.i AddTreeItem(CNum.i, Title.s, Label.s, Level.i=0) 
+        
+        If FindMapElement(Content(), Str(CNum)) = #False
+          AddMapElement(Content(), Str(CNum))
+        EndIf
+        
+        If FindMapElement(Content(), Str(CNum))
+          If AddElement(Content()\Tree())
+            Content()\Tree()\Title = Title
+            Content()\Tree()\Label = Label
+            Content()\Tree()\Level = Level
+            ProcedureReturn ListIndex(Content()\Tree())
+          EndIf
+         
+        EndIf 
+        
+      EndProcedure
+    
+    CompilerEndIf
+    
     Procedure.i URL(CNum.i, URL.s, StyleKey.s="", String.s="", Spacing.i=0, Flags.i=#Left)
       
       If FindMapElement(Content(), Str(CNum))
@@ -2379,6 +2445,8 @@ Module ViewerEx
     
   CompilerEndIf
   
+  ;- _____ Add Hyphenation _____
+  
   CompilerIf #Enable_Hyphenation
     
     Procedure.s UsePattern(File.s, PatternKey.s="")
@@ -2403,41 +2471,19 @@ Module ViewerEx
     EndProcedure
 
   CompilerEndIf
-  
-  Procedure.q GetData(GNum.i)
-	  
-	  If FindMapElement(VGEx(), Str(GNum))
-	    ProcedureReturn VGEx()\Quad
-	  EndIf  
-	  
-	EndProcedure	
+
+  ;- _____ ViewerEx Gadget _____
 	
-	Procedure.s GetID(GNum.i)
-	  
-	  If FindMapElement(VGEx(), Str(GNum))
-	    ProcedureReturn VGEx()\ID
-	  EndIf
-	  
-	EndProcedure
-	
-	Procedure   SetData(GNum.i, Value.q)
-	  
-	  If FindMapElement(VGEx(), Str(GNum))
-	    VGEx()\Quad = Value
-	  EndIf  
-	  
-	EndProcedure
-	
-	Procedure   SetID(GNum.i, String.s)
-	  
-	  If FindMapElement(VGEx(), Str(GNum))
-	    VGEx()\ID = String
-	  EndIf
-	  
-	EndProcedure
-	
-  
-  ;- ___ Gadget() ___
+	Procedure   ClearContent(GNum.i)
+    
+    If FindMapElement(VGEx(), Str(GNum))
+      
+      VGEx()\Label = ""
+      ReDraw_()
+      
+    EndIf 
+    
+  EndProcedure
 	
 	Procedure   DisableReDraw(GNum.i, State.i=#True)
    
@@ -2452,7 +2498,16 @@ Module ViewerEx
     EndIf  
     
   EndProcedure
-	
+  
+  Procedure.s EventValue(GNum.i)
+    
+    If FindMapElement(VGEx(), Str(GNum))
+      ProcedureReturn VGEx()\EventValue
+    EndIf  
+    
+  EndProcedure  
+  
+  
   Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
     Define.i Result, Num
     
@@ -2587,26 +2642,36 @@ Module ViewerEx
     ProcedureReturn GNum
   EndProcedure
   
-  ; ----------------------------
   
-  Procedure   ClearContent(GNum.i)
-    
-    If FindMapElement(VGEx(), Str(GNum))
-      
-      VGEx()\Label = ""
-      ReDraw_()
-      
-    EndIf 
-    
-  EndProcedure
+  Procedure.q GetData(GNum.i)
+	  
+	  If FindMapElement(VGEx(), Str(GNum))
+	    ProcedureReturn VGEx()\Quad
+	  EndIf  
+	  
+	EndProcedure	
+	
+	Procedure.s GetID(GNum.i)
+	  
+	  If FindMapElement(VGEx(), Str(GNum))
+	    ProcedureReturn VGEx()\ID
+	  EndIf
+	  
+	EndProcedure
+	
+	
+	CompilerIf #Enable_ContentTree
+	  
+  	Procedure.s GetContentTree(GNum.i, List ContentTree.Content_Tree_Structure())
+  	  
+  	  If FindMapElement(VGEx(), Str(GNum))
+  	    CopyList(VGEx()\Content\Tree(), ContentTree())
+  	  EndIf 
+  	  
+  	EndProcedure  
+  	
+  CompilerEndIf
   
-  Procedure.s EventValue(GNum.i)
-    
-    If FindMapElement(VGEx(), Str(GNum))
-      ProcedureReturn VGEx()\EventValue
-    EndIf  
-    
-  EndProcedure
   
   Procedure   Hide(GNum.i, State.i=#True)
     
@@ -2664,6 +2729,7 @@ Module ViewerEx
           ;{ Copy content lists
           CopyList(Content\Image(), VGEx()\Content\Image())
           CopyList(Content\Text(),  VGEx()\Content\Text())
+          CopyList(Content\Tree(),  VGEx()\Content\Tree())
           ;}
           
           ;{ Copy content maps
@@ -2775,7 +2841,15 @@ Module ViewerEx
     EndIf
     
   EndProcedure
-  
+
+	Procedure   SetData(GNum.i, Value.q)
+	  
+	  If FindMapElement(VGEx(), Str(GNum))
+	    VGEx()\Quad = Value
+	  EndIf  
+	  
+	EndProcedure
+
   Procedure   SetHeadingOffset(GNum.i, Value.i, Level.i=0)
     
     If FindMapElement(VGEx(), Str(GNum))
@@ -2786,6 +2860,14 @@ Module ViewerEx
     EndIf
     
   EndProcedure
+  
+	Procedure   SetID(GNum.i, String.s)
+	  
+	  If FindMapElement(VGEx(), Str(GNum))
+	    VGEx()\ID = String
+	  EndIf
+	  
+	EndProcedure
 
 EndModule
 
@@ -2962,9 +3044,10 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 14
-; Folding = 5FAAADAAIp1AAAwAJAQAvcIgs
-; Markers = 1919
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 2095
+; FirstLine = 341
+; Folding = 5gAAgYADAIlGAEAGIMCADsJAAY-
+; Markers = 1943
 ; EnableXP
 ; DPIAware

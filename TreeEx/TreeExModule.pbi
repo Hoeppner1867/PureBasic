@@ -11,7 +11,7 @@
 ;/ © 2019  by Thorsten Hoeppner (11/2019)
 ;/
 
-; Last Update:
+; Last Update: 21.12.2019
 
 
 ;{ ===== MIT License =====
@@ -48,6 +48,7 @@
 ; TreeEx::Gadget()              - similar to 'TreeGadget()'
 ; TreeEx::GetItemColor()        - similar to 'GetGadgetItemColor()'
 ; TreeEx::GetItemData()         - similar to 'GetGadgetItemData()'
+; TreeEx::GetItemLabel()        - similar to 'GetGadgetItemData()', but string (label)
 ; TreeEx::GetItemState()        - similar to 'GetGadgetItemState()'
 ; TreeEx::GetItemText()         - similar to 'GetGadgetItemText()'
 ; TreeEx::GetLabelState()       - similar to 'GetGadgetItemState()', but label instead of column
@@ -77,7 +78,7 @@
 
 DeclareModule TreeEx
   
-  #Version  = 19120800
+  #Version  = 19122100
   #ModuleEx = 19112002
   
   #Enable_ProgressBar = #True
@@ -217,7 +218,8 @@ DeclareModule TreeEx
   Declare   SetData(GNum.i, Value.q)
 	Declare   SetID(GNum.i, String.s)
 	Declare.i GetItemColor(GNum.i, Row.i, ColorTyp.i, Column.i=#PB_Ignore)
-  Declare.i GetItemData(GNum.i, Row.i)
+	Declare.i GetItemData(GNum.i, Row.i)
+	Declare.s GetItemLabel(GNum.i, Row.i)
   Declare.i GetItemState(GNum.i, Row.i, Column.i=#PB_Ignore)
   Declare.s GetItemText(GNum.i, Row.i, Column.i=#PB_Ignore)
   Declare.i GetLabelState(GNum.i, Row.i, Label.s=#Tree$)
@@ -1547,7 +1549,9 @@ Module TreeEx
   		;{ _____ Lines _____
   		If Not TreeEx()\Flags & #NoLines
   		  
-  		  LineWidth = Round(dpiX(#ButtonSize) / 2, #PB_Round_Up)
+  		  FrontColor(TreeEx()\Color\Line)
+
+  		  LineWidth = dpiX(#ButtonSize - 1); Round( / 2, #PB_Round_Up)
   		  
     		ForEach TreeEx()\Lines()
 
@@ -1591,8 +1595,12 @@ Module TreeEx
     		    
     		  Else
     		    
-    		    If TreeEx()\Lines()\NextLevel < TreeEx()\Lines()\Level ; Line ends without button
-      		    Level$ = Str(Level)
+    		    Level$ = Str(TreeEx()\Lines()\Level)
+    		    If LineY(Level$) : Line(TreeEx()\Lines()\X, LineY(Level$), 1, TreeEx()\Lines()\Y - LineY(Level$)) : EndIf  
+    		    LineX(Level$) = TreeEx()\Lines()\X
+    		    
+    		    If TreeEx()\Lines()\NextLevel <> -1 And TreeEx()\Lines()\NextLevel < TreeEx()\Lines()\Level ; Line ends without button
+    		      Level$ = Str(Level)
       		    If LineY(Level$) : Line(LineX(Level$), LineY(Level$), 1, TreeEx()\Lines()\Y - LineY(Level$)) : EndIf
       		    Line(LineX(Level$), TreeEx()\Lines()\Y, TreeEx()\Lines()\X - LineX(Level$) + LineWidth, 1)
       		    If TreeEx()\Lines()\NextLevel >= 0
@@ -1601,12 +1609,15 @@ Module TreeEx
         		    Next  
         		    Level = TreeEx()\Lines()\NextLevel
         		  EndIf  
-      		  ElseIf TreeEx()\Lines()\Level > Level
+        		ElseIf TreeEx()\Lines()\Level > Level
       		    Level$ = Str(Level)
     		      Line(LineX(Level$), TreeEx()\Lines()\Y, TreeEx()\Lines()\X - LineX(Level$) + LineWidth, 1)
     		    ElseIf Button  
       		    Level$ = Str(TreeEx()\Lines()\Level)
-    		      Line(LineX(Level$), TreeEx()\Lines()\Y, TreeEx()\Lines()\X - LineX(Level$) + LineWidth, 1)
+      		    Line(LineX(Level$), TreeEx()\Lines()\Y, TreeEx()\Lines()\X - LineX(Level$) + LineWidth, 1)
+      		  ElseIf TreeEx()\Lines()\Level = 0 
+      		    LineY("0") = TreeEx()\Lines()\Y
+      		    Line(LineX("0"), TreeEx()\Lines()\Y, LineWidth, 1)
     		    EndIf
     		    
     		  EndIf
@@ -2436,6 +2447,24 @@ Module TreeEx
 	  
 	EndProcedure
 	
+	Procedure.s GetItemLabel(GNum.i, Row.i)
+	  
+	  If FindMapElement(TreeEx(), Str(GNum))
+	    
+	    If Row = #Header
+	    Else 
+	      
+	      If SelectElement(TreeEx()\Rows(), Row)
+	        ProcedureReturn TreeEx()\Rows()\ID
+      	EndIf
+      	
+  	  EndIf
+  	  
+	  EndIf  
+	 
+	EndProcedure
+	
+	
 	Procedure.i GetItemState(GNum.i, Row.i, Column.i=#PB_Ignore)
 	  
 	  If FindMapElement(TreeEx(), Str(GNum))
@@ -3144,8 +3173,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1645
-; FirstLine = 423
-; Folding = 96AAAgEICQSBGAKQdAICBEAAgBww-
+; CursorPosition = 55
+; FirstLine = 14
+; Folding = +6AAAgEICQaAGgKQfAMCBEAAADgh-
 ; EnableXP
 ; DPIAware
