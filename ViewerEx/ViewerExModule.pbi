@@ -68,6 +68,7 @@
 ;  ----- #Enable_AddViewerContent (add content directly) -----
 ;  ViewerEx::AddHeading()      - insert numbered headline into gadget
 ;  ViewerEx::AddImage()        - insert image into gadget
+;  ViewerEx::AddImageText()    - insert text next no an image into gadget
 ;  ViewerEx::AddLink()         - insert internal link into gadget
 ;  ViewerEx::AddListing()      - insert a listing with bullets
 ;  ViewerEx::AddSpacing()      - insert space between the items
@@ -83,6 +84,7 @@
 ;  ----- #Enable_CreateViewerContent -----
 
 ;  ViewerEx::Create()            - create a new page with content under this label.
+;  ViewerEx::Clear()             - clear all content
 ;  ViewerEx::Close()             - close the page with the corresponding label.
 ;  ViewerEx::CopyContent()       - copy generated content into a ViewerEx - Gadget.
 ;  ViewerEx::Export()            - export generated pages with content and save them with all resources in one file.
@@ -90,6 +92,7 @@
 ;  ViewerEx::HeadingDefinition() - defining the appearance of headings.
 ;  ViewerEx::Hyphenation()       - activate hyphenation for the corresponding language (pattern).
 ;  ViewerEx::Image()             - add a image.
+;  ViewerEx::ImageText()         - add text next to an image
 ;  ViewerEx::Link()              - add a internal link.
 ;  ViewerEx::Listing()           - add a listing with bullets
 ;  ViewerEx::Margin()            - define page margins.
@@ -104,11 +107,11 @@
 
 DeclareModule ViewerEx
   
-  #Version  = 19122101
+  #Version  = 19122102
   #ModuleEx = 19111702
   
   #Enable_Hyphenation         = #True
-  #Enable_AddViewerContent    = #True; Set it to #False to enable buttons
+  #Enable_AddViewerContent    = #True ; Set it to #False to enable buttons
   #Enable_CreateViewerContent = #True
   #Enable_ContentTree         = #True
   
@@ -122,6 +125,7 @@ DeclareModule ViewerEx
     #AutoIndent
     #Center
     #Justified
+    #Middle
     #Left
     #Right
     #Top
@@ -177,6 +181,7 @@ DeclareModule ViewerEx
   CompilerIf #Enable_AddViewerContent
     Declare.i AddHeading(GNum.i, Text.s, HeadingKey.s, Flags.i=#Left)
     Declare.i AddImage(GNum.i, File.s, Width.i=#PB_Default, Height.i=#PB_Default, Indent.i=0, Flags.i=#False)
+    Declare.i AddImageText(GNum.i, Text.s, ImageKey.s, StyleKey.s="", Padding.i=#PB_Default, Spacing.i=0, Flags.i=#Left)
     Declare.i AddLink(GNum.i, Text.s, Label.s, StyleKey.s="", Spacing.i=0, Flags.i=#Left)   
     Declare.i AddListing(GNum.i, Text.s, StyleKey.s="", Spacing.i=0, Flags.i=#False)
     Declare   AddSpacing(GNum.i, Height.i)
@@ -191,6 +196,7 @@ DeclareModule ViewerEx
   
   CompilerIf #Enable_CreateViewerContent
     Declare.i Create(CNum.i, Label.s)   
+    Declare   Clear(CNum.i)
     Declare   Close(CNum.i)
     Declare   CopyContent(CNum.i, GNum.i)
     Declare.i Export(CNum.i, File.s)
@@ -198,6 +204,7 @@ DeclareModule ViewerEx
     Declare.i HeadingDefinition(CNum.i, HeadingKey.s, FontKey.s, Level.i=0, Spacing.i=0, Indent.i=0, FrontColor.i=#PB_Default, BackColor.i=#PB_Default, Flags.i=#Left)
     Declare   Hyphenation(CNum.i, PatternKey.s)
     Declare.i Image(CNum.i, ImageKey.s, Width=#PB_Default, Height.i=#PB_Default, Indent.i=0, Flags.i=#False)
+    Declare.i ImageText(CNum.i, Text.s, ImageKey.s, StyleKey.s="", Padding.i=#PB_Default, Spacing.i=0, Flags.i=#Left)
     Declare.i Link(CNum.i, Text.s, Label.s, StyleKey.s="", Spacing.i=0, Flags.i=#Left)
     Declare.i Listing(GNum.i, Text.s, StyleKey.s="", Spacing.i=0, Flags.i=#False)
     Declare   Margin(CNum.i, Attribute.i, Value.i)
@@ -376,6 +383,8 @@ Module ViewerEx
   Structure Content_Text_Structure       ;{ VGEx()\Content\Text\...
     String.s
     Style.s
+    ImageKey.s
+    Padding.i
     Flags.i
   EndStructure ;}
 
@@ -810,8 +819,9 @@ Module ViewerEx
   EndProcedure 
   
   Procedure   Draw_(visible.i=#True)
-    Define.f X, Y, aX, txtHeight, sWidth, txtWidth
+    Define.f X, Y, aX, txtHeight, sWidth, txtWidth, itemHeight, imgOffset
     Define.i p, w, i, Paragraphs, Items, Row, Words, Level, Indent, listIdent
+    Define.i Image, imgX, imgY, imgWidth, imgHeight
     Define.i FrontColor, BackColor
     Define.s Text, Word, Number
     
@@ -839,6 +849,9 @@ Module ViewerEx
         ;}
       
         ForEach VGEx()\Content\Label()\Item()
+          
+          imgOffset  = 0
+          itemHeight = 0
           
           Select VGEx()\Content\Label()\Item()\Type
             Case #Heading    ;{ draw Heading
@@ -1079,6 +1092,20 @@ Module ViewerEx
                 
                 txtWidth = VGEx()\Size\Width - Indent - VGEx()\Content\Label()\Margin\Left - VGEx()\Content\Label()\Margin\Right
                 
+                If FindMapElement(Resource\Image(), VGEx()\Content\Text()\ImageKey)
+                  If IsImage(Resource\Image()\Num)
+                    Image     = Resource\Image()\Num
+                    imgX      = X + Indent
+                    imgY      = Y
+                    imgWidth  = dpiX(ImageWidth(Resource\Image()\Num))
+                    imgHeight = dpiY(ImageHeight(Resource\Image()\Num))
+                    imgOffset = dpiX(VGEx()\Content\Text()\Padding) + imgWidth
+                    txtWidth  - imgOffset
+                  EndIf
+                EndIf  
+                
+                DrawingMode(#PB_2DDrawing_Transparent)
+                
                 Paragraphs = CountString(VGEx()\Content\Text()\String, #LF$) + 1
                 For p=1 To Paragraphs
                   
@@ -1107,7 +1134,7 @@ Module ViewerEx
                       
                       If VGEx()\Content\Text()\Flags & #Justified
                         
-                        aX     = Indent
+                        aX     = Indent + imgOffset
                         Words  = CountString(Rows(), " ") + 1
                         sWidth = Justified_(Rows(), Indent)
                         
@@ -1123,10 +1150,12 @@ Module ViewerEx
                         
                         Rows() = RemoveString(Rows(), #LF$)
                         
-                        aX = AlignX_(LTrim(Rows()), Indent, VGEx()\Content\Text()\Flags)
+                        aX = AlignX_(LTrim(Rows()), Indent + imgOffset, VGEx()\Content\Text()\Flags)
                         If visible : DrawText_(X + aX, Y, Rows(), FrontColor, BackColor) : EndIf
                         
                       EndIf
+                      
+                      itemHeight + txtHeight
                       
                       Y + txtHeight
                     Next
@@ -1135,7 +1164,7 @@ Module ViewerEx
 
                     If VGEx()\Content\Text()\Flags & #Justified
                       
-                      aX     = Indent
+                      aX     = Indent + imgOffset
                       Words  = CountString(Text, " ") + 1
                       sWidth = Justified_(Text, Indent)
                       
@@ -1151,16 +1180,30 @@ Module ViewerEx
                       
                       Text = RemoveString(Text, #LF$)
                       
-                      aX = AlignX_(Text, Indent, VGEx()\Content\Text()\Flags)
+                      aX = AlignX_(Text, Indent + imgOffset, VGEx()\Content\Text()\Flags)
                       If visible : DrawText_(X + aX, Y, Text, FrontColor, BackColor) : EndIf
                       
                     EndIf
+                    
+                    itemHeight + txtHeight
                     
                     Y + txtHeight
                     ;}
                   EndIf
   
                 Next
+                
+                If Image
+                  
+                  If VGEx()\Content\Text()\Flags & #Middle
+                    ImgY + ((itemHeight - imgHeight) / 2)
+                  ElseIf VGEx()\Content\Text()\Flags & #Bottom
+                    imgY + itemHeight - imgHeight
+                  EndIf  
+                  
+                  DrawingMode(#PB_2DDrawing_AlphaBlend)
+                  DrawImage(ImageID(Image), imgX, imgY)
+                EndIf   
                 
                 If VGEx()\Content\Label()\Item()\Spacing = #PB_Default
                   Y + txtHeight
@@ -1624,6 +1667,44 @@ Module ViewerEx
       ProcedureReturn #False
     EndProcedure
     
+    Procedure.i AddImageText(GNum.i, Text.s, ImageKey.s, StyleKey.s="", Padding.i=#PB_Default, Spacing.i=0, Flags.i=#Left)
+      ; Spacing: #PB_Default = row height
+      
+      If FindMapElement(VGEx(), Str(GNum))
+        
+        If Padding = #PB_Default : Padding = 10 : EndIf
+        
+        If AddElement(VGEx()\Content\Label(VGEx()\Label)\Item())
+
+          VGEx()\Content\Label(VGEx()\Label)\Item()\Type = #Text
+          
+          If AddElement(VGEx()\Content\Text())
+            
+            VGEx()\Content\Label(VGEx()\Label)\Item()\Idx     = ListIndex(VGEx()\Content\Text())
+            VGEx()\Content\Label(VGEx()\Label)\Item()\Spacing = Spacing
+            VGEx()\Content\Text()\String   = Text
+            VGEx()\Content\Text()\ImageKey = ImageKey
+            VGEx()\Content\Text()\Padding  = Padding
+            VGEx()\Content\Text()\Flags    = Flags
+            
+            If FindMapElement(VGEx()\Content\Style(), StyleKey)
+              VGEx()\Content\Text()\Style = StyleKey
+            Else
+              VGEx()\Content\Text()\Style = Str(#PB_Default)
+            EndIf
+            
+            ReDraw_()
+            
+            ProcedureReturn #True
+          EndIf
+          
+        EndIf
+        
+      EndIf
+      
+      ProcedureReturn #False
+    EndProcedure
+    
     Procedure.i AddLink(GNum.i, Text.s, Label.s, StyleKey.s="", Spacing.i=0, Flags.i=#Left)
       
       If FindMapElement(VGEx(), Str(GNum))
@@ -1976,12 +2057,13 @@ Module ViewerEx
     EndProcedure
     
     Procedure   Close(CNum.i) 
- 
-      DeleteMapElement(Content(), Str(CNum))
-      DeleteMapElement(Content(), Str(CNum))
-      
+      Label(Str(CNum)) = Str(#PB_Default)
     EndProcedure
     
+    Procedure   Clear(CNum.i)
+      DeleteMapElement(Content(), Str(CNum))
+      DeleteMapElement(Label(), Str(CNum))
+    EndProcedure  
     
     Procedure   CopyContent(CNum.i, GNum.i)
 
@@ -2372,6 +2454,44 @@ Module ViewerEx
               Content()\Label()\Item()\Spacing = Spacing
               Content()\Text()\String  = Text
               Content()\Text()\Flags   = Flags
+              
+              If FindMapElement(Content()\Style(), StyleKey)
+                Content()\Text()\Style = StyleKey
+              Else
+                Content()\Text()\Style = Str(#PB_Default)
+              EndIf
+              
+              ProcedureReturn #True
+            EndIf
+            
+          EndIf 
+        EndIf
+        
+      EndIf
+      
+      ProcedureReturn #False
+    EndProcedure
+    
+    Procedure.i ImageText(CNum.i, Text.s, ImageKey.s, StyleKey.s="", Padding.i=#PB_Default, Spacing.i=0, Flags.i=#Left)
+      ; Spacing: #PB_Default = row height
+
+      If FindMapElement(Content(), Str(CNum))
+        If FindMapElement(Content()\Label(), Label(Str(CNum)))
+          
+          If Padding = #PB_Default : Padding = 10 : EndIf
+          
+          If AddElement(Content()\Label()\Item())
+  
+            Content()\Label()\Item()\Type = #Text
+            
+            If AddElement(Content()\Text())
+              
+              Content()\Label()\Item()\Idx     = ListIndex(Content()\Text())
+              Content()\Label()\Item()\Spacing = Spacing
+              Content()\Text()\String   = Text
+              Content()\Text()\ImageKey = ImageKey
+              Content()\Text()\Padding  = Padding
+              Content()\Text()\Flags    = Flags
               
               If FindMapElement(Content()\Style(), StyleKey)
                 Content()\Text()\Style = StyleKey
@@ -2874,6 +2994,8 @@ EndModule
 ;- ========  Module - Example ========
 CompilerIf #PB_Compiler_IsMainFile
   
+  UsePNGImageDecoder()
+  
   Enumeration 
     #Window
     #Viewer
@@ -2894,7 +3016,8 @@ CompilerIf #PB_Compiler_IsMainFile
     ViewerEx::UseFont("Arial", 11, #PB_Font_Underline, "Arial_11U") ; Default key: "Arial|11|4"
     ViewerEx::UseFont("Arial", 11, #False, "Arial_11")              ; Default key: "Arial|11|0"
     ViewerEx::UsePattern("english.pat", "english")                  ; Default key: "english"
-    ViewerEx::UseImage("Programmer.bmp", "IMG_Prog")              ; Default key: "PureBasicLogo.bmp"
+    ViewerEx::UseImage("Programmer.bmp", "IMG_Prog")                ; Default key: "PureBasicLogo.bmp"
+    ViewerEx::UseImage("Pen.png", "IMG_Pen")
   CompilerEndIf
   
   CompilerIf ViewerEx::#Enable_CreateViewerContent
@@ -2910,14 +3033,13 @@ CompilerIf #PB_Compiler_IsMainFile
       ViewerEx::StyleDefinition(#Content, "Link",    "Arial_11U", 0, $8B0000)
       
       ViewerEx::Spacing(#Content, 10)
-      ViewerEx::Image(#Content,  "IMG_Prog", #PB_Default, #PB_Default, 0, ViewerEx::#Center)
+      ViewerEx::Image(#Content, "IMG_Prog", #PB_Default, #PB_Default, 0, ViewerEx::#Center)
       ViewerEx::Spacing(#Content, 30)
       ViewerEx::Text(#Content, "ViewerEx - Module", "Titel", 10, ViewerEx::#Center)
       ViewerEx::Text(#Content, "PureBasic V 5.7x (all OS / 64Bit / DPI)", "Version", 20, ViewerEx::#Center)
       ViewerEx::Text(#Content, "© 2019 by Thorsten Hoeppner ", "Author", 20, ViewerEx::#Center)
       ViewerEx::Link(#Content, "Show license", "License", "Link", 0, ViewerEx::#Center)
       
-      ViewerEx::Close(#Content)
     EndIf
     
     If ViewerEx::Create(#Content, "License")
@@ -2952,11 +3074,11 @@ CompilerIf #PB_Compiler_IsMainFile
       Text2 + "WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE." + #LF$
       ViewerEx::Text(#Content, Text2, "RedText", 5, ViewerEx::#Justified)
       
-      ViewerEx::Close(#Content)
     EndIf  
     
     ViewerEx::Export(#Content, "Export.jvc")
     
+    ViewerEx::Close(#Content)
   CompilerEndIf
   
   
@@ -2981,6 +3103,7 @@ CompilerIf #PB_Compiler_IsMainFile
         ViewerEx::AddImage(#Viewer,   "IMG_Prog", #PB_Default, #PB_Default, 0, ViewerEx::#Center)
         ViewerEx::AddSpacing(#Viewer, 5)
         ViewerEx::AddURL(#Viewer, "https://www.purebasic.com", "Link", "", 10, ViewerEx::#Center)  
+        ViewerEx::AddImageText(#Viewer, "Text next to an image (row 1)" + #LF$ + "Text next to an image (row 2)", "IMG_Pen", "Text", 5, 10, ViewerEx::#Middle)
         ViewerEx::AddHeading(#Viewer, "Heading H2 (#Left)", "H2")
         ViewerEx::AddListing(#Viewer, Text, "Text", 5, ViewerEx::#AutoIndent)
         ViewerEx::AddHeading(#Viewer, "Heading H2 (#Justified)", "H2")
@@ -3044,10 +3167,9 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 2095
-; FirstLine = 341
-; Folding = 5gAAgYADAIlGAEAGIMCADsJAAY-
-; Markers = 1943
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 109
+; Folding = 51AAAYADAJVSAkAAQQIAQgJAAY6
+; Markers = 2024
 ; EnableXP
 ; DPIAware
