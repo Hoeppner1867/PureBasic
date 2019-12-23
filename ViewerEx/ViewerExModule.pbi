@@ -10,7 +10,7 @@
 ;/ Pattern based on (http://tug.org/tex-hyphen/)
 ;/
 
-; Last Update: 21.12.19
+; Last Update: 23.12.19
 ;
 ; Added: Content Tree
 ; Added: Link and URL are underlined
@@ -107,7 +107,7 @@
 
 DeclareModule ViewerEx
   
-  #Version  = 19122102
+  #Version  = 19122300
   #ModuleEx = 19111702
   
   #Enable_Hyphenation         = #True
@@ -182,6 +182,7 @@ DeclareModule ViewerEx
     Declare.i AddHeading(GNum.i, Text.s, HeadingKey.s, Flags.i=#Left)
     Declare.i AddImage(GNum.i, File.s, Width.i=#PB_Default, Height.i=#PB_Default, Indent.i=0, Flags.i=#False)
     Declare.i AddImageText(GNum.i, Text.s, ImageKey.s, StyleKey.s="", Padding.i=#PB_Default, Spacing.i=0, Flags.i=#Left)
+    Declare.i AddImageListing(GNum.i, Text.s, ImageKey.s, StyleKey.s="", Padding.i=#PB_Default, Spacing.i=0, Flags.i=#False)
     Declare.i AddLink(GNum.i, Text.s, Label.s, StyleKey.s="", Spacing.i=0, Flags.i=#Left)   
     Declare.i AddListing(GNum.i, Text.s, StyleKey.s="", Spacing.i=0, Flags.i=#False)
     Declare   AddSpacing(GNum.i, Height.i)
@@ -205,6 +206,7 @@ DeclareModule ViewerEx
     Declare   Hyphenation(CNum.i, PatternKey.s)
     Declare.i Image(CNum.i, ImageKey.s, Width=#PB_Default, Height.i=#PB_Default, Indent.i=0, Flags.i=#False)
     Declare.i ImageText(CNum.i, Text.s, ImageKey.s, StyleKey.s="", Padding.i=#PB_Default, Spacing.i=0, Flags.i=#Left)
+    Declare.i ImageListing(CNum.i, Text.s, ImageKey.s, StyleKey.s="", Padding.i=#PB_Default, Spacing.i=0, Flags.i=#False)
     Declare.i Link(CNum.i, Text.s, Label.s, StyleKey.s="", Spacing.i=0, Flags.i=#Left)
     Declare.i Listing(GNum.i, Text.s, StyleKey.s="", Spacing.i=0, Flags.i=#False)
     Declare   Margin(CNum.i, Attribute.i, Value.i)
@@ -819,10 +821,11 @@ Module ViewerEx
   EndProcedure 
   
   Procedure   Draw_(visible.i=#True)
-    Define.f X, Y, aX, txtHeight, sWidth, txtWidth, itemHeight, imgOffset
+    Define.i X, Y, aX, txtHeight, sWidth, txtWidth, itemHeight, imgOffset
     Define.i p, w, i, Paragraphs, Items, Row, Words, Level, Indent, listIdent
     Define.i Image, imgX, imgY, imgWidth, imgHeight
     Define.i FrontColor, BackColor
+    Define.f Factor
     Define.s Text, Word, Number
     
     NewList Rows.s()
@@ -850,6 +853,7 @@ Module ViewerEx
       
         ForEach VGEx()\Content\Label()\Item()
           
+          Image      = 0
           imgOffset  = 0
           itemHeight = 0
           
@@ -949,14 +953,38 @@ Module ViewerEx
                 If VGEx()\Content\Text()\Flags & #AutoIndent : Indent = VGEx()\Indent : EndIf
                 
                 listIdent = TextWidth(#Bullet$ + " ")
+                txtHeight = TextHeight("Abc")
                 txtWidth  = VGEx()\Size\Width - Indent - VGEx()\Content\Label()\Margin\Left - VGEx()\Content\Label()\Margin\Right - listIdent
+                
+                If FindMapElement(Resource\Image(), VGEx()\Content\Text()\ImageKey)
+                  If IsImage(Resource\Image()\Num)
+                    Image     = Resource\Image()\Num
+                    imgX      = X + Indent
+                    
+                    If dpiY(ImageHeight(Resource\Image()\Num)) <= txtHeight
+                      imgHeight = dpiY(ImageHeight(Resource\Image()\Num))
+                      imgWidth  = dpiX(ImageWidth(Resource\Image()\Num))
+                    Else  
+                      imgHeight = txtHeight
+                      Factor    = imgHeight / dpiY(ImageHeight(Resource\Image()\Num))
+                      imgWidth  = dpiX(ImageWidth(Resource\Image()\Num)) * Factor
+                    EndIf
+                    
+                    imgOffset = dpiX(VGEx()\Content\Text()\Padding) + imgWidth
+                    listIdent = imgOffset + TextWidth(" ")
+                    txtWidth  - imgOffset
+                  EndIf
+                EndIf  
                 
                 Items = CountString(VGEx()\Content\Text()\String, #LF$) + 1
                 For p=1 To Items
                   
-                  Text = StringField(VGEx()\Content\Text()\String, p, #LF$)
-                  txtHeight = TextHeight(Text)
+                  imgY = Y
                   
+                  DrawingMode(#PB_2DDrawing_Transparent)
+                  
+                  Text = StringField(VGEx()\Content\Text()\String, p, #LF$)
+
                   If TextWidth(Text) > txtWidth ;{ Text length greater than page width
                     
                     CompilerIf #Enable_Hyphenation
@@ -974,7 +1002,7 @@ Module ViewerEx
                     CompilerEndIf
                   
                     ForEach Rows()
-                      
+
                       Rows() = LTrim(Rows())
                       
                       If VGEx()\Content\Text()\Flags & #Justified
@@ -986,7 +1014,9 @@ Module ViewerEx
                         Rows() = RemoveString(Rows(), #LF$)
                         
                         If ListIndex(Rows()) = 0
-                          If visible : DrawText_(X + aX, Y, #Bullet$ + " ", FrontColor, BackColor) : EndIf
+                          If visible And Not Image
+                            DrawText_(X + aX, Y, #Bullet$ + " ", FrontColor, BackColor)  
+                          EndIf
                         EndIf
                         
                         ax + listIdent
@@ -1004,7 +1034,9 @@ Module ViewerEx
                         aX = Indent
                         
                         If ListIndex(Rows()) = 0
-                          If visible : DrawText_(X + aX, Y, #Bullet$ + " ", FrontColor, BackColor) : EndIf
+                          If visible And Not Image
+                            DrawText_(X + aX, Y, #Bullet$ + " ", FrontColor, BackColor)
+                          EndIf
                         EndIf
                         
                         ax + listIdent
@@ -1026,7 +1058,9 @@ Module ViewerEx
                       Words  = CountString(Text, " ") + 1
                       sWidth = Justified_(Text, Indent + listIdent)
                       
-                      If visible : DrawText_(X + aX, Y, #Bullet$ + " ", FrontColor, BackColor) : EndIf
+                      If visible And Not Image
+                        DrawText_(X + aX, Y, #Bullet$ + " ", FrontColor, BackColor)
+                      EndIf
                       ax + listIdent
                       
                       For w=1 To Words
@@ -1041,7 +1075,9 @@ Module ViewerEx
                       
                       aX = AlignX_(Text, Indent, VGEx()\Content\Text()\Flags)
 
-                      If visible : DrawText_(X + aX, Y, #Bullet$ + " ", FrontColor, BackColor) : EndIf
+                      If visible And Not Image
+                        DrawText_(X + aX, Y, #Bullet$ + " ", FrontColor, BackColor)
+                      EndIf
                       
                       ax + listIdent
                       
@@ -1053,15 +1089,21 @@ Module ViewerEx
                     ;}
                   EndIf
                   
+                  If Image
+                    DrawingMode(#PB_2DDrawing_AlphaBlend)
+                    DrawImage(ImageID(Image), imgX, imgY, imgWidth, imgHeight)
+                  EndIf 
+
                 Next
-                
+
                 If VGEx()\Content\Label()\Item()\Spacing = #PB_Default
                   Y + txtHeight
                 Else
                   Y + VGEx()\Content\Label()\Item()\Spacing
                 EndIf
                 
-              EndIf ;}
+              EndIf
+              ;}
             Case #Spacing    ;{ row spacing
               Y + VGEx()\Content\Label()\Item()\Spacing
               ;}
@@ -1705,6 +1747,41 @@ Module ViewerEx
       ProcedureReturn #False
     EndProcedure
     
+    Procedure.i AddImageListing(GNum.i, Text.s, ImageKey.s, StyleKey.s="", Padding.i=#PB_Default, Spacing.i=0, Flags.i=#False)
+      
+      If FindMapElement(VGEx(), Str(GNum))
+        
+        If AddElement(VGEx()\Content\Label(VGEx()\Label)\Item())
+
+          VGEx()\Content\Label(VGEx()\Label)\Item()\Type = #List
+          
+          If AddElement(VGEx()\Content\Text())
+            
+            VGEx()\Content\Label(VGEx()\Label)\Item()\Idx     = ListIndex(VGEx()\Content\Text())
+            VGEx()\Content\Label(VGEx()\Label)\Item()\Spacing = Spacing
+            VGEx()\Content\Text()\String   = Text
+            VGEx()\Content\Text()\ImageKey = ImageKey
+            VGEx()\Content\Text()\Padding  = Padding
+            VGEx()\Content\Text()\Flags    = Flags
+            
+            If FindMapElement(VGEx()\Content\Style(), StyleKey)
+              VGEx()\Content\Text()\Style = StyleKey
+            Else
+              VGEx()\Content\Text()\Style = Str(#PB_Default)
+            EndIf
+            
+            ReDraw_()
+            
+            ProcedureReturn #True
+          EndIf
+          
+        EndIf
+        
+      EndIf
+      
+      ProcedureReturn #False
+    EndProcedure
+    
     Procedure.i AddLink(GNum.i, Text.s, Label.s, StyleKey.s="", Spacing.i=0, Flags.i=#Left)
       
       If FindMapElement(VGEx(), Str(GNum))
@@ -2309,6 +2386,79 @@ Module ViewerEx
       ProcedureReturn #False
     EndProcedure    
     
+    Procedure.i ImageText(CNum.i, Text.s, ImageKey.s, StyleKey.s="", Padding.i=#PB_Default, Spacing.i=0, Flags.i=#Left)
+      ; Spacing: #PB_Default = row height
+
+      If FindMapElement(Content(), Str(CNum))
+        If FindMapElement(Content()\Label(), Label(Str(CNum)))
+          
+          If Padding = #PB_Default : Padding = 10 : EndIf
+          
+          If AddElement(Content()\Label()\Item())
+  
+            Content()\Label()\Item()\Type = #Text
+            
+            If AddElement(Content()\Text())
+              
+              Content()\Label()\Item()\Idx     = ListIndex(Content()\Text())
+              Content()\Label()\Item()\Spacing = Spacing
+              Content()\Text()\String   = Text
+              Content()\Text()\ImageKey = ImageKey
+              Content()\Text()\Padding  = Padding
+              Content()\Text()\Flags    = Flags
+              
+              If FindMapElement(Content()\Style(), StyleKey)
+                Content()\Text()\Style = StyleKey
+              Else
+                Content()\Text()\Style = Str(#PB_Default)
+              EndIf
+              
+              ProcedureReturn #True
+            EndIf
+            
+          EndIf 
+        EndIf
+        
+      EndIf
+      
+      ProcedureReturn #False
+    EndProcedure
+    
+    Procedure.i ImageListing(CNum.i, Text.s, ImageKey.s, StyleKey.s="", Padding.i=#PB_Default, Spacing.i=0, Flags.i=#False)
+      
+      If FindMapElement(Content(), Str(CNum))
+        If FindMapElement(Content()\Label(), Label(Str(CNum)))
+          
+          If AddElement(Content()\Label()\Item())
+  
+            Content()\Label()\Item()\Type = #List
+            
+            If AddElement(Content()\Text())
+              
+              Content()\Label()\Item()\Idx     = ListIndex(Content()\Text())
+              Content()\Label()\Item()\Spacing = Spacing
+              Content()\Text()\String          = Text
+              Content()\Text()\ImageKey        = ImageKey
+              Content()\Text()\Padding         = Padding
+              Content()\Text()\Flags           = Flags
+              
+              If FindMapElement(Content()\Style(), StyleKey)
+                Content()\Text()\Style = StyleKey
+              Else
+                Content()\Text()\Style = Str(#PB_Default)
+              EndIf
+              
+              ProcedureReturn #True
+            EndIf
+            
+          EndIf
+          
+        EndIf
+      EndIf
+      
+      ProcedureReturn #False
+    EndProcedure
+    
     Procedure.i Link(CNum.i, Text.s, Label.s, StyleKey.s="", Spacing.i=0, Flags.i=#Left)
       
       If FindMapElement(Content(), Str(CNum))
@@ -2454,44 +2604,6 @@ Module ViewerEx
               Content()\Label()\Item()\Spacing = Spacing
               Content()\Text()\String  = Text
               Content()\Text()\Flags   = Flags
-              
-              If FindMapElement(Content()\Style(), StyleKey)
-                Content()\Text()\Style = StyleKey
-              Else
-                Content()\Text()\Style = Str(#PB_Default)
-              EndIf
-              
-              ProcedureReturn #True
-            EndIf
-            
-          EndIf 
-        EndIf
-        
-      EndIf
-      
-      ProcedureReturn #False
-    EndProcedure
-    
-    Procedure.i ImageText(CNum.i, Text.s, ImageKey.s, StyleKey.s="", Padding.i=#PB_Default, Spacing.i=0, Flags.i=#Left)
-      ; Spacing: #PB_Default = row height
-
-      If FindMapElement(Content(), Str(CNum))
-        If FindMapElement(Content()\Label(), Label(Str(CNum)))
-          
-          If Padding = #PB_Default : Padding = 10 : EndIf
-          
-          If AddElement(Content()\Label()\Item())
-  
-            Content()\Label()\Item()\Type = #Text
-            
-            If AddElement(Content()\Text())
-              
-              Content()\Label()\Item()\Idx     = ListIndex(Content()\Text())
-              Content()\Label()\Item()\Spacing = Spacing
-              Content()\Text()\String   = Text
-              Content()\Text()\ImageKey = ImageKey
-              Content()\Text()\Padding  = Padding
-              Content()\Text()\Flags    = Flags
               
               If FindMapElement(Content()\Style(), StyleKey)
                 Content()\Text()\Style = StyleKey
@@ -3018,6 +3130,7 @@ CompilerIf #PB_Compiler_IsMainFile
     ViewerEx::UsePattern("english.pat", "english")                  ; Default key: "english"
     ViewerEx::UseImage("Programmer.bmp", "IMG_Prog")                ; Default key: "PureBasicLogo.bmp"
     ViewerEx::UseImage("Pen.png", "IMG_Pen")
+    ViewerEx::UseImage("Bullet.png", "IMG_Bullet")
   CompilerEndIf
   
   CompilerIf ViewerEx::#Enable_CreateViewerContent
@@ -3105,6 +3218,7 @@ CompilerIf #PB_Compiler_IsMainFile
         ViewerEx::AddURL(#Viewer, "https://www.purebasic.com", "Link", "", 10, ViewerEx::#Center)  
         ViewerEx::AddImageText(#Viewer, "Text next to an image (row 1)" + #LF$ + "Text next to an image (row 2)", "IMG_Pen", "Text", 5, 10, ViewerEx::#Middle)
         ViewerEx::AddHeading(#Viewer, "Heading H2 (#Left)", "H2")
+        ;ViewerEx::AddImageListing(#Viewer, Text, "IMG_Bullet", "Text", 0, 5, ViewerEx::#AutoIndent)
         ViewerEx::AddListing(#Viewer, Text, "Text", 5, ViewerEx::#AutoIndent)
         ViewerEx::AddHeading(#Viewer, "Heading H2 (#Justified)", "H2")
         ViewerEx::AddText(#Viewer, ReplaceString(Text, #LF$, " "), "Text", 5, ViewerEx::#AutoIndent|ViewerEx::#Justified)
@@ -3169,7 +3283,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 109
-; Folding = 51AAAYADAJVSAkAAQQIAQgJAAY6
-; Markers = 2024
+; Folding = 5gAAAYADApFAAkAAggQAABmAAgl
+; Markers = 2101
 ; EnableXP
 ; DPIAware
