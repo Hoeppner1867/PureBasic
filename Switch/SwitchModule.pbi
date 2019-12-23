@@ -943,9 +943,10 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 924
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 905
 ; FirstLine = 332
 ; Folding = oQAAmAgYAA9
 ; EnableXP
 ; DPIAware
+; Executable = ..\..\..\Projekte\Programme\ViewerExEditor\ContentCreator.exe
