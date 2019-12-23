@@ -9,7 +9,7 @@
 ;/ © 2019 by Thorsten Hoeppner (07/2019)
 ;/
 
-; Last Update: 08.12.2019
+; Last Update: 23.12.2019
 
 
 ;{ ===== MIT License =====
@@ -60,7 +60,7 @@
 
 DeclareModule ToolTip
   
-  #Version  = 19120800
+  #Version  = 19122300
   #ModuleEx = 19111702
   
 	;- ===========================================================================
@@ -165,16 +165,16 @@ Module ToolTip
     MouseY.i
   EndStructure ;}
   
-  Structure MouseEvent_Gadget_Structure  ;{ MouseEvent()\Gadget\...
+  Structure MouseEvent_Gadget_Structure  ;{ MouseEvent()\Gadget('num')\...
     Num.i
     MouseX.i
     MouseY.i
-    Last.i
   EndStructure ;}
   
   Structure MouseEvent_Structure        ;{ MouseEvent('Window')\...
-    Gadget.MouseEvent_Gadget_Structure
     Window.MouseEvent_Window_Structure
+    Map Gadget.MouseEvent_Gadget_Structure()
+    lastGadget.i
     lastHandle.i
     Flags.i
   EndStructure ;}
@@ -657,17 +657,20 @@ Module ToolTip
         If Handle <> MouseEvent()\lastHandle
           
           ;{ ___ Event: MouseLeave ___ (mk-soft)
-          If IsGadget(MouseEvent()\Gadget\Last)
+          If IsGadget(MouseEvent()\lastGadget)
           
             If MouseEvent()\Flags & #MouseLeave
-              If GadgetType(MouseEvent()\Gadget\Last) <> #PB_GadgetType_Canvas
-                If MouseEvent()\Gadget\Num = #PB_Default Or MouseEvent()\Gadget\Last = MouseEvent()\Gadget\Num
-                  PostEvent(#PB_Event_Gadget, MouseEvent()\Window\Num, MouseEvent()\Gadget\Last, #PB_EventType_MouseLeave)
-                EndIf
+              If GadgetType(MouseEvent()\lastGadget) <> #PB_GadgetType_Canvas
+                ForEach MouseEvent()\Gadget()
+                  If MouseEvent()\Gadget()\Num = #PB_Default Or MouseEvent()\lastGadget = MouseEvent()\Gadget()\Num
+                    PostEvent(#PB_Event_Gadget, MouseEvent()\Window\Num, MouseEvent()\lastGadget, #PB_EventType_MouseLeave)
+                    Break
+                  EndIf
+                Next
               EndIf
             EndIf
             
-            MouseEvent()\Gadget\Last = #PB_Default
+            MouseEvent()\lastGadget = #PB_Default
             
           EndIf ;}
           
@@ -678,14 +681,17 @@ Module ToolTip
             
             If Handle = GadgetID(Gadget)
               
-              MouseEvent()\Gadget\Last = Gadget
+              MouseEvent()\lastGadget = Gadget
               
               ;{ ___ Event: MouseEnter ___ (mk-soft)
               If MouseEvent()\Flags & #MouseEnter
-                If GadgetType(MouseEvent()\Gadget\Last) <> #PB_GadgetType_Canvas
-                  If MouseEvent()\Gadget\Num = #PB_Default Or MouseEvent()\Gadget\Last = MouseEvent()\Gadget\Num
-                    PostEvent(#PB_Event_Gadget, MouseEvent()\Window\Num, MouseEvent()\Gadget\Last, #PB_EventType_MouseEnter)
-                  EndIf  
+                If GadgetType(MouseEvent()\lastGadget) <> #PB_GadgetType_Canvas
+                  ForEach MouseEvent()\Gadget()
+                    If MouseEvent()\Gadget()\Num = #PB_Default Or MouseEvent()\lastGadget = MouseEvent()\Gadget()\Num
+                      PostEvent(#PB_Event_Gadget, MouseEvent()\Window\Num, MouseEvent()\lastGadget, #PB_EventType_MouseEnter)
+                      Break
+                    EndIf  
+                  Next
                 EndIf
               EndIf ;}
               
@@ -701,13 +707,16 @@ Module ToolTip
         ;{ ___ Event: MouseMove ___ (mk-soft)
         If MouseEvent()\Flags & #MouseMove
           
-          If IsGadget(MouseEvent()\Gadget\Last)
-            If GadgetType(MouseEvent()\Gadget\Last) <> #PB_GadgetType_Canvas
-              If MouseEvent()\Gadget\Num = #PB_Default Or MouseEvent()\Gadget\Last = MouseEvent()\Gadget\Num
-                MouseEvent()\Gadget\MouseX = MouseEvent()\Window\MouseX - GadgetX(MouseEvent()\Gadget\Last, #PB_Gadget_WindowCoordinate)
-                MouseEvent()\Gadget\MouseY = MouseEvent()\Window\MouseY - GadgetY(MouseEvent()\Gadget\Last, #PB_Gadget_WindowCoordinate)
-                PostEvent(#PB_Event_Gadget, MouseEvent()\Window\Num, MouseEvent()\Gadget\Last, #PB_EventType_MouseMove)
-              EndIf  
+          If IsGadget(MouseEvent()\lastGadget)
+            If GadgetType(MouseEvent()\lastGadget) <> #PB_GadgetType_Canvas
+              ForEach MouseEvent()\Gadget()
+                If MouseEvent()\Gadget()\Num = #PB_Default Or MouseEvent()\lastGadget = MouseEvent()\Gadget()\Num
+                  MouseEvent()\Gadget()\MouseX = MouseEvent()\Window\MouseX - GadgetX(MouseEvent()\lastGadget, #PB_Gadget_WindowCoordinate)
+                  MouseEvent()\Gadget()\MouseY = MouseEvent()\Window\MouseY - GadgetY(MouseEvent()\lastGadget, #PB_Gadget_WindowCoordinate)
+                  PostEvent(#PB_Event_Gadget, MouseEvent()\Window\Num, MouseEvent()\lastGadget, #PB_EventType_MouseMove)
+                  Break
+                EndIf 
+              Next
             EndIf
           EndIf
           
@@ -724,7 +733,7 @@ Module ToolTip
 	  Define.i X, Y, aX, aY, aWidth, aHeight, gX, gY, gWidth, gHeight
 	  
 	  If FindMapElement(ToolTip(), Str(GadgetNum))
-
+      Debug "Gadget: " + Str(GadgetNum)
 	    LockMutex(Mutex)
 	    Timer(Str(GadgetNum))\Focus = #True
 	    Timer(Str(GadgetNum))\Value  = 0
@@ -834,25 +843,25 @@ Module ToolTip
     
     If IsWindow(Window)
       
-      If AddMapElement(MouseEvent(), Str(Window))
-        
-        MouseEvent()\Window\Num = Window
-        
-        If IsGadget(Gadget)
-          MouseEvent()\Gadget\Num = Gadget
-        Else
-          MouseEvent()\Gadget\Num = #PB_Default
-        EndIf
-        
-        MouseEvent()\Flags = Flags
-        
-        ; Code by mk-soft
-        AddWindowTimer(MouseEvent()\Window\Num, #MouseEventTimer, 100)
-        BindEvent(#PB_Event_Timer, @_MouseEventHandler())
-        
-        ProcedureReturn #True
-      EndIf
+      If FindMapElement(MouseEvent(), Str(Window)) = #False
+        AddMapElement(MouseEvent(), Str(Window))
+      EndIf 
 
+      MouseEvent()\Window\Num = Window
+      
+      If IsGadget(Gadget)
+        MouseEvent()\Gadget(Str(Gadget))\Num = Gadget
+      Else
+        MouseEvent()\Gadget(Str(Gadget))\Num = #PB_Default
+      EndIf
+      
+      MouseEvent()\Flags = Flags
+      
+      ; Code by mk-soft
+      AddWindowTimer(MouseEvent()\Window\Num, #MouseEventTimer, 100)
+      BindEvent(#PB_Event_Timer, @_MouseEventHandler())
+        
+      ProcedureReturn #True
     EndIf
     
   EndProcedure
@@ -861,15 +870,15 @@ Module ToolTip
     
     If FindMapElement(MouseEvent(), Str(Window))
       
-      If Gadget = #PB_Default Or MouseEvent()\Gadget\Last = Gadget
+      If Gadget = #PB_Default Or MouseEvent()\lastGadget = Gadget
         
         Select Attribute
           Case #MouseX
-            ProcedureReturn MouseEvent()\Gadget\MouseX
+            ProcedureReturn MouseEvent()\Gadget(Str(Gadget))\MouseX
           Case #MouseY
-            ProcedureReturn MouseEvent()\Gadget\MouseY
+            ProcedureReturn MouseEvent()\Gadget(Str(Gadget))\MouseY
           Case #Gadget
-            ProcedureReturn MouseEvent()\Gadget\Last
+            ProcedureReturn MouseEvent()\lastGadget
         EndSelect
 
       EndIf  
@@ -882,7 +891,40 @@ Module ToolTip
 	;- ==========================================================================
 	;-   Module - Declared Procedures
 	;- ==========================================================================
+  
+  Procedure.q GetData(GNum.i)
+	  
+	  If FindMapElement(ToolTip(), Str(GNum))
+	    ProcedureReturn ToolTip()\Quad
+	  EndIf  
+	  
+	EndProcedure	
+	
+	Procedure.s GetID(GNum.i)
+	  
+	  If FindMapElement(ToolTip(), Str(GNum))
+	    ProcedureReturn ToolTip()\ID
+	  EndIf
+	  
+	EndProcedure
 
+  Procedure   SetData(GNum.i, Value.q)
+	  
+	  If FindMapElement(ToolTip(), Str(GNum))
+	    ToolTip()\Quad = Value
+	  EndIf  
+	  
+	EndProcedure
+	
+	Procedure   SetID(GNum.i, String.s)
+	  
+	  If FindMapElement(ToolTip(), Str(GNum))
+	    ToolTip()\ID = String
+	  EndIf
+	  
+	EndProcedure
+  
+  
   Procedure.i Create(Gadget.i, Window.i, Flags.i=#False)
 		Define DummyNum, GNum.i, WNum.i
 		
@@ -890,7 +932,7 @@ Module ToolTip
       If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
     CompilerEndIf
 		
-    If IsWindow( Canvas\Window)
+    If IsWindow(Canvas\Window)
       If IsGadget(Canvas\Gadget)
       
     		If AddMapElement(ToolTip(), Str(Gadget))
@@ -973,25 +1015,7 @@ Module ToolTip
     EndIf
     
 	EndProcedure
-	
-	
-  Procedure.q GetData(GNum.i)
-	  
-	  If FindMapElement(ToolTip(), Str(GNum))
-	    ProcedureReturn ToolTip()\Quad
-	  EndIf  
-	  
-	EndProcedure	
-	
-	Procedure.s GetID(GNum.i)
-	  
-	  If FindMapElement(ToolTip(), Str(GNum))
-	    ProcedureReturn ToolTip()\ID
-	  EndIf
-	  
-	EndProcedure	
-	
-	
+
 	Procedure   SetAttribute(GNum.i, Attribute.i, Value.i) 
     
     If FindMapElement(ToolTip(), Str(GNum))
@@ -1086,14 +1110,6 @@ Module ToolTip
     
   EndProcedure
   
-  Procedure   SetData(GNum.i, Value.q)
-	  
-	  If FindMapElement(ToolTip(), Str(GNum))
-	    ToolTip()\Quad = Value
-	  EndIf  
-	  
-	EndProcedure  
-  
   Procedure   SetFont(GNum.i, FontNum.i, FontType.i=#Text) 
     
     If FindMapElement(ToolTip(), Str(GNum))
@@ -1108,14 +1124,6 @@ Module ToolTip
     EndIf
     
   EndProcedure  
-  
-	Procedure   SetID(GNum.i, String.s)
-	  
-	  If FindMapElement(ToolTip(), Str(GNum))
-	    ToolTip()\ID = String
-	  EndIf
-	  
-	EndProcedure  
   
   Procedure   SetImage(GNum.i, ImageNum.i, Width.i=#PB_Default, Height.i=#PB_Default, Flags.i=#False)
     
@@ -1216,8 +1224,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 884
-; FirstLine = 220
-; Folding = 5BAAAEgI5Bw
+; CursorPosition = 62
+; Folding = 5PREA1gpgE5
 ; EnableXP
 ; DPIAware
