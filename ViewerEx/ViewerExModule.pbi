@@ -10,7 +10,7 @@
 ;/ Pattern based on (http://tug.org/tex-hyphen/)
 ;/
 
-; Last Update: 23.12.19
+; Last Update: 24.12.19
 ;
 ; Added: Content Tree
 ; Added: Link and URL are underlined
@@ -107,7 +107,7 @@
 
 DeclareModule ViewerEx
   
-  #Version  = 19122300
+  #Version  = 19122400
   #ModuleEx = 19111702
   
   #Enable_Hyphenation         = #True
@@ -268,6 +268,8 @@ Module ViewerEx
   ;- ============================================================================
   ;-   Module - Structures
   ;- ============================================================================ 
+  
+  Declare.i BlendColor_(Color1.i, Color2.i, Scale.i=50)
   
   Structure Pattern_Structure
     FileName.s
@@ -821,7 +823,7 @@ Module ViewerEx
   EndProcedure 
   
   Procedure   Draw_(visible.i=#True)
-    Define.i X, Y, aX, txtHeight, sWidth, txtWidth, itemHeight, imgOffset, OffsetY
+    Define.i X, Y, aX, txtHeight, sWidth, txtWidth, itemHeight, imgOffset
     Define.i p, w, i, Paragraphs, Items, Row, Words, Level, Indent, listIdent
     Define.i Image, imgX, imgY, imgWidth, imgHeight
     Define.i FrontColor, BackColor
@@ -1090,10 +1092,8 @@ Module ViewerEx
                   EndIf
                   
                   If Image
-                    OffsetY = (txtHeight - imgHeight) / 2
-                    
                     DrawingMode(#PB_2DDrawing_AlphaBlend)
-                    DrawImage(ImageID(Image), imgX, imgY + OffsetY, imgWidth, imgHeight)
+                    DrawImage(ImageID(Image), imgX, imgY, imgWidth, imgHeight)
                   EndIf 
 
                 Next
@@ -3284,9 +3284,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 929
-; FirstLine = 214
-; Folding = wgAAAYABAIAAAkAAAgQAABgAAAg
+; CursorPosition = 109
+; Folding = 5gAAAaADApFAAkAAggQAABmAAgl
 ; Markers = 2103
 ; EnableXP
 ; DPIAware
