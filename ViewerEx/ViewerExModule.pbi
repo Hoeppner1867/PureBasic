@@ -107,7 +107,7 @@
 
 DeclareModule ViewerEx
   
-  #Version  = 19122400
+  #Version  = 19122401
   #ModuleEx = 19111702
   
   #Enable_Hyphenation         = #True
@@ -268,9 +268,7 @@ Module ViewerEx
   ;- ============================================================================
   ;-   Module - Structures
   ;- ============================================================================ 
-  
-  Declare.i BlendColor_(Color1.i, Color2.i, Scale.i=50)
-  
+
   Structure Pattern_Structure
     FileName.s
     Size.i
@@ -447,35 +445,6 @@ Module ViewerEx
   EndStructure ;}
   Global NewMap VGEx.ViewerEx_Structure()
   
-  CompilerIf #Enable_CreateViewerContent
-
-    Global NewMap Label.s()
-    Global NewMap Content.ViewerEx_Content_Structure()   ; Content('CNum')\...
-    
-    Global Color.ViewerEx_Color_Structure
-    
-    Color\Front     = $000000
-    Color\Back      = $FFFFFF
-    Color\ScrollBar = $C8C8C8
-    Color\Border    = $E3E3E3
-    
-    CompilerSelect  #PB_Compiler_OS
-      CompilerCase #PB_OS_Windows
-        Color\Front         = GetSysColor_(#COLOR_WINDOWTEXT)
-        Color\Back          = GetSysColor_(#COLOR_WINDOW)
-        Color\ScrollBar     = GetSysColor_(#COLOR_MENU)
-        Color\Border        = GetSysColor_(#COLOR_ACTIVEBORDER)
-      CompilerCase #PB_OS_MacOS  
-        Color\Front         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
-        Color\Back          = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
-        Color\ScrollBar     = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
-        Color\Border        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
-      CompilerCase #PB_OS_Linux
-    
-    CompilerEndSelect
-    
-  CompilerEndIf
-  
   ;- ==========================================================================
   ;-   Module - Internal 
   ;- ==========================================================================  
@@ -585,6 +554,46 @@ Module ViewerEx
     
     ProcedureReturn ImgNum
   EndProcedure
+  
+  Procedure.i BlendColor_(Color1.i, Color2.i, Scale.i=50)
+    Define.i R1, G1, B1, R2, G2, B2
+    Define.f Blend = Scale / 100
+    
+    R1 = Red(Color1): G1 = Green(Color1): B1 = Blue(Color1)
+    R2 = Red(Color2): G2 = Green(Color2): B2 = Blue(Color2)
+    
+    ProcedureReturn RGB((R1*Blend) + (R2 * (1-Blend)), (G1*Blend) + (G2 * (1-Blend)), (B1*Blend) + (B2 * (1-Blend)))
+  EndProcedure
+  
+  
+  CompilerIf #Enable_CreateViewerContent
+
+    Global NewMap Label.s()
+    Global NewMap Content.ViewerEx_Content_Structure()   ; Content('CNum')\...
+    
+    Global Color.ViewerEx_Color_Structure
+    
+    Color\Front     = $000000
+    Color\Back      = $FFFFFF
+    Color\ScrollBar = $C8C8C8
+    Color\Border    = $E3E3E3
+    
+    CompilerSelect  #PB_Compiler_OS
+      CompilerCase #PB_OS_Windows
+        Color\Front         = GetSysColor_(#COLOR_WINDOWTEXT)
+        Color\Back          = GetSysColor_(#COLOR_WINDOW)
+        Color\ScrollBar     = GetSysColor_(#COLOR_MENU)
+        Color\Border        = GetSysColor_(#COLOR_ACTIVEBORDER)
+      CompilerCase #PB_OS_MacOS  
+        Color\Front         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
+        Color\Back          = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
+        Color\ScrollBar     = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
+        Color\Border        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+      CompilerCase #PB_OS_Linux
+    
+    CompilerEndSelect
+    
+  CompilerEndIf
   
   ;- __________ WordWrap __________
   
@@ -751,17 +760,7 @@ Module ViewerEx
   EndProcedure
   
   ;- __________ Drawing __________
-  
-  Procedure.i BlendColor_(Color1.i, Color2.i, Scale.i=50)
-    Define.i R1, G1, B1, R2, G2, B2
-    Define.f Blend = Scale / 100
-    
-    R1 = Red(Color1): G1 = Green(Color1): B1 = Blue(Color1)
-    R2 = Red(Color2): G2 = Green(Color2): B2 = Blue(Color2)
-    
-    ProcedureReturn RGB((R1*Blend) + (R2 * (1-Blend)), (G1*Blend) + (G2 * (1-Blend)), (B1*Blend) + (B2 * (1-Blend)))
-  EndProcedure
-  
+ 
   Procedure.f Justified_(Text.s, Indent.i=0)
     Define.i Spaces, Width
     Define.f sWidth
@@ -3284,8 +3283,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 109
-; Folding = 5gAAAaADApFAAkAAggQAABmAAgl
-; Markers = 2103
+; CursorPosition = 596
+; FirstLine = 209
+; Folding = 5gAAAMABApFAAkAAggQAABkAAgl
+; Markers = 2102
 ; EnableXP
 ; DPIAware
