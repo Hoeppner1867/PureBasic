@@ -10,7 +10,7 @@
 ;/ Pattern based on (http://tug.org/tex-hyphen/)
 ;/
 
-; Last Update: 24.12.19
+; Last Update: 25.12.19
 ;
 ; Added: Content Tree
 ; Added: Link and URL are underlined
@@ -107,7 +107,7 @@
 
 DeclareModule ViewerEx
   
-  #Version  = 19122401
+  #Version  = 19122500
   #ModuleEx = 19111702
   
   #Enable_Hyphenation         = #True
@@ -164,6 +164,7 @@ DeclareModule ViewerEx
       Label.s
       Title.s
       Level.i
+      Offset.s ; Heading Offset
     EndStructure
     
   CompilerEndIf
@@ -3283,9 +3284,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 596
-; FirstLine = 209
-; Folding = 5gAAAMABApFAAkAAggQAABkAAgl
-; Markers = 2102
+; CursorPosition = 167
+; FirstLine = 61
+; Folding = 5gAAgMABApFAAkAAggQAABkAAol
+; Markers = 2103
 ; EnableXP
 ; DPIAware

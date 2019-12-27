@@ -9,8 +9,9 @@
 ;/ © 2019 by Thorsten Hoeppner ({12/2019)
 ;/
 
-; Last Update:
-
+; Last Update: 27.12.19
+;
+; Added: Event #PB_EventType_Change
 
 ;{ ===== MIT License =====
 ;
@@ -63,7 +64,7 @@
 
 DeclareModule Switch
   
-  #Version  = 19112900
+  #Version  = 19122700
   #ModuleEx = 19112100
   
   #Include_DefaultImages = #True
@@ -482,6 +483,8 @@ Module Switch
 
 		If FindMapElement(Switch(), Str(GNum))
 		  Switch()\State ! #True
+		  PostEvent(#Event_Gadget, Switch()\Window\Num, Switch()\CanvasNum, #PB_EventType_Change, Switch()\State)
+		  PostEvent(#PB_Event_Gadget, Switch()\Window\Num, Switch()\CanvasNum, #PB_EventType_Change, Switch()\State)
       Draw_()
 		EndIf
 
@@ -933,7 +936,18 @@ CompilerIf #PB_Compiler_IsMainFile
         Case Switch::#Event_Gadget ;{ Module Events
           Select EventGadget()  
             Case #Switch1
+              If EventType() = #PB_EventType_Change
+                Debug "Switch 1: " + Str(EventData())
+              EndIf  
             Case #Switch2
+              Select EventData()
+                Case 1  
+                  Debug "Switch 2: on"
+                Case 0
+                  Debug "Switch 2: off"
+              EndSelect    
+            Case #Switch3
+              Debug "Switch 2: " + Str(EventData())
           EndSelect ;}
       EndSelect        
     Until Event = #PB_Event_CloseWindow
@@ -943,10 +957,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 905
-; FirstLine = 332
-; Folding = oQAAmAgYAA9
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 492
+; FirstLine = 189
+; Folding = oQAAmABYAA9
 ; EnableXP
 ; DPIAware
-; Executable = ..\..\..\Projekte\Programme\ViewerExEditor\ContentCreator.exe
