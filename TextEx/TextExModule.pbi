@@ -784,10 +784,8 @@ CompilerIf #PB_Compiler_IsMainFile
     TextEx::SetFont(#Text, FontID(#Font))
     TextEx::SetText(#Text, "Row 1" + #LF$ + "Row 2")
     
-    ;TextEx::SetAutoResizeFlags(#Text, TextEx::#MoveY|TextEx::#ResizeWidth)
-    
-    TextGadget(2, 5, 5, 170, 50, "Gradient Background")
-   
+    TextEx::SetAutoResizeFlags(#Text, TextEx::#MoveY|TextEx::#ResizeWidth)
+
     ;ModuleEx::SetTheme(ModuleEx::#Theme_Dark)
     
     TextEx::SetAttribute(#Text, TextEx::#Corner, 4)
@@ -799,7 +797,7 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 58
-; FirstLine = 15
+; CursorPosition = 769
+; FirstLine = 306
 ; Folding = mGBAUhBX5-
 ; EnableXP
