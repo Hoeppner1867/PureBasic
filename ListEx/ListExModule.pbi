@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 17.12.2019
+; Last Update: 28.12.2019
 ;
 ; - Added: Format content (mask)
 ; - Added: Multiline support
@@ -151,7 +151,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19121700
+  #Version  = 19122800
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -4237,7 +4237,7 @@ Module ListEx
   EndProcedure  
 
   Procedure _LeftButtonDownHandler()
-    Define.i X, Y, Width, Height
+    Define.i X, Y, ColX, Width, Height
     Define.i Flags, FontID, Row, StartRow, EndRow, FrontColor
     Define.s Key$, Value$
     Define   Image.Image_Structure
@@ -4245,15 +4245,12 @@ Module ListEx
     
     If FindMapElement(ListEx(), Str(GNum))
       
-      ListEx()\Row\Current = GetRow_(GetGadgetAttribute(GNum, #PB_Canvas_MouseY))
-      ListEx()\Col\Current = GetColumn_(GetGadgetAttribute(GNum, #PB_Canvas_MouseX))
+      X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
+      Y = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
       
-      ;{ Resize column with mouse
-      If ListEx()\Row\Current = #Header And ListEx()\Col\Resize <> #PB_Default
-        ListEx()\Col\MouseX = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
-        ProcedureReturn #True
-      EndIf ;}
-      
+      ListEx()\Row\Current = GetRow_(Y)
+      ListEx()\Col\Current = GetColumn_(X)
+
       If ListEx()\String\Flag   ;{ Close String
         CloseString_()
         Draw_()
@@ -4269,8 +4266,24 @@ Module ListEx
         Draw_()
       EndIf ;}
       
-      
-      
+      ;{ Resize column with mouse
+      If ListEx()\Row\Current = #Header
+        
+        ForEach ListEx()\Cols()
+          ColX = ListEx()\Cols()\X - ListEx()\Col\OffsetX
+          If X >= ColX - dpiX(2) And X <= ColX + dpiX(2) ; "|<- |"
+            ListEx()\Col\Resize = ListIndex(ListEx()\Cols()) - 1
+            ListEx()\Col\MouseX = ListEx()\Cols()\X 
+            ProcedureReturn #True
+          ElseIf X >= ColX + ListEx()\Cols()\Width - dpiX(2) And X <= ColX + ListEx()\Cols()\Width + dpiX(2) ; "| ->|"
+            ListEx()\Col\Resize = ListIndex(ListEx()\Cols())
+            ListEx()\Col\MouseX = ListEx()\Cols()\X + ListEx()\Cols()\Width
+            ProcedureReturn #True
+          EndIf
+        Next
+
+      EndIf ;}
+
       If ListEx()\Row\Current = #Header ;{ Header clicked
         
         If ListEx()\Col\Current < 0 : ProcedureReturn #False : EndIf
@@ -4758,6 +4771,7 @@ Module ListEx
       Column = GetColumn_(X)
       
       If Row = #Header
+        
         If ListEx()\Flags & #ResizeColumn Or ListEx()\Flags & #AdjustColumns ;{ Resize column with mouse
           
           If ListEx()\CanvasCursor = #PB_Cursor_LeftRight
@@ -4805,14 +4819,19 @@ Module ListEx
             EndIf
             
           Else                     ;{ Change cursor to #PB_Cursor_LeftRight
-  
-            ColX = ListEx()\Cols()\X - ListEx()\Col\OffsetX
-            If X >= ColX - dpiX(1) And X <= ColX + dpiX(1)
-              ListEx()\CanvasCursor = #PB_Cursor_LeftRight
-              ListEx()\Col\Resize   = ListIndex(ListEx()\Cols()) - 1
-              SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
-              ProcedureReturn #True
-            EndIf 
+            
+            ForEach ListEx()\Cols()
+              ColX = ListEx()\Cols()\X - ListEx()\Col\OffsetX
+              If X >= ColX - dpiX(2) And X <= ColX + dpiX(2) ; "|<- |"
+                ListEx()\CanvasCursor = #PB_Cursor_LeftRight
+                SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
+                ProcedureReturn #True
+              ElseIf X >= ColX + ListEx()\Cols()\Width - dpiX(2) And X <= ColX + ListEx()\Cols()\Width + dpiX(2) ; "| ->|"
+                ListEx()\CanvasCursor = #PB_Cursor_LeftRight
+                SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
+                ProcedureReturn #True
+              EndIf
+            Next
             ;}
           EndIf
           
@@ -7833,10 +7852,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 5792
-; FirstLine = 805
-; Folding = YRQAAAACIAABICEAGwA9HQ5hCBCiFwwKRBAAAAhDgrAg8AAAMDOACgDAAAAAAAAAQ+--
-; Markers = 3232,5797
+; CursorPosition = 4285
+; FirstLine = 501
+; Folding = QRQAAAACIAQBICEAGAA9HQ5hCBAiFwwKQBAAAgADgvAg8AAAMBOACgDAAAAAAAAAQ+--
+; Markers = 3232,5816
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
