@@ -151,7 +151,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19122800
+  #Version  = 19122801
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -4834,13 +4834,11 @@ Module ListEx
             Next
             ;}
           EndIf
-          
+          ;}
         EndIf
         
       Else  
-        ListEx()\Col\MouseX   = 0
-        ListEx()\CanvasCursor = #PB_Cursor_Default
-        ;} 
+        ListEx()\Col\MouseX = 0
       EndIf 
 
       Focus$ = Str(Row)+"|"+Str(Column)
@@ -4862,6 +4860,13 @@ Module ListEx
         If Row = #Header ;{ Header
           
           If SelectElement(ListEx()\Cols(), Column)
+            
+            If ListEx()\Flags & #ResizeColumn Or ListEx()\Flags & #AdjustColumns
+              If X <= ListEx()\Cols()\X + dpiX(2) Or X >= ListEx()\Cols()\X + ListEx()\Cols()\Width - dpiX(2)
+                ProcedureReturn #False
+              EndIf  
+            EndIf 
+            
             If ListEx()\Cols()\Header\Sort & #HeaderSort
               
               If ListEx()\CanvasCursor <> #Cursor_Sort
@@ -7852,10 +7857,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 4285
-; FirstLine = 501
-; Folding = QRQAAAACIAQBICEAGAA9HQ5hCBAiFwwKQBAAAgADgvAg8AAAMBOACgDAAAAAAAAAQ+--
-; Markers = 3232,5816
+; CursorPosition = 153
+; FirstLine = 12
+; Folding = QRQAAAACIAQBICEAGAA9HQ5hCBAiFwwKQBAAAAADgDAg8AAAMBOACgDAAAAAAAAAQ+--
+; Markers = 3232,5821
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
