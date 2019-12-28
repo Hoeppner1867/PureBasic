@@ -4,11 +4,12 @@
 ;/
 ;/ [ PB V5.7x / 64Bit / all OS / DPI ]
 ;/
-;/ © 2019 Thorsten1867 (03/2019)
+;/ © 2019 Thorsten1867 (12/2019)
 ;/
 
-; Last Update: 10.12.2019
-
+; Last Update: 28.12.2019
+;
+; Bugfix: SetState()
 
 ;{ ===== MIT License =====
 ;
@@ -86,7 +87,7 @@
 
 DeclareModule ComboBoxEx
   
-  #Version  = 19121000
+  #Version  = 19122800
   #ModuleEx = 19112600
   
   ;- ===========================================================================
@@ -2738,9 +2739,12 @@ Module ComboBoxEx
 	
   Procedure   SetState(GNum.i, State.i)
 	  
-	  If FindMapElement(ComboEx(), Str(GNum))
-	    ComboEx()\ListView\State = State
-	    Draw_()
+    If FindMapElement(ComboEx(), Str(GNum))
+      If SelectElement(ComboEx()\ListView\Item(), State)
+        ComboEx()\Text = ComboEx()\ListView\Item()\String
+  	    ComboEx()\ListView\State = State
+  	    Draw_()
+  	  EndIf  
     EndIf
     
 	EndProcedure
@@ -2753,7 +2757,6 @@ Module ComboBoxEx
 	    If SelectElement(ComboEx()\ListView\Item(), Item)
 	      If SelectElement(ComboEx()\ListView\Item()\SubItem(), SubItem)
 	        ComboEx()\ListView\Item()\SubItem()\State = State
-	        Draw_()
         EndIf 
 	    EndIf  
 	    
@@ -2769,7 +2772,6 @@ Module ComboBoxEx
 	    If SelectElement(ComboEx()\ListView\Item(), Item)
 	      If SelectElement(ComboEx()\ListView\Item()\SubItem(), SubItem)
 	        ComboEx()\ListView\Item()\SubItem()\String = Text
-	        Draw_()
         EndIf 
 	    EndIf  
 	    
@@ -2812,7 +2814,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
   
-  #Example = 2
+  #Example = 1
   
   #Window  = 0
   
@@ -2850,6 +2852,7 @@ CompilerIf #PB_Compiler_IsMainFile
           
           ComboBoxEx::SetItemColor(#ComboEx, 0, #Red)
           
+          ComboBoxEx::SetState(#ComboEx, 1)
         EndIf
         
       Case 2
@@ -2890,8 +2893,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 88
-; Folding = IcAESAAAwIAAJEAAAgBgFAAYAAAAg-
+; CursorPosition = 11
+; FirstLine = 9
+; Folding = IcAESAAAwIAAJEAAAgBgFAAYAAAAw-
 ; EnableThread
 ; EnableXP
 ; DPIAware

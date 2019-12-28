@@ -9,11 +9,12 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 08.12.19
+; Last Update: 28.12.19
 ;
-; Added: #UseExistingCanvas
-;
-; - Added: Default font
+; Added:   AdjustSize()
+; Changed: #ResizeWidth  -> #Width
+; Changed: #ResizeHeight -> #Height
+
 
 ;{ ===== MIT License =====
 ;
@@ -41,14 +42,21 @@
 
 ;{ _____TextEx - Commands _____
 
+; TextEx::AdjustSize()         - adjusting the size to the content
+; TextEx::Disable()            - similar to 'DisableGadget()'
 ; TextEx::Gadget()             - similar to 'TextGadget()'
 ; TextEx::GetColor()           - similar to 'GetGadgetColor()'
+; TextEx::GetData()            - similar to 'GetGadgetData()'
+; TextEx::GetID()              - similar to 'GetGadgetData()', but string
 ; TextEx::GetText()            - similar to 'GetGadgetText()'
-; TextEx::SetColor()           - similar to 'SetGadgetColor()'
-; TextEx::SetFont()            - similar to 'SetGadgetFont()'
-; TextEx::SetText()            - similar to 'SetGadgetText()'
+; TextEx::Hide()               - similar to 'HideGadget()'
 ; TextEx::SetAttribute()       - similar to 'SetGadgetAttribute()'
-; TextEx::SetAutoResizeFlags() - [#MoveX|#MoveY|#ResizeWidth|#ResizeHeight]
+; TextEx::SetAutoResizeFlags() - [#MoveX|#MoveY|#Width|#Height]
+; TextEx::SetColor()           - similar to 'SetGadgetColor()'
+; TextEx::SetData()            - similar to 'SetGadgetData()'
+; TextEx::SetFont()            - similar to 'SetGadgetFont()'
+; TextEx::SetID()              - similar to 'SetGadgetData()', but string
+; TextEx::SetText()            - similar to 'SetGadgetText()'
 
 ;}
 
@@ -56,7 +64,7 @@
 
 DeclareModule TextEx
   
-  #Version  = 19120800
+  #Version  = 19122800
   #ModuleEx = 19112102
   
   ;- ===========================================================================
@@ -78,8 +86,8 @@ DeclareModule TextEx
   EnumerationBinary ;{ Autoresize
     #MoveX
     #MoveY
-    #ResizeWidth
-    #ResizeHeight
+    #Width
+    #Height
   EndEnumeration ;}
   
   Enumeration 1     ;{ Attribute
@@ -103,6 +111,7 @@ DeclareModule TextEx
   ;-   DeclareModule
   ;- ===========================================================================
 	
+	Declare   AdjustSize(GNum.i, Flags.i, Padding.i=5)
 	Declare   Disable(GNum.i, State.i=#True)
   Declare   Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Text.s, Flags.i=#False, WindowNum.i=#PB_Default)
   Declare.i GetColor(GNum.i, ColorType.i)
@@ -129,6 +138,11 @@ Module TextEx
   ;- ============================================================================
   ;-   Module - Constants / Structures
   ;- ============================================================================  
+  
+  Structure   TextEx_Required_Structure  ;{ TextEx()\Required\...
+    Width.i
+    Height.i
+  EndStructure
   
   Structure TextEx_Window_Structure  ;{ TextEx()\Window\...
     Num.i
@@ -175,6 +189,7 @@ Module TextEx
     Flags.i
     
     Color.TextEx_Color_Structure
+    Required.TextEx_Required_Structure
     Size.TextEx_Size_Structure
     Window.TextEx_Window_Structure
     
@@ -363,6 +378,8 @@ Module TextEx
       
       If TextEx()\Flags & #MultiLine
         
+        TextEx()\Required\Width = 0
+        
         Rows = CountString(TextEx()\Text, #LF$) + 1
         
         textY = (TextEx()\Size\Height - (TextHeight * Rows)) / 2
@@ -371,9 +388,11 @@ Module TextEx
           Text  = StringField(TextEx()\Text, r, #LF$)
           textX = GetOffsetX_(Text, OffsetX)
           DrawText(textX, textY, Text, FrontColor)
+          If TextWidth(Text) > TextEx()\Required\Width : TextEx()\Required\Width = TextWidth(Text) : EndIf 
           textY + TextHeight
         Next
         
+        TextEx()\Required\Height = TextHeight * Rows
       Else
         
         textY = (TextEx()\Size\Height - TextHeight) / 2
@@ -381,8 +400,13 @@ Module TextEx
         
         DrawText(textX, textY, TextEx()\Text, FrontColor)
         
+        TextEx()\Required\Width  = TextWidth(Text)
+        TextEx()\Required\Height = TextHeight
       EndIf ;}
       
+      TextEx()\Required\Width  = DesktopUnscaledX(TextEx()\Required\Width)  + 4
+      TextEx()\Required\Height = DesktopUnscaledY(TextEx()\Required\Height) + 4
+
       ;{ _____ Border ____
       If TextEx()\Flags & #Border
         
@@ -399,7 +423,7 @@ Module TextEx
         EndIf
         
       EndIf ;}
-      
+
       StopDrawing()
     EndIf  
 
@@ -467,8 +491,8 @@ Module TextEx
               
               If TextEx()\Size\Flags & #MoveX : X = GadgetX(TextEx()\CanvasNum) + OffSetX : EndIf
               If TextEx()\Size\Flags & #MoveY : Y = GadgetY(TextEx()\CanvasNum) + OffSetY : EndIf
-              If TextEx()\Size\Flags & #ResizeWidth  : Width  = GadgetWidth(TextEx()\CanvasNum)  + OffSetX : EndIf
-              If TextEx()\Size\Flags & #ResizeHeight : Height = GadgetHeight(TextEx()\CanvasNum) + OffSetY : EndIf
+              If TextEx()\Size\Flags & #Width  : Width  = GadgetWidth(TextEx()\CanvasNum)  + OffSetX : EndIf
+              If TextEx()\Size\Flags & #Height : Height = GadgetHeight(TextEx()\CanvasNum) + OffSetY : EndIf
               
               ResizeGadget(TextEx()\CanvasNum, X, Y, Width, Height)
               
@@ -492,15 +516,45 @@ Module TextEx
   ;-   Module - Declared Procedures
   ;- ==========================================================================  
   
-	Procedure   Disable(GNum.i, State.i=#True)
+  Procedure   AdjustSize(GNum.i, Flags.i, Padding.i=5)
+    Define.i X, Y, Width, Height, Offset
     
     If FindMapElement(TextEx(), Str(GNum))
+      
+      X = #PB_Ignore : Y = #PB_Ignore : Width = #PB_Ignore : Height = #PB_Ignore
+     
+      If Flags & #Width  : Width  = TextEx()\Required\Width  + (Padding * 2) : EndIf 
+      If Flags & #Height : Height = TextEx()\Required\Height + (Padding * 2) : EndIf 
+      
+      If Flags & #MoveX 
+        If Width <> #PB_Ignore
+          Offset = (GadgetWidth(TextEx()\CanvasNum) - Width) / 2
+          X = GadgetX(TextEx()\CanvasNum) + Offset
+        EndIf 
+      EndIf
+      
+      If Flags & #MoveY
+        If Height <> #PB_Ignore
+          Offset = (GadgetHeight(TextEx()\CanvasNum) - Height) / 2
+          Y = GadgetY(TextEx()\CanvasNum) + Offset
+        EndIf
+      EndIf
+      
+      ResizeGadget(TextEx()\CanvasNum, X, Y, Width, Height)
+      
+      Draw_()
+    EndIf 
+   
+  EndProcedure  
+  
+	Procedure   Disable(GNum.i, State.i=#True)
+    
+    If FindMapElement(TextEx(), Str(GNum))  
 
       TextEx()\Disable = State
       DisableGadget(GNum, State)
       
       Draw_()
-      
     EndIf  
     
   EndProcedure 	  
@@ -784,8 +838,11 @@ CompilerIf #PB_Compiler_IsMainFile
     TextEx::SetFont(#Text, FontID(#Font))
     TextEx::SetText(#Text, "Row 1" + #LF$ + "Row 2")
     
-    TextEx::SetAutoResizeFlags(#Text, TextEx::#MoveY|TextEx::#ResizeWidth)
-
+    TextEx::AdjustSize(#Text, TextEx::#Width|TextEx::#Height)
+    
+    
+    TextEx::SetAutoResizeFlags(#Text, TextEx::#MoveY|TextEx::#Width)
+      
     ;ModuleEx::SetTheme(ModuleEx::#Theme_Dark)
     
     TextEx::SetAttribute(#Text, TextEx::#Corner, 4)
@@ -797,7 +854,7 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 769
-; FirstLine = 306
-; Folding = mGBAUhBX5-
+; CursorPosition = 11
+; FirstLine = 1
+; Folding = EMAAQCAAg-
 ; EnableXP
