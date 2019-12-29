@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 28.12.19
+; Last Update: 29.12.19
 ;
 ; Added:   AdjustSize()
 ; Changed: #ResizeWidth  -> #Width
@@ -64,7 +64,7 @@
 
 DeclareModule TextEx
   
-  #Version  = 19122800
+  #Version  = 19122900
   #ModuleEx = 19112102
   
   ;- ===========================================================================
@@ -400,7 +400,7 @@ Module TextEx
         
         DrawText(textX, textY, TextEx()\Text, FrontColor)
         
-        TextEx()\Required\Width  = TextWidth(Text)
+        TextEx()\Required\Width  = TextWidth(TextEx()\Text)
         TextEx()\Required\Height = TextHeight
       EndIf ;}
       
@@ -854,7 +854,7 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 11
-; FirstLine = 1
-; Folding = EMAAQCAAg-
+; CursorPosition = 402
+; FirstLine = 151
+; Folding = EMAAUCAAg-
 ; EnableXP
