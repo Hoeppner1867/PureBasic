@@ -151,7 +151,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19122801
+  #Version  = 19122802
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -4273,11 +4273,11 @@ Module ListEx
           ColX = ListEx()\Cols()\X - ListEx()\Col\OffsetX
           If X >= ColX - dpiX(2) And X <= ColX + dpiX(2) ; "|<- |"
             ListEx()\Col\Resize = ListIndex(ListEx()\Cols()) - 1
-            ListEx()\Col\MouseX = ListEx()\Cols()\X 
+            ListEx()\Col\MouseX = ListEx()\Cols()\X - ListEx()\Col\OffsetX
             ProcedureReturn #True
           ElseIf X >= ColX + ListEx()\Cols()\Width - dpiX(2) And X <= ColX + ListEx()\Cols()\Width + dpiX(2) ; "| ->|"
             ListEx()\Col\Resize = ListIndex(ListEx()\Cols())
-            ListEx()\Col\MouseX = ListEx()\Cols()\X + ListEx()\Cols()\Width
+            ListEx()\Col\MouseX = ListEx()\Cols()\X + ListEx()\Cols()\Width - ListEx()\Col\OffsetX
             ProcedureReturn #True
           EndIf
         Next
@@ -4821,12 +4821,11 @@ Module ListEx
           Else                     ;{ Change cursor to #PB_Cursor_LeftRight
             
             ForEach ListEx()\Cols()
-              ColX = ListEx()\Cols()\X - ListEx()\Col\OffsetX
-              If X >= ColX - dpiX(2) And X <= ColX + dpiX(2) ; "|<- |"
+              If X >= ListEx()\Cols()\X- ListEx()\Col\OffsetX - dpiX(2) And X <= ListEx()\Cols()\X- ListEx()\Col\OffsetX + dpiX(2) ; "|<- |"
                 ListEx()\CanvasCursor = #PB_Cursor_LeftRight
                 SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
                 ProcedureReturn #True
-              ElseIf X >= ColX + ListEx()\Cols()\Width - dpiX(2) And X <= ColX + ListEx()\Cols()\Width + dpiX(2) ; "| ->|"
+              ElseIf X >= ListEx()\Cols()\X - ListEx()\Col\OffsetX + ListEx()\Cols()\Width - dpiX(2) And X <= ListEx()\Cols()\X - ListEx()\Col\OffsetX + ListEx()\Cols()\Width + dpiX(2) ; "| ->|"
                 ListEx()\CanvasCursor = #PB_Cursor_LeftRight
                 SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
                 ProcedureReturn #True
@@ -4862,7 +4861,7 @@ Module ListEx
           If SelectElement(ListEx()\Cols(), Column)
             
             If ListEx()\Flags & #ResizeColumn Or ListEx()\Flags & #AdjustColumns
-              If X <= ListEx()\Cols()\X + dpiX(2) Or X >= ListEx()\Cols()\X + ListEx()\Cols()\Width - dpiX(2)
+              If X <= ListEx()\Cols()\X - ListEx()\Col\OffsetX + dpiX(2) Or X >= ListEx()\Cols()\X - ListEx()\Col\OffsetX + ListEx()\Cols()\Width - dpiX(2)
                 ProcedureReturn #False
               EndIf  
             EndIf 
@@ -7858,9 +7857,9 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 153
-; FirstLine = 12
-; Folding = QRQAAAACIAQBICEAGAA9HQ5hCBAiFwwKQBAAAAADgDAg8AAAMBOACgDAAAAAAAAAQ+--
-; Markers = 3232,5821
+; FirstLine = 21
+; Folding = QRQAAAACIAQBICEAGAA9HQ5hCBCiFwwKQBAAAAADgDAg8AAAMBOACgDAAAAAAAAAQ+--
+; Markers = 3232,5820
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
