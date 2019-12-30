@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 28.12.2019
+; Last Update: 30.12.2019
 ;
 ; - Added: Format content (mask)
 ; - Added: Multiline support
@@ -151,7 +151,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19122802
+  #Version  = 19123000
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -3388,6 +3388,7 @@ Module ListEx
         If ListEx()\HScroll\Hide = #False
           ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width - 1, GadgetHeight(ListEx()\CanvasNum) - 2)
           HideGadget(ListEx()\HScrollNum, #True)
+          ListEx()\Col\OffsetX  = 0
           ListEx()\HScroll\Hide = #True
         EndIf
         
@@ -7857,9 +7858,9 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 153
-; FirstLine = 21
-; Folding = QRQAAAACIAQBICEAGAA9HQ5hCBCiFwwKQBAAAAADgDAg8AAAMBOACgDAAAAAAAAAQ+--
-; Markers = 3232,5820
+; FirstLine = 15
+; Folding = QRQAAAACIAQBICEAGAA9HQ5hCBCiFwwbQBAAAAADgDAg8AAAMBOACgDAAAAAAAAAQ+--
+; Markers = 3232,5821
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
