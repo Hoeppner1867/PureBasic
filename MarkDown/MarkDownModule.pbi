@@ -47,7 +47,9 @@
 ;{ _____ MarkDown - Commands _____
 
 ; MarkDown::Clear()              - similar to 'ClearGadgetItems()'
+; MarkDown::Convert()            - convert markdown to HTML or PDF (without gadget)
 ; MarkDown::EventValue()         - returns links
+; MarkDown::Export()             - export to HTML or PDF 
 ; MarkDown::Gadget()             - new MarkDown gadget
 ; MarkDown::GetData()            - similar to 'GetGadgetData()'
 ; MarkDown::GetID()              - similar to 'GetGadgetData()', but string
@@ -62,13 +64,14 @@
 
 ;}
 
+
 ; XIncludeFile "ModuleEx.pbi"
 
 CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : CompilerEndIf
 
 DeclareModule MarkDown
   
-  #Version  = 19122600
+  #Version  = 19123100
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -139,6 +142,7 @@ DeclareModule MarkDown
   Declare   Clear(GNum.i)
   Declare   Convert(MarkDown.s, Type.i, File.s="", Title.s="")
   Declare.s EventValue(GNum.i)
+  Declare   Export(GNum.i, Type.i, File.s="", Title.s="")
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
   Declare.q GetData(GNum.i)
   Declare.s GetID(GNum.i)
@@ -192,6 +196,7 @@ Module MarkDown
     #Paragraph
     #StrikeThrough
     #Table
+    #TaskList
     #Text
     #URL
   EndEnumeration ;}
@@ -213,7 +218,7 @@ Module MarkDown
     Title.s
   EndStructure ;}
   
-  Structure Link_Structure             ;{ MarkDown()\Link()\...
+  Structure Link_Structure               ;{ MarkDown()\Link()\...
     X.i
     Y.i
     Width.i
@@ -223,14 +228,15 @@ Module MarkDown
     State.i
   EndStructure ;}
   
-  Structure Item_Structure             ;{ MarkDown()\Row()\Item()\...
+  Structure Item_Structure               ;{ MarkDown()\Row()\Item()\...
     Type.i
     String.s
     Level.i
+    State.i
     Index.i
   EndStructure ;}
   
-  Structure Row_Structure              ;{ MarkDown()\Row()\...
+  Structure Row_Structure                ;{ MarkDown()\Row()\...
     X.i
     Y.i
     Width.i
@@ -478,7 +484,7 @@ Module MarkDown
 	  MarkDown()\Font\Bold       = LoadFont(#PB_Any, Name, Size, #PB_Font_Bold)
 	  MarkDown()\Font\Italic     = LoadFont(#PB_Any, Name, Size, #PB_Font_Italic)
 	  MarkDown()\Font\BoldItalic = LoadFont(#PB_Any, Name, Size, #PB_Font_Bold|#PB_Font_Italic)
-	  MarkDown()\Font\Code       = LoadFont(#PB_Any, "Courier New", Size)
+	  MarkDown()\Font\Code       = LoadFont(#PB_Any, "Courier New", Size + 1)
 	  
 	  MarkDown()\Font\FootNote     = LoadFont(#PB_Any, Name, Round(Size / 1.5, #PB_Round_Up))
 	  MarkDown()\Font\FootNoteText = LoadFont(#PB_Any, Name, Size - 2)
@@ -837,6 +843,18 @@ Module MarkDown
             HTML$ + "<img src="+#DQUOTE$+MarkDown()\Image()\Source+#DQUOTE$+" alt="+#DQUOTE$+MarkDown()\Row()\String+#DQUOTE$+" title="+#DQUOTE$+MarkDown()\Image()\Title+#DQUOTE$+" />" + #LF$  
           EndIf
           ;}
+        Case #TaskList    ;{ Task List
+          
+          ForEach MarkDown()\Row()\Item()
+            If MarkDown()\Row()\Item()\State
+              HTML$ + "<input type=" + #DQUOTE$ + "checkbox" + #DQUOTE$ + " checked=" + #DQUOTE$ + "checked" + #DQUOTE$ + ">" + #LF$
+            Else  
+              HTML$ + "<input type=" + #DQUOTE$ + "checkbox" + #DQUOTE$ + ">" + #LF$
+            EndIf
+            HTML$ + EscapeHTML_(MarkDown()\Row()\Item()\String) + #LF$
+            HTML$ + "<br>"
+          Next
+          ;}
         Case #Table       ;{ Table
           
           Align$ = MarkDown()\Row()\String
@@ -949,10 +967,12 @@ Module MarkDown
           HTML$ + "<br>" + #LF$
           ;}
       EndSelect
-    
+      
     Next
     
     If ListSize(MarkDown()\Footnote()) ;{ Footnotes
+      
+      HTML$ + "<br>"
       HTML$ + "<section class=" + #DQUOTE$ + "footnotes" + #DQUOTE$ + ">" + #LF$
       HTML$ + "<hr />" + #LF$
       ForEach MarkDown()\Footnote()
@@ -963,10 +983,11 @@ Module MarkDown
 		EndIf  
     
     HTML$ + "</body>" + #LF$ + "</html>"
-    
+
     ProcedureReturn HTML$
     
   EndProcedure
+  
   
   CompilerIf Defined(PDF, #PB_Module)
     
@@ -1160,6 +1181,35 @@ Module MarkDown
               
               PDF::Ln(PDF, 3)
               ;}
+            Case #TaskList    ;{ Task List
+              
+              PDF::Ln(PDF, 3)
+              
+              PDF::SetMargin(PDF, PDF::#CellMargin, 0)
+              
+              ForEach MarkDown()\Row()\Item()
+                
+                Y = PDF::GetPosY(PDF)
+                PDF::SetPosXY(PDF, 15, Y + 0.9)
+                
+                If MarkDown()\Row()\Item()\State
+                  ;PDF::ButtonField(PDF, MarkDown()\Row()\Item()\String, #True, PDF::#Form_CheckBox, #PB_Default, 6, PDF::#NextLine)
+                  PDF::Cell(PDF, "x", 3.8, 3.8, #True, PDF::#Right, PDF::#CenterAlign)
+                Else
+                  ;PDF::ButtonField(PDF, MarkDown()\Row()\Item()\String, #True, PDF::#Form_CheckBox, #PB_Default, 6, PDF::#NextLine)
+                  PDF::Cell(PDF, " ", 3.8, 3.8, #True, PDF::#Right, PDF::#CenterAlign)
+                EndIf
+                
+                PDF::SetPosXY(PDF, 19.2, Y)
+                
+                PDF::Cell(PDF, MarkDown()\Row()\Item()\String, #PB_Default, 6, #False, PDF::#NextLine)
+
+              Next
+              
+              PDF::SetMargin(PDF, PDF::#CellMargin, 1)
+              
+              PDF::Ln(PDF, 3)
+              ;}
             Case #HLine       ;{ Horizontal Rule
               PDF::Ln(PDF, 3)
               PDF::DividingLine(PDF)
@@ -1350,8 +1400,6 @@ Module MarkDown
   CompilerEndIf
   
   ;- __________ MarkDown __________
-  
-  ; TODO: Task List -> "- [x] Write the press release"
 
   Procedure.i Footnote_(Row.s, sPos.i)
     Define.s Note$
@@ -1533,7 +1581,7 @@ Module MarkDown
   EndProcedure
  
  
-  Procedure   ParseMarkDown_(Text.s)
+  Procedure   Parse_(Text.s)
     Define.i r, Rows, c, Cols, Length, Pos, sPos, ePos, BQ, newRow, LineBreak, Type
     Define.s Row$, Num$, trimRow$, Col$, Text$
     
@@ -1570,7 +1618,9 @@ Module MarkDown
      
           If AddElement(MarkDown()\Row())
             ePos = Headings_(Row$, sPos)
-            MarkDown()\Row()\String = Trim(RemoveString(Mid(Row$, Pos, ePos - Pos + 1), "#"))
+            MarkDown()\Row()\String = RemoveString(Mid(Row$, Pos, ePos - Pos + 1), "#")
+            If Left(MarkDown()\Row()\String, 1)  = " " : MarkDown()\Row()\String = Mid(MarkDown()\Row()\String, 2) : EndIf 
+            If Right(MarkDown()\Row()\String, 1) = " " : MarkDown()\Row()\String = Left(MarkDown()\Row()\String, Len(MarkDown()\Row()\String) - 1) : EndIf
             MarkDown()\Row()\BlockQuote = BQ
             If ePos : Pos = ePos : EndIf
           EndIf
@@ -1616,7 +1666,35 @@ Module MarkDown
             ;}
           Else                                  ;{ Unordered Lists
             
-            If Left(Row$, 2) = "- "
+            If Left(Row$, 5) = "- [ ]"
+              
+              If ListSize(MarkDown()\Row()) = #False Or MarkDown()\Row()\Type <> #TaskList
+                AddElement(MarkDown()\Row())
+                MarkDown()\Row()\Type = #TaskList
+                MarkDown()\Row()\BlockQuote = BQ
+              EndIf  
+              
+              If AddElement(MarkDown()\Row()\Item())
+                MarkDown()\Row()\Item()\Type   = #TaskList
+                MarkDown()\Row()\Item()\String = RTrim(Mid(Row$, 6))
+                MarkDown()\Row()\Item()\State  = #False
+              EndIf
+              
+            ElseIf UCase(Left(Row$, 5)) = "- [X]"
+              
+              If ListSize(MarkDown()\Row()) = #False Or MarkDown()\Row()\Type <> #TaskList
+                AddElement(MarkDown()\Row())
+                MarkDown()\Row()\Type = #TaskList
+                MarkDown()\Row()\BlockQuote = BQ
+              EndIf 
+              
+              If AddElement(MarkDown()\Row()\Item())
+                MarkDown()\Row()\Item()\Type   = #TaskList
+                MarkDown()\Row()\Item()\String = RTrim(Mid(Row$, 6))
+                MarkDown()\Row()\Item()\State  = #True
+              EndIf
+              
+            ElseIf Left(Row$, 2) = "- "
               
               If ListSize(MarkDown()\Row()) = #False Or (MarkDown()\Row()\Type <> #List And MarkDown()\Row()\Type <> #OrderedList)
                 AddElement(MarkDown()\Row())
@@ -1849,6 +1927,7 @@ Module MarkDown
                 If sPos <= Pos 
                   If newRow
                     MarkDown()\Row()\String = Mid(Row$, sPos, Pos - sPos)
+                    newRow = #False
                   ElseIf AddElement(MarkDown()\Row()\Item())
                     MarkDown()\Row()\Item()\Type   = #Text
                     MarkDown()\Row()\Item()\String = Mid(Row$, sPos, Pos - sPos)
@@ -1867,6 +1946,7 @@ Module MarkDown
                 If sPos <= Pos 
                   If newRow
                     MarkDown()\Row()\String = Mid(Row$, sPos, Pos - sPos)
+                    newRow = #False
                   ElseIf AddElement(MarkDown()\Row()\Item())
                     MarkDown()\Row()\Item()\Type   = #Text
                     MarkDown()\Row()\Item()\String = Mid(Row$, sPos, Pos - sPos)  
@@ -1918,6 +1998,7 @@ Module MarkDown
                 If sPos <= Pos 
                   If newRow
                     MarkDown()\Row()\String = Mid(Row$, sPos, Pos - sPos)
+                    newRow = #False
                   ElseIf AddElement(MarkDown()\Row()\Item())
                     MarkDown()\Row()\Item()\Type   = #Text
                     MarkDown()\Row()\Item()\String = Mid(Row$, sPos, Pos - sPos)  
@@ -1949,6 +2030,7 @@ Module MarkDown
                   If sPos <= Pos
                     If newRow
                       MarkDown()\Row()\String = Mid(Row$, sPos, Pos - sPos)
+                      newRow = #False
                     ElseIf AddElement(MarkDown()\Row()\Item())
                       MarkDown()\Row()\Item()\Type   = #Text
                       MarkDown()\Row()\Item()\String = Mid(Row$, sPos, Pos - sPos)  
@@ -1970,11 +2052,12 @@ Module MarkDown
                 If Mid(Row$, Pos, 2) = "~~"
                   
                   If sPos <= Pos 
-                    If newRow
+                    If newRow 
                       MarkDown()\Row()\String = Mid(Row$, sPos, Pos - sPos)
+                      newRow = #False
                     ElseIf AddElement(MarkDown()\Row()\Item())
                       MarkDown()\Row()\Item()\Type   = #Text
-                      MarkDown()\Row()\Item()\String = Mid(Row$, sPos, Pos - sPos)  
+                      MarkDown()\Row()\Item()\String = Mid(Row$, sPos, Pos - sPos)
                     EndIf   
                   EndIf
                   
@@ -1996,7 +2079,7 @@ Module MarkDown
             Pos + 1
             
           Until Pos > Length
-    
+
           If sPos <= Pos  ;{ Remaining text
             If newRow And MarkDown()\Row()\String = ""
               MarkDown()\Row()\String = Mid(Row$, sPos)
@@ -2031,6 +2114,39 @@ Module MarkDown
 		ProcedureReturn RGB((Red1 * Blend) + (Red2 * (1 - Blend)), (Green1 * Blend) + (Green2 * (1 - Blend)), (Blue1 * Blend) + (Blue2 * (1 - Blend)))
 	EndProcedure
 	
+	
+	Procedure   CheckBox_(X.i, Y.i, boxWidth.i, FrontColor.i, BackColor.i, State.i)
+    Define.i X1, X2, Y1, Y2
+    Define.i bColor, LineColor
+      
+      Box(X, Y, boxWidth, boxWidth, BackColor)
+      
+      LineColor = BlendColor_(FrontColor, BackColor, 60)
+      
+      If State
+
+        bColor = BlendColor_(LineColor, FrontColor)
+        
+        X1 = X + 1
+        X2 = X + boxWidth - 2
+        Y1 = Y + 1
+        Y2 = Y + boxWidth - 2
+        
+        LineXY(X1 + 1, Y1, X2 + 1, Y2, bColor)
+        LineXY(X1 - 1, Y1, X2 - 1, Y2, bColor)
+        LineXY(X2 + 1, Y1, X1 + 1, Y2, bColor)
+        LineXY(X2 - 1, Y1, X1 - 1, Y2, bColor)
+        LineXY(X2, Y1, X1, Y2, LineColor)
+        LineXY(X1, Y1, X2, Y2, LineColor)
+        
+      EndIf
+      
+      DrawingMode(#PB_2DDrawing_Outlined)
+      Box(X + 2, Y + 2, boxWidth - 4, boxWidth - 4, BlendColor_(LineColor, BackColor, 5))
+      Box(X + 1, Y + 1, boxWidth - 2, boxWidth - 2, BlendColor_(LineColor, BackColor, 25))
+      Box(X, Y, boxWidth, boxWidth, LineColor)
+    
+  EndProcedure
 
 	Procedure   Box_(X.i, Y.i, Width.i, Height.i, Color.i)
   
@@ -2300,7 +2416,6 @@ Module MarkDown
 			      
 			      ForEach MarkDown()\Row()\Item()
 			        
-			        Offset = 0
 			        Level  = MarkDown()\Row()\Item()\Level
 			        Indent = TextWidth(#Bullet$ + " ") * MarkDown()\Row()\Item()\Level
 			        
@@ -2320,12 +2435,30 @@ Module MarkDown
 			          EndIf 
 			        EndIf  
 			        
-			        DrawText_(X + MarkDown()\Indent + Offset + Indent, Y, Num$ + MarkDown()\Row()\Item()\String, FrontColor, MarkDown()\Indent + Offset + Indent + TextWidth(Num$))
+			        DrawText_(X + MarkDown()\Indent + Indent, Y, Num$ + MarkDown()\Row()\Item()\String, FrontColor, MarkDown()\Indent + Indent + TextWidth(Num$))
 			        
 			        Y + TextHeight
 			      Next
 			      
 			      Y + MarkDown()\WrapHeight + (TextHeight / 2)
+			      ;}
+			    Case #TaskList    ;{  
+			      
+			      Y + (TextHeight / 2)
+			      
+			      NumWidth = TextHeight + TextWidth(" ")
+
+			      ForEach MarkDown()\Row()\Item()
+			        
+			        CheckBox_(X + MarkDown()\Indent, Y + dpiY(1), TextHeight - dpiY(2), FrontColor, BackColor, MarkDown()\Row()\Item()\State)
+			      
+			        DrawingMode(#PB_2DDrawing_Transparent)
+			        DrawText_(X + MarkDown()\Indent + TextHeight, Y, MarkDown()\Row()\Item()\String, FrontColor, MarkDown()\Indent + NumWidth)
+			      
+			        Y + TextHeight + dpiY(2)
+			      Next
+			      
+			      Y + (TextHeight / 2)
 			      ;}
 			    Case #HLine       ;{ Horizontal Rule  
 
@@ -2424,7 +2557,7 @@ Module MarkDown
 			      DrawingFont(FontID(MarkDown()\Font\Normal))
 			      
 			      TextHeight = TextHeight("Abc")
-
+            
 			      If MarkDown()\Row()\String
 			        X = DrawText_(X, Y, MarkDown()\Row()\String, FrontColor)
   			    EndIf
@@ -2784,13 +2917,13 @@ Module MarkDown
 	  
 	  If AddMapElement(MarkDown(), "Convert")
 	    
-	    ParseMarkDown_(MarkDown)
+	    Parse_(MarkDown)
 	    
 	    Select Type
 	      Case #HTML  
     	    String = ExportHTML_(Title)
     	    
-    	    FileID = OpenFile(#PB_Any, File, #PB_UTF8)
+    	    FileID = CreateFile(#PB_Any, File, #PB_UTF8)
     	    If FileID
     	      WriteStringFormat(FileID,   #PB_UTF8)
     	      WriteString(FileID, String, #PB_UTF8)
@@ -2820,7 +2953,36 @@ Module MarkDown
     EndIf  
     
   EndProcedure 	
-	
+  
+  Procedure   Export(GNum.i, Type.i, File.s="", Title.s="")
+	  Define.i FileID
+	  Define.s String
+	  
+	  If FindMapElement(MarkDown(), Str(GNum))
+	    
+	    Select Type
+	      Case #HTML
+	        
+    	    String = ExportHTML_(Title)
+    	    
+    	    FileID = CreateFile(#PB_Any, File, #PB_UTF8)
+    	    If FileID
+    	      WriteStringFormat(FileID,   #PB_UTF8)
+    	      WriteString(FileID, String, #PB_UTF8)
+    	      CloseFile(FileID)
+    	    EndIf
+    	  Case #PDF
+    	    
+    	    CompilerIf Defined(PDF, #PB_Module)
+    	      ExportPDF_(File, Title)
+    	    CompilerEndIf 
+    	    
+    	EndSelect
+
+	  EndIf  
+	 
+	EndProcedure 
+  
 	Procedure.s EventValue(GNum.i)
     
     If FindMapElement(MarkDown(), Str(GNum))
@@ -3079,7 +3241,7 @@ Module MarkDown
 	    
 	    MarkDown()\Text = Text
 	    
-	    ParseMarkDown_(Text)
+	    Parse_(Text)
 
 	    Draw_()
 	    
@@ -3096,49 +3258,83 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
+  #Example = 8
+  
+  ; 1: Headings
+  ; 2: Emphasis
+  ; 3: Lists
+  ; 4: URL and Links
+  ; 5: Image
+  ; 6: Table
+  ; 7: Footnote
+  ; 8: TaskLists
+  
   Define.s Text$
-  
-  ;Text$ + "Heading level 1"+ #LF$
-  ;Text$ + "==============="+ #LF$
-  ;Text$ + "Heading level 2"+ #LF$
-  ;Text$ + "---------------"+ #LF$
-  ;Text$ + "### Heading level 3 ###"  + #LF$
-  ;Text$ + "#### Heading level 4 ####"  + #LF$
-  ;Text$ + "##### Heading level 5 #####"  + #LF$
-  ;Text$ + "###### Heading level 6 #####"  + #LF$
-  ;Text$ + "I just love **bold text**." + #LF$
-  ;Text$ + "Italicized text is the *cat's meow*."+ #LF$
-  ;Text$ + "This text is __*really important*__."+ #LF$
-  ;Text$ + "At the command prompt, type `nano`."+ #LF$
-  ;Text$ + "URL: <https://www.markdownguide.org>  "+ #LF$
-  ;Text$ + "EMail: <fake@example.com>  "+ #LF$
-  ;Text$ + "Link:  [Duck Duck Go](https://duckduckgo.com "+#DQUOTE$+"My search engine!"+#DQUOTE$+")  "+ #LF$
-  ;Text$ + " ![Programmer](Test.png " + #DQUOTE$ + "Programmer Image" + #DQUOTE$ + ")"
-  ;Text$ + "Das ist ~~Textzeile 1~~" + #LF$ +  "und das ist Textzeile 2.  " + #LF$
-  ;Text$ + "1. First list item"+#LF$+"    * Second list item"+#LF$+"    * Third list item"+#LF$+"4. Fourth list item"+ #LF$
-  ;Text$ + "-----" + #LF$
-  ;Text$ + "- First list item" + #LF$ + "    1. Second list item" + #LF$ + "    2. Third list item" + #LF$ + "- Fourth list item" + #LF$
-  ;Text$ + "> Das ist Textzeile 3" + #LF$ +  "und das ist Textzeile 4.  "+ #LF$
-  ;Text$ + "-----"+ #LF$
-  ;Text$ + "Here's a simple footnote,[^1] and here's a longer one.[^bignote]" + #LF$
-  ;Text$ + "[^1]: This is the first footnote." + #LF$
-  ;Text$ + "[^bignote]: Here's one with multiple paragraphs and code."
-  ;Text$ + "This is a test text for checking the WordWrap function."
+ 
+  Select #Example
+    Case 1   
+      Text$ = "Heading level 1"+ #LF$
+      Text$ + "==============="+ #LF$
+      Text$ + "Heading level 2"+ #LF$
+      Text$ + "---------------"+ #LF$
+      Text$ + "### Heading level 3 ###"  + #LF$
+      Text$ + "#### Heading level 4 ####"  + #LF$
+      Text$ + "##### Heading level 5 #####"  + #LF$
+      Text$ + "###### Heading level 6 #####"  + #LF$
+    Case 2
+      Text$ = "#### Emphasis ####" + #LF$ + #LF$
+      Text$ + "I just love **bold text**." + #LF$
+      Text$ + "Italicized text is the *cat's meow*."+ #LF$
+      Text$ + "This text is __*really important*__.  "+ #LF$
+      Text$ + "The world is ~~flat~~ round.  "+ #LF$ + #LF$
+      Text$ + "#### Code ####" + #LF$ + #LF$
+      Text$ + "At the command prompt, type `nano`."+ #LF$
+    Case 3
+      Text$ = "#### Ordered List ####"  + #LF$
+      Text$ + "1. First list item"+#LF$+"    2. Second list item"+#LF$+"    3. Third list item"+#LF$+"4. Fourth list item"+ #LF$
+      Text$ + "-----" + #LF$
+      Text$ + "#### Unordered List ####"  + #LF$
+      Text$ + "- First list item" + #LF$ + "    - Second list item" + #LF$ + "    - Third list item" + #LF$ + "- Fourth list item" + #LF$ 
+    Case 4
+      Text$ = "#### Links & URLs ####" + #LF$ + #LF$
+      Text$ + "URL: <https://www.markdownguide.org>  "+ #LF$
+      Text$ + "EMail: <fake@example.com>  "+ #LF$
+      Text$ + "Link:  [Duck Duck Go](https://duckduckgo.com "+#DQUOTE$+"My search engine!"+#DQUOTE$+")  "+ #LF$
+    Case 5
+      Text$ + " ![Programmer](Test.png " + #DQUOTE$ + "Programmer Image" + #DQUOTE$ + ")"
+    Case 6
+      Text$ = "#### Table ####"  + #LF$
+      Text$ + "| Syntax    | Description |" + #LF$
+      Text$ + "| :-------- | :---------: |" + #LF$
+      Text$ + "| Header    | Title       |" + #LF$ 
+      Text$ + "| Paragraph | Text        |" + #LF$ 
+    Case 7
+      Text$ = "#### Footnotes ####" + #LF$ + #LF$
+      Text$ + "Here's a simple footnote,[^1] and here's a longer one.[^bignote]" + #LF$
+      Text$ + "[^1]: This is the first footnote." + #LF$
+      Text$ + "[^bignote]: Here's one with multiple paragraphs and code."
+    Case 8
+      Text$ = "#### Task List ####"  + #LF$
+      Text$ + "- [ ] Write the press release"+ #LF$
+      Text$ + "- [X] Update the website"+ #LF$
+      Text$ + "- [ ] Contact the media"+ #LF$
+    Default  
+      Text$ = "### 1. MarkDown ###" + #LF$  + #LF$
+      Text$ + "The gadget can display text formatted with the [MarkDown Syntax](https://www.markdownguide.org/basic-syntax/).  "+ #LF$
+      Text$ + "Markdown[^1] is a lightweight MarkDown language that you can use to add formatting elements to plaintext text documents."+ #LF$
+      Text$ + "- Markdown files can be read even if it isn’t rendered."  + #LF$
+      Text$ + "- Markdown is portable." + #LF$ + "- Markdown is platform independent." + #LF$
+      Text$ + "[^1]: Created by John Gruber in 2004."
+  EndSelect
 
-  Text$ = "### 1. MarkDown ###" + #LF$  + #LF$ + "The gadget can display text formatted with the [MarkDown Syntax](https://www.markdownguide.org/basic-syntax/).  "+ #LF$
-  Text$ + "Markdown[^1] is a lightweight MarkDown language that you can use to add formatting elements to plaintext text documents."+ #LF$
-  Text$ + "- Markdown files can be read even if it isn’t rendered."  + #LF$
-  Text$ + "- Markdown is portable." + #LF$ + "- Markdown is platform independent." + #LF$
-  Text$ + "[^1]: Created by John Gruber in 2004."
-  
-  ;Text$ = "| Syntax | Description 2 |" + #LF$ + "| ----------- | ----------- |" + #LF$ + "| Header | Title |" + #LF$ + "| Paragraph | Text |" + #LF$ 
-  
   Enumeration 
     #Window
     #MarkDown
     #Editor
     #Button1
     #Button2
+    #Button3
+    #Button4
     #Font 
   EndEnumeration
   
@@ -3151,22 +3347,18 @@ CompilerIf #PB_Compiler_IsMainFile
     HideGadget(#Editor, #True)
     SetGadgetText(#Editor, Text$)
     
-    ButtonGadget(#Button1, 10, 265, 60, 20, "Edit")
-    ButtonGadget(#Button2, 230, 265, 60, 20, "View")
+    ButtonGadget(#Button2, 10, 265, 60, 20, "View")
+    ButtonGadget(#Button1, 75, 265, 60, 20, "Edit")
+    
+    ButtonGadget(#Button3, 205, 265, 40, 20, "PDF")
+    ButtonGadget(#Button4, 250, 265, 40, 20, "HTML")
+    
     DisableGadget(#Button2, #True)
     
     If MarkDown::Gadget(#MarkDown, 10, 10, 280, 250, MarkDown::#AutoResize)
       MarkDown::SetText(#MarkDown, Text$)
       MarkDown::SetFont(#MarkDown, "Arial", 10)
     EndIf
-    
-    CompilerIf Defined(PDF, #PB_Module)
-      MarkDown::Convert(Text$, MarkDown::#PDF, "Export.pdf", "PDF")
-      RunProgram("Export.pdf")
-    CompilerElse
-       MarkDown::Convert(Text$, MarkDown::#HTML, "Export.htm", "PDF")
-      RunProgram("Export.htm")
-    CompilerEndIf   
 
     Repeat
       Event = WaitWindowEvent()
@@ -3194,6 +3386,14 @@ CompilerIf #PB_Compiler_IsMainFile
               HideGadget(#MarkDown, #False)
               DisableGadget(#Button1, #False)
               DisableGadget(#Button2, #True)
+            Case #Button3
+              CompilerIf Defined(PDF, #PB_Module)
+                MarkDown::Export(#MarkDown, MarkDown::#PDF, "Export.pdf", "PDF")
+                RunProgram("Export.pdf")
+              CompilerEndIf
+            Case #Button4
+              MarkDown::Export(#MarkDown, MarkDown::#HTML, "Export.htm", "PDF")
+              RunProgram("Export.htm")
           EndSelect
       EndSelect        
     Until Event = #PB_Event_CloseWindow
@@ -3204,8 +3404,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 66
-; FirstLine = 26
-; Folding = 9ABAAQAYAAcAAAAAAgAAICAAgAAiRAY+
+; CursorPosition = 1204
+; Folding = 5ABAAQAAAAICAAAAAACacQAABAAgEQA5-
 ; EnableXP
 ; DPIAware
