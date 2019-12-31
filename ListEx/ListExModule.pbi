@@ -9,16 +9,10 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 30.12.2019
+; Last Update: 31.12.2019
 ;
-; - Added: Format content (mask)
-; - Added: Multiline support
-; - Added: SetCondition() for editable cells
-; - Added: Attribute #MaxChars for SetAttribute() or SetColumnAttribute()
-; - Added: #EventType_Change for string gadget
-; - Added: gadget number 'ListEx::#Theme' (#PB_Default) changes all gadgets for suitable commands
-; - Added: CSV support (file/clipboard)
-;
+; - Changed: SetItemImage(GNum.i, Row.i, Column.i, Image.i, Align.i=#Left, Width.i=#PB_Default, Height.i=#PB_Default)
+; - Added:   SetItemImageID(GNum.i, Row.i, Column.i, Width.f, Height.f, ImageID.i, Align.i=#Left)
 
 ;{ ===== MIT License =====
 ;
@@ -151,7 +145,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19123000
+  #Version  = 19123100
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -439,7 +433,8 @@ DeclareModule ListEx
   Declare   SetItemData(GNum.i, Row.i, Value.i)
   Declare   SetItemFont(GNum.i, Row.i, FontID.i, Column.i=#PB_Ignore)
   Declare   SetItemID(GNum.i, Row.i, String.s)
-  Declare   SetItemImage(GNum.i, Row.i, Column.i, Width.f, Height.f, Image.i, Align.i=#Left)
+  Declare   SetItemImage(GNum.i, Row.i, Column.i, Image.i, Align.i=#Left, Width.i=#PB_Default, Height.i=#PB_Default)
+  Declare   SetItemImageID(GNum.i, Row.i, Column.i, Width.f, Height.f, ImageID.i, Align.i=#Left)
   Declare   SetItemState(GNum.i, Row.i, State.i, Column.i=#PB_Ignore)
   Declare   SetItemText(GNum.i, Row.i, Text.s , Column.i)
   Declare   SetRowsHeight(GNum.i, Height.f)
@@ -4090,6 +4085,11 @@ Module ListEx
             CloseString_()
           EndIf  
           ;}
+        Case #PB_Shortcut_Escape   ;{Escape
+          If ListEx()\String\Flag
+            CloseString_(#True)
+          EndIf  
+          ;}  
         Case #PB_Shortcut_Tab      ;{ Tabulator
           
           If ListEx()\String\Flag
@@ -7325,7 +7325,7 @@ Module ListEx
     
   EndProcedure  
   
-  Procedure   SetItemImage(GNum.i, Row.i, Column.i, Width.f, Height.f, Image.i, Align.i=#Left)
+  Procedure   SetItemImage(GNum.i, Row.i, Column.i, Image.i, Align.i=#Left, Width.i=#PB_Default, Height.i=#PB_Default)
     
     If FindMapElement(ListEx(), Str(GNum))                    
       
@@ -7351,7 +7351,64 @@ Module ListEx
           If SelectElement(ListEx()\Cols(), Column)
             
             If IsImage(Image)
-              ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Image\ID     = ImageID(Image)
+              ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Image\ID = ImageID(Image)
+              If Width = #PB_Default
+                ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Image\Width = ImageWidth(Image)
+              Else
+                ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Image\Width = Width
+              EndIf  
+              If Width = #PB_Default
+                ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Image\Height = ImageHeight(Image)
+              Else
+                ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Image\Height = Height
+              EndIf  
+              ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Image\Flags = Align
+              ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Flags | #Image
+            Else
+              ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Flags & ~#Image
+            EndIf
+
+            If ListEx()\ReDraw
+              If ListEx()\FitCols : FitColumns_() : EndIf
+              Draw_()
+            EndIf
+            
+          EndIf
+        EndIf
+        
+      EndIf
+      
+    EndIf
+    
+  EndProcedure
+  
+  Procedure   SetItemImageID(GNum.i, Row.i, Column.i, Width.f, Height.f, ImageID.i, Align.i=#Left)
+    
+    If FindMapElement(ListEx(), Str(GNum))                    
+      
+      If Row = #Header
+        
+        If SelectElement(ListEx()\Cols(), Column)
+          If ImageID
+            ListEx()\Cols()\Header\Image\ID     = ImageID
+            ListEx()\Cols()\Header\Image\Width  = Width
+            ListEx()\Cols()\Header\Image\Height = Height
+            ListEx()\Cols()\Header\Image\Flags  = Align
+            ListEx()\Cols()\Header\Flags | #Image
+          Else
+            ListEx()\Cols()\Header\Flags & ~#Image
+          EndIf
+          If ListEx()\FitCols : FitColumns_() : EndIf
+          If ListEx()\ReDraw  : Draw_()       : EndIf
+        EndIf
+        
+      Else
+        
+        If SelectElement(ListEx()\Rows(), Row)
+          If SelectElement(ListEx()\Cols(), Column)
+            
+            If ImageID
+              ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Image\ID     = ImageID
               ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Image\Width  = Width
               ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Image\Height = Height
               ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Image\Flags  = Align
@@ -7647,7 +7704,8 @@ CompilerIf #PB_Compiler_IsMainFile
         ListEx::AddItem(#List, ListEx::#LastItem, "Row 1|Row 2") ; | is replaced in the column text by #LF$
         
         If LoadImage(#Image, "Delete.png")
-          ListEx::SetItemImage(#List, 0, 1, 16, 16, #Image)
+          ;ListEx::SetItemImage(#List, 0, 1, #Image)
+          ListEx::SetItemImageID(#List, 0, 1, 16, 16, ImageID(#Image))
         EndIf 
         
         ;ListEx::SetItemText(#List, 0, "Row 1" + #LF$ + "Row 2" , 1) ; #LF$ = new row
@@ -7739,8 +7797,8 @@ CompilerIf #PB_Compiler_IsMainFile
         
         ; --- Use images ---
         If LoadImage(#Image, "Delete.png")
-          ListEx::SetItemImage(#List, 0, 1, 16, 16, #Image)
-          ListEx::SetItemImage(#List, 1, 5, 14, 14, #Image, ListEx::#Center)
+          ListEx::SetItemImage(#List, 0, 1, #Image)
+          ListEx::SetItemImage(#List, 1, 5, #Image, ListEx::#Center, 14, 14)
           ListEx::SetItemImage(#List, ListEx::#Header, 2, 14, 14, #Image, ListEx::#Right)
         EndIf
         
@@ -7857,10 +7915,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 153
-; FirstLine = 15
-; Folding = QRQAAAACIAQBICEAGAA9HQ5hCBCiFwwbQBAAAAADgDAg8AAAMBOACgDAAAAAAAAAQ+--
-; Markers = 3232,5821
+; CursorPosition = 14
+; Folding = QRQAAAACIAQBICEAGAA9HQ5hCBCiFwwbQBgBAAADgDAg8AAAMBOACgDAAAAAAAAQA9--
+; Markers = 3227,5821
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
