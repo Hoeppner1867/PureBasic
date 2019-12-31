@@ -78,7 +78,7 @@
 
 ;}
 
-;{ ___ Input Masks ___
+;{ _____ Input Masks _____
 
 ; Floats:  "0.00" or "0,000"
 ; Time:    "00:00"
@@ -93,7 +93,7 @@
 
 DeclareModule StringEx
   
-  #Version  = 19123100
+  #Version  = 19123101
   #ModuleEx = 19120600
   
   #Enable_AutoComplete       = #True
@@ -803,7 +803,8 @@ Module StringEx
                 StrgEx()\Text + Char$
                 Break  
               ElseIf Mid(StrgEx()\Mask\String, c, 1) = "0"
-                If IsNumber(Asc(Char$)) : StrgEx()\Text + Char$ : EndIf 
+                If Char$ = "+" Or Char$ = "-" : Break : EndIf
+                If IsNumber(Asc(Char$)) : StrgEx()\Text + Char$ :EndIf 
                 Break 
               ElseIf Mid(StrgEx()\Mask\String, c, 1) = Char$
                 If Mid(Text$, StrgEx()\Cursor\Pos, 1) <> Char$
@@ -826,8 +827,9 @@ Module StringEx
                 StrgEx()\Text = Left(Text$, StrgEx()\Cursor\Pos) + Char$ + Mid(Text$, StrgEx()\Cursor\Pos + 2)
                 StrgEx()\Cursor\Pos + 1
                 Break  
-              ElseIf Mid(StrgEx()\Mask\String, c, 1) = "0"
+              ElseIf Mid(StrgEx()\Mask\String, c + 1, 1) = "0"
                 If IsNumber(Asc(Char$))
+                  If Char$ = "+" Or Char$ = "-" : Break : EndIf
                   StrgEx()\Text = Left(Text$, StrgEx()\Cursor\Pos) + Char$ + Mid(Text$, StrgEx()\Cursor\Pos + 2)
                   StrgEx()\Cursor\Pos + 1
                 EndIf  
@@ -851,8 +853,17 @@ Module StringEx
         EndIf  
         
       Else
+        
+        Select Char$
+          Case "-"
+            If CountString(Text$, "-") : ProcedureReturn #False : EndIf
+          Case "+"
+            If CountString(Text$, "+") : ProcedureReturn #False : EndIf
+        EndSelect
+        
         StrgEx()\Cursor\Pos + 1
         StrgEx()\Text = InsertString(Text$, Char$, StrgEx()\Cursor\Pos)
+        
       EndIf
       
     Else
@@ -868,6 +879,15 @@ Module StringEx
           If Mid(StrgEx()\Mask\String, c, 1) = "_"
             StrgEx()\Text + Char$
             Break
+          ElseIf Mid(StrgEx()\Mask\String, c, 1) = "0"
+            Select Char$
+              Case "+"
+                If CountString(StrgEx()\Text, "+") : Break : EndIf
+              Case "-"
+                If CountString(StrgEx()\Text, "-") : Break : EndIf
+            EndSelect    
+            If IsNumber(Asc(Char$)) : StrgEx()\Text + Char$ :EndIf 
+            Break 
           ElseIf Mid(StrgEx()\Mask\String, c, 1) = Char$
             StrgEx()\Text + Char$
             Break
@@ -885,6 +905,18 @@ Module StringEx
           If Mid(StrgEx()\Mask\String, c + 1, 1) = "_"
             Text$ = Left(Text$, c) + Char$ + Mid(Text$, c + 2)
             StrgEx()\Cursor\Pos + 1
+            Break
+          ElseIf Mid(StrgEx()\Mask\String, c + 1, 1) = "0"
+            Select Char$
+              Case "+"
+                If CountString(StrgEx()\Text, "+") : Break : EndIf
+              Case "-"
+                If CountString(StrgEx()\Text, "-") : Break : EndIf
+            EndSelect    
+            If IsNumber(Asc(Char$))
+              StrgEx()\Text + Char$
+              Text$ = Left(Text$, c) + Char$ + Mid(Text$, c + 2)
+            EndIf 
             Break
           ElseIf Mid(StrgEx()\Mask\String, c + 1, 1) = Char$
             Text$ = Left(Text$, c) + Char$ + Mid(Text$, c + 2)
@@ -2552,7 +2584,7 @@ CompilerIf #PB_Compiler_IsMainFile
     
     StringEx::SetText(#StringDel, "Delete Button", StringEx::#Background)
     
-    ;StringEx::SetInputMask(#StringDel, "0.00")
+    StringEx::SetInputMask(#StringDel, "0.00")
     ;StringEx::SetInputMask(#StringDel, "*.__$")
     ;StringEx::SetInputMask(#StringDel, "*,__ €")
     ;StringEx::SetInputMask(#StringDel, "__.__.____")
@@ -2613,9 +2645,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 95
-; FirstLine = 6
-; Folding = wVAgAKACgCBCYAAAEUAgBDgwE0
+; CursorPosition = 860
+; Folding = wdAgAAACOCBCYAAAEUAgBDgwE0
 ; EnableThread
 ; EnableXP
 ; DPIAware
