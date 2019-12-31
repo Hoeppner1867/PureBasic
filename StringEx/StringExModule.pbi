@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 8.12.19
+; Last Update: 31.12.19
 ;
 ; Added: StringEx::SetText(#StringEx, "Backtext", StringEx::#Background)
 ;
@@ -78,11 +78,22 @@
 
 ;}
 
+;{ ___ Input Masks ___
+
+; Floats:  "0.00" or "0,000"
+; Time:    "00:00"
+; Date:    "0000/00/00" or "00.00.0000")
+; Cash:    "0.00$"
+; License number: "____:____:____:____"
+
+;}
+
+
 ; XIncludeFile "ModuleEx.pbi"
 
 DeclareModule StringEx
   
-  #Version  = 19120801
+  #Version  = 19123100
   #ModuleEx = 19120600
   
   #Enable_AutoComplete       = #True
@@ -109,6 +120,7 @@ DeclareModule StringEx
     #Center
     #FitText
     #FixPadding
+    #Background  ; Background text
     #UseExistingCanvas
   EndEnumeration
   
@@ -116,7 +128,6 @@ DeclareModule StringEx
     #MaximumLength = #PB_String_MaximumLength
     #Padding
     #Corner
-    #Background  ; Background text
   EndEnumeration
   
   Enumeration Color 1 
@@ -791,6 +802,9 @@ Module StringEx
               If Mid(StrgEx()\Mask\String, c, 1) = "_"
                 StrgEx()\Text + Char$
                 Break  
+              ElseIf Mid(StrgEx()\Mask\String, c, 1) = "0"
+                If IsNumber(Asc(Char$)) : StrgEx()\Text + Char$ : EndIf 
+                Break 
               ElseIf Mid(StrgEx()\Mask\String, c, 1) = Char$
                 If Mid(Text$, StrgEx()\Cursor\Pos, 1) <> Char$
                   StrgEx()\Text + Char$
@@ -812,6 +826,12 @@ Module StringEx
                 StrgEx()\Text = Left(Text$, StrgEx()\Cursor\Pos) + Char$ + Mid(Text$, StrgEx()\Cursor\Pos + 2)
                 StrgEx()\Cursor\Pos + 1
                 Break  
+              ElseIf Mid(StrgEx()\Mask\String, c, 1) = "0"
+                If IsNumber(Asc(Char$))
+                  StrgEx()\Text = Left(Text$, StrgEx()\Cursor\Pos) + Char$ + Mid(Text$, StrgEx()\Cursor\Pos + 2)
+                  StrgEx()\Cursor\Pos + 1
+                EndIf  
+                Break 
               ElseIf Mid(StrgEx()\Mask\String, c + 1, 1) = Char$
                 StrgEx()\Text = Left(Text$, StrgEx()\Cursor\Pos) + Char$ + Mid(Text$, StrgEx()\Cursor\Pos + 2)
                 StrgEx()\Cursor\Pos + 1
@@ -1983,7 +2003,13 @@ Module StringEx
       If AddMapElement(StrgEx(), Str(GNum))
         
         StrgEx()\CanvasNum = GNum
-        StrgEx()\Text      = Content
+        
+        If Flags & #Background
+          StrgEx()\BackText = Content
+        Else  
+          StrgEx()\Text = Content
+        EndIf
+        
         StrgEx()\MaxLength = #PB_Default
         StrgEx()\Undo      = Content
         StrgEx()\Flags     = Flags
@@ -2316,7 +2342,7 @@ Module StringEx
     If FindMapElement(StrgEx(), Str(GNum))
       
       StrgEx()\Mask\String = Mask
-      If Left(Mask, 1) = "*"
+      If Left(Mask, 1) = "*" Or Left(Mask, 1) = "0"
         StrgEx()\Mask\Delimiter = Mid(Mask, 2, 1)
       EndIf  
       
@@ -2526,6 +2552,7 @@ CompilerIf #PB_Compiler_IsMainFile
     
     StringEx::SetText(#StringDel, "Delete Button", StringEx::#Background)
     
+    ;StringEx::SetInputMask(#StringDel, "0.00")
     ;StringEx::SetInputMask(#StringDel, "*.__$")
     ;StringEx::SetInputMask(#StringDel, "*,__ €")
     ;StringEx::SetInputMask(#StringDel, "__.__.____")
@@ -2586,9 +2613,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 84
-; FirstLine = 9
-; Folding = 5OAUABABQsABMAAACKAwgBQQi+
+; CursorPosition = 95
+; FirstLine = 6
+; Folding = wVAgAKACgCBCYAAAEUAgBDgwE0
 ; EnableThread
 ; EnableXP
 ; DPIAware
