@@ -93,7 +93,7 @@
 
 DeclareModule StringEx
   
-  #Version  = 19123101
+  #Version  = 19123102
   #ModuleEx = 19120600
   
   #Enable_AutoComplete       = #True
@@ -819,7 +819,7 @@ Module StringEx
             Next  
             ;}
           Else                            ;{ within the string
-
+            
             MaskPos = (StrgEx()\Cursor\Pos - StrgEx()\Mask\Pos) + 2
             For c = MaskPos To maskLen
 
@@ -848,6 +848,14 @@ Module StringEx
           EndIf
          
         Else
+          
+          Select Char$
+            Case "-"
+              If CountString(Text$, "-") : ProcedureReturn #False : EndIf
+            Case "+"
+              If CountString(Text$, "+") : ProcedureReturn #False : EndIf
+          EndSelect
+          
           StrgEx()\Cursor\Pos + 1
           StrgEx()\Text = InsertString(Text$, Char$, StrgEx()\Cursor\Pos)
         EndIf  
@@ -867,7 +875,7 @@ Module StringEx
       EndIf
       
     Else
-      
+  
       If StrgEx()\Cursor\Pos = txtLen ;{ add at the end
         
         If StrgEx()\Cursor\Pos >= maskLen : ProcedureReturn #False : EndIf
@@ -2645,8 +2653,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 860
-; Folding = wdAgAAACOCBCYAAAEUAgBDgwE0
+; CursorPosition = 95
+; Folding = wdAgAAACCCBCYAAAEUAgBDgwE0
 ; EnableThread
 ; EnableXP
 ; DPIAware
