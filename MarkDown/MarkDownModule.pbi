@@ -79,7 +79,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20010101
+  #Version  = 20010103
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -600,7 +600,7 @@ Module MarkDown
 	    If MarkDown()\Required\Height > Height
 	      
 	      If MarkDown()\Scroll\Hide
-	        Debug "Height: " + Str(Height) + " < " + Str(MarkDown()\Required\Height)
+	        
 	        ResizeGadget(MarkDown()\Scroll\Num, GadgetWidth(MarkDown()\CanvasNum) - #ScrollBarSize - 1, 1, #ScrollBarSize, GadgetHeight(MarkDown()\CanvasNum) - 2)
 	        
 	        SetGadgetAttribute(MarkDown()\Scroll\Num, #PB_ScrollBar_Minimum,    0)
@@ -651,11 +651,7 @@ Module MarkDown
 	  ClearList(MarkDown()\Row())
 
 	EndProcedure
-	
-	
 
-	
-	
 	Procedure   AddText_(Row.s, BQ.i)
     
     If ListSize(MarkDown()\Row()) = 0 Or MarkDown()\Row()\Type <> #Text
@@ -2511,7 +2507,7 @@ Module MarkDown
 	  Define.i Indent, Level, Offset, OffSetX, OffSetY, maxCol, ImgSize
 	  Define.i c, OffsetList, NumWidth, ColWidth, TableWidth
 		Define.i FrontColor, BackColor, BorderColor, LinkColor
-		Define.s Text$, Num$
+		Define.s Text$, Num$, ColText$
 		
 		NewMap ListNum.i()
 		
@@ -2763,8 +2759,20 @@ Module MarkDown
 			        EndIf  
 			        
 			        For c=0 To Cols - 1
+			          
+			          ColText$ = Trim(StringField(Text$, c+1, "|"))
+
+			          Select StringField(MarkDown()\Row()\String, c+1, "|")
+			            Case "C"
+			              OffSetX = (ColWidth - dpiX(5) - TextWidth(ColText$)) / 2
+			            Case "R"  
+			              OffSetX = ColWidth - dpiX(5)  - TextWidth(ColText$) 
+			            Default
+			              OffSetX = 0
+			          EndSelect
+			          
 			          maxCol = ColWidth * (c + 1)
-		            DrawText_(X + (ColWidth * c), Y, Trim(StringField(Text$, c+1, "|")), FrontColor, 0, maxCol)
+		            DrawText_(X + (ColWidth * c) + OffSetX, Y, ColText$, FrontColor, 0, maxCol + OffSetX)
 		          Next 
 		          
 		          Y + TextHeight + MarkDown()\WrapHeight
@@ -2908,6 +2916,7 @@ Module MarkDown
 		EndIf
 
 	EndProcedure
+	
 	
 	Procedure   ReDraw()
 	  
@@ -3626,7 +3635,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 10
+  #Example = 6
   
   ;  1: Headings
   ;  2: Emphasis
@@ -3675,7 +3684,7 @@ CompilerIf #PB_Compiler_IsMainFile
     Case 6
       Text$ = "#### Table ####"  + #LF$
       Text$ + "| Syntax    | Description |" + #LF$
-      Text$ + "| :-------- | :---------: |" + #LF$
+      Text$ + "| :-------- | ----------: |" + #LF$
       Text$ + "| Header    | Title       |" + #LF$ 
       Text$ + "| Paragraph | Text        |" + #LF$ 
     Case 7
@@ -3791,7 +3800,6 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 81
-; FirstLine = 22
-; Folding = wBCAAgARAIgFAACAAACAAAAgBAGAIAgkQAQ0
+; Folding = wBCAAgAAAIgFAACAAACAAAAgEAGAAAgEQAQ0
 ; EnableXP
 ; DPIAware
