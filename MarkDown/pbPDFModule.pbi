@@ -8,7 +8,7 @@
 ;/ ( based on 'PurePDF' by LuckyLuke / ABBKlaus / normeus )
 ;/
 
-; Last Update: 31.12.2019
+; Last Update: 18.12.2019
 ; 
 
 
@@ -186,7 +186,7 @@
 
 DeclareModule PDF
   
-  #Version  = 19123100
+  #Version  = 19121800
   
   #Enable_AcroFormCommands  = #True
   #Enable_Annotations       = #True
@@ -3109,7 +3109,7 @@ Module PDF
   ;- ----- Page Stream -------------------------------------------   
   
   Procedure   Line_(X1.f, Y1.f, X2.f, Y2.f)
-    objOutPage_(strF_(X1 * PDF()\ScaleFactor, 2) + " " + strF_((PDF()\Page\Height - Y1) * PDF()\ScaleFactor, 2) + " m " + strF_(x2 * PDF()\ScaleFactor, 2) + " " + strF_((PDF()\Page\Height - Y2) * PDF()\ScaleFactor, 2) + " l S")
+    objOutPage_(strF_(X1 * PDF()\ScaleFactor, 2) + " " + strF_((PDF()\Page\Height - Y1) * PDF()\ScaleFactor, 2) + " m " + strF_(X2 * PDF()\ScaleFactor, 2) + " " + strF_((PDF()\Page\Height - Y2) * PDF()\ScaleFactor, 2) + " l S")
   EndProcedure
   
   Procedure   LineWidth_(Width.f)
@@ -5527,7 +5527,7 @@ Module PDF
       
       If X = #PB_Default : X = PDF()\Page\X : EndIf
       If Y = #PB_Default : Y = PDF()\Page\Y : EndIf
-      If Width = #PB_Default : Width = PDF()\Page\Width - PDF()\Margin\Right - PDF()\Margin\Left : EndIf
+      If Width = #PB_Default : Width = PDF()\Page\Width - PDF()\Margin\Right - PDF()\Page\X : EndIf
       
       Line_(X, Y, X + Width, Y)
       
@@ -6956,8 +6956,9 @@ CompilerEndIf
 
 ;- ========================
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 10
-; Folding = YAwiA5AegAQAAABAABAgIECAAAgBAAAAYAEAAzgIAEnoAAACOIAUQAEIAAQwwEQAA5BCAA9
+; CursorPosition = 4095
+; FirstLine = 506
+; Folding = YAAAA5AegAQAAAAQABAAAECAAAgDIAAAAAEAAygAAUmoAAAIAAAUQBEAIAAowEIKCAxKEA9
 ; Markers = 581,1012,2361,2461,3767,3833
 ; EnableXP
 ; DPIAware

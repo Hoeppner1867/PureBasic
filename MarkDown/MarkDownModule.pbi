@@ -68,7 +68,9 @@
 ;}
 
 ;{ _____ Emoji _____
-; :laugh: / :smile: / :sad: / :angry: / :cool: / :smirk:
+
+; :laugh: / :smile: / :sad: / :angry: / :cool: / :smirk: / :worry: / :wink: / :rolf: / :eyes:
+
 ;}
 
 ; XIncludeFile "ModuleEx.pbi"
@@ -77,7 +79,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20010100
+  #Version  = 20010101
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -514,48 +516,76 @@ Module MarkDown
 	
 	Procedure   LoadEmojis_()
 	  Define *Buffer
-	  
-	  *Buffer = AllocateMemory(503)
+
+	  *Buffer = AllocateMemory(457)
 	  If *Buffer
-      UncompressMemory(?Laugh, 423, *Buffer, 503)
-      Emoji(":laugh:") = CatchImage(#PB_Any, *Buffer, 503)
+      UncompressMemory(?Laugh, 375, *Buffer, 457)
+      Emoji(":laugh:") = CatchImage(#PB_Any, *Buffer, 457)
       FreeMemory(*Buffer)
     EndIf
     
-    *Buffer = AllocateMemory(490)
+    *Buffer = AllocateMemory(447)
 	  If *Buffer
-      UncompressMemory(?Smile, 401, *Buffer, 490)
-      Emoji(":smile:") = CatchImage(#PB_Any, *Buffer, 490)
+      UncompressMemory(?Smile, 362, *Buffer, 447)
+      Emoji(":smile:") = CatchImage(#PB_Any, *Buffer, 447)
       FreeMemory(*Buffer)
     EndIf
     
-    *Buffer = AllocateMemory(492)
+    *Buffer = AllocateMemory(446)
 	  If *Buffer
-      UncompressMemory(?Sad, 403, *Buffer, 492)
-      Emoji(":sad:") = CatchImage(#PB_Any, *Buffer, 492)
+      UncompressMemory(?Sad, 360, *Buffer, 446)
+      Emoji(":sad:") = CatchImage(#PB_Any, *Buffer, 446)
+      FreeMemory(*Buffer)
+    EndIf    
+ 
+    *Buffer = AllocateMemory(448)
+	  If *Buffer
+      UncompressMemory(?Angry, 364, *Buffer, 448)
+      Emoji(":angry:") = CatchImage(#PB_Any, *Buffer, 448)
+      FreeMemory(*Buffer)
+    EndIf
+    
+    *Buffer = AllocateMemory(457)
+	  If *Buffer
+      UncompressMemory(?Cool, 375, *Buffer, 457)
+      Emoji(":cool:") = CatchImage(#PB_Any, *Buffer, 457)
+      FreeMemory(*Buffer)
+    EndIf
+    
+    *Buffer = AllocateMemory(452)
+	  If *Buffer
+      UncompressMemory(?Smirk, 371, *Buffer, 452)
+      Emoji(":smirk:") = CatchImage(#PB_Any, *Buffer, 452)
       FreeMemory(*Buffer)
     EndIf    
     
-    *Buffer = AllocateMemory(519)
+    *Buffer = AllocateMemory(448)
 	  If *Buffer
-      UncompressMemory(?Angry, 436, *Buffer, 519)
-      Emoji(":angry:") = CatchImage(#PB_Any, *Buffer, 519)
+      UncompressMemory(?Eyes, 366, *Buffer, 448)
+      Emoji(":eyes:") = CatchImage(#PB_Any, *Buffer, 448)
       FreeMemory(*Buffer)
-    EndIf
+    EndIf   
     
-    *Buffer = AllocateMemory(509)
+    *Buffer = AllocateMemory(457)
 	  If *Buffer
-      UncompressMemory(?Cool, 427, *Buffer, 509)
-      Emoji(":cool:") = CatchImage(#PB_Any, *Buffer, 509)
+      UncompressMemory(?rofl, 370, *Buffer, 457)
+      Emoji(":rolf:") = CatchImage(#PB_Any, *Buffer, 457)
       FreeMemory(*Buffer)
-    EndIf
+    EndIf  
     
-    *Buffer = AllocateMemory(499)
+    *Buffer = AllocateMemory(456)
 	  If *Buffer
-      UncompressMemory(?Smirk, 410, *Buffer, 499)
-      Emoji(":smirk:") = CatchImage(#PB_Any, *Buffer, 499)
+      UncompressMemory(?Wink, 374, *Buffer, 456)
+      Emoji(":wink:") = CatchImage(#PB_Any, *Buffer, 456)
       FreeMemory(*Buffer)
-    EndIf    
+    EndIf  
+    
+    *Buffer = AllocateMemory(452)
+	  If *Buffer
+      UncompressMemory(?Worry, 364, *Buffer, 452)
+      Emoji(":worry:") = CatchImage(#PB_Any, *Buffer, 452)
+      FreeMemory(*Buffer)
+    EndIf  
     
 	EndProcedure
 	
@@ -570,7 +600,7 @@ Module MarkDown
 	    If MarkDown()\Required\Height > Height
 	      
 	      If MarkDown()\Scroll\Hide
-	        
+	        Debug "Height: " + Str(Height) + " < " + Str(MarkDown()\Required\Height)
 	        ResizeGadget(MarkDown()\Scroll\Num, GadgetWidth(MarkDown()\CanvasNum) - #ScrollBarSize - 1, 1, #ScrollBarSize, GadgetHeight(MarkDown()\CanvasNum) - 2)
 	        
 	        SetGadgetAttribute(MarkDown()\Scroll\Num, #PB_ScrollBar_Minimum,    0)
@@ -623,7 +653,29 @@ Module MarkDown
 	EndProcedure
 	
 	
-	Procedure.s EscapeHTML_(String.s)
+
+	
+	
+	Procedure   AddText_(Row.s, BQ.i)
+    
+    If ListSize(MarkDown()\Row()) = 0 Or MarkDown()\Row()\Type <> #Text
+      If AddElement(MarkDown()\Row())
+        MarkDown()\Row()\Type       = #Text
+        MarkDown()\Row()\String     = Row
+        MarkDown()\Row()\BlockQuote = BQ
+      Else
+        If AddElement(MarkDown()\Row()\Item())
+          MarkDown()\Row()\Item()\Type   = #Text
+          MarkDown()\Row()\Item()\String = Row
+        EndIf   
+      EndIf
+    EndIf
+    
+  EndProcedure
+  
+  ;- __________ Convert __________
+  
+  Procedure.s EscapeHTML_(String.s)
 	  Define.i c
 	  Define.s Char$, HTML$
 	  
@@ -781,26 +833,6 @@ Module MarkDown
 	  
 	  ProcedureReturn HTML$
 	EndProcedure
-	
-	
-	Procedure   AddText_(Row.s, BQ.i)
-    
-    If ListSize(MarkDown()\Row()) = 0 Or MarkDown()\Row()\Type <> #Text
-      If AddElement(MarkDown()\Row())
-        MarkDown()\Row()\Type       = #Text
-        MarkDown()\Row()\String     = Row
-        MarkDown()\Row()\BlockQuote = BQ
-      Else
-        If AddElement(MarkDown()\Row()\Item())
-          MarkDown()\Row()\Item()\Type   = #Text
-          MarkDown()\Row()\Item()\String = Row
-        EndIf   
-      EndIf
-    EndIf
-    
-  EndProcedure
-  
-  ;- __________ Convert __________
   
   Procedure.s ExportHTML_(Title.s="")
     Define.i Level, c, ColWidth, Cols, tBody, Class, BlockQuote
@@ -1049,11 +1081,19 @@ Module MarkDown
                   Case ":sad:"
                     HTML$ + "&#128577;"
                   Case ":angry:"
-                    HTML$ + "&#129324;"
+                    HTML$ + "&#128544;"
                   Case ":cool:"
                     HTML$ + "&#128526;"
                   Case ":smirk:"
                     HTML$ + "&#128527;"
+                  Case ":worry:"
+                    HTML$ + "&#128543;"
+                  Case ":wink:"
+                    HTML$ + "&#128521;"
+                  Case ":rolf:"
+                    HTML$ + "&#129315;"
+                  Case ":eyes:" 
+                    HTML$ + "&#128580;"
                 EndSelect    
                 ;}
               Default
@@ -1188,41 +1228,65 @@ Module MarkDown
   	  
   	  Select Emoji
   	    Case ":laugh:"
-  	      If FileSize("Laugh.jpg") > 0
-  	        PDF::Image(PDF, "Laugh.jpg", X, Y, ImgSize, ImgSize)
-  	      Else  
-  	        TextPDF_(PDF, ":-D", 200)
-  	      EndIf   
-  	    Case ":smile:"
-  	      If FileSize("Smile.jpg") > 0
-  	        PDF::Image(PDF, "Smile.jpg", X, Y, ImgSize, ImgSize)
-  	      Else
-  	        TextPDF_(PDF, ":-)", 200) 
-  	      EndIf  
-  	    Case ":sad:"
-  	      If FileSize("Sad.jpg") > 0
-  	        PDF::Image(PDF, "Sad.jpg", X, Y, ImgSize, ImgSize)
-  	      Else
-  	        TextPDF_(PDF, ":-(", 200) 
-  	      EndIf  
-  	    Case ":angry:"
-  	      If FileSize("Angry.jpg") > 0
-  	        PDF::Image(PDF, "Angry.jpg", X, Y, ImgSize, ImgSize)
-  	      Else
-  	        TextPDF_(PDF, "X-(", 200) 
-  	      EndIf 
+  	      *Buffer = AllocateMemory(457)
+      	  If *Buffer
+            UncompressMemory(?Laugh, 375, *Buffer, 457)
+            PDF::ImageMemory(PDF, "Laugh.jpg", *Buffer, 457, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
+          EndIf
+        Case ":smile:"
+          *Buffer = AllocateMemory(447)
+      	  If *Buffer
+            UncompressMemory(?Smile, 362, *Buffer, 447)
+            PDF::ImageMemory(PDF, "Smile.jpg", *Buffer, 447, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
+          EndIf
+        Case ":sad:"
+          *Buffer = AllocateMemory(446)
+      	  If *Buffer
+            UncompressMemory(?Sad, 360, *Buffer, 446)
+            PDF::ImageMemory(PDF, "Sad.jpg", *Buffer, 446, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
+          EndIf 
+        Case ":angry:"
+          *Buffer = AllocateMemory(448)
+      	  If *Buffer
+            UncompressMemory(?Angry, 364, *Buffer, 448)
+            PDF::ImageMemory(PDF, "Angry.jpg", *Buffer, 448, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
+          EndIf
         Case ":cool:"  
-          If FileSize("Cool.jpg") > 0
-  	        PDF::Image(PDF, "Cool.jpg", X, Y, ImgSize, ImgSize)
-  	      Else
-  	        TextPDF_(PDF, "8-|", 200) 
-  	      EndIf 
-  	    Case ":smirk:"
-  	      If FileSize("Smirk.jpg") > 0
-  	        PDF::Image(PDF, "Smirk.jpg", X, Y, ImgSize, ImgSize)
-  	      Else
-  	        TextPDF_(PDF, ";-)", 200) 
-  	      EndIf 
+          *Buffer = AllocateMemory(457)
+      	  If *Buffer
+            UncompressMemory(?Cool, 375, *Buffer, 457)
+            PDF::ImageMemory(PDF, "Cool.jpg", *Buffer, 457, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
+          EndIf
+        Case ":smirk:"
+          *Buffer = AllocateMemory(452)
+      	  If *Buffer
+            UncompressMemory(?Smirk, 371, *Buffer, 452)
+            PDF::ImageMemory(PDF, "Smirk.jpg", *Buffer, 452, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
+          EndIf
+        Case ":eyes:"
+          *Buffer = AllocateMemory(448)
+      	  If *Buffer
+            UncompressMemory(?Eyes, 366, *Buffer, 448)
+            PDF::ImageMemory(PDF, "Eyes.jpg", *Buffer, 448, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
+          EndIf
+        Case ":rolf:"
+          *Buffer = AllocateMemory(457)
+      	  If *Buffer
+            UncompressMemory(?rofl, 370, *Buffer, 457)
+            PDF::ImageMemory(PDF, "Rofl.jpg", *Buffer, 457, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
+          EndIf  
+        Case ":wink:"
+          *Buffer = AllocateMemory(456)
+      	  If *Buffer
+            UncompressMemory(?Wink, 374, *Buffer, 456)
+            PDF::ImageMemory(PDF, "Wink.jpg", *Buffer, 456, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
+          EndIf  
+        Case ":worry:"
+          *Buffer = AllocateMemory(452)
+      	  If *Buffer
+            UncompressMemory(?Worry, 364, *Buffer, 452)
+            PDF::ImageMemory(PDF, "Worry.jpg", *Buffer, 452, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
+          EndIf  
       EndSelect
       
   	EndProcedure
@@ -1669,7 +1733,21 @@ Module MarkDown
     
     MarkDown()\Row()\Item()\Type = #Code
     
-    ePos = FindString(Row, "`", sPos + 1)
+    If Mid(Row, sPos, 2) = "``"
+      
+      ePos = FindString(Row, "``", sPos + 2)
+      If ePos
+        MarkDown()\Row()\Item()\String = Mid(Row, sPos + 2, ePos - sPos - 2)
+      EndIf
+      
+    Else  
+
+      ePos = FindString(Row, "`", sPos + 1)
+      If ePos
+        MarkDown()\Row()\Item()\String = Mid(Row, sPos + 1, ePos - sPos - 1)
+      EndIf
+
+    EndIf
     
     ProcedureReturn ePos
   EndProcedure
@@ -1805,13 +1883,9 @@ Module MarkDown
         Case "`" ;{ Code
           
           newRow = AddItemText(sPos, Pos, Row, newRow)
-
+          
           If AddElement(MarkDown()\Row()\Item())
-            
             ePos = Code_(Row, Pos)
-            If ePos = 0 : ePos = Pos : EndIf
-            MarkDown()\Row()\Item()\String = RemoveString(Mid(Row, Pos, ePos - Pos + 1), "`")
-
             If ePos : Pos = ePos : EndIf
           EndIf
 
@@ -2834,7 +2908,15 @@ Module MarkDown
 		EndIf
 
 	EndProcedure
-
+	
+	Procedure   ReDraw()
+	  
+	  Draw_()
+	 
+	  If AdjustScrollBars_() : Draw_() : EndIf 
+	
+	EndProcedure  
+	
 	;- __________ Events __________
 	
 	CompilerIf Defined(ModuleEx, #PB_Module)
@@ -3021,9 +3103,7 @@ Module MarkDown
 
 		If FindMapElement(MarkDown(), Str(GadgetID))
 		  
-		  Draw_()
-		  
-		  If AdjustScrollBars_() : Draw_() : EndIf 
+		  ReDraw()
 		  
 		EndIf
 
@@ -3087,7 +3167,7 @@ Module MarkDown
 	    
 	    Clear_()
 	    
-	    Draw_()
+	    ReDraw()
 	  EndIf
 	  
 	EndProcedure  
@@ -3225,6 +3305,7 @@ Module MarkDown
 				If MarkDown()\Scroll\Num
 				  SetGadgetData(MarkDown()\Scroll\Num, MarkDown()\CanvasNum)
 				  HideGadget(MarkDown()\Scroll\Num, #True)
+				   MarkDown()\Scroll\Hide = #True
 				EndIf
 				
 				CloseGadgetList()
@@ -3401,7 +3482,7 @@ Module MarkDown
       
       LoadFonts_(Name, Size)
       
-      Draw_()
+      ReDraw()
     EndIf
     
   EndProcedure
@@ -3424,10 +3505,7 @@ Module MarkDown
 	    
 	    Parse_(Text)
 
-	    Draw_()
-	    
-	    If AdjustScrollBars_() : Draw_() : EndIf 
-	    
+	    ReDraw()
 	  EndIf
 	  
 	EndProcedure
@@ -3436,75 +3514,112 @@ Module MarkDown
 	LoadEmojis_()
 
 	;{ _____ DataSection _____
-	DataSection
-    Smirk:
-    Data.q $0603FFE37FFB9C78,$204606374F372F01,$9B7FF86061D461D0,$80840989998199C1,$5959583958880580,$7838D9D9D8B95858,
-           $79B9B8B9B87878B8,$B8F904F9780484F9,$4445850404C405B9,$44C425C5F8794545,$3086404544448424,$B2B272B0B0F50332,
-           $0C908AF372F08A72,$601060E410601FFE,$6412606254666010,$0C41847FFC641664,$01C2CAC0640654E4,$8C18BA0060145714,
-           $413674E8099180A1,$A023251145066121,$20EC6C0C9D745112,$84228F208C0C829D,$850D981858991905,$BFFE3626383E9514,
-           $B3017408CCC3C0C5,$B572DFBDC33D8320,$D4FF67EAA7D78739,$A564559358AD375D,$12DACBADC44DA293,$1B2BB296EB85BD6F,
-           $833FE3F0DFAC9759,$DFE9AF2BEC69A24D,$88CD6AB7CBB20DB8,$6C87C4E96D8B3AD9,$B0248BB73D144B5E,$6DDACAA4A7A6A686,
-           $6F18FD3DABF854E2,$518D15D9D9D36850,$9A2C7A9F5FDC518A,$8F949F3595FBEBB7,$C97D50CC7C7E3A49,$5BBB36398CCAFF8A,
-           $C96BCE759F5D1FE7,$CA74CBCE4F49E381,$A8A52AE6F8557EF8,$1B4BD8897C30B55A,$8F629133F4E0A579,$DDCEF4E579526F8E,
-           $614ADC871CB3257A,$CA783BC5F5A9435D,$E2900009BFFF67F7
-    Data.b $77,$DF
+	; Author:   Emily Jäger
+  ; License:	CC BY-SA 4.0 <https://creativecommons.org/licenses/by-sa/4.0/>
+	; Source:   <https://openmoji.org>
+	
+  DataSection
+    Angry:
+    Data.q $0603FFE37FFB9C78,$464606374F372F01,$9B7FF86420390646,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
+           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
+           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4EC0C41847FFC641,$2571406C2C4C0645,
+           $4626064666260601,$208B3313232C9856,$A19288B09B2290AB,$0656BA288D502063,$566636A0413956B0,$4516066641466124,
+           $316FFF89C7431161,$B064166415CC80F0,$0BCBC6F0BA63B867,$B9D0BF1EE64717D3,$C302B6A677A555AC,$9E16992C97AE660A,
+           $11CCB6F498125477,$E5B0CBF07177717B,$1ACD3A6B195E6D06,$DECF8B5E3A32F67F,$EDF83C323F32C8D7,$69A64BAF8D50CB3E,
+           $32BCAC39CD33DD69,$DB0109FB1D897E55,$065AA216BBC676FA,$CBF6548568E7DB35,$E5913DEA2AEB4517,$3FE4CB717DB2E7DA,
+           $FDBF65C7EEB5E612,$5131E7F3DFCF745C,$0009BFFF5E5F1983
+    Data.b $03,$99,$6D,$17
     Cool:
-    Data.q $0603FFE37FFB9C78,$204606374F372F01,$9B7FF86061D461D0,$80840989998199C1,$5959583958880580,$7838D9D9D8B95858,
-           $79B9B8B9B87878B8,$B8F904F9780484F9,$4445850404C405B9,$44C425C5F8794545,$3086404544448424,$B2B272B0B0F50332,
-           $0C908AF372F08A72,$601060E410601FFE,$6412606254666010,$9C41847FFC641664,$B0B0190191998181,$98180494250073B2,
-           $04C8CB2E15918080,$A73B0322A09B3B74,$D0288D503292B090,$C281D958197A2897,$EC2C4CCC8C0C822A,$1621064156A06108,
-           $C4A0C74511432556,$ED00F0316FFF8DC2,$55AC33DB8A041265,$BE5FF7FEF66C71DF,$5A7AD9B5BFB5B0DC,$996AF2693F8A9FD2,
-           $635D142CE7F8CCEB,$C9F6FF6AB1A11C63,$66507861E0AC272F,$9DE52ACAF19DF177,$DB91F9BC170DAB73,$ACC6C16AE2F8F735,
-           $FF094E8ADA1B8CF2,$E4F3149459335A2E,$B6972ADB91ECF154,$CF4F576EA3C5D5FA,$6113D872FEB9A158,$26D2140F1CD38095,
-           $F0C6D2185A9C194A,$83F6D89A9F7AC969,$E7BB4DAC1773B766,$93934EE6F0D5B7B6,$3C4CE40AAA87813A,$DD3E71706B7AB9FE,
-           $C5465FEDC9F0D799,$1A8BE7FA8A3D0D91,$BC10F1B251AF57EF,$FDEB1582F36579A6,$AD0009BFFF67C5D7
-    Data.b $2B,$83,$80
-	  Angry:
-    Data.q $0603FFE37FFB9C78,$204606374F372F01,$9B7FF86061D461D0,$80840989998199C1,$5959583958880580,$7838D9D9D8B95858,
-           $79B9B8B9B87878B8,$B8F904F9780484F9,$4445850404C405B9,$44C425C5F8794545,$3086404544448424,$B2B272B0B0F50332,
-           $0C908AF372F08A72,$601060E410601FFE,$6412606254666010,$0C41847FFC641664,$0EC2C6C0640654E4,$6462626060145714,
-           $B0B2333132C84465,$883073090A0BB1B2,$6064EBA28895012A,$6264606414E900E3,$320A313308466263,$2A3AB2061908B330,
-           $9987818B7FFC4E26,$867B06416602E811,$AEF6F2F24B8BDF8B,$9F87DA5D753D69BA,$86DFD74932A1DDDA,$F3E23B8A9CB9BAB5,
-           $4D09C4B243627345,$D3B859F847C5BF79,$473FB7B9BE4E5AED,$A1C3D2D556F0AC31,$F0755D6DD65A5277,$728A8DF53ED5CEC8,
-           $67BD6AE28C04D8C7,$E7FEC178BDBA29E8,$CF55E2F2B7A9BD6D,$22BA9867FD54CF0C,$488240E45448A23F,$13038E8CE540A97F,
-           $7C2C2CE4F96F3326,$6E2FFD39CDB6C5FE,$B391B5B12912C8DF,$DF05A2D96671BB34,$777E16AFB406BAF6,$E1D33291B399EEC8,
-           $33D59E3A353B3389,$BA7B712C4666964B,$A0AB2EAAF1CFF62C,$B4BA2C4A274787C2,$FBCEE5BB65BE2F2A,$0026FFFE3DFE76CB
-    Data.b $79,$05,$8B,$3B
-    Sad:
-    Data.q $0603FFE37FFB9C78,$204606374F372F01,$9B7FF86061D461D0,$80840989998199C1,$5959583958880580,$7838D9D9D8B95858,
-           $79B9B8B9B87878B8,$B8F904F9780484F9,$4445850404C405B9,$44C425C5F8794545,$3086404544448424,$B2B272B0B0F50332,
-           $0C908AF372F08A72,$601060E410601FFE,$6412606254666010,$1441847FFC641664,$1401CAC0140654E8,$8801983A00601796,
-           $413672E809918060,$463E906561214506,$41456140EC6C7D74,$8C4CC2112F904606,$4A420C868ACC822C,$E062DFFF1B031C1F,
-           $60C82CCF5A046661,$AAE6576DECA7B0CF,$E6B76FABA5919DEC,$E7E2B5E8CB5B8BBC,$04B5DB1EE6E59EE1,$10BC4B2B08AD5642,
-           $A0FBD5753B60D0DF,$AEF7A39B221BFD90,$9D5305CD74F4390C,$776AAD09AD4916FE,$389DCEA743441B02,$6B97E3908A6FE4A5,
-           $A4D793024B56D249,$2C443FB55E091FA4,$7FC11943E59AE229,$B68570568C95B497,$996C16B1EDCACA7B,$A0B1DD60FB2DBF9D,
-           $CBE4B276DB8E0F25,$78B55C5DD507CA18,$FAADA3BBA896A6B3,$B72FA155767B973C,$E33ED4F3BCC9BBE5,$EDD8FBB85FB0AD7B,
-           $727A46A22CC11C97,$AC00137FFAEFEFBB
-    Data.b $1A,$79,$14
-    Smile:
-    Data.q $0603FFE37FFB9C78,$204606374F372F01,$9B7FF86061D461D0,$80840989998199C1,$5959583958880580,$7838D9D9D8B95858,
-           $79B9B8B9B87878B8,$B8F904F9780484F9,$4445850404C405B9,$44C425C5F8794545,$3086404544448424,$B2B272B0B0F50332,
-           $0C908AF372F08A72,$601060E410601FFE,$6412606254666010,$1441847FFC641664,$1401CAC0140654E8,$1981983A00601796,
-           $A09B397404C8C921,$231F4821A8A2B090,$2092B0A076363EBA,$5014922B2B0B0303,$90A261A2A303209B,$316FFF8F87E36052,
-           $641667ED023330F0,$732BB6F653D867B0,$5BB7D5D2C8CEF655,$F15AF465ADC5DE73,$885E626F2FD25DB9,$2F0E6F3580D0CAC2,
-           $6F7A1DAB50C8CFD8,$ABDB6CCD84FACAC9,$15905C8E9EB65683,$766449CAB2902729,$5B99585868431BA1,$7D8FF8930AD7E5E0,
-           $44FF16904AE778BA,$BE675957E2ABAA89,$26BFD078E7F6CCE6,$7BC2C72E0AD76996,$CEA4C26F052C8C42,$7C3AFED3E85C2E3D,
-           $6B4A75C4B16B32C3,$9E91DE6C7F1FD479,$430782FEDD80B3AA,$7369F71ED44E976D,$BE8FF1CC8716792D,$B7072299B0EDF7D6,
-           $EFD539DD168CE39E,$76260D0004DFFF0B
-    Data.b $86
+    Data.q $0603FFE37FFB9C78,$464606374F372F01,$9B7FF86420390646,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
+           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
+           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4EC0C41847FFC641,$1571406C2C4C0645,
+           $8566646020260601,$B22A08B331323389,$2A888A1B0BB109B2,$666BA28955022639,$6664606413966B00,$6432141466124661,
+           $7FFE3116640C5260,$6602E8119987818B,$7FDE93CD867B0641,$F7FE3CF61BC37D8A,$B1A6457DEA7B4994,$7D6030B35AE9AD77,
+           $1B73CDE169C18E47,$F3DA3E2ABEE3C41B,$527395DB34D9BBDE,$754CFEDC9F1BC5D5,$F353911092C23F13,$0FABA7CAE3AF89A0,
+           $52156CF9E8391B5E,$E27AA9B4E0595A48,$0EA38B4CDC6D89BF,$EAA3F47A63DE5BD8,$ECFCDA792735A2EF,$67B89B712D6D3FCA,
+           $93078BC303A0998D,$72AB7BEB9E30FF0E,$254549E8EDEB9D77,$FFAD1E4EA2934C9D
+    Data.b $7F,$13,$00,$C6,$D5,$78,$3E
+    Eyes:
+    Data.q $0603FFE37FFB9C78,$464606374F372F01,$9B7FF86420390646,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
+           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
+           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4EC0C41847FFC641,$1571406C2C4C0645,
+           $6636264626260601,$AB208B33132324B8,$92A3B2A2B09B0310,$66BA2895500AA061,$664606413966B006,$2141064661246616,
+           $FFC7634540C31126,$320932A6807818B7,$E5EB98DC33D8320B,$CAD98B5D6760F79B,$FBEB91CDA9562F13,$3ED95DE3C3D4CCB0,
+           $F237302FE27FBFEF,$57365B2E2C764FED,$C63316DAF25224C6,$0A8F8C5E41A229C8,$62A5F8DADEFF19CE,$73C78535A2CBC877,
+           $72DEBD4DF7A9320E,$D90E1E4D1697F1FA,$2F03193CE78C7CFD,$111BC2672BF67C3F,$CE4D2F2A45EBFB55,$659D9874555AF7EC,
+           $7634CBB6E91BD7DA,$7579DA7B746D79EC,$6FFF5383374EF71F
+    Data.b $02,$00,$38,$46,$71,$C3
     Laugh:
-    Data.q $0603FFE37FFB9C78,$204606374F372F01,$9B7FF86061D461D0,$80840989998199C1,$5959583958880580,$7838D9D9D8B95858,
-           $79B9B8B9B87878B8,$B8F904F9780484F9,$4445850404C405B9,$44C425C5F8794545,$3086404544448424,$B2B272B0B0F50332,
-           $0C908AF372F08A72,$601060E410601FFE,$6412606254666010,$9C41847FFC641664,$B0B0190191998181,$981805E4250073B2,
-           $304980FE81591819,$0A0BB1B2B330B132,$49228815030A3831,$905958503B2B0041,$CC211D8999999181,$2864A2CCC2D404C8,
-           $FFF078541818E8AC,$CC824C9DA01E062D,$7D65BFF70CF60C82,$CAE4E9ABBBAC277C,$C7C965B28E7AD1F3,$285A18F517A322BB,
-           $8D7FCB5759AD39AB,$DF9D76E7E8C1DDB1,$CDB336E6FD6701D9,$27AF49D3EE737915,$857166DFDF4E5D87,$47F739748D04F8F5,
-           $89AA9E158937C74D,$E5D9D55DEDE5FBDF,$9CC332BB2CF34C53,$7971B514DE2F2ED2,$ED5D3E29AF77F732,$7EBC6857EF0E9987,
-           $B2E75CFBF0BFA3F8,$784F86FE4F87BF60,$278BC9948270DE70,$C5A426BFDC7C62D3,$7AF8E1A87C59BDEB,$49BEFEDE2FD78997,
-           $87B6D351836049CC,$EAF8BA2CE7C3DCEB,$65710552DFAF9E62,$FFC77FD2CBB70DF7
-    Data.b $BF,$09,$00,$95,$D9,$86,$B6
+    Data.q $0603FFE37FFB9C78,$464606374F372F01,$9B7FF86420390646,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
+           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
+           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$1819C41847FFC641,$2B0B130190191998,
+           $859181804142501B,$4599899192490989,$D0C958514D885590,$C01449E41442A809,$CCCAC0C0C828D602,$A42822C4C8CE2C8A,
+           $FFF1B89814ACC868,$CC824CA1A01E062D,$9BCC4FB70CF60C82,$3F3E0E4CF04FE733,$ECCEE66FBEB590BF,$CAE61FE5C4BDE868,
+           $E64581D4BFC93754,$7F19FB53D9E761C7,$FCE17C6455E4784C,$B53B0176A8C6392A,$0A0AD7962FC76C93,$95AD95532CFA48CF,
+           $AB0E8D9302E2B7AE,$292FAFB349A703D5,$77901EEFB8646313,$AD314DF1EC9F7192,$A9EF4CE652A7DC9D,$B9DAF3D237355968,
+           $FE2654B3D8DF5C15,$A6F17016A49D8864,$FB9DCFDF76D7AEA5,$FF995CB2C48AE503
+    Data.b $DF,$04,$00,$53,$2A,$6E,$AB
+    rofl:
+    Data.q $0603FFE37FFB9C78,$464606374F372F01,$9B7FF86420390646,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
+           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
+           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4E81441847FFC641,$2561406CCC014065,
+           $3309866030260601,$B2290A0AB0B33132,$B4811B288A3B0A19,$17956901656BA232,$6A0612466365AA04,$6C2C74356A016065,
+           $68119987818B7FFC,$3FDEC33D8320B33F,$4E734FFB66572AB3,$B744536AE9FD3E8A,$A7C78DC6844094AB,$C8628FAF9DDA6E3B,
+           $D796E88A16678D4C,$E2763F9B3698AB11,$5C38D6AB7C5685CE,$E745F1BEFDB1CE54,$2EF2DE3F5FBB9DEC,$36B0E54F1AD7A360,
+           $E03E4A1FAFF3CEB7,$82FAC19FF09EBDCF,$7F928AF6F6C314B5,$B2F93FBBAD3E498E,$317F64EE0B572574,$F46EEB5BA7C33661,
+           $329A8D4DBED7473B,$94D8DDC6A8F5585B,$BA69DEB75A960FCF,$49570026FFFF2A67
+    Data.b $76,$BB
+    Sad:
+    Data.q $0603FFE37FFB9C78,$464606374F372F01,$9B7FF86420390646,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
+           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
+           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4E81441847FFC641,$0561406C4C014065,
+           $8446662616460601,$22AB208B33132324,$234823A19092B09B,$417946901646BA23,$00A06124760646A0,$C4E3A188B08B22B3,
+           $023330F0316FFF83,$F7D867B06416676D,$3D47A7A54D54DF2E,$B1335AD9F044F3B5,$5D1D84554B192123,$C0C0C1BECCA97704,
+           $07E3BF33D9F1F1E7,$3D34CBA42C92DB6A,$1290DDA69918839C,$23AF70A5D80DB109,$A75AB78DE3F8E532,$26FC950C50537ED6,
+           $BB78C2CD8346F0B6,$737DB14ACFEB1E83,$A7614F69F37C3008,$6293B65AEDEBF7E4,$76BF8A28E40AB7E2,$5F46F775C7FAD4EB,
+           $18DF669B8EDD4E9F,$D6EBF794FAD9E75F,$4D6CEEF70009BFFF
+    Smile:
+    Data.q $0603FFE37FFB9C78,$464606374F372F01,$9B7FF86420390646,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
+           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
+           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4EC0C41847FFC641,$2571406C4C8C0645,
+           $1646260666260601,$22AB208B33388466,$226392A198B0909B,$90160656BA288D50,$5666664606417956,$A288B08B00906124,
+           $F0316FFF83C4E263,$60C82CC01D023330,$2D30E7E3FABF70CF,$36E7BADDA79713FF,$AD04A6D37B62E04B,$D69E15EE02CD7225,
+           $CAD9DB27D5181837,$4969B0F92B53DEEE,$0209AE2FD4D66593,$304FF9B99DE58F86,$2F961951D7BC70EE,$89AF5EDDED7526D1,
+           $B44EB924E8E6A693,$8DDAF1ACDADD78F7,$4B3F411907DEFBF9,$FCA7BF367B6DD6D9,$0A27B8CE2B09DAE6,$F3FC3A4C3224B03A,
+           $83C79FD0995957DE,$7D665BDDB0BE192A,$5C5E004DFFFEB73C
+    Data.b $6F,$CC
+    Wink:
+    Data.q $0603FFE37FFB9C78,$464606374F372F01,$9B7FF86420390646,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
+           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
+           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$1819C41847FFC641,$1B33130050191998,
+           $9185918180454250,$22CCC4C8CB210599,$E86C26C8A2242AC8,$0A25540464AA20C8,$10566901600A28F2,$1612476266646064,
+           $161160643456EA04,$0F0316FFF87C0C71,$7B06416641265CD0,$7692526751F93B86,$687AE2AA53E670CE,$BB80A8DAD72B6BF4,
+           $D7266CBC19FF2DA1,$A5BBC0E35DF87EAD,$7FCB5AEF71AD1E8F,$13FAE795ADE3373C,$22741F8E4CAD7D5E,$C595FBBE07AA8FCC,
+           $95E97729C572E81C,$2E19A5D31DECAF48,$2AB98C654C848967,$EAC1F0F443CF3CAB,$92561CFEBA2B05D5,$C22E9DE0E5362F54,
+           $21E66B2AE768A2DB,$F7F9E13AE5965FC3,$905FE4374726BF15,$FFFECF372D589791
+    Data.b $4D,$00,$0E,$83,$6D,$C7
+    Worry:
+    Data.q $0603FFE37FFB9C78,$464606374F372F01,$9B7FF86420390646,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
+           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
+           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4EC0C41847FFC641,$4571406C2C4C0645,
+           $324B866010260601,$B10AB22A08B33132,$889502063A192B09,$641054EB0064EBA2,$0466124762666460,$68A22C22C8ECC75A,
+           $330F0316FFF85818,$64B6E19EC1904458,$6B57F36D56CD714E,$DFE7ADBB19279557,$D820996A192E2164,$0601DB7C74915CA1,
+           $F44FAAE3F2E57146,$B928E51C5EBF9743,$816D8509498CE36A,$6C3CC40E6A224C93,$DB2F1AAD3D097764,$466EC3E6CF6735A6,
+           $5EB77D7A9C3E4B61,$751FEC94EEEE49B4,$69FE1E3C2D31CEFF,$E9EDD26D92D86F15,$B7A3799D4CA5B667,$D7932C1B86C8EFC5,
+           $EBF8E7B1CAF39C1F,$9D3FBE5DB3D6C61D,$0137FFFEDA7CB9CC
+    Data.b $5C,$F3,$73,$77
+    Smirk:
+    Data.q $0603FFE37FFB9C78,$464606374F372F01,$9B7FF86420390646,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
+           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
+           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$1819C41847FFC641,$1B0B130050191998,
+           $0409819180514250,$82CC2C4C8CE26198,$4686A2C28A6C42AC,$00A25F20A225408E,$564646A041594EB0,$1606456641466124,
+           $7818B7FFC0C31161,$D8320B320931F680,$1DF5DBF3BA7EDC33,$44F87DB8D54CFE7F,$57C7D13F6AC906CF,$9E92BE0B743924A7,
+           $B376D602F2F43132,$E7CD71DB39D7771F,$E3D34FB79E51D2D5,$8E3C7835AFF994F8,$57BFD6F90DAF1D39,$A68757D1F3996635,
+           $ED351FA6195E0EDE,$5597877C867AB321,$577BCEE5D2C2E390,$F1D4AF6BCACBA4C8,$676FC99CC76DF35D,$A0A6B8D13C75F39D,
+           $EAFAE7F83591C783,$E639BE77AF8D2720,$A1C456A3FBF25D9D,$DC0004DFFFE7DBE4
+    Data.b $05,$75,$EA        
   EndDataSection ;}
-
+  
 EndModule
 
 ;- ========  Module - Example ========
@@ -3543,7 +3658,7 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "This text is __*really important*__.  "+ #LF$
       Text$ + "The world is ~~flat~~ round.  "+ #LF$ + #LF$
       Text$ + "#### Code ####" + #LF$ + #LF$
-      Text$ + "At the command prompt, type `nano`."+ #LF$
+      Text$ + "At the command prompt, type ``nano``."+ #LF$
     Case 3
       Text$ = "#### Ordered List ####"  + #LF$
       Text$ + "1. First list item"+#LF$+"    2. Second list item"+#LF$+"    3. Third list item"+#LF$+"4. Fourth list item"+ #LF$
@@ -3579,12 +3694,16 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "The area is 10m^2^  " + #LF$
     Case 10
       Text$ = "#### Emoji ####" + #LF$  + #LF$
-      Text$ + ":laugh:  laugh  " + #LF$ + #LF$
-      Text$ + ":smile:  smile  " + #LF$ + #LF$
-      Text$ + ":smirk:  smirk  " + #LF$ + #LF$
-      Text$ + ":cool:  cool  " + #LF$ + #LF$
-      Text$ + ":sad:  sad  " + #LF$ + #LF$
-      Text$ + ":angry:  angry  " + #LF$
+      Text$ + ":laugh:  grinning face with big eyes  " + #LF$ + #LF$
+      Text$ + ":smile:  slightly smiling face  " + #LF$ + #LF$
+      Text$ + ":smirk:  smirking face  " + #LF$ + #LF$
+      Text$ + ":cool:  smiling face with sunglasses  " + #LF$ + #LF$
+      Text$ + ":sad:  slightly frowning face  " + #LF$ + #LF$
+      Text$ + ":angry:  angry face  " + #LF$ + #LF$
+      Text$ + ":worry:  worried face  " + #LF$ + #LF$
+      Text$ + ":wink:  winking face  " + #LF$ + #LF$
+      Text$ + ":rolf:  rolling on the floor laughing  " + #LF$ + #LF$
+      Text$ + ":eyes:  face with rolling eyes  " + #LF$
     Default  
       Text$ = "### MarkDown ###" + #LF$ + #LF$
       Text$ + "> The gadget can display text formatted with the [MarkDown Syntax](https://www.markdownguide.org/basic-syntax/).  "+ #LF$
@@ -3671,8 +3790,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 11
-; FirstLine = 5
-; Folding = 5BCAAgAAAIgEAACAAAAAAAAABAAAAAQCIAs+
+; CursorPosition = 81
+; FirstLine = 22
+; Folding = wBCAAgARAIgFAACAAACAAAAgBAGAIAgkQAQ0
 ; EnableXP
 ; DPIAware
