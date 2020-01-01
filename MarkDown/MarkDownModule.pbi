@@ -9,8 +9,11 @@
 ;/ © 2019  by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update:
-
+; Last Update: 01.01.2020
+;
+; - Added: SuperScript & SubScript
+; - Added: Emojis
+;
 
 ;{ ===== MIT License =====
 ;
@@ -64,6 +67,9 @@
 
 ;}
 
+;{ _____ Emoji _____
+; :laugh: / :smile: / :sad: / :angry: / :cool: / :smirk:
+;}
 
 ; XIncludeFile "ModuleEx.pbi"
 
@@ -71,7 +77,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 19123100
+  #Version  = 20010100
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -164,6 +170,8 @@ Module MarkDown
 	
 	UsePNGImageDecoder()
 	UseJPEGImageDecoder()
+
+	UseZipPacker()
 	
 	;- ============================================================================
 	;-   Module - Constants
@@ -183,6 +191,7 @@ Module MarkDown
     #Bold
     #BoldItalic
     #Code
+    #Emoji
     #FootNote
     #Header
     #Heading
@@ -195,6 +204,8 @@ Module MarkDown
     #OrderedList
     #Paragraph
     #StrikeThrough
+    #Subscript
+    #Superscript
     #Table
     #TaskList
     #Text
@@ -355,7 +366,9 @@ Module MarkDown
 		
 	EndStructure ;}
 	Global NewMap MarkDown.MarkDown_Structure()
-
+	
+	Global NewMap Emoji.i()
+	
 	;- ============================================================================
 	;-   Module - Internal
 	;- ============================================================================
@@ -459,6 +472,7 @@ Module MarkDown
 	  ProcedureReturn Round(Pixel * 25.4 / 96, #PB_Round_Nearest)
 	EndProcedure
 	
+	
 	Procedure   FreeFonts_()
 	  
 	  If IsFont(MarkDown()\Font\Normal)       : FreeFont(MarkDown()\Font\Normal)       : EndIf
@@ -497,6 +511,54 @@ Module MarkDown
 	  MarkDown()\Font\H1 = LoadFont(#PB_Any, Name, Size + 6, #PB_Font_Bold)
 	  
 	EndProcedure
+	
+	Procedure   LoadEmojis_()
+	  Define *Buffer
+	  
+	  *Buffer = AllocateMemory(503)
+	  If *Buffer
+      UncompressMemory(?Laugh, 423, *Buffer, 503)
+      Emoji(":laugh:") = CatchImage(#PB_Any, *Buffer, 503)
+      FreeMemory(*Buffer)
+    EndIf
+    
+    *Buffer = AllocateMemory(490)
+	  If *Buffer
+      UncompressMemory(?Smile, 401, *Buffer, 490)
+      Emoji(":smile:") = CatchImage(#PB_Any, *Buffer, 490)
+      FreeMemory(*Buffer)
+    EndIf
+    
+    *Buffer = AllocateMemory(492)
+	  If *Buffer
+      UncompressMemory(?Sad, 403, *Buffer, 492)
+      Emoji(":sad:") = CatchImage(#PB_Any, *Buffer, 492)
+      FreeMemory(*Buffer)
+    EndIf    
+    
+    *Buffer = AllocateMemory(519)
+	  If *Buffer
+      UncompressMemory(?Angry, 436, *Buffer, 519)
+      Emoji(":angry:") = CatchImage(#PB_Any, *Buffer, 519)
+      FreeMemory(*Buffer)
+    EndIf
+    
+    *Buffer = AllocateMemory(509)
+	  If *Buffer
+      UncompressMemory(?Cool, 427, *Buffer, 509)
+      Emoji(":cool:") = CatchImage(#PB_Any, *Buffer, 509)
+      FreeMemory(*Buffer)
+    EndIf
+    
+    *Buffer = AllocateMemory(499)
+	  If *Buffer
+      UncompressMemory(?Smirk, 410, *Buffer, 499)
+      Emoji(":smirk:") = CatchImage(#PB_Any, *Buffer, 499)
+      FreeMemory(*Buffer)
+    EndIf    
+    
+	EndProcedure
+	
 	
 	Procedure.i AdjustScrollBars_()
 	  Define.i Height
@@ -741,13 +803,26 @@ Module MarkDown
   ;- __________ Convert __________
   
   Procedure.s ExportHTML_(Title.s="")
-    Define.i Level, c, ColWidth, Cols, tBody, Class
+    Define.i Level, c, ColWidth, Cols, tBody, Class, BlockQuote
     Define.s HTML$, endTag$, Align$, Indent$
     
     HTML$ = "<!DOCTYPE html>" + #LF$ + "<html>" + #LF$ + "<head>" + #LF$ + "<title>" + Title + "</title>" + #LF$ + "</head>" + #LF$ + "<body>" + #LF$
     
     ForEach MarkDown()\Row()
-  
+      
+      Select MarkDown()\Row()\BlockQuote
+        Case 1, 2
+          If Not BlockQuote
+            HTML$ + "<blockquote>" + #LF$
+            BlockQuote = #True
+          EndIf  
+        Case 0
+          If BlockQuote
+            HTML$ + "</blockquote>" + #LF$
+            BlockQuote = #False
+          EndIf
+      EndSelect
+      
       Select MarkDown()\Row()\Type
         Case #Heading     ;{ Heading
           HTML$ + "<h"+Str(MarkDown()\Row()\Level)+">" + EscapeHTML_(MarkDown()\Row()\String) + "</h"+Str(MarkDown()\Row()\Level)+">" + #LF$
@@ -922,7 +997,7 @@ Module MarkDown
           
           ForEach MarkDown()\Row()\Item()
             Select MarkDown()\Row()\Item()\Type
-              Case #Bold     ;{ Emphasis
+              Case #Bold        ;{ Emphasis
                 HTML$ + "<strong>" + EscapeHTML_(MarkDown()\Row()\Item()\String) + "</strong>"
               Case #Italic
                 HTML$ + "<em>" + EscapeHTML_(MarkDown()\Row()\Item()\String) + "</em>"
@@ -931,16 +1006,16 @@ Module MarkDown
               Case #StrikeThrough
                 HTML$ + " <del>" + EscapeHTML_(MarkDown()\Row()\Item()\String) + "</del>"
                 ;}
-              Case #Code     ;{ Code
+              Case #Code        ;{ Code
                 HTML$ + "<code>" + EscapeHTML_(MarkDown()\Row()\Item()\String) + "</code>"  
                 ;}
-              Case #URL      ;{ URL / EMail
+              Case #URL         ;{ URL / EMail
                 If CountString(MarkDown()\Row()\Item()\String, "@") = 1
                   HTML$ + "<a href=" + #DQUOTE$ + "mailto:" + URLDecoder(MarkDown()\Row()\Item()\String) + #DQUOTE$ + ">" + EscapeHTML_(MarkDown()\Row()\Item()\String) + "</a>" 
                 Else  
                   HTML$ + "<a href=" + #DQUOTE$ + URLDecoder(MarkDown()\Row()\Item()\String) + #DQUOTE$ + ">" + EscapeHTML_(MarkDown()\Row()\Item()\String) + "</a>" 
                 EndIf ;}
-              Case #Link     ;{ Link
+              Case #Link        ;{ Link
                 If SelectElement(MarkDown()\Link(), MarkDown()\Row()\Item()\Index)
                   If MarkDown()\Link()\Title
                     HTML$ + "<a href=" + #DQUOTE$ + URLDecoder(MarkDown()\Link()\URL) + #DQUOTE$ + " title=" + #DQUOTE$ + EscapeHTML_(MarkDown()\Link()\Title) + #DQUOTE$ + ">" + EscapeHTML_(MarkDown()\Row()\Item()\String) + " </a>"
@@ -948,7 +1023,7 @@ Module MarkDown
                     HTML$ + "<a href=" + #DQUOTE$ + URLDecoder(MarkDown()\Link()\URL) + #DQUOTE$ + ">" + EscapeHTML_(MarkDown()\Row()\Item()\String) + "</a>"
                   EndIf 
                 EndIf ;}
-              Case #Image    ;{ Image
+              Case #Image       ;{ Image
                 If SelectElement(MarkDown()\Image(), MarkDown()\Row()\Item()\Index)
                   If MarkDown()\Image()\Title
                     HTML$ + "<img scr=" + #DQUOTE$ + MarkDown()\Image()\Source + #DQUOTE$ + " alt=" + #DQUOTE$ + EscapeHTML_(MarkDown()\Row()\Item()\String) + #DQUOTE$ + " title=" + #DQUOTE$ + EscapeHTML_(MarkDown()\Image()\Title) + #DQUOTE$ + " />"
@@ -956,8 +1031,30 @@ Module MarkDown
                     HTML$ + "<img scr=" + #DQUOTE$ + MarkDown()\Image()\Source + #DQUOTE$ + " alt=" + #DQUOTE$ + EscapeHTML_(MarkDown()\Row()\Item()\String) + #DQUOTE$ + " />"
                   EndIf
                 EndIf ;}
-              Case #FootNote ;{ Footnote
+              Case #FootNote    ;{ Footnote
                 HTML$ + "<sup>"+EscapeHTML_(MarkDown()\Row()\Item()\String)+"</sup>" + #LF$
+                ;}
+              Case #Superscript ;{ #SuperScript
+                HTML$ + "<sup>"+EscapeHTML_(MarkDown()\Row()\Item()\String)+"</sup>" + #LF$
+                ;}
+              Case #Subscript   ;{ SubScript
+                HTML$ + "<sub>"+EscapeHTML_(MarkDown()\Row()\Item()\String)+"</sub>" + #LF$
+                ;}
+              Case #Emoji       ;{ Emoji
+                Select MarkDown()\Row()\Item()\String
+                  Case ":laugh:"
+                    HTML$ + "&#128512;"
+                  Case ":smile:"
+                    HTML$ + "&#128578;"
+                  Case ":sad:"
+                    HTML$ + "&#128577;"
+                  Case ":angry:"
+                    HTML$ + "&#129324;"
+                  Case ":cool:"
+                    HTML$ + "&#128526;"
+                  Case ":smirk:"
+                    HTML$ + "&#128527;"
+                EndSelect    
                 ;}
               Default
                 HTML$ + EscapeHTML_(MarkDown()\Row()\Item()\String)
@@ -969,6 +1066,11 @@ Module MarkDown
       EndSelect
       
     Next
+    
+    If BlockQuote
+      HTML$ + "</blockquote>" + #LF$
+      BlockQuote = #False
+    EndIf
     
     If ListSize(MarkDown()\Footnote()) ;{ Footnotes
       
@@ -995,7 +1097,9 @@ Module MarkDown
       Define.i w, Words, OffsetY, maxWidth, Link
       Define.f X, Y, PosX, txtWidth, WordWidth
       Define.s Word$
-  
+      
+      If Text = "" :  ProcedureReturn #False : EndIf 
+      
       X = PDF::GetPosX(PDF)
       
       If maxCol
@@ -1074,11 +1178,55 @@ Module MarkDown
           PDF::Cell(PDF, Text, txtWidth, #PB_Default, #False, PDF::#Right, "", #False, "", Link)
           
         EndIf
-
+        
       EndIf  
      
-    EndProcedure
+    EndProcedure    
     
+    Procedure.i EmojiPDF_(PDF.i, Emoji.s, X.i, Y.i, ImgSize.i)
+  	  Define *Buffer
+  	  
+  	  Select Emoji
+  	    Case ":laugh:"
+  	      If FileSize("Laugh.jpg") > 0
+  	        PDF::Image(PDF, "Laugh.jpg", X, Y, ImgSize, ImgSize)
+  	      Else  
+  	        TextPDF_(PDF, ":-D", 200)
+  	      EndIf   
+  	    Case ":smile:"
+  	      If FileSize("Smile.jpg") > 0
+  	        PDF::Image(PDF, "Smile.jpg", X, Y, ImgSize, ImgSize)
+  	      Else
+  	        TextPDF_(PDF, ":-)", 200) 
+  	      EndIf  
+  	    Case ":sad:"
+  	      If FileSize("Sad.jpg") > 0
+  	        PDF::Image(PDF, "Sad.jpg", X, Y, ImgSize, ImgSize)
+  	      Else
+  	        TextPDF_(PDF, ":-(", 200) 
+  	      EndIf  
+  	    Case ":angry:"
+  	      If FileSize("Angry.jpg") > 0
+  	        PDF::Image(PDF, "Angry.jpg", X, Y, ImgSize, ImgSize)
+  	      Else
+  	        TextPDF_(PDF, "X-(", 200) 
+  	      EndIf 
+        Case ":cool:"  
+          If FileSize("Cool.jpg") > 0
+  	        PDF::Image(PDF, "Cool.jpg", X, Y, ImgSize, ImgSize)
+  	      Else
+  	        TextPDF_(PDF, "8-|", 200) 
+  	      EndIf 
+  	    Case ":smirk:"
+  	      If FileSize("Smirk.jpg") > 0
+  	        PDF::Image(PDF, "Smirk.jpg", X, Y, ImgSize, ImgSize)
+  	      Else
+  	        TextPDF_(PDF, ";-)", 200) 
+  	      EndIf 
+      EndSelect
+      
+  	EndProcedure
+
     Procedure.s ExportPDF_(File.s, Title.s="")
       Define.i PDF, Num, X, Y, RowY, TextWidth, Link
       Define.i c, Cols, ColWidth
@@ -1325,7 +1473,7 @@ Module MarkDown
               ForEach MarkDown()\Row()\Item()
 
                 Select MarkDown()\Row()\Item()\Type
-                  Case #Bold     ;{ Emphasis
+                  Case #Bold        ;{ Emphasis
                     PDF::SetFont(PDF, "Arial", "B", 11)
                     TextPDF_(PDF, MarkDown()\Row()\Item()\String, 200) 
                   Case #Italic
@@ -1338,11 +1486,11 @@ Module MarkDown
                     PDF::SetFont(PDF, "Arial", "", 11)
                     TextPDF_(PDF, MarkDown()\Row()\Item()\String, 200, 0, #PB_Default, #StrikeThrough)
                     ;}
-                  Case #Code     ;{ Code
+                  Case #Code        ;{ Code
                     PDF::SetFont(PDF, "Courier New", "", 11)
                     TextPDF_(PDF, MarkDown()\Row()\Item()\String, 200)
                     ;}
-                  Case #URL      ;{ URL / EMail
+                  Case #URL         ;{ URL / EMail
                     PDF::SetFont(PDF, "Arial", "U", 11)
                     PDF::SetColorRGB(PDF, PDF::#TextColor, 0, 0, 255)
                     If CountString(MarkDown()\Row()\Item()\String, "@") = 1
@@ -1352,18 +1500,31 @@ Module MarkDown
                     EndIf
                     PDF::SetColorRGB(PDF, PDF::#TextColor, 0)
                     ;}
-                  Case #Link     ;{ Link
+                  Case #Link        ;{ Link
                     PDF::SetFont(PDF, "Arial", "U", 11)
                     PDF::SetColorRGB(PDF, PDF::#TextColor, 0, 0, 255)
                     TextPDF_(PDF, MarkDown()\Row()\Item()\String, 200, 0, 0, MarkDown()\Row()\Item()\Index)
                     PDF::SetColorRGB(PDF, PDF::#TextColor, 0)
                     ;}  
-                  Case #FootNote ;{ Footnote
+                  Case #FootNote    ;{ Footnote
                     PDF::SubWrite(PDF, MarkDown()\Row()\Item()\String, 4.5, 7, 5)
                     ;}
-                  Default  
+                  Case #Subscript   ;{ SubScript 
+                    PDF::SubWrite(PDF, MarkDown()\Row()\Item()\String, 4.5, 7, 0)
+                    ;}
+                  Case #Superscript ;{ SuperScript
+                    PDF::SubWrite(PDF, MarkDown()\Row()\Item()\String, 4.5, 7, 5)
+                    ;}
+                  Case #Emoji       ;{ Emoji
+                    PDF::SetFont(PDF, "Arial", "", 11)
+                    X = PDF::GetPosX(PDF)
+                    EmojiPDF_(PDF, MarkDown()\Row()\Item()\String, X, #PB_Default, 4)
+                    PDF::SetPosX(PDF, X + 4)
+                    ;}
+                  Default           ;{ Text
                     PDF::SetFont(PDF, "Arial", "", 11)
                     TextPDF_(PDF, MarkDown()\Row()\Item()\String, 200)
+                    ;}
                 EndSelect
                 
               Next
@@ -1513,35 +1674,29 @@ Module MarkDown
     ProcedureReturn ePos
   EndProcedure
  
-  Procedure.i Headings_(Row.s, sPos.i) 
+  Procedure.i Headings_(Row.s) 
     Define.i ePos
     
     MarkDown()\Row()\Type = #Heading
     
-    If Mid(Row, sPos, 6) = "######"
+    If Left(Row, 6) = "######"
       MarkDown()\Row()\Level = 6
-      ePos = FindString(Row, "######", sPos + 6)
-      If ePos : ProcedureReturn ePos + 5 : EndIf
-    ElseIf Mid(Row, sPos, 5) = "#####"
+      MarkDown()\Row()\String = RTrim(Mid(Row, 7), "#")
+    ElseIf Left(Row, 5) = "#####"
       MarkDown()\Row()\Level = 5
-      ePos = FindString(Row, "#####", sPos + 5)
-      If ePos : ProcedureReturn ePos + 4 : EndIf
-    ElseIf Mid(Row, sPos, 4) = "####"
+      MarkDown()\Row()\String = RTrim(Mid(Row, 6), "#")
+    ElseIf Left(Row, 4) = "####"
       MarkDown()\Row()\Level = 4
-      ePos = FindString(Row, "####", sPos + 4)
-      If ePos : ProcedureReturn ePos + 3 : EndIf
-    ElseIf Mid(Row, sPos, 3) = "###"
+      MarkDown()\Row()\String = RTrim(Mid(Row, 5), "#")
+    ElseIf Left(Row, 3) = "###"
       MarkDown()\Row()\Level = 3
-      ePos = FindString(Row, "###", sPos + 3)
-      If ePos : ProcedureReturn ePos + 2 : EndIf
-    ElseIf Mid(Row, sPos, 2) = "##"  
+      MarkDown()\Row()\String = RTrim(Mid(Row, 4), "#")
+    ElseIf Left(Row, 2) = "##"  
       MarkDown()\Row()\Level = 2
-      ePos = FindString(Row, "##", sPos + 2)
-      If ePos : ProcedureReturn ePos + 1 : EndIf
+      MarkDown()\Row()\String = RTrim(Mid(Row, 3), "#")
     Else
       MarkDown()\Row()\Level = 1
-      ePos = FindString(Row, "#", sPos + 1)
-      If ePos : ProcedureReturn ePos : EndIf
+      MarkDown()\Row()\String = RTrim(Mid(Row, 2), "#")
     EndIf
     
     ProcedureReturn Len(Row)
@@ -1572,15 +1727,218 @@ Module MarkDown
   Procedure.i StrikeThrough_(Row.s, sPos.i) 
     Define.i ePos
     
-    MarkDown()\Row()\Item()\Type = #StrikeThrough
-    
     ePos = FindString(Row, "~~", sPos + 2)
-    MarkDown()\Row()\Item()\String = Mid(Row, sPos + 2, ePos - (sPos + 2))
-    
-    ProcedureReturn ePos + 1
+    If ePos
+      MarkDown()\Row()\Item()\Type   = #StrikeThrough
+      MarkDown()\Row()\Item()\String = Mid(Row, sPos + 2, ePos - (sPos + 2))
+      ProcedureReturn ePos + 1
+    Else
+      ePos = FindString(Row, "~", sPos + 1)
+      If ePos
+        MarkDown()\Row()\Item()\Type   = #Subscript
+        MarkDown()\Row()\Item()\String = Mid(Row, sPos + 1, ePos - (sPos + 1))
+        ProcedureReturn ePos
+      EndIf  
+    EndIf
+
   EndProcedure
  
- 
+  ; TODO: ToolTip: *[HTML]: 
+  
+  Procedure.i AddItemText(sPos.i, Pos.i, Row.s, newRow.i)
+    
+    If sPos <= Pos 
+      If newRow 
+        MarkDown()\Row()\String = Mid(Row, sPos, Pos - sPos)
+        newRow = #False
+      ElseIf AddElement(MarkDown()\Row()\Item())
+        MarkDown()\Row()\Item()\Type   = #Text
+        MarkDown()\Row()\Item()\String = Mid(Row, sPos, Pos - sPos)
+      EndIf   
+    EndIf
+    
+    ProcedureReturn newRow
+  EndProcedure  
+  
+  Procedure.i ParseText_(Row.s, BQ.i, LineBreak.i)
+    Define.i Pos, sPos, ePos, newRow, Length
+    
+    Pos = 1 :  sPos = 1 : newRow = 0 
+    
+    Length = Len(Row)
+    
+    If LineBreak = #False : Row = RTrim(Row) + " " : EndIf  
+    
+    If ListSize(MarkDown()\Row()) = 0 Or MarkDown()\Row()\Type <> #Text
+      If AddElement(MarkDown()\Row())
+        MarkDown()\Row()\Type       = #Text
+        MarkDown()\Row()\BlockQuote = BQ
+        newRow = #True
+      EndIf
+    EndIf
+    
+    Repeat
+    
+      Select Mid(Row, Pos, 1)
+        Case "\" ;{ EscapingCharacters 
+          
+          Select Mid(Row, Pos, 2)
+            Case "\\", "\`", "\*", "\_", "\#", "\+", "\-", "\.", "\!", "\|"
+              Row = RemoveString(Row, "\", #PB_String_CaseSensitive, Pos, 1)
+              Pos + 1
+            Case "\{", "\}", "\[", "\]", "\(", "\)"
+              Row = RemoveString(Row, "\", #PB_String_CaseSensitive, Pos, 1)
+              Pos + 1
+          EndSelect
+          ;}
+        Case "*" ;{ Emphasis
+          
+          newRow = AddItemText(sPos, Pos, Row, newRow)
+
+          If AddElement(MarkDown()\Row()\Item())
+            ePos = Emphasis_(Row, Pos)
+            If ePos : Pos = ePos : EndIf
+          EndIf
+
+          sPos = Pos + 1
+          ;}
+        Case "`" ;{ Code
+          
+          newRow = AddItemText(sPos, Pos, Row, newRow)
+
+          If AddElement(MarkDown()\Row()\Item())
+            
+            ePos = Code_(Row, Pos)
+            If ePos = 0 : ePos = Pos : EndIf
+            MarkDown()\Row()\Item()\String = RemoveString(Mid(Row, Pos, ePos - Pos + 1), "`")
+
+            If ePos : Pos = ePos : EndIf
+          EndIf
+
+          sPos = Pos + 1
+          ;}
+        Case "[" ;{ Links / Footnote
+
+          newRow = AddItemText(sPos, Pos, Row, newRow)
+          
+          If Mid(Row, Pos, 2) = "[^" ;{ Footnote
+            
+            ePos = Footnote_(Row, Pos)
+            If ePos : Pos = ePos : EndIf
+            ;}
+          Else                        ;{ Links
+            
+            If AddElement(MarkDown()\Row()\Item())
+              ePos = Link_(Row, Pos)
+              If ePos : Pos = ePos : EndIf
+            EndIf
+            ;}
+          EndIf
+          
+          sPos = Pos + 1
+          ;}
+        Case "<" ;{ URL / Email
+
+          newRow = AddItemText(sPos, Pos, Row, newRow)
+          
+          If AddElement(MarkDown()\Row()\Item())
+            
+            ePos = URL_(Row, Pos)
+            
+            MarkDown()\Row()\Item()\String = Mid(Row, Pos + 1, ePos - Pos - 1)
+            
+            If AddElement(MarkDown()\Link())
+              MarkDown()\Row()\Item()\Index = ListIndex(MarkDown()\Link())
+              MarkDown()\Link()\URL = MarkDown()\Row()\Item()\String
+            EndIf
+            
+            If ePos : Pos = ePos : EndIf
+          EndIf
+
+          sPos = Pos + 1
+          ;}
+        Case "!" ;{ Image
+          
+          If Mid(Row, Pos, 2) = "!["
+
+            newRow = AddItemText(sPos, Pos, Row, newRow)
+            
+            Pos + 1
+            
+            If AddElement(MarkDown()\Row()\Item())
+              ePos = TextImage_(Row, Pos)
+              If ePos : Pos = ePos : EndIf
+            EndIf
+
+            sPos = Pos + 1
+          EndIf  
+          ;}
+        Case "^" ;{ Superscript
+          
+          newRow = AddItemText(sPos, Pos, Row, newRow)
+          
+          If AddElement(MarkDown()\Row()\Item())
+            ePos = FindString(Row, "^", Pos + 1)
+            If ePos
+              MarkDown()\Row()\Item()\Type   = #Superscript
+              MarkDown()\Row()\Item()\String = Mid(Row, Pos + 1, ePos - Pos - 1)
+              Pos = ePos
+            EndIf
+          EndIf
+
+          sPos = Pos + 1                
+          ;}
+        Case "~" ;{ Subscript / Strikethrough
+          
+          newRow = AddItemText(sPos, Pos, Row, newRow)
+          
+          If AddElement(MarkDown()\Row()\Item())
+            ePos = StrikeThrough_(Row, Pos)
+            If ePos : Pos = ePos : EndIf
+          EndIf
+
+          sPos = Pos + 1
+          ;}
+        Case ":" ;{ Emoji
+          
+          newRow = AddItemText(sPos, Pos, Row, newRow)
+          
+          If AddElement(MarkDown()\Row()\Item())
+            ePos = FindString(Row, ":", Pos + 1)
+            If ePos
+              MarkDown()\Row()\Item()\Type   = #Emoji
+              MarkDown()\Row()\Item()\String = Mid(Row, Pos, ePos - Pos + 1)
+              Pos = ePos
+            EndIf
+          EndIf
+          
+          sPos = Pos + 1
+          ;}
+      EndSelect
+      
+      Pos + 1
+      
+    Until Pos > Length
+    
+    If sPos <= Pos  ;{ Remaining text
+      If newRow And MarkDown()\Row()\String = ""
+        MarkDown()\Row()\String = Mid(Row, sPos)
+      Else
+        If AddElement(MarkDown()\Row()\Item())
+          MarkDown()\Row()\Item()\Type   = #Text
+          MarkDown()\Row()\Item()\String = Mid(Row, sPos)
+        EndIf
+      EndIf ;}
+    EndIf
+    
+    If LineBreak
+      MarkDown()\Row()\Type = #LineBreak
+      LineBreak = #False
+    EndIf
+    
+    ProcedureReturn LineBreak
+  EndProcedure
+  
   Procedure   Parse_(Text.s)
     Define.i r, Rows, c, Cols, Length, Pos, sPos, ePos, BQ, newRow, LineBreak, Type
     Define.s Row$, Num$, trimRow$, Col$, Text$
@@ -1593,11 +1951,10 @@ Module MarkDown
     
     For r = 1 To Rows
       
-      newRow = 0 : Pos = 1 : sPos = 1 : BQ = 0
+      BQ = 0
       
       Row$   = StringField(Text, r, #LF$)
-      Length = Len(Row$)
-      
+
       If Right(Row$, 2) = "  "
         Row$ = RTrim(Row$)
         LineBreak = #True
@@ -1617,12 +1974,10 @@ Module MarkDown
           ; TODO: HeadingID: ### My Great Heading {#custom-id} / <h3 id="custom-id">My Great Heading</h3>
      
           If AddElement(MarkDown()\Row())
-            ePos = Headings_(Row$, sPos)
-            MarkDown()\Row()\String = RemoveString(Mid(Row$, Pos, ePos - Pos + 1), "#")
+            Headings_(Row$)
             If Left(MarkDown()\Row()\String, 1)  = " " : MarkDown()\Row()\String = Mid(MarkDown()\Row()\String, 2) : EndIf 
             If Right(MarkDown()\Row()\String, 1) = " " : MarkDown()\Row()\String = Left(MarkDown()\Row()\String, Len(MarkDown()\Row()\String) - 1) : EndIf
             MarkDown()\Row()\BlockQuote = BQ
-            If ePos : Pos = ePos : EndIf
           EndIf
           ;}        
         Case "="         ;{ Heading level 1
@@ -1631,7 +1986,7 @@ Module MarkDown
             MarkDown()\Row()\Type  = #Heading
             MarkDown()\Row()\Level = 1
           Else
-            AddText_(Row$, BQ)
+            LineBreak = ParseText_(Row$, BQ, LineBreak)
           EndIf
           ;}
         Case "-"         ;{ Heading level 2 / Unordered Lists
@@ -1709,7 +2064,9 @@ Module MarkDown
               EndIf
               
             Else
-              AddText_(Row$, BQ)
+              
+              LineBreak = ParseText_(Row$, BQ, LineBreak)
+              
             EndIf  
             ;}
           EndIf  
@@ -1736,10 +2093,7 @@ Module MarkDown
             
           Else
             
-            If AddElement(MarkDown()\Row()\Item())
-              MarkDown()\Row()\Item()\Type = #Text
-              MarkDown()\Row()\String      = Row$
-            EndIf
+            LineBreak = ParseText_(Row$, BQ, LineBreak)
             
           EndIf  
           ;}
@@ -1762,10 +2116,7 @@ Module MarkDown
             
           Else
             
-            If AddElement(MarkDown()\Row()\Item())
-              MarkDown()\Row()\Item()\Type = #Text
-              MarkDown()\Row()\String      = Row$
-            EndIf 
+            LineBreak = ParseText_(Row$, BQ, LineBreak)
             
           EndIf
           
@@ -1774,9 +2125,9 @@ Module MarkDown
           ;}
         Case "!"         ;{ Image
           
-          If Mid(Row$, Pos, 2) = "!["
+          If Left(Row$, 2) = "!["
             If AddElement(MarkDown()\Row())
-              Image_(Row$, Pos + 1)
+              Image_(Row$, 2)
             EndIf
           EndIf
           ;}
@@ -1818,9 +2169,9 @@ Module MarkDown
           EndIf
           ;}
         Case "["         ;{ Footnote text
-          ePos = FindString(Row$, "]:", Pos + 2)
+          ePos = FindString(Row$, "]:", 2)
           If ePos
-            Text$ = Mid(Row$, sPos + 2, ePos - Pos - 2)
+            Text$ = Mid(Row$, 3, ePos - 3)
             If AddElement(MarkDown()\FootNote())
               MarkDown()\FootNote()\Note   = Text$
               MarkDown()\FootNote()\String = Mid(Row$, ePos + 2)
@@ -1875,17 +2226,17 @@ Module MarkDown
                 EndIf
                 ;}
               Default                                          ;{ Text
-                AddText_(trimRow$, BQ)
+                LineBreak = ParseText_(Row$, BQ, LineBreak)
                 ;}
             EndSelect
           ElseIf Left(trimRow$, 2) = "!["                      ;{ Image
             
             If AddElement(MarkDown()\Row())
-              Image_(trimRow$, Pos + 1)
+              Image_(trimRow$, 2)
             EndIf
             ;}
           Else                                                 ;{ Text
-            AddText_(trimRow$, BQ)
+            LineBreak = ParseText_(Row$, BQ, LineBreak)
             ;}
           EndIf 
           ;}
@@ -1897,204 +2248,8 @@ Module MarkDown
           EndIf  
           ;}
         Default          ;{ Text (Emphasis / ...)
-    
-          If LineBreak = #False : Row$ = RTrim(Row$) + " " : EndIf  
           
-          If ListSize(MarkDown()\Row()) = 0 Or MarkDown()\Row()\Type <> #Text
-            If AddElement(MarkDown()\Row())
-              MarkDown()\Row()\Type       = #Text
-              MarkDown()\Row()\BlockQuote = BQ
-              newRow = #True
-            EndIf
-          EndIf
-          
-          Repeat
-    
-            Select Mid(Row$, Pos, 1)
-              Case "\" ;{ EscapingCharacters 
-                
-                Select Mid(Row$, Pos, 2)
-                  Case "\\", "\`", "\*", "\_", "\#", "\+", "\-", "\.", "\!", "\|"
-                    Row$ = RemoveString(Row$, "\", #PB_String_CaseSensitive, Pos, 1)
-                    Pos + 1
-                  Case "\{", "\}", "\[", "\]", "\(", "\)"
-                    Row$ = RemoveString(Row$, "\", #PB_String_CaseSensitive, Pos, 1)
-                    Pos + 1
-                EndSelect
-                ;}
-              Case "*" ;{ Emphasis
-                
-                If sPos <= Pos 
-                  If newRow
-                    MarkDown()\Row()\String = Mid(Row$, sPos, Pos - sPos)
-                    newRow = #False
-                  ElseIf AddElement(MarkDown()\Row()\Item())
-                    MarkDown()\Row()\Item()\Type   = #Text
-                    MarkDown()\Row()\Item()\String = Mid(Row$, sPos, Pos - sPos)
-                  EndIf
-                EndIf
-    
-                If AddElement(MarkDown()\Row()\Item())
-                  ePos = Emphasis_(Row$, Pos)
-                  If ePos = 0 : ePos = Pos : Else : Pos = ePos : EndIf
-                EndIf
-    
-                sPos = Pos + 1
-                ;}
-              Case "`" ;{ Code
-                
-                If sPos <= Pos 
-                  If newRow
-                    MarkDown()\Row()\String = Mid(Row$, sPos, Pos - sPos)
-                    newRow = #False
-                  ElseIf AddElement(MarkDown()\Row()\Item())
-                    MarkDown()\Row()\Item()\Type   = #Text
-                    MarkDown()\Row()\Item()\String = Mid(Row$, sPos, Pos - sPos)  
-                  EndIf   
-                EndIf
-    
-                If AddElement(MarkDown()\Row()\Item())
-                  
-                  ePos = Code_(Row$, Pos)
-                  If ePos = 0 : ePos = Pos : EndIf
-                  MarkDown()\Row()\Item()\String = RemoveString(Mid(Row$, Pos, ePos - Pos + 1), "`")
-    
-                  If ePos : Pos = ePos : EndIf
-                EndIf
-    
-                sPos = Pos + 1
-                ;}
-              Case "[" ;{ Links / Footnote
-    
-                If sPos <= Pos 
-                  If newRow
-                    MarkDown()\Row()\String = Mid(Row$, sPos, Pos - sPos)
-                    newRow = #False
-                  ElseIf AddElement(MarkDown()\Row()\Item())
-                    MarkDown()\Row()\Item()\Type   = #Text
-                    MarkDown()\Row()\Item()\String = Mid(Row$, sPos, Pos - sPos)
-                  EndIf   
-                EndIf
-                
-                If Mid(Row$, Pos, 2) = "[^" ;{ Footnote
-                  
-                  ePos = Footnote_(Row$, Pos)
-                  If ePos = 0 : ePos = Pos : Else : Pos = ePos : EndIf
-                  
-                  ;}
-                Else                        ;{ Links
-                  
-                  If AddElement(MarkDown()\Row()\Item())
-                    ePos = Link_(Row$, Pos)
-                    If ePos = 0 : ePos = Pos : Else : Pos = ePos : EndIf
-                  EndIf
-                  ;}
-                EndIf
-                
-                sPos = Pos + 1
-                ;}
-              Case "<" ;{ URL / Email
-    
-                If sPos <= Pos 
-                  If newRow
-                    MarkDown()\Row()\String = Mid(Row$, sPos, Pos - sPos)
-                    newRow = #False
-                  ElseIf AddElement(MarkDown()\Row()\Item())
-                    MarkDown()\Row()\Item()\Type   = #Text
-                    MarkDown()\Row()\Item()\String = Mid(Row$, sPos, Pos - sPos)  
-                  EndIf   
-                EndIf
-                
-                If AddElement(MarkDown()\Row()\Item())
-                  
-                  ePos = URL_(Row$, Pos)
-                  
-                  If ePos = 0 : ePos = Pos : EndIf
-                  
-                  MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 1, ePos - Pos - 1)
-                  
-                  If AddElement(MarkDown()\Link())
-                    MarkDown()\Row()\Item()\Index = ListIndex(MarkDown()\Link())
-                    MarkDown()\Link()\URL = MarkDown()\Row()\Item()\String
-                  EndIf
-                  
-                  If ePos : Pos = ePos : EndIf
-                EndIf
-    
-                sPos = Pos + 1
-                ;}
-              Case "!" ;{ Image
-                
-                If Mid(Row$, Pos, 2) = "!["
-    
-                  If sPos <= Pos
-                    If newRow
-                      MarkDown()\Row()\String = Mid(Row$, sPos, Pos - sPos)
-                      newRow = #False
-                    ElseIf AddElement(MarkDown()\Row()\Item())
-                      MarkDown()\Row()\Item()\Type   = #Text
-                      MarkDown()\Row()\Item()\String = Mid(Row$, sPos, Pos - sPos)  
-                    EndIf   
-                  EndIf
-                  
-                  Pos + 1
-                  
-                  If AddElement(MarkDown()\Row()\Item())
-                    ePos = TextImage_(Row$, Pos)
-                    If ePos = 0 : ePos = Pos : Else : Pos = ePos : EndIf
-                  EndIf
-      
-                  sPos = Pos + 1
-                EndIf  
-                ;}
-              Case "~" ;{ Strikethrough
-                
-                If Mid(Row$, Pos, 2) = "~~"
-                  
-                  If sPos <= Pos 
-                    If newRow 
-                      MarkDown()\Row()\String = Mid(Row$, sPos, Pos - sPos)
-                      newRow = #False
-                    ElseIf AddElement(MarkDown()\Row()\Item())
-                      MarkDown()\Row()\Item()\Type   = #Text
-                      MarkDown()\Row()\Item()\String = Mid(Row$, sPos, Pos - sPos)
-                    EndIf   
-                  EndIf
-                  
-                  If AddElement(MarkDown()\Row()\Item())
-                  
-                    ePos = StrikeThrough_(Row$, Pos)
-                    
-                    If ePos = 0 : ePos = Pos : EndIf
-    
-                    If ePos : Pos = ePos : EndIf
-                  EndIf
-      
-                  sPos = Pos + 1
-                 
-                EndIf
-                ;}
-            EndSelect
-            
-            Pos + 1
-            
-          Until Pos > Length
-
-          If sPos <= Pos  ;{ Remaining text
-            If newRow And MarkDown()\Row()\String = ""
-              MarkDown()\Row()\String = Mid(Row$, sPos)
-            Else
-              If AddElement(MarkDown()\Row()\Item())
-                MarkDown()\Row()\Item()\Type   = #Text
-                MarkDown()\Row()\Item()\String = Mid(Row$, sPos)
-              EndIf
-            EndIf ;}
-          EndIf
-          
-          If LineBreak
-            MarkDown()\Row()\Type = #LineBreak
-            LineBreak = #False
-          EndIf 
+          LineBreak = ParseText_(Row$, BQ, LineBreak)
           ;}
       EndSelect
       
@@ -2279,7 +2434,7 @@ Module MarkDown
   
 	Procedure   Draw_()
 	  Define.i X, Y, Width, Height, LeftBorder, WrapPos, TextHeight, Cols
-	  Define.i Indent, Level, Offset, OffSetX, OffSetY, maxCol
+	  Define.i Indent, Level, Offset, OffSetX, OffSetY, maxCol, ImgSize
 	  Define.i c, OffsetList, NumWidth, ColWidth, TableWidth
 		Define.i FrontColor, BackColor, BorderColor, LinkColor
 		Define.s Text$, Num$
@@ -2579,22 +2734,48 @@ Module MarkDown
                   DrawingFont(FontID(MarkDown()\Font\Code))
                   X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, FrontColor)
                   ;}
-                Case #URL           ;{ URL / EMail
+                Case #Emoji         ;{ Emojis
                   DrawingFont(FontID(MarkDown()\Font\Normal))
-                  X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, LinkColor, #False, 0, MarkDown()\Row()\Item()\Index)
-                  ;}
-                Case #Link          ;{ Link
-                  DrawingFont(FontID(MarkDown()\Font\Normal))
-                  X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, LinkColor, #False, 0, MarkDown()\Row()\Item()\Index)  
+                  TextHeight = TextHeight("Abc")
+                  If TextHeight <= dpiY(16)
+                    ImgSize = TextHeight - dpiY(1)
+                  Else
+                    ImgSize = dpiY(TextHeight)
+                  EndIf  
+                  OffSetY = (TextHeight - ImgSize) / 2
+                  If IsImage(Emoji(MarkDown()\Row()\Item()\String))
+                    DrawingMode(#PB_2DDrawing_AlphaBlend)
+    			          DrawImage(ImageID(Emoji(MarkDown()\Row()\Item()\String)), X, Y + OffSetY, ImgSize, ImgSize)
+    			          X + ImgSize
+                  EndIf
                   ;}
                 Case #FootNote      ;{ Footnote
                   DrawingFont(FontID(MarkDown()\Font\FootNote))
                   X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, FrontColor)
+                  ;}                
+                Case #Link          ;{ Link
+                  DrawingFont(FontID(MarkDown()\Font\Normal))
+                  X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, LinkColor, #False, 0, MarkDown()\Row()\Item()\Index)  
                   ;}
                 Case #StrikeThrough ;{ StrikeThrough  
                   DrawingFont(FontID(MarkDown()\Font\Normal))
                   X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, FrontColor, 0, 0, #PB_Default, #StrikeThrough)
                   ;}
+                Case #Subscript     ;{ SubScript
+                  DrawingFont(FontID(MarkDown()\Font\Normal))
+			            TextHeight = TextHeight("Abc")
+                  DrawingFont(FontID(MarkDown()\Font\FootNote))
+                  OffSetY = TextHeight - TextHeight(MarkDown()\Row()\Item()\String) + dpiY(2)
+                  X = DrawText_(X, Y + OffSetY, MarkDown()\Row()\Item()\String, FrontColor)
+                  ;}
+                Case #Superscript   ;{ SuperScript
+                  DrawingFont(FontID(MarkDown()\Font\FootNote))
+                  X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, FrontColor)
+                  ;}
+                Case #URL           ;{ URL / EMail
+                  DrawingFont(FontID(MarkDown()\Font\Normal))
+                  X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, LinkColor, #False, 0, MarkDown()\Row()\Item()\Index)
+                  ;}  
                 Default             ;{ Text
                   DrawingFont(FontID(MarkDown()\Font\Normal))
                   X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, FrontColor)
@@ -3251,23 +3432,97 @@ Module MarkDown
 	  
 	EndProcedure
   
-  
+	
+	LoadEmojis_()
+
+	;{ _____ DataSection _____
+	DataSection
+    Smirk:
+    Data.q $0603FFE37FFB9C78,$204606374F372F01,$9B7FF86061D461D0,$80840989998199C1,$5959583958880580,$7838D9D9D8B95858,
+           $79B9B8B9B87878B8,$B8F904F9780484F9,$4445850404C405B9,$44C425C5F8794545,$3086404544448424,$B2B272B0B0F50332,
+           $0C908AF372F08A72,$601060E410601FFE,$6412606254666010,$0C41847FFC641664,$01C2CAC0640654E4,$8C18BA0060145714,
+           $413674E8099180A1,$A023251145066121,$20EC6C0C9D745112,$84228F208C0C829D,$850D981858991905,$BFFE3626383E9514,
+           $B3017408CCC3C0C5,$B572DFBDC33D8320,$D4FF67EAA7D78739,$A564559358AD375D,$12DACBADC44DA293,$1B2BB296EB85BD6F,
+           $833FE3F0DFAC9759,$DFE9AF2BEC69A24D,$88CD6AB7CBB20DB8,$6C87C4E96D8B3AD9,$B0248BB73D144B5E,$6DDACAA4A7A6A686,
+           $6F18FD3DABF854E2,$518D15D9D9D36850,$9A2C7A9F5FDC518A,$8F949F3595FBEBB7,$C97D50CC7C7E3A49,$5BBB36398CCAFF8A,
+           $C96BCE759F5D1FE7,$CA74CBCE4F49E381,$A8A52AE6F8557EF8,$1B4BD8897C30B55A,$8F629133F4E0A579,$DDCEF4E579526F8E,
+           $614ADC871CB3257A,$CA783BC5F5A9435D,$E2900009BFFF67F7
+    Data.b $77,$DF
+    Cool:
+    Data.q $0603FFE37FFB9C78,$204606374F372F01,$9B7FF86061D461D0,$80840989998199C1,$5959583958880580,$7838D9D9D8B95858,
+           $79B9B8B9B87878B8,$B8F904F9780484F9,$4445850404C405B9,$44C425C5F8794545,$3086404544448424,$B2B272B0B0F50332,
+           $0C908AF372F08A72,$601060E410601FFE,$6412606254666010,$9C41847FFC641664,$B0B0190191998181,$98180494250073B2,
+           $04C8CB2E15918080,$A73B0322A09B3B74,$D0288D503292B090,$C281D958197A2897,$EC2C4CCC8C0C822A,$1621064156A06108,
+           $C4A0C74511432556,$ED00F0316FFF8DC2,$55AC33DB8A041265,$BE5FF7FEF66C71DF,$5A7AD9B5BFB5B0DC,$996AF2693F8A9FD2,
+           $635D142CE7F8CCEB,$C9F6FF6AB1A11C63,$66507861E0AC272F,$9DE52ACAF19DF177,$DB91F9BC170DAB73,$ACC6C16AE2F8F735,
+           $FF094E8ADA1B8CF2,$E4F3149459335A2E,$B6972ADB91ECF154,$CF4F576EA3C5D5FA,$6113D872FEB9A158,$26D2140F1CD38095,
+           $F0C6D2185A9C194A,$83F6D89A9F7AC969,$E7BB4DAC1773B766,$93934EE6F0D5B7B6,$3C4CE40AAA87813A,$DD3E71706B7AB9FE,
+           $C5465FEDC9F0D799,$1A8BE7FA8A3D0D91,$BC10F1B251AF57EF,$FDEB1582F36579A6,$AD0009BFFF67C5D7
+    Data.b $2B,$83,$80
+	  Angry:
+    Data.q $0603FFE37FFB9C78,$204606374F372F01,$9B7FF86061D461D0,$80840989998199C1,$5959583958880580,$7838D9D9D8B95858,
+           $79B9B8B9B87878B8,$B8F904F9780484F9,$4445850404C405B9,$44C425C5F8794545,$3086404544448424,$B2B272B0B0F50332,
+           $0C908AF372F08A72,$601060E410601FFE,$6412606254666010,$0C41847FFC641664,$0EC2C6C0640654E4,$6462626060145714,
+           $B0B2333132C84465,$883073090A0BB1B2,$6064EBA28895012A,$6264606414E900E3,$320A313308466263,$2A3AB2061908B330,
+           $9987818B7FFC4E26,$867B06416602E811,$AEF6F2F24B8BDF8B,$9F87DA5D753D69BA,$86DFD74932A1DDDA,$F3E23B8A9CB9BAB5,
+           $4D09C4B243627345,$D3B859F847C5BF79,$473FB7B9BE4E5AED,$A1C3D2D556F0AC31,$F0755D6DD65A5277,$728A8DF53ED5CEC8,
+           $67BD6AE28C04D8C7,$E7FEC178BDBA29E8,$CF55E2F2B7A9BD6D,$22BA9867FD54CF0C,$488240E45448A23F,$13038E8CE540A97F,
+           $7C2C2CE4F96F3326,$6E2FFD39CDB6C5FE,$B391B5B12912C8DF,$DF05A2D96671BB34,$777E16AFB406BAF6,$E1D33291B399EEC8,
+           $33D59E3A353B3389,$BA7B712C4666964B,$A0AB2EAAF1CFF62C,$B4BA2C4A274787C2,$FBCEE5BB65BE2F2A,$0026FFFE3DFE76CB
+    Data.b $79,$05,$8B,$3B
+    Sad:
+    Data.q $0603FFE37FFB9C78,$204606374F372F01,$9B7FF86061D461D0,$80840989998199C1,$5959583958880580,$7838D9D9D8B95858,
+           $79B9B8B9B87878B8,$B8F904F9780484F9,$4445850404C405B9,$44C425C5F8794545,$3086404544448424,$B2B272B0B0F50332,
+           $0C908AF372F08A72,$601060E410601FFE,$6412606254666010,$1441847FFC641664,$1401CAC0140654E8,$8801983A00601796,
+           $413672E809918060,$463E906561214506,$41456140EC6C7D74,$8C4CC2112F904606,$4A420C868ACC822C,$E062DFFF1B031C1F,
+           $60C82CCF5A046661,$AAE6576DECA7B0CF,$E6B76FABA5919DEC,$E7E2B5E8CB5B8BBC,$04B5DB1EE6E59EE1,$10BC4B2B08AD5642,
+           $A0FBD5753B60D0DF,$AEF7A39B221BFD90,$9D5305CD74F4390C,$776AAD09AD4916FE,$389DCEA743441B02,$6B97E3908A6FE4A5,
+           $A4D793024B56D249,$2C443FB55E091FA4,$7FC11943E59AE229,$B68570568C95B497,$996C16B1EDCACA7B,$A0B1DD60FB2DBF9D,
+           $CBE4B276DB8E0F25,$78B55C5DD507CA18,$FAADA3BBA896A6B3,$B72FA155767B973C,$E33ED4F3BCC9BBE5,$EDD8FBB85FB0AD7B,
+           $727A46A22CC11C97,$AC00137FFAEFEFBB
+    Data.b $1A,$79,$14
+    Smile:
+    Data.q $0603FFE37FFB9C78,$204606374F372F01,$9B7FF86061D461D0,$80840989998199C1,$5959583958880580,$7838D9D9D8B95858,
+           $79B9B8B9B87878B8,$B8F904F9780484F9,$4445850404C405B9,$44C425C5F8794545,$3086404544448424,$B2B272B0B0F50332,
+           $0C908AF372F08A72,$601060E410601FFE,$6412606254666010,$1441847FFC641664,$1401CAC0140654E8,$1981983A00601796,
+           $A09B397404C8C921,$231F4821A8A2B090,$2092B0A076363EBA,$5014922B2B0B0303,$90A261A2A303209B,$316FFF8F87E36052,
+           $641667ED023330F0,$732BB6F653D867B0,$5BB7D5D2C8CEF655,$F15AF465ADC5DE73,$885E626F2FD25DB9,$2F0E6F3580D0CAC2,
+           $6F7A1DAB50C8CFD8,$ABDB6CCD84FACAC9,$15905C8E9EB65683,$766449CAB2902729,$5B99585868431BA1,$7D8FF8930AD7E5E0,
+           $44FF16904AE778BA,$BE675957E2ABAA89,$26BFD078E7F6CCE6,$7BC2C72E0AD76996,$CEA4C26F052C8C42,$7C3AFED3E85C2E3D,
+           $6B4A75C4B16B32C3,$9E91DE6C7F1FD479,$430782FEDD80B3AA,$7369F71ED44E976D,$BE8FF1CC8716792D,$B7072299B0EDF7D6,
+           $EFD539DD168CE39E,$76260D0004DFFF0B
+    Data.b $86
+    Laugh:
+    Data.q $0603FFE37FFB9C78,$204606374F372F01,$9B7FF86061D461D0,$80840989998199C1,$5959583958880580,$7838D9D9D8B95858,
+           $79B9B8B9B87878B8,$B8F904F9780484F9,$4445850404C405B9,$44C425C5F8794545,$3086404544448424,$B2B272B0B0F50332,
+           $0C908AF372F08A72,$601060E410601FFE,$6412606254666010,$9C41847FFC641664,$B0B0190191998181,$981805E4250073B2,
+           $304980FE81591819,$0A0BB1B2B330B132,$49228815030A3831,$905958503B2B0041,$CC211D8999999181,$2864A2CCC2D404C8,
+           $FFF078541818E8AC,$CC824C9DA01E062D,$7D65BFF70CF60C82,$CAE4E9ABBBAC277C,$C7C965B28E7AD1F3,$285A18F517A322BB,
+           $8D7FCB5759AD39AB,$DF9D76E7E8C1DDB1,$CDB336E6FD6701D9,$27AF49D3EE737915,$857166DFDF4E5D87,$47F739748D04F8F5,
+           $89AA9E158937C74D,$E5D9D55DEDE5FBDF,$9CC332BB2CF34C53,$7971B514DE2F2ED2,$ED5D3E29AF77F732,$7EBC6857EF0E9987,
+           $B2E75CFBF0BFA3F8,$784F86FE4F87BF60,$278BC9948270DE70,$C5A426BFDC7C62D3,$7AF8E1A87C59BDEB,$49BEFEDE2FD78997,
+           $87B6D351836049CC,$EAF8BA2CE7C3DCEB,$65710552DFAF9E62,$FFC77FD2CBB70DF7
+    Data.b $BF,$09,$00,$95,$D9,$86,$B6
+  EndDataSection ;}
+
 EndModule
 
 ;- ========  Module - Example ========
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 8
+  #Example = 10
   
-  ; 1: Headings
-  ; 2: Emphasis
-  ; 3: Lists
-  ; 4: URL and Links
-  ; 5: Image
-  ; 6: Table
-  ; 7: Footnote
-  ; 8: TaskLists
+  ;  1: Headings
+  ;  2: Emphasis
+  ;  3: Lists
+  ;  4: URL and Links
+  ;  5: Image
+  ;  6: Table
+  ;  7: Footnote
+  ;  8: TaskLists
+  ;  9: Subscript / Superscript
+  ; 10: Emoji
   
   Define.s Text$
  
@@ -3314,14 +3569,26 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "[^1]: This is the first footnote." + #LF$
       Text$ + "[^bignote]: Here's one with multiple paragraphs and code."
     Case 8
-      Text$ = "#### Task List ####"  + #LF$
+      Text$ = "#### Task List ####" + #LF$
       Text$ + "- [ ] Write the press release"+ #LF$
       Text$ + "- [X] Update the website"+ #LF$
       Text$ + "- [ ] Contact the media"+ #LF$
+    Case 9
+      Text$ = "#### SubScript / SuperScript ####" + #LF$  + #LF$
+      Text$ + "Chemical formula for water: H~2~O  " + #LF$
+      Text$ + "The area is 10m^2^  " + #LF$
+    Case 10
+      Text$ = "#### Emoji ####" + #LF$  + #LF$
+      Text$ + ":laugh:  laugh  " + #LF$ + #LF$
+      Text$ + ":smile:  smile  " + #LF$ + #LF$
+      Text$ + ":smirk:  smirk  " + #LF$ + #LF$
+      Text$ + ":cool:  cool  " + #LF$ + #LF$
+      Text$ + ":sad:  sad  " + #LF$ + #LF$
+      Text$ + ":angry:  angry  " + #LF$
     Default  
-      Text$ = "### 1. MarkDown ###" + #LF$  + #LF$
-      Text$ + "The gadget can display text formatted with the [MarkDown Syntax](https://www.markdownguide.org/basic-syntax/).  "+ #LF$
-      Text$ + "Markdown[^1] is a lightweight MarkDown language that you can use to add formatting elements to plaintext text documents."+ #LF$
+      Text$ = "### MarkDown ###" + #LF$ + #LF$
+      Text$ + "> The gadget can display text formatted with the [MarkDown Syntax](https://www.markdownguide.org/basic-syntax/).  "+ #LF$
+      Text$ + "> Markdown[^1] is a lightweight MarkDown language that you can use to add formatting elements to plaintext text documents."+ #LF$
       Text$ + "- Markdown files can be read even if it isn’t rendered."  + #LF$
       Text$ + "- Markdown is portable." + #LF$ + "- Markdown is platform independent." + #LF$
       Text$ + "[^1]: Created by John Gruber in 2004."
@@ -3404,7 +3671,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1204
-; Folding = 5ABAAQAAAAICAAAAAACacQAABAAgEQA5-
+; CursorPosition = 11
+; FirstLine = 5
+; Folding = 5BCAAgAAAIgEAACAAAAAAAAABAAAAAQCIAs+
 ; EnableXP
 ; DPIAware

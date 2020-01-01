@@ -8,7 +8,7 @@
 ;/ ( based on 'PurePDF' by LuckyLuke / ABBKlaus / normeus )
 ;/
 
-; Last Update: 18.12.2019
+; Last Update: 31.12.2019
 ; 
 
 
@@ -186,7 +186,7 @@
 
 DeclareModule PDF
   
-  #Version  = 19121800
+  #Version  = 19123100
   
   #Enable_AcroFormCommands  = #True
   #Enable_Annotations       = #True
@@ -478,7 +478,7 @@ DeclareModule PDF
   Declare.f GetWordSpacing(ID.i)
   Declare   HeaderProcedure(*ProcAddress, *StructAddress=#Null)
   Declare   Image(ID.i, FileName.s, X.f=#PB_Default, Y.f=#PB_Default, Width.f=#PB_Default, Height.f=#PB_Default, Link.i=#NoLink)
-  ;Declare   ImageMemory(ID.i, ImageName.s, *Memory, Size.i, Format.i, X.f=#PB_Default, Y.f=#PB_Default, Width.f=#PB_Default, Height.f=#PB_Default, Link.i=#NoLink)
+  Declare   ImageMemory(ID.i, ImageName.s, *Memory, Size.i, Format.i, X.f=#PB_Default, Y.f=#PB_Default, Width.f=#PB_Default, Height.f=#PB_Default, Link.i=#NoLink)
   Declare   InsertTOC(ID.i, Page.i=1, Label.s="", LabelFontSize.i=20, EntryFontSize.i=10, FontFamily.s="Times")
   Declare   Ln(ID.i, Height.f=#PB_Default)
   Declare.s MultiCell(ID.i, Text.s, Width.f, Height.f, Border.i=#False, Align.s="", Fill.i=#False, Indent.i=0, maxLine.i=0)
@@ -5527,9 +5527,9 @@ Module PDF
       
       If X = #PB_Default : X = PDF()\Page\X : EndIf
       If Y = #PB_Default : Y = PDF()\Page\Y : EndIf
-      If Width = #PB_Default : Width = PDF()\Page\Width - PDF()\Margin\Right - PDF()\Page\X : EndIf
+      If Width = #PB_Default : Width = PDF()\Page\Width - PDF()\Margin\Right - PDF()\Margin\Left : EndIf
       
-      Line_(X, Y, Width - X, Y)
+      Line_(X, Y, X + Width, Y)
       
     EndIf
     
@@ -6956,9 +6956,8 @@ CompilerEndIf
 
 ;- ========================
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 188
-; FirstLine = 24
-; Folding = YAwiA5AegAQAIABAABAgIECAAAiBAAAAYAEAAzgIAEnoAAACOIAUQAEIAAQwwEYKA5BCAA9
+; CursorPosition = 10
+; Folding = YAwiA5AegAQAAABAABAgIECAAAgBAAAAYAEAAzgIAEnoAAACOIAUQAEIAAQwwEQAA5BCAA9
 ; Markers = 581,1012,2361,2461,3767,3833
 ; EnableXP
 ; DPIAware
