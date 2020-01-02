@@ -11,13 +11,14 @@
 
 ; Last Update: 02.01.2020
 ;
+; - Added: Hint (Tooltip instead of footnote)
 ; - Added: Definition List
 ; - Added: Code Blocks / Fenced Code Blocks
 ; - Added: SuperScript & SubScript
 ; - Added: Emojis
 ;
 
-; TODO: Formatting Links / Syntax Highlighting ?
+; TODO: Formatting Links
 
 ;{ ===== MIT License =====
 ;
@@ -83,7 +84,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20010200
+  #Version  = 20010201
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -204,6 +205,7 @@ Module MarkDown
     #FootNote
     #Header
     #Heading
+    #Hint
     #HLine
     #Image
     #Italic
@@ -246,6 +248,14 @@ Module MarkDown
     URL.s
     Title.s
     State.i
+  EndStructure ;}
+  
+  Structure Hint_Structure               ;{ MarkDown()\Hint()\...
+    X.i
+    Y.i
+    Width.i
+    Height.i
+    String.s
   EndStructure ;}
   
   Structure Item_Structure               ;{ MarkDown()\Row()\Item()\...
@@ -354,7 +364,7 @@ Module MarkDown
 
 		Hide.i
 		Disable.i
-		
+		ToolTip.i
 		EventValue.s
 		
 		Flags.i
@@ -367,7 +377,8 @@ Module MarkDown
 		Scroll.MarkDown_Scroll_Structure
 		Window.MarkDown_Window_Structure
 
-    Map  FootIdx.i()
+		Map  FootIdx.i()
+		Map  Hint.Hint_Structure()
     List Footnote.Footnote_Structure()
     List Image.Image_Structure()
     List Link.Link_Structure()
@@ -523,6 +534,48 @@ Module MarkDown
 	
 	Procedure   LoadEmojis_()
 	  Define *Buffer
+	  
+	  *Buffer = AllocateMemory(433)
+    If *Buffer
+      UncompressMemory(?Date, 347, *Buffer, 433)
+      Emoji(":date:") = CatchImage(#PB_Any, *Buffer, 433)
+      FreeMemory(*Buffer)
+    EndIf
+
+    *Buffer = AllocateMemory(426)
+    If *Buffer
+      UncompressMemory(?Mail, 336, *Buffer, 426)
+      Emoji(":mail:") = CatchImage(#PB_Any, *Buffer, 426)
+      FreeMemory(*Buffer)
+    EndIf
+    
+    *Buffer = AllocateMemory(426)
+    If *Buffer
+      UncompressMemory(?BookMark, 342, *Buffer, 426)
+      Emoji(":bookmark:") = CatchImage(#PB_Any, *Buffer, 426)
+      FreeMemory(*Buffer)
+    EndIf
+
+    *Buffer = AllocateMemory(425)
+    If *Buffer
+      UncompressMemory(?Memo, 340, *Buffer, 425)
+      Emoji(":memo:") = CatchImage(#PB_Any, *Buffer, 425)
+      FreeMemory(*Buffer)
+    EndIf
+    
+    *Buffer = AllocateMemory(437)
+    If *Buffer
+      UncompressMemory(?Pencil, 355, *Buffer, 437)
+      Emoji(":pencil:") = CatchImage(#PB_Any, *Buffer, 437)
+      FreeMemory(*Buffer)
+    EndIf
+    
+    *Buffer = AllocateMemory(395)
+    If *Buffer
+      UncompressMemory(?Phone, 305, *Buffer, 395)
+      Emoji(":phone:") = CatchImage(#PB_Any, *Buffer, 395)
+      FreeMemory(*Buffer)
+    EndIf
 
 	  *Buffer = AllocateMemory(457)
 	  If *Buffer
@@ -1111,26 +1164,38 @@ Module MarkDown
                 ;}
               Case #Emoji       ;{ Emoji
                 Select MarkDown()\Row()\Item()\String
-                  Case ":laugh:"
+                  Case ":laugh:", ":smiley:"
                     HTML$ + "&#128512;"
-                  Case ":smile:"
+                  Case ":smile:", ":simple_smile:"
                     HTML$ + "&#128578;"
                   Case ":sad:"
                     HTML$ + "&#128577;"
                   Case ":angry:"
                     HTML$ + "&#128544;"
-                  Case ":cool:"
+                  Case ":cool:", ":sunglasses:"
                     HTML$ + "&#128526;"
                   Case ":smirk:"
                     HTML$ + "&#128527;"
-                  Case ":worry:"
+                  Case ":worry:", ":worried:"
                     HTML$ + "&#128543;"
                   Case ":wink:"
                     HTML$ + "&#128521;"
                   Case ":rolf:"
                     HTML$ + "&#129315;"
-                  Case ":eyes:" 
+                  Case ":eyes:", ":flushed:" 
                     HTML$ + "&#128580;"
+                  Case ":phone:" , ":telephone_receiver:"
+                    HTML$ + "&#128222;"
+                  Case ":mail:", ":envelope:"
+                    HTML$ + "&#9993;"
+                  Case ":date:", ":calendar:"
+                    HTML$ + "&#128198;"
+                  Case ":memo:"
+                    HTML$ + "&#128221;"
+                  Case ":pencil:", ":pencil2:"    
+                    HTML$ + "&#9999;"
+                  Case ":bookmark:"
+                     HTML$ + "&#128278;"
                 EndSelect    
                 ;}
               Default           ;{ Text
@@ -1278,13 +1343,49 @@ Module MarkDown
   	  Define *Buffer
   	  
   	  Select Emoji
-  	    Case ":laugh:"
+  	    Case ":date:", ":calendar:"
+  	      *Buffer = AllocateMemory(433)
+          If *Buffer
+            UncompressMemory(?Date, 347, *Buffer, 433)
+            PDF::ImageMemory(PDF, "Date.jpg", *Buffer, 433, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
+          EndIf
+        Case ":mail:", ":envelope:"
+  	      *Buffer = AllocateMemory(426)
+          If *Buffer
+            UncompressMemory(?Mail, 336, *Buffer, 426)
+            PDF::ImageMemory(PDF, "Mail.jpg", *Buffer, 426, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
+          EndIf
+  	    Case ":bookmark:"
+  	      *Buffer = AllocateMemory(426)
+          If *Buffer
+            UncompressMemory(?BookMark, 342, *Buffer, 426)
+            PDF::ImageMemory(PDF, "BookMark.jpg", *Buffer, 426, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
+          EndIf
+  	    Case ":memo:"
+  	      *Buffer = AllocateMemory(425)
+          If *Buffer
+            UncompressMemory(?Memo, 340, *Buffer, 425)
+            PDF::ImageMemory(PDF, "Memo.jpg", *Buffer, 425, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
+          EndIf
+  	    Case ":pencil:", ":pencil2:"
+  	      *Buffer = AllocateMemory(437)
+          If *Buffer
+            UncompressMemory(?Pencil, 355, *Buffer, 437)
+            PDF::ImageMemory(PDF, "Pencil.jpg", *Buffer, 437, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
+          EndIf
+  	    Case ":phone:", ":telephone_receiver:"
+  	      *Buffer = AllocateMemory(395)
+          If *Buffer
+            UncompressMemory(?Phone, 305, *Buffer, 395)
+            PDF::ImageMemory(PDF, "Phone.jpg", *Buffer, 395, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
+          EndIf
+  	    Case ":laugh:", ":smiley:"
   	      *Buffer = AllocateMemory(457)
       	  If *Buffer
             UncompressMemory(?Laugh, 375, *Buffer, 457)
             PDF::ImageMemory(PDF, "Laugh.jpg", *Buffer, 457, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
           EndIf
-        Case ":smile:"
+        Case ":smile:", ":simple_smile:"
           *Buffer = AllocateMemory(447)
       	  If *Buffer
             UncompressMemory(?Smile, 362, *Buffer, 447)
@@ -1302,7 +1403,7 @@ Module MarkDown
             UncompressMemory(?Angry, 364, *Buffer, 448)
             PDF::ImageMemory(PDF, "Angry.jpg", *Buffer, 448, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
           EndIf
-        Case ":cool:"  
+        Case ":cool:", ":sunglasses:"
           *Buffer = AllocateMemory(457)
       	  If *Buffer
             UncompressMemory(?Cool, 375, *Buffer, 457)
@@ -1314,7 +1415,7 @@ Module MarkDown
             UncompressMemory(?Smirk, 371, *Buffer, 452)
             PDF::ImageMemory(PDF, "Smirk.jpg", *Buffer, 452, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
           EndIf
-        Case ":eyes:"
+        Case ":eyes:", ":flushed:"
           *Buffer = AllocateMemory(448)
       	  If *Buffer
             UncompressMemory(?Eyes, 366, *Buffer, 448)
@@ -1332,12 +1433,12 @@ Module MarkDown
             UncompressMemory(?Wink, 374, *Buffer, 456)
             PDF::ImageMemory(PDF, "Wink.jpg", *Buffer, 456, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
           EndIf  
-        Case ":worry:"
+        Case ":worry:", ":worried:"
           *Buffer = AllocateMemory(452)
       	  If *Buffer
             UncompressMemory(?Worry, 364, *Buffer, 452)
             PDF::ImageMemory(PDF, "Worry.jpg", *Buffer, 452, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
-          EndIf  
+          EndIf
       EndSelect
       
   	EndProcedure
@@ -1712,26 +1813,38 @@ Module MarkDown
     If ePos
       
       Select Mid(Row, sPos, ePos - sPos + 1)
-        Case ":laugh:"
+        Case ":laugh:", ":smiley:"
           ProcedureReturn ePos
-        Case ":smile:"
+        Case ":smile:", ":simple_smile:"
           ProcedureReturn ePos
         Case ":sad:"
           ProcedureReturn ePos
         Case ":angry:"
           ProcedureReturn ePos
-        Case ":cool:"
+        Case ":cool:", ":sunglasses:"
           ProcedureReturn ePos
         Case ":smirk:"
           ProcedureReturn ePos
-        Case ":eyes:"
+        Case ":eyes:", ":flushed:"
           ProcedureReturn ePos
-        Case ":rolf:"
+        Case ":rolf:", ":joy:"
           ProcedureReturn ePos
         Case ":wink:"
           ProcedureReturn ePos
-        Case ":worry:"
+        Case ":worry:", ":worried:"
           ProcedureReturn ePos
+        Case ":phone:", ":telephone_receiver:" 
+          ProcedureReturn ePos
+        Case ":mail:", ":envelope:"
+          ProcedureReturn ePos
+        Case ":date:"
+          ProcedureReturn ePos
+        Case ":memo:"  
+          ProcedureReturn ePos
+        Case ":pencil:", ":pencil2:"
+          ProcedureReturn ePos
+        Case ":bookmark:", ":pencil2:"
+          ProcedureReturn ePos  
       EndSelect
       
     EndIf
@@ -1742,22 +1855,23 @@ Module MarkDown
   Procedure.i Footnote_(Row.s, sPos.i)
     Define.s Note$
     Define.i ePos
+
+    ePos = FindString(Row, "]", sPos + 2)
+    If AddElement(MarkDown()\Row()\Item())
+      MarkDown()\Row()\Item()\Type   = #FootNote
+      MarkDown()\Row()\Item()\String = Mid(Row, sPos + 2, ePos - sPos - 2)
+    EndIf
     
-    ePos = FindString(Row, "]:", sPos + 2)
-    If ePos
-      Note$ = Mid(Row, sPos + 2, ePos - sPos - 2)
-      If AddElement(MarkDown()\FootNote())
-        MarkDown()\FootNote()\Note   = Note$
-        MarkDown()\FootNote()\String = Mid(Row, ePos + 2)
-        MarkDown()\FootIdx(Note$) = ListIndex(MarkDown()\FootNote())
-      EndIf
-      ePos = Len(Row)
-    Else
-      ePos = FindString(Row, "]", sPos + 2)
-      If AddElement(MarkDown()\Row()\Item())
-        MarkDown()\Row()\Item()\Type   = #FootNote
-        MarkDown()\Row()\Item()\String = Mid(Row, sPos + 2, ePos - sPos - 2)
-      EndIf
+    ProcedureReturn ePos
+  EndProcedure
+  
+  Procedure.i Hint_(Row.s, sPos.i)
+    Define.i ePos
+
+    ePos = FindString(Row, "]", sPos + 2)
+    If AddElement(MarkDown()\Row()\Item())
+      MarkDown()\Row()\Item()\Type   = #Hint
+      MarkDown()\Row()\Item()\String = Mid(Row, sPos + 2, ePos - sPos - 2)
     EndIf
     
     ProcedureReturn ePos
@@ -1951,8 +2065,6 @@ Module MarkDown
 
   EndProcedure
  
-  ; TODO: ToolTip: *[HTML]: 
-  
   Procedure.i AddItemText(sPos.i, Pos.i, Row.s, newRow.i)
     
     If sPos <= Pos 
@@ -1999,16 +2111,15 @@ Module MarkDown
               Pos + 1
           EndSelect
           ;}
-        Case "*" ;{ Emphasis
+        Case "*" ;{ Emphasis / 
           
           newRow = AddItemText(sPos, Pos, Row, newRow)
-
+ 
           If AddElement(MarkDown()\Row()\Item())
             ePos = Emphasis_(Row, Pos)
             If ePos : Pos = ePos : EndIf
-          EndIf
-
-          sPos = Pos + 1
+            sPos = Pos + 1
+          EndIf 
           ;}
         Case "`" ;{ Code
           
@@ -2025,12 +2136,17 @@ Module MarkDown
 
           newRow = AddItemText(sPos, Pos, Row, newRow)
           
-          If Mid(Row, Pos, 2) = "[^" ;{ Footnote
+          If Mid(Row, Pos, 2) = "[^"     ;{ Footnote
             
             ePos = Footnote_(Row, Pos)
             If ePos : Pos = ePos : EndIf
             ;}
-          Else                        ;{ Links
+          ElseIf Mid(Row, Pos, 2) = "[>" ;{ Hint (Tooltip)
+            
+            ePos = Hint_(Row, Pos)
+            If ePos : Pos = ePos : EndIf
+            ;}
+          Else                           ;{ Links
             
             If AddElement(MarkDown()\Row()\Item())
               ePos = Link_(Row, Pos)
@@ -2438,15 +2554,29 @@ Module MarkDown
             ;}
           EndIf
           ;}
-        Case "["         ;{ Footnote text
-          ePos = FindString(Row$, "]:", 2)
-          If ePos
-            Text$ = Mid(Row$, 3, ePos - 3)
-            If AddElement(MarkDown()\FootNote())
-              MarkDown()\FootNote()\Note   = Text$
-              MarkDown()\FootNote()\String = Mid(Row$, ePos + 2)
-              MarkDown()\FootIdx(Text$) = ListIndex(MarkDown()\FootNote())
-            EndIf
+        Case "["         ;{ Footnote text / Hint text 
+          
+          If Left(Row$, 2) = "[^"
+            
+            ePos = FindString(Row$, "]:", 2)
+            If ePos
+              Text$ = Mid(Row$, 3, ePos - 3)
+              If AddElement(MarkDown()\FootNote())
+                MarkDown()\FootNote()\Note   = Text$
+                MarkDown()\FootNote()\String = Mid(Row$, ePos + 2)
+                MarkDown()\FootIdx(Text$) = ListIndex(MarkDown()\FootNote())
+              EndIf
+            EndIf 
+            
+          ElseIf Left(Row$, 2) = "[>"
+            
+            ePos = FindString(Row$, "]:", 2)
+            If ePos
+              Text$ = Mid(Row$, 3, ePos - 3)
+              If AddMapElement(MarkDown()\Hint(), Text$)
+                MarkDown()\Hint()\String = Mid(Row$, ePos + 2)
+              EndIf
+            EndIf 
           EndIf  
           ;}
         Case " ", #TAB$  ;{ Indented
@@ -2618,7 +2748,23 @@ Module MarkDown
       
       Rows = 1
       
-      If Link = #PB_Default ;{ WordWrap
+      If ListSize(MarkDown()\Row()\Item()) And MarkDown()\Row()\Item()\Type = #Hint ;{ Hint
+        
+        PosX = MarkDown()\LeftBorder + Indent + OffSetBQ
+        Y + TextHeight(Text)
+        Rows + 1
+        MarkDown()\WrapHeight + txtHeight
+        
+        If FindMapElement(MarkDown()\Hint(), Text)
+          MarkDown()\Hint()\X = PosX
+          MarkDown()\Hint()\Y = Y
+          MarkDown()\Hint()\Width  = TextWidth(Text)
+          MarkDown()\Hint()\Height = txtHeight
+          Line(PosX, Y + MarkDown()\Hint()\Height, MarkDown()\Hint()\Width, 1, MarkDown()\Color\Link)
+          PosX = DrawText(PosX, Y, Text, FrontColor)
+        EndIf  
+        ;}
+      ElseIf Link = #PB_Default               ;{ WordWrap
       
         PosX  = X
 
@@ -2650,18 +2796,18 @@ Module MarkDown
   
         Next
         ;}
-      Else                  ;{ Move to next line
+      Else                                    ;{ Move to next line
         
         PosX = MarkDown()\LeftBorder + Indent + OffSetBQ
         Y + TextHeight(Text)
         Rows + 1
-        MarkDown()\WrapHeight + TextHeight("Abc")
+        MarkDown()\WrapHeight + txtHeight
         
         If SelectElement(MarkDown()\Link(), Link)
           MarkDown()\Link()\X      = PosX
           MarkDown()\Link()\Y      = Y
           MarkDown()\Link()\Width  = TextWidth(Text)
-          MarkDown()\Link()\Height = TextHeight(Text)
+          MarkDown()\Link()\Height = txtHeight
           If MarkDown()\Link()\State : FrontColor = MarkDown()\Color\LinkHighlight : EndIf 
         EndIf
         
@@ -2671,18 +2817,28 @@ Module MarkDown
         ;}
       EndIf
       
-      If MarkDown()\BlockQuote
+      If MarkDown()\BlockQuote                ;{ BlockQuote
         DrawingMode(#PB_2DDrawing_Default)
         Box(MarkDown()\LeftBorder, bqY, dpiX(5), txtHeight * Rows, MarkDown()\Color\BlockQuote)
         If MarkDown()\BlockQuote = 2
           Box(MarkDown()\LeftBorder + dpiX(10), bqY, dpiX(5), txtHeight * Rows, MarkDown()\Color\BlockQuote)
-        EndIf  
+        EndIf ;}
       EndIf 
       
       ProcedureReturn PosX - OffSetBQ
     Else
-
-      If Link <> #PB_Default
+      
+      If ListSize(MarkDown()\Row()\Item()) And MarkDown()\Row()\Item()\Type = #Hint ;{ Hint
+        If FindMapElement(MarkDown()\Hint(), Text)
+          MarkDown()\Hint()\X = X
+          MarkDown()\Hint()\Y = Y
+          MarkDown()\Hint()\Width  = TextWidth(Text)
+          MarkDown()\Hint()\Height = TextHeight(Text)
+          Line(X, Y + MarkDown()\Hint()\Height, MarkDown()\Hint()\Width, 1, MarkDown()\Color\Link)
+        EndIf
+      EndIf ;}
+     
+      If Link <> #PB_Default                  ;{ Link
         If SelectElement(MarkDown()\Link(), Link)
           MarkDown()\Link()\X      = X
           MarkDown()\Link()\Y      = Y
@@ -2690,18 +2846,18 @@ Module MarkDown
           MarkDown()\Link()\Height = TextHeight(Text)
           If MarkDown()\Link()\State : FrontColor = MarkDown()\Color\LinkHighlight : EndIf 
         EndIf
-      EndIf
+      EndIf ;}
       
       If Flag = #StrikeThrough : Line(X, Y + OffsetY, TextWidth(Text), 1, FrontColor) : EndIf 
      
       X = DrawText(X, Y, Text, FrontColor)
       
-      If MarkDown()\BlockQuote
+      If MarkDown()\BlockQuote                ;{ BlockQuote
         DrawingMode(#PB_2DDrawing_Default)
         Box(MarkDown()\LeftBorder, bqY, dpiX(5), TextHeight(Text), MarkDown()\Color\BlockQuote)
         If MarkDown()\BlockQuote = 2
           Box(MarkDown()\LeftBorder + dpiX(10), bqY, dpiX(5), TextHeight(Text), MarkDown()\Color\BlockQuote)
-        EndIf 
+        EndIf ;}
       EndIf  
      
       ProcedureReturn X - OffSetBQ
@@ -3076,6 +3232,10 @@ Module MarkDown
                   DrawingFont(FontID(MarkDown()\Font\FootNote))
                   X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, FrontColor)
                   ;}                
+                Case #Hint          ;{ Hint
+                  DrawingFont(FontID(MarkDown()\Font\Normal))
+                  X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, FrontColor)
+                  ;}
                 Case #Link          ;{ Link
                   DrawingFont(FontID(MarkDown()\Font\Normal))
                   X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, LinkColor, #False, 0, MarkDown()\Row()\Item()\Index)  
@@ -3285,6 +3445,22 @@ Module MarkDown
   			  EndIf
 			  EndIf
 			Next  
+			
+			ForEach MarkDown()\Hint()
+			  If Y >= MarkDown()\Hint()\Y And Y <= MarkDown()\Hint()\Y + MarkDown()\Hint()\Height 
+			    If X >= MarkDown()\Hint()\X And X <= MarkDown()\Hint()\X + MarkDown()\Hint()\Width
+			      SetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
+			      If MarkDown()\ToolTip = #False
+			        GadgetToolTip(GNum, MarkDown()\Hint()\String)
+			        MarkDown()\ToolTip = #True
+    			  EndIf
+  			    ProcedureReturn #True
+  			  EndIf
+			  EndIf
+			Next  
+			
+			MarkDown()\ToolTip = #False
+			GadgetToolTip(GNum, "")
 			
 			SetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_Default)
 
@@ -3868,7 +4044,62 @@ Module MarkDown
            $B376D602F2F43132,$E7CD71DB39D7771F,$E3D34FB79E51D2D5,$8E3C7835AFF994F8,$57BFD6F90DAF1D39,$A68757D1F3996635,
            $ED351FA6195E0EDE,$5597877C867AB321,$577BCEE5D2C2E390,$F1D4AF6BCACBA4C8,$676FC99CC76DF35D,$A0A6B8D13C75F39D,
            $EAFAE7F83591C783,$E639BE77AF8D2720,$A1C456A3FBF25D9D,$DC0004DFFFE7DBE4
-    Data.b $05,$75,$EA        
+    Data.b $05,$75,$EA 
+    Phone:
+    Data.q $0603FFE37FFB9C78,$464606374F372F01,$9B7FF86420390646,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
+           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
+           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4E81441847FFC641,$456140EC6C014065,
+           $8466261646260601,$A29B2B0B33132324,$5013A1A3B08310A0,$A28167A046BA0889,$19987818B7A29882,$0433D8320B325681,
+           $D4EDB117F8ECDAB7,$59B6BBDCCB8DE5AA,$415B54A1B7986C46,$645FE433B989C3FD,$CD9AE1F6B4F875BC,$6904BBBFCB4ACD42,
+           $B13AA849555E64B7,$08DE65F71FC5F3E7,$FA9FF6E47796B56E,$242429DB4FA7ACC4,$6E8737CB7DAADDE6,$CA1E9B237D6AAAC9,
+           $CA031713B6CF7F30,$5E11170004DFFF98
+    Data.b $80
+    Pencil:
+    Data.q $0603FFE37FFB9C78,$464606374F372F01,$9B7FF86420190646,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
+           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
+           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4EC0C41847FFC641,$6571406C0CEC0645,
+           $8456664616460601,$9B2B208B33132324,$1142E063A1832290,$CC0CBD745122A027,$262606411961402C,$6606264661246626,
+           $62DFFF0B89E52541,$C82CCF5A046661E0,$4B92DBEAC170CF60,$7A72FEAD975E4EBF,$2F1DAE770994FBA2,$E3C82F957BE03FAE,
+           $D38BA791E057071D,$DC76CA453B0D3914,$3D7F2A69F5ED11FA,$6A6D9ADC8B374287,$778E022AFD824966,$52687DAB9878AF6E,
+           $1C5E3C1B83A51FED,$93CF0AF1AFB3F9AB,$2CF9B857C9AD394F,$F2F20A2E5FB39D65,$803AB8131A2223BC,$6C0C6D89FFADA6E5,
+           $1B7A3752CA78DF21,$080026FFFFE33EDE
+    Data.b $92,$6C,$A6
+    Memo:
+    Data.q $0603FFE37FFB9C78,$204606374F372F01,$9B7FF86061D461D0,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
+           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
+           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4E40C41847FFC641,$7140CC8C6C064065,
+           $6646262626060155,$0B33132338985666,$889B22B08310A0AB,$32A042E051A192A3,$0961406540DD7451,$0646091466064641,
+           $807818B7FFC54341,$0CF60C82CC824CC2,$593903C7A5AD7E99,$7F78EABF84C38255,$7F6BFDBD7BF32DEF,$1FB7D57CEDECFF30,
+           $5DFEB07230885C14,$242C3C5DB21A5F28,$392DD96A729B7B94,$A849375B4B32CB86,$25D6BE500A2D4C2C,$B69EC0BD64B3AD69,
+           $AAEC7F1C022D4959,$99636D70BADC5F3C,$657D062C115BC6D5,$1C928A8BE53CA373,$3BBA0F5FE7DC65ED,$0137FFE6F580A275
+    Data.b $E6,$CF,$61,$4A
+    BookMark:
+    Data.q $0603FFE37FFB9C78,$204606374F372F01,$9B7FF86061D461D0,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
+           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
+           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4E40C41847FFC641,$71406CAC2C064065,
+           $4616664626060165,$AB0B13332338B856,$88B09B10A0BB0322,$5EBA2891502063B2,$50208CB0A0166606,$5040501330B22B31,
+           $1E062DFFE9D1C458,$F60C82CCF5A04666,$FD8DB5D51DDED70C,$ACD315AB5061FC7C,$FCAEE41C989B1D0D,$E99D20CBF377373C,
+           $17CD971EA20B5547,$CAE17FE07E60716C,$09AA9F5687AD6BDF,$6C5D60BB75E99BBA,$FA0F146BD3ABF052,$F1E271283F94D52C,
+           $8D676952EA038AA4,$F6F8BAC97F599516,$628775B8ACAAD4D5,$4F1C9A648CD55925,$B4BA7AED09894A58,$FFF86AFDDA4E5BD0
+    Data.b $9B,$00,$0D,$96,$67,$9C
+    Mail:
+    Data.q $0603FFE37FFB9C78,$204606374F372F01,$9B7FF86061D461D0,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
+           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
+           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4E40C41847FFC641,$7140ACCC6C064065,
+           $1646261646060165,$AB0B33132324B866,$B0A390BB1B21A2A0,$569A0891503191A8,$62DE8A620A890020,$C82CC824C49A01E0,
+           $59F259581A90CF60,$26A7BE9C57C6D6E0,$3EF0B2CCF54D8A9D,$3DC055770344FCB0,$ECAFD38DB6460DF7,$7FB95FE9D2E72C4D,
+           $0DA2E3D82BC7A3D2,$BE906111D7AC34AF,$2385B9E2599E7729,$C53C43EB6EF5B6FF,$C6A665DA5B2BD20A,$807AFF63A9652D84,
+           $929327CDC4830BF3,$4A766C5DCF5D6F8B,$B1513302EEA39177,$05D934279B75CB1D,$E4B4B3DD4727B071,$7F636ED600137FFF
+    Date:
+    Data.q $0603FFE37FFB9C78,$204606374F372F01,$9B7FF86061D461D0,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
+           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
+           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4E81441847FFC641,$5561402CAC014065,
+           $6646164626260601,$2B0B331323309856,$B288B0A2A1A09B03,$23374821606392A8,$4641496E90666EBA,$2C8DA04619146606,
+           $988330F0316FFF42,$F296CB0CF60C82CC,$8293733B3AEC525E,$0D37574FD05AA47F,$DE0BE538A7FDA786,$33BC0ACF2A97ABAF,
+           $667A9DD9D99C7B75,$ECB5A7D96C319556,$C13ED93C34CBAA0F,$DB23A3DF22AD7D9A,$137DFEA7AB754594,$9160F3C1F2E8DC92,
+           $FF844B0FCD154AC0,$32B969157F4E8A5E,$5ADECDAEC58AE842,$D4B53D695FEE3627,$BCFBAAA76EEEBBCE,$2F74A77786A52976,
+           $470026FFF2DCFD6C
+    Data.b $0D,$68,$4C
   EndDataSection ;}
   
 EndModule
@@ -3877,7 +4108,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 0
+  #Example = 12
   
   ;  1: Headings
   ;  2: Emphasis
@@ -3891,6 +4122,7 @@ CompilerIf #PB_Compiler_IsMainFile
   ; 10: Subscript / Superscript
   ; 11: Code Block
   ; 12: Emoji
+  ; 13: Hint / Tooltip
   
   Define.s Text$
  
@@ -3964,6 +4196,12 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "```" + #LF$
     Case 12
       Text$ = "#### Emoji ####" + #LF$  + #LF$
+      Text$ + ":phone:  telephone receiver  " + #LF$ + #LF$
+      Text$ + ":mail:  envelope  " + #LF$ + #LF$
+      Text$ + ":date:  calendar  " + #LF$ + #LF$
+      Text$ + ":memo:  memo  " + #LF$ + #LF$
+      Text$ + ":pencil:  pencil  " + #LF$ + #LF$
+      Text$ + ":bookmark:  bookmark  " + #LF$ + #LF$
       Text$ + ":laugh:  grinning face with big eyes  " + #LF$ + #LF$
       Text$ + ":smile:  slightly smiling face  " + #LF$ + #LF$
       Text$ + ":smirk:  smirking face  " + #LF$ + #LF$
@@ -3974,6 +4212,11 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + ":wink:  winking face  " + #LF$ + #LF$
       Text$ + ":rolf:  rolling on the floor laughing  " + #LF$ + #LF$
       Text$ + ":eyes:  face with rolling eyes  " + #LF$
+    Case 13  
+      Text$ = "#### Hint / Tooltip ####" + #LF$  + #LF$
+      Text$ + "The [>HTML] specification is maintained by the [>W3C]." + #LF$
+      Text$ + "[>HTML]: Hypertext Markup Language" + #LF$
+      Text$ + "[>W3C]:  World Wide Web Consortium" + #LF$
     Default  
       Text$ = "### MarkDown ###" + #LF$ + #LF$
       Text$ + "> The gadget can display text formatted with the [MarkDown Syntax](https://www.markdownguide.org/basic-syntax/).  "+ #LF$
@@ -4060,9 +4303,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 3879
-; FirstLine = 275
-; Folding = wBCAAgAAAAIAAAAQAAAgBAAAAAACAAAAgEQAQ0
-; Markers = 2896
+; CursorPosition = 4110
+; FirstLine = 561
+; Folding = wBCAAABgAACQCAAgAAAABQABBADAAQIAAAkACAq
+; Markers = 3052
 ; EnableXP
 ; DPIAware
