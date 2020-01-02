@@ -9,11 +9,15 @@
 ;/ © 2019  by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 01.01.2020
+; Last Update: 02.01.2020
 ;
+; - Added: Definition List
+; - Added: Code Blocks / Fenced Code Blocks
 ; - Added: SuperScript & SubScript
 ; - Added: Emojis
 ;
+
+; TODO: Formatting Links / Syntax Highlighting ?
 
 ;{ ===== MIT License =====
 ;
@@ -79,7 +83,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20010103
+  #Version  = 20010200
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -188,11 +192,14 @@ Module MarkDown
     CompilerCase #PB_OS_Linux
       #ScrollBarSize  = 18
   CompilerEndSelect ;}
-	
+  
+  #CodeBlock = 2
+  
   Enumeration 1 ;{ MarkDown
     #Bold
     #BoldItalic
     #Code
+    #DefList
     #Emoji
     #FootNote
     #Header
@@ -218,12 +225,12 @@ Module MarkDown
 	;-   Module - Structures
 	;- ============================================================================	
 	
-  Structure Footnote_Structure         ;{ MarkDown()\Footnote()\...
+  Structure Footnote_Structure           ;{ MarkDown()\Footnote()\...
     Note.s
     String.s
   EndStructure ;}
 
-  Structure Image_Structure            ;{ MarkDown()\Image()\...
+  Structure Image_Structure              ;{ MarkDown()\Image()\...
     Num.i
     Width.i
     Height.i
@@ -259,9 +266,9 @@ Module MarkDown
     String.s
     Index.i
     BlockQuote.i
+    ID.s
     List Item.Item_Structure()
   EndStructure ;}
-  
   
   Structure MarkDown_Required_Structure  ;{ MarkDown()\Required\...
     Width.i
@@ -831,14 +838,14 @@ Module MarkDown
 	EndProcedure
   
   Procedure.s ExportHTML_(Title.s="")
-    Define.i Level, c, ColWidth, Cols, tBody, Class, BlockQuote
-    Define.s HTML$, endTag$, Align$, Indent$
+    Define.i Level, c, ColWidth, Cols, tBody, Class, BlockQuote, DefList
+    Define.s HTML$, endTag$, Align$, Indent$, Syntax$, ID$
     
     HTML$ = "<!DOCTYPE html>" + #LF$ + "<html>" + #LF$ + "<head>" + #LF$ + "<title>" + Title + "</title>" + #LF$ + "</head>" + #LF$ + "<body>" + #LF$
     
     ForEach MarkDown()\Row()
       
-      Select MarkDown()\Row()\BlockQuote
+      Select MarkDown()\Row()\BlockQuote ;{ Blockquotes
         Case 1, 2
           If Not BlockQuote
             HTML$ + "<blockquote>" + #LF$
@@ -848,12 +855,17 @@ Module MarkDown
           If BlockQuote
             HTML$ + "</blockquote>" + #LF$
             BlockQuote = #False
-          EndIf
+          EndIf ;}
       EndSelect
       
       Select MarkDown()\Row()\Type
         Case #Heading     ;{ Heading
-          HTML$ + "<h"+Str(MarkDown()\Row()\Level)+">" + EscapeHTML_(MarkDown()\Row()\String) + "</h"+Str(MarkDown()\Row()\Level)+">" + #LF$
+          If MarkDown()\Row()\ID
+            ID$ = " id=" + #DQUOTE$ + MarkDown()\Row()\ID + #DQUOTE$
+            HTML$ + "<h"+Str(MarkDown()\Row()\Level) + ID$ + ">" + EscapeHTML_(MarkDown()\Row()\String) + "</h"+Str(MarkDown()\Row()\Level) + ">" + #LF$
+          Else  
+            HTML$ + "<h"+Str(MarkDown()\Row()\Level) + ">" + EscapeHTML_(MarkDown()\Row()\String) + "</h"+Str(MarkDown()\Row()\Level) + ">" + #LF$
+          EndIf
           ;}
         Case #OrderedList ;{ Ordered List
           
@@ -934,6 +946,17 @@ Module MarkDown
           
           HTML$ + "</ul>" + #LF$
           ;}
+        Case #DefList     ;{ Definition List
+          ; TODO: Kombinieren der Elemente
+          HTML$ + "<dl>" + #LF$
+          HTML$ + Space(2) + "<dt>" + MarkDown()\Row()\String + "</dt>" + #LF$
+          
+          ForEach MarkDown()\Row()\Item()
+            HTML$ + Space(2) + "<dd>" + MarkDown()\Row()\Item()\String + "</dd>" + #LF$
+          Next
+          
+          HTML$ + "</dl>" + #LF$
+			    ;}  
         Case #HLine       ;{ Horizontal Rule
           HTML$ + "<hr />" + #LF$
           ;}
@@ -1019,6 +1042,24 @@ Module MarkDown
           
           HTML$+ "</tbody>" + #LF$ + "</table>" + #LF$
           ;}
+        Case #Code        ;{ Code Block
+          
+          Syntax$ = MarkDown()\Row()\String
+
+          HTML$ + "<pre>" + #LF$
+          
+          If Syntax$
+            HTML$ + "  <code class=" + #DQUOTE$ + "language-" + Syntax$ + #DQUOTE$ +  ">" + #LF$
+          Else
+            HTML$ + "  <code>" + #LF$
+          EndIf
+          
+          ForEach MarkDown()\Row()\Item()
+            HTML$ + Space(4) + EscapeHTML_(MarkDown()\Row()\Item()\String) + #LF$
+          Next
+          
+          HTML$ + "  </code>" + #LF$ + "</pre>" + #LF$
+          ;}
         Default           ;{ Text
           
           HTML$ + MarkDown()\Row()\String
@@ -1092,8 +1133,8 @@ Module MarkDown
                     HTML$ + "&#128580;"
                 EndSelect    
                 ;}
-              Default
-                HTML$ + EscapeHTML_(MarkDown()\Row()\Item()\String)
+              Default           ;{ Text
+                HTML$ + EscapeHTML_(MarkDown()\Row()\Item()\String) ;}
             EndSelect
           Next
           
@@ -1185,7 +1226,14 @@ Module MarkDown
         Else                  ;{ Move to next line
           
           If SelectElement(MarkDown()\Link(), MarkDown()\Row()\Item()\Index)
-            Link = PDF::AddLinkURL(PDF, URLDecoder(MarkDown()\Link()\URL))
+            
+            If Left(MarkDown()\Link()\URL, 1) = "#"
+              PDF::AddGotoLabel(PDF, MarkDown()\Link()\URL)
+              Link = PDF::#NoLink
+            Else
+              Link = PDF::AddLinkURL(PDF, URLDecoder(MarkDown()\Link()\URL))
+            EndIf
+            
           EndIf
 
           PDF::Ln(PDF)
@@ -1208,7 +1256,14 @@ Module MarkDown
         Else
           
           If SelectElement(MarkDown()\Link(), MarkDown()\Row()\Item()\Index)
-            Link = PDF::AddLinkURL(PDF, URLDecoder(MarkDown()\Link()\URL))
+            
+            If Left(MarkDown()\Link()\URL, 1) = "#"
+              PDF::AddGotoLabel(PDF, MarkDown()\Link()\URL)
+              Link = PDF::#NoLink
+            Else
+              Link = PDF::AddLinkURL(PDF, URLDecoder(MarkDown()\Link()\URL))
+            EndIf
+            
           EndIf
           
           PDF::Cell(PDF, Text, txtWidth, #PB_Default, #False, PDF::#Right, "", #False, "", Link)
@@ -1328,9 +1383,12 @@ Module MarkDown
                   PDF::SetFont(PDF, "Arial", "B", 12)
               EndSelect
               
-              PDF::Cell(PDF, MarkDown()\Row()\String) 
+              If MarkDown()\Row()\ID
+                PDF::Cell(PDF, MarkDown()\Row()\String, #PB_Default, #PB_Default, #False, PDF::#NextLine, "", #False, MarkDown()\Row()\ID) 
+              Else
+                PDF::Cell(PDF, MarkDown()\Row()\String, #PB_Default, #PB_Default, #False, PDF::#NextLine)
+              EndIf
               
-              PDF::Ln(PDF)
               PDF::Ln(PDF, 2)
               ;}
             Case #OrderedList ;{ Ordered List
@@ -1418,6 +1476,18 @@ Module MarkDown
               
               PDF::Ln(PDF, 3)
               ;}
+            Case #DefList     ;{ Definition List
+
+              PDF::SetFont(PDF, "Arial", "B", 11)
+              PDF::SetPosX(PDF, 10)
+              PDF::Cell(PDF, MarkDown()\Row()\String, 180, 5, #False, PDF::#NextLine)
+             
+              PDF::SetFont(PDF, "Arial", "", 11)
+              ForEach MarkDown()\Row()\Item()
+                PDF::SetPosX(PDF, 12)
+                PDF::MultiCellList(PDF, MarkDown()\Row()\Item()\String, 180, 5, #False, PDF::#LeftAlign, #False, Bullet$) 
+              Next 
+			        ;}  
             Case #HLine       ;{ Horizontal Rule
               PDF::Ln(PDF, 3)
               PDF::DividingLine(PDF)
@@ -1523,6 +1593,19 @@ Module MarkDown
               
               PDF::Ln(PDF, 3)
               ;}
+            Case #Code        ;{ Code Block
+
+              PDF::SetFont(PDF, "Courier New", "", 11)
+              
+              PDF::Ln(PDF, 3)
+              
+              ForEach MarkDown()\Row()\Item()
+                PDF::SetPosX(PDF, 15)
+                PDF::MultiCell(PDF, MarkDown()\Row()\Item()\String, 180, 5) 
+              Next
+              
+              PDF::Ln(PDF, 3)
+              ;}
             Default           ;{ Text
               
               PDF::SetMargin(PDF, PDF::#CellMargin, 0)
@@ -1621,7 +1704,41 @@ Module MarkDown
   CompilerEndIf
   
   ;- __________ MarkDown __________
-
+  
+  Procedure.i Emoji_(Row.s, sPos.i)
+    Define.i ePos
+    
+    ePos = FindString(Row, ":", sPos + 1)
+    If ePos
+      
+      Select Mid(Row, sPos, ePos - sPos + 1)
+        Case ":laugh:"
+          ProcedureReturn ePos
+        Case ":smile:"
+          ProcedureReturn ePos
+        Case ":sad:"
+          ProcedureReturn ePos
+        Case ":angry:"
+          ProcedureReturn ePos
+        Case ":cool:"
+          ProcedureReturn ePos
+        Case ":smirk:"
+          ProcedureReturn ePos
+        Case ":eyes:"
+          ProcedureReturn ePos
+        Case ":rolf:"
+          ProcedureReturn ePos
+        Case ":wink:"
+          ProcedureReturn ePos
+        Case ":worry:"
+          ProcedureReturn ePos
+      EndSelect
+      
+    EndIf
+    
+    ProcedureReturn #False  
+  EndProcedure  
+  
   Procedure.i Footnote_(Row.s, sPos.i)
     Define.s Note$
     Define.i ePos
@@ -1747,7 +1864,19 @@ Module MarkDown
     
     ProcedureReturn ePos
   EndProcedure
- 
+  
+  Procedure   HeadingID()
+    Define.i sPos, ePos
+    
+    sPos = FindString(MarkDown()\Row()\String, "{#")
+    If FindString(MarkDown()\Row()\String, "{#")
+      ePos = FindString(MarkDown()\Row()\String, "}")
+      If ePos : MarkDown()\Row()\ID = Mid(MarkDown()\Row()\String, sPos + 1, ePos - sPos - 1) : EndIf
+      MarkDown()\Row()\String = RTrim(Left(MarkDown()\Row()\String, sPos - 1))
+    EndIf
+    
+  EndProcedure
+  
   Procedure.i Headings_(Row.s) 
     Define.i ePos
     
@@ -1772,6 +1901,11 @@ Module MarkDown
       MarkDown()\Row()\Level = 1
       MarkDown()\Row()\String = RTrim(Mid(Row, 2), "#")
     EndIf
+
+    HeadingID()
+    
+    If Left(MarkDown()\Row()\String, 1)  = " " : MarkDown()\Row()\String = Mid(MarkDown()\Row()\String, 2) : EndIf 
+    If Right(MarkDown()\Row()\String, 1) = " " : MarkDown()\Row()\String = Left(MarkDown()\Row()\String, Len(MarkDown()\Row()\String) - 1) : EndIf
     
     ProcedureReturn Len(Row)
   EndProcedure
@@ -1914,9 +2048,8 @@ Module MarkDown
           If AddElement(MarkDown()\Row()\Item())
             
             ePos = URL_(Row, Pos)
-            
+
             MarkDown()\Row()\Item()\String = Mid(Row, Pos + 1, ePos - Pos - 1)
-            
             If AddElement(MarkDown()\Link())
               MarkDown()\Row()\Item()\Index = ListIndex(MarkDown()\Link())
               MarkDown()\Link()\URL = MarkDown()\Row()\Item()\String
@@ -1971,18 +2104,19 @@ Module MarkDown
           ;}
         Case ":" ;{ Emoji
           
-          newRow = AddItemText(sPos, Pos, Row, newRow)
+          ePos = Emoji_(Row, Pos)
+          If ePos
+            
+            newRow = AddItemText(sPos, Pos, Row, newRow)
           
-          If AddElement(MarkDown()\Row()\Item())
-            ePos = FindString(Row, ":", Pos + 1)
-            If ePos
+            If AddElement(MarkDown()\Row()\Item())
               MarkDown()\Row()\Item()\Type   = #Emoji
               MarkDown()\Row()\Item()\String = Mid(Row, Pos, ePos - Pos + 1)
               Pos = ePos
             EndIf
-          EndIf
           
-          sPos = Pos + 1
+            sPos = Pos + 1
+          EndIf  
           ;}
       EndSelect
       
@@ -2010,7 +2144,8 @@ Module MarkDown
   EndProcedure
   
   Procedure   Parse_(Text.s)
-    Define.i r, Rows, c, Cols, Length, Pos, sPos, ePos, BQ, newRow, LineBreak, Type
+    Define.i r, Rows, c, Cols, Length, Pos, sPos, ePos, newRow, LineBreak
+    Define.i BQ, Type, CodeBlock
     Define.s Row$, Num$, trimRow$, Col$, Text$
     
     Text = ReplaceString(Text, #CRLF$, #LF$)
@@ -2037,16 +2172,51 @@ Module MarkDown
         BQ = 1
         Row$ = Mid(Row$, 3)
       EndIf 
-    
+
+      If Left(Row$, 3) = "```" ;{ Code Block
+        
+        If CodeBlock
+          CodeBlock = #False 
+        Else    
+          If AddElement(MarkDown()\Row())
+            MarkDown()\Row()\Type   = #Code
+            MarkDown()\Row()\String = Trim(Mid(Row$, 4)) ; Syntax
+            CodeBlock = #True
+          EndIf  
+        EndIf
+        
+        Continue
+      ElseIf CodeBlock
+        
+        If CodeBlock = #CodeBlock
+          
+          If Left(Row$, 4) = "    "
+            If AddElement(MarkDown()\Row()\Item())
+              MarkDown()\Row()\Item()\Type   = #Code
+              MarkDown()\Row()\Item()\String = Mid(Row$, 5)
+            EndIf
+            Continue
+          Else
+            CodeBlock = #False
+          EndIf 
+          
+        ElseIf CodeBlock
+          
+          If AddElement(MarkDown()\Row()\Item())
+            MarkDown()\Row()\Item()\Type   = #Code
+            MarkDown()\Row()\Item()\String = Row$
+            Continue
+          EndIf
+          
+        EndIf
+        ;}
+      EndIf
+      
       Select Left(Row$, 1)
         Case "#"         ;{ Headings
-          
-          ; TODO: HeadingID: ### My Great Heading {#custom-id} / <h3 id="custom-id">My Great Heading</h3>
-     
+
           If AddElement(MarkDown()\Row())
             Headings_(Row$)
-            If Left(MarkDown()\Row()\String, 1)  = " " : MarkDown()\Row()\String = Mid(MarkDown()\Row()\String, 2) : EndIf 
-            If Right(MarkDown()\Row()\String, 1) = " " : MarkDown()\Row()\String = Left(MarkDown()\Row()\String, Len(MarkDown()\Row()\String) - 1) : EndIf
             MarkDown()\Row()\BlockQuote = BQ
           EndIf
           ;}        
@@ -2055,6 +2225,7 @@ Module MarkDown
           If ListSize(MarkDown()\Row()) And MarkDown()\Row()\Type = #Text And CountString(Row$, "=") = Len(Row$)
             MarkDown()\Row()\Type  = #Heading
             MarkDown()\Row()\Level = 1
+            HeadingID()
           Else
             LineBreak = ParseText_(Row$, BQ, LineBreak)
           EndIf
@@ -2080,6 +2251,7 @@ Module MarkDown
                 
                 MarkDown()\Row()\Type  = #Heading
                 MarkDown()\Row()\Level = 2
+                HeadingID()
                 
               Default
                 
@@ -2193,6 +2365,34 @@ Module MarkDown
           ; TODO: Parse remaining text 
           
           ;}
+        Case ":"         ;{ Definition Lists
+          
+          If Left(Row$, 2) = ": "
+            
+            If ListSize(MarkDown()\Row()) And MarkDown()\Row()\Type = #DefList
+              
+              If AddElement(MarkDown()\Row()\Item())
+                MarkDown()\Row()\Item()\Type   = #DefList
+                MarkDown()\Row()\Item()\String = RTrim(Mid(Row$, 3))
+              EndIf
+              
+            ElseIf ListSize(MarkDown()\Row()) And MarkDown()\Row()\Type = #Text
+              
+              MarkDown()\Row()\Type = #DefList
+              
+              If AddElement(MarkDown()\Row()\Item())
+                MarkDown()\Row()\Item()\Type   = #DefList
+                MarkDown()\Row()\Item()\String = RTrim(Mid(Row$, 3))
+              EndIf
+              
+            Else
+              LineBreak = ParseText_(Row$, BQ, LineBreak)  
+            EndIf
+            
+          Else
+            LineBreak = ParseText_(Row$, BQ, LineBreak)  
+          EndIf
+          ;}
         Case "!"         ;{ Image
           
           If Left(Row$, 2) = "!["
@@ -2254,7 +2454,13 @@ Module MarkDown
           trimRow$ = LTrim(Row$, #TAB$)
           trimRow$ = LTrim(trimRow$)
           
-          If Left(Row$, 4) = "    " Or Left(Row$, 1) = #TAB$
+          If Left(trimRow$, 2) = "!["                      ;{ Image
+            
+            If AddElement(MarkDown()\Row())
+              Image_(trimRow$, 2)
+            EndIf
+            ;}
+          ElseIf Left(Row$, 4) = Space(4) Or Left(Row$, 1) = #TAB$
             Select Mid(Row$, 5, 1)
               Case "-", "+", "*"                               ;{ Unordered Lists (indented)
                 
@@ -2296,15 +2502,17 @@ Module MarkDown
                 EndIf
                 ;}
               Default                                          ;{ Text
-                LineBreak = ParseText_(Row$, BQ, LineBreak)
+                Debug "#CodeBlock: " + Mid(Row$, 5)
+                If AddElement(MarkDown()\Row())
+                  MarkDown()\Row()\Type = #Code
+                  If AddElement(MarkDown()\Row()\Item())
+                    MarkDown()\Row()\Item()\Type   = #Code
+                    MarkDown()\Row()\Item()\String = Mid(Row$, 5)
+                  EndIf
+                  CodeBlock = #CodeBlock
+                EndIf  
                 ;}
             EndSelect
-          ElseIf Left(trimRow$, 2) = "!["                      ;{ Image
-            
-            If AddElement(MarkDown()\Row())
-              Image_(trimRow$, 2)
-            EndIf
-            ;}
           Else                                                 ;{ Text
             LineBreak = ParseText_(Row$, BQ, LineBreak)
             ;}
@@ -2667,7 +2875,7 @@ Module MarkDown
 			      
 			      Y + MarkDown()\WrapHeight + (TextHeight / 2)
 			      ;}
-			    Case #TaskList    ;{  
+			    Case #TaskList    ;{ Task List 
 			      
 			      Y + (TextHeight / 2)
 			      
@@ -2685,6 +2893,23 @@ Module MarkDown
 			      
 			      Y + (TextHeight / 2)
 			      ;}
+			    Case #DefList     ;{ Definition List
+			      
+			      DrawingMode(#PB_2DDrawing_Transparent)  
+			      
+			      DrawingFont(FontID(MarkDown()\Font\Bold))
+			      DrawText_(X, Y, MarkDown()\Row()\String, FrontColor)
+			      
+			      Y + (TextHeight * 1.1)
+			      
+			      DrawingFont(FontID(MarkDown()\Font\Normal))
+			      ForEach MarkDown()\Row()\Item()
+			        DrawText_(X + MarkDown()\Indent, Y, MarkDown()\Row()\Item()\String, FrontColor, MarkDown()\Indent)
+			        Y + (TextHeight * 1.1)
+			      Next
+			      
+			      Y + MarkDown()\WrapHeight
+			      ;}
 			    Case #HLine       ;{ Horizontal Rule  
 
 			      OffSetY = TextHeight / 2
@@ -2693,7 +2918,7 @@ Module MarkDown
 			      Y + TextHeight
 			      ;}
 			    Case #Paragraph   ;{ Paragraph  
-			      Y + TextHeight
+			      Y + (TextHeight / 2)
 			      ;}
 			    Case #Image       ;{ Image
 			      If SelectElement(MarkDown()\Image(), MarkDown()\Row()\Index)
@@ -2786,6 +3011,22 @@ Module MarkDown
 			      Next
 			      
 			      Y + (TextHeight / 2)
+			      ;}
+			    Case #Code        ;{ Code Block  
+			      
+			      DrawingMode(#PB_2DDrawing_Transparent)
+			      
+			      Y + (TextHeight / 2)
+			      
+			      DrawingFont(FontID(MarkDown()\Font\Code))
+			      TextHeight = TextHeight("Abc")
+			      
+			      ForEach MarkDown()\Row()\Item()
+              DrawText_(X, Y, MarkDown()\Row()\Item()\String, FrontColor)
+			        Y + TextHeight
+			      Next
+			      
+			      Y + MarkDown()\WrapHeight + (TextHeight / 2)
 			      ;}
 			    Default           ;{ Text
 			      
@@ -3241,6 +3482,7 @@ Module MarkDown
     	      WriteString(FileID, String, #PB_UTF8)
     	      CloseFile(FileID)
     	    EndIf
+    	    
     	  Case #PDF
     	    
     	    CompilerIf Defined(PDF, #PB_Module)
@@ -3635,7 +3877,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 6
+  #Example = 0
   
   ;  1: Headings
   ;  2: Emphasis
@@ -3645,21 +3887,23 @@ CompilerIf #PB_Compiler_IsMainFile
   ;  6: Table
   ;  7: Footnote
   ;  8: TaskLists
-  ;  9: Subscript / Superscript
-  ; 10: Emoji
+  ;  9: Definition List
+  ; 10: Subscript / Superscript
+  ; 11: Code Block
+  ; 12: Emoji
   
   Define.s Text$
  
   Select #Example
     Case 1   
-      Text$ = "Heading level 1"+ #LF$
+      Text$ = "Heading level 1"+ #LF$ 
       Text$ + "==============="+ #LF$
       Text$ + "Heading level 2"+ #LF$
       Text$ + "---------------"+ #LF$
       Text$ + "### Heading level 3 ###"  + #LF$
       Text$ + "#### Heading level 4 ####"  + #LF$
       Text$ + "##### Heading level 5 #####"  + #LF$
-      Text$ + "###### Heading level 6 #####"  + #LF$
+      Text$ + "###### Heading level 6 #####"  + #LF$ + #LF$
     Case 2
       Text$ = "#### Emphasis ####" + #LF$ + #LF$
       Text$ + "I just love **bold text**." + #LF$
@@ -3697,11 +3941,28 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "- [ ] Write the press release"+ #LF$
       Text$ + "- [X] Update the website"+ #LF$
       Text$ + "- [ ] Contact the media"+ #LF$
-    Case 9
+    Case 9  
+      Text$ = "#### Definition List ####" + #LF$ + #LF$
+      Text$ + "First Term" + #LF$
+      Text$ + ": This is the definition of the first term." + #LF$
+      Text$ + #LF$
+      Text$ + "Second Term"+ #LF$
+      Text$ + ": This is one definition of the second term." + #LF$
+      Text$ + ": This is another definition of the second term." + #LF$
+    Case 10
       Text$ = "#### SubScript / SuperScript ####" + #LF$  + #LF$
       Text$ + "Chemical formula for water: H~2~O  " + #LF$
       Text$ + "The area is 10m^2^  " + #LF$
-    Case 10
+    Case 11  
+      Text$ = "#### Code Block ####" + #LF$
+      Text$ + "```json" + #LF$
+      Text$ + "{" + #LF$
+      Text$ + "  " + #DQUOTE$ + "firstName" + #DQUOTE$ + ": " + #DQUOTE$ + "John"  + #DQUOTE$ + "," + #LF$
+      Text$ + "  " + #DQUOTE$ + "lastName"  + #DQUOTE$ + ": " + #DQUOTE$ + "Smith" + #DQUOTE$ + "," + #LF$
+      Text$ + "  " + #DQUOTE$ + "age"       + #DQUOTE$ + ": 25" + #LF$
+      Text$ + "}" + #LF$
+      Text$ + "```" + #LF$
+    Case 12
       Text$ = "#### Emoji ####" + #LF$  + #LF$
       Text$ + ":laugh:  grinning face with big eyes  " + #LF$ + #LF$
       Text$ + ":smile:  slightly smiling face  " + #LF$ + #LF$
@@ -3787,7 +4048,7 @@ CompilerIf #PB_Compiler_IsMainFile
                 RunProgram("Export.pdf")
               CompilerEndIf
             Case #Button4
-              MarkDown::Export(#MarkDown, MarkDown::#HTML, "Export.htm", "PDF")
+              MarkDown::Export(#MarkDown, MarkDown::#HTML, "Export.htm", "HTML")
               RunProgram("Export.htm")
           EndSelect
       EndSelect        
@@ -3799,7 +4060,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 81
-; Folding = wBCAAgAAAIgFAACAAACAAAAgEAGAAAgEQAQ0
+; CursorPosition = 3879
+; FirstLine = 275
+; Folding = wBCAAgAAAAIAAAAQAAAgBAAAAAACAAAAgEQAQ0
+; Markers = 2896
 ; EnableXP
 ; DPIAware
