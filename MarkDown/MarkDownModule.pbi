@@ -9,16 +9,15 @@
 ;/ © 2019  by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 02.01.2020
+; Last Update: 07.01.2020
 ;
-; - Added: Hint (Tooltip instead of footnote)
+; - New parser
+; - Added: Highlight
 ; - Added: Definition List
 ; - Added: Code Blocks / Fenced Code Blocks
 ; - Added: SuperScript & SubScript
 ; - Added: Emojis
 ;
-
-; TODO: Formatting Links
 
 ;{ ===== MIT License =====
 ;
@@ -74,7 +73,8 @@
 
 ;{ _____ Emoji _____
 
-; :laugh: / :smile: / :sad: / :angry: / :cool: / :smirk: / :worry: / :wink: / :rolf: / :eyes:
+; :bookMark: / :date: / :mail: / :memo: / :pencil: / :phone: 
+; :angry: / :cool: / :eyes: / :laugh: / / :rofl: / :sad: / :smile: / :smirk: / :wink: / :worry:
 
 ;}
 
@@ -119,12 +119,15 @@ DeclareModule MarkDown
 	EndEnumeration ;}
 	
 	Enumeration 1     ;{ Color
-		#FrontColor
 		#BackColor
+		#BlockQuoteColor
 		#BorderColor
+		#FrontColor
+		#HighlightColor
+		#HintColor
 		#LinkColor
 		#LinkHighlightColor
-		#BlockQuoteColor
+		#LineColor
 	EndEnumeration ;}
 
 	CompilerIf Defined(ModuleEx, #PB_Module)
@@ -178,8 +181,6 @@ Module MarkDown
 	UsePNGImageDecoder()
 	UseJPEGImageDecoder()
 
-	UseZipPacker()
-	
 	;- ============================================================================
 	;-   Module - Constants
 	;- ============================================================================
@@ -195,16 +196,18 @@ Module MarkDown
   CompilerEndSelect ;}
   
   #CodeBlock = 2
-  
-  Enumeration 1 ;{ MarkDown
+
+  #Parse  = 0
+  EnumerationBinary ;{ MarkDown
+    #BlockQuote
     #Bold
-    #BoldItalic
     #Code
-    #DefList
+    #Definition
     #Emoji
     #FootNote
     #Header
     #Heading
+    #Highlight
     #Hint
     #HLine
     #Image
@@ -212,30 +215,60 @@ Module MarkDown
     #LineBreak
     #Link
     #List
-    #OrderedList
+    #Ordered
     #Paragraph
     #StrikeThrough
     #Subscript
     #Superscript
     #Table
-    #TaskList
+    #Task
     #Text
-    #URL
+    #Unordered
+    #AutoLink
   EndEnumeration ;}
 
 	;- ============================================================================
 	;-   Module - Structures
 	;- ============================================================================	
-	
-  Structure Footnote_Structure           ;{ MarkDown()\Footnote()\...
-    Note.s
+  
+  Structure List_Structure               ;{ Lists\...
+    Marker.s ; ul: - or + or * / ol: . or ) 
+    Indent.i
+    Start.i
+    Level.i
+  EndStructure ;}
+  
+  Structure Document_Structure           ;{ Document()\...
+    Type.i
+    BlockQuote.i
+    Marker.s
+    Level.i
     String.s
+  EndStructure ;}
+  Global NewList Document.Document_Structure()
+  
+  
+  Structure Label_Structure              ;{ MarkDown()\Label('label')\...
+    Destination.s
+    Title.s
+    String.s
+  EndStructure ;}
+
+  Structure Footnote_Structure           ;{ MarkDown()\Footnote()\...
+    X.i
+    Y.i
+    Width.i
+    Height.i
+    Label.s
   EndStructure ;}
 
   Structure Image_Structure              ;{ MarkDown()\Image()\...
     Num.i
+    X.i
+    Y.i
     Width.i
     Height.i
+    Label.s
     Source.s
     Title.s
   EndStructure ;}
@@ -247,6 +280,7 @@ Module MarkDown
     Height.i
     URL.s
     Title.s
+    Label.s
     State.i
   EndStructure ;}
   
@@ -258,12 +292,19 @@ Module MarkDown
     String.s
   EndStructure ;}
   
+  Structure SubItem_Structure            ;{ MarkDown()\SubItem()\...
+    Type.i
+    String.s
+    Index.i
+  EndStructure ;}
+  
   Structure Item_Structure               ;{ MarkDown()\Row()\Item()\...
     Type.i
     String.s
     Level.i
     State.i
     Index.i
+    List SubItem.SubItem_Structure()
   EndStructure ;}
   
   Structure Row_Structure                ;{ MarkDown()\Row()\...
@@ -314,8 +355,11 @@ Module MarkDown
 		Back.i
 		Border.i
 		Gadget.i
+		Highlight.i
+		Hint.i
 		Link.i
 		LinkHighlight.i
+		Line.i
 		BlockQuote.i
 		DisableFront.i
 		DisableBack.i
@@ -377,8 +421,8 @@ Module MarkDown
 		Scroll.MarkDown_Scroll_Structure
 		Window.MarkDown_Window_Structure
 
-		Map  FootIdx.i()
-		Map  Hint.Hint_Structure()
+		Map  FootLabel.s()
+		Map  Label.Label_Structure()
     List Footnote.Footnote_Structure()
     List Image.Image_Structure()
     List Link.Link_Structure()
@@ -533,120 +577,24 @@ Module MarkDown
 	EndProcedure
 	
 	Procedure   LoadEmojis_()
-	  Define *Buffer
 	  
-	  *Buffer = AllocateMemory(433)
-    If *Buffer
-      UncompressMemory(?Date, 347, *Buffer, 433)
-      Emoji(":date:") = CatchImage(#PB_Any, *Buffer, 433)
-      FreeMemory(*Buffer)
-    EndIf
+	  Emoji(":angry:")    = CatchImage(#PB_Any, ?Angry, 540)
+	  Emoji(":bookmark:") = CatchImage(#PB_Any, ?BookMark, 334)
+	  Emoji(":cool:")     = CatchImage(#PB_Any, ?Cool, 629)
+	  Emoji(":date:")     = CatchImage(#PB_Any, ?Calendar, 485)
+	  Emoji(":eyes:")     = CatchImage(#PB_Any, ?Eyes, 583)
+	  Emoji(":laugh:")    = CatchImage(#PB_Any, ?Laugh, 568)
+    Emoji(":mail:")     = CatchImage(#PB_Any, ?Mail, 437)  
+    Emoji(":memo:")     = CatchImage(#PB_Any, ?Memo, 408) 
+    Emoji(":pencil:")   = CatchImage(#PB_Any, ?Pencil, 480)
+    Emoji(":phone:")    = CatchImage(#PB_Any, ?Phone, 383)
+    Emoji(":rolf:")     = CatchImage(#PB_Any, ?Rofl, 636)
+    Emoji(":sad:")      = CatchImage(#PB_Any, ?Sad, 521)
+    Emoji(":smile:")    = CatchImage(#PB_Any, ?Smile, 512)
+    Emoji(":smirk:")    = CatchImage(#PB_Any, ?Smirk, 532)
+    Emoji(":wink:")     = CatchImage(#PB_Any, ?Wink, 553)
+    Emoji(":worry:")    = CatchImage(#PB_Any, ?Worry, 554)
 
-    *Buffer = AllocateMemory(426)
-    If *Buffer
-      UncompressMemory(?Mail, 336, *Buffer, 426)
-      Emoji(":mail:") = CatchImage(#PB_Any, *Buffer, 426)
-      FreeMemory(*Buffer)
-    EndIf
-    
-    *Buffer = AllocateMemory(426)
-    If *Buffer
-      UncompressMemory(?BookMark, 342, *Buffer, 426)
-      Emoji(":bookmark:") = CatchImage(#PB_Any, *Buffer, 426)
-      FreeMemory(*Buffer)
-    EndIf
-
-    *Buffer = AllocateMemory(425)
-    If *Buffer
-      UncompressMemory(?Memo, 340, *Buffer, 425)
-      Emoji(":memo:") = CatchImage(#PB_Any, *Buffer, 425)
-      FreeMemory(*Buffer)
-    EndIf
-    
-    *Buffer = AllocateMemory(437)
-    If *Buffer
-      UncompressMemory(?Pencil, 355, *Buffer, 437)
-      Emoji(":pencil:") = CatchImage(#PB_Any, *Buffer, 437)
-      FreeMemory(*Buffer)
-    EndIf
-    
-    *Buffer = AllocateMemory(395)
-    If *Buffer
-      UncompressMemory(?Phone, 305, *Buffer, 395)
-      Emoji(":phone:") = CatchImage(#PB_Any, *Buffer, 395)
-      FreeMemory(*Buffer)
-    EndIf
-
-	  *Buffer = AllocateMemory(457)
-	  If *Buffer
-      UncompressMemory(?Laugh, 375, *Buffer, 457)
-      Emoji(":laugh:") = CatchImage(#PB_Any, *Buffer, 457)
-      FreeMemory(*Buffer)
-    EndIf
-    
-    *Buffer = AllocateMemory(447)
-	  If *Buffer
-      UncompressMemory(?Smile, 362, *Buffer, 447)
-      Emoji(":smile:") = CatchImage(#PB_Any, *Buffer, 447)
-      FreeMemory(*Buffer)
-    EndIf
-    
-    *Buffer = AllocateMemory(446)
-	  If *Buffer
-      UncompressMemory(?Sad, 360, *Buffer, 446)
-      Emoji(":sad:") = CatchImage(#PB_Any, *Buffer, 446)
-      FreeMemory(*Buffer)
-    EndIf    
- 
-    *Buffer = AllocateMemory(448)
-	  If *Buffer
-      UncompressMemory(?Angry, 364, *Buffer, 448)
-      Emoji(":angry:") = CatchImage(#PB_Any, *Buffer, 448)
-      FreeMemory(*Buffer)
-    EndIf
-    
-    *Buffer = AllocateMemory(457)
-	  If *Buffer
-      UncompressMemory(?Cool, 375, *Buffer, 457)
-      Emoji(":cool:") = CatchImage(#PB_Any, *Buffer, 457)
-      FreeMemory(*Buffer)
-    EndIf
-    
-    *Buffer = AllocateMemory(452)
-	  If *Buffer
-      UncompressMemory(?Smirk, 371, *Buffer, 452)
-      Emoji(":smirk:") = CatchImage(#PB_Any, *Buffer, 452)
-      FreeMemory(*Buffer)
-    EndIf    
-    
-    *Buffer = AllocateMemory(448)
-	  If *Buffer
-      UncompressMemory(?Eyes, 366, *Buffer, 448)
-      Emoji(":eyes:") = CatchImage(#PB_Any, *Buffer, 448)
-      FreeMemory(*Buffer)
-    EndIf   
-    
-    *Buffer = AllocateMemory(457)
-	  If *Buffer
-      UncompressMemory(?rofl, 370, *Buffer, 457)
-      Emoji(":rolf:") = CatchImage(#PB_Any, *Buffer, 457)
-      FreeMemory(*Buffer)
-    EndIf  
-    
-    *Buffer = AllocateMemory(456)
-	  If *Buffer
-      UncompressMemory(?Wink, 374, *Buffer, 456)
-      Emoji(":wink:") = CatchImage(#PB_Any, *Buffer, 456)
-      FreeMemory(*Buffer)
-    EndIf  
-    
-    *Buffer = AllocateMemory(452)
-	  If *Buffer
-      UncompressMemory(?Worry, 364, *Buffer, 452)
-      Emoji(":worry:") = CatchImage(#PB_Any, *Buffer, 452)
-      FreeMemory(*Buffer)
-    EndIf  
-    
 	EndProcedure
 	
 	
@@ -704,7 +652,8 @@ Module MarkDown
 
 	Procedure   Clear_()
 	  
-	  ClearMap(MarkDown()\FootIdx())
+	  ClearMap(MarkDown()\FootLabel())
+	  ClearMap(MarkDown()\Label())
 	  ClearList(MarkDown()\Footnote())
 	  ClearList(MarkDown()\Image())
 	  ClearList(MarkDown()\Link())
@@ -892,7 +841,7 @@ Module MarkDown
   
   Procedure.s ExportHTML_(Title.s="")
     Define.i Level, c, ColWidth, Cols, tBody, Class, BlockQuote, DefList
-    Define.s HTML$, endTag$, Align$, Indent$, Syntax$, ID$
+    Define.s HTML$, endTag$, Align$, Indent$, Syntax$, ID$, Link$, Title$, String$
     
     HTML$ = "<!DOCTYPE html>" + #LF$ + "<html>" + #LF$ + "<head>" + #LF$ + "<title>" + Title + "</title>" + #LF$ + "</head>" + #LF$ + "<body>" + #LF$
     
@@ -912,7 +861,7 @@ Module MarkDown
       EndSelect
       
       Select MarkDown()\Row()\Type
-        Case #Heading     ;{ Heading
+        Case #Heading          ;{ Heading
           If MarkDown()\Row()\ID
             ID$ = " id=" + #DQUOTE$ + MarkDown()\Row()\ID + #DQUOTE$
             HTML$ + "<h"+Str(MarkDown()\Row()\Level) + ID$ + ">" + EscapeHTML_(MarkDown()\Row()\String) + "</h"+Str(MarkDown()\Row()\Level) + ">" + #LF$
@@ -920,7 +869,7 @@ Module MarkDown
             HTML$ + "<h"+Str(MarkDown()\Row()\Level) + ">" + EscapeHTML_(MarkDown()\Row()\String) + "</h"+Str(MarkDown()\Row()\Level) + ">" + #LF$
           EndIf
           ;}
-        Case #OrderedList ;{ Ordered List
+        Case #List|#Ordered    ;{ Ordered List
           
           Level = 0
           
@@ -933,7 +882,7 @@ Module MarkDown
             If MarkDown()\Row()\Item()\Level = 1 : Indent$ = Space(4) : EndIf 
             
             If Level = 0 And MarkDown()\Row()\Item()\Level = 1
-              If MarkDown()\Row()\Item()\Type = #List
+              If MarkDown()\Row()\Item()\Type = #List|#Unordered
                 HTML$ + Indent$ + "<ul>" + #LF$
                 endTag$ = "</ul>"
               Else
@@ -951,7 +900,7 @@ Module MarkDown
           Next  
           
           If Level = 1
-            If MarkDown()\Row()\Item()\Type = #List
+            If MarkDown()\Row()\Item()\Type = #List|#Unordered
               HTML$ + Indent$ + "</ul>" + #LF$
             Else
               HTML$ + Indent$ + "</ol>" + #LF$
@@ -960,7 +909,7 @@ Module MarkDown
           
           HTML$ + "</ol>" + #LF$
           ;}
-        Case #List        ;{ Unordered List
+        Case #List|#Unordered  ;{ Unordered List
           
           Level = 0
           
@@ -972,7 +921,7 @@ Module MarkDown
             If MarkDown()\Row()\Item()\Level = 1 : Indent$ = "    " : EndIf 
             
             If Level = 0 And MarkDown()\Row()\Item()\Level = 1
-              If MarkDown()\Row()\Item()\Type = #OrderedList
+              If MarkDown()\Row()\Item()\Type = #List|#Ordered
                 HTML$ + Indent$ + "<ol>" + #LF$
                 endTag$ = "</ol>"
               Else
@@ -990,7 +939,7 @@ Module MarkDown
           Next  
           
           If Level = 1
-            If MarkDown()\Row()\Item()\Type = #OrderedList
+            If MarkDown()\Row()\Item()\Type = #List|#Ordered
               HTML$ + Space(2) + "</ol>" + #LF$
             Else
               HTML$ + Space(2) + "</ul>" + #LF$
@@ -999,7 +948,7 @@ Module MarkDown
           
           HTML$ + "</ul>" + #LF$
           ;}
-        Case #DefList     ;{ Definition List
+        Case #List|#Definition ;{ Definition List
           ; TODO: Kombinieren der Elemente
           HTML$ + "<dl>" + #LF$
           HTML$ + Space(2) + "<dt>" + MarkDown()\Row()\String + "</dt>" + #LF$
@@ -1010,19 +959,13 @@ Module MarkDown
           
           HTML$ + "</dl>" + #LF$
 			    ;}  
-        Case #HLine       ;{ Horizontal Rule
+        Case #HLine            ;{ Horizontal Rule
           HTML$ + "<hr />" + #LF$
           ;}
-        Case #Paragraph   ;{ Paragraph
+        Case #Paragraph        ;{ Paragraph
           HTML$ + "<br>" + #LF$
           ;}
-        Case #Image       ;{ Image
-          
-          If SelectElement(MarkDown()\Image(), MarkDown()\Row()\Index)
-            HTML$ + "<img src="+#DQUOTE$+MarkDown()\Image()\Source+#DQUOTE$+" alt="+#DQUOTE$+MarkDown()\Row()\String+#DQUOTE$+" title="+#DQUOTE$+MarkDown()\Image()\Title+#DQUOTE$+" />" + #LF$  
-          EndIf
-          ;}
-        Case #TaskList    ;{ Task List
+        Case #List|#Task       ;{ Task List
           
           ForEach MarkDown()\Row()\Item()
             If MarkDown()\Row()\Item()\State
@@ -1034,7 +977,7 @@ Module MarkDown
             HTML$ + "<br>"
           Next
           ;}
-        Case #Table       ;{ Table
+        Case #Table            ;{ Table
           
           Align$ = MarkDown()\Row()\String
           
@@ -1045,7 +988,7 @@ Module MarkDown
             Cols = CountString(MarkDown()\Row()\Item()\String, "|") + 1
             
             Select  MarkDown()\Row()\Item()\Type 
-              Case #Header ;{ Table Header
+              Case #Table|#Header ;{ Table Header
                 
                 HTML$ + "<thead>" + #LF$ + "<tr class=" + #DQUOTE$ + "header" + #DQUOTE$ + ">" + #LF$
                 
@@ -1095,7 +1038,7 @@ Module MarkDown
           
           HTML$+ "</tbody>" + #LF$ + "</table>" + #LF$
           ;}
-        Case #Code        ;{ Code Block
+        Case #Code             ;{ Code Block
           
           Syntax$ = MarkDown()\Row()\String
 
@@ -1113,7 +1056,7 @@ Module MarkDown
           
           HTML$ + "  </code>" + #LF$ + "</pre>" + #LF$
           ;}
-        Default           ;{ Text
+        Default                ;{ Text
           
           HTML$ + MarkDown()\Row()\String
           
@@ -1123,7 +1066,7 @@ Module MarkDown
                 HTML$ + "<strong>" + EscapeHTML_(MarkDown()\Row()\Item()\String) + "</strong>"
               Case #Italic
                 HTML$ + "<em>" + EscapeHTML_(MarkDown()\Row()\Item()\String) + "</em>"
-              Case #BoldItalic 
+              Case #Bold|#Italic 
                 HTML$ + "<strong><em>" + EscapeHTML_(MarkDown()\Row()\Item()\String) + "</em></strong>"
               Case #StrikeThrough
                 HTML$ + " <del>" + EscapeHTML_(MarkDown()\Row()\Item()\String) + "</del>"
@@ -1131,7 +1074,7 @@ Module MarkDown
               Case #Code        ;{ Code
                 HTML$ + "<code>" + EscapeHTML_(MarkDown()\Row()\Item()\String) + "</code>"  
                 ;}
-              Case #URL         ;{ URL / EMail
+              Case #AutoLink         ;{ URL / EMail
                 If CountString(MarkDown()\Row()\Item()\String, "@") = 1
                   HTML$ + "<a href=" + #DQUOTE$ + "mailto:" + URLDecoder(MarkDown()\Row()\Item()\String) + #DQUOTE$ + ">" + EscapeHTML_(MarkDown()\Row()\Item()\String) + "</a>" 
                 Else  
@@ -1139,18 +1082,32 @@ Module MarkDown
                 EndIf ;}
               Case #Link        ;{ Link
                 If SelectElement(MarkDown()\Link(), MarkDown()\Row()\Item()\Index)
+                  
+                  If MarkDown()\Link()\Label
+                    If FindMapElement(MarkDown()\Label(), MarkDown()\Link()\Label)
+                      Link$   = MarkDown()\Label()\Destination
+                      Title$  = MarkDown()\Label()\Title
+                      String$ = MarkDown()\Label()\String
+                    EndIf  
+                  Else
+                    Link$   = MarkDown()\Link()\URL
+                    Title$  = MarkDown()\Link()\Title
+                    String$ = MarkDown()\Row()\Item()\String
+                  EndIf
+                
                   If MarkDown()\Link()\Title
-                    HTML$ + "<a href=" + #DQUOTE$ + URLDecoder(MarkDown()\Link()\URL) + #DQUOTE$ + " title=" + #DQUOTE$ + EscapeHTML_(MarkDown()\Link()\Title) + #DQUOTE$ + ">" + EscapeHTML_(MarkDown()\Row()\Item()\String) + " </a>"
+                    HTML$ + "<a href=" + #DQUOTE$ + URLDecoder(Link$) + #DQUOTE$ + " title=" + #DQUOTE$ + EscapeHTML_(Title$) + #DQUOTE$ + ">" + EscapeHTML_(String$) + " </a>"
                   Else  
-                    HTML$ + "<a href=" + #DQUOTE$ + URLDecoder(MarkDown()\Link()\URL) + #DQUOTE$ + ">" + EscapeHTML_(MarkDown()\Row()\Item()\String) + "</a>"
+                    HTML$ + "<a href=" + #DQUOTE$ + URLDecoder(Link$) + #DQUOTE$ + ">" + EscapeHTML_(String$) + "</a>"
                   EndIf 
                 EndIf ;}
               Case #Image       ;{ Image
                 If SelectElement(MarkDown()\Image(), MarkDown()\Row()\Item()\Index)
+                  Debug "> "+MarkDown()\Image()\Source
                   If MarkDown()\Image()\Title
-                    HTML$ + "<img scr=" + #DQUOTE$ + MarkDown()\Image()\Source + #DQUOTE$ + " alt=" + #DQUOTE$ + EscapeHTML_(MarkDown()\Row()\Item()\String) + #DQUOTE$ + " title=" + #DQUOTE$ + EscapeHTML_(MarkDown()\Image()\Title) + #DQUOTE$ + " />"
+                    HTML$ + "<img src=" + #DQUOTE$ + MarkDown()\Image()\Source + #DQUOTE$ + " alt=" + #DQUOTE$ + EscapeHTML_(MarkDown()\Row()\Item()\String) + #DQUOTE$ + " title=" + #DQUOTE$ + EscapeHTML_(MarkDown()\Image()\Title) + #DQUOTE$ + " />"
                   Else  
-                    HTML$ + "<img scr=" + #DQUOTE$ + MarkDown()\Image()\Source + #DQUOTE$ + " alt=" + #DQUOTE$ + EscapeHTML_(MarkDown()\Row()\Item()\String) + #DQUOTE$ + " />"
+                    HTML$ + "<img src=" + #DQUOTE$ + MarkDown()\Image()\Source + #DQUOTE$ + " alt=" + #DQUOTE$ + EscapeHTML_(MarkDown()\Row()\Item()\String) + #DQUOTE$ + " />"
                   EndIf
                 EndIf ;}
               Case #FootNote    ;{ Footnote
@@ -1220,7 +1177,7 @@ Module MarkDown
       HTML$ + "<section class=" + #DQUOTE$ + "footnotes" + #DQUOTE$ + ">" + #LF$
       HTML$ + "<hr />" + #LF$
       ForEach MarkDown()\Footnote()
-        HTML$ + "<sup>" + EscapeHTML_(MarkDown()\Footnote()\Note) + "</sup> " + EscapeHTML_(MarkDown()\Footnote()\String) + "<br>" + #LF$
+        HTML$ + "<sup>" + EscapeHTML_(MarkDown()\FootNote()\Label) + "</sup> " + EscapeHTML_(MarkDown()\FootLabel(MarkDown()\FootNote()\Label)) + "<br>" + #LF$
       Next
 		  HTML$ + "</section>"+ #LF$
 		  ;}
@@ -1236,9 +1193,9 @@ Module MarkDown
   CompilerIf Defined(PDF, #PB_Module)
     
     Procedure.i TextPDF_(PDF.i, Text.s, WrapPos.i, Indent.i=0, maxCol.i=0, Link.i=#PB_Default, Flag.i=#False) ; WordWrap
-      Define.i w, Words, OffsetY, maxWidth, Link
+      Define.i w, Words, OffsetY, maxWidth, LinkPDF
       Define.f X, Y, PosX, txtWidth, WordWidth
-      Define.s Word$
+      Define.s Word$, Link$
       
       If Text = "" :  ProcedureReturn #False : EndIf 
       
@@ -1253,7 +1210,7 @@ Module MarkDown
       txtWidth = PDF::GetStringWidth(PDF, Text)
       
       If X + txtWidth > maxWidth
-  
+
         If Link = #PB_Default ;{ WordWrap
         
           Words = CountString(Text, " ") + 1
@@ -1284,7 +1241,11 @@ Module MarkDown
               PDF::DividingLine(PDF, PDF::GetPosX(PDF), PDF::GetPosY(PDF) + 2, PDF::GetStringWidth(PDF, Word$))
             EndIf 
             
-            PDF::Cell(PDF, Word$, PDF::GetStringWidth(PDF, Word$))
+            If Flag = #Highlight
+              PDF::Cell(PDF, Word$, PDF::GetStringWidth(PDF, Word$), #PB_Default, #False, PDF::#Right, "", #True)
+            Else  
+              PDF::Cell(PDF, Word$, PDF::GetStringWidth(PDF, Word$))
+            EndIf
             
           Next
           ;}
@@ -1292,19 +1253,29 @@ Module MarkDown
           
           If SelectElement(MarkDown()\Link(), MarkDown()\Row()\Item()\Index)
             
-            If Left(MarkDown()\Link()\URL, 1) = "#"
-              PDF::AddGotoLabel(PDF, MarkDown()\Link()\URL)
-              Link = PDF::#NoLink
+            If MarkDown()\Link()\Label
+              Link$ = MarkDown()\Label(MarkDown()\Link()\Label)\Destination
             Else
-              Link = PDF::AddLinkURL(PDF, URLDecoder(MarkDown()\Link()\URL))
+              Link$ = MarkDown()\Link()\URL
+            EndIf  
+            
+            If Left(Link$, 1) = "#"
+              PDF::AddGotoLabel(PDF, URLDecoder(Link$))
+              LinkPDF = PDF::#NoLink
+            Else
+              LinkPDF = PDF::AddLinkURL(PDF, URLDecoder(Link$))
             EndIf
             
           EndIf
 
           PDF::Ln(PDF)
           PDF::SetPosX(PDF, 10)
-  
-          PDF::Cell(PDF, Text, txtWidth, #PB_Default, #False, PDF::#Right, "", #False, "", Link)
+          
+          If Flag = #Highlight
+            PDF::Cell(PDF, Text, txtWidth, #PB_Default, #False, PDF::#Right, "", #True, "", LinkPDF)
+          Else  
+            PDF::Cell(PDF, Text, txtWidth, #PB_Default, #False, PDF::#Right, "", #False, "", LinkPDF)
+          EndIf  
           ;}
         EndIf
   
@@ -1324,14 +1295,14 @@ Module MarkDown
             
             If Left(MarkDown()\Link()\URL, 1) = "#"
               PDF::AddGotoLabel(PDF, MarkDown()\Link()\URL)
-              Link = PDF::#NoLink
+              LinkPDF = PDF::#NoLink
             Else
-              Link = PDF::AddLinkURL(PDF, URLDecoder(MarkDown()\Link()\URL))
+              LinkPDF = PDF::AddLinkURL(PDF, URLDecoder(MarkDown()\Link()\URL))
             EndIf
             
           EndIf
           
-          PDF::Cell(PDF, Text, txtWidth, #PB_Default, #False, PDF::#Right, "", #False, "", Link)
+          PDF::Cell(PDF, Text, txtWidth, #PB_Default, #False, PDF::#Right, "", #False, "", LinkPDF)
           
         EndIf
         
@@ -1340,119 +1311,59 @@ Module MarkDown
     EndProcedure    
     
     Procedure.i EmojiPDF_(PDF.i, Emoji.s, X.i, Y.i, ImgSize.i)
-  	  Define *Buffer
-  	  
+      Define.i *Image
+      
   	  Select Emoji
   	    Case ":date:", ":calendar:"
-  	      *Buffer = AllocateMemory(433)
-          If *Buffer
-            UncompressMemory(?Date, 347, *Buffer, 433)
-            PDF::ImageMemory(PDF, "Date.jpg", *Buffer, 433, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
-          EndIf
+  	      PDF::ImageMemory(PDF, "Date.png",     ?Calendar, 485, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
         Case ":mail:", ":envelope:"
-  	      *Buffer = AllocateMemory(426)
-          If *Buffer
-            UncompressMemory(?Mail, 336, *Buffer, 426)
-            PDF::ImageMemory(PDF, "Mail.jpg", *Buffer, 426, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
-          EndIf
+          PDF::ImageMemory(PDF, "Mail.png",     ?Mail,     437, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
   	    Case ":bookmark:"
-  	      *Buffer = AllocateMemory(426)
-          If *Buffer
-            UncompressMemory(?BookMark, 342, *Buffer, 426)
-            PDF::ImageMemory(PDF, "BookMark.jpg", *Buffer, 426, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
-          EndIf
+          PDF::ImageMemory(PDF, "BookMark.png", ?BookMark, 334, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
   	    Case ":memo:"
-  	      *Buffer = AllocateMemory(425)
-          If *Buffer
-            UncompressMemory(?Memo, 340, *Buffer, 425)
-            PDF::ImageMemory(PDF, "Memo.jpg", *Buffer, 425, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
-          EndIf
+          PDF::ImageMemory(PDF, "Memo.png",     ?Memo,     408, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
   	    Case ":pencil:", ":pencil2:"
-  	      *Buffer = AllocateMemory(437)
-          If *Buffer
-            UncompressMemory(?Pencil, 355, *Buffer, 437)
-            PDF::ImageMemory(PDF, "Pencil.jpg", *Buffer, 437, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
-          EndIf
+          PDF::ImageMemory(PDF, "Pencil.png",   ?Pencil,   480, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
   	    Case ":phone:", ":telephone_receiver:"
-  	      *Buffer = AllocateMemory(395)
-          If *Buffer
-            UncompressMemory(?Phone, 305, *Buffer, 395)
-            PDF::ImageMemory(PDF, "Phone.jpg", *Buffer, 395, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
-          EndIf
+          PDF::ImageMemory(PDF, "Phone.png",    ?Phone,    383, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
   	    Case ":laugh:", ":smiley:"
-  	      *Buffer = AllocateMemory(457)
-      	  If *Buffer
-            UncompressMemory(?Laugh, 375, *Buffer, 457)
-            PDF::ImageMemory(PDF, "Laugh.jpg", *Buffer, 457, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
-          EndIf
+          PDF::ImageMemory(PDF, "Laugh.png",    ?Laugh,    568, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
         Case ":smile:", ":simple_smile:"
-          *Buffer = AllocateMemory(447)
-      	  If *Buffer
-            UncompressMemory(?Smile, 362, *Buffer, 447)
-            PDF::ImageMemory(PDF, "Smile.jpg", *Buffer, 447, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
-          EndIf
+          PDF::ImageMemory(PDF, "Smile.png",    ?Smile,    512, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
         Case ":sad:"
-          *Buffer = AllocateMemory(446)
-      	  If *Buffer
-            UncompressMemory(?Sad, 360, *Buffer, 446)
-            PDF::ImageMemory(PDF, "Sad.jpg", *Buffer, 446, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
-          EndIf 
+          PDF::ImageMemory(PDF, "Sad.png",      ?Sad,      521, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
         Case ":angry:"
-          *Buffer = AllocateMemory(448)
-      	  If *Buffer
-            UncompressMemory(?Angry, 364, *Buffer, 448)
-            PDF::ImageMemory(PDF, "Angry.jpg", *Buffer, 448, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
-          EndIf
+          PDF::ImageMemory(PDF, "Angry.png",    ?Angry,    540, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
         Case ":cool:", ":sunglasses:"
-          *Buffer = AllocateMemory(457)
-      	  If *Buffer
-            UncompressMemory(?Cool, 375, *Buffer, 457)
-            PDF::ImageMemory(PDF, "Cool.jpg", *Buffer, 457, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
-          EndIf
+          PDF::ImageMemory(PDF, "Cool.png",     ?Cool,     629, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
         Case ":smirk:"
-          *Buffer = AllocateMemory(452)
-      	  If *Buffer
-            UncompressMemory(?Smirk, 371, *Buffer, 452)
-            PDF::ImageMemory(PDF, "Smirk.jpg", *Buffer, 452, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
-          EndIf
+          PDF::ImageMemory(PDF, "Smirk.png",    ?Smirk,    532, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
         Case ":eyes:", ":flushed:"
-          *Buffer = AllocateMemory(448)
-      	  If *Buffer
-            UncompressMemory(?Eyes, 366, *Buffer, 448)
-            PDF::ImageMemory(PDF, "Eyes.jpg", *Buffer, 448, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
-          EndIf
+          PDF::ImageMemory(PDF, "Eyes.png",     ?Eyes,     583, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
         Case ":rolf:"
-          *Buffer = AllocateMemory(457)
-      	  If *Buffer
-            UncompressMemory(?rofl, 370, *Buffer, 457)
-            PDF::ImageMemory(PDF, "Rofl.jpg", *Buffer, 457, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
-          EndIf  
+          PDF::ImageMemory(PDF, "Rofl.png",     ?Rofl,     636, PDF::#Image_PNG, X, Y, ImgSize, ImgSize) 
         Case ":wink:"
-          *Buffer = AllocateMemory(456)
-      	  If *Buffer
-            UncompressMemory(?Wink, 374, *Buffer, 456)
-            PDF::ImageMemory(PDF, "Wink.jpg", *Buffer, 456, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
-          EndIf  
+          PDF::ImageMemory(PDF, "Wink.png",     ?Wink,     553, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
         Case ":worry:", ":worried:"
-          *Buffer = AllocateMemory(452)
-      	  If *Buffer
-            UncompressMemory(?Worry, 364, *Buffer, 452)
-            PDF::ImageMemory(PDF, "Worry.jpg", *Buffer, 452, PDF::#Image_JPEG, X, Y, ImgSize, ImgSize)
-          EndIf
+          PDF::ImageMemory(PDF, "Worry.png",    ?Worry,    554, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
       EndSelect
       
   	EndProcedure
 
     Procedure.s ExportPDF_(File.s, Title.s="")
       Define.i PDF, Num, X, Y, RowY, TextWidth, Link
-      Define.i c, Cols, ColWidth
+      Define.i c, Cols, ColWidth, OffSetX, Width, Height
       Define.s Bullet$, Align$
       
       PDF = PDF::Create(#PB_Any)
       If PDF
 
         PDF::AddPage(PDF)
-       
+        
+        PDF::SetMargin(PDF, PDF::#TopMargin, 10)
+        PDF::SetMargin(PDF, PDF::#LeftMargin, 10)
+        PDF::SetMargin(PDF, PDF::#CellMargin, 0)
+        
         ForEach MarkDown()\Image() ;{ Images
           MarkDown()\Image()\Num = LoadImage(#PB_Any, MarkDown()\Image()\Source)
           If IsImage(MarkDown()\Image()\Num)
@@ -1468,7 +1379,7 @@ Module MarkDown
           PDF::SetPosX(PDF, 10)
           
           Select MarkDown()\Row()\Type
-            Case #Heading     ;{ Heading
+            Case #Heading          ;{ Heading
               Select MarkDown()\Row()\Level
                 Case 1
                   PDF::SetFont(PDF, "Arial", "B", 17)
@@ -1485,14 +1396,14 @@ Module MarkDown
               EndSelect
               
               If MarkDown()\Row()\ID
-                PDF::Cell(PDF, MarkDown()\Row()\String, #PB_Default, #PB_Default, #False, PDF::#NextLine, "", #False, MarkDown()\Row()\ID) 
+                PDF::Cell(PDF, Trim(MarkDown()\Row()\String), #PB_Default, #PB_Default, #False, PDF::#NextLine, "", #False, MarkDown()\Row()\ID) 
               Else
-                PDF::Cell(PDF, MarkDown()\Row()\String, #PB_Default, #PB_Default, #False, PDF::#NextLine)
+                PDF::Cell(PDF, Trim(MarkDown()\Row()\String), #PB_Default, #PB_Default, #False, PDF::#NextLine)
               EndIf
               
               PDF::Ln(PDF, 2)
               ;}
-            Case #OrderedList ;{ Ordered List
+            Case #List|#Ordered    ;{ Ordered List
               
               Num = 0
               
@@ -1503,24 +1414,24 @@ Module MarkDown
                 Bullet$ = #Bullet$
                 
                 If MarkDown()\Row()\Item()\Level
-                  Bullet$ = "-"
+                  Bullet$ = "- "
                   PDF::SetPosX(PDF, 15 + (5 * MarkDown()\Row()\Item()\Level))
                 Else  
                   PDF::SetPosX(PDF, 15)
                 EndIf 
                 
-                If MarkDown()\Row()\Item()\Type = #List
-                  PDF::MultiCellList(PDF, MarkDown()\Row()\Item()\String, 180, 5, #False, PDF::#LeftAlign, #False, Bullet$) 
+                If MarkDown()\Row()\Item()\Type = #List|#Unordered
+                  PDF::MultiCellList(PDF, MarkDown()\Row()\Item()\String, 180, 5, #False, PDF::#LeftAlign, #False, Bullet$ + " ") 
                 Else
                   Num + 1
-                  PDF::MultiCellList(PDF, MarkDown()\Row()\Item()\String, 180, 5, #False, PDF::#LeftAlign, #False, Str(Num)+".") 
+                  PDF::MultiCellList(PDF, MarkDown()\Row()\Item()\String, 180, 5, #False, PDF::#LeftAlign, #False, Str(Num)+". ") 
                 EndIf  
                 
               Next 
               
               PDF::Ln(PDF, 3)
               ;}
-            Case #List        ;{ Unordered List
+            Case #List|#Unordered  ;{ Unordered List
               
               Num = 0
               
@@ -1531,24 +1442,24 @@ Module MarkDown
                 Bullet$ = #Bullet$
                 
                 If MarkDown()\Row()\Item()\Level
-                  Bullet$ = "-"
+                  Bullet$ = "- "
                   PDF::SetPosX(PDF, 15 + (5 * MarkDown()\Row()\Item()\Level))
                 Else  
                   PDF::SetPosX(PDF, 15)
                 EndIf 
                 
-                If MarkDown()\Row()\Item()\Type = #OrderedList
-                  PDF::MultiCellList(PDF, MarkDown()\Row()\Item()\String, 180, 5, #False, PDF::#LeftAlign, #False, Str(Num) + ".") 
+                If MarkDown()\Row()\Item()\Type = #List|#Ordered
+                  PDF::MultiCellList(PDF, MarkDown()\Row()\Item()\String, 180, 5, #False, PDF::#LeftAlign, #False, Str(Num) + ". ") 
                 Else
                   Num + 1
-                  PDF::MultiCellList(PDF, MarkDown()\Row()\Item()\String, 180, 5, #False, PDF::#LeftAlign, #False, Bullet$) 
+                  PDF::MultiCellList(PDF, MarkDown()\Row()\Item()\String, 180, 5, #False, PDF::#LeftAlign, #False, Bullet$ + " ") 
                 EndIf  
                 
               Next 
               
               PDF::Ln(PDF, 3)
               ;}
-            Case #TaskList    ;{ Task List
+            Case #List|#Task       ;{ Task List
               
               PDF::Ln(PDF, 3)
               
@@ -1577,7 +1488,7 @@ Module MarkDown
               
               PDF::Ln(PDF, 3)
               ;}
-            Case #DefList     ;{ Definition List
+            Case #List|#Definition ;{ Definition List
 
               PDF::SetFont(PDF, "Arial", "B", 11)
               PDF::SetPosX(PDF, 10)
@@ -1585,43 +1496,19 @@ Module MarkDown
              
               PDF::SetFont(PDF, "Arial", "", 11)
               ForEach MarkDown()\Row()\Item()
-                PDF::SetPosX(PDF, 12)
-                PDF::MultiCellList(PDF, MarkDown()\Row()\Item()\String, 180, 5, #False, PDF::#LeftAlign, #False, Bullet$) 
+                PDF::SetPosX(PDF, 15)
+                PDF::MultiCell(PDF, MarkDown()\Row()\Item()\String, 180, 5, #False, PDF::#LeftAlign) 
               Next 
 			        ;}  
-            Case #HLine       ;{ Horizontal Rule
+            Case #HLine            ;{ Horizontal Rule
               PDF::Ln(PDF, 3)
               PDF::DividingLine(PDF)
               PDF::Ln(PDF, 3)
               ;}
-            Case #Paragraph   ;{ Paragraph
+            Case #Paragraph        ;{ Paragraph
               PDF::Ln(PDF, 3)
               ;}
-            Case #Image       ;{ Image
-              
-              PDF::Ln(PDF, 3)
-              
-              If SelectElement(MarkDown()\Image(), MarkDown()\Row()\Index)
-                
-                X = (210 - mm_(MarkDown()\Image()\Width)) / 2
-                Y = PDF::GetPosY(PDF)
-                
-                PDF::Image(PDF, MarkDown()\Image()\Source, X - 15, Y)
-                
-                PDF::SetPosY(PDF, Y + mm_(MarkDown()\Image()\Height))
-                PDF::Ln(PDF, 10)
-                
-                If MarkDown()\Row()\String
-                  PDF::Ln(PDF, 1)
-                  PDF::Cell(PDF, MarkDown()\Row()\String, #PB_Default, #PB_Default, #False, PDF::#NextLine, PDF::#CenterAlign) 
-                  PDF::Ln(PDF)
-                EndIf
-                
-              EndIf
-              
-              PDF::Ln(PDF, 3)
-              ;}
-            Case #Table       ;{ Table  
+            Case #Table            ;{ Table  
               
               Align$ = MarkDown()\Row()\String
               
@@ -1634,7 +1521,7 @@ Module MarkDown
                 ColWidth = 170 / Cols
                 
                 Select  MarkDown()\Row()\Item()\Type 
-                  Case #Header ;{ Table Header
+                  Case #Table|#Header ;{ Table Header
                     
                     PDF::SetFont(PDF, "Arial", "B", 11)
                     
@@ -1694,7 +1581,7 @@ Module MarkDown
               
               PDF::Ln(PDF, 3)
               ;}
-            Case #Code        ;{ Code Block
+            Case #Code             ;{ Code Block
 
               PDF::SetFont(PDF, "Courier New", "", 11)
               
@@ -1707,10 +1594,8 @@ Module MarkDown
               
               PDF::Ln(PDF, 3)
               ;}
-            Default           ;{ Text
-              
-              PDF::SetMargin(PDF, PDF::#CellMargin, 0)
-              
+            Default                ;{ Text
+
               PDF::SetFont(PDF, "Arial", "", 11)
               TextPDF_(PDF, MarkDown()\Row()\String, 200)
               
@@ -1723,18 +1608,18 @@ Module MarkDown
                   Case #Italic
                     PDF::SetFont(PDF, "Arial", "I", 11)
                     TextPDF_(PDF, MarkDown()\Row()\Item()\String, 200)
-                  Case #BoldItalic 
+                  Case #Bold|#Italic 
                     PDF::SetFont(PDF, "Arial", "BI", 11)
                     TextPDF_(PDF, MarkDown()\Row()\Item()\String, 200)
                   Case #StrikeThrough  
                     PDF::SetFont(PDF, "Arial", "", 11)
-                    TextPDF_(PDF, MarkDown()\Row()\Item()\String, 200, 0, #PB_Default, #StrikeThrough)
+                    TextPDF_(PDF, MarkDown()\Row()\Item()\String, 200, 0, 0, #PB_Default, #StrikeThrough)
                     ;}
                   Case #Code        ;{ Code
                     PDF::SetFont(PDF, "Courier New", "", 11)
                     TextPDF_(PDF, MarkDown()\Row()\Item()\String, 200)
                     ;}
-                  Case #URL         ;{ URL / EMail
+                  Case #AutoLink         ;{ URL / EMail
                     PDF::SetFont(PDF, "Arial", "U", 11)
                     PDF::SetColorRGB(PDF, PDF::#TextColor, 0, 0, 255)
                     If CountString(MarkDown()\Row()\Item()\String, "@") = 1
@@ -1753,6 +1638,32 @@ Module MarkDown
                   Case #FootNote    ;{ Footnote
                     PDF::SubWrite(PDF, MarkDown()\Row()\Item()\String, 4.5, 7, 5)
                     ;}
+                  Case #Highlight   ;{ Highlighted text 
+                    PDF::SetFont(PDF, "Arial", "", 11)
+                    PDF::SetColorRGB(PDF, PDF::#FillColor, 252, 248, 227)
+                    TextPDF_(PDF, MarkDown()\Row()\Item()\String, 200, 0, 0, #PB_Default, #Highlight)
+                    PDF::SetColorRGB(PDF, PDF::#FillColor, 255, 255, 255)
+                    ;}
+                  Case #Image       ;{ Image
+                    
+                    If SelectElement(MarkDown()\Image(), MarkDown()\Row()\Item()\Index)
+                      
+                      X = PDF::GetPosX(PDF)
+                      Y = PDF::GetPosY(PDF)
+                      Width  = mm_(MarkDown()\Image()\Width)
+                      Height = mm_(MarkDown()\Image()\Height)
+                      
+                      PDF::Image(PDF, MarkDown()\Image()\Source, X, Y, Width, Height)
+                      PDF::SetPosY(PDF, Y + Height)
+
+                      If MarkDown()\Row()\Item()\String
+                        PDF::Ln(PDF, 1)
+                        PDF::Cell(PDF, MarkDown()\Row()\Item()\String, Width, #PB_Default, #False, PDF::#NextLine, PDF::#CenterAlign)
+                        PDF::Ln(PDF)
+                      EndIf
+                      
+                    EndIf
+                    ;}  
                   Case #Subscript   ;{ SubScript 
                     PDF::SubWrite(PDF, MarkDown()\Row()\Item()\String, 4.5, 7, 0)
                     ;}
@@ -1774,8 +1685,6 @@ Module MarkDown
               Next
               
               PDF::Ln(PDF, 4.5)
-              
-              PDF::SetMargin(PDF, PDF::#CellMargin, 1)
               ;}  
           EndSelect
           
@@ -1788,9 +1697,9 @@ Module MarkDown
           PDF::Ln(PDF, 2)
           
           ForEach MarkDown()\Footnote()
-            PDF::SubWrite(PDF, MarkDown()\Footnote()\Note + " ", 4.5, 7, 5)
+            PDF::SubWrite(PDF, MarkDown()\FootNote()\Label + " ", 4.5, 7, 5)
             PDF::SetFont(PDF, "Arial", "", 9)
-            TextPDF_(PDF, MarkDown()\Footnote()\String, 200, PDF::GetStringWidth(PDF, MarkDown()\Footnote()\Note + " "))
+            TextPDF_(PDF, MarkDown()\FootLabel(MarkDown()\Footnote()\Label), 200, PDF::GetStringWidth(PDF, MarkDown()\FootLabel(MarkDown()\Footnote()\Label) + " "))
             PDF::Ln(PDF, 4)
           Next
     		  
@@ -1804,7 +1713,8 @@ Module MarkDown
     
   CompilerEndIf
   
-  ;- __________ MarkDown __________
+  
+  ;- __________ MarkDown Parser __________
   
   Procedure.i Emoji_(Row.s, sPos.i)
     Define.i ePos
@@ -1851,689 +1761,1142 @@ Module MarkDown
     
     ProcedureReturn #False  
   EndProcedure  
-  
-  Procedure.i Footnote_(Row.s, sPos.i)
-    Define.s Note$
-    Define.i ePos
 
-    ePos = FindString(Row, "]", sPos + 2)
-    If AddElement(MarkDown()\Row()\Item())
-      MarkDown()\Row()\Item()\Type   = #FootNote
-      MarkDown()\Row()\Item()\String = Mid(Row, sPos + 2, ePos - sPos - 2)
-    EndIf
+  Procedure.i IsPunctationChar(Char.s)
     
-    ProcedureReturn ePos
-  EndProcedure
+    Select Char
+      Case "+", "-", ".", ",", ":", ";", "<", "=", ">", "?"
+        ProcedureReturn #True
+      Case "#", "$", "%", "&", "*", "@", "^", "~", "_", "|", "/"
+        ProcedureReturn #True
+      Case "(", ")", "[", "]", "{", "}", "'", "`", #DQUOTE$
+        ProcedureReturn #True
+    EndSelect
+    
+    ProcedureReturn #False
+  EndProcedure  
   
-  Procedure.i Hint_(Row.s, sPos.i)
-    Define.i ePos
-
-    ePos = FindString(Row, "]", sPos + 2)
-    If AddElement(MarkDown()\Row()\Item())
-      MarkDown()\Row()\Item()\Type   = #Hint
-      MarkDown()\Row()\Item()\String = Mid(Row, sPos + 2, ePos - sPos - 2)
-    EndIf
+  Procedure.s GetChars_(String.s, Char.s)
+    Define.i c
+    Define.s Chars$
     
-    ProcedureReturn ePos
-  EndProcedure
-  
-  Procedure   Image_(Row.s, sPos.i) 
-    Define.i ePos
-    Define.s Image$
-    
-    MarkDown()\Row()\Type = #Image
-    
-    ePos = FindString(Row, "]", sPos + 1)
-    MarkDown()\Row()\String = Mid(Row, sPos + 1, ePos - sPos - 1)
-    
-    sPos = FindString(Row, "(", ePos + 1)
-    ePos = FindString(Row, ")", sPos + 1)
-    
-    Image$ = Mid(Row, sPos + 1, ePos - sPos - 1)
-    
-    If AddElement(MarkDown()\Image())
-      MarkDown()\Row()\Index    = ListIndex(MarkDown()\Image())
-      MarkDown()\Image()\Source = StringField(Image$, 1, " " + #DQUOTE$)
-      MarkDown()\Image()\Title  = RTrim(StringField(Image$, 2, " " + #DQUOTE$), #DQUOTE$)
-    EndIf 
-    
-  EndProcedure
- 
-  Procedure.i TextImage_(Row.s, sPos.i) 
-    Define.i ePos
-    Define.s Image$
-    
-    MarkDown()\Row()\Item()\Type = #Image
-    
-    ePos = FindString(Row, "]", sPos + 1)
-    MarkDown()\Row()\Item()\String = Mid(Row, sPos + 1, ePos - sPos - 1)
-    
-    sPos = FindString(Row, "(", ePos + 1)
-    ePos = FindString(Row, ")", sPos + 1)
-    
-    Image$ = Mid(Row, sPos + 1, ePos - sPos - 1)
-    
-    If AddElement(MarkDown()\Image())
-      MarkDown()\Row()\Item()\Index = ListIndex(MarkDown()\Image())
-      MarkDown()\Image()\Source = StringField(Image$, 1, " " + #DQUOTE$)
-      MarkDown()\Image()\Title  = RTrim(StringField(Image$, 2, " " + #DQUOTE$), #DQUOTE$)
-    EndIf 
-    
-    ProcedureReturn ePos
-  EndProcedure
-
-  Procedure.i Link_(Row.s, sPos.i) 
-    Define.i ePos
-    Define.s Link$
-    
-    MarkDown()\Row()\Item()\Type = #Link
-    
-    ePos = FindString(Row, "]", sPos + 1)
-    MarkDown()\Row()\Item()\String = Mid(Row, sPos + 1, ePos - sPos - 1)
-    
-    sPos = FindString(Row, "(", ePos + 1)
-    ePos = FindString(Row, ")", sPos + 1)
-    
-    Link$ = Mid(Row, sPos + 1, ePos - sPos - 1)
-    
-    If AddElement(MarkDown()\Link())
-      MarkDown()\Row()\Item()\Index = ListIndex(MarkDown()\Link())
-      MarkDown()\Link()\URL   = StringField(Link$, 1, " " + #DQUOTE$)
-      MarkDown()\Link()\Title = RTrim(StringField(Link$, 2, " " + #DQUOTE$), #DQUOTE$)
-    EndIf
-    
-    ProcedureReturn ePos
-  EndProcedure
-  
-  Procedure.i URL_(Row.s, sPos.i) 
-    Define.i ePos
-    
-    MarkDown()\Row()\Item()\Type = #URL
-    
-    ePos = FindString(Row, ">", sPos + 1)
-    
-    ProcedureReturn ePos
-  EndProcedure
-  
-  Procedure.i Code_(Row.s, sPos.i) 
-    Define.i ePos
-    
-    MarkDown()\Row()\Item()\Type = #Code
-    
-    If Mid(Row, sPos, 2) = "``"
+    For c=1 To Len(String)
       
-      ePos = FindString(Row, "``", sPos + 2)
-      If ePos
-        MarkDown()\Row()\Item()\String = Mid(Row, sPos + 2, ePos - sPos - 2)
-      EndIf
-      
-    Else  
-
-      ePos = FindString(Row, "`", sPos + 1)
-      If ePos
-        MarkDown()\Row()\Item()\String = Mid(Row, sPos + 1, ePos - sPos - 1)
-      EndIf
-
-    EndIf
-    
-    ProcedureReturn ePos
-  EndProcedure
-  
-  Procedure   HeadingID()
-    Define.i sPos, ePos
-    
-    sPos = FindString(MarkDown()\Row()\String, "{#")
-    If FindString(MarkDown()\Row()\String, "{#")
-      ePos = FindString(MarkDown()\Row()\String, "}")
-      If ePos : MarkDown()\Row()\ID = Mid(MarkDown()\Row()\String, sPos + 1, ePos - sPos - 1) : EndIf
-      MarkDown()\Row()\String = RTrim(Left(MarkDown()\Row()\String, sPos - 1))
-    EndIf
-    
-  EndProcedure
-  
-  Procedure.i Headings_(Row.s) 
-    Define.i ePos
-    
-    MarkDown()\Row()\Type = #Heading
-    
-    If Left(Row, 6) = "######"
-      MarkDown()\Row()\Level = 6
-      MarkDown()\Row()\String = RTrim(Mid(Row, 7), "#")
-    ElseIf Left(Row, 5) = "#####"
-      MarkDown()\Row()\Level = 5
-      MarkDown()\Row()\String = RTrim(Mid(Row, 6), "#")
-    ElseIf Left(Row, 4) = "####"
-      MarkDown()\Row()\Level = 4
-      MarkDown()\Row()\String = RTrim(Mid(Row, 5), "#")
-    ElseIf Left(Row, 3) = "###"
-      MarkDown()\Row()\Level = 3
-      MarkDown()\Row()\String = RTrim(Mid(Row, 4), "#")
-    ElseIf Left(Row, 2) = "##"  
-      MarkDown()\Row()\Level = 2
-      MarkDown()\Row()\String = RTrim(Mid(Row, 3), "#")
-    Else
-      MarkDown()\Row()\Level = 1
-      MarkDown()\Row()\String = RTrim(Mid(Row, 2), "#")
-    EndIf
-
-    HeadingID()
-    
-    If Left(MarkDown()\Row()\String, 1)  = " " : MarkDown()\Row()\String = Mid(MarkDown()\Row()\String, 2) : EndIf 
-    If Right(MarkDown()\Row()\String, 1) = " " : MarkDown()\Row()\String = Left(MarkDown()\Row()\String, Len(MarkDown()\Row()\String) - 1) : EndIf
-    
-    ProcedureReturn Len(Row)
-  EndProcedure
-  
-  Procedure.i Emphasis_(Row.s, sPos.i)
-    Define.i ePos
-    
-    If Mid(Row, sPos, 3) = "***"
-      MarkDown()\Row()\Item()\Type = #BoldItalic
-      ePos = FindString(Row, "***", sPos + 3)
-      MarkDown()\Row()\Item()\String = Mid(Row, sPos + 3, ePos - sPos - 3)
-      ProcedureReturn ePos + 2
-    ElseIf Mid(Row, sPos, 2) = "**"
-      MarkDown()\Row()\Item()\Type = #Bold
-      ePos = FindString(Row, "**", sPos + 2)
-      MarkDown()\Row()\Item()\String = Mid(Row, sPos + 2, ePos - sPos - 2)
-      ProcedureReturn ePos + 1
-    Else 
-      MarkDown()\Row()\Item()\Type = #Italic
-      ePos = FindString(Row, "*", sPos + 1)
-      MarkDown()\Row()\Item()\String = Mid(Row, sPos + 1, ePos - sPos - 1)
-      ProcedureReturn ePos
-    EndIf  
-    
-  EndProcedure
-  
-  Procedure.i StrikeThrough_(Row.s, sPos.i) 
-    Define.i ePos
-    
-    ePos = FindString(Row, "~~", sPos + 2)
-    If ePos
-      MarkDown()\Row()\Item()\Type   = #StrikeThrough
-      MarkDown()\Row()\Item()\String = Mid(Row, sPos + 2, ePos - (sPos + 2))
-      ProcedureReturn ePos + 1
-    Else
-      ePos = FindString(Row, "~", sPos + 1)
-      If ePos
-        MarkDown()\Row()\Item()\Type   = #Subscript
-        MarkDown()\Row()\Item()\String = Mid(Row, sPos + 1, ePos - (sPos + 1))
-        ProcedureReturn ePos
+      If Mid(String, c, 1) = Char
+        Chars$ + Char
+      Else
+        Break
       EndIf  
-    EndIf
-
+      
+    Next
+    
+    ProcedureReturn Chars$
   EndProcedure
- 
-  Procedure.i AddItemText(sPos.i, Pos.i, Row.s, newRow.i)
+  
+  
+  Procedure.i AddSubItemText_(sPos.i, Pos.i, Row.s, FirstItem.i)
     
     If sPos <= Pos 
-      If newRow 
-        MarkDown()\Row()\String = Mid(Row, sPos, Pos - sPos)
-        newRow = #False
+      If FirstItem 
+        MarkDown()\Row()\Item()\String = LTrim(Mid(Row, sPos, Pos - sPos))
+        FirstItem = #False
+      ElseIf AddElement(MarkDown()\Row()\Item()\SubItem())
+        MarkDown()\Row()\Item()\SubItem()\Type   = #Text
+        MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, sPos, Pos - sPos)
+      EndIf   
+    EndIf
+    
+    ProcedureReturn FirstItem
+  EndProcedure 
+  
+  Procedure.i AddItemText_(sPos.i, Pos.i, Row.s, FirstItem.i)
+    
+    If sPos <= Pos 
+      If FirstItem 
+        MarkDown()\Row()\String = LTrim(Mid(Row, sPos, Pos - sPos))
+        FirstItem = #False
       ElseIf AddElement(MarkDown()\Row()\Item())
         MarkDown()\Row()\Item()\Type   = #Text
         MarkDown()\Row()\Item()\String = Mid(Row, sPos, Pos - sPos)
       EndIf   
     EndIf
     
-    ProcedureReturn newRow
+    ProcedureReturn FirstItem
   EndProcedure  
   
-  Procedure.i ParseText_(Row.s, BQ.i, LineBreak.i)
-    Define.i Pos, sPos, ePos, newRow, Length
+  Procedure.i AddTypeRow_(Type.i, BlockQuote.i)
     
-    Pos = 1 :  sPos = 1 : newRow = 0 
-    
-    Length = Len(Row)
-    
-    If LineBreak = #False : Row = RTrim(Row) + " " : EndIf  
-    
-    If ListSize(MarkDown()\Row()) = 0 Or MarkDown()\Row()\Type <> #Text
+    If ListSize(MarkDown()\Row()) = 0 Or MarkDown()\Row()\Type <> Type
       If AddElement(MarkDown()\Row())
-        MarkDown()\Row()\Type       = #Text
-        MarkDown()\Row()\BlockQuote = BQ
-        newRow = #True
-      EndIf
+        MarkDown()\Row()\Type       = Type
+        MarkDown()\Row()\BlockQuote = BlockQuote
+        ProcedureReturn #True
+      EndIf  
     EndIf
     
+    ProcedureReturn #False
+  EndProcedure
+  
+  
+  Procedure.i AddDocRow_(String.s, Type.i)
+    
+    If AddElement(Document())
+      Document()\Type   = Type
+      Document()\String = String
+      ProcedureReturn #True
+    EndIf 
+    
+  EndProcedure 
+  
+  Procedure.i ListLevelDoc_(Pos.i, Indent, *Lists.List_Structure) 
+    Define.i Offset, iDiff
+
+    If *Lists\Indent
+
+      Offset = Indent - Pos
+      
+      If Pos > *Lists\Indent
+        iDiff = Pos - *Lists\Indent
+        If iDiff < 4
+          *Lists\Level + 1
+          ProcedureReturn #True
+        EndIf
+      
+      ElseIf Pos < *Lists\Indent
+
+        If Pos < (*Lists\Indent - Offset)
+          *Lists\Level - 1
+          ProcedureReturn #True
+        Else
+          ProcedureReturn #True
+        EndIf  
+        
+      EndIf
+
+    EndIf
+    
+    ProcedureReturn #False
+  EndProcedure
+  
+  ; Abbreviation: *[HTML]: Hyper Text Markup Language
+  
+  Procedure   ParseInline_(Row.s)
+    Define.i Pos, sPos, ePos, nPos, Length, FirstItem, Left, Right
+    Define.s String$, Start$, Char$
+    
+    Pos = 1 : sPos = 1 : FirstItem = #True
+    Length = Len(Row)
+    
     Repeat
+      
+      ePos = 0
     
       Select Mid(Row, Pos, 1)
-        Case "\" ;{ EscapingCharacters 
-          
+        Case "\"
+          ;{ ___ Backslash escapes ___          [6.1]
           Select Mid(Row, Pos, 2)
-            Case "\\", "\`", "\*", "\_", "\#", "\+", "\-", "\.", "\!", "\|"
+            Case "\+", "\-", "\=", "\<", "\>", "\~", "\:", "\.", "\,", "\;", "\!", "\?"
               Row = RemoveString(Row, "\", #PB_String_CaseSensitive, Pos, 1)
               Pos + 1
-            Case "\{", "\}", "\[", "\]", "\(", "\)"
+            Case "\@", "\*", "\#", "\$", "\%", "\&", "\^", "\`", "\'", "\"+#DQUOTE$ 
+              Row = RemoveString(Row, "\", #PB_String_CaseSensitive, Pos, 1)
+              Pos + 1
+            Case "\{", "\}", "\[", "\]", "\(", "\)", "\_","\\", "\|", "\/"
               Row = RemoveString(Row, "\", #PB_String_CaseSensitive, Pos, 1)
               Pos + 1
           EndSelect
-          ;}
-        Case "*" ;{ Emphasis / 
+          ;}  
+        Case "`"
+          ;{ ___ Code spans ___                 [6.3] 
+          If Mid(Row, Pos, 2) = "``"  ;{ " ``code`` "
+            
+            ePos = FindString(Row, "``", Pos + 2)
+            If ePos
+              
+              FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
+              
+              If AddElement(MarkDown()\Row()\Item()\SubItem())
+                MarkDown()\Row()\Item()\SubItem()\Type = #Code
+                MarkDown()\Row()\Item()\String = Mid(Row, Pos + 2, ePos - Pos - 2)
+                If Left(MarkDown()\Row()\Item()\SubItem()\String, 1) = " " : MarkDown()\Row()\Item()\SubItem()\String = Mid(MarkDown()\Row()\Item()\SubItem()\String, 2) : EndIf ; Remove 1 leading space
+              EndIf
+              
+              ePos + 1
+            EndIf
+            
+            If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
+            ;}
+          Else                        ;{ " `code` "
+            
+            ePos = FindString(Row, "`",  Pos + 1)
+            If ePos
+
+              FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
+              
+              If AddElement(MarkDown()\Row()\Item()\SubItem())
+                MarkDown()\Row()\Item()\SubItem()\Type = #Code
+                MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, Pos + 1, ePos - Pos - 1)
+                If Left(MarkDown()\Row()\Item()\SubItem()\String, 1) = " " : MarkDown()\Row()\Item()\SubItem()\String = Mid(MarkDown()\Row()\Item()\SubItem()\String, 2) : EndIf ; Remove 1 leading space
+              EndIf
+              
+            EndIf
+            
+            If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
+            ;}
+          EndIf
+          ;}  
+        Case "*", "_"
+        ;{ ___ Emphasis and strong emphasis ___ [6.4]
+        String$ = Mid(Row, Pos)
+        Start$  = GetChars_(String$, Mid(Row, Pos, 1))
+
+        ;{ left-flanking delimiter run [6.4] ?
+        Left = #False
+        Char$ = Mid(String$, Len(Start$) + 1, 1)
+        If Char$ <> " "
+          If IsPunctationChar(Char$)
+            Char$ = Mid(String$, Len(Start$) + 2, 1)
+            If Char$ <> " " And IsPunctationChar(Char$) = #False
+              Left = #True
+            EndIf   
+          Else
+            Left = #True
+          EndIf
+        EndIf ;}
+        
+        If Left
           
-          newRow = AddItemText(sPos, Pos, Row, newRow)
- 
-          If AddElement(MarkDown()\Row()\Item())
-            ePos = Emphasis_(Row, Pos)
-            If ePos : Pos = ePos : EndIf
-            sPos = Pos + 1
+          String$ = LTrim(String$, Left(Start$, 1))
+          
+          ;{ right-flanking delimiter run [6.4] ?
+          Right = #False
+          ePos = FindString(String$, Start$)
+          If ePos
+            Char$ = Mid(String$, ePos - 1, 1)
+            If Char$ <> " "
+              If IsPunctationChar(Char$)
+                Char$ = Mid(String$, ePos - 2, 1)
+                If Char$ <> " " And IsPunctationChar(Char$) = #False
+                  Right = #True
+                EndIf
+              Else
+                Right = #True
+              EndIf
+            EndIf
+          EndIf
+          ;}
+          
+          If Right
+            
+            ePos = 0
+            
+            Select Start$
+              Case "***", "___" ;{ #Bold|#Italic
+                
+                ePos = FindString(Row, Start$, Pos + 3)
+                If ePos
+                  FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
+                  If AddElement(MarkDown()\Row()\Item()\SubItem())
+                    MarkDown()\Row()\Item()\SubItem()\Type   = #Bold|#Italic
+                    MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, Pos + 3, ePos - Pos - 3)
+                    ePos + 2
+                  EndIf
+                EndIf
+                ;}
+              Case "**", "__"   ;{ #Bold
+                
+                ePos = FindString(Row, Start$, Pos + 2)
+                If ePos
+                  FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
+                  If AddElement(MarkDown()\Row()\Item()\SubItem())
+                    MarkDown()\Row()\Item()\SubItem()\Type   = #Bold
+                    MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, Pos + 2, ePos - Pos - 2)
+                    ePos + 1
+                  EndIf
+                EndIf
+                ;}
+              Case "*", "_"     ;{ #Italic
+                
+                ePos = FindString(Row, Start$, Pos + 1)
+                If ePos
+                  FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
+                  If AddElement(MarkDown()\Row()\Item()\SubItem())
+                    MarkDown()\Row()\Item()\SubItem()\Type   = #Italic
+                    MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, Pos + 1, ePos - Pos - 1)
+                  EndIf
+                EndIf
+                ;}
+            EndSelect 
+            
+            If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
+          EndIf
+        
+        EndIf
+        ;}  
+        Case "!"
+        ;{ ___ Images ___                       [6.6]
+        If Mid(Row, Pos, 2) = "!["
+          
+          FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
+          
+          ePos = FindString(Row, "][", Pos + 1)
+          If ePos
+            ;{ Reference link
+            FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
+            
+            If AddElement(MarkDown()\Row()\Item()\SubItem())
+              
+              MarkDown()\Row()\Item()\SubItem()\Type   = #Image
+              MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, Pos + 2, ePos - Pos - 2)
+              
+              nPos = ePos + 2
+              If AddElement(MarkDown()\Image())
+               
+                MarkDown()\Row()\Item()\SubItem()\Index = ListIndex(MarkDown()\Image())
+                
+                ePos = FindString(Row, "]", nPos)
+                If ePos
+                  MarkDown()\Image()\Label = Mid(Row, Pos + 1, ePos - Pos - 1)
+                EndIf
+                
+              EndIf  
+             
+            EndIf
+            ;}
+          Else
+            ;{ Inline link
+            ePos = FindString(Row, "](", Pos + 1)
+            If ePos
+              
+              FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
+              
+              If AddElement(MarkDown()\Row()\Item()\SubItem())
+                
+                MarkDown()\Row()\Item()\SubItem()\Type   = #Image
+                MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, Pos + 2, ePos - Pos - 2)
+               
+                nPos = ePos + 2
+                
+                ePos = FindString(Row, ")", nPos)
+                If ePos
+                  
+                  If AddElement(MarkDown()\Image())
+                    
+                    MarkDown()\Row()\Item()\SubItem()\Index = ListIndex(MarkDown()\Image())
+                    
+                    ;{ Source
+                    String$ = Trim(Mid(Row, nPos, ePos - nPos))
+                    If Left(String$, 1) = "<"
+                      nPos = FindString(String$, ">", 2)
+                      If nPos
+                        MarkDown()\Image()\Source = Mid(String$, 2, nPos - 1)
+                        String$ = Trim(Mid(String$, nPos + 1))
+                      EndIf 
+                    Else
+                      MarkDown()\Image()\Source = StringField(String$, 1, " ")
+                      String$ = Trim(Mid(String$, Len(MarkDown()\Image()\Source) + 1))
+                    EndIf ;}
+                    
+                    ;{ Title
+                    If String$
+                      Select Left(String$, 1)
+                        Case #DQUOTE$
+                          nPos = FindString(String$, #DQUOTE$, 2)  
+                        Case "'" 
+                          nPos = FindString(String$, "'", 2)
+                      EndSelect
+                      If nPos
+                        MarkDown()\Image()\Title = Mid(String$, 2, nPos - 2)
+                      EndIf 
+                    EndIf ;}
+                    
+                  EndIf
+                  
+                EndIf
+                
+              EndIf
+
+            EndIf
+            If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
+            ;}
+          EndIf
+          
+          If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
+        EndIf   
+        ;}
+        Case "["
+          ;{ ___ Footnotes / Links
+          If Mid(Row, Pos, 2) = "[^"
+            ;{ ___ Footnote ___
+            ePos = FindString(Row, "]", Pos + 1)
+            If ePos
+              
+              FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
+              
+              If AddElement(MarkDown()\Row()\Item())
+                
+                MarkDown()\Row()\Item()\Type   = #FootNote
+                MarkDown()\Row()\Item()\String = Mid(Row, Pos + 2, ePos - Pos - 2)
+                
+                If AddElement(MarkDown()\Footnote())
+                  MarkDown()\Footnote()\Label   = MarkDown()\Row()\Item()\String
+                  MarkDown()\Row()\Item()\Index = ListIndex(MarkDown()\Footnote())
+                EndIf
+                
+              EndIf
+              
+            EndIf 
+          
+            If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf  
+            ;}
+          Else  
+            ;{ ___ Links  ___                     [6.5]
+            ePos = FindString(Row, "][", Pos + 1)
+            If ePos
+              ;{ Reference link
+              FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
+              
+              If AddElement(MarkDown()\Row()\Item())
+                
+                MarkDown()\Row()\Item()\Type   = #Link
+                MarkDown()\Row()\Item()\String = Mid(Row, Pos + 1, ePos - Pos - 1)
+                
+                nPos = ePos + 2
+                If AddElement(MarkDown()\Link())
+                 
+                  MarkDown()\Row()\Item()\Index = ListIndex(MarkDown()\Link())
+                  
+                  ePos = FindString(Row, "]", nPos)
+                  If ePos
+                    MarkDown()\Link()\Label = Mid(Row, Pos + 1, ePos - Pos - 1)
+                  EndIf
+                  
+                EndIf  
+              
+              EndIf
+              If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
+              ;}
+            Else
+              ;{ Inline link
+              ePos = FindString(Row, "](", Pos + 1)
+              If ePos
+                
+                FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
+                
+                If AddElement(MarkDown()\Row()\Item())
+                  
+                  MarkDown()\Row()\Item()\Type   = #Link
+                  MarkDown()\Row()\Item()\String = Mid(Row, Pos + 1, ePos - Pos - 1)
+                  
+                  nPos = ePos + 2
+                  
+                  ePos = FindString(Row, ")", nPos)
+                  If ePos
+                    
+                    If AddElement(MarkDown()\Link())
+                      
+                      MarkDown()\Row()\Item()\Index = ListIndex(MarkDown()\Link())
+                      
+                      ;{ Destination
+                      String$ = Trim(Mid(Row, nPos, ePos - nPos))
+                      If Left(String$, 1) = "<"
+                        nPos = FindString(String$, ">", 2)
+                        If nPos
+                          MarkDown()\Link()\URL = Mid(String$, 2, nPos - 1)
+                          String$ = Trim(Mid(String$, nPos + 1))
+                        EndIf 
+                      Else
+                        MarkDown()\Link()\URL = StringField(String$, 1, " ")
+                        String$ = Trim(Mid(String$, Len(MarkDown()\Link()\URL) + 1))
+                      EndIf ;}
+                      
+                      ;{ Title
+                      If String$
+                        Select Left(String$, 1)
+                          Case #DQUOTE$
+                            nPos = FindString(String$, #DQUOTE$, 2)  
+                          Case "'" 
+                            nPos = FindString(String$, "'", 2)
+                        EndSelect
+                        If nPos
+                          MarkDown()\Link()\Title = Mid(String$, 2, nPos - 1)
+                        EndIf 
+                      EndIf ;}
+                      
+                    EndIf
+                    
+                  EndIf
+                  
+                EndIf
+
+              EndIf
+              If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
+              ;}
+            EndIf  
+            ;}
           EndIf 
           ;}
-        Case "`" ;{ Code
+        Case "<"
+          ;{ ___ Autolinks ___                    [6.7] 
+          ePos = FindString(Row, ">", Pos + 1)
+          If ePos
           
-          newRow = AddItemText(sPos, Pos, Row, newRow)
-          
-          If AddElement(MarkDown()\Row()\Item())
-            ePos = Code_(Row, Pos)
-            If ePos : Pos = ePos : EndIf
-          EndIf
-
-          sPos = Pos + 1
-          ;}
-        Case "[" ;{ Links / Footnote
-
-          newRow = AddItemText(sPos, Pos, Row, newRow)
-          
-          If Mid(Row, Pos, 2) = "[^"     ;{ Footnote
+            FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
             
-            ePos = Footnote_(Row, Pos)
-            If ePos : Pos = ePos : EndIf
-            ;}
-          ElseIf Mid(Row, Pos, 2) = "[>" ;{ Hint (Tooltip)
-            
-            ePos = Hint_(Row, Pos)
-            If ePos : Pos = ePos : EndIf
-            ;}
-          Else                           ;{ Links
-            
-            If AddElement(MarkDown()\Row()\Item())
-              ePos = Link_(Row, Pos)
-              If ePos : Pos = ePos : EndIf
+            If AddElement(MarkDown()\Row()\Item()\SubItem())
+              
+              MarkDown()\Row()\Item()\SubItem()\Type   = #AutoLink
+              MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, Pos + 1, ePos - Pos - 1) 
+              
+              If AddElement(MarkDown()\Link())
+                MarkDown()\Row()\Item()\SubItem()\Index = ListIndex(MarkDown()\Link())
+                MarkDown()\Link()\URL = MarkDown()\Row()\Item()\SubItem()\String
+              EndIf
+              
             EndIf
-            ;}
-          EndIf
-          
-          sPos = Pos + 1
-          ;}
-        Case "<" ;{ URL / Email
-
-          newRow = AddItemText(sPos, Pos, Row, newRow)
-          
-          If AddElement(MarkDown()\Row()\Item())
-            
-            ePos = URL_(Row, Pos)
-
-            MarkDown()\Row()\Item()\String = Mid(Row, Pos + 1, ePos - Pos - 1)
-            If AddElement(MarkDown()\Link())
-              MarkDown()\Row()\Item()\Index = ListIndex(MarkDown()\Link())
-              MarkDown()\Link()\URL = MarkDown()\Row()\Item()\String
-            EndIf
-            
-            If ePos : Pos = ePos : EndIf
-          EndIf
-
-          sPos = Pos + 1
-          ;}
-        Case "!" ;{ Image
-          
-          If Mid(Row, Pos, 2) = "!["
-
-            newRow = AddItemText(sPos, Pos, Row, newRow)
-            
-            Pos + 1
-            
-            If AddElement(MarkDown()\Row()\Item())
-              ePos = TextImage_(Row, Pos)
-              If ePos : Pos = ePos : EndIf
-            EndIf
-
-            sPos = Pos + 1
+              
+            If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
           EndIf  
           ;}
-        Case "^" ;{ Superscript
-          
-          newRow = AddItemText(sPos, Pos, Row, newRow)
-          
-          If AddElement(MarkDown()\Row()\Item())
-            ePos = FindString(Row, "^", Pos + 1)
+        Case "~" 
+          ;{ ___ Strikethrough / Subscript ___
+          If Mid(Row, Pos, 2) = "~~" ;{ Strikethrough
+            ePos = FindString(Row, "~~", Pos + 1)
             If ePos
-              MarkDown()\Row()\Item()\Type   = #Superscript
-              MarkDown()\Row()\Item()\String = Mid(Row, Pos + 1, ePos - Pos - 1)
-              Pos = ePos
+              FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
+              If AddElement(MarkDown()\Row()\Item()\SubItem())
+                MarkDown()\Row()\Item()\SubItem()\Type   = #StrikeThrough
+                MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, Pos + 2, ePos - Pos - 2)
+                ePos + 1
+              EndIf
+            EndIf ;}
+          Else                        ;{ Subscript 
+            ePos = FindString(Row, "~", Pos + 1)
+            If ePos
+              FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
+              If AddElement(MarkDown()\Row()\Item()\SubItem())
+                MarkDown()\Row()\Item()\SubItem()\Type   = #Subscript
+                MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, Pos + 1, ePos - Pos - 1)
+              EndIf
+            EndIf ;}
+          EndIf 
+          If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
+          ;}
+        Case "^"
+          ;{ ___ Superscript ___
+          ePos = FindString(Row, "^", Pos + 1)
+          If ePos
+            FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
+            If AddElement(MarkDown()\Row()\Item()\SubItem())
+              MarkDown()\Row()\Item()\SubItem()\Type   = #Superscript
+              MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, Pos + 1, ePos - Pos - 1)
             EndIf
           EndIf
-
-          sPos = Pos + 1                
+          If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
           ;}
-        Case "~" ;{ Subscript / Strikethrough
-          
-          newRow = AddItemText(sPos, Pos, Row, newRow)
-          
-          If AddElement(MarkDown()\Row()\Item())
-            ePos = StrikeThrough_(Row, Pos)
-            If ePos : Pos = ePos : EndIf
+        Case "="
+          ;{ ___ Highlight ___
+          If Mid(Row, Pos, 2) = "=="
+            ePos = FindString(Row, "==", Pos + 2)
+            If ePos
+              FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
+              If AddElement(MarkDown()\Row()\Item()\SubItem())
+                MarkDown()\Row()\Item()\SubItem()\Type   = #Highlight
+                MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, Pos + 2, ePos - Pos - 2)
+                ePos + 1
+              EndIf
+            EndIf
           EndIf
-
-          sPos = Pos + 1
+          If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf
           ;}
-        Case ":" ;{ Emoji
-          
+        Case ":"  
+          ;{ ___ Emoji ___
           ePos = Emoji_(Row, Pos)
           If ePos
             
-            newRow = AddItemText(sPos, Pos, Row, newRow)
-          
-            If AddElement(MarkDown()\Row()\Item())
-              MarkDown()\Row()\Item()\Type   = #Emoji
-              MarkDown()\Row()\Item()\String = Mid(Row, Pos, ePos - Pos + 1)
-              Pos = ePos
+            FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
+            
+            If AddElement(MarkDown()\Row()\Item()\SubItem())
+              MarkDown()\Row()\Item()\SubItem()\Type   = #Emoji
+              MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, Pos, ePos - Pos + 1)
             EndIf
-          
-            sPos = Pos + 1
-          EndIf  
-          ;}
+            
+          EndIf
+          If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf
+          ;}  
       EndSelect
       
       Pos + 1
-      
-    Until Pos > Length
+    Until Pos > Length  
+
+    AddSubItemText_(sPos, Pos, Row, FirstItem)
     
-    If sPos <= Pos  ;{ Remaining text
-      If newRow And MarkDown()\Row()\String = ""
-        MarkDown()\Row()\String = Mid(Row, sPos)
-      Else
-        If AddElement(MarkDown()\Row()\Item())
-          MarkDown()\Row()\Item()\Type   = #Text
-          MarkDown()\Row()\Item()\String = Mid(Row, sPos)
-        EndIf
-      EndIf ;}
-    EndIf
-    
-    If LineBreak
-      MarkDown()\Row()\Type = #LineBreak
-      LineBreak = #False
-    EndIf
-    
-    ProcedureReturn LineBreak
   EndProcedure
   
-  Procedure   Parse_(Text.s)
-    Define.i r, Rows, c, Cols, Length, Pos, sPos, ePos, newRow, LineBreak
-    Define.i BQ, Type, CodeBlock
-    Define.s Row$, Num$, trimRow$, Col$, Text$
+  Procedure   ParseMD_(Text.s)
+    ; -------------------------------------------------------------------------
+    ; <https://spec.commonmark.org> - Version 0.29 (2019-04-06) John MacFarlane
+    ; -------------------------------------------------------------------------
+    Define.i r, Rows, Pos, sPos, ePos, nPos, Length, Left, Right
+    Define.i NewLine, Type,  BlockQuote, StartNum, Indent, FirstItem
+    Define.i c, Cols
+    Define.s Row$, tRow$, String$, Char$, Start$, Close$, Label$, Col$
+    Define   Lists.List_Structure
     
     Text = ReplaceString(Text, #CRLF$, #LF$)
     Text = ReplaceString(Text, #CR$, #LF$)
-    Text = ReplaceString(Text, "_", "*")
     
     Rows = CountString(Text, #LF$) + 1
     
+    ;{ ===== Phase 1 =====
+    ClearList(Document())
+    
     For r = 1 To Rows
       
-      BQ = 0
+      Row$  = ReplaceString(StringField(Text, r, #LF$), #TAB$, Space(4))
+      tRow$ = LTrim(Row$)
       
-      Row$   = StringField(Text, r, #LF$)
-
-      If Right(Row$, 2) = "  "
-        Row$ = RTrim(Row$)
-        LineBreak = #True
-      EndIf
-      
-      If Left(Row$, 3) = ">> "
-        BQ = 2
-        Row$ = Mid(Row$, 4)
-      ElseIf Left(Row$, 2) = "> "
-        BQ = 1
-        Row$ = Mid(Row$, 3)
-      EndIf 
-
-      If Left(Row$, 3) = "```" ;{ Code Block
-        
-        If CodeBlock
-          CodeBlock = #False 
-        Else    
-          If AddElement(MarkDown()\Row())
-            MarkDown()\Row()\Type   = #Code
-            MarkDown()\Row()\String = Trim(Mid(Row$, 4)) ; Syntax
-            CodeBlock = #True
-          EndIf  
-        EndIf
-        
-        Continue
-      ElseIf CodeBlock
-        
-        If CodeBlock = #CodeBlock
+      Select Type
+        Case #Code ;{ Add to codeblock
           
-          If Left(Row$, 4) = "    "
-            If AddElement(MarkDown()\Row()\Item())
-              MarkDown()\Row()\Item()\Type   = #Code
-              MarkDown()\Row()\Item()\String = Mid(Row$, 5)
-            EndIf
+          If Left(tRow$, 4) = Space(4)
+            AddDocRow_(Row$, #Code)
             Continue
           Else
-            CodeBlock = #False
+            If Trim(Row$) = Close$
+              Type = #False
+              Continue
+            Else
+              AddDocRow_(Row$, #Code)
+              Continue
+            EndIf
+          EndIf  
+          ;}
+      EndSelect    
+      
+      ;{ _____ BlockQuotes _____            [5.1]
+      If Left(Row$, 4) <> Space(4)
+        If Left(tRow$, 2) = ">>"
+          Pos  = FindString(Row$, ">>")
+          Row$ = LTrim(Mid(Row$, Pos + 2))
+          BlockQuote = 2
+        ElseIf Left(tRow$, 1) = ">" 
+          Pos  = FindString(Row$, ">")
+          Row$ = LTrim(Mid(Row$, Pos + 1))
+          BlockQuote = 1
+        Else
+          BlockQuote = #False
+        EndIf
+      EndIf   
+      ;}
+      
+      ;{ _____ Task Lists _____
+      Select Left(tRow$, 3)
+        Case "- [", "+ [", "* ["
+          
+          If FindString(tRow$, "]", 4)
+            
+            Pos    = FindString(Row$, Left(tRow$, 2))
+            Indent = Pos + 1
+            
+            If Lists\Indent = 0 : Lists\Indent = Indent : EndIf
+            
+            If ListLevelDoc_(Pos, Indent, @Lists) 
+              Lists\Marker = Left(tRow$, 2)
+              Lists\Indent = Indent
+            Else
+              Lists\Marker = ""
+              Lists\Indent = 0
+            EndIf
+            
+          Else
+            Lists\Marker = ""
+            Lists\Indent = 0
+          EndIf
+          
+        Default
+          
+          If Lists\Indent And Type = #List|#Task And Left(Row$, Lists\Indent) = Space(Lists\Indent)
+            Document()\String + " " + tRow$
+            Continue
           EndIf 
           
-        ElseIf CodeBlock
+          Lists\Marker = ""
           
-          If AddElement(MarkDown()\Row()\Item())
-            MarkDown()\Row()\Item()\Type   = #Code
-            MarkDown()\Row()\Item()\String = Row$
+      EndSelect
+      
+      If Lists\Marker
+        
+        If AddElement(Document()) 
+          
+          Document()\Type = #List|#Task
+          
+          If Lists\Level < 0 : Lists\Level = 0 : EndIf 
+          Document()\Level  = Lists\Level
+          
+          Document()\String = Space(2 * Document()\Level) + tRow$
+
+          Document()\Marker     = Left(Lists\Marker, 1)
+          Document()\BlockQuote = BlockQuote
+          
+          Type = #List|#Task
+          
+          Continue
+        EndIf 
+
+      EndIf  
+      ;}
+      
+      ;{ _____ Unordered Lists _____        [5.3]
+      Select Left(tRow$, 2)
+        Case "- ", "+ ", "* "
+
+          Pos    = FindString(Row$, Left(tRow$, 2))
+          Indent = Pos + 1
+          
+          If Lists\Indent = 0 : Lists\Indent = Indent : EndIf
+          
+          If ListLevelDoc_(Pos, Indent, @Lists) 
+            Lists\Marker = Left(tRow$, 2)
+            Lists\Indent = Indent
+          Else
+            Lists\Marker = ""
+            Lists\Indent = 0
+          EndIf 
+          
+        Default
+          
+          If Lists\Indent And Type = #List|#Unordered And Left(Row$, Lists\Indent) = Space(Lists\Indent)
+            Document()\String + " " + tRow$
+            Continue
+          EndIf 
+          
+          Lists\Marker = ""
+          
+      EndSelect
+      
+      If Lists\Marker
+        
+        If AddElement(Document()) 
+          
+          Document()\Type = #List|#Unordered
+          
+          If Lists\Level < 0 : Lists\Level = 0 : EndIf 
+          Document()\Level  = Lists\Level
+          
+          Document()\String = Space(2 * Document()\Level) + tRow$
+
+          Document()\Marker     = Left(Lists\Marker, 1)
+          Document()\BlockQuote = BlockQuote
+          
+          Type = #List|#Unordered
+          
+          Continue
+        EndIf 
+        
+      EndIf  
+      ;}
+      
+      ;{ _____ Ordered Lists _____          [5.3]
+      Select Left(tRow$, 3)
+        Case "1. ", "2. ", "3. ", "4. ",  "5. ", "6. ", "7. ", "8. ", "9. ", "0. "
+          
+          Pos    = FindString(Row$, Left(tRow$, 3))
+          Indent = Pos + 2
+          
+          If Lists\Indent = 0 : Lists\Indent = Indent : EndIf
+
+          If ListLevelDoc_(Pos, Indent, @Lists) 
+            Lists\Marker = Left(tRow$, 2)
+            Lists\Indent = Indent
+          Else
+            Lists\Marker = ""
+            Lists\Indent = 0
+          EndIf 
+
+        Case "1) ", "2) ", "3) ", "4) ",  "5) ", "6) ", "7) ", "8) ", "9) ", "0) "
+          
+          Pos    = FindString(Row$, Left(tRow$, 3))
+          Indent = Pos + 2
+          
+          If Lists\Indent = 0 : Lists\Indent = Indent : EndIf
+          
+          If ListLevelDoc_(Pos, Indent, @Lists) 
+            Lists\Marker = Left(tRow$, 2)
+            Lists\Indent = Indent
+          Else
+            Lists\Marker = ""
+            Lists\Indent = 0
+          EndIf
+          
+        Default
+          
+          If Lists\Indent And Type = #List|#Ordered And Left(Row$, Lists\Indent) = Space(Lists\Indent)
+            Document()\String + " " + tRow$
+            Continue
+          EndIf 
+          
+          Lists\Marker = ""
+          
+      EndSelect    
+    
+      If Lists\Marker
+        
+        If AddElement(Document())
+          
+          Document()\Type = #List|#Ordered
+          
+          If Lists\Level < 0 : Lists\Level = 0 : EndIf 
+          Document()\Level  = Lists\Level
+          
+          Document()\String = Space(3 * Document()\Level) + tRow$
+          
+          Document()\Marker = Mid(Lists\Marker, 2, 1)
+          Document()\BlockQuote = BlockQuote
+          
+          Type = #List|#Ordered
+          
+          Continue
+        EndIf 
+        
+      EndIf  
+      ;}
+      
+      ;{ _____ Definition Lists _____
+      Select Left(tRow$, 2)
+        Case ": "
+        
+          Pos    = FindString(Row$, Left(tRow$, 2))
+          Indent = Pos + 1
+          
+          If Lists\Indent = 0 : Lists\Indent = Indent : EndIf
+          
+          If ListLevelDoc_(Pos, Indent, @Lists) 
+            Lists\Marker = Left(tRow$, 2)
+            Lists\Indent = Indent
+          Else
+            Lists\Marker = ""
+            Lists\Indent = 0
+          EndIf
+          
+        Default
+          
+          If Lists\Indent And Type = #List|#Definition And Left(Row$, Lists\Indent) = Space(Lists\Indent)
+            Document()\String + " " + tRow$
+            Continue
+          EndIf 
+          
+          Lists\Marker = ""
+          
+      EndSelect 
+      
+      If Lists\Marker
+        
+        If AddElement(Document()) 
+          
+          Document()\Type = #List|#Definition
+          
+          If Lists\Level < 0 : Lists\Level = 0 : EndIf 
+          Document()\Level  = Lists\Level
+          
+          Document()\String = Space(2 * Document()\Level) + tRow$
+  
+          Document()\Marker     = Left(Lists\Marker, 1)
+          Document()\BlockQuote = BlockQuote
+          
+          Type = #List|#Definition
+          
+          Continue
+        EndIf
+        
+      EndIf
+      ;}
+      
+      Lists\Marker = ""
+      Lists\Indent = 0
+      
+      If Left(Row$, 4) = Space(4)
+        
+        ;{ _____ Indented code blocks _____ [4.4]
+        If AddDocRow_(Mid(Row$, 5), #Code) : Continue : EndIf
+        
+      ElseIf Left(Row$, 1) = #TAB$
+        
+        If AddDocRow_(Mid(Row$, 2), #Code) : Continue : EndIf ;}
+        
+      Else
+        
+        ;{ _____ Setext headings _____      [4.3]
+        If ListSize(Document()) And Document()\Type = #Parse And Not NewLine
+
+          If Left(tRow$, 1) = "=" And CountString(Trim(Row$), "=") = Len(Trim(Row$))
+            
+            Document()\Type   = #Heading
+            Document()\String = "# " + Trim(Document()\String)
+            
+            Continue
+          ElseIf Left(tRow$, 2) = "--" And CountString(Trim(Row$), "-") = Len(Trim(Row$))
+            
+            Document()\Type   = #Heading
+            Document()\String = "## " + Trim(Document()\String)
+
             Continue
           EndIf
+          
+        EndIf ;}
+        
+        ;{ _____ ATX headings _____         [4.2]
+        If Left(tRow$, 7) = "###### "
+          If AddDocRow_(tRow$, #Heading)
+            Document()\String = RTrim(Trim(Document()\String), "#")
+            Continue
+          EndIf 
+        ElseIf Left(tRow$, 6) = "##### "
+          If AddDocRow_(tRow$, #Heading)
+            Document()\String = RTrim(Trim(Document()\String), "#")
+            Continue
+          EndIf 
+        ElseIf Left(tRow$, 5) = "#### "
+          If AddDocRow_(tRow$, #Heading)
+            Document()\String = RTrim(Trim(Document()\String), "#")
+            Continue
+          EndIf 
+        ElseIf Left(tRow$, 4) = "### "
+          If AddDocRow_(tRow$, #Heading)
+            Document()\String = RTrim(Trim(Document()\String), "#")
+            Continue
+          EndIf 
+        ElseIf Left(tRow$, 4) = "## "
+          If AddDocRow_(tRow$, #Heading)
+            Document()\String = RTrim(Trim(Document()\String), "#")
+            Continue
+          EndIf 
+        ElseIf Left(tRow$, 2) = "# "
+          If AddDocRow_(tRow$, #Heading)
+            Document()\String = RTrim(Trim(Document()\String), "#")
+            Continue
+          EndIf 
+        Else ;{ Empty heading
+          
+          Select Trim(tRow$)
+            Case "######"
+              If AddDocRow_(Trim(tRow$), #Heading) : Continue : EndIf 
+            Case "#####"
+              If AddDocRow_(Trim(tRow$), #Heading) : Continue : EndIf 
+            Case "####"
+              If AddDocRow_(Trim(tRow$), #Heading) : Continue : EndIf 
+            Case "###"
+              If AddDocRow_(Trim(tRow$), #Heading) : Continue : EndIf 
+            Case "##"
+              If AddDocRow_(Trim(tRow$), #Heading) : Continue : EndIf 
+            Case "#"
+              If AddDocRow_(Trim(tRow$), #Heading) : Continue : EndIf 
+          EndSelect
+          ;}
+        EndIf ;}
+        
+        ;{ _____ Paragraphs _____           [4.8]
+        If tRow$ = "" And Document()\String
+          If AddDocRow_("", #Paragraph) : Continue : EndIf 
+        EndIf ;} 
+        
+        ;{ _____ Thematic breaks _____      [4.1]
+        Select Left(RemoveString(tRow$, " "), 3) 
+          Case "---", "***", "___"
+            If AddDocRow_(tRow$, #HLine) : Continue : EndIf 
+        EndSelect ;}
+        
+        ;{ _____ Fenced code blocks _____   [4.5]
+        Select Left(tRow$, 3)
+          Case "```"
+            Close$ = GetChars_(tRow$, "`")
+            If AddDocRow_(Mid(tRow$, Len(Close$) + 1), #Code|#Header) : Type = #Code : EndIf
+            Continue
+          Case "~~~" 
+            Close$ = GetChars_(tRow$, "~")
+            If AddDocRow_(Mid(tRow$, Len(Close$) + 1), #Code|#Header) : Type = #Code : EndIf
+            Continue
+        EndSelect
+        ;}
+
+        ;{ _____ Tables _____
+        If Left(tRow$, 2) = "| "
+          AddDocRow_(Trim(tRow$), #Table)
+          Continue  
+        EndIf     
+        ;}
+        
+        ;{ _____ Footnote reference definitions _____
+        If Left(tRow$, 2) = "[^"
+          
+          ePos = FindString(tRow$, "]:", 3)
+          If ePos
+            
+            Label$ = Mid(tRow$, 3, ePos - 3)
+            If Label$
+              
+              If AddMapElement(MarkDown()\FootLabel(), Label$)
+                MarkDown()\FootLabel() = Trim(Mid(Row$, ePos + 2))
+              EndIf 
+              
+              Continue
+            EndIf
+            
+          EndIf 
           
         EndIf
         ;}
+        
+        ;{ _____ Default _____
+        If ListSize(Document()) = 0 Or Document()\Type <> #Parse Or NewLine
+          If AddElement(Document())
+            Document()\Type = #Parse
+            Document()\BlockQuote = BlockQuote
+          EndIf 
+        EndIf
+        
+        If NewLine
+          Document()\String + " " + LTrim(Row$)
+        Else
+          Document()\String + " " + Row$
+        EndIf  
+        
+        If Right(tRow$, 2) = Space(2) Or Right(tRow$, 1) = "\"
+          NewLine = #True
+        Else
+          NewLine = #False
+        EndIf
+        ;}
+        
       EndIf
       
-      Select Left(Row$, 1)
-        Case "#"         ;{ Headings
+    Next ;}
 
+    ;{ ===== Phase 2 =====
+    ClearList(MarkDown()\Row())
+    
+    ForEach Document()
+      
+      Select Document()\Type
+        ;{ _____ Thematic breaks _____            [4.1]  
+        Case #HLine
           If AddElement(MarkDown()\Row())
-            Headings_(Row$)
-            MarkDown()\Row()\BlockQuote = BQ
-          EndIf
-          ;}        
-        Case "="         ;{ Heading level 1
-          
-          If ListSize(MarkDown()\Row()) And MarkDown()\Row()\Type = #Text And CountString(Row$, "=") = Len(Row$)
-            MarkDown()\Row()\Type  = #Heading
-            MarkDown()\Row()\Level = 1
-            HeadingID()
-          Else
-            LineBreak = ParseText_(Row$, BQ, LineBreak)
-          EndIf
-          ;}
-        Case "-"         ;{ Heading level 2 / Unordered Lists
-          
-          If CountString(Row$, "-") = Len(Row$) ;{ Heading level 2
-            
-            If ListSize(MarkDown()\Row()) : Type = MarkDown()\Row()\Type : EndIf
-    
-            Select Type
-              Case #Text
-                
-                If ListSize(MarkDown()\Row()\Item())
-                  MarkDown()\Row()\Type = #LineBreak
-                  LastElement(MarkDown()\Row()\Item())
-                  Text$ = MarkDown()\Row()\Item()\String
-                  DeleteElement(MarkDown()\Row()\Item())
-                  If AddElement(MarkDown()\Row())
-                    MarkDown()\Row()\String = Text$
-                  EndIf  
-                EndIf
-                
-                MarkDown()\Row()\Type  = #Heading
-                MarkDown()\Row()\Level = 2
-                HeadingID()
-                
-              Default
-                
-                If AddElement(MarkDown()\Row())
-                  MarkDown()\Row()\Type = #HLine
-                EndIf 
-                
-            EndSelect  
-            ;}
-          Else                                  ;{ Unordered Lists
-            
-            If Left(Row$, 5) = "- [ ]"
-              
-              If ListSize(MarkDown()\Row()) = #False Or MarkDown()\Row()\Type <> #TaskList
-                AddElement(MarkDown()\Row())
-                MarkDown()\Row()\Type = #TaskList
-                MarkDown()\Row()\BlockQuote = BQ
-              EndIf  
-              
-              If AddElement(MarkDown()\Row()\Item())
-                MarkDown()\Row()\Item()\Type   = #TaskList
-                MarkDown()\Row()\Item()\String = RTrim(Mid(Row$, 6))
-                MarkDown()\Row()\Item()\State  = #False
-              EndIf
-              
-            ElseIf UCase(Left(Row$, 5)) = "- [X]"
-              
-              If ListSize(MarkDown()\Row()) = #False Or MarkDown()\Row()\Type <> #TaskList
-                AddElement(MarkDown()\Row())
-                MarkDown()\Row()\Type = #TaskList
-                MarkDown()\Row()\BlockQuote = BQ
-              EndIf 
-              
-              If AddElement(MarkDown()\Row()\Item())
-                MarkDown()\Row()\Item()\Type   = #TaskList
-                MarkDown()\Row()\Item()\String = RTrim(Mid(Row$, 6))
-                MarkDown()\Row()\Item()\State  = #True
-              EndIf
-              
-            ElseIf Left(Row$, 2) = "- "
-              
-              If ListSize(MarkDown()\Row()) = #False Or (MarkDown()\Row()\Type <> #List And MarkDown()\Row()\Type <> #OrderedList)
-                AddElement(MarkDown()\Row())
-                MarkDown()\Row()\Type = #List
-                MarkDown()\Row()\BlockQuote = BQ
-              EndIf  
-              
-              If AddElement(MarkDown()\Row()\Item())
-                MarkDown()\Row()\Item()\Type   = #List
-                MarkDown()\Row()\Item()\String = LTrim(Mid(Row$, 3))
-                MarkDown()\Row()\Item()\Level  = 0
-              EndIf
-              
-            Else
-              
-              LineBreak = ParseText_(Row$, BQ, LineBreak)
-              
-            EndIf  
-            ;}
-          EndIf  
-          ;}  
-        Case "*", "+"    ;{ Unordered Lists
-    
-          If Left(Row$, 2) = "* " Or Left(Row$, 2) = "+ "
-            
-            If ListSize(MarkDown()\Row()) = #False Or (MarkDown()\Row()\Type <> #List And MarkDown()\Row()\Type <> #OrderedList)
-              AddElement(MarkDown()\Row())
-              MarkDown()\Row()\Type = #List
-              MarkDown()\Row()\BlockQuote = BQ
-            EndIf  
-            
-            If AddElement(MarkDown()\Row()\Item())
-              MarkDown()\Row()\Item()\Type   = #List
-              MarkDown()\Row()\Item()\String = LTrim(Mid(Row$, 3))
-              MarkDown()\Row()\Item()\Level  = 0
-            EndIf
-            
-          ElseIf CountString(Row$, Left(Row$, 1)) = Len(Row$)
-            
             MarkDown()\Row()\Type = #HLine
-            
-          Else
-            
-            LineBreak = ParseText_(Row$, BQ, LineBreak)
-            
+          EndIf
+          ;}
+        ;{ _____ ATX headings _____               [4.2]
+        Case #Heading
+          If AddElement(MarkDown()\Row())
+            MarkDown()\Row()\Type   = #Heading
+            MarkDown()\Row()\Level  = CountString(Document()\String, "#")
+            MarkDown()\Row()\String = Trim(LTrim(Document()\String, "#"))
           EndIf  
           ;}
-        Case "1", "2", "3", "4", "5", "6", "7", "8", "9" ;{ Ordered List
+        ;{ _____ Paragraphs _____                 [4.8]  
+        Case #Paragraph
+          ; TODO: Remove initial and final whitespace.
+          If AddElement(MarkDown()\Row())
+            MarkDown()\Row()\Type = #Paragraph 
+          EndIf ;}
+        ;{ _____ Lists _____                      [5.3]
+        Case #List|#Ordered    ;{ Ordered List
           
-          Num$ = StringField(Row$, 1, " ")
-          If Right(Num$, 1) = "."
-            
-            If ListSize(MarkDown()\Row()) = #False Or (MarkDown()\Row()\Type <> #List And MarkDown()\Row()\Type <> #OrderedList)
-              AddElement(MarkDown()\Row())
-              MarkDown()\Row()\Type = #OrderedList
-              MarkDown()\Row()\BlockQuote = BQ
-            EndIf  
-            
-            If AddElement(MarkDown()\Row()\Item())
-              MarkDown()\Row()\Item()\Type   = #OrderedList
-              MarkDown()\Row()\Item()\String = Mid(Row$, Len(Num$) + 1)
-              MarkDown()\Row()\Item()\Level  = 0
-            EndIf
-            
-          Else
-            
-            LineBreak = ParseText_(Row$, BQ, LineBreak)
-            
-          EndIf
+          StartNum = AddTypeRow_(#List|#Ordered, Document()\BlockQuote)
           
-          ; TODO: Parse remaining text 
-          
-          ;}
-        Case ":"         ;{ Definition Lists
-          
-          If Left(Row$, 2) = ": "
+          If AddElement(MarkDown()\Row()\Item())
             
-            If ListSize(MarkDown()\Row()) And MarkDown()\Row()\Type = #DefList
-              
-              If AddElement(MarkDown()\Row()\Item())
-                MarkDown()\Row()\Item()\Type   = #DefList
-                MarkDown()\Row()\Item()\String = RTrim(Mid(Row$, 3))
-              EndIf
-              
-            ElseIf ListSize(MarkDown()\Row()) And MarkDown()\Row()\Type = #Text
-              
-              MarkDown()\Row()\Type = #DefList
-              
-              If AddElement(MarkDown()\Row()\Item())
-                MarkDown()\Row()\Item()\Type   = #DefList
-                MarkDown()\Row()\Item()\String = RTrim(Mid(Row$, 3))
-              EndIf
-              
-            Else
-              LineBreak = ParseText_(Row$, BQ, LineBreak)  
-            EndIf
+            MarkDown()\Row()\Item()\Type = #List|#Ordered
             
-          Else
-            LineBreak = ParseText_(Row$, BQ, LineBreak)  
+            If StartNum : MarkDown()\Row()\Item()\State = Val(Left(LTrim(Document()\String), 1)) : EndIf
+            
+            MarkDown()\Row()\Item()\Level  = Document()\Level
+            MarkDown()\Row()\Item()\String = Trim(Mid(LTrim(Document()\String), 4)) ; '1. ' or '1) '
+            
+            StartNum = #False
+            
           EndIf
           ;}
-        Case "!"         ;{ Image
+        Case #List|#Unordered  ;{ Unordered List
           
-          If Left(Row$, 2) = "!["
-            If AddElement(MarkDown()\Row())
-              Image_(Row$, 2)
-            EndIf
+          AddTypeRow_(#List|#Unordered, Document()\BlockQuote)
+          
+          If AddElement(MarkDown()\Row()\Item())
+            MarkDown()\Row()\Item()\Type   = #List|#Unordered
+            MarkDown()\Row()\Item()\Level  = Document()\Level
+            MarkDown()\Row()\Item()\String = Trim(Mid(LTrim(Document()\String), 3)) ; '- ' or '+ ' or '* '
           EndIf
           ;}
-        Case "|"         ;{ Table
+        Case #List|#Definition ;{ Definition List
+
+          If MarkDown()\Row()\Type = #Text : MarkDown()\Row()\Type = #List|#Definition : EndIf
           
-          If ListSize(MarkDown()\Row()) = 0 Or MarkDown()\Row()\Type <> #Table
-            AddElement(MarkDown()\Row())
-            MarkDown()\Row()\Type = #Table
-            MarkDown()\Row()\BlockQuote = BQ
+          If AddElement(MarkDown()\Row()\Item())
+            MarkDown()\Row()\Item()\Type   = #List|#Definition
+            MarkDown()\Row()\Item()\Level  = Document()\Level
+            MarkDown()\Row()\Item()\String = Trim(Mid(LTrim(Document()\String), 3)) ; '- ' or '+ ' or '* '
           EndIf
+          ;}
+        Case #List|#Task       ;{ Task List
           
-          trimRow$ = Trim(RTrim(Mid(Row$, 2), "|"))
+          AddTypeRow_(#List|#Task, Document()\BlockQuote)
           
-          If Left(trimRow$, 3) = "---" Or Left(trimRow$, 4) = ":---" ;{ Header 
+          If AddElement(MarkDown()\Row()\Item())
+            
+            MarkDown()\Row()\Item()\Type = #List|#Task
+
+            MarkDown()\Row()\Item()\Level  = Document()\Level
+            
+            String$ = Trim(Mid(LTrim(Document()\String), 3)) ; '- ' or '+ ' or '* '
+            
+            Select Left(String$, 3)
+              Case "[ ]", "[] "
+                MarkDown()\Row()\Item()\State = #False
+              Case "[X]", "[x]"
+                MarkDown()\Row()\Item()\State = #True
+            EndSelect
+            
+            nPos = FindString(String$, "]", 2)
+            If nPos
+              MarkDown()\Row()\Item()\String = Mid(String$, nPos + 1) 
+            EndIf
+            
+          EndIf ;}    
+        ;}
+        ;{ _____ Code blocks _____                [4.4] / [4.5]
+        Case #Code|#Header
+          
+          If AddElement(MarkDown()\Row())
+            MarkDown()\Row()\Type       = #Code
+            MarkDown()\Row()\String     = Document()\String
+            MarkDown()\Row()\BlockQuote = Document()\BlockQuote
+          EndIf 
+          
+        Case #Code 
+          
+          AddTypeRow_(#Code, Document()\BlockQuote)
+          
+          If AddElement(MarkDown()\Row()\Item())
+            MarkDown()\Row()\Item()\Type   = #Code
+            MarkDown()\Row()\Item()\String = Document()\String
+          EndIf  
+        ;}  
+        ;{ _____ Tables _____
+        Case #Table
+          
+          AddTypeRow_(#Table, Document()\BlockQuote)
+ 
+          String$ = Trim(Trim(Document()\String, "|"))
+          
+          If Left(String$, 3) = "---" Or Left(String$, 4) = ":---" ;{ Header 
+            
             If FirstElement(MarkDown()\Row()\Item())
-              MarkDown()\Row()\Item()\Type = #Header
+              
+              MarkDown()\Row()\Item()\Type | #Header
               MarkDown()\Row()\String = ""
-              Cols = CountString(trimRow$, "|") + 1
+              
+              Cols = CountString(String$, "|") + 1
               For c=1 To Cols
-                Col$ = Trim(StringField(trimRow$, c, "|"))
+                Col$ = Trim(StringField(String$, c, "|"))
                 If Left(Col$, 1) = ":" And Right(Col$, 1) = ":"
                   MarkDown()\Row()\String + "C|"
                 ElseIf Right(Col$, 1) = ":"
@@ -2541,129 +2904,547 @@ Module MarkDown
                 Else
                   MarkDown()\Row()\String + "L|"
                 EndIf
-              Next 
+              Next
+              
               MarkDown()\Row()\String = RTrim(MarkDown()\Row()\String, "|")
-            EndIf  
-            ;}
-          Else                                                       ;{ Table rows
-            
-            If AddElement(MarkDown()\Row()\Item())
-              MarkDown()\Row()\Item()\Type   = #Table 
-              MarkDown()\Row()\Item()\String = trimRow$
-            EndIf  
-            ;}
-          EndIf
-          ;}
-        Case "["         ;{ Footnote text / Hint text 
-          
-          If Left(Row$, 2) = "[^"
-            
-            ePos = FindString(Row$, "]:", 2)
-            If ePos
-              Text$ = Mid(Row$, 3, ePos - 3)
-              If AddElement(MarkDown()\FootNote())
-                MarkDown()\FootNote()\Note   = Text$
-                MarkDown()\FootNote()\String = Mid(Row$, ePos + 2)
-                MarkDown()\FootIdx(Text$) = ListIndex(MarkDown()\FootNote())
-              EndIf
-            EndIf 
-            
-          ElseIf Left(Row$, 2) = "[>"
-            
-            ePos = FindString(Row$, "]:", 2)
-            If ePos
-              Text$ = Mid(Row$, 3, ePos - 3)
-              If AddMapElement(MarkDown()\Hint(), Text$)
-                MarkDown()\Hint()\String = Mid(Row$, ePos + 2)
-              EndIf
-            EndIf 
-          EndIf  
-          ;}
-        Case " ", #TAB$  ;{ Indented
-          
-          trimRow$ = LTrim(Row$, #TAB$)
-          trimRow$ = LTrim(trimRow$)
-          
-          If Left(trimRow$, 2) = "!["                      ;{ Image
-            
-            If AddElement(MarkDown()\Row())
-              Image_(trimRow$, 2)
+              
+              LastElement(MarkDown()\Row()\Item())
             EndIf
             ;}
-          ElseIf Left(Row$, 4) = Space(4) Or Left(Row$, 1) = #TAB$
-            Select Mid(Row$, 5, 1)
-              Case "-", "+", "*"                               ;{ Unordered Lists (indented)
+          Else
+            If AddElement(MarkDown()\Row()\Item())
+              MarkDown()\Row()\Item()\Type   = #Table
+              MarkDown()\Row()\Item()\String = String$
+            EndIf  
+          EndIf
+          ;}
+        Default
+          Row$ = Document()\String
+          ;{ _____ Link reference definitions _____ [4.7] 
+          tRow$ = LTrim(Document()\String)
+
+          If Left(tRow$, 1) = "["
+            
+            Pos = FindString(tRow$, "]:", 2)
+            If Pos
+              
+              Label$ = Mid(tRow$, 2, Pos - 2)
+              If Label$
                 
-                If ListSize(MarkDown()\Row()) = #False Or (MarkDown()\Row()\Type <> #List And MarkDown()\Row()\Type <> #OrderedList)
-                  AddElement(MarkDown()\Row())
-                  MarkDown()\Row()\Type = #List
-                  MarkDown()\Row()\BlockQuote = BQ
+                If AddMapElement(MarkDown()\Label(), Label$)
+                  
+                  String$ = Trim(Mid(tRow$, ePos + 1))
+                  
+                  MarkDown()\Label()\Destination = StringField(String$, 1, " ")
+                  
+                  String$ = Trim(StringField(String$, 2, " "))
+                  If CountString(String$, #DQUOTE$) = 2
+                    MarkDown()\Label()\Title = Trim(String$, #DQUOTE$)
+                  ElseIf CountString(StringField(String$, 2, " "), "'") = 2
+                    MarkDown()\Label()\Title = Trim(String$, "'")
+                  EndIf
+
+                  Continue
                 EndIf
                 
-                If AddElement(MarkDown()\Row()\Item())
-                  MarkDown()\Row()\Item()\Type   = #List
-                  MarkDown()\Row()\Item()\String = LTrim(Mid(trimRow$, 3))
-                  MarkDown()\Row()\Item()\Level  = 1
-                EndIf
+              EndIf
+              
+            EndIf
+            
+          EndIf
+          ;}
+          ;{ _____ Inlines _____                    [6] 
+          Pos = 1 : sPos = 1
+          Length = Len(Row$)
+          
+          ;{ Add new row
+          If AddElement(MarkDown()\Row())
+            MarkDown()\Row()\Type       = #Text
+            MarkDown()\Row()\BlockQuote = Document()\BlockQuote
+            FirstItem = #True
+          EndIf ;}
+          
+          Repeat
+            
+            ePos = 0
+            
+            Select Mid(Row$, Pos, 1)
+              Case "\"
+                ;{ ___ Backslash escapes ___            [6.1]
+                Select Mid(Row$, Pos, 2)
+                  Case "\+", "\-", "\=", "\<", "\>", "\~", "\:", "\.", "\,", "\;", "\!", "\?"
+                    Row$ = RemoveString(Row$, "\", #PB_String_CaseSensitive, Pos, 1)
+                    Pos + 1
+                  Case "\@", "\*", "\#", "\$", "\%", "\&", "\^", "\`", "\'", "\"+#DQUOTE$ 
+                    Row$ = RemoveString(Row$, "\", #PB_String_CaseSensitive, Pos, 1)
+                    Pos + 1
+                  Case "\{", "\}", "\[", "\]", "\(", "\)", "\_","\\", "\|", "\/"
+                    Row$ = RemoveString(Row$, "\", #PB_String_CaseSensitive, Pos, 1)
+                    Pos + 1
+                EndSelect
                 ;}
-              Case "1", "2", "3", "4", "5", "6", "7", "8", "9" ;{ Ordered List    (indented)
-                Num$ = StringField(trimRow$, 1, " ")
-                If Right(Num$, 1) = "."
+              Case "`"
+                ;{ ___ Code spans ___                   [6.3] 
+                If Mid(Row$, Pos, 2) = "``"  ;{ " ``code`` "
                   
-                  If ListSize(MarkDown()\Row()) = #False Or (MarkDown()\Row()\Type <> #List And MarkDown()\Row()\Type <> #OrderedList)
-                    AddElement(MarkDown()\Row())
-                    MarkDown()\Row()\Type = #OrderedList
-                    MarkDown()\Row()\BlockQuote = BQ
-                  EndIf  
-                  
-                  If AddElement(MarkDown()\Row()\Item())
-                    MarkDown()\Row()\Item()\Type   = #OrderedList
-                    MarkDown()\Row()\Item()\String = Mid(trimRow$, Len(Num$) + 1)
-                    MarkDown()\Row()\Item()\Level  = 1
+                  ePos = FindString(Row$, "``", Pos + 2)
+                  If ePos
+                    
+                    FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
+                    
+                    If AddElement(MarkDown()\Row()\Item())
+                      MarkDown()\Row()\Item()\Type = #Code
+                      MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 2, ePos - Pos - 2)
+                      If Left(MarkDown()\Row()\Item()\String, 1) = " " : MarkDown()\Row()\Item()\String = Mid(MarkDown()\Row()\Item()\String, 2) : EndIf ; Remove 1 leading space
+                    EndIf
+                    
+                    ePos + 1
                   EndIf
                   
-                Else
+                  If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
+                  ;}
+                Else                         ;{ " `code` "
                   
-                  If AddElement(MarkDown()\Row()\Item())
-                    MarkDown()\Row()\Item()\Type = #Text
-                    MarkDown()\Row()\String      = Row$
+                  ePos = FindString(Row$, "`",  Pos + 1)
+                  If ePos
+
+                    FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
+                    
+                    If AddElement(MarkDown()\Row()\Item())
+                      MarkDown()\Row()\Item()\Type = #Code
+                      MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 1, ePos - Pos - 1)
+                      If Left(MarkDown()\Row()\Item()\String, 1) = " " : MarkDown()\Row()\Item()\String = Mid(MarkDown()\Row()\Item()\String, 2) : EndIf ; Remove 1 leading space
+                    EndIf
+                    
+                  EndIf
+                  
+                  If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
+                  ;}
+                EndIf
+                ;}
+              Case "*", "_"
+                ;{ ___ Emphasis and strong emphasis ___ [6.4]
+                String$ = Mid(Row$, Pos)
+                Start$  = GetChars_(String$, Mid(Row$, Pos, 1))
+
+                ;{ left-flanking delimiter run [6.4] ?
+                Left = #False
+                Char$ = Mid(String$, Len(Start$) + 1, 1)
+                If Char$ <> " "
+                  If IsPunctationChar(Char$)
+                    Char$ = Mid(String$, Len(Start$) + 2, 1)
+                    If Char$ <> " " And IsPunctationChar(Char$) = #False
+                      Left = #True
+                    EndIf   
+                  Else
+                    Left = #True
+                  EndIf
+                EndIf ;}
+                
+                If Left
+                  
+                  String$ = LTrim(String$, Left(Start$, 1))
+                  
+                  ;{ right-flanking delimiter run [6.4] ?
+                  Right = #False
+                  ePos = FindString(String$, Start$)
+                  If ePos
+                    Char$ = Mid(String$, ePos - 1, 1)
+                    If Char$ <> " "
+                      If IsPunctationChar(Char$)
+                        Char$ = Mid(String$, ePos - 2, 1)
+                        If Char$ <> " " And IsPunctationChar(Char$) = #False
+                          Right = #True
+                        EndIf
+                      Else
+                        Right = #True
+                      EndIf
+                    EndIf
+                  EndIf
+                  ;}
+                  
+                  If Right
+                    
+                    ePos = 0
+                    
+                    Select Start$
+                      Case "***", "___" ;{ #Bold|#Italic
+                        
+                        ePos = FindString(Row$, Start$, Pos + 3)
+                        If ePos
+                          FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
+                          If AddElement(MarkDown()\Row()\Item())
+                            MarkDown()\Row()\Item()\Type   = #Bold|#Italic
+                            MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 3, ePos - Pos - 3)
+                            ePos + 2
+                          EndIf
+                        EndIf
+                        ;}
+                      Case "**", "__"   ;{ #Bold
+                        
+                        ePos = FindString(Row$, Start$, Pos + 2)
+                        If ePos
+                          FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
+                          If AddElement(MarkDown()\Row()\Item())
+                            MarkDown()\Row()\Item()\Type   = #Bold
+                            MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 2, ePos - Pos - 2)
+                            ePos + 1
+                          EndIf
+                        EndIf
+                        ;}
+                      Case "*", "_"     ;{ #Italic
+                        
+                        ePos = FindString(Row$, Start$, Pos + 1)
+                        If ePos
+                          FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
+                          If AddElement(MarkDown()\Row()\Item())
+                            MarkDown()\Row()\Item()\Type   = #Italic
+                            MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 1, ePos - Pos - 1)
+                          EndIf
+                        EndIf
+                        ;}
+                    EndSelect 
+                    
+                    If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
+                  EndIf
+                
+                EndIf
+                ;}
+              Case "!"
+                ;{ ___ Images ___                       [6.6]
+                If Mid(Row$, Pos, 2) = "!["
+                  
+                  FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
+                  
+                  ePos = FindString(Row$, "][", Pos + 1)
+                  If ePos
+                    ;{ Reference link
+                    FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
+                    
+                    If AddElement(MarkDown()\Row()\Item())
+                      
+                      MarkDown()\Row()\Item()\Type   = #Image
+                      MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 2, ePos - Pos - 2)
+                      
+                      nPos = ePos + 2
+                      If AddElement(MarkDown()\Image())
+                       
+                        MarkDown()\Row()\Item()\Index = ListIndex(MarkDown()\Image())
+                        
+                        ePos = FindString(Row$, "]", nPos)
+                        If ePos
+                          MarkDown()\Image()\Label = Mid(Row$, Pos + 1, ePos - Pos - 1)
+                        EndIf
+                        
+                      EndIf  
+                     
+                    EndIf
+                    ;}
+                  Else
+                    ;{ Inline link
+                    ePos = FindString(Row$, "](", Pos + 1)
+                    If ePos
+                      
+                      FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
+                      
+                      If AddElement(MarkDown()\Row()\Item())
+                        
+                        MarkDown()\Row()\Item()\Type   = #Image
+                        MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 2, ePos - Pos - 2)
+                       
+                        nPos = ePos + 2
+                        
+                        ePos = FindString(Row$, ")", nPos)
+                        If ePos
+                          
+                          If AddElement(MarkDown()\Image())
+                            
+                            MarkDown()\Row()\Item()\Index = ListIndex(MarkDown()\Image())
+                            
+                            ;{ Source
+                            String$ = Trim(Mid(Row$, nPos, ePos - nPos))
+                            If Left(String$, 1) = "<"
+                              nPos = FindString(String$, ">", 2)
+                              If nPos
+                                MarkDown()\Image()\Source = Mid(String$, 2, nPos - 1)
+                                String$ = Trim(Mid(String$, nPos + 1))
+                              EndIf 
+                            Else
+                              MarkDown()\Image()\Source = StringField(String$, 1, " ")
+                              String$ = Trim(Mid(String$, Len(MarkDown()\Image()\Source) + 1))
+                            EndIf ;}
+                            
+                            ;{ Title
+                            If String$
+                              Select Left(String$, 1)
+                                Case #DQUOTE$
+                                  nPos = FindString(String$, #DQUOTE$, 2)  
+                                Case "'" 
+                                  nPos = FindString(String$, "'", 2)
+                              EndSelect
+                              If nPos
+                                MarkDown()\Image()\Title = Mid(String$, 2, nPos - 2)
+                              EndIf 
+                            EndIf ;}
+                            
+                          EndIf
+                          
+                        EndIf
+                        
+                      EndIf
+  
+                    EndIf
+                    If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
+                    ;}
+                  EndIf
+                  
+                  If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
+                EndIf   
+                ;}
+              Case "["
+                ;{ ___ Footnotes / Links
+                If Mid(Row$, Pos, 2) = "[^"
+                  ;{ ___ Footnote ___
+                  ePos = FindString(Row$, "]", Pos + 1)
+                  If ePos
+                    
+                    FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
+                    
+                    If AddElement(MarkDown()\Row()\Item())
+                      
+                      MarkDown()\Row()\Item()\Type   = #FootNote
+                      MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 2, ePos - Pos - 2)
+                      
+                      If AddElement(MarkDown()\Footnote())
+                        MarkDown()\Footnote()\Label   = MarkDown()\Row()\Item()\String
+                        MarkDown()\Row()\Item()\Index = ListIndex(MarkDown()\Footnote())
+                      EndIf
+                      
+                    EndIf
+                    
                   EndIf 
-                  
-                EndIf
+                
+                  If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf  
+                  ;}
+                Else  
+                  ;{ ___ Links  ___                     [6.5]
+                  ePos = FindString(Row$, "][", Pos + 1)
+                  If ePos
+                    ;{ Reference link
+                    FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
+                    
+                    If AddElement(MarkDown()\Row()\Item())
+                      
+                      MarkDown()\Row()\Item()\Type   = #Link
+                      MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 1, ePos - Pos - 1)
+                      
+                      nPos = ePos + 2
+                      If AddElement(MarkDown()\Link())
+                       
+                        MarkDown()\Row()\Item()\Index = ListIndex(MarkDown()\Link())
+                        
+                        ePos = FindString(Row$, "]", nPos)
+                        If ePos
+                          MarkDown()\Link()\Label = Mid(Row$, Pos + 1, ePos - Pos - 1)
+                        EndIf
+                        
+                      EndIf  
+                    
+                    EndIf
+                    If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
+                    ;}
+                  Else
+                    ;{ Inline link
+                    ePos = FindString(Row$, "](", Pos + 1)
+                    If ePos
+                      
+                      FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
+                      
+                      If AddElement(MarkDown()\Row()\Item())
+                        
+                        MarkDown()\Row()\Item()\Type   = #Link
+                        MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 1, ePos - Pos - 1)
+                        
+                        nPos = ePos + 2
+                        
+                        ePos = FindString(Row$, ")", nPos)
+                        If ePos
+                          
+                          If AddElement(MarkDown()\Link())
+                            
+                            MarkDown()\Row()\Item()\Index = ListIndex(MarkDown()\Link())
+                            
+                            ;{ Destination
+                            String$ = Trim(Mid(Row$, nPos, ePos - nPos))
+                            If Left(String$, 1) = "<"
+                              nPos = FindString(String$, ">", 2)
+                              If nPos
+                                MarkDown()\Link()\URL = Mid(String$, 2, nPos - 1)
+                                String$ = Trim(Mid(String$, nPos + 1))
+                              EndIf 
+                            Else
+                              MarkDown()\Link()\URL = StringField(String$, 1, " ")
+                              String$ = Trim(Mid(String$, Len(MarkDown()\Link()\URL) + 1))
+                            EndIf ;}
+                            
+                            ;{ Title
+                            If String$
+                              Select Left(String$, 1)
+                                Case #DQUOTE$
+                                  nPos = FindString(String$, #DQUOTE$, 2)  
+                                Case "'" 
+                                  nPos = FindString(String$, "'", 2)
+                              EndSelect
+                              If nPos
+                                MarkDown()\Link()\Title = Mid(String$, 2, nPos - 1)
+                              EndIf 
+                            EndIf ;}
+                            
+                          EndIf
+                          
+                        EndIf
+                        
+                      EndIf
+  
+                    EndIf
+                    If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
+                    ;}
+                  EndIf  
+                  ;}
+                EndIf 
                 ;}
-              Default                                          ;{ Text
-                Debug "#CodeBlock: " + Mid(Row$, 5)
-                If AddElement(MarkDown()\Row())
-                  MarkDown()\Row()\Type = #Code
+              Case "<"
+                ;{ ___ Autolinks ___                    [6.7] 
+                ePos = FindString(Row$, ">", Pos + 1)
+                If ePos
+                
+                  FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
+                  
                   If AddElement(MarkDown()\Row()\Item())
-                    MarkDown()\Row()\Item()\Type   = #Code
-                    MarkDown()\Row()\Item()\String = Mid(Row$, 5)
+                    
+                    MarkDown()\Row()\Item()\Type   = #AutoLink
+                    MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 1, ePos - Pos - 1) 
+                    
+                    If AddElement(MarkDown()\Link())
+                      MarkDown()\Row()\Item()\Index = ListIndex(MarkDown()\Link())
+                      MarkDown()\Link()\URL = MarkDown()\Row()\Item()\String
+                    EndIf
+                    
                   EndIf
-                  CodeBlock = #CodeBlock
+                    
+                  If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
                 EndIf  
                 ;}
+              Case "~" 
+                ;{ ___ Strikethrough / Subscript ___
+                If Mid(Row$, Pos, 2) = "~~" ;{ Strikethrough
+                  ePos = FindString(Row$, "~~", Pos + 1)
+                  If ePos
+                    FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
+                    If AddElement(MarkDown()\Row()\Item())
+                      MarkDown()\Row()\Item()\Type   = #StrikeThrough
+                      MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 2, ePos - Pos - 2)
+                      ePos + 1
+                    EndIf
+                  EndIf ;}
+                Else                        ;{ Subscript 
+                  ePos = FindString(Row$, "~", Pos + 1)
+                  If ePos
+                    FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
+                    If AddElement(MarkDown()\Row()\Item())
+                      MarkDown()\Row()\Item()\Type   = #Subscript
+                      MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 1, ePos - Pos - 1)
+                    EndIf
+                  EndIf ;}
+                EndIf 
+                If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
+                ;}
+              Case "^"
+                ;{ ___ Superscript ___
+                ePos = FindString(Row$, "^", Pos + 1)
+                If ePos
+                  FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
+                  If AddElement(MarkDown()\Row()\Item())
+                    MarkDown()\Row()\Item()\Type   = #Superscript
+                    MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 1, ePos - Pos - 1)
+                  EndIf
+                EndIf
+                If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
+                ;}
+              Case "="
+                ;{ ___ Highlight ___
+                If Mid(Row$, Pos, 2) = "=="
+                  ePos = FindString(Row$, "==", Pos + 2)
+                  If ePos
+                    FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
+                    If AddElement(MarkDown()\Row()\Item())
+                      MarkDown()\Row()\Item()\Type   = #Highlight
+                      MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 2, ePos - Pos - 2)
+                      ePos + 1
+                    EndIf
+                  EndIf
+                EndIf
+                If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf
+                ;}
+              Case ":"  
+                ;{ ___ Emoji ___
+                ePos = Emoji_(Row$, Pos)
+                If ePos
+                  
+                  FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
+                  
+                  If AddElement(MarkDown()\Row()\Item())
+                    MarkDown()\Row()\Item()\Type   = #Emoji
+                    MarkDown()\Row()\Item()\String = Mid(Row$, Pos, ePos - Pos + 1)
+                  EndIf
+                  
+                EndIf
+                If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf
+                ;}
             EndSelect
-          Else                                                 ;{ Text
-            LineBreak = ParseText_(Row$, BQ, LineBreak)
-            ;}
-          EndIf 
-          ;}
-        Case ""          ;{ Paragraph
+            
+            Pos + 1
+          Until Pos > Length  
           
-          If AddElement(MarkDown()\Row())
-            MarkDown()\Row()\Type = #Paragraph
-            MarkDown()\Row()\BlockQuote = BQ
-          EndIf  
-          ;}
-        Default          ;{ Text (Emphasis / ...)
-          
-          LineBreak = ParseText_(Row$, BQ, LineBreak)
+          AddItemText_(sPos, Pos, Row$, FirstItem)
           ;}
       EndSelect
       
-    Next
+    Next ;}
+    
+    ;{ ===== Phase 3 =====
+    ForEach MarkDown()\Row()
+      Select MarkDown()\Row()\Type
+        Case #List|#Ordered    ;{ Ordered List
+          ForEach MarkDown()\Row()\Item()
+            String$ = MarkDown()\Row()\Item()\String
+            ParseInline_(String$)
+          Next   
+          ;}
+        Case #List|#Unordered  ;{ Unordered List
+          ForEach MarkDown()\Row()\Item()
+            String$ = MarkDown()\Row()\Item()\String
+            ParseInline_(String$)
+          Next 
+          ;}
+        Case #List|#Definition ;{ Definition List
+          ForEach MarkDown()\Row()\Item()
+            String$ = MarkDown()\Row()\Item()\String
+            ParseInline_(String$)
+          Next 
+          ;}
+        Case #List|#Task       ;{ Task List
+          ForEach MarkDown()\Row()\Item()
+            String$ = MarkDown()\Row()\Item()\String
+            ParseInline_(String$)
+          Next 
+          ;}
+      EndSelect    
+    Next  
+    ;}
     
   EndProcedure  
+  
   
 	;- __________ Drawing __________
 
@@ -2677,6 +3458,15 @@ Module MarkDown
 		ProcedureReturn RGB((Red1 * Blend) + (Red2 * (1 - Blend)), (Green1 * Blend) + (Green2 * (1 - Blend)), (Blue1 * Blend) + (Blue2 * (1 - Blend)))
 	EndProcedure
 	
+	
+	Procedure   DashLine_(X.i, Y.i, Width.i, Color.i)
+	  Define.i  i
+	  
+	  For i=1 To Width Step 2
+	    Plot(X + i, Y, Color)
+	  Next
+	  
+	EndProcedure  
 	
 	Procedure   CheckBox_(X.i, Y.i, boxWidth.i, FrontColor.i, BackColor.i, State.i)
     Define.i X1, X2, Y1, Y2
@@ -2720,10 +3510,10 @@ Module MarkDown
   	EndIf
   	
   EndProcedure
+
   
-  
-  Procedure.i DrawText_(X.i, Y.i, Text.s, FrontColor.i, Indent.i=0, maxCol.i=0, Link.i=#PB_Default, Flag.i=#False) ; WordWrap
-    Define.i w, PosX, txtWidth, txtHeight, Words, Rows, bqY, OffsetY, OffSetBQ, maxWidth
+  Procedure.i DrawText_(X.i, Y.i, Text.s, FrontColor.i, Indent.i=0, maxCol.i=0, Idx.i=#PB_Default, Flag.i=#False)
+    Define.i w, PosX, txtWidth, txtHeight, Words, Rows, bqY, OffsetY, OffSetBQ, maxWidth, LastX, LastY
     Define.s Word$
 
     If MarkDown()\BlockQuote : OffSetBQ = dpiX(10) * MarkDown()\BlockQuote : EndIf 
@@ -2741,30 +3531,29 @@ Module MarkDown
     Else
       maxWidth = MarkDown()\WrapPos
     EndIf
-    
-    DrawingMode(#PB_2DDrawing_Transparent)
-    
+
     If X + TextWidth(Text) > maxWidth
       
       Rows = 1
       
-      If ListSize(MarkDown()\Row()\Item()) And MarkDown()\Row()\Item()\Type = #Hint ;{ Hint
-        
+      If Flag = #Link          ;{ Move to next line
         PosX = MarkDown()\LeftBorder + Indent + OffSetBQ
         Y + TextHeight(Text)
         Rows + 1
         MarkDown()\WrapHeight + txtHeight
         
-        If FindMapElement(MarkDown()\Hint(), Text)
-          MarkDown()\Hint()\X = PosX
-          MarkDown()\Hint()\Y = Y
-          MarkDown()\Hint()\Width  = TextWidth(Text)
-          MarkDown()\Hint()\Height = txtHeight
-          Line(PosX, Y + MarkDown()\Hint()\Height, MarkDown()\Hint()\Width, 1, MarkDown()\Color\Link)
-          PosX = DrawText(PosX, Y, Text, FrontColor)
-        EndIf  
+        If SelectElement(MarkDown()\Link(), Idx)
+          MarkDown()\Link()\X      = PosX
+          MarkDown()\Link()\Y      = Y
+          MarkDown()\Link()\Width  = TextWidth(Text)
+          MarkDown()\Link()\Height = txtHeight
+          If MarkDown()\Link()\State : FrontColor = MarkDown()\Color\LinkHighlight : EndIf 
+        EndIf
+
+        DrawingMode(#PB_2DDrawing_Transparent)
+        PosX = DrawText(PosX, Y, Text, FrontColor)
         ;}
-      ElseIf Link = #PB_Default               ;{ WordWrap
+      Else                     ;{ WordWrap
       
         PosX  = X
 
@@ -2789,35 +3578,33 @@ Module MarkDown
           EndIf
           
           If w < Words : Word$ + " " : EndIf
+
+          If Flag = #FootNote ;{ Footnote
+            If SelectElement(MarkDown()\Footnote(), Idx)
+              MarkDown()\Footnote()\X = PosX
+              MarkDown()\Footnote()\Y = Y
+              MarkDown()\Footnote()\Width  = TextWidth(Word$) 
+              MarkDown()\Footnote()\Height = TextHeight(Word$)
+            EndIf
+          EndIf ;}
           
-          If Flag = #StrikeThrough : Line(PosX, Y + OffsetY, TextWidth(Word$), 1, FrontColor) : EndIf 
+          LastX = PosX : LastY = Y
           
-          PosX = DrawText(PosX, Y, Word$, FrontColor)
-  
+          If Flag = #Highlight
+            DrawingMode(#PB_2DDrawing_Default)
+            PosX = DrawText(PosX, Y, Word$, FrontColor, MarkDown()\Color\Highlight)
+          Else 
+            DrawingMode(#PB_2DDrawing_Transparent)
+            PosX = DrawText(PosX, Y, Word$, FrontColor)
+          EndIf
+          
+          If Flag = #StrikeThrough : Line(LastX, LastY + OffsetY, TextWidth(Word$), 1, FrontColor) : EndIf 
+          
         Next
-        ;}
-      Else                                    ;{ Move to next line
-        
-        PosX = MarkDown()\LeftBorder + Indent + OffSetBQ
-        Y + TextHeight(Text)
-        Rows + 1
-        MarkDown()\WrapHeight + txtHeight
-        
-        If SelectElement(MarkDown()\Link(), Link)
-          MarkDown()\Link()\X      = PosX
-          MarkDown()\Link()\Y      = Y
-          MarkDown()\Link()\Width  = TextWidth(Text)
-          MarkDown()\Link()\Height = txtHeight
-          If MarkDown()\Link()\State : FrontColor = MarkDown()\Color\LinkHighlight : EndIf 
-        EndIf
-        
-        If Flag = #StrikeThrough : Line(PosX, Y + OffsetY, TextWidth(Text), 1, FrontColor) : EndIf 
-        
-        PosX = DrawText(PosX, Y, Text, FrontColor)
         ;}
       EndIf
       
-      If MarkDown()\BlockQuote                ;{ BlockQuote
+      If MarkDown()\BlockQuote ;{ BlockQuote
         DrawingMode(#PB_2DDrawing_Default)
         Box(MarkDown()\LeftBorder, bqY, dpiX(5), txtHeight * Rows, MarkDown()\Color\BlockQuote)
         If MarkDown()\BlockQuote = 2
@@ -2827,30 +3614,39 @@ Module MarkDown
       
       ProcedureReturn PosX - OffSetBQ
     Else
+
+      Select Flag
+        Case #Link     ;{ Link
+          If SelectElement(MarkDown()\Link(), Idx)
+            MarkDown()\Link()\X      = X
+            MarkDown()\Link()\Y      = Y
+            MarkDown()\Link()\Width  = TextWidth(Text)
+            MarkDown()\Link()\Height = TextHeight(Text)
+            If MarkDown()\Link()\State : FrontColor = MarkDown()\Color\LinkHighlight : EndIf 
+          EndIf ;}
+        Case #FootNote ;{ Footnote
+          If SelectElement(MarkDown()\Footnote(), Idx)
+            MarkDown()\Footnote()\X = X
+            MarkDown()\Footnote()\Y = Y
+            MarkDown()\Footnote()\Width  = TextWidth(Text) 
+            MarkDown()\Footnote()\Height = TextHeight(Text)
+          EndIf 
+          ;}
+      EndSelect
       
-      If ListSize(MarkDown()\Row()\Item()) And MarkDown()\Row()\Item()\Type = #Hint ;{ Hint
-        If FindMapElement(MarkDown()\Hint(), Text)
-          MarkDown()\Hint()\X = X
-          MarkDown()\Hint()\Y = Y
-          MarkDown()\Hint()\Width  = TextWidth(Text)
-          MarkDown()\Hint()\Height = TextHeight(Text)
-          Line(X, Y + MarkDown()\Hint()\Height, MarkDown()\Hint()\Width, 1, MarkDown()\Color\Link)
-        EndIf
-      EndIf ;}
-     
-      If Link <> #PB_Default                  ;{ Link
-        If SelectElement(MarkDown()\Link(), Link)
-          MarkDown()\Link()\X      = X
-          MarkDown()\Link()\Y      = Y
-          MarkDown()\Link()\Width  = TextWidth(Text)
-          MarkDown()\Link()\Height = TextHeight(Text)
-          If MarkDown()\Link()\State : FrontColor = MarkDown()\Color\LinkHighlight : EndIf 
-        EndIf
-      EndIf ;}
+      LastX = X : LastY = Y
       
-      If Flag = #StrikeThrough : Line(X, Y + OffsetY, TextWidth(Text), 1, FrontColor) : EndIf 
-     
-      X = DrawText(X, Y, Text, FrontColor)
+      If Flag = #Highlight
+        DrawingMode(#PB_2DDrawing_Default)
+        X = DrawText(X, Y, Text, FrontColor, MarkDown()\Color\Highlight)
+      Else 
+        DrawingMode(#PB_2DDrawing_Transparent)
+        X = DrawText(X, Y, Text, FrontColor)
+      EndIf 
+      
+      If Flag = #StrikeThrough : Line(LastX, LastY + OffsetY, TextWidth(Text), 1, FrontColor) : EndIf 
+      
+      ; DashLine_(LastX, LastY + MarkDown()\Hint()\Height, MarkDown()\Hint()\Width, MarkDown()\Color\Hint)
       
       If MarkDown()\BlockQuote                ;{ BlockQuote
         DrawingMode(#PB_2DDrawing_Default)
@@ -2864,6 +3660,139 @@ Module MarkDown
     EndIf  
 
     
+  EndProcedure
+  
+  Procedure.i DrawInline_(X.i, Y.i, FrontColor)
+    Define.i TextHeight, ImgSize, OffSetY, OffSetX, LinkColor
+    
+    If ListSize(MarkDown()\Row()\Item()\SubItem())
+      
+      ForEach MarkDown()\Row()\Item()\SubItem()
+        
+        Select MarkDown()\Row()\Item()\SubItem()\Type
+          Case #Bold          ;{ Emphasis
+            DrawingFont(FontID(MarkDown()\Font\Bold))
+            X = DrawText_(X, Y, MarkDown()\Row()\Item()\SubItem()\String, FrontColor)
+          Case #Italic
+            DrawingFont(FontID(MarkDown()\Font\Italic))
+            X = DrawText_(X, Y, MarkDown()\Row()\Item()\SubItem()\String, FrontColor)
+          Case #Bold|#Italic 
+            DrawingFont(FontID(MarkDown()\Font\BoldItalic))
+            X = DrawText_(X, Y, MarkDown()\Row()\Item()\SubItem()\String, FrontColor)
+            ;}
+          Case #Code          ;{ Code
+            DrawingFont(FontID(MarkDown()\Font\Code))
+            X = DrawText_(X, Y, MarkDown()\Row()\Item()\SubItem()\String, FrontColor)
+            ;}
+          Case #Emoji         ;{ Emojis
+            DrawingFont(FontID(MarkDown()\Font\Normal))
+            TextHeight = TextHeight("Abc")
+            If TextHeight <= dpiY(16)
+              ImgSize = TextHeight - dpiY(1)
+            Else
+              ImgSize = dpiY(TextHeight)
+            EndIf  
+            OffSetY = (TextHeight - ImgSize) / 2
+            If IsImage(Emoji(MarkDown()\Row()\Item()\SubItem()\String))
+              DrawingMode(#PB_2DDrawing_AlphaBlend)
+		          DrawImage(ImageID(Emoji(MarkDown()\Row()\Item()\SubItem()\String)), X, Y + OffSetY, ImgSize, ImgSize)
+		          X + ImgSize
+            EndIf
+            ;}
+          Case #FootNote      ;{ Footnote
+            DrawingFont(FontID(MarkDown()\Font\FootNote))
+            X = DrawText_(X, Y, MarkDown()\Row()\Item()\SubItem()\String, FrontColor, 0, 0, MarkDown()\Row()\Item()\SubItem()\Index, #FootNote)
+            ;}                
+          Case #Image         ;{ Image
+            
+            If SelectElement(MarkDown()\Image(), MarkDown()\Row()\Item()\SubItem()\Index)
+        
+			        If MarkDown()\Image()\Num = #False ;{ Load Image
+			          MarkDown()\Image()\Num = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+			          If MarkDown()\Image()\Num
+			            MarkDown()\Image()\Width  = ImageWidth(MarkDown()\Image()\Num)
+			            MarkDown()\Image()\Height = ImageHeight(MarkDown()\Image()\Num)
+			          EndIf ;}
+			        EndIf
+			        
+			        If IsImage(MarkDown()\Image()\Num)
+			          
+			          DrawingMode(#PB_2DDrawing_AlphaBlend)
+			          DrawImage(ImageID(MarkDown()\Image()\Num), X, Y)
+			          
+			          MarkDown()\Image()\X = X
+			          MarkDown()\Image()\Y = Y
+			          MarkDown()\Image()\Width  = MarkDown()\Image()\Width
+			          MarkDown()\Image()\Height = MarkDown()\Image()\Height
+			          
+			          Y + MarkDown()\Image()\Height
+			          
+			          If MarkDown()\Row()\Item()\SubItem()\String
+			            
+			            Y + (TextHeight / 4)
+			            
+			            OffSetX = (MarkDown()\Image()\Width - TextWidth(MarkDown()\Row()\Item()\SubItem()\String)) / 2
+			            
+			            DrawingMode(#PB_2DDrawing_Transparent)
+			            DrawText(X + OffSetX, Y, MarkDown()\Row()\Item()\SubItem()\String, FrontColor)
+			            
+			            Y + TextHeight(MarkDown()\Row()\Item()\SubItem()\String)
+			          EndIf
+			          
+			        ElseIf MarkDown()\Row()\Item()\SubItem()\String
+			          
+			          OffSetX = (MarkDown()\Image()\Width - TextWidth(MarkDown()\Row()\Item()\SubItem()\String)) / 2
+			          
+		            DrawingMode(#PB_2DDrawing_Transparent)
+		            DrawText(X + OffSetX, Y, MarkDown()\Row()\Item()\SubItem()\String, FrontColor)
+		            
+		            Y + TextHeight(MarkDown()\Row()\Item()\SubItem()\String)
+		            
+			        EndIf 
+			        
+			        If MarkDown()\Image()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Image()\Width : EndIf 
+			        
+			      EndIf
+			      
+            ;}
+          Case #Link          ;{ Link
+            DrawingFont(FontID(MarkDown()\Font\Normal))
+            X = DrawText_(X, Y, MarkDown()\Row()\Item()\SubItem()\String, LinkColor, #False, 0, MarkDown()\Row()\Item()\SubItem()\Index, #Link)  
+            ;}
+          Case #Highlight     ;{ Highlight
+            DrawingFont(FontID(MarkDown()\Font\Normal))
+            X = DrawText_(X, Y, MarkDown()\Row()\Item()\SubItem()\String, FrontColor, 0, 0, #PB_Default, #Highlight)
+            ;}
+          Case #StrikeThrough ;{ StrikeThrough  
+            DrawingFont(FontID(MarkDown()\Font\Normal))
+            X = DrawText_(X, Y, MarkDown()\Row()\Item()\SubItem()\String, FrontColor, 0, 0, #PB_Default, #StrikeThrough)
+            ;}
+          Case #Subscript     ;{ SubScript
+            DrawingFont(FontID(MarkDown()\Font\Normal))
+            TextHeight = TextHeight("Abc")
+            DrawingFont(FontID(MarkDown()\Font\FootNote))
+            OffSetY = TextHeight - TextHeight(MarkDown()\Row()\Item()\SubItem()\String) + dpiY(2)
+            X = DrawText_(X, Y + OffSetY, MarkDown()\Row()\Item()\SubItem()\String, FrontColor)
+            ;}
+          Case #Superscript   ;{ SuperScript
+            DrawingFont(FontID(MarkDown()\Font\FootNote))
+            X = DrawText_(X, Y, MarkDown()\Row()\Item()\SubItem()\String, FrontColor)
+            ;}
+          Case #AutoLink      ;{ URL / EMail
+            DrawingFont(FontID(MarkDown()\Font\Normal))
+            X = DrawText_(X, Y, MarkDown()\Row()\Item()\SubItem()\String, LinkColor, #False, 0, MarkDown()\Row()\Item()\SubItem()\Index, #Link)
+            ;}  
+          Default             ;{ Text
+            DrawingFont(FontID(MarkDown()\Font\Normal))
+            X = DrawText_(X, Y, MarkDown()\Row()\Item()\SubItem()\String, FrontColor)
+            ;}
+        EndSelect
+        
+      Next
+
+    EndIf
+    
+		ProcedureReturn X
   EndProcedure
   
 	Procedure   Draw_()
@@ -2927,7 +3856,8 @@ Module MarkDown
 			  MarkDown()\WrapHeight = 0
 			  
 			  Select MarkDown()\Row()\Type
-			    Case #Heading     ;{ Heading  
+			    Case #Heading          ;{ Heading  
+
 			      DrawingMode(#PB_2DDrawing_Transparent)
 			      Select MarkDown()\Row()\Level
 			        Case 1
@@ -2948,9 +3878,9 @@ Module MarkDown
 			      
 			      If TextWidth(MarkDown()\Row()\String) > MarkDown()\Required\Width : MarkDown()\Required\Width = TextWidth(MarkDown()\Row()\String) : EndIf 
 			      
-			      Y + TextHeight(MarkDown()\Row()\String) + MarkDown()\WrapHeight
+			      Y + TextHeight(MarkDown()\Row()\String) + MarkDown()\WrapHeight + (TextHeight / 3)
             ;}
-			    Case #OrderedList ;{ Ordered List  
+			    Case #List|#Ordered    ;{ Ordered List  
 			      
 			      ClearMap(ListNum())
 			      
@@ -2963,6 +3893,7 @@ Module MarkDown
 			      ForEach MarkDown()\Row()\Item()
 			        
 			        Offset = 0
+			        X      = MarkDown()\LeftBorder
 			        Level  = MarkDown()\Row()\Item()\Level
 			        Indent = (NumWidth + TextWidth(". ")) * (Level)
 			        
@@ -2986,14 +3917,15 @@ Module MarkDown
   			        EndIf  
 			        EndIf
 
-			        DrawText_(X + Offset + MarkDown()\Indent + Indent, Y, Num$ + MarkDown()\Row()\Item()\String, FrontColor, Offset + MarkDown()\Indent + Indent + TextWidth(Num$))
+			        X = DrawText_(X + Offset + MarkDown()\Indent + Indent, Y, Num$ + MarkDown()\Row()\Item()\String, FrontColor, Offset + MarkDown()\Indent + Indent + TextWidth(Num$))
+			        X = DrawInline_(X, Y, FrontColor)
 
 			        Y + TextHeight
 			      Next
 			      
 			      Y + MarkDown()\WrapHeight + (TextHeight / 2)
 			      ;}
-			    Case #List        ;{ Unordered List
+			    Case #List|#Unordered  ;{ Unordered List
 			      
 			      ClearMap(ListNum())
 			      
@@ -3005,18 +3937,19 @@ Module MarkDown
 			      
 			      ForEach MarkDown()\Row()\Item()
 			        
+			        X      = MarkDown()\LeftBorder
 			        Level  = MarkDown()\Row()\Item()\Level
 			        Indent = TextWidth(#Bullet$ + " ") * MarkDown()\Row()\Item()\Level
 			        
 			        If Level
-			          If MarkDown()\Row()\Item()\Type = #OrderedList
+			          If MarkDown()\Row()\Item()\Type = #List|#Ordered
 			            ListNum(Str(Level)) + 1
 			            Num$ = Str(ListNum(Str(Level))) + ". "
 			          Else  
 			            Num$ = "- "
 			          EndIf
 			        Else
-			          If MarkDown()\Row()\Item()\Type = #OrderedList
+			          If MarkDown()\Row()\Item()\Type = #List|#Ordered
 			            ListNum(Str(Level)) + 1
 			            Num$ = Str(ListNum(Str(Level))) + ". "
 			          Else  
@@ -3024,14 +3957,16 @@ Module MarkDown
 			          EndIf 
 			        EndIf  
 			        
-			        DrawText_(X + MarkDown()\Indent + Indent, Y, Num$ + MarkDown()\Row()\Item()\String, FrontColor, MarkDown()\Indent + Indent + TextWidth(Num$))
+			        DrawingMode(#PB_2DDrawing_Transparent)
+			        X = DrawText_(X + MarkDown()\Indent + Indent, Y, Num$ + MarkDown()\Row()\Item()\String, FrontColor, MarkDown()\Indent + Indent + TextWidth(Num$))
+			        X = DrawInline_(X, Y, FrontColor)
 			        
 			        Y + TextHeight
 			      Next
 			      
 			      Y + MarkDown()\WrapHeight + (TextHeight / 2)
 			      ;}
-			    Case #TaskList    ;{ Task List 
+			    Case #List|#Task       ;{ Task List 
 			      
 			      Y + (TextHeight / 2)
 			      
@@ -3039,17 +3974,21 @@ Module MarkDown
 
 			      ForEach MarkDown()\Row()\Item()
 			        
+			        X = MarkDown()\LeftBorder
+			        
 			        CheckBox_(X + MarkDown()\Indent, Y + dpiY(1), TextHeight - dpiY(2), FrontColor, BackColor, MarkDown()\Row()\Item()\State)
 			      
 			        DrawingMode(#PB_2DDrawing_Transparent)
-			        DrawText_(X + MarkDown()\Indent + TextHeight, Y, MarkDown()\Row()\Item()\String, FrontColor, MarkDown()\Indent + NumWidth)
-			      
+			        X = DrawText_(X + MarkDown()\Indent + TextHeight, Y, MarkDown()\Row()\Item()\String, FrontColor, MarkDown()\Indent + NumWidth)
+			        X = DrawInline_(X, Y, FrontColor)
+			        
 			        Y + TextHeight + dpiY(2)
 			      Next
 			      
 			      Y + (TextHeight / 2)
 			      ;}
-			    Case #DefList     ;{ Definition List
+			    Case #List|#Definition ;{ Definition List
+			      
 			      
 			      DrawingMode(#PB_2DDrawing_Transparent)  
 			      
@@ -3060,61 +3999,30 @@ Module MarkDown
 			      
 			      DrawingFont(FontID(MarkDown()\Font\Normal))
 			      ForEach MarkDown()\Row()\Item()
-			        DrawText_(X + MarkDown()\Indent, Y, MarkDown()\Row()\Item()\String, FrontColor, MarkDown()\Indent)
+			        
+			        X = MarkDown()\LeftBorder
+			        
+			        X = DrawText_(X + MarkDown()\Indent, Y, MarkDown()\Row()\Item()\String, FrontColor, MarkDown()\Indent)
+			        X = DrawInline_(X, Y, FrontColor)
+			        
 			        Y + (TextHeight * 1.1)
 			      Next
 			      
 			      Y + MarkDown()\WrapHeight
 			      ;}
-			    Case #HLine       ;{ Horizontal Rule  
+			    Case #HLine            ;{ Horizontal Rule  
 
 			      OffSetY = TextHeight / 2
-			      Line(X, Y + OffSetY, Width, 1, FrontColor)
+
+			      DrawingMode(#PB_2DDrawing_Default)
+			      Box(X, Y + OffSetY, Width, 2, MarkDown()\Color\Line)
 			      
 			      Y + TextHeight
 			      ;}
-			    Case #Paragraph   ;{ Paragraph  
+			    Case #Paragraph        ;{ Paragraph  
 			      Y + (TextHeight / 2)
 			      ;}
-			    Case #Image       ;{ Image
-			      If SelectElement(MarkDown()\Image(), MarkDown()\Row()\Index)
-			        
-			        If MarkDown()\Image()\Num = #False ;{ Load Image
-			          MarkDown()\Image()\Num = LoadImage(#PB_Any, MarkDown()\Image()\Source)
-			          If MarkDown()\Image()\Num
-			            MarkDown()\Image()\Width  = ImageWidth(MarkDown()\Image()\Num)
-			            MarkDown()\Image()\Height = ImageHeight(MarkDown()\Image()\Num)
-			          EndIf ;}
-			        EndIf
-			        
-			        If IsImage(MarkDown()\Image()\Num)
-			          
-			          OffSetX = (Width - MarkDown()\Image()\Width) / 2
-			          
-			          DrawingMode(#PB_2DDrawing_AlphaBlend)
-			          DrawImage(ImageID(MarkDown()\Image()\Num), X + OffSetX, Y)
-			          Y + MarkDown()\Image()\Height
-			          
-			          If MarkDown()\Row()\String
-			            Y + (TextHeight / 4)
-			            OffSetX = (Width - TextWidth(MarkDown()\Row()\String)) / 2
-			            DrawingMode(#PB_2DDrawing_Transparent)
-			            DrawText(X + OffSetX, Y, MarkDown()\Row()\String, FrontColor)
-			            Y + TextHeight(MarkDown()\Row()\String)
-			          EndIf
-			          
-			        ElseIf MarkDown()\Image()\Title
-			          OffSetX = (Width - TextWidth(MarkDown()\Image()\Title)) / 2
-		            DrawingMode(#PB_2DDrawing_Transparent)
-		            DrawText(X + OffSetX, Y, MarkDown()\Image()\Title, FrontColor)
-		            Y + TextHeight(MarkDown()\Image()\Title)
-			        EndIf 
-			        
-			        If MarkDown()\Image()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Image()\Width : EndIf 
-			        
-			      EndIf  
-			      ;}
-			    Case #Table       ;{ Table
+			    Case #Table            ;{ Table
 	
 			      DrawingFont(FontID(MarkDown()\Font\Normal))
 			      TextHeight = TextHeight("Abc")
@@ -3133,7 +4041,7 @@ Module MarkDown
 			        Cols     = CountString(Text$, "|") + 1
 			        ColWidth = TableWidth / Cols
 
-			        If MarkDown()\Row()\Item()\Type = #Header
+			        If MarkDown()\Row()\Item()\Type = #Table|#Header
 			          DrawingFont(FontID(MarkDown()\Font\Bold))
 			        Else
 			          DrawingFont(FontID(MarkDown()\Font\Normal))
@@ -3158,7 +4066,7 @@ Module MarkDown
 		          
 		          Y + TextHeight + MarkDown()\WrapHeight
 		          
-		          If MarkDown()\Row()\Item()\Type = #Header
+		          If MarkDown()\Row()\Item()\Type = #Table|#Header
   		          OffSetY = TextHeight / 2
   		          Line(X, Y + OffSetY, TableWidth, 1, FrontColor)
   		          Y + TextHeight 
@@ -3168,7 +4076,7 @@ Module MarkDown
 			      
 			      Y + (TextHeight / 2)
 			      ;}
-			    Case #Code        ;{ Code Block  
+			    Case #Code             ;{ Code Block
 			      
 			      DrawingMode(#PB_2DDrawing_Transparent)
 			      
@@ -3184,7 +4092,7 @@ Module MarkDown
 			      
 			      Y + MarkDown()\WrapHeight + (TextHeight / 2)
 			      ;}
-			    Default           ;{ Text
+			    Default                ;{ Text
 			      
 			      DrawingMode(#PB_2DDrawing_Transparent)
 			      
@@ -3205,7 +4113,7 @@ Module MarkDown
                 Case #Italic
                   DrawingFont(FontID(MarkDown()\Font\Italic))
                   X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, FrontColor)
-                Case #BoldItalic 
+                Case #Bold|#Italic 
                   DrawingFont(FontID(MarkDown()\Font\BoldItalic))
                   X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, FrontColor)
                   ;}
@@ -3230,15 +4138,67 @@ Module MarkDown
                   ;}
                 Case #FootNote      ;{ Footnote
                   DrawingFont(FontID(MarkDown()\Font\FootNote))
-                  X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, FrontColor)
+                  X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, FrontColor, 0, 0, MarkDown()\Row()\Item()\Index, #FootNote)
                   ;}                
-                Case #Hint          ;{ Hint
-                  DrawingFont(FontID(MarkDown()\Font\Normal))
-                  X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, FrontColor)
+                Case #Image         ;{ Image
+                  
+                  If SelectElement(MarkDown()\Image(), MarkDown()\Row()\Item()\Index)
+			        
+      			        If MarkDown()\Image()\Num = #False ;{ Load Image
+      			          MarkDown()\Image()\Num = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+      			          If MarkDown()\Image()\Num
+      			            MarkDown()\Image()\Width  = ImageWidth(MarkDown()\Image()\Num)
+      			            MarkDown()\Image()\Height = ImageHeight(MarkDown()\Image()\Num)
+      			          EndIf ;}
+      			        EndIf
+      			        
+      			        If IsImage(MarkDown()\Image()\Num)
+      			          
+      			          DrawingMode(#PB_2DDrawing_AlphaBlend)
+      			          DrawImage(ImageID(MarkDown()\Image()\Num), X, Y)
+      			          
+      			          MarkDown()\Image()\X = X
+      			          MarkDown()\Image()\Y = Y
+      			          MarkDown()\Image()\Width  = MarkDown()\Image()\Width
+      			          MarkDown()\Image()\Height = MarkDown()\Image()\Height
+      			          
+      			          Y + MarkDown()\Image()\Height
+      			          
+      			          If MarkDown()\Row()\Item()\String
+      			            
+      			            Y + (TextHeight / 4)
+      			            
+      			            OffSetX = (MarkDown()\Image()\Width - TextWidth(MarkDown()\Row()\Item()\String)) / 2
+      			            
+      			            DrawingMode(#PB_2DDrawing_Transparent)
+      			            DrawText(X + OffSetX, Y, MarkDown()\Row()\Item()\String, FrontColor)
+      			            
+      			            Y + TextHeight(MarkDown()\Row()\Item()\String)
+      			          EndIf
+      			          
+      			        ElseIf MarkDown()\Row()\Item()\String
+      			          
+      			          OffSetX = (MarkDown()\Image()\Width - TextWidth(MarkDown()\Row()\Item()\String)) / 2
+      			          
+      		            DrawingMode(#PB_2DDrawing_Transparent)
+      		            DrawText(X + OffSetX, Y, MarkDown()\Row()\Item()\String, FrontColor)
+      		            
+      		            Y + TextHeight(MarkDown()\Row()\Item()\String)
+      		            
+      			        EndIf 
+      			        
+      			        If MarkDown()\Image()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Image()\Width : EndIf 
+      			        
+      			      EndIf
+      			      
                   ;}
                 Case #Link          ;{ Link
                   DrawingFont(FontID(MarkDown()\Font\Normal))
-                  X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, LinkColor, #False, 0, MarkDown()\Row()\Item()\Index)  
+                  X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, LinkColor, #False, 0, MarkDown()\Row()\Item()\Index, #Link)  
+                  ;}
+                Case #Highlight     ;{ Highlight
+                  DrawingFont(FontID(MarkDown()\Font\Normal))
+                  X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, FrontColor, 0, 0, #PB_Default, #Highlight)
                   ;}
                 Case #StrikeThrough ;{ StrikeThrough  
                   DrawingFont(FontID(MarkDown()\Font\Normal))
@@ -3255,9 +4215,9 @@ Module MarkDown
                   DrawingFont(FontID(MarkDown()\Font\FootNote))
                   X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, FrontColor)
                   ;}
-                Case #URL           ;{ URL / EMail
+                Case #AutoLink      ;{ URL / EMail
                   DrawingFont(FontID(MarkDown()\Font\Normal))
-                  X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, LinkColor, #False, 0, MarkDown()\Row()\Item()\Index)
+                  X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, LinkColor, #False, 0, MarkDown()\Row()\Item()\Index, #Link)
                   ;}  
                 Default             ;{ Text
                   DrawingFont(FontID(MarkDown()\Font\Normal))
@@ -3286,18 +4246,18 @@ Module MarkDown
 			  TextHeight = TextHeight("Abc")
 			  
 			  OffSetY = TextHeight / 2
-			  Line(X, Y + OffSetY, Width / 3, 1, FrontColor)
+			  Line(X, Y + OffSetY, Width / 3, 1, MarkDown()\Color\Line)
 
 			  Y + TextHeight
 			  
 			  ForEach MarkDown()\Footnote()
 			    
           DrawingFont(FontID(MarkDown()\Font\FootNote))
-          X = DrawText_(MarkDown()\LeftBorder, Y, MarkDown()\Footnote()\Note + " ", FrontColor)
-          Indent = TextWidth(MarkDown()\Footnote()\Note + "  ")
+          X = DrawText_(MarkDown()\LeftBorder, Y, MarkDown()\FootNote()\Label + " ", FrontColor)
+          Indent = TextWidth(MarkDown()\FootNote()\Label + "  ")
           
           DrawingFont(FontID(MarkDown()\Font\FootNoteText))
-          DrawText_(X, Y, MarkDown()\Footnote()\String, FrontColor, Indent)
+          DrawText_(X, Y, MarkDown()\FootLabel(MarkDown()\Footnote()\Label), FrontColor, Indent)
           
 			    Y + TextHeight
 			  Next
@@ -3403,7 +4363,13 @@ Module MarkDown
 			  If Y >= MarkDown()\Link()\Y And Y <= MarkDown()\Link()\Y + MarkDown()\Link()\Height 
 			    If X >= MarkDown()\Link()\X And X <= MarkDown()\Link()\X + MarkDown()\Link()\Width
 			      
-			      MarkDown()\EventValue = MarkDown()\Link()\URL
+			      If MarkDown()\Link()\Label
+			        If FindMapElement(MarkDown()\Label(), MarkDown()\Link()\Label)
+			          MarkDown()\EventValue = MarkDown()\Label()\Destination
+			        EndIf  
+			      Else  
+			        MarkDown()\EventValue = MarkDown()\Link()\URL
+			      EndIf
 			      
 			      PostEvent(#Event_Gadget,    MarkDown()\Window\Num, MarkDown()\CanvasNum, #EventType_Link)
 			      PostEvent(#PB_Event_Gadget, MarkDown()\Window\Num, MarkDown()\CanvasNum, #EventType_Link)
@@ -3429,7 +4395,8 @@ Module MarkDown
 	EndProcedure
 
 	Procedure _MouseMoveHandler()
-		Define.i X, Y
+	  Define.i X, Y
+	  Define.s ToolTip$
 		Define.i GNum = EventGadget()
 
 		If FindMapElement(MarkDown(), Str(GNum))
@@ -3437,26 +4404,66 @@ Module MarkDown
 			X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
 			Y = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
 
-			ForEach MarkDown()\Link()
+			ForEach MarkDown()\Link()     ;{ Links
+			  
 			  If Y >= MarkDown()\Link()\Y And Y <= MarkDown()\Link()\Y + MarkDown()\Link()\Height 
 			    If X >= MarkDown()\Link()\X And X <= MarkDown()\Link()\X + MarkDown()\Link()\Width
-  			    SetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
+			      
+			      SetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
+			      
+			      If MarkDown()\Link()\Title
+			        ToolTip$ = MarkDown()\Link()\Title
+			      Else
+			        ToolTip$ = MarkDown()\Link()\URL
+			      EndIf
+			      
+			      If ToolTip$
+			        If MarkDown()\ToolTip = #False
+  			        GadgetToolTip(GNum, ToolTip$)
+  			        MarkDown()\ToolTip = #True
+      			  EndIf
+      			EndIf 
+
   			    ProcedureReturn #True
   			  EndIf
-			  EndIf
+  			EndIf
+  			;}
 			Next  
 			
-			ForEach MarkDown()\Hint()
-			  If Y >= MarkDown()\Hint()\Y And Y <= MarkDown()\Hint()\Y + MarkDown()\Hint()\Height 
-			    If X >= MarkDown()\Hint()\X And X <= MarkDown()\Hint()\X + MarkDown()\Hint()\Width
+			ForEach MarkDown()\Footnote() ;{ FootNotes
+			  
+			  If Y >= MarkDown()\Footnote()\Y And Y <= MarkDown()\Footnote()\Y + MarkDown()\Footnote()\Height 
+			    If X >= MarkDown()\Footnote()\X And X <= MarkDown()\Footnote()\X + MarkDown()\Footnote()\Width
+			      
 			      SetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
+			      
 			      If MarkDown()\ToolTip = #False
-			        GadgetToolTip(GNum, MarkDown()\Hint()\String)
-			        MarkDown()\ToolTip = #True
-    			  EndIf
+			        GadgetToolTip(GNum, MarkDown()\FootLabel(MarkDown()\Footnote()\Label))
+			        MarkDown()\ToolTip  = #True
+			      EndIf
+			      
   			    ProcedureReturn #True
   			  EndIf
-			  EndIf
+  			EndIf
+  			;}
+			Next  
+			
+			ForEach MarkDown()\Image()    ;{ Images
+			  
+			  If MarkDown()\Image()\Title = "" : Continue : EndIf 
+			  
+			  If Y >= MarkDown()\Image()\Y And Y <= MarkDown()\Image()\Y + MarkDown()\Image()\Height 
+			    If X >= MarkDown()\Image()\X And X <= MarkDown()\Image()\X + MarkDown()\Image()\Width
+			      
+			      If MarkDown()\ToolTip = #False
+			        GadgetToolTip(GNum, MarkDown()\Image()\Title)
+			        MarkDown()\ToolTip  = #True
+			      EndIf
+			      
+  			    ProcedureReturn #True
+  			  EndIf
+  			EndIf
+			  ;}
 			Next  
 			
 			MarkDown()\ToolTip = #False
@@ -3604,7 +4611,7 @@ Module MarkDown
 	  
 	  If AddMapElement(MarkDown(), "Convert")
 	    
-	    Parse_(MarkDown)
+	    ParseMD_(MarkDown)
 	    
 	    Select Type
 	      Case #HTML  
@@ -3753,16 +4760,19 @@ Module MarkDown
 				
 				MarkDown()\Flags  = Flags
 
-				MarkDown()\Color\Front         = $000000
 				MarkDown()\Color\Back          = $FFFFFF
-				MarkDown()\Color\Gadget        = $F0F0F0
-				MarkDown()\Color\Border        = $A0A0A0
-				MarkDown()\Color\Link          = $8B0000
-				MarkDown()\Color\LinkHighlight = $FF0000
 				MarkDown()\Color\BlockQuote    = $C0C0C0
+				MarkDown()\Color\Border        = $A0A0A0
 				MarkDown()\Color\DisableFront  = $72727D
 				MarkDown()\Color\DisableBack   = $CCCCCA
-				
+				MarkDown()\Color\Front         = $000000
+				MarkDown()\Color\Gadget        = $F0F0F0
+				MarkDown()\Color\Highlight     = $E3F8FC
+				MarkDown()\Color\Hint          = $578B2E
+				MarkDown()\Color\Line          = $A9A9A9
+				MarkDown()\Color\Link          = $8B0000
+				MarkDown()\Color\LinkHighlight = $FF0000
+
 				CompilerSelect #PB_Compiler_OS ;{ Color
 					CompilerCase #PB_OS_Windows
 						MarkDown()\Color\Front  = GetSysColor_(#COLOR_WINDOWTEXT)
@@ -3873,19 +4883,25 @@ Module MarkDown
     
     If FindMapElement(MarkDown(), Str(GNum))
     
-      Select ColorTyp
-        Case #FrontColor
-          MarkDown()\Color\Front       = Value
+      Select ColorTyp 
         Case #BackColor
-          MarkDown()\Color\Back        = Value
+          MarkDown()\Color\Back          = Value
+        Case #BlockQuoteColor 
+          MarkDown()\Color\BlockQuote    = Value   
         Case #BorderColor
-          MarkDown()\Color\Border      = Value
+          MarkDown()\Color\Border        = Value
+        Case #FrontColor
+          MarkDown()\Color\Front         = Value  
+        Case #HighlightColor
+          MarkDown()\Color\Highlight     = Value    
+        Case #HintColor
+          MarkDown()\Color\Hint          = Value 
+        Case #LineColor
+          MarkDown()\Color\Line          = Value  
         Case #LinkColor
-          MarkDown()\Color\Link        = Value  
+          MarkDown()\Color\Link          = Value  
         Case #LinkHighlightColor
           MarkDown()\Color\LinkHighlight = Value    
-        Case #BlockQuoteColor 
-          MarkDown()\Color\BlockQuote  = Value 
       EndSelect
       
       Draw_()
@@ -3930,7 +4946,7 @@ Module MarkDown
 	    
 	    MarkDown()\Text = Text
 	    
-	    Parse_(Text)
+	    ParseMD_(Text)
 
 	    ReDraw()
 	  EndIf
@@ -3945,162 +4961,209 @@ Module MarkDown
   ; License:	CC BY-SA 4.0 <https://creativecommons.org/licenses/by-sa/4.0/>
 	; Source:   <https://openmoji.org>
 	
-  DataSection
-    Angry:
-    Data.q $0603FFE37FFB9C78,$464606374F372F01,$9B7FF86420390646,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
-           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
-           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4EC0C41847FFC641,$2571406C2C4C0645,
-           $4626064666260601,$208B3313232C9856,$A19288B09B2290AB,$0656BA288D502063,$566636A0413956B0,$4516066641466124,
-           $316FFF89C7431161,$B064166415CC80F0,$0BCBC6F0BA63B867,$B9D0BF1EE64717D3,$C302B6A677A555AC,$9E16992C97AE660A,
-           $11CCB6F498125477,$E5B0CBF07177717B,$1ACD3A6B195E6D06,$DECF8B5E3A32F67F,$EDF83C323F32C8D7,$69A64BAF8D50CB3E,
-           $32BCAC39CD33DD69,$DB0109FB1D897E55,$065AA216BBC676FA,$CBF6548568E7DB35,$E5913DEA2AEB4517,$3FE4CB717DB2E7DA,
-           $FDBF65C7EEB5E612,$5131E7F3DFCF745C,$0009BFFF5E5F1983
-    Data.b $03,$99,$6D,$17
-    Cool:
-    Data.q $0603FFE37FFB9C78,$464606374F372F01,$9B7FF86420390646,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
-           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
-           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4EC0C41847FFC641,$1571406C2C4C0645,
-           $8566646020260601,$B22A08B331323389,$2A888A1B0BB109B2,$666BA28955022639,$6664606413966B00,$6432141466124661,
-           $7FFE3116640C5260,$6602E8119987818B,$7FDE93CD867B0641,$F7FE3CF61BC37D8A,$B1A6457DEA7B4994,$7D6030B35AE9AD77,
-           $1B73CDE169C18E47,$F3DA3E2ABEE3C41B,$527395DB34D9BBDE,$754CFEDC9F1BC5D5,$F353911092C23F13,$0FABA7CAE3AF89A0,
-           $52156CF9E8391B5E,$E27AA9B4E0595A48,$0EA38B4CDC6D89BF,$EAA3F47A63DE5BD8,$ECFCDA792735A2EF,$67B89B712D6D3FCA,
-           $93078BC303A0998D,$72AB7BEB9E30FF0E,$254549E8EDEB9D77,$FFAD1E4EA2934C9D
-    Data.b $7F,$13,$00,$C6,$D5,$78,$3E
-    Eyes:
-    Data.q $0603FFE37FFB9C78,$464606374F372F01,$9B7FF86420390646,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
-           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
-           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4EC0C41847FFC641,$1571406C2C4C0645,
-           $6636264626260601,$AB208B33132324B8,$92A3B2A2B09B0310,$66BA2895500AA061,$664606413966B006,$2141064661246616,
-           $FFC7634540C31126,$320932A6807818B7,$E5EB98DC33D8320B,$CAD98B5D6760F79B,$FBEB91CDA9562F13,$3ED95DE3C3D4CCB0,
-           $F237302FE27FBFEF,$57365B2E2C764FED,$C63316DAF25224C6,$0A8F8C5E41A229C8,$62A5F8DADEFF19CE,$73C78535A2CBC877,
-           $72DEBD4DF7A9320E,$D90E1E4D1697F1FA,$2F03193CE78C7CFD,$111BC2672BF67C3F,$CE4D2F2A45EBFB55,$659D9874555AF7EC,
-           $7634CBB6E91BD7DA,$7579DA7B746D79EC,$6FFF5383374EF71F
-    Data.b $02,$00,$38,$46,$71,$C3
-    Laugh:
-    Data.q $0603FFE37FFB9C78,$464606374F372F01,$9B7FF86420390646,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
-           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
-           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$1819C41847FFC641,$2B0B130190191998,
-           $859181804142501B,$4599899192490989,$D0C958514D885590,$C01449E41442A809,$CCCAC0C0C828D602,$A42822C4C8CE2C8A,
-           $FFF1B89814ACC868,$CC824CA1A01E062D,$9BCC4FB70CF60C82,$3F3E0E4CF04FE733,$ECCEE66FBEB590BF,$CAE61FE5C4BDE868,
-           $E64581D4BFC93754,$7F19FB53D9E761C7,$FCE17C6455E4784C,$B53B0176A8C6392A,$0A0AD7962FC76C93,$95AD95532CFA48CF,
-           $AB0E8D9302E2B7AE,$292FAFB349A703D5,$77901EEFB8646313,$AD314DF1EC9F7192,$A9EF4CE652A7DC9D,$B9DAF3D237355968,
-           $FE2654B3D8DF5C15,$A6F17016A49D8864,$FB9DCFDF76D7AEA5,$FF995CB2C48AE503
-    Data.b $DF,$04,$00,$53,$2A,$6E,$AB
-    rofl:
-    Data.q $0603FFE37FFB9C78,$464606374F372F01,$9B7FF86420390646,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
-           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
-           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4E81441847FFC641,$2561406CCC014065,
-           $3309866030260601,$B2290A0AB0B33132,$B4811B288A3B0A19,$17956901656BA232,$6A0612466365AA04,$6C2C74356A016065,
-           $68119987818B7FFC,$3FDEC33D8320B33F,$4E734FFB66572AB3,$B744536AE9FD3E8A,$A7C78DC6844094AB,$C8628FAF9DDA6E3B,
-           $D796E88A16678D4C,$E2763F9B3698AB11,$5C38D6AB7C5685CE,$E745F1BEFDB1CE54,$2EF2DE3F5FBB9DEC,$36B0E54F1AD7A360,
-           $E03E4A1FAFF3CEB7,$82FAC19FF09EBDCF,$7F928AF6F6C314B5,$B2F93FBBAD3E498E,$317F64EE0B572574,$F46EEB5BA7C33661,
-           $329A8D4DBED7473B,$94D8DDC6A8F5585B,$BA69DEB75A960FCF,$49570026FFFF2A67
-    Data.b $76,$BB
-    Sad:
-    Data.q $0603FFE37FFB9C78,$464606374F372F01,$9B7FF86420390646,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
-           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
-           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4E81441847FFC641,$0561406C4C014065,
-           $8446662616460601,$22AB208B33132324,$234823A19092B09B,$417946901646BA23,$00A06124760646A0,$C4E3A188B08B22B3,
-           $023330F0316FFF83,$F7D867B06416676D,$3D47A7A54D54DF2E,$B1335AD9F044F3B5,$5D1D84554B192123,$C0C0C1BECCA97704,
-           $07E3BF33D9F1F1E7,$3D34CBA42C92DB6A,$1290DDA69918839C,$23AF70A5D80DB109,$A75AB78DE3F8E532,$26FC950C50537ED6,
-           $BB78C2CD8346F0B6,$737DB14ACFEB1E83,$A7614F69F37C3008,$6293B65AEDEBF7E4,$76BF8A28E40AB7E2,$5F46F775C7FAD4EB,
-           $18DF669B8EDD4E9F,$D6EBF794FAD9E75F,$4D6CEEF70009BFFF
-    Smile:
-    Data.q $0603FFE37FFB9C78,$464606374F372F01,$9B7FF86420390646,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
-           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
-           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4EC0C41847FFC641,$2571406C4C8C0645,
-           $1646260666260601,$22AB208B33388466,$226392A198B0909B,$90160656BA288D50,$5666664606417956,$A288B08B00906124,
-           $F0316FFF83C4E263,$60C82CC01D023330,$2D30E7E3FABF70CF,$36E7BADDA79713FF,$AD04A6D37B62E04B,$D69E15EE02CD7225,
-           $CAD9DB27D5181837,$4969B0F92B53DEEE,$0209AE2FD4D66593,$304FF9B99DE58F86,$2F961951D7BC70EE,$89AF5EDDED7526D1,
-           $B44EB924E8E6A693,$8DDAF1ACDADD78F7,$4B3F411907DEFBF9,$FCA7BF367B6DD6D9,$0A27B8CE2B09DAE6,$F3FC3A4C3224B03A,
-           $83C79FD0995957DE,$7D665BDDB0BE192A,$5C5E004DFFFEB73C
-    Data.b $6F,$CC
-    Wink:
-    Data.q $0603FFE37FFB9C78,$464606374F372F01,$9B7FF86420390646,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
-           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
-           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$1819C41847FFC641,$1B33130050191998,
-           $9185918180454250,$22CCC4C8CB210599,$E86C26C8A2242AC8,$0A25540464AA20C8,$10566901600A28F2,$1612476266646064,
-           $161160643456EA04,$0F0316FFF87C0C71,$7B06416641265CD0,$7692526751F93B86,$687AE2AA53E670CE,$BB80A8DAD72B6BF4,
-           $D7266CBC19FF2DA1,$A5BBC0E35DF87EAD,$7FCB5AEF71AD1E8F,$13FAE795ADE3373C,$22741F8E4CAD7D5E,$C595FBBE07AA8FCC,
-           $95E97729C572E81C,$2E19A5D31DECAF48,$2AB98C654C848967,$EAC1F0F443CF3CAB,$92561CFEBA2B05D5,$C22E9DE0E5362F54,
-           $21E66B2AE768A2DB,$F7F9E13AE5965FC3,$905FE4374726BF15,$FFFECF372D589791
-    Data.b $4D,$00,$0E,$83,$6D,$C7
-    Worry:
-    Data.q $0603FFE37FFB9C78,$464606374F372F01,$9B7FF86420390646,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
-           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
-           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4EC0C41847FFC641,$4571406C2C4C0645,
-           $324B866010260601,$B10AB22A08B33132,$889502063A192B09,$641054EB0064EBA2,$0466124762666460,$68A22C22C8ECC75A,
-           $330F0316FFF85818,$64B6E19EC1904458,$6B57F36D56CD714E,$DFE7ADBB19279557,$D820996A192E2164,$0601DB7C74915CA1,
-           $F44FAAE3F2E57146,$B928E51C5EBF9743,$816D8509498CE36A,$6C3CC40E6A224C93,$DB2F1AAD3D097764,$466EC3E6CF6735A6,
-           $5EB77D7A9C3E4B61,$751FEC94EEEE49B4,$69FE1E3C2D31CEFF,$E9EDD26D92D86F15,$B7A3799D4CA5B667,$D7932C1B86C8EFC5,
-           $EBF8E7B1CAF39C1F,$9D3FBE5DB3D6C61D,$0137FFFEDA7CB9CC
-    Data.b $5C,$F3,$73,$77
-    Smirk:
-    Data.q $0603FFE37FFB9C78,$464606374F372F01,$9B7FF86420390646,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
-           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
-           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$1819C41847FFC641,$1B0B130050191998,
-           $0409819180514250,$82CC2C4C8CE26198,$4686A2C28A6C42AC,$00A25F20A225408E,$564646A041594EB0,$1606456641466124,
-           $7818B7FFC0C31161,$D8320B320931F680,$1DF5DBF3BA7EDC33,$44F87DB8D54CFE7F,$57C7D13F6AC906CF,$9E92BE0B743924A7,
-           $B376D602F2F43132,$E7CD71DB39D7771F,$E3D34FB79E51D2D5,$8E3C7835AFF994F8,$57BFD6F90DAF1D39,$A68757D1F3996635,
-           $ED351FA6195E0EDE,$5597877C867AB321,$577BCEE5D2C2E390,$F1D4AF6BCACBA4C8,$676FC99CC76DF35D,$A0A6B8D13C75F39D,
-           $EAFAE7F83591C783,$E639BE77AF8D2720,$A1C456A3FBF25D9D,$DC0004DFFFE7DBE4
-    Data.b $05,$75,$EA 
-    Phone:
-    Data.q $0603FFE37FFB9C78,$464606374F372F01,$9B7FF86420390646,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
-           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
-           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4E81441847FFC641,$456140EC6C014065,
-           $8466261646260601,$A29B2B0B33132324,$5013A1A3B08310A0,$A28167A046BA0889,$19987818B7A29882,$0433D8320B325681,
-           $D4EDB117F8ECDAB7,$59B6BBDCCB8DE5AA,$415B54A1B7986C46,$645FE433B989C3FD,$CD9AE1F6B4F875BC,$6904BBBFCB4ACD42,
-           $B13AA849555E64B7,$08DE65F71FC5F3E7,$FA9FF6E47796B56E,$242429DB4FA7ACC4,$6E8737CB7DAADDE6,$CA1E9B237D6AAAC9,
-           $CA031713B6CF7F30,$5E11170004DFFF98
-    Data.b $80
-    Pencil:
-    Data.q $0603FFE37FFB9C78,$464606374F372F01,$9B7FF86420190646,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
-           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
-           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4EC0C41847FFC641,$6571406C0CEC0645,
-           $8456664616460601,$9B2B208B33132324,$1142E063A1832290,$CC0CBD745122A027,$262606411961402C,$6606264661246626,
-           $62DFFF0B89E52541,$C82CCF5A046661E0,$4B92DBEAC170CF60,$7A72FEAD975E4EBF,$2F1DAE770994FBA2,$E3C82F957BE03FAE,
-           $D38BA791E057071D,$DC76CA453B0D3914,$3D7F2A69F5ED11FA,$6A6D9ADC8B374287,$778E022AFD824966,$52687DAB9878AF6E,
-           $1C5E3C1B83A51FED,$93CF0AF1AFB3F9AB,$2CF9B857C9AD394F,$F2F20A2E5FB39D65,$803AB8131A2223BC,$6C0C6D89FFADA6E5,
-           $1B7A3752CA78DF21,$080026FFFFE33EDE
-    Data.b $92,$6C,$A6
-    Memo:
-    Data.q $0603FFE37FFB9C78,$204606374F372F01,$9B7FF86061D461D0,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
-           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
-           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4E40C41847FFC641,$7140CC8C6C064065,
-           $6646262626060155,$0B33132338985666,$889B22B08310A0AB,$32A042E051A192A3,$0961406540DD7451,$0646091466064641,
-           $807818B7FFC54341,$0CF60C82CC824CC2,$593903C7A5AD7E99,$7F78EABF84C38255,$7F6BFDBD7BF32DEF,$1FB7D57CEDECFF30,
-           $5DFEB07230885C14,$242C3C5DB21A5F28,$392DD96A729B7B94,$A849375B4B32CB86,$25D6BE500A2D4C2C,$B69EC0BD64B3AD69,
-           $AAEC7F1C022D4959,$99636D70BADC5F3C,$657D062C115BC6D5,$1C928A8BE53CA373,$3BBA0F5FE7DC65ED,$0137FFE6F580A275
-    Data.b $E6,$CF,$61,$4A
-    BookMark:
-    Data.q $0603FFE37FFB9C78,$204606374F372F01,$9B7FF86061D461D0,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
-           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
-           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4E40C41847FFC641,$71406CAC2C064065,
-           $4616664626060165,$AB0B13332338B856,$88B09B10A0BB0322,$5EBA2891502063B2,$50208CB0A0166606,$5040501330B22B31,
-           $1E062DFFE9D1C458,$F60C82CCF5A04666,$FD8DB5D51DDED70C,$ACD315AB5061FC7C,$FCAEE41C989B1D0D,$E99D20CBF377373C,
-           $17CD971EA20B5547,$CAE17FE07E60716C,$09AA9F5687AD6BDF,$6C5D60BB75E99BBA,$FA0F146BD3ABF052,$F1E271283F94D52C,
-           $8D676952EA038AA4,$F6F8BAC97F599516,$628775B8ACAAD4D5,$4F1C9A648CD55925,$B4BA7AED09894A58,$FFF86AFDDA4E5BD0
-    Data.b $9B,$00,$0D,$96,$67,$9C
-    Mail:
-    Data.q $0603FFE37FFB9C78,$204606374F372F01,$9B7FF86061D461D0,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
-           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
-           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4E40C41847FFC641,$7140ACCC6C064065,
-           $1646261646060165,$AB0B33132324B866,$B0A390BB1B21A2A0,$569A0891503191A8,$62DE8A620A890020,$C82CC824C49A01E0,
-           $59F259581A90CF60,$26A7BE9C57C6D6E0,$3EF0B2CCF54D8A9D,$3DC055770344FCB0,$ECAFD38DB6460DF7,$7FB95FE9D2E72C4D,
-           $0DA2E3D82BC7A3D2,$BE906111D7AC34AF,$2385B9E2599E7729,$C53C43EB6EF5B6FF,$C6A665DA5B2BD20A,$807AFF63A9652D84,
-           $929327CDC4830BF3,$4A766C5DCF5D6F8B,$B1513302EEA39177,$05D934279B75CB1D,$E4B4B3DD4727B071,$7F636ED600137FFF
-    Date:
-    Data.q $0603FFE37FFB9C78,$204606374F372F01,$9B7FF86061D461D0,$8D9D8D8D838199C1,$8393939D9D9D8395,$479B9B879784478B,
-           $5E4A56445F984852,$4F454146464A564E,$C34646594749415D,$44C4C4D0C0C7535C,$CF46C8C2D6D2DD5E,$272723086408C4D8,
-           $84AF2F048F370F27,$FFE0C911A28CA291,$7E067E060E410601,$6646412606254666,$4E81441847FFC641,$5561402CAC014065,
-           $6646164626260601,$2B0B331323309856,$B288B0A2A1A09B03,$23374821606392A8,$4641496E90666EBA,$2C8DA04619146606,
-           $988330F0316FFF42,$F296CB0CF60C82CC,$8293733B3AEC525E,$0D37574FD05AA47F,$DE0BE538A7FDA786,$33BC0ACF2A97ABAF,
-           $667A9DD9D99C7B75,$ECB5A7D96C319556,$C13ED93C34CBAA0F,$DB23A3DF22AD7D9A,$137DFEA7AB754594,$9160F3C1F2E8DC92,
-           $FF844B0FCD154AC0,$32B969157F4E8A5E,$5ADECDAEC58AE842,$D4B53D695FEE3627,$BCFBAAA76EEEBBCE,$2F74A77786A52976,
-           $470026FFF2DCFD6C
-    Data.b $0D,$68,$4C
-  EndDataSection ;}
+DataSection
+  Worry:
+  Data.q $0A1A0A0D474E5089,$524448490D000000,$0F0000000F000000,$02B4B40000000208,$594870090000001D,$0400009D04000073,
+         $0000A16B347C019D,$DA7854414449DC01,$FAFC043FEFFFF863,$36E1D1C9ECF663F5,$3109BA49A9869171,$9FD5EDED66C1E1FA,
+         $EA100C030FFE7F3F,$16EBC63E011B8DC6,$CEB5FFF5A97AFFAB,$7DFF695F7F3AD7BF,$CE8FA056BB6C79AD,$BCDE6FAA113B7DDE,
+         $9FC68EFEF1A7E419,$20EA80FF45405A97,$3354FEFC9026B5E8,$D5204DF6C7735933,$737935F7F1FCFE7F,$2F843A3C41B3BB5B,
+         $D2880D5DEDF05E2D,$4CC28130D8916CD2,$5FB50342D48F2F91,$15ECF178B0C57ABD,$17A8ED561E2FD573,$01102A6C12370DFB,
+         $F253325F932CB645,$D88614E2D2B511CA,$B93D86404F6F8748,$F2265752C62E2EA2,$04F9A473A592E617,$42237082566D0F98,
+         $7D6E410CA36219F4,$CF0BA7B6B1F5F3AD,$2A7627D570D2899C,$F10AA33ADCF1D8B8,$16944C43169E714F,$9A82D7AF6A3F1A5C,
+         $53C7E8803310410D,$4B28A3286BE0844D,$A813DBE9DA36219B,$E3F982A2156B3DA2,$F9C2E304A2920423,$6B8192CE96F883C3,
+         $C162B15867D50F0B,$507F3E6090CAC9FC,$753180C38433C7E9,$55ECCFF824229772,$5FEFF7F864CEA9A9,$F6689AEBF3F98050,
+         $1F00F2D0317243FE,$D1F2E2823FEFF7F5,$58EAABD3CE4047A3,$F2946C5691E5F73D,$4E9A0A2981FBC391,$6736681A12793C9E,
+         $F3FE71E11C303292,$3ABE012AE596C685,$00405549409ECE67,$1C62138BB5DAD274,$69815423A2F52263,$9FEE8CD66ADC3A30,
+         $98CE0000D5C27F3F,$0000E96325D4A7A5,$42AE444E45490000
+  Data.b $60,$82
+  Wink:
+  Data.q $0A1A0A0D474E5089,$524448490D000000,$0F0000000F000000,$02B4B40000000208,$594870090000001D,$0400009D04000073,
+         $0000A16B347C019D,$DA7854414449DB01,$20FFBFFFFFFFF863,$24966B35BFDFEFF0,$6847451B45C4BAC6,$9F4ED844C7E8C427,
+         $C030FF8FC7E3FDDE,$40D0C3E1F0FA5100,$FAD13DBE5553F9B3,$DED2BF7E821B4AFB,$A9E4F757C8254AB6,$F07DFFFFFFD550A3,
+         $EA1BF3FAAFBF81E0,$5A213FA808C87570,$FF7FD520BDC1D0E5,$E353717B37F40DFE,$3CBF94FBB3AD4BD7,$EFF19425E7FD9A82,
+         $1ABE815A678FF695,$C162B15863BDDEEF,$F9066A6EAF2AE9A2,$830819018BD475F1,$CFB206AB03FE6B5F,$8B88674CAAAD501F,
+         $EAE25DB135DA0472,$379CD6BC37144561,$6F8FD8204C363A45,$1E885848A0392AFB,$F99AC55C21946C43,$7B7E2EC8E20D9DB2,
+         $DC8055A79BC2E417,$B82D48D8862D6CE2,$7F99F9F9B86C5D2B,$0827A669EEEFD981,$DCD1033D010B2765,$5200691310C5AF5E,
+         $D1E34B7D7FC41AFD,$5AFD3D40F7347525,$8FEFEEE40B4730BB,$35FA02321D86B0B5,$AAA70B26141F543C,$2E9153C364E31DC2,
+         $6F612593592A51DE,$B3DAC40685F3FDCC,$1DE140B2AB2B54FB,$B100B49A8F0E6014,$E6BDFAF605ED4B1E,$00EB5EFF4276615A,
+         $41357C3029FDF31D,$68FA5C50218C0DE1,$85F3FD5406AEBB3F,$8B12D98D72A9AAE6,$6D63EBE0A920E5FB,$60E093A587FE5C44,
+         $3E602A41945379CB,$009572CB7352F5FB,$09D3C18FA7539D5F,$25D63E34B35FAC02,$46B109AC1818C63E,$FAFCF46633B69151,
+         $A3CF100000AE0BF5,$000000295C0A08A5,$6042AE444E454900
+  Data.b $82
+  Smirk:
+  Data.q $0A1A0A0D474E5089,$524448490D000000,$0F0000000F000000,$02B4B40000000208,$594870090000001D,$0400009D04000073,
+         $0000A16B347C019D,$DA7854414449C601,$5FFEFF7F030FF863,$B45C43B47C4E64B2,$90218C7C56B87441,$180940BF82E96CBD,
+         $F60EDEEF77508060,$AD33C7E54B3A5937,$9204D6BEFFB4AFBF,$1814A59B2E6A9FDF,$F52906A845940260,$9D1BEFE34B7D78D3,
+         $4BCFE8C1AAC12F3F,$4FC83353757AD220,$40DFBFCFE181A203,$A808984530A520DD,$4BA58624E806A801,$926DEA14001D02E7,
+         $707FE60A88110E88,$0864148A01D5C80E,$3EDD0847C608C4A7,$F3E5F2F2A674B6AB,$F6FBEE81EC22A219,$D477378562ED6B44,
+         $01DCF5364453AEF7,$00D35D9F94FBB3A5,$328F8864718849AA,$AAAC320D7BFE8A00,$D509FAE181818450,$D5825A5240A5607F,
+         $0C4A1813A2138CCA,$9F579C1E93085171,$BFD20B9437FA5133,$80DB506D91FCA56D,$4AF021A03A80192A,$D8235E4C22036203,
+         $1D023944C76620FF,$CBE66B9D100E198D,$58D8FB0906A73FDE,$A59B2DE6CB658667,$603912DD68A60FF2,$4B17A8EC91EF4CE0,
+         $1CF9F9174FC8158B,$804C282AA664BE24,$544288604B0C08A1,$C9F28F7A79A5BCBF,$A7BBBCAB0F178A5D,$503320E0F56F0B09,
+         $C0DBBDCEE8630378,$E4175AF7F86882D8,$57C6A220EBCC503F,$E77274887BBDDEE3,$BA0028C00DA02DCE,$003A019A6074EE0F,
+         $0D38354229442A68,$2125DA3621FA05FE,$E38D0698123638DA,$00834E456E819C62,$AE42D9F4FDA9B8BD,$444E454900000000
+  Data.b $AE,$42,$60,$82
+  Smile:
+  Data.q $0A1A0A0D474E5089,$524448490D000000,$0F0000000F000000,$02B4B40000000208,$594870090000001D,$0400009D04000073,
+         $0000A16B347C019D,$DA7854414449B201,$F8307FEFFFFFF863,$62124B359ADFEFF7,$93B422628CA3E39C,$EF4FA7AC22630CE2,
+         $8060187FC7E3F1FE,$5B340D0C3E1F0F50,$AFBFAD13DBF54D30,$2BEDCD4BD7E821B4,$FA3A9E4E747D0255,$0F0783F5441C680F,
+         $AB8750DF9E35BCFC,$FA80DAA12F3FA203,$540FDC1D0E55A213,$B37F40DFEFF7F0CE,$6BD0229590353717,$AFA066A9FDF9204D,
+         $58AC5618EF77BBC6,$6BDFEE440ABA68B0,$08B80CA1AFA9901D,$9D32AAB5407F3C90,$B7D7D6E211CA2E21,$FFC46B5B58E41434,
+         $4A5E4CB2DD2A82BE,$207EA0255ECCED9C,$10CA362197442C37,$F735BD9691E5F722,$29B64791B8096EB4,$510AA13F5D72985A,
+         $03A91B10CDAB9450,$BB874E180DC82277,$8F9C36640B5EBDAA,$1CC2DC80643508A2,$8630E46748B8862D,$AA1E19412C6BDF06,
+         $6B2EA15385930A0F,$553F9C11894B10AA,$0BA5B365857ADF6A,$7DD9D4885C818432,$0A0EF0A05995D5AA,$B737EAC40D460730,
+         $1A45379855AD7735,$03FC43A92E8F2018,$DFEFB7CD3F20EF0C,$2E2D1357D7D2E341,$DAC7D7C67402F121,$A785EE0E87CAD109,
+         $F396C1C10D40BF93,$2FDF9EC409D340A6,$39D5F009572CB6B4,$C1A482AA4A38E67D,$C7C6BBC7C6976BB5,$4519C7C56A46C718,
+         $E7F3F3D198CDD947,$57B03D7C001AB84F,$000000004E77B2BB,$826042AE444E4549
+  Sad:
+  Data.q $0A1A0A0D474E5089,$524448490D000000,$0F0000000F000000,$02B4B40000000208,$594870090000001D,$0400009D04000073,
+         $0000A16B347C019D,$DA7854414449BB01,$9AFF7F3F030FF863,$A46C4DB874627B3D,$784E8C5256927A4E,$9FCFE7E55B476988,
+         $579B8DD420186AE1,$F5FD562DD7F47C02,$BA3A386D2BEFEB52,$1DDEDF6357D0354D,$500A08DD6EB7D508,$FD101D5903577B7F,
+         $4CCAD33C7F220D79,$9FF5480B73B5DD56,$51DCDF0D7CFC7F3F,$DB4D075AF7FA2B87,$5FAF9A41A11A17CF,$D9AAC668B45862BE,
+         $4A86FC54815F7F2A,$531EAE3184FF5423,$FBB48D8862492D2D,$5D45727FC81354FE,$74AE044CAEA58C54,$9B43E67E7E292CE9,
+         $D886431088DC2095,$4F6D63F3E7087D28,$062E41A513399E17,$BE3B17254EF8F5FB,$74F38A0A20D567DB,$87FD0E20B4A26218,
+         $F9203F509AD7D6EC,$346312E80B5EBDA4,$F5028F0C7FD1013F,$7D3B46C4336B6417,$B90AEB603705A27B,$40B0C168C4FE20D0,
+         $EB5F6B50D23D69C1,$55AAC311A8445100,$383D0881554FE68B,$88600C0A25945EAF,$00AB5AEC4B76A603,$4CEA9AB55ECCFB31,
+         $3E580505FEFF7F86,$FEFA381EE986AEBB,$F7FBFDE34FC02B58,$AF8051E8F47CB8A0,$797E9558AA6BD3D6,$01E8E476A51095A4,
+         $E3F1EA40D520B9A0,$7DA927735681C1C7,$37342FEF9C088C7D,$E6733DD1F7F1532F,$A02FA683FC9D2C14,$02B8C5C596EB759E,
+         $04D621335C2E2943,$F3F9FDECCE671E98,$B0797E00020D3C27,$0000008A4D372739,$6042AE444E454900
+  Data.b $82
+  Rofl:
+  Data.q $0A1A0A0D474E5089,$524448490D000000,$0F0000000F000000,$02B4B40000000208,$594870090000001D,$0400009D04000073,
+         $0000A16B347C019D,$DA78544144492E02,$6CACD77F008FF863,$F50F150E8ED28B88,$9D570D8B110A8C17,$15708FB7FBF52531,
+         $77FBBFDFEFFC400C,$FD229BCFCBFB064E,$F410DA57DFD689ED,$3EFEB255F6D6A5EB,$77BEA8422F0EC7A2,$9A9BABD8978078E7,
+         $C48D13DBE8C87570,$FF5482667BFDA128,$F4AE0647C02BF3F9,$12ED89AD22B86BCF,$6A9FDF3AD7BFC640,$6191FFFBFE4A2466,
+         $26E06433C5F2A2E9,$C8995D49750979FD,$561B30D520F235CE,$6A00D70E88634B2F,$5979751DCDFDB345,$907106EEC1189496,
+         $421C15D305CD6BC8,$722A2024C26218A3,$448BAB05A3124553,$0746F79904D0BE7F,$73FDD06400F0F8C8,$C431AB04071F406A,
+         $3C5C3442B5000986,$28AB5178A2E202AC,$ED53FBF6474F5D5B,$970BA18019348F6F,$621D4B7978110E8B,$0729961BDA57EFF5,
+         $5C4A40B45A2C1AFA,$1965D3C5A57ACF60,$A57DFE3681D4C2A2,$022F20678FFBF403,$F6BFBF8A8678B1BD,$02D219D9F9DDE9F4,
+         $4469AECF828A765C,$F5FCB7BD3C324B04,$A15B6CEA08700D75,$6CBB61131DAA9598,$9E21496C82E2BCD9,$FEC9D6BE03C95550,
+         $337B57D629772722,$3332D5D2C7BBDEEC,$535362B98D836403,$8C4F10ACBA9EB993,$FA4EC5D730E3F486,$0B7805E740C276C1,
+         $A2203EC194FCFA7F,$1BA04B40CF47E2FF,$D48CE3139155ECCE,$1AA56ADFA7645C90,$960C052357DC2A6C,$E28016C713C170B8,
+         $7ABE974981E978B2,$9A68B21879BC4587,$AD2AF6679A7BBBCC,$67D7EA8F7A7F245F,$9E4B7A06CA971B9A,$02BD6C4E9A02BE3A,
+         $FEFFBA3B9BF312FC,$4E8C42635D71BDFD,$4844C4613024B86C,$F5FD959BCDA94624,$001240A5607FC7C7,$AF89F049FF7C5E1C,
+         $444E454900000000
+  Data.b $AE,$42,$60,$82
+  Phone:
+  Data.q $0A1A0A0D474E5089,$524448490D000000,$0F0000000F000000,$02B4B40000000208,$594870090000001D,$0400009D04000073,
+         $0000A16B347C019D,$DA78544144493101,$BD1850834EBD528D,$40913B600E0860CF,$5C0165011E0763A4,$81BC369B3A148480,
+         $8C06FB682183BE21,$FA16968C1B4C9D6A,$8D2424F101898428,$E7387726E4BF011A,$4105CF3C92E7E77E,$BACF99BA97165960,
+         $A74D65964924886D,$BC18307A1B420FCE,$02043FE1F2E59BC5,$77041378E24B21C4,$94BE85D451454514,$DB6D89F74BCF3C2F,
+         $D34D58272B75A69A,$9EC47E7ABAFD7AF4,$971C70104138DD1E,$1A0F7AEBADBC3BA5,$A28820CB2CA69A63,$31A1755D75B7FBE8,
+         $7DF6EDDD75D8F1E3,$55741E9BFDF33C38,$8F924EBB3669A855,$522CC6D5555CE8D1,$04B2CB53BE4AC63A,$2AE95DDD349C71C1,
+         $207B1C9D4506C34C,$5E1E3524036176BF,$C58E0C8D89934F56,$AC425234C1F53F91,$86FB8B17A68F6C87,$4EA690C30AC2DA40,
+         $0C30C1038A39F3E7,$285145BA4749E79E,$1F3E12FE0C30C28A,$8D500C1CD7017C94,$49000000001A2BD6
+  Data.b $45,$4E,$44,$AE,$42,$60,$82
+  Pencil:
+  Data.q $0A1A0A0D474E5089,$524448490D000000,$0F0000000F000000,$02B4B40000000208,$594870090000001D,$0400004E04000073,
+         $0000FC938B42014E,$DA78544144499201,$7D1B9B53060FF863,$1FFFF678BC3E34B4,$6CE0FF7FBFFFE044,$1D0D4D29E2006038,
+         $04C4D6ECFC170656,$EA00063FE5FAFFFE,$B6AEA930CAD60BFC,$689BFB9475F8DACF,$6FE61636162E698F,$30058FF8A901BF5F,
+         $7AA80EC036701D00,$7B7B405070459382,$A1AFB7DBCD8D8DAB,$DAE9ECF0FEA9A2A6,$41C1E1168E89FF68,$59667B339ECF67B3,
+         $2FB787DC86BE8959,$B5B17EBE220D98B0,$667B3D9B68E8E8B4,$09D9CE8D878B5B5B,$44BCDE1F6A8E61E6,$DCFE7F3D42019C33,
+         $CE9DA7AA680ACACA,$995E39565F76C58B,$1FE1B404A0EC1562,$B685E2F178206AA6,$1D2B6F8B7ED9CC8A,$38845AA61A41AA81,
+         $30AE1401893B232A,$1BC53B60A3C5F6F0,$6C433A57AA40AD53,$44A00FE680C0D640,$1B1096A9B5EAB398,$958DEDB20472AF3E,
+         $C348354580FA7D3F,$5F45402A4EA1A7EB,$8BB52ACC35013B57,$46A98668EEEDB7F2,$31F2F77E205FF8F1,$B32DCD59A7D749D0,
+         $E3E5695A5EF24C2F,$6F0FF6886CDD8E62,$A4BD6DE1101D019F,$EA8DB785A56972C2,$50324570195BADD6,$3E4DED5DCFE7F3F0,
+         $EA3AFAAA965E962E,$0AB846CDD8191919,$E2E2E2DB6DB6D26C,$BA04755301F5F5F4,$0000000002047E82,$826042AE444E4549
+  Memo:
+  Data.q $0A1A0A0D474E5089,$524448490D000000,$0F0000000F000000,$02B4B40000000208,$594870090000001D,$2E0000232E000073,
+         $0000763FA5780123,$DA78544144494A01,$C826C3FC038FF863,$2A2A018E5E6E6E60,$EA847777776CE02A,$5903FFC69C2CACAC,
+         $C861FEE303959990,$E31619ECF67CCCCC,$A1B5FAFD7C3640CB,$7F3F5F9BEDCEE1A1,$CF970FF8C4366021,$FA7DF9F8C59AD9B7,
+         $5959766E1AA409F4,$F07A5D2E97BBB219,$BB3726877B4741E0,$B3504ECE81AEA10B,$D6322FD7DB0361DF,$737B475B63B9D951,
+         $EC86369EC6D3A793,$8302EF3F9FCFECEC,$6BEDC7E3F1F030DD,$1767993DAB05E617,$C170BF18989A6AE8,$A377AA8073BB883C,
+         $7EA98596260B9582,$D190239565F4E95A,$DF7B408212895ADD,$20607BEDF6F77DBF,$F5FA4D4F4170B85C,$54838A1D2B4FFB62,
+         $5F144D0F099AAF37,$23E25353A9D4C102,$7C334D5D42CCD23B,$875757545C6D7654,$28282BFDFEFE7633,$7CBB6EE7EB25A468,
+         $B37402B208A07CC9,$FF73D3D3D3B9DCEF,$C25C582C8AB87DFE,$9883FD412B8BFECD,$A5E3025555250FFD,$B02AA4802B1CA2AC,
+         $ACE354040002FF2F,$00000000CC33896C,$826042AE444E4549
+  Mail:
+  Data.q $0A1A0A0D474E5089,$524448490D000000,$0F0000000F000000,$02B4B40000000208,$594870090000001D,$2E0000232E000073,
+         $0000763FA5780123,$DA78544144496701,$0513FEFF060FF863,$B558255223FDFE18,$4444786464428282,$8A8A8916402A2444,
+         $717066D6D6D1AA02,$F4F6773E8D8B8E72,$9791079C2F67F385,$0B980CEE7F3D9DCE,$A5A58A52526E4045,$B3B9BCDC5C5C4325,
+         $5605399ECF43C3C3,$0A0D01101D591A7A,$F7F7F32B2B2F0F0F,$ECFE7F3F8D8D8865,$9CCF4343420BF9C2,$85E2EEA21B31093E,
+         $A80FF40F1F4E6773,$3548267B3D9AAAAA,$7C8B25D2C4886CD0,$CF7104391E8E7C7C,$E1E83E1C8FE77385,$520A540B5F5F51E1,
+         $31071F1B10CDE01D,$329D9D9D6DB6DB69,$F772001D0F873232,$D8D8DD25232DDDED,$7B370D5501D5D5D8,$8EC792D2D2E9F4FA,
+         $84848482693C9E1E,$0A6D369C902DBDBD,$F2CACAA929292AD0,$24994EA7AA607359,$E7CB8ED77BB92125,$28147E389E7501CF,
+         $0F079D8809D4FA72,$05CFCFCE969693EC,$1D0E7207D7D7D6A9,$A31740D3840B0FDC,$E4E4E587C3E1E085,$7C0C0C0C19D5D5D4,
+         $082828206183BCFC,$3E7E7E02460D0CC6,$751FF863580C9540,$0354B8BFC13609D2,$1D1541BFD109A500,$4E4549000000004D
+  Data.b $44,$AE,$42,$60,$82
+  Laugh:
+  Data.q $0A1A0A0D474E5089,$524448490D000000,$0F0000000F000000,$02B4B40000000208,$594870090000001D,$0400009D04000073,
+         $0000A16B347C019D,$DA7854414449EA01,$5DFEFF7F030FF863,$B45C43B47C4E64B2,$97B204902EB84C41,$12B83FDFEFFB9D2E,
+         $7F60EDEEF77D0806,$FAD33C7E54B3A593,$A67F7D182FFB4AF7,$5019BFB072A664BE,$4FC834A2018CA216,$2F3FA288356DF5E3,
+         $9BABD10034C2FEB5,$181AC0F79A7E419A,$034B7D7D4D00F680,$A81D53757A1A0559,$00E64BC58654E806,$C3675AF7FA14001D,
+         $ACA2B86114ECB912,$65EC21E54B8DA144,$1910CF9F2F9654B3,$D3C84426A9FDF0EE,$106DCDE191919F99,$0BCAE5ED901B6817,
+         $91C621235CF1FA91,$7CBEA161B877E801,$FDDC811E5F8C6CEC,$0068431B2B26A1F1,$4318F8F5E80A441F,$561E2EFB8428B886,
+         $4D345DCE06433C59,$92A817381521D2E6,$EB52F5FAC803A801,$F6D9882260506A17,$6B6F245FAD689EDF,$9DA1131A6D1B15A3,
+         $094401A09A93A096,$1A56D64611313A31,$189D6312DFA05940,$D5C7AB930C05B180,$3333CD1C3CF94424,$6ADA3A3B3B3B3AD2,
+         $2C1DDDF30A8B6B6B,$325D509FAE05C4A4,$860450C026141553,$7572C583D20A3025,$43A4D422D4F5AB15,$95750B4595822454,
+         $E18044825294F40A,$B4586F0A0A68141D,$192F9CD1A6BF3E6B,$AB67D0A96E562A66,$94D22C621F2D6151,$7FB8D3F60F140127,
+         $9A06E981E6340EEF,$59DEEF83032A664E,$FD519D6E943B938D,$A9A0550CE97350FC,$80CFFBFFFF4AC0F7,$ED1B179B2D97069C,
+         $0C05A91B1A6D1094,$28173E5F2C746001,$B48477CD0003570E,$000000006B90C72D,$826042AE444E4549
+  Eyes:
+  Data.q $0A1A0A0D474E5089,$524448490D000000,$0F0000000F000000,$02B4B40000000208,$594870090000001D,$0400009D04000073,
+         $0000A16B347C019D,$DA7854414449F901,$5BFDFEFF030FF863,$B45C4BAC624966B3,$4C41AC6276844C51,$FE7F3FDDE9F4ED84,
+         $3E1F0F508061AB86,$DBE5553F9B340D0C,$EFE881B4AF7FAD13,$52ADB6B52F5FED2B,$5C28EA793FD5F209,$6B79F81E0F07DFF5,
+         $0748A417FEA1BF3C,$10836609AD79FE48,$7B83A1CAB4427F50,$7B3008080E81AA41,$E6A1F1F128035371,$EB5EFF45105A979F,
+         $9FD691E5FDAD79FC,$6AFA066A9FDF3AD7,$058AC5618EF77BBC,$EAEAA03F9F2BA68B,$F9A3EFE52F20A1A2,$4D68C4C8C41AA2F0,
+         $4B0D8D1B5B597575,$E219D32A2A0A81D5,$97FAA19112811CA2,$E572BBF3F3F15EAF,$76FE86D036B2464A,$6C2424277607FDD5,
+         $33C7FCC0282DB6DB,$6348D8863D10B0AD,$0160A0D651B149A0,$90522800D226257B,$DFC8B02BD5EAFEAD,$728B35375788DCBC,
+         $5529AD0E41AA81B5,$5B2F97CBD668B45F,$E4E1F9014FE6CB9B,$9F4FA7FF44A4950E,$EFE342262BBFDBEE,$28D8862D7AF6CD6B,
+         $AD4B3A5AC0E07FC3,$B338D0F064140F34,$2A97526B50B4A557,$C8168E616E40A9D0,$034055C3AB1F5FDD,$A0FAA1E1410B9504,
+         $D8D21E194D385930,$AD53EECF34300E90,$D02FF7FBF862CCAE,$354675BED1A8B0CB,$AC0E856284004E35,$DE18105039060457,
+         $C501BDDEEFDA7E41,$80D70CC1812E303C,$888DAC7D7E6B5E82,$379EB209093A784B,$65B274B0BFA1EA05,$C7D3A9CEAF804AB9,
+         $BB5C1A521FE4E9A0,$318C7C5BAC7C6976,$6D22A28CE3E35830,$3C27F3F9F9E8CC67,$FF73A8685800020D,$4900000000FD67D3
+  Data.b $45,$4E,$44,$AE,$42,$60,$82
+  Cool:
+  Data.q $0A1A0A0D474E5089,$524448490D000000,$0F0000000F000000,$02B4B40000000208,$594870090000001D,$0400009D04000073,
+         $0000A16B347C019D,$DA78544144492702,$FBFFFEFF010FF863,$2EB189259ACD6FF7,$D1713AD1F18651B1,$FE4FE7F3B6517146,
+         $2A0060187FF7FBFD,$B40E0FDFEFF75202,$BFAD13DBF55D3798,$1FAD4BCFE881B4AF,$D5F20E522F56B4CF,$206A883FECE978BF,
+         $CBC69F806EF77BBE,$FE95C36B5E7F9A5B,$F0F8D4BF6203A57D,$A3E9D4FE58323340,$35F409FCFE7FD520,$B5FFF72813537579,
+         $EB04D6BD0835440E,$55F7F4D63EBFB101,$330582C333F9FCFF,$959538E41514DBFA,$34842CACC48D8C04,$38D4B444728BD8D5,
+         $D535C40C8D04740D,$69924DE638141405,$BB3FB30888642E69,$C1C1C1C0544C515F,$9884448535B40C1E,$5E564061EDF8E415,
+         $063D10B0F96AC768,$2EAEA1A6BF3C0860,$4E73B9143533970D,$2E6E622E10455D55,$431A92467298F57F,$82E6D665D02E8C42,
+         $8686969696C6A6A6,$26695EFFC291099A,$AC4500A8E8E988C7,$D0BF7EF92C6C8CAC,$95EFFD99055529AA,$B12962855597D036,
+         $EE7B02FDC8E7CBE2,$2281E40B95ED2BF7,$4503AAAF4FA245D5,$7E1DC322183452B2,$E42BF7FDF884D0BE,$A868558501164410,
+         $542ED753B9DCC33E,$0B27648B14D5C887,$92D2B368732F9CAD,$302E408249E9D299,$A953B139D6BDFE12,$BEFEB1180190A1A9,
+         $6818C2406AEF6F26,$B7A4FBB3F2A5C6E9,$6014C417C60794AD,$09F4FA7FA8F80704,$D7F60CDE6F37F314,$037703A7281B777A,
+         $2E3B46A3035E8234,$0798D083D1D8E542,$AF9805056EB75B82,$40D5701B4C09AB98,$77ABE01AA15D6EEF,$86AB03C27009ECE6,
+         $7678BC58126018A4,$945C498C624B947C,$F4EDA454718C7C56,$41A784FE7F3FDDE9,$1236E84872E7E800,$4E45490000000008
+  Data.b $44,$AE,$42,$60,$82
+  Calendar:
+  Data.q $0A1A0A0D474E5089,$524448490D000000,$0F0000000F000000,$02B4B40000000208,$594870090000001D,$2E0000232E000073,
+         $0000763FA5780123,$DA78544144499701,$5E5F2F97030FF863,$4C0FF0247FC572BE,$100B85C2EAB55AAE,$D7CF96533290032E,
+         $A6CDD93C64E95B57,$4B5721474F394740,$38F9A695B5F28211,$533357D3CAB774AF,$95A65FEFF7F86652,$00F33B72F728EBC9,
+         $BA455E8803202D7D,$B40DFDB085728EBD,$D9647B44DF8CAD8B,$19783734CECC839A,$711D1599EBEF1EED,$1D44279475F1D039,
+         $2C222B21D8257190,$DB3AAA00A819DDDE,$BA7ED7D6B7280F4C,$37B0CD021D4C198B,$AD5509D40166E35C,$616F98616F9C212E,
+         $4C6CF28D2C0B240C,$0AC820EDF32DECF3,$590D49005AD9E648,$5094028282EA9069,$783F5450CA8001C0,$3A9E4816D6D6C0F0,
+         $7D3D3D3925292A75,$3B9EA970FF2D96CB,$B7DBEDDB5B5B6E77,$A05FEFF7F89C4E27,$6081B34E2E6E6E48,$A6F610D540C9E4F2,
+         $EA944198CC669B4D,$BB221616174FA7D3,$B75BEA8B1F3F3F3B,$793939377BBDDD6E,$1919BEFEFEBDDEEF,$7A11111119191969,
+         $F5DAED77AAE87A7A,$9494A6A6A6ABD5EA,$F53A9D4D566B35B4,$29292D6D6DB3F9FC,$0C8D57437DBEDF29,$E4C1F0F87B7DBEDE,
+         $404440964B25C4E4,$CBCBCBCBADADADAA,$4949494151CACACA,$FAE0F77BBDD85858,$BDBAA327BEEB4301,$4E45490000000059
+  Data.b $44,$AE,$42,$60,$82
+  BookMark:
+  Data.q $0A1A0A0D474E5089,$524448490D000000,$0F0000000F000000,$02B4B40000000208,$594870090000001D,$2E0000232E000073,
+         $0000763FA5780123,$DA78544144490001,$A4585858048FF863,$5F904648C1A4F804,$5C1FE98595878F92,$14040318067FDFFA,
+         $CBD043B9475F8585,$DC3C0ABA166BF768,$858514732031C6C8,$879E5AA80881AAE0,$5CDCD514576ABF03,$811616534E61AA18,
+         $3FEFFAA489137BA8,$3303AD9AA30B665C,$5F20224AD5162FFB,$60BF92E6C37689BE,$EBCBEE83E1E0FFD5,$FF66A0FFD5707A96,
+         $C7AEC1B370261BC3,$3FC98723784A3774,$D408BCBE70BFEAB0,$B55EEF40363EE3EC,$3B05FEFFFF821AC4,$348CCB17A012E808,
+         $66C0B48C2BD8D839,$F24636299D8BE0F3,$9190517CBE5FE252,$AC3FE5C48596526E,$DF858525D9D979AA,$01494903640B7DBE,
+         $28BFF92456165E41,$03B9DCEF393939AA,$C8228177BBDDC9F7,$4F9DBFD863A5000A,$454900000000FF5C
+  Data.b $4E,$44,$AE,$42,$60,$82
+  Angry:
+  Data.q $0A1A0A0D474E5089,$524448490D000000,$0F0000000F000000,$02B4B40000000208,$594870090000001D,$0400009D04000073,
+         $0000A16B347C019D,$DA7854414449CE01,$9AFD7EBF030FF863,$A46C5DB874627B3D,$784E8C5256927A4E,$9F8FE7E55B476988,
+         $D71B8DD420186AE0,$F5FD562DD7F47C02,$F7FA206D2BEFF352,$54DB63ED2BDFE75A,$0FFEDFEFF6357D03,$5E6F377FBFDFFAA2,
+         $A203477F7F500A0F,$AC9999A17CFD0D0E,$7F3FEA9066C773BA,$39ADBBBE1AFAF8FE,$6F0D7439FEEA4BAD,$8435018BD4746AEF,
+         $D1618AF57ABE6906,$1E2500A8E62B19A2,$132BAC11894F579C,$9FC43A45379D2B81,$51CAFB20255ECCF7,$BB48D8862492D295,
+         $F658BF5D6EA14FEF,$E5BAA06AB84526E0,$237081D13DBE6473,$9C21F4A36219F442,$4262181818D567DB,$9B6272F883FE8105,
+         $82887922FD645014,$302D08F8862D3CE2,$675BD902ED62A407,$9EF6F55A86BEFF94,$B40A21B340D992E6,$83C21B6680B5EBDB,
+         $55C1A8606D6BCFEC,$68D8866D6C82A1A3,$88916FEA206EB827,$204C36377A03E10E,$901BDFF3A208432F,$172B95864310F082,
+         $024C1E3502AA9FCE,$9AB55ECCF834C06D,$3F980484EC504CEA,$9FDF118876DD8EBF,$1EFF7FBC69F8076A,$D5F00A3D1E8FF314,
+         $7A045DEE1D55767A,$DA94425691E5F9AD,$E3F1E4E91007A391,$00692773B64121C7,$18110383FE8A80E5,$9EE8FBF8A9979B85,
+         $7FC32FEAAC0A7B3E,$D718B8B2DD6EB024,$5884CD70B8E348D8,$7F7B33999B70E8A3,$000051075409FCFE,$C5904085B0AA7155,
+         $444E454900000000
+  Data.b $AE,$42,$60,$82
+EndDataSection ;}
   
 EndModule
 
@@ -4108,7 +5171,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 12
+  #Example = 3
   
   ;  1: Headings
   ;  2: Emphasis
@@ -4122,7 +5185,6 @@ CompilerIf #PB_Compiler_IsMainFile
   ; 10: Subscript / Superscript
   ; 11: Code Block
   ; 12: Emoji
-  ; 13: Hint / Tooltip
   
   Define.s Text$
  
@@ -4137,25 +5199,28 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "##### Heading level 5 #####"  + #LF$
       Text$ + "###### Heading level 6 #####"  + #LF$ + #LF$
     Case 2
-      Text$ = "#### Emphasis ####" + #LF$ + #LF$
+      Text$ = "#### Emphasis ####" + #LF$
       Text$ + "I just love **bold text**." + #LF$
       Text$ + "Italicized text is the *cat's meow*."+ #LF$
-      Text$ + "This text is __*really important*__.  "+ #LF$
-      Text$ + "The world is ~~flat~~ round.  "+ #LF$ + #LF$
-      Text$ + "#### Code ####" + #LF$ + #LF$
+      Text$ + "This text is ___really important___.  "+ #LF$
+      Text$ + "The world is ~~flat~~ round.  "+ #LF$
+      Text$ + "This ==word== is highlighted.  "+ #LF$
+      Text$ + "-----------------------------------------" + #LF$
+      Text$ + "#### Code ####" + #LF$
       Text$ + "At the command prompt, type ``nano``."+ #LF$
     Case 3
       Text$ = "#### Ordered List ####"  + #LF$
-      Text$ + "1. First list item"+#LF$+"    2. Second list item"+#LF$+"    3. Third list item"+#LF$+"4. Fourth list item"+ #LF$
+      Text$ + "1. First list item"+#LF$+"   2. Second list item"+#LF$+"   3. Third list item"+#LF$+"4. Fourth list item"+ #LF$
       Text$ + "-----" + #LF$
       Text$ + "#### Unordered List ####"  + #LF$
-      Text$ + "- First list item" + #LF$ + "    - Second list item" + #LF$ + "    - Third list item" + #LF$ + "- Fourth list item" + #LF$ 
+      Text$ + "- First list item" + #LF$ + "  - Second list item:" + #LF$ + "  - Third list item" + #LF$ + "- Fourth list item" + #LF$ 
     Case 4
-      Text$ = "#### Links & URLs ####" + #LF$ + #LF$
+      Text$ = "#### Links & URLs ####" + #LF$ 
       Text$ + "URL: <https://www.markdownguide.org>  "+ #LF$
       Text$ + "EMail: <fake@example.com>  "+ #LF$
       Text$ + "Link:  [Duck Duck Go](https://duckduckgo.com "+#DQUOTE$+"My search engine!"+#DQUOTE$+")  "+ #LF$
     Case 5
+      Text$ = "#### Image ####"  + #LF$
       Text$ + " ![Programmer](Test.png " + #DQUOTE$ + "Programmer Image" + #DQUOTE$ + ")"
     Case 6
       Text$ = "#### Table ####"  + #LF$
@@ -4214,13 +5279,13 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + ":eyes:  face with rolling eyes  " + #LF$
     Case 13  
       Text$ = "#### Hint / Tooltip ####" + #LF$  + #LF$
-      Text$ + "The [>HTML] specification is maintained by the [>W3C]." + #LF$
-      Text$ + "[>HTML]: Hypertext Markup Language" + #LF$
-      Text$ + "[>W3C]:  World Wide Web Consortium" + #LF$
+      Text$ + "The [HTML] specification is maintained by the [>W3C]." + #LF$
+      Text$ + "[HTML]: Hypertext Markup Language" + #LF$
+      Text$ + "[W3C]:  World Wide Web Consortium" + #LF$
     Default  
       Text$ = "### MarkDown ###" + #LF$ + #LF$
       Text$ + "> The gadget can display text formatted with the [MarkDown Syntax](https://www.markdownguide.org/basic-syntax/).  "+ #LF$
-      Text$ + "> Markdown[^1] is a lightweight MarkDown language that you can use to add formatting elements to plaintext text documents."+ #LF$
+      Text$ + "> Markdown[^1] is a lightweight MarkUp language that you can use to add formatting elements to plaintext text documents."+ #LF$
       Text$ + "- Markdown files can be read even if it isn’t rendered."  + #LF$
       Text$ + "- Markdown is portable." + #LF$ + "- Markdown is platform independent." + #LF$
       Text$ + "[^1]: Created by John Gruber in 2004."
@@ -4271,7 +5336,6 @@ CompilerIf #PB_Compiler_IsMainFile
                   RunProgram(MarkDown::EventValue(#MarkDown))
                   ;}
               EndSelect
-              
           EndSelect ;}
         Case #PB_Event_Gadget  
           Select EventGadget()  
@@ -4303,9 +5367,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 4110
-; FirstLine = 561
-; Folding = wBCAAABgAACQCAAgAAAABQABBADAAQIAAAkACAq
-; Markers = 3052
+; CursorPosition = 13
+; FirstLine = 6
+; Folding = QBCAAAAAAAQAABAAAAAAAc9IAAACAoBAAAAAAAEQAAAAAAASEBAx
+; Markers = 2774
 ; EnableXP
 ; DPIAware
