@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 08.12.19
+; Last Update: 08.01.20
 ;
 ; Added: #EventType_Change
 ; Added: #UseExistingCanvas
@@ -139,8 +139,8 @@
 
 DeclareModule EditEx
   
-  #Version  = 19120800
-  #ModuleEx = 19111702
+  #Version  = 20010800
+  #ModuleEx = 20010800
   
   ;- ============================================================================
   ;-   DeclareModule - Constants
@@ -230,11 +230,11 @@ DeclareModule EditEx
   
   CompilerIf Defined(ModuleEx, #PB_Module)
     
-    #Event_Gadget     = ModuleEx::#Event_Gadget
-    #Event_Cursor     = ModuleEx::#Event_Cursor
-    #Event_Theme      = ModuleEx::#Event_Theme
-    #EventType_Change = ModuleEx::#EventType_Change
-    
+    #Event_Gadget      = ModuleEx::#Event_Gadget
+    #Event_Cursor      = ModuleEx::#Event_Cursor
+    #Event_Theme       = ModuleEx::#Event_Theme
+    #EventType_Change  = ModuleEx::#EventType_Change
+    #EventType_NewLine = ModuleEx::#EventType_NewLine
   CompilerElse
     
     Enumeration #PB_Event_FirstCustomValue
@@ -244,6 +244,7 @@ DeclareModule EditEx
     
     Enumeration #PB_EventType_FirstCustomValue
       #EventType_Change
+      #EventType_NewLine
     EndEnumeration
     
   CompilerEndIf
@@ -355,7 +356,7 @@ Module EditEx
   ;-   Module - Constants
   ;- ============================================================================  
   
-  ;-_____ OS specific definitions _____
+  ;- _____ OS specific definitions _____
   CompilerSelect #PB_Compiler_OS
     CompilerCase #PB_OS_Windows
       #Scroll_Width = 17
@@ -3119,8 +3120,8 @@ Module EditEx
               AddUndo_()
             CompilerEndIf
             
-            PostEvent(#Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
-            PostEvent(#PB_Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
+            PostEvent(#Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_NewLine)
+            PostEvent(#PB_Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_NewLine)
             
             ReDraw = #True
           EndIf
@@ -5423,8 +5424,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 40
-; Folding = QHOhAEDASNFACwAEB-CQxk6utigAHg9q8AwjwQQIQCZHCGQKgH8EE--
-; Markers = 969,2494,2563,4637
+; CursorPosition = 3105
+; FirstLine = 1096
+; Folding = wHOhAADASNFACwAEB-CQxk6utigAHg9q8AwjwQQoQAZHCGQKoH8EE--
+; Markers = 970,2495,2564,4638
 ; EnableXP
 ; DPIAware

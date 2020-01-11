@@ -9,7 +9,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 31.12.2019
+; Last Update: 11.01.2020
+;
+; - Bugfixes
 ;
 ; - Changed: SetItemImage(GNum.i, Row.i, Column.i, Image.i, Align.i=#Left, Width.i=#PB_Default, Height.i=#PB_Default)
 ; - Added:   SetItemImageID(GNum.i, Row.i, Column.i, Width.f, Height.f, ImageID.i, Align.i=#Left)
@@ -145,7 +147,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 19123100
+  #Version  = 20011100
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -170,10 +172,11 @@ DeclareModule ListEx
   
   #Header   = -1
   #NotValid = -2 
+
   
-  #Ascending   = #PB_Sort_Ascending
-  #Descending  = #PB_Sort_Descending
-  #SortNoCase  = #PB_Sort_NoCase
+  #Sort_Ascending  = #PB_Sort_Ascending
+  #Sort_Descending = #PB_Sort_Descending
+  #Sort_NoCase     = #PB_Sort_NoCase
   
   #ColumnCount = #PB_ListIcon_ColumnCount
 
@@ -1918,6 +1921,7 @@ Module ListEx
       Next  
       
       SortStructuredList(ListEx()\Rows(), ListEx()\Sort\Direction, OffsetOf(ListEx_Rows_Structure\Sort), #PB_String)
+      
       ;}
     EndIf
   
@@ -5813,9 +5817,7 @@ Module ListEx
     If FindMapElement(ListEx(), Str(GNum))
 
       Index = AddItem_(Row, Text, Label, Flags) 
-      
-      SetRowFocus_(Index)
-      
+
       If ListEx()\ReDraw
         If ListEx()\FitCols : FitColumns_() : EndIf
         UpdateRowY_()
@@ -7611,13 +7613,14 @@ Module ListEx
       
       If SelectElement(ListEx()\Cols(), Column)
         
+        ListEx()\Sort\Label     = ListEx()\Cols()\Key
         ListEx()\Sort\Column    = Column
         ListEx()\Sort\Direction = Direction
         
         If Flags = #True
-          ListEx()\Sort\Flags = #HeaderSort|#SortArrows|#SwitchDirection
+          ListEx()\Sort\Flags = #SortString
         ElseIf Flags = #Deutsch
-          ListEx()\Sort\Flags = #HeaderSort|#SortArrows|#SwitchDirection|#Deutsch
+          ListEx()\Sort\Flags = #SortString|#Deutsch
         Else
           ListEx()\Sort\Flags = Flags
         EndIf
@@ -7714,8 +7717,8 @@ CompilerIf #PB_Compiler_IsMainFile
         
         ; --- Add different types of columns  ---
         ListEx::AddColumn(#List, 1, "Link", 75, "link",   ListEx::#Links)     ; |ListEx::#FitColumn
-        ListEx::AddColumn(#List, 2, "Edit", 185, "edit",   ListEx::#Editable) ; |ListEx::#FitColumn
-        ListEx::AddColumn(#List, ListEx::#LastItem, "Combo",   78, "combo",  ListEx::#ComboBoxes)
+        ListEx::AddColumn(#List, 2, "Edit", 85, "edit",   ListEx::#Editable) ; |ListEx::#FitColumn
+        ListEx::AddColumn(#List, ListEx::#LastItem, "Combo",   72, "combo",  ListEx::#ComboBoxes)
         ListEx::AddColumn(#List, ListEx::#LastItem, "Date",    76, "date",   ListEx::#DateGadget)
         ListEx::AddColumn(#List, ListEx::#LastItem, "Buttons", 60, "button", ListEx::#Buttons) ; ListEx::#Hide
     
@@ -7769,7 +7772,7 @@ CompilerIf #PB_Compiler_IsMainFile
         ListEx::SetColumnAttribute(#List, 5, ListEx::#Align, ListEx::#Center)
         
         ; --- Test sorting ---
-        ListEx::SetHeaderSort(#List, 2, ListEx::#Ascending, ListEx::#Deutsch)
+        ListEx::SetHeaderSort(#List, 2, ListEx::#Sort_Ascending, ListEx::#Deutsch)
         
         ; --- Test colors ---
         ListEx::SetColor(#List, ListEx::#FrontColor, $82004B, 2) ; front color for column 2
@@ -7778,7 +7781,7 @@ CompilerIf #PB_Compiler_IsMainFile
         ListEx::SetItemFont(#List,  0, FontID(#Font_Arial9B), 2)
         
         ; --- Define AutoResize ---
-        ;ListEx::SetAutoResizeColumn(#List, 2, 50)
+        ListEx::SetAutoResizeColumn(#List, 2, 50)
         ListEx::SetAutoResizeFlags(#List, ListEx::#Height|ListEx::#Width) ; 
         
         ; --- Mark content in accordance with certain rules   ---
@@ -7823,6 +7826,8 @@ CompilerIf #PB_Compiler_IsMainFile
       
       ListEx::DisableReDraw(#List, #False) 
     EndIf
+    
+    ListEx::Sort(#List, 2, #PB_Sort_Ascending, ListEx::#SortString)
     
     Repeat
       Event = WaitWindowEvent()
@@ -7915,9 +7920,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 14
-; Folding = QRQAAAACIAQBICEAGAA9HQ5hCBCiFwwbQBgBAAADgDAg8AAAMBOACgDAAAAAAAAQA9--
-; Markers = 3227,5821
+; CursorPosition = 7783
+; Folding = wRQAAAACIAQBICEAGAA+HQ5hCBAiFwwbQBgBAgQDgDAg8AAAMDOACgDAAAAAAACQA+--
+; Markers = 3231,5823
 ; EnableXP
 ; DPIAware
 ; EnableUnicode

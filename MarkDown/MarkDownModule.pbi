@@ -9,7 +9,10 @@
 ;/ © 2019  by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 07.01.2020
+; Last Update: 08.01.2020
+;
+; - Added:     MarkDown::SetMargins()
+; - Attribute: #LeftMargin / #RightMargin / #TopMargin / #BottomMargin
 ;
 ; - New parser
 ; - Added: Highlight
@@ -67,6 +70,7 @@
 ; MarkDown::SetData()            - similar to 'SetGadgetData()'
 ; MarkDown::SetFont()            - similar to 'SetGadgetFont()'
 ; MarkDown::SetID()              - similar to 'SetGadgetData()', but string
+; MarkDown::SetMargins()         - defines the margins
 ; MarkDown::SetText()            - similar to 'SetGadgetText()'
 
 ;}
@@ -116,6 +120,10 @@ DeclareModule MarkDown
 	
 	Enumeration 1     ;{ Attribute
 	  #Corner
+	  #LeftMargin
+	  #RightMargin
+	  #TopMargin
+	  #BottomMargin
 	EndEnumeration ;}
 	
 	Enumeration 1     ;{ Color
@@ -170,6 +178,7 @@ DeclareModule MarkDown
   Declare   SetData(GNum.i, Value.q)
   Declare   SetFont(GNum.i, Name.s, Size.i) 
   Declare   SetID(GNum.i, String.s)
+  Declare   SetMargins(GNum.i, Top.i, Left.i, Right.i=#PB_Default, Bottom.i=#PB_Default)
   Declare   SetText(GNum.i, Text.s)
   
 EndDeclareModule
@@ -1879,6 +1888,8 @@ Module MarkDown
   EndProcedure
   
   ; Abbreviation: *[HTML]: Hyper Text Markup Language
+  
+  ; KeyStrokes: [[Esc]] [[z]]
   
   Procedure   ParseInline_(Row.s)
     Define.i Pos, sPos, ePos, nPos, Length, FirstItem, Left, Right
@@ -4762,7 +4773,7 @@ Module MarkDown
 
 				MarkDown()\Color\Back          = $FFFFFF
 				MarkDown()\Color\BlockQuote    = $C0C0C0
-				MarkDown()\Color\Border        = $A0A0A0
+				MarkDown()\Color\Border        = $E3E3E3
 				MarkDown()\Color\DisableFront  = $72727D
 				MarkDown()\Color\DisableBack   = $CCCCCA
 				MarkDown()\Color\Front         = $000000
@@ -4777,7 +4788,7 @@ Module MarkDown
 					CompilerCase #PB_OS_Windows
 						MarkDown()\Color\Front  = GetSysColor_(#COLOR_WINDOWTEXT)
 						MarkDown()\Color\Back   = GetSysColor_(#COLOR_WINDOW)
-						MarkDown()\Color\Border = GetSysColor_(#COLOR_WINDOWFRAME)
+						MarkDown()\Color\Border = GetSysColor_(#COLOR_ACTIVEBORDER)
 						MarkDown()\Color\Gadget = GetSysColor_(#COLOR_MENU)
 					CompilerCase #PB_OS_MacOS
 						MarkDown()\Color\Front  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
@@ -4860,14 +4871,30 @@ Module MarkDown
       
       Select Attribute
         Case #Corner
-          MarkDown()\Radius  = Value
+          MarkDown()\Radius        = Value
+        Case #TopMargin
+          MarkDown()\Margin\Top    = Value
+        Case #LeftMargin
+          MarkDown()\Margin\Left   = Value
+        Case #RightMargin
+          MarkDown()\Margin\Right  = Value
+        Case #BottomMargin
+          MarkDown()\Margin\Bottom = Value
       EndSelect
       
       Draw_()
     EndIf
     
   EndProcedure	
-	
+  
+  Procedure   SetMargins(GNum.i, Top.i, Left.i, Right.i=#PB_Default, Bottom.i=#PB_Default)
+    
+    If FindMapElement(MarkDown(), Str(GNum))
+      
+    EndIf
+    
+  EndProcedure  
+  
 	Procedure   SetAutoResizeFlags(GNum.i, Flags.i)
     
     If FindMapElement(MarkDown(), Str(GNum))
@@ -5171,7 +5198,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 3
+  #Example = 0
   
   ;  1: Headings
   ;  2: Emphasis
@@ -5367,9 +5394,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 13
-; FirstLine = 6
-; Folding = QBCAAAAAAAQAABAAAAAAAc9IAAACAoBAAAAAAAEQAAAAAAASEBAx
-; Markers = 2774
+; CursorPosition = 4967
+; FirstLine = 413
+; Folding = 5RCAAAAAAAQAABAAAAAAAc9ICAAAAEAAAAAAAAEQAAAAAAASQgRy
+; Markers = 2785
 ; EnableXP
 ; DPIAware
