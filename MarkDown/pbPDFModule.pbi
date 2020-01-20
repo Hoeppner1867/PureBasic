@@ -8,7 +8,7 @@
 ;/ ( based on 'PurePDF' by LuckyLuke / ABBKlaus / normeus )
 ;/
 
-; Last Update: 18.12.2019
+; Last Update: 20.01.2020
 ; 
 
 
@@ -186,7 +186,7 @@
 
 DeclareModule PDF
   
-  #Version  = 19121800
+  #Version  = 20012000
   
   #Enable_AcroFormCommands  = #True
   #Enable_Annotations       = #True
@@ -508,7 +508,7 @@ DeclareModule PDF
   Declare   SetPageCompression(ID.i, Flag.i=#True)
   Declare   SetPosXY(ID.i, X.f, Y.f)
   Declare   SetPosX(ID.i, X.f)
-  Declare   SetPosY(ID.i, Y.f, ResetX.i=#True)
+  Declare   SetPosY(ID.i, Y.f, ResetX.i=#False)
   Declare   SetFooterProcedure(ID.i, *ProcAddress, *StructAddress=#Null)
   Declare   SetHeaderProcedure(ID.i, *ProcAddress, *StructAddress=#Null)
   Declare   SetViewerPreferences(ID.i, Flags.i)
@@ -3109,7 +3109,7 @@ Module PDF
   ;- ----- Page Stream -------------------------------------------   
   
   Procedure   Line_(X1.f, Y1.f, X2.f, Y2.f)
-    objOutPage_(strF_(X1 * PDF()\ScaleFactor, 2) + " " + strF_((PDF()\Page\Height - Y1) * PDF()\ScaleFactor, 2) + " m " + strF_(X2 * PDF()\ScaleFactor, 2) + " " + strF_((PDF()\Page\Height - Y2) * PDF()\ScaleFactor, 2) + " l S")
+    objOutPage_(strF_(X1 * PDF()\ScaleFactor, 2) + " " + strF_((PDF()\Page\Height - Y1) * PDF()\ScaleFactor, 2) + " m " + strF_(x2 * PDF()\ScaleFactor, 2) + " " + strF_((PDF()\Page\Height - Y2) * PDF()\ScaleFactor, 2) + " l S")
   EndProcedure
   
   Procedure   LineWidth_(Width.f)
@@ -4628,7 +4628,7 @@ Module PDF
     
   EndProcedure  
   
-  Procedure SetPosY(ID.i, Y.f, ResetX.i=#True)
+  Procedure SetPosY(ID.i, Y.f, ResetX.i=#False)
     
     If FindMapElement(PDF(), Str(ID))
       SetY_(Y, ResetX)
@@ -5017,8 +5017,8 @@ Module PDF
           PDF()\Annots()\Icon    = Icon
           PDF()\Annots()\X       = #PB_Default
           PDF()\Annots()\Y       = Y
-          PDF()\Annots()\Width   = 16
-          PDF()\Annots()\Height  = 16
+          PDF()\Annots()\Width   = #PB_Default
+          PDF()\Annots()\Height  = #PB_Default
           ProcedureReturn ListIndex(PDF()\Annots())
         EndIf  
           
@@ -5527,7 +5527,7 @@ Module PDF
       
       If X = #PB_Default : X = PDF()\Page\X : EndIf
       If Y = #PB_Default : Y = PDF()\Page\Y : EndIf
-      If Width = #PB_Default : Width = PDF()\Page\Width - PDF()\Margin\Right - PDF()\Page\X : EndIf
+      If Width = #PB_Default : Width = PDF()\Page\Width - PDF()\Margin\Right - PDF()\Margin\Left : EndIf
       
       Line_(X, Y, X + Width, Y)
       
@@ -6956,9 +6956,9 @@ CompilerEndIf
 
 ;- ========================
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 4095
-; FirstLine = 506
-; Folding = YAAAA5AegAQAAAAQABAAAECAAAgDIAAAAAEAAygAAUmoAAAIAAAUQBEAIAAowEIKCAxKEA9
+; CursorPosition = 510
+; FirstLine = 185
+; Folding = YAwiA5AegAQAAABAABAgIECIAAgBAAAAAAEAAzgIAEnoAAACOI5UQJFIAAQwwEQAA5BCAA9
 ; Markers = 581,1012,2361,2461,3767,3833
 ; EnableXP
 ; DPIAware

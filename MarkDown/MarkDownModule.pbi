@@ -6,20 +6,15 @@
 ;/
 ;/  Gadget to display MarkDown languages
 ;/
-;/ © 2019  by Thorsten Hoeppner (12/2019)
+;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 08.01.2020
+; Last Update: 20.01.2020
 ;
-; - Added:     MarkDown::SetMargins()
-; - Attribute: #LeftMargin / #RightMargin / #TopMargin / #BottomMargin
-;
-; - New parser
-; - Added: Highlight
-; - Added: Definition List
-; - Added: Code Blocks / Fenced Code Blocks
-; - Added: SuperScript & SubScript
-; - Added: Emojis
+; - Internal structure of the parser completely changed
+; - Added: Keystrokes "[[Ctrl]] [[C]]"
+; - Added: Abbreviations "*[HTML]: Hypertext Markup Language"
+; - Added: Inline Emphasis (Lists/Tables/Footnotes/...)
 ;
 
 ;{ ===== MIT License =====
@@ -88,7 +83,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20010201
+  #Version  = 20200200
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -120,22 +115,28 @@ DeclareModule MarkDown
 	
 	Enumeration 1     ;{ Attribute
 	  #Corner
-	  #LeftMargin
-	  #RightMargin
-	  #TopMargin
-	  #BottomMargin
+	  #Margin_Left
+	  #Margin_Right
+	  #Margin_Top
+	  #Margin_Bottom
+	  #Indent
+	  #LineSpacing
 	EndEnumeration ;}
 	
 	Enumeration 1     ;{ Color
-		#BackColor
-		#BlockQuoteColor
-		#BorderColor
-		#FrontColor
-		#HighlightColor
-		#HintColor
-		#LinkColor
-		#LinkHighlightColor
-		#LineColor
+		#Color_Back
+		#Color_BlockQuote
+		#Color_Border
+		#Color_Code
+		#Color_Front
+		#Color_HighlightBack
+		#Color_Tooltip
+		#Color_KeyStroke
+		#Color_KeystrokeBack
+		#Color_Line
+		#Color_Link
+		#Color_HighlightLink
+		#Color_LineColor
 	EndEnumeration ;}
 
 	CompilerIf Defined(ModuleEx, #PB_Module)
@@ -207,7 +208,9 @@ Module MarkDown
   #CodeBlock = 2
 
   #Parse  = 0
+  
   EnumerationBinary ;{ MarkDown
+    #Abbreviation
     #BlockQuote
     #Bold
     #Code
@@ -218,9 +221,10 @@ Module MarkDown
     #Heading
     #Highlight
     #Hint
-    #HLine
+    #Line
     #Image
     #Italic
+    #Keystroke
     #LineBreak
     #Link
     #List
@@ -235,7 +239,31 @@ Module MarkDown
     #Unordered
     #AutoLink
   EndEnumeration ;}
-
+  
+  Enumeration 1     ;{ Font
+    #Font_Normal
+	  #Font_Bold
+	  #Font_Italic
+	  #Font_BoldItalic
+	  #Font_Code
+	  #Font_FootNote
+	  #Font_FootText
+	  #Font_FootBold
+	  #Font_FootItalic
+	  #Font_FootBoldItalic
+	  #Font_H6
+	  #Font_H5
+	  #Font_H4
+	  #Font_H3
+	  #Font_H2
+	  #Font_H1
+  EndEnumeration ;} 
+  
+  Enumeration 1
+    #UseDraw
+    #UsePDF
+  EndEnumeration  
+  
 	;- ============================================================================
 	;-   Module - Structures
 	;- ============================================================================	
@@ -257,6 +285,26 @@ Module MarkDown
   Global NewList Document.Document_Structure()
   
   
+  Structure Words_Structure              ;{ Word Structure
+    Font.i
+    String.s
+    Index.i
+    Width.i
+    Flag.i
+  EndStructure ;}
+  
+  Structure Block_Structure              ;{ MarkDown()\Block()\...
+    Font.i
+    String.s
+    List Row.s()
+  EndStructure ;}
+
+  Structure FootLabel_Structure          ;{ MarkDown()\FootLabel('label')\...
+    Width.i
+    Height.i
+    List Words.Words_Structure()
+  EndStructure ;}
+  
   Structure Label_Structure              ;{ MarkDown()\Label('label')\...
     Destination.s
     Title.s
@@ -270,7 +318,15 @@ Module MarkDown
     Height.i
     Label.s
   EndStructure ;}
-
+  
+  Structure Abbreviation_Structure       ;{ MarkDown()\Abbreviation()\...
+    X.i
+    Y.i
+    Width.i
+    Height.i
+    String.s
+  EndStructure ;}
+  
   Structure Image_Structure              ;{ MarkDown()\Image()\...
     Num.i
     X.i
@@ -292,43 +348,63 @@ Module MarkDown
     Label.s
     State.i
   EndStructure ;}
-  
-  Structure Hint_Structure               ;{ MarkDown()\Hint()\...
-    X.i
-    Y.i
+
+  Structure Lists_Row_Structure          ;{ MarkDown()\Lists()\Row()\...
+    BlockQuote.i
     Width.i
     Height.i
-    String.s
-  EndStructure ;}
-  
-  Structure SubItem_Structure            ;{ MarkDown()\SubItem()\...
-    Type.i
-    String.s
-    Index.i
-  EndStructure ;}
-  
-  Structure Item_Structure               ;{ MarkDown()\Row()\Item()\...
-    Type.i
-    String.s
     Level.i
     State.i
-    Index.i
-    List SubItem.SubItem_Structure()
+    List Words.Words_Structure()
   EndStructure ;}
   
-  Structure Row_Structure                ;{ MarkDown()\Row()\...
-    X.i
-    Y.i
-    Width.i
-    Height.i
+  Structure Lists_Structure              ;{ MarkDown()\Lists()\..
+    Start.i
+    List Row.Lists_Row_Structure()
+  EndStructure ;}
+  
+  
+  Structure Table_Item_Structure         ;{ MarkDown()\Table()\Row()\Col('num')\Item()\...
     Type.i
-    Level.i
     String.s
     Index.i
-    BlockQuote.i
-    ID.s
-    List Item.Item_Structure()
   EndStructure ;}
+  
+  Structure Table_Cols_Structure         ;{ MarkDown()\Table()\Row()\Col('num')\...
+    Width.i
+    List Words.Words_Structure()
+  EndStructure ;}
+  
+  Structure Table_Row_Structure          ;{ MarkDown()\Table()\Row()\...
+    Type.i
+    Height.i
+    Map Col.Table_Cols_Structure()
+  EndStructure ;}
+  
+  Structure Table_Column_Structure       ;{ MarkDown()\Table()\Column\...
+    Align.s
+    Width.i
+  EndStructure ;}
+  
+  Structure Table_Structure              ;{ MarkDown()\Table()\...
+    Cols.i
+    Width.i
+    Map Column.Table_Column_Structure()
+    List Row.Table_Row_Structure()
+  EndStructure ;}
+  
+  
+  Structure MarkDown_Items_Structure      ;{ MarkDown()\Items()\...
+    ID.s
+    Type.i
+    Level.i
+    BlockQuote.i
+    Width.i
+    Height.i
+    Index.i
+    List Words.Words_Structure()
+  EndStructure ;}
+  
   
   Structure MarkDown_Required_Structure  ;{ MarkDown()\Required\...
     Width.i
@@ -343,7 +419,10 @@ Module MarkDown
     BoldItalic.i
     Code.i
     FootNote.i
-    FootNoteText.i
+    FootText.i
+    FootBold.i
+    FootItalic.i
+    FootBoldItalic.i
     H1.i
     H2.i
     H3.i
@@ -360,18 +439,22 @@ Module MarkDown
 	EndStructure ;}
 	
 	Structure MarkDown_Color_Structure     ;{ MarkDown()\Color\...
-		Front.i
-		Back.i
+		
+	  Back.i
+	  BlockQuote.i
 		Border.i
+		Code.i
+		DisableBack.i
+		DisableFront.i
+		Front.i
 		Gadget.i
 		Highlight.i
 		Hint.i
+		Keystroke.i
+		KeyStrokeBack.i
 		Link.i
 		LinkHighlight.i
 		Line.i
-		BlockQuote.i
-		DisableFront.i
-		DisableBack.i
 	EndStructure  ;}
 	
 	Structure MarkDown_Scroll_Structure    ;{ MarkDown()\Scroll\...
@@ -396,7 +479,8 @@ Module MarkDown
 		Height.f
 		Flags.i
 	EndStructure ;}
-
+	
+	
 	Structure MarkDown_Structure           ;{ MarkDown()\...
 		CanvasNum.i
 		PopupNum.i
@@ -412,6 +496,7 @@ Module MarkDown
 		WrapHeight.i
 		
 		Indent.i
+		LineSpacing.f
 		
     Radius.i
 
@@ -429,14 +514,19 @@ Module MarkDown
 		Size.MarkDown_Size_Structure
 		Scroll.MarkDown_Scroll_Structure
 		Window.MarkDown_Window_Structure
-
-		Map  FootLabel.s()
+		
+		Map  FootLabel.FootLabel_Structure()
+		Map  Abbreviation.Abbreviation_Structure()
 		Map  Label.Label_Structure()
-    List Footnote.Footnote_Structure()
+		List Block.Block_Structure()
+		List Footnote.Footnote_Structure()
     List Image.Image_Structure()
     List Link.Link_Structure()
-    List Row.Row_Structure()
-		
+    List Lists.Lists_Structure()
+    List Table.Table_Structure()
+    
+    List Items.MarkDown_Items_Structure()
+    
 	EndStructure ;}
 	Global NewMap MarkDown.MarkDown_Structure()
 	
@@ -545,16 +635,56 @@ Module MarkDown
 	  ProcedureReturn Round(Pixel * 25.4 / 96, #PB_Round_Nearest)
 	EndProcedure
 	
-	
+	Procedure.s WordOnly_(Word.s)
+    ; word with or without punctuation etc.
+    Define.i i 
+    Define.s Char$, Diff1$, Diff2$
+    
+    Word = Trim(Word)
+
+    For i=1 To 2
+      Char$ = Left(Word, 1)
+      Select Char$
+        Case "{", "[", "(", "<"
+          Word = LTrim(Word, Char$)
+        Case Chr(34), "'", "«", "»"
+          Word = LTrim(Word, Char$)
+        Default
+          Break
+      EndSelect
+    Next
+    
+    For i=1 To 2
+      Char$ = Right(Word, 1)
+      Select Char$
+        Case ".", ":", ",", ";", "!", "?"
+          Word = RTrim(Word, Char$)
+        Case  ")", "]", "}", ">"
+          Word = RTrim(Word, Char$)
+        Case Chr(34), "'", "«", "»"
+          Word = RTrim(Word, Char$)
+        Case " "
+          Word = LTrim(Word, Char$)
+        Default
+          Break
+      EndSelect
+    Next
+
+    ProcedureReturn Word
+  EndProcedure
+		
 	Procedure   FreeFonts_()
 	  
-	  If IsFont(MarkDown()\Font\Normal)       : FreeFont(MarkDown()\Font\Normal)       : EndIf
-	  If IsFont(MarkDown()\Font\Bold)         : FreeFont( MarkDown()\Font\Bold)        : EndIf
-	  If IsFont(MarkDown()\Font\Italic)       : FreeFont(MarkDown()\Font\Italic)       : EndIf
-	  If IsFont(MarkDown()\Font\BoldItalic)   : FreeFont(MarkDown()\Font\BoldItalic)   : EndIf
-	  If IsFont(MarkDown()\Font\Code)         : FreeFont(MarkDown()\Font\Code)         : EndIf
-	  If IsFont(MarkDown()\Font\FootNote)     : FreeFont(MarkDown()\Font\FootNote)     : EndIf
-	  If IsFont(MarkDown()\Font\FootNoteText) : FreeFont(MarkDown()\Font\FootNoteText) : EndIf
+	  If IsFont(MarkDown()\Font\Normal)         : FreeFont(MarkDown()\Font\Normal)         : EndIf
+	  If IsFont(MarkDown()\Font\Bold)           : FreeFont(MarkDown()\Font\Bold)           : EndIf
+	  If IsFont(MarkDown()\Font\Italic)         : FreeFont(MarkDown()\Font\Italic)         : EndIf
+	  If IsFont(MarkDown()\Font\BoldItalic)     : FreeFont(MarkDown()\Font\BoldItalic)     : EndIf
+	  If IsFont(MarkDown()\Font\Code)           : FreeFont(MarkDown()\Font\Code)           : EndIf
+	  If IsFont(MarkDown()\Font\FootNote)       : FreeFont(MarkDown()\Font\FootNote)       : EndIf
+	  If IsFont(MarkDown()\Font\FootText)       : FreeFont(MarkDown()\Font\FootText)       : EndIf
+	  If IsFont(MarkDown()\Font\FootBold)       : FreeFont(MarkDown()\Font\FootBold)       : EndIf
+	  If IsFont(MarkDown()\Font\FootItalic)     : FreeFont(MarkDown()\Font\FootItalic)     : EndIf
+	  If IsFont(MarkDown()\Font\FootBoldItalic) : FreeFont(MarkDown()\Font\FootBoldItalic) : EndIf
 	  
 	  If IsFont(MarkDown()\Font\H6) : FreeFont(MarkDown()\Font\H6) : EndIf
 	  If IsFont(MarkDown()\Font\H5) : FreeFont(MarkDown()\Font\H5) : EndIf
@@ -573,8 +703,11 @@ Module MarkDown
 	  MarkDown()\Font\BoldItalic = LoadFont(#PB_Any, Name, Size, #PB_Font_Bold|#PB_Font_Italic)
 	  MarkDown()\Font\Code       = LoadFont(#PB_Any, "Courier New", Size + 1)
 	  
-	  MarkDown()\Font\FootNote     = LoadFont(#PB_Any, Name, Round(Size / 1.5, #PB_Round_Up))
-	  MarkDown()\Font\FootNoteText = LoadFont(#PB_Any, Name, Size - 2)
+	  MarkDown()\Font\FootNote       = LoadFont(#PB_Any, Name, Round(Size / 1.5, #PB_Round_Up), #PB_Font_Bold)
+	  MarkDown()\Font\FootText       = LoadFont(#PB_Any, Name, Size - 2)
+	  MarkDown()\Font\FootBold       = LoadFont(#PB_Any, Name, Size - 2, #PB_Font_Bold)
+	  MarkDown()\Font\FootItalic     = LoadFont(#PB_Any, Name, Size - 2, #PB_Font_Italic)
+	  MarkDown()\Font\FootBoldItalic = LoadFont(#PB_Any, Name, Size - 2, #PB_Font_Bold|#PB_Font_Italic)
 	  
 	  MarkDown()\Font\H6 = LoadFont(#PB_Any, Name, Size + 1, #PB_Font_Bold)
 	  MarkDown()\Font\H5 = LoadFont(#PB_Any, Name, Size + 2, #PB_Font_Bold)
@@ -663,30 +796,315 @@ Module MarkDown
 	  
 	  ClearMap(MarkDown()\FootLabel())
 	  ClearMap(MarkDown()\Label())
+	  
+	  ClearList(MarkDown()\Block())
 	  ClearList(MarkDown()\Footnote())
 	  ClearList(MarkDown()\Image())
+	  ClearList(MarkDown()\Items())
 	  ClearList(MarkDown()\Link())
-	  ClearList(MarkDown()\Row())
+	  ClearList(MarkDown()\Lists())
+	  ClearList(MarkDown()\Table())
 
 	EndProcedure
+	
 
-	Procedure   AddText_(Row.s, BQ.i)
+  Procedure.i DrawingFont_(Font.i)
+
+    Select Font
+      Case #Font_Bold
+        DrawingFont(FontID(MarkDown()\Font\Bold))
+      Case #Font_Italic
+        DrawingFont(FontID(MarkDown()\Font\Italic))
+      Case #Font_BoldItalic  
+        DrawingFont(FontID(MarkDown()\Font\BoldItalic))
+      Case #Font_FootNote
+        DrawingFont(FontID(MarkDown()\Font\FootNote))
+      Case #Font_FootText
+        DrawingFont(FontID(MarkDown()\Font\FootText))
+      Case #Font_FootBold
+        DrawingFont(FontID(MarkDown()\Font\FootBold))
+      Case #Font_FootItalic
+        DrawingFont(FontID(MarkDown()\Font\FootItalic))
+      Case #Font_FootBoldItalic
+        DrawingFont(FontID(MarkDown()\Font\FootBoldItalic))
+      Case #Font_Code
+        DrawingFont(FontID(MarkDown()\Font\Code))
+      Case #Font_H6
+        DrawingFont(FontID(MarkDown()\Font\H6))
+      Case #Font_H5
+        DrawingFont(FontID(MarkDown()\Font\H5))
+      Case #Font_H4
+        DrawingFont(FontID(MarkDown()\Font\H4))
+      Case #Font_H3
+        DrawingFont(FontID(MarkDown()\Font\H3))
+      Case #Font_H2
+        DrawingFont(FontID(MarkDown()\Font\H2))
+      Case #Font_H1 
+        DrawingFont(FontID(MarkDown()\Font\H1))
+      Default
+        DrawingFont(FontID(MarkDown()\Font\Normal))
+    EndSelect
     
-    If ListSize(MarkDown()\Row()) = 0 Or MarkDown()\Row()\Type <> #Text
-      If AddElement(MarkDown()\Row())
-        MarkDown()\Row()\Type       = #Text
-        MarkDown()\Row()\String     = Row
-        MarkDown()\Row()\BlockQuote = BQ
-      Else
-        If AddElement(MarkDown()\Row()\Item())
-          MarkDown()\Row()\Item()\Type   = #Text
-          MarkDown()\Row()\Item()\String = Row
-        EndIf   
-      EndIf
-    EndIf
-    
+    ProcedureReturn Font
   EndProcedure
-  
+ 
+  Procedure.i DetermineTextSize_()
+    Define.i Font, TextHeight
+    Define.i Key$
+    
+    Font = #PB_Default
+
+    If StartDrawing(CanvasOutput(MarkDown()\CanvasNum))
+      
+      ;{ _____ Items _____
+      ForEach MarkDown()\Items()
+        
+        DrawingFont(FontID(MarkDown()\Font\Normal))
+        
+        MarkDown()\Items()\Width  = 0
+        MarkDown()\Items()\Height = TextHeight("X")
+
+        ForEach MarkDown()\Items()\Words()
+        
+          If Font <> MarkDown()\Items()\Words()\Font : Font = DrawingFont_(MarkDown()\Items()\Words()\Font) : EndIf
+          
+          Select MarkDown()\Items()\Words()\Flag
+            Case #Emoji     ;{ Emoji (16x16)
+              TextHeight = dpiY(16)
+              MarkDown()\Items()\Words()\Width = dpiX(16)
+              ;}
+            Case #Image     ;{ Image
+              
+              If SelectElement(MarkDown()\Image(), MarkDown()\Items()\Words()\Index)
+                
+  			        If MarkDown()\Image()\Num = #False ;{ Load Image
+  			          MarkDown()\Image()\Num = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+  			          If MarkDown()\Image()\Num
+  			            MarkDown()\Image()\Width  = ImageWidth(MarkDown()\Image()\Num)
+  			            MarkDown()\Image()\Height = ImageHeight(MarkDown()\Image()\Num)
+  			          EndIf ;}
+  			        EndIf
+  			        
+  			        If IsImage(MarkDown()\Image()\Num)
+  			          TextHeight = dpiY(MarkDown()\Image()\Height)
+  			          MarkDown()\Items()\Words()\Width = dpiX(MarkDown()\Image()\Width)
+  			        EndIf
+  			        
+  			      EndIf
+  			      ;}
+  			    Case #Keystroke ;{ Keystroke (5 + Key + 5)  
+  			      TextHeight = TextHeight(MarkDown()\Items()\Words()\String)
+  			      MarkDown()\Items()\Words()\Width = TextWidth(MarkDown()\Items()\Words()\String) + dpiX(10)
+  			      ;}
+  			    Default  
+              TextHeight = TextHeight(MarkDown()\Items()\Words()\String)
+              MarkDown()\Items()\Words()\Width = TextWidth(MarkDown()\Items()\Words()\String)
+          EndSelect
+          
+          MarkDown()\Items()\Width + MarkDown()\Items()\Words()\Width
+          If TextHeight > MarkDown()\Items()\Height : MarkDown()\Items()\Height = TextHeight : EndIf
+          
+        Next
+        
+        MarkDown()\Items()\Height * MarkDown()\LineSpacing
+
+      Next ;}
+      
+      ;{ _____ Lists _____
+      ForEach MarkDown()\Lists()
+
+        ForEach MarkDown()\Lists()\Row() ;{ List rows
+          
+          DrawingFont(FontID(MarkDown()\Font\Normal))
+          
+          MarkDown()\Lists()\Row()\Width  = 0
+          MarkDown()\Lists()\Row()\Height = TextHeight("X")
+          
+          ForEach MarkDown()\Lists()\Row()\Words()
+        
+            If Font <> MarkDown()\Lists()\Row()\Words()\Font : Font = DrawingFont_(MarkDown()\Lists()\Row()\Words()\Font) : EndIf
+            
+            Select MarkDown()\Lists()\Row()\Words()\Flag
+              Case #Emoji     ;{ Emoji (16x16)
+                TextHeight = dpiY(16)
+                MarkDown()\Lists()\Row()\Words()\Width = dpiX(16)
+                ;}
+              Case #Image     ;{ Image
+                
+                If SelectElement(MarkDown()\Image(), MarkDown()\Lists()\Row()\Words()\Index)
+                  
+    			        If MarkDown()\Image()\Num = #False ;{ Load Image
+    			          MarkDown()\Image()\Num = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+    			          If MarkDown()\Image()\Num
+    			            MarkDown()\Image()\Width  = ImageWidth(MarkDown()\Image()\Num)
+    			            MarkDown()\Image()\Height = ImageHeight(MarkDown()\Image()\Num)
+    			          EndIf ;}
+    			        EndIf
+    			        
+    			        If IsImage(MarkDown()\Image()\Num)
+    			          TextHeight = dpiY(MarkDown()\Image()\Height)
+    			          MarkDown()\Lists()\Row()\Words()\Width = dpiX(MarkDown()\Image()\Width)
+    			        EndIf
+    			        
+    			      EndIf
+    			      ;}
+    			    Case #Keystroke ;{ Keystroke (5 + Key + 5)  
+    			      TextHeight = TextHeight(MarkDown()\Items()\Words()\String)
+    			      MarkDown()\Items()\Words()\Width = TextWidth(MarkDown()\Items()\Words()\String) + dpiX(10)
+    			      ;}
+    			    Default  
+                TextHeight = TextHeight(MarkDown()\Lists()\Row()\Words()\String)
+                MarkDown()\Lists()\Row()\Words()\Width = TextWidth(MarkDown()\Lists()\Row()\Words()\String)
+            EndSelect
+           
+            MarkDown()\Lists()\Row()\Width + MarkDown()\Lists()\Row()\Words()\Width
+            If TextHeight > MarkDown()\Lists()\Row()\Height : MarkDown()\Lists()\Row()\Height = TextHeight : EndIf
+            
+          Next
+         
+          MarkDown()\Lists()\Row()\Height * MarkDown()\LineSpacing
+          ;}
+        Next
+
+      Next ;} 
+      
+      ;{ _____ Tables _____
+      ForEach MarkDown()\Table()
+        
+        ForEach MarkDown()\Table()\Column() : MarkDown()\Table()\Column()\Width = 0 : Next  
+        
+        ForEach MarkDown()\Table()\Row()
+          
+          DrawingFont(FontID(MarkDown()\Font\Normal))
+        
+          MarkDown()\Table()\Row()\Height = TextHeight("X")
+          
+          ForEach MarkDown()\Table()\Row()\Col() ;{ Columns
+            
+            Key$ = MapKey(MarkDown()\Table()\Row()\Col())
+            
+            MarkDown()\Table()\Row()\Col()\Width = 0 
+            
+            ForEach MarkDown()\Table()\Row()\Col()\Words()
+              
+              If Font <> MarkDown()\Table()\Row()\Col()\Words()\Font : Font = MarkDown()\Table()\Row()\Col()\Words()\Font : EndIf
+              
+              Select MarkDown()\Table()\Row()\Col()\Words()\Flag
+                Case #Emoji     ;{ Emoji (16x16)
+                  TextHeight = dpiY(16)
+                  MarkDown()\Table()\Row()\Col()\Words()\Width = dpiX(16)
+                  ;}
+                Case #Image     ;{ Image
+                  
+                  If SelectElement(MarkDown()\Image(), MarkDown()\Table()\Row()\Col()\Words()\Index)
+                    
+      			        If MarkDown()\Image()\Num = #False ;{ Load Image
+      			          MarkDown()\Image()\Num = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+      			          If MarkDown()\Image()\Num
+      			            MarkDown()\Image()\Width  = ImageWidth(MarkDown()\Image()\Num)
+      			            MarkDown()\Image()\Height = ImageHeight(MarkDown()\Image()\Num)
+      			          EndIf ;}
+      			        EndIf
+      			        
+      			        If IsImage(MarkDown()\Image()\Num)
+      			          TextHeight = dpiY(MarkDown()\Image()\Height)
+      			          MarkDown()\Table()\Row()\Col()\Words()\Width = dpiX(MarkDown()\Image()\Width)
+      			        EndIf
+      			        
+      			      EndIf
+      			      ;}
+      			    Case #Keystroke ;{ Keystroke (5 + Key + 5)  
+      			      TextHeight = TextHeight(MarkDown()\Items()\Words()\String)
+      			      MarkDown()\Items()\Words()\Width = TextWidth(MarkDown()\Items()\Words()\String) + dpiX(10) 
+      			      ;}
+      			    Default  
+                  TextHeight = TextHeight(MarkDown()\Table()\Row()\Col()\Words()\String)
+                  MarkDown()\Table()\Row()\Col()\Words()\Width = TextWidth(MarkDown()\Table()\Row()\Col()\Words()\String)
+              EndSelect
+            
+              MarkDown()\Table()\Row()\Col()\Width + MarkDown()\Table()\Row()\Col()\Words()\Width
+              If TextHeight > MarkDown()\Table()\Row()\Height : MarkDown()\Table()\Row()\Height = TextHeight : EndIf
+              
+            Next
+            
+            If MarkDown()\Table()\Row()\Col()\Width > MarkDown()\Table()\Column(Key$)\Width : MarkDown()\Table()\Column(Key$)\Width = MarkDown()\Table()\Row()\Col()\Width : EndIf
+            ;}
+          Next          
+          
+          MarkDown()\Table()\Row()\Height * MarkDown()\LineSpacing
+          
+        Next
+        
+        DrawingFont(FontID(MarkDown()\Font\Normal))
+        
+        MarkDown()\Table()\Width = 0
+
+        ForEach MarkDown()\Table()\Column()
+          MarkDown()\Table()\Column()\Width + dpiX(10)
+          MarkDown()\Table()\Width + MarkDown()\Table()\Column()\Width
+        Next
+        
+      Next  
+      ;}
+      
+      ;{ _____ Footnotes _____
+      ForEach MarkDown()\FootLabel()
+        
+        Font = #PB_Default
+        
+        DrawingFont(FontID(MarkDown()\Font\FootText))
+        MarkDown()\FootLabel()\Width  = 0
+        MarkDown()\FootLabel()\Height = TextHeight("X")
+        
+        ForEach MarkDown()\FootLabel()\Words()
+          
+          If Font <> MarkDown()\FootLabel()\Words()\Font : Font = DrawingFont_(MarkDown()\FootLabel()\Words()\Font) : EndIf
+          
+          Select MarkDown()\FootLabel()\Words()\Flag
+            Case #Emoji     ;{ Emoji (16x16)
+              TextHeight = dpiY(16)
+              MarkDown()\FootLabel()\Words()\Width = dpiX(16)
+              ;}
+            Case #Image     ;{ Image
+              
+              If SelectElement(MarkDown()\Image(), MarkDown()\FootLabel()\Words()\Index)
+                
+  			        If MarkDown()\Image()\Num = #False ;{ Load Image
+  			          MarkDown()\Image()\Num = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+  			          If MarkDown()\Image()\Num
+  			            MarkDown()\Image()\Width  = ImageWidth(MarkDown()\Image()\Num)
+  			            MarkDown()\Image()\Height = ImageHeight(MarkDown()\Image()\Num)
+  			          EndIf ;}
+  			        EndIf
+  			        
+  			        If IsImage(MarkDown()\Image()\Num)
+  			          TextHeight = dpiY(MarkDown()\Image()\Height)
+  			          MarkDown()\FootLabel()\Words()\Width = dpiX(MarkDown()\Image()\Width)
+  			        EndIf
+  			        
+  			      EndIf
+  			      ;}
+  			    Case #Keystroke ;{ Keystroke (5 + Key + 5)  
+  			      TextHeight = TextHeight(MarkDown()\Items()\Words()\String)
+  			      MarkDown()\Items()\Words()\Width = TextWidth(MarkDown()\Items()\Words()\String) + dpiX(10) 
+  			      ;}  
+  			    Default  
+              TextHeight = TextHeight(MarkDown()\FootLabel()\Words()\String)
+              MarkDown()\FootLabel()\Words()\Width = TextWidth(MarkDown()\FootLabel()\Words()\String)
+          EndSelect
+          
+          MarkDown()\FootLabel()\Width + MarkDown()\FootLabel()\Words()\Width
+          If TextHeight > MarkDown()\FootLabel()\Height : MarkDown()\FootLabel()\Height = TextHeight : EndIf
+          
+        Next
+        
+      Next ;}
+
+      StopDrawing()
+		EndIf
+    
+  EndProcedure	
+
   ;- __________ Convert __________
   
   Procedure.s EscapeHTML_(String.s)
@@ -847,16 +1265,173 @@ Module MarkDown
 	  
 	  ProcedureReturn HTML$
 	EndProcedure
-  
+	
+	Procedure.s StringHTML_(List Words.Words_Structure())
+	  Define.s Text$
+	  
+	  ForEach Words()
+	    Text$ + Words()\String
+	  Next
+	  
+	  ProcedureReturn EscapeHTML_(Text$)
+	EndProcedure
+	
+	Procedure.s TextHTML_(List Words.Words_Structure())
+	  Define.i Font, Flag
+	  Define.s HTML$, endTag$, Link$, Title$, String$
+	  
+	  ForEach Words()
+	    
+	    If Flag <> Words()\Flag
+	      
+	      HTML$ + endTag$
+
+  	    Select Words()\Flag
+  	      Case #Bold         ;{ Emphasis
+  	        HTML$ + "<strong>" + EscapeHTML_(Words()\String)
+  	        endTag$ = "</strong>"
+  	      Case #Italic
+  	        HTML$ + "<em>" + EscapeHTML_(Words()\String)
+  	        endTag$ = "</em>"
+  	      Case #Bold|#Italic
+  	        HTML$ + "<strong><em>" + EscapeHTML_(Words()\String)
+  	        endTag$ = "</strong></em>"
+  	      Case #StrikeThrough
+  	        HTML$ + "<del>" + EscapeHTML_(Words()\String)
+  	        endTag$ = "</del>"
+  	        ;}
+  	      Case #Code         ;{ Code
+  	        HTML$ + "<code>" + EscapeHTML_(Words()\String)
+  	        endTag$ = "</code>"
+  	        ;}
+  	      Case #AutoLink     ;{ URL / EMail
+  	        
+  	        If CountString(Words()\String, "@") = 1
+              HTML$ + "<a href=" + #DQUOTE$ + "mailto:" + URLDecoder(Words()\String) + #DQUOTE$ + ">" + EscapeHTML_(Words()\String)
+            Else  
+              HTML$ + "<a href=" + #DQUOTE$ + URLDecoder(Words()\String) + #DQUOTE$ + ">" + EscapeHTML_(Words()\String)
+            EndIf
+            
+            endTag$ = "</a>"
+            ;}
+  	      Case #Link         ;{ Links
+  	        
+  	        If SelectElement(MarkDown()\Link(), Words()\Index)
+            
+              If MarkDown()\Link()\Label
+                If FindMapElement(MarkDown()\Label(), MarkDown()\Link()\Label)
+                  Link$   = URLDecoder(MarkDown()\Label()\Destination)
+                  Title$  = EscapeHTML_(MarkDown()\Label()\Title)
+                  String$ = EscapeHTML_(MarkDown()\Label()\String)
+                EndIf  
+              Else
+                Link$   = URLDecoder(MarkDown()\Link()\URL)
+                Title$  = EscapeHTML_(MarkDown()\Link()\Title)
+                String$ = EscapeHTML_(Words()\String)
+              EndIf
+            
+              If MarkDown()\Link()\Title
+                HTML$ + "<a href=" + #DQUOTE$ + Link$ + #DQUOTE$ + " title=" + #DQUOTE$ + Title$ + #DQUOTE$ + ">" + String$
+              Else  
+                HTML$ + "<a href=" + #DQUOTE$ + Link$ + #DQUOTE$ + ">" + String$
+              EndIf
+              
+            EndIf
+            
+            endTag$ = "</a>"
+            ;}
+          Case #Image        ;{ Images
+            
+            If SelectElement(MarkDown()\Image(), Words()\Index)
+              If MarkDown()\Image()\Title
+                HTML$ + "<img src=" + #DQUOTE$ + MarkDown()\Image()\Source + #DQUOTE$ + " alt=" + #DQUOTE$ + EscapeHTML_(Words()\String) + #DQUOTE$ + " title=" + #DQUOTE$ + EscapeHTML_(MarkDown()\Image()\Title) + #DQUOTE$ + " />"
+              Else  
+                HTML$ + "<img src=" + #DQUOTE$ + MarkDown()\Image()\Source + #DQUOTE$ + " alt=" + #DQUOTE$ + EscapeHTML_(Words()\String) + #DQUOTE$ + " />"
+              EndIf
+            EndIf
+            
+  	        endTag$ = ""
+  	        ;}
+  	      Case #FootNote     ;{ Footnotes
+  	        HTML$ + "<sup>"  + EscapeHTML_(Words()\String) + "</sup>"
+  	        endTag$ = ""
+  	        ;}
+  	      Case #Superscript  ;{ SuperScript
+  	        HTML$ + "<sup>" + EscapeHTML_(Words()\String) + "</sup>" 
+  	        endTag$ = ""
+  	        ;}
+  	      Case #Subscript    ;{ SubScript
+  	        HTML$ + "<sub>" + EscapeHTML_(Words()\String) + "</sub>"
+  	        endTag$ = ""
+  	        ;}
+  	      Case #Emoji        ;{ Emoji
+  	        
+            Select Words()\String
+              Case ":laugh:", ":smiley:"
+                HTML$ + "&#128512;"
+              Case ":smile:", ":simple_smile:"
+                HTML$ + "&#128578;"
+              Case ":sad:"
+                HTML$ + "&#128577;"
+              Case ":angry:"
+                HTML$ + "&#128544;"
+              Case ":cool:", ":sunglasses:"
+                HTML$ + "&#128526;"
+              Case ":smirk:"
+                HTML$ + "&#128527;"
+              Case ":worry:", ":worried:"
+                HTML$ + "&#128543;"
+              Case ":wink:"
+                HTML$ + "&#128521;"
+              Case ":rolf:"
+                HTML$ + "&#129315;"
+              Case ":eyes:", ":flushed:" 
+                HTML$ + "&#128580;"
+              Case ":phone:" , ":telephone_receiver:"
+                HTML$ + "&#128222;"
+              Case ":mail:", ":envelope:"
+                HTML$ + "&#9993;"
+              Case ":date:", ":calendar:"
+                HTML$ + "&#128198;"
+              Case ":memo:"
+                HTML$ + "&#128221;"
+              Case ":pencil:", ":pencil2:"    
+                HTML$ + "&#9999;"
+              Case ":bookmark:"
+                HTML$ + "&#128278;"
+            EndSelect
+            
+            endTag$ = "" 
+            ;} 
+  	      Default 
+  	        HTML$ + EscapeHTML_(Words()\String)
+  	        endTag$ = ""
+  	    EndSelect
+  	    
+  	    Flag = Words()\Flag
+  	    
+  	  Else
+  	    
+  	    HTML$ + EscapeHTML_(Words()\String)
+  	    
+  	  EndIf
+  	  
+	  Next 
+	  
+	  HTML$ + endTag$
+	  
+	  ProcedureReturn HTML$
+	EndProcedure
+	
   Procedure.s ExportHTML_(Title.s="")
     Define.i Level, c, ColWidth, Cols, tBody, Class, BlockQuote, DefList
-    Define.s HTML$, endTag$, Align$, Indent$, Syntax$, ID$, Link$, Title$, String$
+    Define.s HTML$, endTag$, Align$, Indent$, ID$, Link$, Title$, String$, Num$
     
     HTML$ = "<!DOCTYPE html>" + #LF$ + "<html>" + #LF$ + "<head>" + #LF$ + "<title>" + Title + "</title>" + #LF$ + "</head>" + #LF$ + "<body>" + #LF$
     
-    ForEach MarkDown()\Row()
+    ForEach MarkDown()\Items()
       
-      Select MarkDown()\Row()\BlockQuote ;{ Blockquotes
+      Select MarkDown()\Items()\BlockQuote ;{ Blockquotes
         Case 1, 2
           If Not BlockQuote
             HTML$ + "<blockquote>" + #LF$
@@ -869,106 +1444,95 @@ Module MarkDown
           EndIf ;}
       EndSelect
       
-      Select MarkDown()\Row()\Type
+      If DefList And MarkDown()\Items()\Type <> #List|#Definition
+        HTML$ + "</dl>" + #LF$
+        DefList = #False
+      EndIf
+      
+      Select MarkDown()\Items()\Type
         Case #Heading          ;{ Heading
-          If MarkDown()\Row()\ID
-            ID$ = " id=" + #DQUOTE$ + MarkDown()\Row()\ID + #DQUOTE$
-            HTML$ + "<h"+Str(MarkDown()\Row()\Level) + ID$ + ">" + EscapeHTML_(MarkDown()\Row()\String) + "</h"+Str(MarkDown()\Row()\Level) + ">" + #LF$
+          If MarkDown()\Items()\ID
+            ID$ = " id=" + #DQUOTE$ + MarkDown()\Items()\ID + #DQUOTE$
+            HTML$ + "<h"+Str(MarkDown()\Items()\Level) + ID$ + ">" + StringHTML_(MarkDown()\Items()\Words()) + "</h"+Str(MarkDown()\Items()\Level) + ">" + #LF$
           Else  
-            HTML$ + "<h"+Str(MarkDown()\Row()\Level) + ">" + EscapeHTML_(MarkDown()\Row()\String) + "</h"+Str(MarkDown()\Row()\Level) + ">" + #LF$
+            HTML$ + "<h"+Str(MarkDown()\Items()\Level) + ">" + StringHTML_(MarkDown()\Items()\Words()) + "</h"+Str(MarkDown()\Items()\Level) + ">" + #LF$
           EndIf
           ;}
         Case #List|#Ordered    ;{ Ordered List
           
           Level = 0
           
-          HTML$ + "<ol>" + #LF$
-          
-          ForEach MarkDown()\Row()\Item()
+          If SelectElement(MarkDown()\Lists(), MarkDown()\Items()\Index)
             
-            Indent$ = ""
-            
-            If MarkDown()\Row()\Item()\Level = 1 : Indent$ = Space(4) : EndIf 
-            
-            If Level = 0 And MarkDown()\Row()\Item()\Level = 1
-              If MarkDown()\Row()\Item()\Type = #List|#Unordered
-                HTML$ + Indent$ + "<ul>" + #LF$
-                endTag$ = "</ul>"
-              Else
-                HTML$ + Indent$ + "<ol>" + #LF$
-                endTag$ = "</ol>"
-              EndIf  
-              Level = 1
-            ElseIf Level = 1 And MarkDown()\Row()\Item()\Level = 0
-              HTML$ + Space(4) + endTag$ + #LF$
-              Level = 0
+            If MarkDown()\Lists()\Start
+              HTML$ + "<ol start=" + #DQUOTE$ + Str(MarkDown()\Lists()\Start) + #DQUOTE$ + ">" + #LF$
+            Else
+              HTML$ + "<ol>" + #LF$
             EndIf  
             
-            HTML$ + Indent$ + Space(2) + "<li>"+EscapeHTML_(MarkDown()\Row()\Item()\String)+"</li>" + #LF$
-    
-          Next  
-          
-          If Level = 1
-            If MarkDown()\Row()\Item()\Type = #List|#Unordered
-              HTML$ + Indent$ + "</ul>" + #LF$
-            Else
-              HTML$ + Indent$ + "</ol>" + #LF$
-            EndIf    
-          EndIf 
-          
-          HTML$ + "</ol>" + #LF$
+            ForEach MarkDown()\Lists()\Row()
+              
+              If Level < MarkDown()\Lists()\Row()\Level
+                HTML$ + "<ol>" + #LF$
+                endTag$ = "</ol>"
+                Level = MarkDown()\Lists()\Row()\Level
+              ElseIf Level > MarkDown()\Lists()\Row()\Level
+                HTML$ + endTag$ + #LF$
+                Level = MarkDown()\Lists()\Row()\Level
+              EndIf  
+              
+              HTML$ + "<li>" + TextHTML_( MarkDown()\Lists()\Row()\Words()) + "</li>" + #LF$
+              
+            Next
+            
+            HTML$ + "</ol>" + #LF$
+            
+          EndIf
           ;}
         Case #List|#Unordered  ;{ Unordered List
           
           Level = 0
           
-          HTML$ + "<ul>" + #LF$
-          
-          ForEach MarkDown()\Row()\Item()
+          If SelectElement(MarkDown()\Lists(), MarkDown()\Items()\Index)
+
+            HTML$ + "<ul>" + #LF$
             
-            Indent$ = ""
-            If MarkDown()\Row()\Item()\Level = 1 : Indent$ = "    " : EndIf 
-            
-            If Level = 0 And MarkDown()\Row()\Item()\Level = 1
-              If MarkDown()\Row()\Item()\Type = #List|#Ordered
-                HTML$ + Indent$ + "<ol>" + #LF$
-                endTag$ = "</ol>"
-              Else
-                HTML$ + Indent$ + "<ul>" + #LF$
+            ForEach MarkDown()\Lists()\Row()
+              
+              If Level < MarkDown()\Lists()\Row()\Level
+                HTML$ + "<ul>" + #LF$
                 endTag$ = "</ul>"
+                Level = MarkDown()\Lists()\Row()\Level
+              ElseIf Level > MarkDown()\Lists()\Row()\Level
+                HTML$ + endTag$ + #LF$
+                Level = MarkDown()\Lists()\Row()\Level
               EndIf  
-              Level = 1
-            ElseIf Level = 1 And MarkDown()\Row()\Item()\Level = 0
-              HTML$ + Space(4) + endTag$ + #LF$
-              Level = 0
-            EndIf  
+              
+              HTML$ + "<li>" + TextHTML_( MarkDown()\Lists()\Row()\Words()) + "</li>" + #LF$
+              
+            Next
             
-            HTML$ + Indent$ + Space(2) + "<li>"+EscapeHTML_(MarkDown()\Row()\Item()\String)+"</li>" + #LF$
-    
-          Next  
-          
-          If Level = 1
-            If MarkDown()\Row()\Item()\Type = #List|#Ordered
-              HTML$ + Space(2) + "</ol>" + #LF$
-            Else
-              HTML$ + Space(2) + "</ul>" + #LF$
-            EndIf    
-          EndIf 
-          
-          HTML$ + "</ul>" + #LF$
+            HTML$ + "</ul>" + #LF$
+            
+          EndIf
           ;}
         Case #List|#Definition ;{ Definition List
-          ; TODO: Kombinieren der Elemente
-          HTML$ + "<dl>" + #LF$
-          HTML$ + Space(2) + "<dt>" + MarkDown()\Row()\String + "</dt>" + #LF$
-          
-          ForEach MarkDown()\Row()\Item()
-            HTML$ + Space(2) + "<dd>" + MarkDown()\Row()\Item()\String + "</dd>" + #LF$
-          Next
-          
-          HTML$ + "</dl>" + #LF$
+
+          If SelectElement(MarkDown()\Lists(), MarkDown()\Items()\Index)
+            
+            If Not Deflist
+              HTML$ + "<dl>" + #LF$
+              Deflist = #True
+            EndIf
+            
+             HTML$ + Space(2) + "<dt>" + StringHTML_(MarkDown()\Items()\Words()) + "</dt>" + #LF$
+            ForEach MarkDown()\Lists()\Row()
+              HTML$ + "<dd>" + TextHTML_(MarkDown()\Lists()\Row()\Words()) + "</dd>" + #LF$
+            Next
+            
+          EndIf  
 			    ;}  
-        Case #HLine            ;{ Horizontal Rule
+        Case #Line             ;{ Horizontal Rule
           HTML$ + "<hr />" + #LF$
           ;}
         Case #Paragraph        ;{ Paragraph
@@ -976,47 +1540,56 @@ Module MarkDown
           ;}
         Case #List|#Task       ;{ Task List
           
-          ForEach MarkDown()\Row()\Item()
-            If MarkDown()\Row()\Item()\State
-              HTML$ + "<input type=" + #DQUOTE$ + "checkbox" + #DQUOTE$ + " checked=" + #DQUOTE$ + "checked" + #DQUOTE$ + ">" + #LF$
-            Else  
-              HTML$ + "<input type=" + #DQUOTE$ + "checkbox" + #DQUOTE$ + ">" + #LF$
-            EndIf
-            HTML$ + EscapeHTML_(MarkDown()\Row()\Item()\String) + #LF$
-            HTML$ + "<br>"
-          Next
+          If SelectElement(MarkDown()\Lists(), MarkDown()\Items()\Index)
+            
+            ForEach MarkDown()\Lists()\Row()
+              
+              If MarkDown()\Lists()\Row()\State
+                HTML$ + "<input type=" + #DQUOTE$ + "checkbox" + #DQUOTE$ + " checked=" + #DQUOTE$ + "checked" + #DQUOTE$ + ">" + #LF$
+              Else
+                HTML$ + "<input type=" + #DQUOTE$ + "checkbox" + #DQUOTE$ + ">" + #LF$
+              EndIf
+              
+              HTML$ + TextHTML_(MarkDown()\Lists()\Row()\Words()) + "<br>"
+              
+            Next
+            
+          EndIf
           ;}
         Case #Table            ;{ Table
           
-          Align$ = MarkDown()\Row()\String
-          
-          HTML$ + "<table>"  + #LF$
-          
-          ForEach MarkDown()\Row()\Item()
+          If SelectElement(MarkDown()\Table(), MarkDown()\Items()\Index)
+
+            Cols = MarkDown()\Table()\Cols
             
-            Cols = CountString(MarkDown()\Row()\Item()\String, "|") + 1
+            HTML$ + "<table>"  + #LF$
             
-            Select  MarkDown()\Row()\Item()\Type 
-              Case #Table|#Header ;{ Table Header
+		        ForEach MarkDown()\Table()\Row()
+
+		          If MarkDown()\Table()\Row()\Type = #Table|#Header ;{ Table Header
+		            
+		            HTML$ + "<thead>" + #LF$ + "<tr class=" + #DQUOTE$ + "header" + #DQUOTE$ + ">" + #LF$
                 
-                HTML$ + "<thead>" + #LF$ + "<tr class=" + #DQUOTE$ + "header" + #DQUOTE$ + ">" + #LF$
-                
-                For c=1 To Cols
-                  Select StringField(Align$, c, "|")
+		            For c=1 To Cols
+		              
+		              Num$ = Str(c)
+		              
+                  Select MarkDown()\Table()\Column(Str(c))\Align
                     Case "C"
-                      HTML$ + "<th style=" + #DQUOTE$ + "text-align: center;" + #DQUOTE$ + ">" + EscapeHTML_(Trim(StringField(MarkDown()\Row()\Item()\String, c, "|"))) + " &nbsp; </th>" + #LF$
+                      HTML$ + "<th style=" + #DQUOTE$ + "text-align: center;" + #DQUOTE$ + ">" + TextHTML_(MarkDown()\Table()\Row()\Col(Num$)\Words()) + " &nbsp; </th>" + #LF$
                     Case "R"
-                      HTML$ + "<th style=" + #DQUOTE$ + "text-align: right;"  + #DQUOTE$ + ">" + EscapeHTML_(Trim(StringField(MarkDown()\Row()\Item()\String, c, "|"))) + " &nbsp; </th>" + #LF$
+                      HTML$ + "<th style=" + #DQUOTE$ + "text-align: right;"  + #DQUOTE$ + ">" + TextHTML_(MarkDown()\Table()\Row()\Col(Num$)\Words()) + " &nbsp; </th>" + #LF$
                     Default  
-                      HTML$ + "<th style=" + #DQUOTE$ + "text-align: left"    + #DQUOTE$ + ">" + EscapeHTML_(Trim(StringField(MarkDown()\Row()\Item()\String, c, "|"))) + " &nbsp; </th>" + #LF$
+                      HTML$ + "<th style=" + #DQUOTE$ + "text-align: left"    + #DQUOTE$ + ">" + TextHTML_(MarkDown()\Table()\Row()\Col(Num$)\Words()) + " &nbsp; </th>" + #LF$
                   EndSelect
+                  
                 Next
                 
                 HTML$ + "</tr>" + #LF$ + "</thead>" + #LF$
-                ;}
-              Default      ;{ Table Body
-                
-                If Not tBody
+		            ;}
+			        Else                                              ;{ Table Body
+			          
+			          If Not tBody
                   HTML$ + "<tbody>" + #LF$
                   tBody = #True
                 EndIf
@@ -1029,151 +1602,56 @@ Module MarkDown
                 EndIf 
 
                 For c=1 To Cols
-                  Select StringField(Align$, c, "|")
+                  Select MarkDown()\Table()\Column(Str(c))\Align
                     Case "C"
-                      HTML$ + "<td style=" + #DQUOTE$ + "text-align: center;" + #DQUOTE$ + ">" + EscapeHTML_(Trim(StringField(MarkDown()\Row()\Item()\String, c, "|"))) + " &nbsp; </td>" + #LF$
+                      HTML$ + "<td style=" + #DQUOTE$ + "text-align: center;" + #DQUOTE$ + ">" + TextHTML_(MarkDown()\Table()\Row()\Col(Num$)\Words()) + " &nbsp; </td>" + #LF$
                     Case "R"
-                      HTML$ + "<td style=" + #DQUOTE$ + "text-align: right;"  + #DQUOTE$ + ">" + EscapeHTML_(Trim(StringField(MarkDown()\Row()\Item()\String, c, "|"))) + " &nbsp; </td>" + #LF$
+                      HTML$ + "<td style=" + #DQUOTE$ + "text-align: right;"  + #DQUOTE$ + ">" + TextHTML_(MarkDown()\Table()\Row()\Col(Num$)\Words()) + " &nbsp; </td>" + #LF$
                     Default  
-                      HTML$ + "<td style=" + #DQUOTE$ + "text-align: left;"   + #DQUOTE$ + ">" + EscapeHTML_(Trim(StringField(MarkDown()\Row()\Item()\String, c, "|"))) + " &nbsp; </td>" + #LF$
+                      HTML$ + "<td style=" + #DQUOTE$ + "text-align: left;"   + #DQUOTE$ + ">" + TextHTML_(MarkDown()\Table()\Row()\Col(Num$)\Words()) + " &nbsp; </td>" + #LF$
                   EndSelect
                 Next
                 
                 HTML$ + "</tr>" + #LF$
-                ;}
-            EndSelect
-            
-          Next
-          
-          HTML$+ "</tbody>" + #LF$ + "</table>" + #LF$
+			          ;}
+			        EndIf
+
+			      Next
+			      
+			      HTML$+ "</tbody>" + #LF$ + "</table>" + #LF$
+			      
+		      EndIf
           ;}
         Case #Code             ;{ Code Block
           
-          Syntax$ = MarkDown()\Row()\String
+          If SelectElement(MarkDown()\Block(), MarkDown()\Items()\Index)
+  
+            HTML$ + "<pre>" + #LF$
+            
+            If MarkDown()\Block()\String
+              HTML$ + "  <code class=" + #DQUOTE$ + "language-" + MarkDown()\Block()\String + #DQUOTE$ +  ">" + #LF$
+            Else
+              HTML$ + "  <code>" + #LF$
+            EndIf
+            
+            ForEach MarkDown()\Block()\Row()
+              HTML$ + Space(4) + EscapeHTML_(MarkDown()\Block()\Row()) + #LF$
+            Next
 
-          HTML$ + "<pre>" + #LF$
-          
-          If Syntax$
-            HTML$ + "  <code class=" + #DQUOTE$ + "language-" + Syntax$ + #DQUOTE$ +  ">" + #LF$
-          Else
-            HTML$ + "  <code>" + #LF$
+            HTML$ + "  </code>" + #LF$ + "</pre>" + #LF$
+            
           EndIf
-          
-          ForEach MarkDown()\Row()\Item()
-            HTML$ + Space(4) + EscapeHTML_(MarkDown()\Row()\Item()\String) + #LF$
-          Next
-          
-          HTML$ + "  </code>" + #LF$ + "</pre>" + #LF$
           ;}
         Default                ;{ Text
           
-          HTML$ + MarkDown()\Row()\String
-          
-          ForEach MarkDown()\Row()\Item()
-            Select MarkDown()\Row()\Item()\Type
-              Case #Bold        ;{ Emphasis
-                HTML$ + "<strong>" + EscapeHTML_(MarkDown()\Row()\Item()\String) + "</strong>"
-              Case #Italic
-                HTML$ + "<em>" + EscapeHTML_(MarkDown()\Row()\Item()\String) + "</em>"
-              Case #Bold|#Italic 
-                HTML$ + "<strong><em>" + EscapeHTML_(MarkDown()\Row()\Item()\String) + "</em></strong>"
-              Case #StrikeThrough
-                HTML$ + " <del>" + EscapeHTML_(MarkDown()\Row()\Item()\String) + "</del>"
-                ;}
-              Case #Code        ;{ Code
-                HTML$ + "<code>" + EscapeHTML_(MarkDown()\Row()\Item()\String) + "</code>"  
-                ;}
-              Case #AutoLink         ;{ URL / EMail
-                If CountString(MarkDown()\Row()\Item()\String, "@") = 1
-                  HTML$ + "<a href=" + #DQUOTE$ + "mailto:" + URLDecoder(MarkDown()\Row()\Item()\String) + #DQUOTE$ + ">" + EscapeHTML_(MarkDown()\Row()\Item()\String) + "</a>" 
-                Else  
-                  HTML$ + "<a href=" + #DQUOTE$ + URLDecoder(MarkDown()\Row()\Item()\String) + #DQUOTE$ + ">" + EscapeHTML_(MarkDown()\Row()\Item()\String) + "</a>" 
-                EndIf ;}
-              Case #Link        ;{ Link
-                If SelectElement(MarkDown()\Link(), MarkDown()\Row()\Item()\Index)
-                  
-                  If MarkDown()\Link()\Label
-                    If FindMapElement(MarkDown()\Label(), MarkDown()\Link()\Label)
-                      Link$   = MarkDown()\Label()\Destination
-                      Title$  = MarkDown()\Label()\Title
-                      String$ = MarkDown()\Label()\String
-                    EndIf  
-                  Else
-                    Link$   = MarkDown()\Link()\URL
-                    Title$  = MarkDown()\Link()\Title
-                    String$ = MarkDown()\Row()\Item()\String
-                  EndIf
-                
-                  If MarkDown()\Link()\Title
-                    HTML$ + "<a href=" + #DQUOTE$ + URLDecoder(Link$) + #DQUOTE$ + " title=" + #DQUOTE$ + EscapeHTML_(Title$) + #DQUOTE$ + ">" + EscapeHTML_(String$) + " </a>"
-                  Else  
-                    HTML$ + "<a href=" + #DQUOTE$ + URLDecoder(Link$) + #DQUOTE$ + ">" + EscapeHTML_(String$) + "</a>"
-                  EndIf 
-                EndIf ;}
-              Case #Image       ;{ Image
-                If SelectElement(MarkDown()\Image(), MarkDown()\Row()\Item()\Index)
-                  Debug "> "+MarkDown()\Image()\Source
-                  If MarkDown()\Image()\Title
-                    HTML$ + "<img src=" + #DQUOTE$ + MarkDown()\Image()\Source + #DQUOTE$ + " alt=" + #DQUOTE$ + EscapeHTML_(MarkDown()\Row()\Item()\String) + #DQUOTE$ + " title=" + #DQUOTE$ + EscapeHTML_(MarkDown()\Image()\Title) + #DQUOTE$ + " />"
-                  Else  
-                    HTML$ + "<img src=" + #DQUOTE$ + MarkDown()\Image()\Source + #DQUOTE$ + " alt=" + #DQUOTE$ + EscapeHTML_(MarkDown()\Row()\Item()\String) + #DQUOTE$ + " />"
-                  EndIf
-                EndIf ;}
-              Case #FootNote    ;{ Footnote
-                HTML$ + "<sup>"+EscapeHTML_(MarkDown()\Row()\Item()\String)+"</sup>" + #LF$
-                ;}
-              Case #Superscript ;{ #SuperScript
-                HTML$ + "<sup>"+EscapeHTML_(MarkDown()\Row()\Item()\String)+"</sup>" + #LF$
-                ;}
-              Case #Subscript   ;{ SubScript
-                HTML$ + "<sub>"+EscapeHTML_(MarkDown()\Row()\Item()\String)+"</sub>" + #LF$
-                ;}
-              Case #Emoji       ;{ Emoji
-                Select MarkDown()\Row()\Item()\String
-                  Case ":laugh:", ":smiley:"
-                    HTML$ + "&#128512;"
-                  Case ":smile:", ":simple_smile:"
-                    HTML$ + "&#128578;"
-                  Case ":sad:"
-                    HTML$ + "&#128577;"
-                  Case ":angry:"
-                    HTML$ + "&#128544;"
-                  Case ":cool:", ":sunglasses:"
-                    HTML$ + "&#128526;"
-                  Case ":smirk:"
-                    HTML$ + "&#128527;"
-                  Case ":worry:", ":worried:"
-                    HTML$ + "&#128543;"
-                  Case ":wink:"
-                    HTML$ + "&#128521;"
-                  Case ":rolf:"
-                    HTML$ + "&#129315;"
-                  Case ":eyes:", ":flushed:" 
-                    HTML$ + "&#128580;"
-                  Case ":phone:" , ":telephone_receiver:"
-                    HTML$ + "&#128222;"
-                  Case ":mail:", ":envelope:"
-                    HTML$ + "&#9993;"
-                  Case ":date:", ":calendar:"
-                    HTML$ + "&#128198;"
-                  Case ":memo:"
-                    HTML$ + "&#128221;"
-                  Case ":pencil:", ":pencil2:"    
-                    HTML$ + "&#9999;"
-                  Case ":bookmark:"
-                     HTML$ + "&#128278;"
-                EndSelect    
-                ;}
-              Default           ;{ Text
-                HTML$ + EscapeHTML_(MarkDown()\Row()\Item()\String) ;}
-            EndSelect
-          Next
-          
+          HTML$ + TextHTML_(MarkDown()\Items()\Words())
           HTML$ + "<br>" + #LF$
           ;}
       EndSelect
-      
+
     Next
+    
+    If DefList : HTML$ + "</dl>" + #LF$ : EndIf
     
     If BlockQuote
       HTML$ + "</blockquote>" + #LF$
@@ -1186,7 +1664,7 @@ Module MarkDown
       HTML$ + "<section class=" + #DQUOTE$ + "footnotes" + #DQUOTE$ + ">" + #LF$
       HTML$ + "<hr />" + #LF$
       ForEach MarkDown()\Footnote()
-        HTML$ + "<sup>" + EscapeHTML_(MarkDown()\FootNote()\Label) + "</sup> " + EscapeHTML_(MarkDown()\FootLabel(MarkDown()\FootNote()\Label)) + "<br>" + #LF$
+        HTML$ + "<sup>" + EscapeHTML_(MarkDown()\FootNote()\Label) + "</sup> " + TextHTML_(MarkDown()\FootLabel(MarkDown()\FootNote()\Label)\Words()) + "<br>" + #LF$
       Next
 		  HTML$ + "</section>"+ #LF$
 		  ;}
@@ -1201,123 +1679,43 @@ Module MarkDown
   
   CompilerIf Defined(PDF, #PB_Module)
     
-    Procedure.i TextPDF_(PDF.i, Text.s, WrapPos.i, Indent.i=0, maxCol.i=0, Link.i=#PB_Default, Flag.i=#False) ; WordWrap
-      Define.i w, Words, OffsetY, maxWidth, LinkPDF
-      Define.f X, Y, PosX, txtWidth, WordWidth
-      Define.s Word$, Link$
-      
-      If Text = "" :  ProcedureReturn #False : EndIf 
-      
-      X = PDF::GetPosX(PDF)
-      
-      If maxCol
-        maxWidth = maxCol - 5
-      Else
-        maxWidth = WrapPos
-      EndIf
-      
-      txtWidth = PDF::GetStringWidth(PDF, Text)
-      
-      If X + txtWidth > maxWidth
+    Procedure.i FontPDF_(PDF.i, Font.i)
 
-        If Link = #PB_Default ;{ WordWrap
-        
-          Words = CountString(Text, " ") + 1
-          
-          For w = 1 To Words
-            
-            Word$ = StringField(Text, w, " ")
-
-            WordWidth = PDF::GetStringWidth(PDF, Word$)
-            
-            If PDF::GetPosX(PDF) + WordWidth > maxWidth
-
-              PDF::Ln(PDF, 4.5)
-              
-              If maxCol
-                PDF::SetPosX(PDF, X)
-              ElseIf Indent
-                PDF::SetPosX(PDF, 10 + Indent)
-              EndIf 
-
-            EndIf
-            
-            If w < Words : Word$ + " " : EndIf
-            
-            If Word$ = "" : Continue : EndIf
-            
-            If Flag = #StrikeThrough
-              PDF::DividingLine(PDF, PDF::GetPosX(PDF), PDF::GetPosY(PDF) + 2, PDF::GetStringWidth(PDF, Word$))
-            EndIf 
-            
-            If Flag = #Highlight
-              PDF::Cell(PDF, Word$, PDF::GetStringWidth(PDF, Word$), #PB_Default, #False, PDF::#Right, "", #True)
-            Else  
-              PDF::Cell(PDF, Word$, PDF::GetStringWidth(PDF, Word$))
-            EndIf
-            
-          Next
-          ;}
-        Else                  ;{ Move to next line
-          
-          If SelectElement(MarkDown()\Link(), MarkDown()\Row()\Item()\Index)
-            
-            If MarkDown()\Link()\Label
-              Link$ = MarkDown()\Label(MarkDown()\Link()\Label)\Destination
-            Else
-              Link$ = MarkDown()\Link()\URL
-            EndIf  
-            
-            If Left(Link$, 1) = "#"
-              PDF::AddGotoLabel(PDF, URLDecoder(Link$))
-              LinkPDF = PDF::#NoLink
-            Else
-              LinkPDF = PDF::AddLinkURL(PDF, URLDecoder(Link$))
-            EndIf
-            
-          EndIf
-
-          PDF::Ln(PDF)
-          PDF::SetPosX(PDF, 10)
-          
-          If Flag = #Highlight
-            PDF::Cell(PDF, Text, txtWidth, #PB_Default, #False, PDF::#Right, "", #True, "", LinkPDF)
-          Else  
-            PDF::Cell(PDF, Text, txtWidth, #PB_Default, #False, PDF::#Right, "", #False, "", LinkPDF)
-          EndIf  
-          ;}
-        EndIf
-  
-      Else
-        
-        If Flag = #StrikeThrough
-          PDF::DividingLine(PDF, PDF::GetPosX(PDF), PDF::GetPosY(PDF) + 2, txtWidth)
-        EndIf         
-        
-        If Link = #PB_Default
-          
-          PDF::Cell(PDF, Text, txtWidth)
-          
-        Else
-          
-          If SelectElement(MarkDown()\Link(), MarkDown()\Row()\Item()\Index)
-            
-            If Left(MarkDown()\Link()\URL, 1) = "#"
-              PDF::AddGotoLabel(PDF, MarkDown()\Link()\URL)
-              LinkPDF = PDF::#NoLink
-            Else
-              LinkPDF = PDF::AddLinkURL(PDF, URLDecoder(MarkDown()\Link()\URL))
-            EndIf
-            
-          EndIf
-          
-          PDF::Cell(PDF, Text, txtWidth, #PB_Default, #False, PDF::#Right, "", #False, "", LinkPDF)
-          
-        EndIf
-        
-      EndIf  
-     
-    EndProcedure    
+      Select Font
+        Case #Font_Bold
+          PDF::SetFont(PDF, "Arial", "B", 11)
+        Case #Font_Italic
+          PDF::SetFont(PDF, "Arial", "I", 11)
+        Case #Font_BoldItalic  
+          PDF::SetFont(PDF, "Arial", "BI", 11) 
+        Case #Font_FootText
+          PDF::SetFont(PDF, "Arial", "", 9)
+        Case #Font_FootBold
+          PDF::SetFont(PDF, "Arial", "B", 9)  
+        Case #Font_FootItalic
+          PDF::SetFont(PDF, "Arial", "I", 9)    
+        Case #Font_FootBoldItalic
+          PDF::SetFont(PDF, "Arial", "BI", 9)     
+        Case #Font_Code
+          PDF::SetFont(PDF, "Courier New", "", 11)
+        Case #Font_H6
+          PDF::SetFont(PDF, "Arial", "B", 12)
+        Case #Font_H5
+          PDF::SetFont(PDF, "Arial", "B", 13)
+        Case #Font_H4
+          PDF::SetFont(PDF, "Arial", "B", 14)
+        Case #Font_H3
+          PDF::SetFont(PDF, "Arial", "B", 15)
+        Case #Font_H2
+          PDF::SetFont(PDF, "Arial", "B", 16)
+        Case #Font_H1 
+          PDF::SetFont(PDF, "Arial", "B", 17)
+        Default
+          PDF::SetFont(PDF, "Arial", "", 11)
+      EndSelect
+      
+      ProcedureReturn Font
+    EndProcedure
     
     Procedure.i EmojiPDF_(PDF.i, Emoji.s, X.i, Y.i, ImgSize.i)
       Define.i *Image
@@ -1357,21 +1755,209 @@ Module MarkDown
           PDF::ImageMemory(PDF, "Worry.png",    ?Worry,    554, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
       EndSelect
       
-  	EndProcedure
+  	EndProcedure    
+  	
+  	
+  	Procedure.i AlignOffsetPDF_(PDF.i, WordIdx.i, Width.i, Align.s, List Words.Words_Structure())
+      Define.i TextWidth, OffsetX
+      
+      PushListPosition(Words())
+      
+      ForEach Words()
+        
+        If ListIndex(Words()) >= WordIdx
+          
+          If TextWidth + PDF::GetStringWidth(PDF, Words()\String) > Width
+            Break
+          Else  
+            TextWidth + PDF::GetStringWidth(PDF, Words()\String)
+          EndIf  
+          
+        EndIf
+        
+      Next
+      
+      PopListPosition(Words())
+      
+      Select Align
+        Case "C"
+          OffsetX = (Width - TextWidth) / 2
+        Case "R"
+          OffsetX = Width - TextWidth
+      EndSelect    
+      
+      ProcedureReturn OffsetX
+    EndProcedure
+
+    Procedure.i RowPDF_(PDF.i, X.i, BlockQuote.i, List Words.Words_Structure(), ColWidth.i=#False, Align.s="L", ID.s="")
+      Define.i PosX, PosY, Width, Height, Font, TextWidth, ImgSize, Image, WordIdx
+      Define.i OffSetX, OffSetY, OffSetBQ, LinkPDF
+      Define.s Link$, ID$
+      
+      ;If BlockQuote : OffSetBQ = dpiX(10) * BlockQuote : EndIf 
+      
+      X + OffSetBQ
+
+      WordIdx = 0
+      
+      If ColWidth
+        OffSetX = AlignOffsetPDF_(PDF, WordIdx, ColWidth, Align, Words())
+      EndIf
+      
+      PDF::SetPosX(PDF, X + OffSetX)
+      
+      ForEach Words()
+        
+        If Font <> Words()\Font : Font = FontPDF_(PDF, Words()\Font) : EndIf
+        
+        TextWidth = PDF::GetStringWidth(PDF, Words()\String)
+        
+        If PDF::GetPosX(PDF) + TextWidth > MarkDown()\WrapPos
+          
+          WordIdx = ListIndex(Words())
+          
+          If ColWidth
+            OffSetX = AlignOffsetPDF_(PDF, WordIdx, ColWidth, Align, Words())
+          EndIf
+          
+          PDF::Ln(PDF, 4.5)
+          PDF::SetPosX(PDF, X + OffSetX)
+          
+          ;If BlockQuote            ;{ BlockQuote
+          ;   ;}
+          ;EndIf
+
+        EndIf
+
+        Select Words()\Flag
+          Case #AutoLink       ;{ AutoLink
+            
+            If SelectElement(MarkDown()\Link(), Words()\Index)
+              
+              PDF::SetFont(PDF, "Arial", "U", 11)
+              PDF::SetColorRGB(PDF, PDF::#TextColor, 0, 0, 255)
+              
+              If CountString(Words()\String, "@") = 1
+                LinkPDF = PDF::AddLinkURL(PDF, URLDecoder("mailto:" + MarkDown()\Link()\URL))
+                PDF::Cell(PDF, Words()\String, TextWidth, #PB_Default, #False, PDF::#Right, "", #False, "", LinkPDF)
+              Else  
+                LinkPDF = PDF::AddLinkURL(PDF, URLDecoder(MarkDown()\Link()\URL))
+                PDF::Cell(PDF, Words()\String, TextWidth, #PB_Default, #False, PDF::#Right, "", #False, "", LinkPDF)
+              EndIf
+
+              PDF::SetColorRGB(PDF, PDF::#TextColor, 0)
+              FontPDF_(PDF, Words()\Font)
+              
+            EndIf
+            ;}             
+          Case #Emoji          ;{ Emoji  
+            X = PDF::GetPosX(PDF)
+            EmojiPDF_(PDF,  Words()\String, X, #PB_Default, 4)
+            PDF::SetPosX(PDF, X + 4)
+            ;}  
+          Case #FootNote       ;{ Footnote
+            PDF::SubWrite(PDF, Words()\String, 4.5, 7, 5)
+            ;}
+          Case #Highlight      ;{ Highlighted text
+            PDF::SetColorRGB(PDF, PDF::#FillColor, 252, 248, 227)
+            PDF::Cell(PDF, Words()\String, TextWidth, #PB_Default, #False, PDF::#Right, "", #True)
+            PDF::SetColorRGB(PDF, PDF::#FillColor, 255, 255, 255)
+            ;}
+          Case #Image          ;{ Image
+        
+            If SelectElement(MarkDown()\Image(), Words()\Index)
+              
+              PosX   = PDF::GetPosX(PDF)
+              PosY   = PDF::GetPosY(PDF)
+              Width  = mm_(MarkDown()\Image()\Width)
+              Height = mm_(MarkDown()\Image()\Height)
+              
+              PDF::Image(PDF, MarkDown()\Image()\Source, PosX, PosY, Width, Height)
+              PDF::SetPosY(PDF, PosY + Height)
+
+            EndIf
+            ;}    
+          Case #Link           ;{ Link
+            
+            If SelectElement(MarkDown()\Link(), Words()\Index)
+              
+              PDF::SetFont(PDF, "Arial", "U", 11)
+              PDF::SetColorRGB(PDF, PDF::#TextColor, 0, 0, 255)
+              
+              If MarkDown()\Link()\Label
+                Link$ = MarkDown()\Label(MarkDown()\Link()\Label)\Destination
+              Else
+                Link$ = MarkDown()\Link()\URL
+              EndIf 
+              
+              If Left(Link$, 1) = "#"
+                PDF::AddGotoLabel(PDF, URLDecoder(Link$))
+                LinkPDF = PDF::#NoLink
+              Else
+                LinkPDF = PDF::AddLinkURL(PDF, URLDecoder(Link$))
+              EndIf
+              
+              PDF::Cell(PDF, Words()\String, TextWidth, #PB_Default, #False, PDF::#Right, "", #False, "", LinkPDF)
+              
+              PDF::SetColorRGB(PDF, PDF::#TextColor, 0)
+              FontPDF_(PDF, Words()\Font)
+              
+            EndIf
+            ;}
+          Case #Keystroke      ;{ Keystroke
+            PDF::SetMargin(PDF, PDF::#CellMargin, 1)
+            PDF::SetColorRGB(PDF, PDF::#FillColor, 245, 245, 245)
+            PosY = PDF::GetPosY(PDF)
+            PDF::SetPosY(PDF, PosY - 0.2)
+            PDF::Cell(PDF, Words()\String, TextWidth + 2, 4.4, #True, PDF::#Right, "", #True)
+            PDF::SetColorRGB(PDF, PDF::#FillColor, 255, 255, 255)
+            PDF::SetMargin(PDF, PDF::#CellMargin, 0)
+            PDF::SetPosY(PDF, PosY)
+            ;}
+          Case #StrikeThrough  ;{ Strikethrough text
+            PDF::DividingLine(PDF, PDF::GetPosX(PDF), PDF::GetPosY(PDF) + 2, TextWidth)
+            PDF::Cell(PDF, Words()\String, TextWidth)
+            ;}
+          Case #Superscript    ;{ Superscripted text
+            PDF::SubWrite(PDF, Words()\String, 4.5, 7, 5)
+            ;}
+          Case #Subscript      ;{ Subscripted text
+            PDF::SubWrite(PDF, Words()\String, 4.5, 7, 0)
+            ;}  
+          Default
+            If ID$
+              PDF::Cell(PDF, Words()\String, TextWidth, #PB_Default, #False, PDF::#NextLine, "", #False, ID$) 
+            Else  
+              PDF::Cell(PDF, Words()\String, TextWidth)
+            EndIf
+        EndSelect
+
+      Next
+
+      PDF::Ln(PDF)
+      PDF::Ln(PDF, 0.5)
+      
+      ;If BlockQuote            ;{ BlockQuote
+      ;   ;}
+      ;EndIf
+
+    EndProcedure
 
     Procedure.s ExportPDF_(File.s, Title.s="")
-      Define.i PDF, Num, X, Y, RowY, TextWidth, Link
+      Define.i PDF, X, Y, RowY, TextWidth, Link
       Define.i c, Cols, ColWidth, OffSetX, Width, Height
-      Define.s Bullet$, Align$
+      Define.s Bullet$, Align$, Text$, Level$
+      
+      NewMap ListNum.i()
       
       PDF = PDF::Create(#PB_Any)
       If PDF
 
         PDF::AddPage(PDF)
         
-        PDF::SetMargin(PDF, PDF::#TopMargin, 10)
+        PDF::SetMargin(PDF, PDF::#TopMargin,  10)
         PDF::SetMargin(PDF, PDF::#LeftMargin, 10)
-        PDF::SetMargin(PDF, PDF::#CellMargin, 0)
+        PDF::SetMargin(PDF, PDF::#CellMargin,  0)
         
         ForEach MarkDown()\Image() ;{ Images
           MarkDown()\Image()\Num = LoadImage(#PB_Any, MarkDown()\Image()\Source)
@@ -1382,134 +1968,123 @@ Module MarkDown
           EndIf ;}
         Next   
         
-        ForEach MarkDown()\Row()
+        ForEach MarkDown()\Items()
+          
+          MarkDown()\WrapPos = 200
           
           PDF::SetFont(PDF, "Arial", "", 11)
-          PDF::SetPosX(PDF, 10)
           
-          Select MarkDown()\Row()\Type
+          Select MarkDown()\Items()\Type
             Case #Heading          ;{ Heading
-              Select MarkDown()\Row()\Level
-                Case 1
-                  PDF::SetFont(PDF, "Arial", "B", 17)
-                Case 2
-                  PDF::SetFont(PDF, "Arial", "B", 16)
-                Case 3
-                  PDF::SetFont(PDF, "Arial", "B", 15)
-                Case 4  
-                  PDF::SetFont(PDF, "Arial", "B", 14)
-                Case 5
-                  PDF::SetFont(PDF, "Arial", "B", 13)
-                Case 6
-                  PDF::SetFont(PDF, "Arial", "B", 12)
-              EndSelect
               
-              If MarkDown()\Row()\ID
-                PDF::Cell(PDF, Trim(MarkDown()\Row()\String), #PB_Default, #PB_Default, #False, PDF::#NextLine, "", #False, MarkDown()\Row()\ID) 
+              If MarkDown()\Items()\ID
+                RowPDF_(PDF, 10, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words(), #False, "L", MarkDown()\Items()\ID)
               Else
-                PDF::Cell(PDF, Trim(MarkDown()\Row()\String), #PB_Default, #PB_Default, #False, PDF::#NextLine)
-              EndIf
-              
-              PDF::Ln(PDF, 2)
+                RowPDF_(PDF, 10, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words())
+              EndIf  
+
+              PDF::Ln(PDF, 3)
               ;}
             Case #List|#Ordered    ;{ Ordered List
               
-              Num = 0
+              ClearMap(ListNum())
               
-              PDF::Ln(PDF, 3)
+              If SelectElement(MarkDown()\Lists(), MarkDown()\Items()\Index)
               
-              ForEach MarkDown()\Row()\Item()
+                ForEach MarkDown()\Lists()\Row()
+                  
+                  Level$ = Str(MarkDown()\Lists()\Row()\Level)
+                  
+                  ListNum(Level$) + 1
+                  
+                  TextWidth = PDF::GetStringWidth(PDF, Str(ListNum(Level$)) + ". ")
+                  
+                  If MarkDown()\Lists()\Row()\Level
+                    PDF::SetPosX(PDF, 15 + (TextWidth * MarkDown()\Lists()\Row()\Level))
+                  Else  
+                    PDF::SetPosX(PDF, 15)
+                  EndIf 
+
+                  PDF::Cell(PDF, Str(ListNum(Level$)) + ". ", TextWidth)
+                  
+                  X = PDF::GetPosX(PDF)
+                  RowPDF_(PDF, X, #False, MarkDown()\Lists()\Row()\Words())
+                  
+                Next 
                 
-                Bullet$ = #Bullet$
-                
-                If MarkDown()\Row()\Item()\Level
-                  Bullet$ = "- "
-                  PDF::SetPosX(PDF, 15 + (5 * MarkDown()\Row()\Item()\Level))
-                Else  
-                  PDF::SetPosX(PDF, 15)
-                EndIf 
-                
-                If MarkDown()\Row()\Item()\Type = #List|#Unordered
-                  PDF::MultiCellList(PDF, MarkDown()\Row()\Item()\String, 180, 5, #False, PDF::#LeftAlign, #False, Bullet$ + " ") 
-                Else
-                  Num + 1
-                  PDF::MultiCellList(PDF, MarkDown()\Row()\Item()\String, 180, 5, #False, PDF::#LeftAlign, #False, Str(Num)+". ") 
-                EndIf  
-                
-              Next 
-              
-              PDF::Ln(PDF, 3)
+              EndIf
               ;}
             Case #List|#Unordered  ;{ Unordered List
               
-              Num = 0
+              If SelectElement(MarkDown()\Lists(), MarkDown()\Items()\Index)
               
-              PDF::Ln(PDF, 3)
-              
-              ForEach MarkDown()\Row()\Item()
+                ForEach MarkDown()\Lists()\Row()
                 
-                Bullet$ = #Bullet$
+                  Bullet$ = #Bullet$
+                  
+                  TextWidth = PDF::GetStringWidth(PDF, Bullet$ + " ")
+                  
+                  If MarkDown()\Lists()\Row()\Level
+                    PDF::SetPosX(PDF, 15 + (TextWidth * MarkDown()\Lists()\Row()\Level))
+                  Else  
+                    PDF::SetPosX(PDF, 15)
+                  EndIf 
+
+                  PDF::Cell(PDF, Bullet$ + " ", TextWidth)
+                  
+                  X = PDF::GetPosX(PDF)
+                  RowPDF_(PDF, X, #False, MarkDown()\Lists()\Row()\Words())
+                  
+                Next 
                 
-                If MarkDown()\Row()\Item()\Level
-                  Bullet$ = "- "
-                  PDF::SetPosX(PDF, 15 + (5 * MarkDown()\Row()\Item()\Level))
-                Else  
-                  PDF::SetPosX(PDF, 15)
-                EndIf 
-                
-                If MarkDown()\Row()\Item()\Type = #List|#Ordered
-                  PDF::MultiCellList(PDF, MarkDown()\Row()\Item()\String, 180, 5, #False, PDF::#LeftAlign, #False, Str(Num) + ". ") 
-                Else
-                  Num + 1
-                  PDF::MultiCellList(PDF, MarkDown()\Row()\Item()\String, 180, 5, #False, PDF::#LeftAlign, #False, Bullet$ + " ") 
-                EndIf  
-                
-              Next 
-              
-              PDF::Ln(PDF, 3)
+              EndIf
               ;}
             Case #List|#Task       ;{ Task List
-              
+
               PDF::Ln(PDF, 3)
               
               PDF::SetMargin(PDF, PDF::#CellMargin, 0)
               
-              ForEach MarkDown()\Row()\Item()
+              If SelectElement(MarkDown()\Lists(), MarkDown()\Items()\Index)
+              
+                ForEach MarkDown()\Lists()\Row()
                 
-                Y = PDF::GetPosY(PDF)
-                PDF::SetPosXY(PDF, 15, Y + 0.9)
-                
-                If MarkDown()\Row()\Item()\State
-                  ;PDF::ButtonField(PDF, MarkDown()\Row()\Item()\String, #True, PDF::#Form_CheckBox, #PB_Default, 6, PDF::#NextLine)
-                  PDF::Cell(PDF, "x", 3.8, 3.8, #True, PDF::#Right, PDF::#CenterAlign)
-                Else
-                  ;PDF::ButtonField(PDF, MarkDown()\Row()\Item()\String, #True, PDF::#Form_CheckBox, #PB_Default, 6, PDF::#NextLine)
-                  PDF::Cell(PDF, " ", 3.8, 3.8, #True, PDF::#Right, PDF::#CenterAlign)
-                EndIf
-                
-                PDF::SetPosXY(PDF, 19.2, Y)
-                
-                PDF::Cell(PDF, MarkDown()\Row()\Item()\String, #PB_Default, 6, #False, PDF::#NextLine)
+                  Y = PDF::GetPosY(PDF)
+                  PDF::SetPosXY(PDF, 15, Y)
+                  
+                  If MarkDown()\Lists()\Row()\State
+                    PDF::Cell(PDF, "x", 3.8, 3.8, #True, PDF::#Right, PDF::#CenterAlign)
+                  Else
+                    PDF::Cell(PDF, " ", 3.8, 3.8, #True, PDF::#Right, PDF::#CenterAlign)
+                  EndIf
+                  
+                  PDF::SetPosY(PDF, Y + 0.2)
+                  
+                  X = 24.8 + PDF::GetStringWidth(PDF, " ")
+                  
+                  RowPDF_(PDF, X, MarkDown()\Items()\BlockQuote, MarkDown()\Lists()\Row()\Words())
 
-              Next
+                Next
+                
+              EndIf
               
               PDF::SetMargin(PDF, PDF::#CellMargin, 1)
               
               PDF::Ln(PDF, 3)
               ;}
             Case #List|#Definition ;{ Definition List
+              
+              If SelectElement(MarkDown()\Lists(), MarkDown()\Items()\Index)
 
-              PDF::SetFont(PDF, "Arial", "B", 11)
-              PDF::SetPosX(PDF, 10)
-              PDF::Cell(PDF, MarkDown()\Row()\String, 180, 5, #False, PDF::#NextLine)
-             
-              PDF::SetFont(PDF, "Arial", "", 11)
-              ForEach MarkDown()\Row()\Item()
-                PDF::SetPosX(PDF, 15)
-                PDF::MultiCell(PDF, MarkDown()\Row()\Item()\String, 180, 5, #False, PDF::#LeftAlign) 
-              Next 
+                RowPDF_(PDF, 10, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words())
+                
+                ForEach MarkDown()\Lists()\Row()
+                  RowPDF_(PDF, 15, MarkDown()\Items()\BlockQuote, MarkDown()\Lists()\Row()\Words())
+                Next
+                
+              EndIf  
 			        ;}  
-            Case #HLine            ;{ Horizontal Rule
+            Case #Line             ;{ Horizontal Rule
               PDF::Ln(PDF, 3)
               PDF::DividingLine(PDF)
               PDF::Ln(PDF, 3)
@@ -1519,181 +2094,98 @@ Module MarkDown
               ;}
             Case #Table            ;{ Table  
               
-              Align$ = MarkDown()\Row()\String
-              
-              PDF::Ln(PDF, 3)
-              
-              ForEach MarkDown()\Row()\Item()
+              If SelectElement(MarkDown()\Table(), MarkDown()\Items()\Index)
                 
-                RowY = 0
-                Cols = CountString(MarkDown()\Row()\Item()\String, "|") + 1
-                ColWidth = 170 / Cols
+                PDF::Ln(PDF, 3)
                 
-                Select  MarkDown()\Row()\Item()\Type 
-                  Case #Table|#Header ;{ Table Header
-                    
-                    PDF::SetFont(PDF, "Arial", "B", 11)
+                Cols = MarkDown()\Table()\Cols
+                
+  			        ForEach MarkDown()\Table()\Row()
+  			          
+  			          RowY = 0
+  			          
+  			          If MarkDown()\Table()\Row()\Type = #Table|#Header
+  			            
+  			            PDF::SetFont(PDF, "Arial", "B", 11)
                     
                     Y = PDF::GetPosY(PDF)
                     
                     For c=1 To Cols
                       
+                      ColWidth = mm_(MarkDown()\Table()\Column(Str(c))\Width) + 5
+                      
                       PDF::SetPosXY(PDF, 20 + ColWidth * (c-1), Y)
+                      
+                      X = PDF::GetPosX(PDF)
+                      
+                      If FindMapElement(MarkDown()\Table()\Row()\Col(), Str(c))
+                        RowPDF_(PDF, X, #False, MarkDown()\Table()\Row()\Col()\Words(), ColWidth - 2, MarkDown()\Table()\Column(Str(c))\Align)
+                      EndIf
+                    
+                      If PDF::GetPosY(PDF) > RowY : RowY = PDF::GetPosY(PDF) : EndIf 
 
-                      Select StringField(Align$, c, "|")
-                        Case "C"
-                          PDF::MultiCell(PDF, Trim(StringField(MarkDown()\Row()\Item()\String, c, "|")), ColWidth, 5, #False, PDF::#CenterAlign)
-                        Case "R"
-                          PDF::MultiCell(PDF, Trim(StringField(MarkDown()\Row()\Item()\String, c, "|")), ColWidth, 5, #False, PDF::#RightAlign)
-                        Default  
-                          PDF::MultiCell(PDF, Trim(StringField(MarkDown()\Row()\Item()\String, c, "|")), ColWidth, 5, #False, PDF::#LeftAlign)
-                      EndSelect
-                      
-                      If PDF::GetPosY(PDF) > RowY : RowY = PDF::GetPosY(PDF) : EndIf 
-                      
                     Next
                     
                     PDF::SetPosY(PDF, RowY)
                     
-                    PDF::Ln(PDF, 2)
-                    PDF::DividingLine(PDF, 20, #PB_Default, 170)
-                    PDF::Ln(PDF, 2)
-                    ;}
-                  Default      ;{ Text
+                    Width = 0
+                    For c=1 To Cols : Width + mm_(MarkDown()\Table()\Column(Str(c))\Width) + 5 : Next
                     
-                    PDF::SetFont(PDF, "Arial", "", 11)
+                    PDF::Ln(PDF, 2)
+                    PDF::DividingLine(PDF, 20, #PB_Default, Width)
+                    PDF::Ln(PDF, 2)
+  			            
+    			        Else
+    			          
+    			          PDF::SetFont(PDF, "Arial", "", 11)
                     
                     Y = PDF::GetPosY(PDF)
                     
                     For c=1 To Cols
                       
+                      ColWidth = mm_(MarkDown()\Table()\Column(Str(c))\Width) + 5
+                      
                       PDF::SetPosXY(PDF, 20 + ColWidth * (c-1), Y)
                       
-                      Select StringField(Align$, c, "|")
-                        Case "C"
-                          PDF::MultiCell(PDF, Trim(StringField(MarkDown()\Row()\Item()\String, c, "|")), ColWidth, 5, #False, PDF::#CenterAlign)
-                        Case "R"
-                          PDF::MultiCell(PDF, Trim(StringField(MarkDown()\Row()\Item()\String, c, "|")), ColWidth, 5, #False, PDF::#RightAlign)
-                        Default  
-                          PDF::MultiCell(PDF, Trim(StringField(MarkDown()\Row()\Item()\String, c, "|")), ColWidth, 5, #False, PDF::#LeftAlign)
-                      EndSelect
+                      X = PDF::GetPosX(PDF)
+                      
+                      If FindMapElement(MarkDown()\Table()\Row()\Col(), Str(c))
+                        RowPDF_(PDF, X, #False, MarkDown()\Table()\Row()\Col()\Words(), ColWidth - 2, MarkDown()\Table()\Column(Str(c))\Align)
+                      EndIf
                       
                       If PDF::GetPosY(PDF) > RowY : RowY = PDF::GetPosY(PDF) : EndIf 
                       
                     Next
                     
                     PDF::SetPosY(PDF, RowY)
-                    ;}
-                EndSelect
-                
-              Next
-              
-              PDF::Ln(PDF, 3)
+    			          
+    			        EndIf
+
+    			      Next
+    			      
+    			      PDF::Ln(PDF, 3)
+    			      
+  			      EndIf
               ;}
             Case #Code             ;{ Code Block
 
-              PDF::SetFont(PDF, "Courier New", "", 11)
-              
               PDF::Ln(PDF, 3)
               
-              ForEach MarkDown()\Row()\Item()
-                PDF::SetPosX(PDF, 15)
-                PDF::MultiCell(PDF, MarkDown()\Row()\Item()\String, 180, 5) 
-              Next
-              
+              If SelectElement(MarkDown()\Block(), MarkDown()\Items()\Index)
+                
+                PDF::SetFont(PDF, "Courier New", "", 11)
+                
+                ForEach MarkDown()\Block()\Row()
+                  PDF::Cell(PDF, MarkDown()\Block()\Row(), #PB_Default, #PB_Default, #False, PDF::#NextLine)  
+                Next
+                
+              EndIf 
+            
               PDF::Ln(PDF, 3)
               ;}
             Default                ;{ Text
-
-              PDF::SetFont(PDF, "Arial", "", 11)
-              TextPDF_(PDF, MarkDown()\Row()\String, 200)
               
-              ForEach MarkDown()\Row()\Item()
-
-                Select MarkDown()\Row()\Item()\Type
-                  Case #Bold        ;{ Emphasis
-                    PDF::SetFont(PDF, "Arial", "B", 11)
-                    TextPDF_(PDF, MarkDown()\Row()\Item()\String, 200) 
-                  Case #Italic
-                    PDF::SetFont(PDF, "Arial", "I", 11)
-                    TextPDF_(PDF, MarkDown()\Row()\Item()\String, 200)
-                  Case #Bold|#Italic 
-                    PDF::SetFont(PDF, "Arial", "BI", 11)
-                    TextPDF_(PDF, MarkDown()\Row()\Item()\String, 200)
-                  Case #StrikeThrough  
-                    PDF::SetFont(PDF, "Arial", "", 11)
-                    TextPDF_(PDF, MarkDown()\Row()\Item()\String, 200, 0, 0, #PB_Default, #StrikeThrough)
-                    ;}
-                  Case #Code        ;{ Code
-                    PDF::SetFont(PDF, "Courier New", "", 11)
-                    TextPDF_(PDF, MarkDown()\Row()\Item()\String, 200)
-                    ;}
-                  Case #AutoLink         ;{ URL / EMail
-                    PDF::SetFont(PDF, "Arial", "U", 11)
-                    PDF::SetColorRGB(PDF, PDF::#TextColor, 0, 0, 255)
-                    If CountString(MarkDown()\Row()\Item()\String, "@") = 1
-                      TextPDF_(PDF, "mailto:" + MarkDown()\Row()\Item()\String, 200, 0, 0, MarkDown()\Row()\Item()\Index)
-                    Else  
-                      TextPDF_(PDF, MarkDown()\Row()\Item()\String, 200, 0, 0, MarkDown()\Row()\Item()\Index)
-                    EndIf
-                    PDF::SetColorRGB(PDF, PDF::#TextColor, 0)
-                    ;}
-                  Case #Link        ;{ Link
-                    PDF::SetFont(PDF, "Arial", "U", 11)
-                    PDF::SetColorRGB(PDF, PDF::#TextColor, 0, 0, 255)
-                    TextPDF_(PDF, MarkDown()\Row()\Item()\String, 200, 0, 0, MarkDown()\Row()\Item()\Index)
-                    PDF::SetColorRGB(PDF, PDF::#TextColor, 0)
-                    ;}  
-                  Case #FootNote    ;{ Footnote
-                    PDF::SubWrite(PDF, MarkDown()\Row()\Item()\String, 4.5, 7, 5)
-                    ;}
-                  Case #Highlight   ;{ Highlighted text 
-                    PDF::SetFont(PDF, "Arial", "", 11)
-                    PDF::SetColorRGB(PDF, PDF::#FillColor, 252, 248, 227)
-                    TextPDF_(PDF, MarkDown()\Row()\Item()\String, 200, 0, 0, #PB_Default, #Highlight)
-                    PDF::SetColorRGB(PDF, PDF::#FillColor, 255, 255, 255)
-                    ;}
-                  Case #Image       ;{ Image
-                    
-                    If SelectElement(MarkDown()\Image(), MarkDown()\Row()\Item()\Index)
-                      
-                      X = PDF::GetPosX(PDF)
-                      Y = PDF::GetPosY(PDF)
-                      Width  = mm_(MarkDown()\Image()\Width)
-                      Height = mm_(MarkDown()\Image()\Height)
-                      
-                      PDF::Image(PDF, MarkDown()\Image()\Source, X, Y, Width, Height)
-                      PDF::SetPosY(PDF, Y + Height)
-
-                      If MarkDown()\Row()\Item()\String
-                        PDF::Ln(PDF, 1)
-                        PDF::Cell(PDF, MarkDown()\Row()\Item()\String, Width, #PB_Default, #False, PDF::#NextLine, PDF::#CenterAlign)
-                        PDF::Ln(PDF)
-                      EndIf
-                      
-                    EndIf
-                    ;}  
-                  Case #Subscript   ;{ SubScript 
-                    PDF::SubWrite(PDF, MarkDown()\Row()\Item()\String, 4.5, 7, 0)
-                    ;}
-                  Case #Superscript ;{ SuperScript
-                    PDF::SubWrite(PDF, MarkDown()\Row()\Item()\String, 4.5, 7, 5)
-                    ;}
-                  Case #Emoji       ;{ Emoji
-                    PDF::SetFont(PDF, "Arial", "", 11)
-                    X = PDF::GetPosX(PDF)
-                    EmojiPDF_(PDF, MarkDown()\Row()\Item()\String, X, #PB_Default, 4)
-                    PDF::SetPosX(PDF, X + 4)
-                    ;}
-                  Default           ;{ Text
-                    PDF::SetFont(PDF, "Arial", "", 11)
-                    TextPDF_(PDF, MarkDown()\Row()\Item()\String, 200)
-                    ;}
-                EndSelect
-                
-              Next
-              
-              PDF::Ln(PDF, 4.5)
+              RowPDF_(PDF, 10, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words())
               ;}  
           EndSelect
           
@@ -1708,10 +2200,11 @@ Module MarkDown
           ForEach MarkDown()\Footnote()
             PDF::SubWrite(PDF, MarkDown()\FootNote()\Label + " ", 4.5, 7, 5)
             PDF::SetFont(PDF, "Arial", "", 9)
-            TextPDF_(PDF, MarkDown()\FootLabel(MarkDown()\Footnote()\Label), 200, PDF::GetStringWidth(PDF, MarkDown()\FootLabel(MarkDown()\Footnote()\Label) + " "))
-            PDF::Ln(PDF, 4)
+            X = PDF::GetPosX(PDF)
+            If FindMapElement(MarkDown()\FootLabel(), MarkDown()\FootNote()\Label)
+              RowPDF_(PDF, X, #False, MarkDown()\FootLabel()\Words())
+            EndIf
           Next
-    		  
     		  ;}
     		EndIf 
         
@@ -1802,62 +2295,12 @@ Module MarkDown
     ProcedureReturn Chars$
   EndProcedure
   
+  ; Table Description
+  ; KeyStrokes: [[Esc]] [[z]]
   
-  Procedure.i AddSubItemText_(sPos.i, Pos.i, Row.s, FirstItem.i)
-    
-    If sPos <= Pos 
-      If FirstItem 
-        MarkDown()\Row()\Item()\String = LTrim(Mid(Row, sPos, Pos - sPos))
-        FirstItem = #False
-      ElseIf AddElement(MarkDown()\Row()\Item()\SubItem())
-        MarkDown()\Row()\Item()\SubItem()\Type   = #Text
-        MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, sPos, Pos - sPos)
-      EndIf   
-    EndIf
-    
-    ProcedureReturn FirstItem
-  EndProcedure 
-  
-  Procedure.i AddItemText_(sPos.i, Pos.i, Row.s, FirstItem.i)
-    
-    If sPos <= Pos 
-      If FirstItem 
-        MarkDown()\Row()\String = LTrim(Mid(Row, sPos, Pos - sPos))
-        FirstItem = #False
-      ElseIf AddElement(MarkDown()\Row()\Item())
-        MarkDown()\Row()\Item()\Type   = #Text
-        MarkDown()\Row()\Item()\String = Mid(Row, sPos, Pos - sPos)
-      EndIf   
-    EndIf
-    
-    ProcedureReturn FirstItem
-  EndProcedure  
-  
-  Procedure.i AddTypeRow_(Type.i, BlockQuote.i)
-    
-    If ListSize(MarkDown()\Row()) = 0 Or MarkDown()\Row()\Type <> Type
-      If AddElement(MarkDown()\Row())
-        MarkDown()\Row()\Type       = Type
-        MarkDown()\Row()\BlockQuote = BlockQuote
-        ProcedureReturn #True
-      EndIf  
-    EndIf
-    
-    ProcedureReturn #False
-  EndProcedure
-  
-  
-  Procedure.i AddDocRow_(String.s, Type.i)
-    
-    If AddElement(Document())
-      Document()\Type   = Type
-      Document()\String = String
-      ProcedureReturn #True
-    EndIf 
-    
-  EndProcedure 
-  
-  Procedure.i ListLevelDoc_(Pos.i, Indent, *Lists.List_Structure) 
+  ; ------------------------------------------------
+
+	Procedure.i ListLevelDoc_(Pos.i, Indent, *Lists.List_Structure) 
     Define.i Offset, iDiff
 
     If *Lists\Indent
@@ -1885,26 +2328,109 @@ Module MarkDown
     EndIf
     
     ProcedureReturn #False
+  EndProcedure 
+	
+  Procedure.i AddDocRow_(String.s, Type.i)
+    
+    If AddElement(Document())
+      Document()\Type   = Type
+      Document()\String = String
+      ProcedureReturn #True
+    EndIf 
+    
+  EndProcedure 	
+  
+  
+	Procedure.i AddItemByType_(Type.i, BlockQuote.i)
+    
+    If ListSize(MarkDown()\Items()) = 0 Or MarkDown()\Items()\Type <> Type
+      If AddElement(MarkDown()\Items())
+        MarkDown()\Items()\Type       = Type
+        MarkDown()\Items()\BlockQuote = BlockQuote
+        ProcedureReturn #True
+      EndIf  
+    EndIf
+    
+    ProcedureReturn #False
   EndProcedure
   
-  ; Abbreviation: *[HTML]: Hyper Text Markup Language
+  Procedure.i AddWords_(String.s, List Words.Words_Structure(), Font.i=#Font_Normal, Flag.i=#False, Index.i=#PB_Default)
+    Define.i w, Number
+    Define.s Word$, LSpace$, RSpace$
+    
+    If String = "" : ProcedureReturn #False : EndIf
+    
+    If Left(String, 1) = " "
+      LSpace$ = " "
+      String = Mid(String, 2)
+    EndIf  
+    
+    If Right(String, 1) = " "
+      RSpace$ = " "
+      String = Left(String, Len(String) - 1)
+    EndIf  
+    
+	  Number = CountString(String, " ") + 1
+	  For w=1 To Number
+	    
+	    Word$ = StringField(String, w, " ")
+
+	    If AddElement(Words())
+	      
+	      If w = 1 : Word$ = LSpace$ + Word$ : EndIf 
+	      
+	      If w = Number
+	        Word$ + RSpace$
+	      Else  
+	        Word$ + " "
+	      EndIf  
+	      
+        Words()\String = Word$
+        Words()\Font   = Font
+        Words()\Index  = Index
+        Words()\Flag   = Flag 
+        
+      EndIf
+
+	  Next
+	  
+	  ProcedureReturn #True
+	EndProcedure
   
-  ; KeyStrokes: [[Esc]] [[z]]
+	Procedure.i AddStringBefore_(sPos.i, Pos.i, Row.s, FirstItem.i, List Words.Words_Structure())
+
+	  If sPos <= Pos
+	    
+	    If FirstItem
+	      AddWords_(LTrim(Mid(Row, sPos, Pos - sPos)), Words(), #Font_Normal, #Text)
+	      FirstItem = #False
+	    Else
+	      AddWords_(Mid(Row, sPos, Pos - sPos), Words(), #Font_Normal, #Text)
+	    EndIf
+	    
+    EndIf
+    
+    ProcedureReturn FirstItem
+  EndProcedure  
   
-  Procedure   ParseInline_(Row.s)
-    Define.i Pos, sPos, ePos, nPos, Length, FirstItem, Left, Right
+  
+  Procedure   ParseInline_(Row.s, List Words.Words_Structure())
+    Define.i Pos, sPos, ePos, nPos, Length, FirstItem
+    Define.i Left, Right
     Define.s String$, Start$, Char$
     
-    Pos = 1 : sPos = 1 : FirstItem = #True
+    Pos = 1 : sPos = 1
     Length = Len(Row)
+    
+    FirstItem = #True
     
     Repeat
       
       ePos = 0
-    
+      
       Select Mid(Row, Pos, 1)
         Case "\"
-          ;{ ___ Backslash escapes ___          [6.1]
+          ;{ ___ Backslash escapes ___            [6.1]
           Select Mid(Row, Pos, 2)
             Case "\+", "\-", "\=", "\<", "\>", "\~", "\:", "\.", "\,", "\;", "\!", "\?"
               Row = RemoveString(Row, "\", #PB_String_CaseSensitive, Pos, 1)
@@ -1916,154 +2442,153 @@ Module MarkDown
               Row = RemoveString(Row, "\", #PB_String_CaseSensitive, Pos, 1)
               Pos + 1
           EndSelect
-          ;}  
+          ;}
         Case "`"
-          ;{ ___ Code spans ___                 [6.3] 
+          ;{ ___ Code spans ___                   [6.3] 
           If Mid(Row, Pos, 2) = "``"  ;{ " ``code`` "
             
             ePos = FindString(Row, "``", Pos + 2)
             If ePos
               
-              FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
+              FirstItem = AddStringBefore_(sPos, Pos, Row, FirstItem, Words())
+
+              String$ = Mid(Row, Pos + 2, ePos - Pos - 2)
+              If Left(String$, 1) = " " : String$ = Mid(String$, 2) : EndIf ; Remove 1 leading space
               
-              If AddElement(MarkDown()\Row()\Item()\SubItem())
-                MarkDown()\Row()\Item()\SubItem()\Type = #Code
-                MarkDown()\Row()\Item()\String = Mid(Row, Pos + 2, ePos - Pos - 2)
-                If Left(MarkDown()\Row()\Item()\SubItem()\String, 1) = " " : MarkDown()\Row()\Item()\SubItem()\String = Mid(MarkDown()\Row()\Item()\SubItem()\String, 2) : EndIf ; Remove 1 leading space
-              EndIf
+              AddWords_(String$, Words(), #Font_Code, #Code)
               
               ePos + 1
             EndIf
             
             If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
             ;}
-          Else                        ;{ " `code` "
+          Else                         ;{ " `code` "
             
             ePos = FindString(Row, "`",  Pos + 1)
             If ePos
 
-              FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
+              FirstItem = AddStringBefore_(sPos, Pos, Row, FirstItem, Words())
               
-              If AddElement(MarkDown()\Row()\Item()\SubItem())
-                MarkDown()\Row()\Item()\SubItem()\Type = #Code
-                MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, Pos + 1, ePos - Pos - 1)
-                If Left(MarkDown()\Row()\Item()\SubItem()\String, 1) = " " : MarkDown()\Row()\Item()\SubItem()\String = Mid(MarkDown()\Row()\Item()\SubItem()\String, 2) : EndIf ; Remove 1 leading space
-              EndIf
+              String$ = Mid(Row, Pos + 1, ePos - Pos - 1)
+              If Left(String$, 1) = " " : String$ = Mid(String$, 2) : EndIf ; Remove 1 leading space
+              
+              AddWords_(String$, Words(), #Font_Code, #Code)
               
             EndIf
             
             If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
             ;}
           EndIf
-          ;}  
+          ;}
         Case "*", "_"
-        ;{ ___ Emphasis and strong emphasis ___ [6.4]
-        String$ = Mid(Row, Pos)
-        Start$  = GetChars_(String$, Mid(Row, Pos, 1))
+          ;{ ___ Emphasis and strong emphasis ___ [6.4]
+          String$ = Mid(Row, Pos)
+          Start$  = GetChars_(String$, Mid(Row, Pos, 1))
 
-        ;{ left-flanking delimiter run [6.4] ?
-        Left = #False
-        Char$ = Mid(String$, Len(Start$) + 1, 1)
-        If Char$ <> " "
-          If IsPunctationChar(Char$)
-            Char$ = Mid(String$, Len(Start$) + 2, 1)
-            If Char$ <> " " And IsPunctationChar(Char$) = #False
+          ;{ left-flanking delimiter run [6.4] ?
+          Left = #False
+          Char$ = Mid(String$, Len(Start$) + 1, 1)
+          If Char$ <> " "
+            If IsPunctationChar(Char$)
+              Char$ = Mid(String$, Len(Start$) + 2, 1)
+              If Char$ <> " " And IsPunctationChar(Char$) = #False
+                Left = #True
+              EndIf   
+            Else
               Left = #True
-            EndIf   
-          Else
-            Left = #True
-          EndIf
-        EndIf ;}
-        
-        If Left
+            EndIf
+          EndIf ;}
           
-          String$ = LTrim(String$, Left(Start$, 1))
-          
-          ;{ right-flanking delimiter run [6.4] ?
-          Right = #False
-          ePos = FindString(String$, Start$)
-          If ePos
-            Char$ = Mid(String$, ePos - 1, 1)
-            If Char$ <> " "
-              If IsPunctationChar(Char$)
-                Char$ = Mid(String$, ePos - 2, 1)
-                If Char$ <> " " And IsPunctationChar(Char$) = #False
+          If Left
+            
+            String$ = LTrim(String$, Left(Start$, 1))
+            
+            ;{ right-flanking delimiter run [6.4] ?
+            Right = #False
+            ePos = FindString(String$, Start$)
+            If ePos
+              Char$ = Mid(String$, ePos - 1, 1)
+              If Char$ <> " "
+                If IsPunctationChar(Char$)
+                  Char$ = Mid(String$, ePos - 2, 1)
+                  If Char$ <> " " And IsPunctationChar(Char$) = #False
+                    Right = #True
+                  EndIf
+                Else
                   Right = #True
                 EndIf
-              Else
-                Right = #True
               EndIf
             EndIf
+            ;}
+            
+            If Right
+              
+              ePos = 0
+              
+              Select Start$
+                Case "***", "___" ;{ #Bold|#Italic
+                  
+                  ePos = FindString(Row, Start$, Pos + 3)
+                  If ePos
+                    
+                    FirstItem = AddStringBefore_(sPos, Pos, Row, FirstItem, Words())
+                    
+                    If AddWords_(Mid(Row, Pos + 3, ePos - Pos - 3), Words(), #Font_BoldItalic, #Bold|#Italic)
+                      ePos + 2
+                    EndIf
+                    
+                  EndIf
+                  ;}
+                Case "**", "__"   ;{ #Bold
+                  
+                  ePos = FindString(Row, Start$, Pos + 2)
+                  If ePos
+                    
+                    FirstItem = AddStringBefore_(sPos, Pos, Row, FirstItem, Words())
+                    
+                    If AddWords_(Mid(Row, Pos + 2, ePos - Pos - 2), Words(), #Font_Bold, #Bold)
+                      ePos + 1
+                    EndIf
+                    
+                  EndIf
+                  ;}
+                Case "*", "_"     ;{ #Italic
+                  
+                  ePos = FindString(Row, Start$, Pos + 1)
+                  If ePos
+                    
+                    FirstItem = AddStringBefore_(sPos, Pos, Row, FirstItem, Words())
+                    
+                    AddWords_(Mid(Row, Pos + 1, ePos - Pos - 1), Words(), #Font_Italic, #Italic)
+                    
+                  EndIf
+                  ;}
+              EndSelect 
+              
+              If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
+            EndIf
+          
           EndIf
           ;}
-          
-          If Right
-            
-            ePos = 0
-            
-            Select Start$
-              Case "***", "___" ;{ #Bold|#Italic
-                
-                ePos = FindString(Row, Start$, Pos + 3)
-                If ePos
-                  FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
-                  If AddElement(MarkDown()\Row()\Item()\SubItem())
-                    MarkDown()\Row()\Item()\SubItem()\Type   = #Bold|#Italic
-                    MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, Pos + 3, ePos - Pos - 3)
-                    ePos + 2
-                  EndIf
-                EndIf
-                ;}
-              Case "**", "__"   ;{ #Bold
-                
-                ePos = FindString(Row, Start$, Pos + 2)
-                If ePos
-                  FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
-                  If AddElement(MarkDown()\Row()\Item()\SubItem())
-                    MarkDown()\Row()\Item()\SubItem()\Type   = #Bold
-                    MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, Pos + 2, ePos - Pos - 2)
-                    ePos + 1
-                  EndIf
-                EndIf
-                ;}
-              Case "*", "_"     ;{ #Italic
-                
-                ePos = FindString(Row, Start$, Pos + 1)
-                If ePos
-                  FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
-                  If AddElement(MarkDown()\Row()\Item()\SubItem())
-                    MarkDown()\Row()\Item()\SubItem()\Type   = #Italic
-                    MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, Pos + 1, ePos - Pos - 1)
-                  EndIf
-                EndIf
-                ;}
-            EndSelect 
-            
-            If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
-          EndIf
-        
-        EndIf
-        ;}  
         Case "!"
-        ;{ ___ Images ___                       [6.6]
-        If Mid(Row, Pos, 2) = "!["
-          
-          FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
-          
-          ePos = FindString(Row, "][", Pos + 1)
-          If ePos
-            ;{ Reference link
-            FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
-            
-            If AddElement(MarkDown()\Row()\Item()\SubItem())
+          ;{ ___ Images ___                       [6.6]
+          If Mid(Row, Pos, 2) = "!["
+
+            ePos = FindString(Row, "][", Pos + 1)
+            If ePos
+              ;{ Reference link
+              FirstItem = AddStringBefore_(sPos, Pos, Row, FirstItem, Words())
               
-              MarkDown()\Row()\Item()\SubItem()\Type   = #Image
-              MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, Pos + 2, ePos - Pos - 2)
-              
-              nPos = ePos + 2
               If AddElement(MarkDown()\Image())
-               
-                MarkDown()\Row()\Item()\SubItem()\Index = ListIndex(MarkDown()\Image())
+                
+                If AddElement(Words())
+                  Words()\String = Mid(Row, Pos + 2, ePos - Pos - 2)
+                  Words()\Font   = #Font_Normal
+                  Words()\Index  = ListIndex(MarkDown()\Image())
+                  Words()\Flag   = #Image 
+                EndIf
+                
+                nPos = ePos + 2
                 
                 ePos = FindString(Row, "]", nPos)
                 If ePos
@@ -2071,30 +2596,28 @@ Module MarkDown
                 EndIf
                 
               EndIf  
-             
-            EndIf
-            ;}
-          Else
-            ;{ Inline link
-            ePos = FindString(Row, "](", Pos + 1)
-            If ePos
-              
-              FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
-              
-              If AddElement(MarkDown()\Row()\Item()\SubItem())
+              ;}
+            Else
+              ;{ Inline link
+              ePos = FindString(Row, "](", Pos + 1)
+              If ePos
                 
-                MarkDown()\Row()\Item()\SubItem()\Type   = #Image
-                MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, Pos + 2, ePos - Pos - 2)
-               
-                nPos = ePos + 2
+                FirstItem = AddStringBefore_(sPos, Pos, Row, FirstItem, Words())
                 
-                ePos = FindString(Row, ")", nPos)
-                If ePos
+                If AddElement(MarkDown()\Image())
+                
+                  If AddElement(Words())
+                    Words()\String = Mid(Row, Pos + 2, ePos - Pos - 2)
+                    Words()\Font   = #Font_Normal
+                    Words()\Index  = ListIndex(MarkDown()\Image())
+                    Words()\Flag   = #Image 
+                  EndIf
                   
-                  If AddElement(MarkDown()\Image())
-                    
-                    MarkDown()\Row()\Item()\SubItem()\Index = ListIndex(MarkDown()\Image())
-                    
+                  nPos = ePos + 2
+                  
+                  ePos = FindString(Row, ")", nPos)
+                  If ePos
+                  
                     ;{ Source
                     String$ = Trim(Mid(Row, nPos, ePos - nPos))
                     If Left(String$, 1) = "<"
@@ -2126,65 +2649,80 @@ Module MarkDown
                 EndIf
                 
               EndIf
-
+              ;}
             EndIf
+            
             If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
-            ;}
-          EndIf
-          
-          If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
-        EndIf   
-        ;}
+          EndIf   
+          ;}
         Case "["
-          ;{ ___ Footnotes / Links
+          ;{ ___ Footnotes / Keystrokes / Links
           If Mid(Row, Pos, 2) = "[^"
             ;{ ___ Footnote ___
             ePos = FindString(Row, "]", Pos + 1)
             If ePos
               
-              FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
+              FirstItem = AddStringBefore_(sPos, Pos, Row, FirstItem, Words())
               
-              If AddElement(MarkDown()\Row()\Item())
+              If AddElement(MarkDown()\Footnote())
                 
-                MarkDown()\Row()\Item()\Type   = #FootNote
-                MarkDown()\Row()\Item()\String = Mid(Row, Pos + 2, ePos - Pos - 2)
-                
-                If AddElement(MarkDown()\Footnote())
-                  MarkDown()\Footnote()\Label   = MarkDown()\Row()\Item()\String
-                  MarkDown()\Row()\Item()\Index = ListIndex(MarkDown()\Footnote())
+                If AddElement(Words())
+                  Words()\String = Mid(Row, Pos + 2, ePos - Pos - 2)
+                  Words()\Font   = #Font_FootNote
+                  Words()\Index  = ListIndex(MarkDown()\Footnote())
+                  Words()\Flag   = #FootNote 
                 EndIf
                 
+                MarkDown()\Footnote()\Label = Words()\String
+
               EndIf
               
             EndIf 
           
             If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf  
             ;}
+          ElseIf Mid(Row, Pos, 2) = "[["
+            ;{ ___ Keystroke ___
+            ePos = FindString(Row, "]]", Pos + 1)
+            If ePos
+              
+              FirstItem = AddStringBefore_(sPos, Pos, Row, FirstItem, Words())
+              
+              If AddElement(Words())
+                Words()\String = Mid(Row, Pos + 2, ePos - Pos - 2)
+                Words()\Font   = #Font_Normal
+                Words()\Flag   = #Keystroke
+                ePos + 1
+              EndIf
+            EndIf  
+            
+            If ePos : Pos = ePos + 1 : sPos = Pos : EndIf   
+            ;}
           Else  
             ;{ ___ Links  ___                     [6.5]
             ePos = FindString(Row, "][", Pos + 1)
             If ePos
               ;{ Reference link
-              FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
+              FirstItem = AddStringBefore_(sPos, Pos, Row, FirstItem, Words())
               
-              If AddElement(MarkDown()\Row()\Item())
+              If AddElement(MarkDown()\Link())
                 
-                MarkDown()\Row()\Item()\Type   = #Link
-                MarkDown()\Row()\Item()\String = Mid(Row, Pos + 1, ePos - Pos - 1)
+                If AddElement(Words())
+                  Words()\String = Mid(Row, Pos + 1, ePos - Pos - 1)
+                  Words()\Font   = #Font_Normal
+                  Words()\Index  = ListIndex(MarkDown()\Link())
+                  Words()\Flag   = #Link 
+                EndIf
                 
                 nPos = ePos + 2
-                If AddElement(MarkDown()\Link())
-                 
-                  MarkDown()\Row()\Item()\Index = ListIndex(MarkDown()\Link())
-                  
-                  ePos = FindString(Row, "]", nPos)
-                  If ePos
-                    MarkDown()\Link()\Label = Mid(Row, Pos + 1, ePos - Pos - 1)
-                  EndIf
-                  
-                EndIf  
-              
+                
+                ePos = FindString(Row, "]", nPos)
+                If ePos
+                  MarkDown()\Link()\Label = Mid(Row, Pos + 1, ePos - Pos - 1)
+                EndIf
+                
               EndIf
+              
               If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
               ;}
             Else
@@ -2192,55 +2730,54 @@ Module MarkDown
               ePos = FindString(Row, "](", Pos + 1)
               If ePos
                 
-                FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
+                FirstItem = AddStringBefore_(sPos, Pos, Row, FirstItem, Words())
                 
-                If AddElement(MarkDown()\Row()\Item())
+                If AddElement(MarkDown()\Link())
                   
-                  MarkDown()\Row()\Item()\Type   = #Link
-                  MarkDown()\Row()\Item()\String = Mid(Row, Pos + 1, ePos - Pos - 1)
+                  If AddElement(Words())
+                    Words()\String = Mid(Row, Pos + 1, ePos - Pos - 1)
+                    Words()\Font   = #Font_Normal
+                    Words()\Index  = ListIndex(MarkDown()\Link())
+                    Words()\Flag   = #Link 
+                  EndIf
                   
                   nPos = ePos + 2
                   
                   ePos = FindString(Row, ")", nPos)
                   If ePos
+
+                    ;{ Destination
+                    String$ = Trim(Mid(Row, nPos, ePos - nPos))
+                    If Left(String$, 1) = "<"
+                      nPos = FindString(String$, ">", 2)
+                      If nPos
+                        MarkDown()\Link()\URL = Mid(String$, 2, nPos - 1)
+                        String$ = Trim(Mid(String$, nPos + 1))
+                      EndIf 
+                    Else
+                      MarkDown()\Link()\URL = StringField(String$, 1, " ")
+                      String$ = Trim(Mid(String$, Len(MarkDown()\Link()\URL) + 1))
+                    EndIf ;}
                     
-                    If AddElement(MarkDown()\Link())
-                      
-                      MarkDown()\Row()\Item()\Index = ListIndex(MarkDown()\Link())
-                      
-                      ;{ Destination
-                      String$ = Trim(Mid(Row, nPos, ePos - nPos))
-                      If Left(String$, 1) = "<"
-                        nPos = FindString(String$, ">", 2)
-                        If nPos
-                          MarkDown()\Link()\URL = Mid(String$, 2, nPos - 1)
-                          String$ = Trim(Mid(String$, nPos + 1))
-                        EndIf 
-                      Else
-                        MarkDown()\Link()\URL = StringField(String$, 1, " ")
-                        String$ = Trim(Mid(String$, Len(MarkDown()\Link()\URL) + 1))
-                      EndIf ;}
-                      
-                      ;{ Title
-                      If String$
-                        Select Left(String$, 1)
-                          Case #DQUOTE$
-                            nPos = FindString(String$, #DQUOTE$, 2)  
-                          Case "'" 
-                            nPos = FindString(String$, "'", 2)
-                        EndSelect
-                        If nPos
-                          MarkDown()\Link()\Title = Mid(String$, 2, nPos - 1)
-                        EndIf 
-                      EndIf ;}
-                      
-                    EndIf
-                    
+                    ;{ Title
+                    If String$
+                      Select Left(String$, 1)
+                        Case #DQUOTE$
+                          nPos = FindString(String$, #DQUOTE$, 2)  
+                        Case "'" 
+                          nPos = FindString(String$, "'", 2)
+                      EndSelect
+                      If nPos
+                        MarkDown()\Link()\Title = Mid(String$, 2, nPos - 2)
+                      EndIf 
+                    EndIf ;}
+                  
                   EndIf
                   
                 EndIf
 
               EndIf
+              
               If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
               ;}
             EndIf  
@@ -2252,72 +2789,92 @@ Module MarkDown
           ePos = FindString(Row, ">", Pos + 1)
           If ePos
           
-            FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
+            FirstItem = AddStringBefore_(sPos, Pos, Row, FirstItem, Words())
             
-            If AddElement(MarkDown()\Row()\Item()\SubItem())
+            If AddElement(MarkDown()\Link())
               
-              MarkDown()\Row()\Item()\SubItem()\Type   = #AutoLink
-              MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, Pos + 1, ePos - Pos - 1) 
-              
-              If AddElement(MarkDown()\Link())
-                MarkDown()\Row()\Item()\SubItem()\Index = ListIndex(MarkDown()\Link())
-                MarkDown()\Link()\URL = MarkDown()\Row()\Item()\SubItem()\String
+              If AddElement(Words())
+                Words()\String = Mid(Row, Pos + 1, ePos - Pos - 1)
+                Words()\Font   = #Font_Normal
+                Words()\Index  = ListIndex(MarkDown()\Link())
+                Words()\Flag   = #AutoLink 
               EndIf
               
-            EndIf
+              MarkDown()\Link()\URL = Words()\String
               
+            EndIf
+
             If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
           EndIf  
           ;}
         Case "~" 
           ;{ ___ Strikethrough / Subscript ___
           If Mid(Row, Pos, 2) = "~~" ;{ Strikethrough
+            
             ePos = FindString(Row, "~~", Pos + 1)
             If ePos
-              FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
-              If AddElement(MarkDown()\Row()\Item()\SubItem())
-                MarkDown()\Row()\Item()\SubItem()\Type   = #StrikeThrough
-                MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, Pos + 2, ePos - Pos - 2)
+              
+              FirstItem = AddStringBefore_(sPos, Pos, Row, FirstItem, Words())
+
+              If AddWords_(Mid(Row, Pos + 2, ePos - Pos - 2), Words(), #Font_Normal, #StrikeThrough)
                 ePos + 1
               EndIf
-            EndIf ;}
+              
+            EndIf
+            ;}
           Else                        ;{ Subscript 
+            
             ePos = FindString(Row, "~", Pos + 1)
             If ePos
-              FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
-              If AddElement(MarkDown()\Row()\Item()\SubItem())
-                MarkDown()\Row()\Item()\SubItem()\Type   = #Subscript
-                MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, Pos + 1, ePos - Pos - 1)
+              
+              FirstItem = AddStringBefore_(sPos, Pos, Row, FirstItem, Words())
+              
+              If AddElement(Words())
+                Words()\String = Mid(Row, Pos + 1, ePos - Pos - 1)
+                Words()\Font   = #Font_FootNote
+                Words()\Flag   = #Subscript 
               EndIf
-            EndIf ;}
+              
+            EndIf
+            ;}
           EndIf 
+          
           If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
           ;}
         Case "^"
           ;{ ___ Superscript ___
           ePos = FindString(Row, "^", Pos + 1)
           If ePos
-            FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
-            If AddElement(MarkDown()\Row()\Item()\SubItem())
-              MarkDown()\Row()\Item()\SubItem()\Type   = #Superscript
-              MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, Pos + 1, ePos - Pos - 1)
+            
+            FirstItem = AddStringBefore_(sPos, Pos, Row, FirstItem, Words())
+            
+            If AddElement(Words())
+              Words()\String = Mid(Row, Pos + 1, ePos - Pos - 1)
+              Words()\Font   = #Font_FootNote
+              Words()\Flag   = #Superscript 
             EndIf
+            
           EndIf
+          
           If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
           ;}
         Case "="
           ;{ ___ Highlight ___
           If Mid(Row, Pos, 2) = "=="
+            
             ePos = FindString(Row, "==", Pos + 2)
             If ePos
-              FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
-              If AddElement(MarkDown()\Row()\Item()\SubItem())
-                MarkDown()\Row()\Item()\SubItem()\Type   = #Highlight
-                MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, Pos + 2, ePos - Pos - 2)
+              
+              FirstItem = AddStringBefore_(sPos, Pos, Row, FirstItem, Words())
+
+              If AddWords_(Mid(Row, Pos + 2, ePos - Pos - 2), Words(), #Font_Normal, #Highlight)
                 ePos + 1
               EndIf
+              
             EndIf
+            
           EndIf
+          
           If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf
           ;}
         Case ":"  
@@ -2325,33 +2882,35 @@ Module MarkDown
           ePos = Emoji_(Row, Pos)
           If ePos
             
-            FirstItem = AddSubItemText_(sPos, Pos, Row, FirstItem)
+            FirstItem = AddStringBefore_(sPos, Pos, Row, FirstItem, Words())
             
-            If AddElement(MarkDown()\Row()\Item()\SubItem())
-              MarkDown()\Row()\Item()\SubItem()\Type   = #Emoji
-              MarkDown()\Row()\Item()\SubItem()\String = Mid(Row, Pos, ePos - Pos + 1)
+            If AddElement(Words())
+              Words()\String = Mid(Row, Pos, ePos - Pos + 1)
+              Words()\Font   = #PB_Default
+              Words()\Flag   = #Emoji 
             EndIf
-            
+
           EndIf
-          If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf
-          ;}  
+          
+          If ePos : Pos = ePos : sPos = Pos + 1 : EndIf
+          ;}
       EndSelect
       
       Pos + 1
     Until Pos > Length  
-
-    AddSubItemText_(sPos, Pos, Row, FirstItem)
+    
+    AddStringBefore_(sPos, Pos, Row, FirstItem, Words())
     
   EndProcedure
   
-  Procedure   ParseMD_(Text.s)
+  Procedure   Parse_(Text.s)
     ; -------------------------------------------------------------------------
     ; <https://spec.commonmark.org> - Version 0.29 (2019-04-06) John MacFarlane
     ; -------------------------------------------------------------------------
     Define.i r, Rows, Pos, sPos, ePos, nPos, Length, Left, Right
-    Define.i NewLine, Type,  BlockQuote, StartNum, Indent, FirstItem
-    Define.i c, Cols
-    Define.s Row$, tRow$, String$, Char$, Start$, Close$, Label$, Col$
+    Define.i NewLine, Type,  BlockQuote, StartNum, Indent
+    Define.i c, Cols, ListIdx
+    Define.s Row$, tRow$, String$, Char$, Start$, Close$, Label$, Col$, Num$
     Define   Lists.List_Structure
     
     Text = ReplaceString(Text, #CRLF$, #LF$)
@@ -2390,17 +2949,19 @@ Module MarkDown
         If Left(tRow$, 2) = ">>"
           Pos  = FindString(Row$, ">>")
           Row$ = LTrim(Mid(Row$, Pos + 2))
+          tRow$ = LTrim(Row$)
           BlockQuote = 2
         ElseIf Left(tRow$, 1) = ">" 
           Pos  = FindString(Row$, ">")
           Row$ = LTrim(Mid(Row$, Pos + 1))
+          tRow$ = LTrim(Row$)
           BlockQuote = 1
         Else
           BlockQuote = #False
         EndIf
       EndIf   
       ;}
-      
+
       ;{ _____ Task Lists _____
       Select Left(tRow$, 3)
         Case "- [", "+ [", "* ["
@@ -2714,7 +3275,7 @@ Module MarkDown
         ;{ _____ Thematic breaks _____      [4.1]
         Select Left(RemoveString(tRow$, " "), 3) 
           Case "---", "***", "___"
-            If AddDocRow_(tRow$, #HLine) : Continue : EndIf 
+            If AddDocRow_(tRow$, #Line) : Continue : EndIf 
         EndSelect ;}
         
         ;{ _____ Fenced code blocks _____   [4.5]
@@ -2737,6 +3298,52 @@ Module MarkDown
         EndIf     
         ;}
         
+        ;{ _____ Image _____                [6.6]
+        If Left(tRow$, 2) = "!["
+          
+          ePos = FindString(tRow$, "][", Pos + 1)
+          If ePos
+            ;{ Reference link
+            If Right(Trim(Row$), 1) = "]"
+              AddDocRow_(Trim(Row$), #Image)
+              Continue
+            EndIf  
+            ;}
+          Else
+            ;{ Inline link
+            ePos = FindString(tRow$, "](", Pos + 1)
+            If ePos
+              If Right(Trim(Row$), 1) = ")"
+                AddDocRow_(Trim(Row$), #Image)
+              EndIf
+            EndIf
+            ;}
+          EndIf
+          
+        EndIf   
+        ;}
+        
+        ;{ _____ Abbreviation _____
+        If Left(tRow$, 2) = "*["
+          
+          ePos = FindString(tRow$, "]:", 3)
+          If ePos
+            
+            Label$ = Mid(tRow$, 3, ePos - 3)
+            If Label$
+              
+              If AddMapElement(MarkDown()\Abbreviation(), Label$)
+                MarkDown()\Abbreviation()\String = Trim(Mid(Row$, ePos + 2))
+              EndIf
+              
+              Continue
+            EndIf
+            
+          EndIf 
+          
+        EndIf
+        ;}
+        
         ;{ _____ Footnote reference definitions _____
         If Left(tRow$, 2) = "[^"
           
@@ -2747,8 +3354,23 @@ Module MarkDown
             If Label$
               
               If AddMapElement(MarkDown()\FootLabel(), Label$)
-                MarkDown()\FootLabel() = Trim(Mid(Row$, ePos + 2))
+                ParseInline_(Trim(Mid(Row$, ePos + 2)), MarkDown()\FootLabel()\Words())
               EndIf 
+              
+              ForEach MarkDown()\FootLabel()\Words()
+                
+                Select MarkDown()\FootLabel()\Words()\Font
+                  Case #Font_Bold
+                    MarkDown()\FootLabel()\Words()\Font = #Font_FootBold
+                  Case #Font_Italic
+                    MarkDown()\FootLabel()\Words()\Font = #Font_FootItalic
+                  Case #Font_BoldItalic
+                    MarkDown()\FootLabel()\Words()\Font = #Font_FootBoldItalic
+                  Default
+                    MarkDown()\FootLabel()\Words()\Font = #Font_FootText
+                EndSelect
+                
+              Next  
               
               Continue
             EndIf
@@ -2784,149 +3406,345 @@ Module MarkDown
     Next ;}
 
     ;{ ===== Phase 2 =====
-    ClearList(MarkDown()\Row())
+    ClearList(MarkDown()\Items())
     
     ForEach Document()
       
       Select Document()\Type
         ;{ _____ Thematic breaks _____            [4.1]  
-        Case #HLine
-          If AddElement(MarkDown()\Row())
-            MarkDown()\Row()\Type = #HLine
+        Case #Line
+          
+          If AddElement(MarkDown()\Items())
+            MarkDown()\Items()\Type = #Line
           EndIf
           ;}
         ;{ _____ ATX headings _____               [4.2]
         Case #Heading
-          If AddElement(MarkDown()\Row())
-            MarkDown()\Row()\Type   = #Heading
-            MarkDown()\Row()\Level  = CountString(Document()\String, "#")
-            MarkDown()\Row()\String = Trim(LTrim(Document()\String, "#"))
-          EndIf  
+          
+          String$ = Trim(Document()\String)
+          
+          If AddElement(MarkDown()\Items())
+            
+            MarkDown()\Items()\Type = #Heading
+            MarkDown()\Items()\BlockQuote = Document()\BlockQuote
+            
+            Pos = FindString(String$, "{")
+            If Pos
+              ePos = FindString(String$, "}")
+              If ePos
+                MarkDown()\Items()\ID = Mid(String$, Pos + 1, ePos - Pos - 1)
+                Debug "ID: " + MarkDown()\Items()\ID
+                String$ = Left(String$, Pos - 1)
+              EndIf  
+            EndIf  
+            
+            Select CountString(Left(String$, 6), "#")
+              Case 1
+                MarkDown()\Items()\Level = 1
+                AddWords_(Trim(LTrim(String$, "#")), MarkDown()\Items()\Words(), #Font_H1)
+              Case 2
+                MarkDown()\Items()\Level = 2
+                AddWords_(Trim(LTrim(String$, "#")), MarkDown()\Items()\Words(), #Font_H2)
+              Case 3
+                MarkDown()\Items()\Level = 3
+                AddWords_(Trim(LTrim(String$, "#")), MarkDown()\Items()\Words(), #Font_H3)
+              Case 4
+                MarkDown()\Items()\Level = 4
+                AddWords_(Trim(LTrim(String$, "#")), MarkDown()\Items()\Words(), #Font_H4)
+              Case 5
+                MarkDown()\Items()\Level = 5
+                AddWords_(Trim(LTrim(String$, "#")), MarkDown()\Items()\Words(), #Font_H5)
+              Case 6
+                MarkDown()\Items()\Level = 6
+                AddWords_(Trim(LTrim(String$, "#")), MarkDown()\Items()\Words(), #Font_H6)
+            EndSelect
+ 
+          EndIf
           ;}
         ;{ _____ Paragraphs _____                 [4.8]  
         Case #Paragraph
           ; TODO: Remove initial and final whitespace.
-          If AddElement(MarkDown()\Row())
-            MarkDown()\Row()\Type = #Paragraph 
-          EndIf ;}
+          If AddElement(MarkDown()\Items())
+            MarkDown()\Items()\Type = #Paragraph
+          EndIf
+          ;}
         ;{ _____ Lists _____                      [5.3]
         Case #List|#Ordered    ;{ Ordered List
           
-          StartNum = AddTypeRow_(#List|#Ordered, Document()\BlockQuote)
+          If AddItemByType_(#List|#Ordered, Document()\BlockQuote) ;{ New list
+
+            If AddElement(MarkDown()\Lists())
+              MarkDown()\Items()\Index = ListIndex(MarkDown()\Lists())
+              MarkDown()\Lists()\Start = Val(Left(LTrim(Document()\String), 1))
+            EndIf
+            ;}
+          EndIf
           
-          If AddElement(MarkDown()\Row()\Item())
+          If ListSize(MarkDown()\Lists())
             
-            MarkDown()\Row()\Item()\Type = #List|#Ordered
-            
-            If StartNum : MarkDown()\Row()\Item()\State = Val(Left(LTrim(Document()\String), 1)) : EndIf
-            
-            MarkDown()\Row()\Item()\Level  = Document()\Level
-            MarkDown()\Row()\Item()\String = Trim(Mid(LTrim(Document()\String), 4)) ; '1. ' or '1) '
-            
-            StartNum = #False
+            If AddElement(MarkDown()\Lists()\Row())
+              
+              MarkDown()\Lists()\Row()\Level      = Document()\Level
+              MarkDown()\Lists()\Row()\BlockQuote = Document()\BlockQuote
+              
+              If Document()\BlockQuote > MarkDown()\Items()\BlockQuote : MarkDown()\Items()\BlockQuote = Document()\BlockQuote : EndIf
+              
+              String$ = Trim(Mid(LTrim(Document()\String), 4)) ; '1. ' or '1) '
+              ParseInline_(String$, MarkDown()\Lists()\Row()\Words())
+              
+            EndIf
             
           EndIf
           ;}
         Case #List|#Unordered  ;{ Unordered List
           
-          AddTypeRow_(#List|#Unordered, Document()\BlockQuote)
+          If AddItemByType_(#List|#Unordered, Document()\BlockQuote)
+            
+            If AddElement(MarkDown()\Lists())
+              MarkDown()\Items()\Index = ListIndex(MarkDown()\Lists())
+            EndIf
+            
+          EndIf
           
-          If AddElement(MarkDown()\Row()\Item())
-            MarkDown()\Row()\Item()\Type   = #List|#Unordered
-            MarkDown()\Row()\Item()\Level  = Document()\Level
-            MarkDown()\Row()\Item()\String = Trim(Mid(LTrim(Document()\String), 3)) ; '- ' or '+ ' or '* '
+          If ListSize(MarkDown()\Lists())
+            
+            If AddElement(MarkDown()\Lists()\Row())
+              
+              MarkDown()\Lists()\Row()\Level      = Document()\Level
+              MarkDown()\Lists()\Row()\BlockQuote = Document()\BlockQuote
+              
+              If Document()\BlockQuote > MarkDown()\Items()\BlockQuote : MarkDown()\Items()\BlockQuote = Document()\BlockQuote : EndIf
+              
+              String$ = Trim(Mid(LTrim(Document()\String), 3)) ; '- ' or '+ ' or '* '
+              ParseInline_(String$, MarkDown()\Lists()\Row()\Words())
+              
+            EndIf 
+            
           EndIf
           ;}
         Case #List|#Definition ;{ Definition List
-
-          If MarkDown()\Row()\Type = #Text : MarkDown()\Row()\Type = #List|#Definition : EndIf
           
-          If AddElement(MarkDown()\Row()\Item())
-            MarkDown()\Row()\Item()\Type   = #List|#Definition
-            MarkDown()\Row()\Item()\Level  = Document()\Level
-            MarkDown()\Row()\Item()\String = Trim(Mid(LTrim(Document()\String), 3)) ; '- ' or '+ ' or '* '
+          If MarkDown()\Items()\Type = #Text
+            
+            MarkDown()\Items()\Type = #List|#Definition
+            
+            ForEach MarkDown()\Items()\Words()
+              MarkDown()\Items()\Words()\Font = #Font_Bold
+            Next
+            
+            If AddElement(MarkDown()\Lists())
+              MarkDown()\Items()\Index = ListIndex(MarkDown()\Lists())
+            EndIf
+            
+          EndIf
+          
+          If ListSize(MarkDown()\Lists())
+            
+            If AddElement(MarkDown()\Lists()\Row())
+              
+              MarkDown()\Lists()\Row()\Level      = Document()\Level
+              MarkDown()\Lists()\Row()\BlockQuote = Document()\BlockQuote
+              
+              If Document()\BlockQuote > MarkDown()\Items()\BlockQuote : MarkDown()\Items()\BlockQuote = Document()\BlockQuote : EndIf
+              
+              String$ = Trim(Mid(LTrim(Document()\String), 3)) ; ': '
+              ParseInline_(String$, MarkDown()\Lists()\Row()\Words())
+              
+            EndIf
+            
           EndIf
           ;}
         Case #List|#Task       ;{ Task List
           
-          AddTypeRow_(#List|#Task, Document()\BlockQuote)
-          
-          If AddElement(MarkDown()\Row()\Item())
+          If AddItemByType_(#List|#Task, Document()\BlockQuote)
             
-            MarkDown()\Row()\Item()\Type = #List|#Task
-
-            MarkDown()\Row()\Item()\Level  = Document()\Level
-            
-            String$ = Trim(Mid(LTrim(Document()\String), 3)) ; '- ' or '+ ' or '* '
-            
-            Select Left(String$, 3)
-              Case "[ ]", "[] "
-                MarkDown()\Row()\Item()\State = #False
-              Case "[X]", "[x]"
-                MarkDown()\Row()\Item()\State = #True
-            EndSelect
-            
-            nPos = FindString(String$, "]", 2)
-            If nPos
-              MarkDown()\Row()\Item()\String = Mid(String$, nPos + 1) 
+            If AddElement(MarkDown()\Lists())
+              MarkDown()\Items()\Index = ListIndex(MarkDown()\Lists())
             EndIf
             
-          EndIf ;}    
-        ;}
+          EndIf
+          
+          If ListSize(MarkDown()\Lists())
+          
+            If AddElement(MarkDown()\Lists()\Row())
+              
+              MarkDown()\Lists()\Row()\Level      = Document()\Level
+              MarkDown()\Lists()\Row()\BlockQuote = Document()\BlockQuote
+              
+              If Document()\BlockQuote > MarkDown()\Items()\BlockQuote : MarkDown()\Items()\BlockQuote = Document()\BlockQuote : EndIf
+              
+              String$ = Trim(Mid(LTrim(Document()\String), 3)) ; '- ' or '+ ' or '* '
+              Select Left(String$, 3)
+                Case "[ ]", "[] "
+                  MarkDown()\Lists()\Row()\State = #False
+                Case "[X]", "[x]"
+                  MarkDown()\Lists()\Row()\State = #True
+              EndSelect
+              
+              nPos = FindString(String$, "]", 2)
+              If nPos
+                String$ = Mid(String$, nPos + 1)
+                ParseInline_(String$, MarkDown()\Lists()\Row()\Words())
+              EndIf
+              
+            EndIf 
+          
+          EndIf
+          ;}
+        ;}  
         ;{ _____ Code blocks _____                [4.4] / [4.5]
         Case #Code|#Header
           
-          If AddElement(MarkDown()\Row())
-            MarkDown()\Row()\Type       = #Code
-            MarkDown()\Row()\String     = Document()\String
-            MarkDown()\Row()\BlockQuote = Document()\BlockQuote
-          EndIf 
+          If AddElement(MarkDown()\Items())
+            
+            MarkDown()\Items()\Type = #Code
+            MarkDown()\Items()\BlockQuote = Document()\BlockQuote
+            
+            If AddElement(MarkDown()\Block())
+              MarkDown()\Items()\Index  = ListIndex(MarkDown()\Block())
+              MarkDown()\Block()\Font   = #Font_Code
+              MarkDown()\Block()\String = Document()\String
+            EndIf  
+            
+          EndIf
           
         Case #Code 
           
-          AddTypeRow_(#Code, Document()\BlockQuote)
-          
-          If AddElement(MarkDown()\Row()\Item())
-            MarkDown()\Row()\Item()\Type   = #Code
-            MarkDown()\Row()\Item()\String = Document()\String
+          If ListSize(MarkDown()\Block())
+            If AddElement(MarkDown()\Block()\Row())
+              MarkDown()\Block()\Row() = Document()\String
+            EndIf  
           EndIf  
         ;}  
+        ;{ _____ Image _____                      [6.6]
+        Case #Image  
+          
+          If AddElement(MarkDown()\Items())
+            
+            MarkDown()\Items()\Type = #Image
+            MarkDown()\Items()\BlockQuote = Document()\BlockQuote
+            
+            ePos = FindString(Document()\String, "][", 3)
+            If ePos
+              ;{ Reference link
+              If AddElement(MarkDown()\Image())
+                
+                MarkDown()\Items()\Index = ListIndex(MarkDown()\Image())
+                
+                ParseInline_(Mid(Document()\String, 3, ePos - 3), MarkDown()\Items()\Words())
+
+                MarkDown()\Image()\Label = RTrim(Mid(Document()\String, ePos + 2), "]")
+                
+              EndIf  
+              ;}
+            Else  
+              ;{ Inline link
+              ePos = FindString(Document()\String, "](", 3)
+              If ePos
+                
+                If AddElement(MarkDown()\Image())
+                  
+                  MarkDown()\Items()\Index = ListIndex(MarkDown()\Image())
+                  
+                  ParseInline_(Mid(Document()\String, 3, ePos - 3), MarkDown()\Items()\Words())
+
+                  String$ = Trim(RTrim(Mid(Document()\String, ePos + 2), ")"))
+                  
+                  ;{ Source 
+                  If Left(String$, 1) = "<"
+                    nPos = FindString(String$, ">", 2)
+                    If nPos
+                      MarkDown()\Image()\Source = Mid(String$, 2, nPos - 1)
+                      String$ = Trim(Mid(String$, nPos + 1))
+                    EndIf 
+                  Else
+                    MarkDown()\Image()\Source = StringField(String$, 1, " ")
+                    String$ = Trim(Mid(String$, Len(MarkDown()\Image()\Source) + 1))
+                  EndIf ;}
+                  
+                  ;{ Title
+                  If String$
+                    Select Left(String$, 1)
+                      Case #DQUOTE$
+                        nPos = FindString(String$, #DQUOTE$, 2)  
+                      Case "'" 
+                        nPos = FindString(String$, "'", 2)
+                    EndSelect
+                    If nPos
+                      MarkDown()\Image()\Title = Mid(String$, 2, nPos - 2)
+                    EndIf 
+                  EndIf ;}
+   
+                EndIf
+                
+              EndIf
+              ;}
+            EndIf
+            
+          EndIf ;}  
         ;{ _____ Tables _____
         Case #Table
           
-          AddTypeRow_(#Table, Document()\BlockQuote)
- 
-          String$ = Trim(Trim(Document()\String, "|"))
-          
-          If Left(String$, 3) = "---" Or Left(String$, 4) = ":---" ;{ Header 
-            
-            If FirstElement(MarkDown()\Row()\Item())
-              
-              MarkDown()\Row()\Item()\Type | #Header
-              MarkDown()\Row()\String = ""
-              
-              Cols = CountString(String$, "|") + 1
-              For c=1 To Cols
-                Col$ = Trim(StringField(String$, c, "|"))
-                If Left(Col$, 1) = ":" And Right(Col$, 1) = ":"
-                  MarkDown()\Row()\String + "C|"
-                ElseIf Right(Col$, 1) = ":"
-                  MarkDown()\Row()\String + "R|"
-                Else
-                  MarkDown()\Row()\String + "L|"
-                EndIf
-              Next
-              
-              MarkDown()\Row()\String = RTrim(MarkDown()\Row()\String, "|")
-              
-              LastElement(MarkDown()\Row()\Item())
+          If AddItemByType_(#Table, Document()\BlockQuote) ;{ New Table
+
+            If AddElement(MarkDown()\Table())
+              MarkDown()\Items()\Index = ListIndex(MarkDown()\Table())
             EndIf
             ;}
-          Else
-            If AddElement(MarkDown()\Row()\Item())
-              MarkDown()\Row()\Item()\Type   = #Table
-              MarkDown()\Row()\Item()\String = String$
+          EndIf
+          
+          String$ = Trim(Trim(Document()\String, "|"))
+          
+          If ListSize(MarkDown()\Table())
+            
+            Cols = CountString(String$, "|") + 1
+            
+            If Left(String$, 3) = "---" Or Left(String$, 4) = ":---" ;{ Header 
+              
+              If FirstElement(MarkDown()\Table()\Row())
+                
+                MarkDown()\Table()\Row()\Type = #Table|#Header
+                
+                ForEach MarkDown()\Table()\Row()\Col() ;{ Change Font
+                  
+                  ForEach MarkDown()\Table()\Row()\Col()\Words()
+                    MarkDown()\Table()\Row()\Col()\Words()\Font = #Font_Bold
+                  Next
+                  ;}
+                Next  
+                
+                For c=1 To Cols
+                  Num$ = Str(c)
+                  Col$ = Trim(StringField(String$, c, "|"))
+                  If Left(Col$, 1) = ":" And Right(Col$, 1) = ":"
+                    MarkDown()\Table()\Column(Num$)\Align = "C"
+                  ElseIf Right(Col$, 1) = ":"
+                    MarkDown()\Table()\Column(Num$)\Align = "R"
+                  Else
+                    MarkDown()\Table()\Column(Num$)\Align = "L"
+                  EndIf
+                Next
+                
+                LastElement(MarkDown()\Table()\Row())
+              EndIf
+              ;}
+            Else                                                     ;{ Table row
+
+              If AddElement(MarkDown()\Table()\Row())
+                
+                MarkDown()\Table()\Row()\Type = #Table
+                
+                For c=1 To Cols
+                  Num$ = Str(c)
+                  ParseInline_(Trim(StringField(String$, c, "|")), MarkDown()\Table()\Row()\Col(Num$)\Words())
+                Next
+                
+              EndIf 
+              ;}
             EndIf  
+            
+            If MarkDown()\Table()\Cols < Cols : MarkDown()\Table()\Cols = Cols : EndIf
+            
           EndIf
           ;}
         Default
@@ -2969,490 +3787,22 @@ Module MarkDown
           Length = Len(Row$)
           
           ;{ Add new row
-          If AddElement(MarkDown()\Row())
-            MarkDown()\Row()\Type       = #Text
-            MarkDown()\Row()\BlockQuote = Document()\BlockQuote
-            FirstItem = #True
+          If AddElement(MarkDown()\Items())
+            MarkDown()\Items()\Type = #Text
+            MarkDown()\Items()\BlockQuote = Document()\BlockQuote
           EndIf ;}
           
-          Repeat
-            
-            ePos = 0
-            
-            Select Mid(Row$, Pos, 1)
-              Case "\"
-                ;{ ___ Backslash escapes ___            [6.1]
-                Select Mid(Row$, Pos, 2)
-                  Case "\+", "\-", "\=", "\<", "\>", "\~", "\:", "\.", "\,", "\;", "\!", "\?"
-                    Row$ = RemoveString(Row$, "\", #PB_String_CaseSensitive, Pos, 1)
-                    Pos + 1
-                  Case "\@", "\*", "\#", "\$", "\%", "\&", "\^", "\`", "\'", "\"+#DQUOTE$ 
-                    Row$ = RemoveString(Row$, "\", #PB_String_CaseSensitive, Pos, 1)
-                    Pos + 1
-                  Case "\{", "\}", "\[", "\]", "\(", "\)", "\_","\\", "\|", "\/"
-                    Row$ = RemoveString(Row$, "\", #PB_String_CaseSensitive, Pos, 1)
-                    Pos + 1
-                EndSelect
-                ;}
-              Case "`"
-                ;{ ___ Code spans ___                   [6.3] 
-                If Mid(Row$, Pos, 2) = "``"  ;{ " ``code`` "
-                  
-                  ePos = FindString(Row$, "``", Pos + 2)
-                  If ePos
-                    
-                    FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
-                    
-                    If AddElement(MarkDown()\Row()\Item())
-                      MarkDown()\Row()\Item()\Type = #Code
-                      MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 2, ePos - Pos - 2)
-                      If Left(MarkDown()\Row()\Item()\String, 1) = " " : MarkDown()\Row()\Item()\String = Mid(MarkDown()\Row()\Item()\String, 2) : EndIf ; Remove 1 leading space
-                    EndIf
-                    
-                    ePos + 1
-                  EndIf
-                  
-                  If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
-                  ;}
-                Else                         ;{ " `code` "
-                  
-                  ePos = FindString(Row$, "`",  Pos + 1)
-                  If ePos
-
-                    FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
-                    
-                    If AddElement(MarkDown()\Row()\Item())
-                      MarkDown()\Row()\Item()\Type = #Code
-                      MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 1, ePos - Pos - 1)
-                      If Left(MarkDown()\Row()\Item()\String, 1) = " " : MarkDown()\Row()\Item()\String = Mid(MarkDown()\Row()\Item()\String, 2) : EndIf ; Remove 1 leading space
-                    EndIf
-                    
-                  EndIf
-                  
-                  If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
-                  ;}
-                EndIf
-                ;}
-              Case "*", "_"
-                ;{ ___ Emphasis and strong emphasis ___ [6.4]
-                String$ = Mid(Row$, Pos)
-                Start$  = GetChars_(String$, Mid(Row$, Pos, 1))
-
-                ;{ left-flanking delimiter run [6.4] ?
-                Left = #False
-                Char$ = Mid(String$, Len(Start$) + 1, 1)
-                If Char$ <> " "
-                  If IsPunctationChar(Char$)
-                    Char$ = Mid(String$, Len(Start$) + 2, 1)
-                    If Char$ <> " " And IsPunctationChar(Char$) = #False
-                      Left = #True
-                    EndIf   
-                  Else
-                    Left = #True
-                  EndIf
-                EndIf ;}
-                
-                If Left
-                  
-                  String$ = LTrim(String$, Left(Start$, 1))
-                  
-                  ;{ right-flanking delimiter run [6.4] ?
-                  Right = #False
-                  ePos = FindString(String$, Start$)
-                  If ePos
-                    Char$ = Mid(String$, ePos - 1, 1)
-                    If Char$ <> " "
-                      If IsPunctationChar(Char$)
-                        Char$ = Mid(String$, ePos - 2, 1)
-                        If Char$ <> " " And IsPunctationChar(Char$) = #False
-                          Right = #True
-                        EndIf
-                      Else
-                        Right = #True
-                      EndIf
-                    EndIf
-                  EndIf
-                  ;}
-                  
-                  If Right
-                    
-                    ePos = 0
-                    
-                    Select Start$
-                      Case "***", "___" ;{ #Bold|#Italic
-                        
-                        ePos = FindString(Row$, Start$, Pos + 3)
-                        If ePos
-                          FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
-                          If AddElement(MarkDown()\Row()\Item())
-                            MarkDown()\Row()\Item()\Type   = #Bold|#Italic
-                            MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 3, ePos - Pos - 3)
-                            ePos + 2
-                          EndIf
-                        EndIf
-                        ;}
-                      Case "**", "__"   ;{ #Bold
-                        
-                        ePos = FindString(Row$, Start$, Pos + 2)
-                        If ePos
-                          FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
-                          If AddElement(MarkDown()\Row()\Item())
-                            MarkDown()\Row()\Item()\Type   = #Bold
-                            MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 2, ePos - Pos - 2)
-                            ePos + 1
-                          EndIf
-                        EndIf
-                        ;}
-                      Case "*", "_"     ;{ #Italic
-                        
-                        ePos = FindString(Row$, Start$, Pos + 1)
-                        If ePos
-                          FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
-                          If AddElement(MarkDown()\Row()\Item())
-                            MarkDown()\Row()\Item()\Type   = #Italic
-                            MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 1, ePos - Pos - 1)
-                          EndIf
-                        EndIf
-                        ;}
-                    EndSelect 
-                    
-                    If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
-                  EndIf
-                
-                EndIf
-                ;}
-              Case "!"
-                ;{ ___ Images ___                       [6.6]
-                If Mid(Row$, Pos, 2) = "!["
-                  
-                  FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
-                  
-                  ePos = FindString(Row$, "][", Pos + 1)
-                  If ePos
-                    ;{ Reference link
-                    FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
-                    
-                    If AddElement(MarkDown()\Row()\Item())
-                      
-                      MarkDown()\Row()\Item()\Type   = #Image
-                      MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 2, ePos - Pos - 2)
-                      
-                      nPos = ePos + 2
-                      If AddElement(MarkDown()\Image())
-                       
-                        MarkDown()\Row()\Item()\Index = ListIndex(MarkDown()\Image())
-                        
-                        ePos = FindString(Row$, "]", nPos)
-                        If ePos
-                          MarkDown()\Image()\Label = Mid(Row$, Pos + 1, ePos - Pos - 1)
-                        EndIf
-                        
-                      EndIf  
-                     
-                    EndIf
-                    ;}
-                  Else
-                    ;{ Inline link
-                    ePos = FindString(Row$, "](", Pos + 1)
-                    If ePos
-                      
-                      FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
-                      
-                      If AddElement(MarkDown()\Row()\Item())
-                        
-                        MarkDown()\Row()\Item()\Type   = #Image
-                        MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 2, ePos - Pos - 2)
-                       
-                        nPos = ePos + 2
-                        
-                        ePos = FindString(Row$, ")", nPos)
-                        If ePos
-                          
-                          If AddElement(MarkDown()\Image())
-                            
-                            MarkDown()\Row()\Item()\Index = ListIndex(MarkDown()\Image())
-                            
-                            ;{ Source
-                            String$ = Trim(Mid(Row$, nPos, ePos - nPos))
-                            If Left(String$, 1) = "<"
-                              nPos = FindString(String$, ">", 2)
-                              If nPos
-                                MarkDown()\Image()\Source = Mid(String$, 2, nPos - 1)
-                                String$ = Trim(Mid(String$, nPos + 1))
-                              EndIf 
-                            Else
-                              MarkDown()\Image()\Source = StringField(String$, 1, " ")
-                              String$ = Trim(Mid(String$, Len(MarkDown()\Image()\Source) + 1))
-                            EndIf ;}
-                            
-                            ;{ Title
-                            If String$
-                              Select Left(String$, 1)
-                                Case #DQUOTE$
-                                  nPos = FindString(String$, #DQUOTE$, 2)  
-                                Case "'" 
-                                  nPos = FindString(String$, "'", 2)
-                              EndSelect
-                              If nPos
-                                MarkDown()\Image()\Title = Mid(String$, 2, nPos - 2)
-                              EndIf 
-                            EndIf ;}
-                            
-                          EndIf
-                          
-                        EndIf
-                        
-                      EndIf
-  
-                    EndIf
-                    If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
-                    ;}
-                  EndIf
-                  
-                  If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
-                EndIf   
-                ;}
-              Case "["
-                ;{ ___ Footnotes / Links
-                If Mid(Row$, Pos, 2) = "[^"
-                  ;{ ___ Footnote ___
-                  ePos = FindString(Row$, "]", Pos + 1)
-                  If ePos
-                    
-                    FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
-                    
-                    If AddElement(MarkDown()\Row()\Item())
-                      
-                      MarkDown()\Row()\Item()\Type   = #FootNote
-                      MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 2, ePos - Pos - 2)
-                      
-                      If AddElement(MarkDown()\Footnote())
-                        MarkDown()\Footnote()\Label   = MarkDown()\Row()\Item()\String
-                        MarkDown()\Row()\Item()\Index = ListIndex(MarkDown()\Footnote())
-                      EndIf
-                      
-                    EndIf
-                    
-                  EndIf 
-                
-                  If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf  
-                  ;}
-                Else  
-                  ;{ ___ Links  ___                     [6.5]
-                  ePos = FindString(Row$, "][", Pos + 1)
-                  If ePos
-                    ;{ Reference link
-                    FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
-                    
-                    If AddElement(MarkDown()\Row()\Item())
-                      
-                      MarkDown()\Row()\Item()\Type   = #Link
-                      MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 1, ePos - Pos - 1)
-                      
-                      nPos = ePos + 2
-                      If AddElement(MarkDown()\Link())
-                       
-                        MarkDown()\Row()\Item()\Index = ListIndex(MarkDown()\Link())
-                        
-                        ePos = FindString(Row$, "]", nPos)
-                        If ePos
-                          MarkDown()\Link()\Label = Mid(Row$, Pos + 1, ePos - Pos - 1)
-                        EndIf
-                        
-                      EndIf  
-                    
-                    EndIf
-                    If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
-                    ;}
-                  Else
-                    ;{ Inline link
-                    ePos = FindString(Row$, "](", Pos + 1)
-                    If ePos
-                      
-                      FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
-                      
-                      If AddElement(MarkDown()\Row()\Item())
-                        
-                        MarkDown()\Row()\Item()\Type   = #Link
-                        MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 1, ePos - Pos - 1)
-                        
-                        nPos = ePos + 2
-                        
-                        ePos = FindString(Row$, ")", nPos)
-                        If ePos
-                          
-                          If AddElement(MarkDown()\Link())
-                            
-                            MarkDown()\Row()\Item()\Index = ListIndex(MarkDown()\Link())
-                            
-                            ;{ Destination
-                            String$ = Trim(Mid(Row$, nPos, ePos - nPos))
-                            If Left(String$, 1) = "<"
-                              nPos = FindString(String$, ">", 2)
-                              If nPos
-                                MarkDown()\Link()\URL = Mid(String$, 2, nPos - 1)
-                                String$ = Trim(Mid(String$, nPos + 1))
-                              EndIf 
-                            Else
-                              MarkDown()\Link()\URL = StringField(String$, 1, " ")
-                              String$ = Trim(Mid(String$, Len(MarkDown()\Link()\URL) + 1))
-                            EndIf ;}
-                            
-                            ;{ Title
-                            If String$
-                              Select Left(String$, 1)
-                                Case #DQUOTE$
-                                  nPos = FindString(String$, #DQUOTE$, 2)  
-                                Case "'" 
-                                  nPos = FindString(String$, "'", 2)
-                              EndSelect
-                              If nPos
-                                MarkDown()\Link()\Title = Mid(String$, 2, nPos - 1)
-                              EndIf 
-                            EndIf ;}
-                            
-                          EndIf
-                          
-                        EndIf
-                        
-                      EndIf
-  
-                    EndIf
-                    If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
-                    ;}
-                  EndIf  
-                  ;}
-                EndIf 
-                ;}
-              Case "<"
-                ;{ ___ Autolinks ___                    [6.7] 
-                ePos = FindString(Row$, ">", Pos + 1)
-                If ePos
-                
-                  FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
-                  
-                  If AddElement(MarkDown()\Row()\Item())
-                    
-                    MarkDown()\Row()\Item()\Type   = #AutoLink
-                    MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 1, ePos - Pos - 1) 
-                    
-                    If AddElement(MarkDown()\Link())
-                      MarkDown()\Row()\Item()\Index = ListIndex(MarkDown()\Link())
-                      MarkDown()\Link()\URL = MarkDown()\Row()\Item()\String
-                    EndIf
-                    
-                  EndIf
-                    
-                  If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
-                EndIf  
-                ;}
-              Case "~" 
-                ;{ ___ Strikethrough / Subscript ___
-                If Mid(Row$, Pos, 2) = "~~" ;{ Strikethrough
-                  ePos = FindString(Row$, "~~", Pos + 1)
-                  If ePos
-                    FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
-                    If AddElement(MarkDown()\Row()\Item())
-                      MarkDown()\Row()\Item()\Type   = #StrikeThrough
-                      MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 2, ePos - Pos - 2)
-                      ePos + 1
-                    EndIf
-                  EndIf ;}
-                Else                        ;{ Subscript 
-                  ePos = FindString(Row$, "~", Pos + 1)
-                  If ePos
-                    FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
-                    If AddElement(MarkDown()\Row()\Item())
-                      MarkDown()\Row()\Item()\Type   = #Subscript
-                      MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 1, ePos - Pos - 1)
-                    EndIf
-                  EndIf ;}
-                EndIf 
-                If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
-                ;}
-              Case "^"
-                ;{ ___ Superscript ___
-                ePos = FindString(Row$, "^", Pos + 1)
-                If ePos
-                  FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
-                  If AddElement(MarkDown()\Row()\Item())
-                    MarkDown()\Row()\Item()\Type   = #Superscript
-                    MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 1, ePos - Pos - 1)
-                  EndIf
-                EndIf
-                If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf 
-                ;}
-              Case "="
-                ;{ ___ Highlight ___
-                If Mid(Row$, Pos, 2) = "=="
-                  ePos = FindString(Row$, "==", Pos + 2)
-                  If ePos
-                    FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
-                    If AddElement(MarkDown()\Row()\Item())
-                      MarkDown()\Row()\Item()\Type   = #Highlight
-                      MarkDown()\Row()\Item()\String = Mid(Row$, Pos + 2, ePos - Pos - 2)
-                      ePos + 1
-                    EndIf
-                  EndIf
-                EndIf
-                If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf
-                ;}
-              Case ":"  
-                ;{ ___ Emoji ___
-                ePos = Emoji_(Row$, Pos)
-                If ePos
-                  
-                  FirstItem = AddItemText_(sPos, Pos, Row$, FirstItem)
-                  
-                  If AddElement(MarkDown()\Row()\Item())
-                    MarkDown()\Row()\Item()\Type   = #Emoji
-                    MarkDown()\Row()\Item()\String = Mid(Row$, Pos, ePos - Pos + 1)
-                  EndIf
-                  
-                EndIf
-                If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf
-                ;}
-            EndSelect
-            
-            Pos + 1
-          Until Pos > Length  
-          
-          AddItemText_(sPos, Pos, Row$, FirstItem)
+          ParseInline_(Row$, MarkDown()\Items()\Words())
           ;}
       EndSelect
       
     Next ;}
     
     ;{ ===== Phase 3 =====
-    ForEach MarkDown()\Row()
-      Select MarkDown()\Row()\Type
-        Case #List|#Ordered    ;{ Ordered List
-          ForEach MarkDown()\Row()\Item()
-            String$ = MarkDown()\Row()\Item()\String
-            ParseInline_(String$)
-          Next   
-          ;}
-        Case #List|#Unordered  ;{ Unordered List
-          ForEach MarkDown()\Row()\Item()
-            String$ = MarkDown()\Row()\Item()\String
-            ParseInline_(String$)
-          Next 
-          ;}
-        Case #List|#Definition ;{ Definition List
-          ForEach MarkDown()\Row()\Item()
-            String$ = MarkDown()\Row()\Item()\String
-            ParseInline_(String$)
-          Next 
-          ;}
-        Case #List|#Task       ;{ Task List
-          ForEach MarkDown()\Row()\Item()
-            String$ = MarkDown()\Row()\Item()\String
-            ParseInline_(String$)
-          Next 
-          ;}
-      EndSelect    
-    Next  
+
     ;}
+    
+    DetermineTextSize_()
     
   EndProcedure  
   
@@ -3470,10 +3820,26 @@ Module MarkDown
 	EndProcedure
 	
 	
+	Procedure.i Keystroke_(X.i, Y.i, Key.s)
+	  Define.i Width, Height
+	  
+	  Width  = TextWidth(Key) + dpiX(10)
+	  Height = TextHeight(Key)
+	  
+	  DrawingMode(#PB_2DDrawing_Default)
+	  RoundBox(X, Y, Width, Height, 4, 4, MarkDown()\Color\KeyStrokeBack)
+	  DrawingMode(#PB_2DDrawing_Outlined)
+	  RoundBox(X, Y, Width, Height, 4, 4, MarkDown()\Color\KeyStroke)
+	  DrawingMode(#PB_2DDrawing_Transparent)
+	  DrawText(X + dpiX(5), Y, Key, MarkDown()\Color\KeyStroke)
+	  
+	  ProcedureReturn X + Width
+	EndProcedure  
+
 	Procedure   DashLine_(X.i, Y.i, Width.i, Color.i)
 	  Define.i  i
 	  
-	  For i=1 To Width Step 2
+	  For i=0 To Width - 1 Step 2
 	    Plot(X + i, Y, Color)
 	  Next
 	  
@@ -3521,300 +3887,493 @@ Module MarkDown
   	EndIf
   	
   EndProcedure
-
   
-  Procedure.i DrawText_(X.i, Y.i, Text.s, FrontColor.i, Indent.i=0, maxCol.i=0, Idx.i=#PB_Default, Flag.i=#False)
-    Define.i w, PosX, txtWidth, txtHeight, Words, Rows, bqY, OffsetY, OffSetBQ, maxWidth, LastX, LastY
+  Procedure.i GetAlignOffset_(WordIdx.i, Width.i, Align.s, List Words.Words_Structure())
+    Define.i TextWidth, OffsetX
+    
+    PushListPosition(Words())
+    
+    ForEach Words()
+      
+      If ListIndex(Words()) >= WordIdx
+        
+        If TextWidth + Words()\Width > Width
+          Break
+        Else  
+          TextWidth + Words()\Width
+        EndIf  
+        
+      EndIf
+      
+    Next
+    
+    PopListPosition(Words())
+    
+    Select Align
+      Case "C"
+        OffsetX = (Width - TextWidth) / 2
+      Case "R"
+        OffsetX = Width - TextWidth
+    EndSelect    
+    
+    ProcedureReturn OffsetX
+  EndProcedure
+  
+  
+  Procedure.i DrawRow_(X.i, Y.i, Width.i, Height.i, BlockQuote.i, List Words.Words_Structure(), ColWidth.i=#False, Align.s="L")
+    Define.i Font, TextWidth, ImgSize, Image, WordIdx
+    Define.i Pos, PosX, PosY, lX, lY, OffSetX, OffSetY, OffSetBQ
     Define.s Word$
-
-    If MarkDown()\BlockQuote : OffSetBQ = dpiX(10) * MarkDown()\BlockQuote : EndIf 
+    
+    If BlockQuote : OffSetBQ = dpiX(10) * BlockQuote : EndIf 
     
     X + OffSetBQ
-    Y + MarkDown()\WrapHeight
-    
-    txtHeight = TextHeight("Abc")
-    OffsetY   = txtHeight / 2
-    
-    bqY = Y
-    
-    If maxCol
-      maxWidth = maxCol - dpiX(5)
-    Else
-      maxWidth = MarkDown()\WrapPos
-    EndIf
 
-    If X + TextWidth(Text) > maxWidth
+    PosX = X
+    PosY = Y
+
+    DrawingMode(#PB_2DDrawing_Transparent)
+    
+    If X + Width > MarkDown()\WrapPos
       
-      Rows = 1
+      lY = PosY
       
-      If Flag = #Link          ;{ Move to next line
-        PosX = MarkDown()\LeftBorder + Indent + OffSetBQ
-        Y + TextHeight(Text)
-        Rows + 1
-        MarkDown()\WrapHeight + txtHeight
+      WordIdx = 0
+      
+      If ColWidth
+        OffSetX = GetAlignOffset_(0, ColWidth - dpiX(10), Align, Words())
+      EndIf
+    
+      ForEach Words()
         
-        If SelectElement(MarkDown()\Link(), Idx)
-          MarkDown()\Link()\X      = PosX
-          MarkDown()\Link()\Y      = Y
-          MarkDown()\Link()\Width  = TextWidth(Text)
-          MarkDown()\Link()\Height = txtHeight
-          If MarkDown()\Link()\State : FrontColor = MarkDown()\Color\LinkHighlight : EndIf 
+        If Font <> Words()\Font : Font = DrawingFont_(Words()\Font) : EndIf
+       
+        If PosX + Words()\Width > MarkDown()\WrapPos
+          
+          PosX = X
+          PosY + Height
+          
+          WordIdx = ListIndex(Words())
+          
+          If BlockQuote            ;{ BlockQuote
+            DrawingMode(#PB_2DDrawing_Default)
+            Box(MarkDown()\LeftBorder, lY, dpiX(5), Height, MarkDown()\Color\BlockQuote)
+            If BlockQuote = 2
+              Box(MarkDown()\LeftBorder + dpiX(10), lY, dpiX(5), Height, MarkDown()\Color\BlockQuote)
+            EndIf
+            DrawingMode(#PB_2DDrawing_Transparent) ;}
+          EndIf
+          
+          lY = PosY
+          
         EndIf
-
-        DrawingMode(#PB_2DDrawing_Transparent)
-        PosX = DrawText(PosX, Y, Text, FrontColor)
-        ;}
-      Else                     ;{ WordWrap
-      
-        PosX  = X
-
-        Words = CountString(Text, " ") + 1
-  
-        For w = 1 To Words
-          
-          Word$ = StringField(Text, w, " ")
-          
-          If PosX + TextWidth(Word$) > maxWidth
+        
+        lX = PosX
+        
+        Select Words()\Flag
+          Case #Emoji           ;{ Draw emoji  
+            If Height <= dpiY(16)
+              ImgSize = Height - dpiY(1)
+            Else
+              ImgSize = dpiY(16)
+            EndIf  
+            OffSetY = (Height - ImgSize) / 2
+            Image = Emoji(Words()\String)
+            If IsImage(Image)
+              DrawingMode(#PB_2DDrawing_AlphaBlend)
+		          DrawImage(ImageID(Image), PosX, PosY + OffSetY, ImgSize, ImgSize)
+		          PosX + ImgSize
+		        EndIf
+		        DrawingMode(#PB_2DDrawing_Transparent)
+            ;}  
+          Case #FootNote        ;{ Draw footnote
             
-            If maxCol
-              PosX = X
-            Else  
-              PosX = MarkDown()\LeftBorder + Indent + OffSetBQ
+            If SelectElement(MarkDown()\Footnote(), Words()\Index)
+              MarkDown()\Footnote()\X      = PosX
+              MarkDown()\Footnote()\Y      = PosY
+              MarkDown()\Footnote()\Width  = TextWidth(Words()\String)
+              MarkDown()\Footnote()\Height = Height
             EndIf 
             
-            Rows + 1
-            Y + txtHeight
-            
-            MarkDown()\WrapHeight + txtHeight
-          EndIf
-          
-          If w < Words : Word$ + " " : EndIf
-
-          If Flag = #FootNote ;{ Footnote
-            If SelectElement(MarkDown()\Footnote(), Idx)
-              MarkDown()\Footnote()\X = PosX
-              MarkDown()\Footnote()\Y = Y
-              MarkDown()\Footnote()\Width  = TextWidth(Word$) 
-              MarkDown()\Footnote()\Height = TextHeight(Word$)
-            EndIf
-          EndIf ;}
-          
-          LastX = PosX : LastY = Y
-          
-          If Flag = #Highlight
+            PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Hint)
+            ;}
+          Case #Highlight       ;{ Draw highlighted text
             DrawingMode(#PB_2DDrawing_Default)
-            PosX = DrawText(PosX, Y, Word$, FrontColor, MarkDown()\Color\Highlight)
-          Else 
+            PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Front, MarkDown()\Color\Highlight)
             DrawingMode(#PB_2DDrawing_Transparent)
-            PosX = DrawText(PosX, Y, Word$, FrontColor)
+            ;}
+          Case #Image           ;{ Draw image
+            
+            If SelectElement(MarkDown()\Image(), MarkDown()\Items()\Index)
+    
+			        If MarkDown()\Image()\Num = #False ;{ Load Image
+    	          MarkDown()\Image()\Num = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+    	          If MarkDown()\Image()\Num
+    	            MarkDown()\Image()\Width  = ImageWidth(MarkDown()\Image()\Num)
+    	            MarkDown()\Image()\Height = ImageHeight(MarkDown()\Image()\Num)
+    	          EndIf ;}
+    	        EndIf
+    	        
+    	        If IsImage(MarkDown()\Image()\Num)
+    	          
+    	          DrawingMode(#PB_2DDrawing_AlphaBlend)
+    	          DrawImage(ImageID(MarkDown()\Image()\Num), PosX, PosY)
+    	          
+    	          MarkDown()\Image()\X = PosX
+    	          MarkDown()\Image()\Y = PosY
+    	          MarkDown()\Image()\Width  = MarkDown()\Image()\Width
+    	          MarkDown()\Image()\Height = MarkDown()\Image()\Height
+    	          
+    	          PosX + MarkDown()\Image()\Width
+
+    	        EndIf 
+    	        
+    	        If MarkDown()\Image()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Image()\Width : EndIf 
+    	        
+    	      EndIf
+            ;}
+    	    Case #Keystroke       ;{ Draw keystroke
+    	      PosX = Keystroke_(PosX, PosY, Words()\String)
+    	      ;}
+    	    Case #Link, #AutoLink ;{ Draw link
+            
+            If SelectElement(MarkDown()\Link(), Words()\Index)
+              MarkDown()\Link()\X      = PosX
+              MarkDown()\Link()\Y      = PosY
+              MarkDown()\Link()\Width  = TextWidth(Words()\String)
+              MarkDown()\Link()\Height = Height
+              If MarkDown()\Link()\State
+                Line(PosX, PosY + TextHeight(Words()\String) - 1, TextWidth(Words()\String), 1, MarkDown()\Color\LinkHighlight)
+                PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\LinkHighlight)
+              Else
+                Line(PosX, PosY + TextHeight(Words()\String) - 1, TextWidth(Words()\String), 1, MarkDown()\Color\Link)
+                PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Link)
+              EndIf
+            EndIf
+            ;}
+          Case #StrikeThrough   ;{ Draw strikethrough text
+            lX   = PosX
+            PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Front)
+            Line(lX, PosY + Round(Height / 2, #PB_Round_Up), TextWidth(Words()\String), 1, MarkDown()\Color\Front)
+            ;}
+          Case #Subscript       ;{ Draw subscripted text
+            OffSetY = Height - TextHeight(Words()\String) + dpiY(2)
+            PosX = DrawText(PosX, PosY + OffSetY, Words()\String, MarkDown()\Color\Front)
+            ;}    
+          Default 
+            PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Front)
+        EndSelect
+
+        ;{ Abbreviation
+        If MapSize(MarkDown()\Abbreviation())
+          
+          Word$ = WordOnly_(Words()\String)
+          
+          If FindMapElement(MarkDown()\Abbreviation(), Word$)
+            
+            Pos = FindString(Words()\String, Word$)
+            If Pos > 1
+              MarkDown()\Abbreviation()\X = lX + TextWidth(Left(Words()\String, Pos - 1) )
+            Else
+              MarkDown()\Abbreviation()\X = lX  
+            EndIf
+            
+            MarkDown()\Abbreviation()\Y = lY
+            MarkDown()\Abbreviation()\Width  = TextWidth(Word$)
+            MarkDown()\Abbreviation()\Height = TextHeight(Word$)
+            
+            DashLine_(MarkDown()\Abbreviation()\X, lY + MarkDown()\Abbreviation()\Height - 1, MarkDown()\Abbreviation()\Width, MarkDown()\Color\Hint)
           EndIf
           
-          If Flag = #StrikeThrough : Line(LastX, LastY + OffsetY, TextWidth(Word$), 1, FrontColor) : EndIf 
-          
-        Next
+        EndIf ;}
+        
+      Next
+
+    Else
+
+      lY = PosY
+      
+      If ColWidth ;{ Table
+        
+        PosX + GetAlignOffset_(0, ColWidth - dpiX(10), Align, Words())
+
         ;}
       EndIf
       
-      If MarkDown()\BlockQuote ;{ BlockQuote
-        DrawingMode(#PB_2DDrawing_Default)
-        Box(MarkDown()\LeftBorder, bqY, dpiX(5), txtHeight * Rows, MarkDown()\Color\BlockQuote)
-        If MarkDown()\BlockQuote = 2
-          Box(MarkDown()\LeftBorder + dpiX(10), bqY, dpiX(5), txtHeight * Rows, MarkDown()\Color\BlockQuote)
-        EndIf ;}
-      EndIf 
-      
-      ProcedureReturn PosX - OffSetBQ
-    Else
-
-      Select Flag
-        Case #Link     ;{ Link
-          If SelectElement(MarkDown()\Link(), Idx)
-            MarkDown()\Link()\X      = X
-            MarkDown()\Link()\Y      = Y
-            MarkDown()\Link()\Width  = TextWidth(Text)
-            MarkDown()\Link()\Height = TextHeight(Text)
-            If MarkDown()\Link()\State : FrontColor = MarkDown()\Color\LinkHighlight : EndIf 
-          EndIf ;}
-        Case #FootNote ;{ Footnote
-          If SelectElement(MarkDown()\Footnote(), Idx)
-            MarkDown()\Footnote()\X = X
-            MarkDown()\Footnote()\Y = Y
-            MarkDown()\Footnote()\Width  = TextWidth(Text) 
-            MarkDown()\Footnote()\Height = TextHeight(Text)
-          EndIf 
-          ;}
-      EndSelect
-      
-      LastX = X : LastY = Y
-      
-      If Flag = #Highlight
-        DrawingMode(#PB_2DDrawing_Default)
-        X = DrawText(X, Y, Text, FrontColor, MarkDown()\Color\Highlight)
-      Else 
-        DrawingMode(#PB_2DDrawing_Transparent)
-        X = DrawText(X, Y, Text, FrontColor)
-      EndIf 
-      
-      If Flag = #StrikeThrough : Line(LastX, LastY + OffsetY, TextWidth(Text), 1, FrontColor) : EndIf 
-      
-      ; DashLine_(LastX, LastY + MarkDown()\Hint()\Height, MarkDown()\Hint()\Width, MarkDown()\Color\Hint)
-      
-      If MarkDown()\BlockQuote                ;{ BlockQuote
-        DrawingMode(#PB_2DDrawing_Default)
-        Box(MarkDown()\LeftBorder, bqY, dpiX(5), TextHeight(Text), MarkDown()\Color\BlockQuote)
-        If MarkDown()\BlockQuote = 2
-          Box(MarkDown()\LeftBorder + dpiX(10), bqY, dpiX(5), TextHeight(Text), MarkDown()\Color\BlockQuote)
-        EndIf ;}
-      EndIf  
-     
-      ProcedureReturn X - OffSetBQ
-    EndIf  
-
-    
-  EndProcedure
-  
-  Procedure.i DrawInline_(X.i, Y.i, FrontColor)
-    Define.i TextHeight, ImgSize, OffSetY, OffSetX, LinkColor
-    
-    If ListSize(MarkDown()\Row()\Item()\SubItem())
-      
-      ForEach MarkDown()\Row()\Item()\SubItem()
+      ForEach Words()
         
-        Select MarkDown()\Row()\Item()\SubItem()\Type
-          Case #Bold          ;{ Emphasis
-            DrawingFont(FontID(MarkDown()\Font\Bold))
-            X = DrawText_(X, Y, MarkDown()\Row()\Item()\SubItem()\String, FrontColor)
-          Case #Italic
-            DrawingFont(FontID(MarkDown()\Font\Italic))
-            X = DrawText_(X, Y, MarkDown()\Row()\Item()\SubItem()\String, FrontColor)
-          Case #Bold|#Italic 
-            DrawingFont(FontID(MarkDown()\Font\BoldItalic))
-            X = DrawText_(X, Y, MarkDown()\Row()\Item()\SubItem()\String, FrontColor)
-            ;}
-          Case #Code          ;{ Code
-            DrawingFont(FontID(MarkDown()\Font\Code))
-            X = DrawText_(X, Y, MarkDown()\Row()\Item()\SubItem()\String, FrontColor)
-            ;}
-          Case #Emoji         ;{ Emojis
-            DrawingFont(FontID(MarkDown()\Font\Normal))
-            TextHeight = TextHeight("Abc")
-            If TextHeight <= dpiY(16)
-              ImgSize = TextHeight - dpiY(1)
+        If Font <> Words()\Font : Font = DrawingFont_(Words()\Font) : EndIf
+        
+        lX = PosX
+        
+        Select Words()\Flag
+          Case #Emoji           ;{ Draw emoji  
+            If Height <= dpiY(16)
+              ImgSize = Height - dpiY(1)
             Else
-              ImgSize = dpiY(TextHeight)
+              ImgSize = dpiY(16)
             EndIf  
-            OffSetY = (TextHeight - ImgSize) / 2
-            If IsImage(Emoji(MarkDown()\Row()\Item()\SubItem()\String))
+            OffSetY = (Height - ImgSize) / 2
+            Image = Emoji(Words()\String)
+            If IsImage(Image)
               DrawingMode(#PB_2DDrawing_AlphaBlend)
-		          DrawImage(ImageID(Emoji(MarkDown()\Row()\Item()\SubItem()\String)), X, Y + OffSetY, ImgSize, ImgSize)
-		          X + ImgSize
+		          DrawImage(ImageID(Image), PosX, PosY + OffSetY, ImgSize, ImgSize)
+		          PosX + ImgSize
+		        EndIf
+		        DrawingMode(#PB_2DDrawing_Transparent)
+            ;}  
+          Case #FootNote        ;{ Draw footnote
+            
+            If SelectElement(MarkDown()\Footnote(), Words()\Index)
+              MarkDown()\Footnote()\X      = PosX
+              MarkDown()\Footnote()\Y      = PosY
+              MarkDown()\Footnote()\Width  = TextWidth(Words()\String)
+              MarkDown()\Footnote()\Height = Height
+            EndIf 
+            
+            PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Hint)
+            ;}
+          Case #Highlight       ;{ Draw highlighted text
+            DrawingMode(#PB_2DDrawing_Default)
+            PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Front, MarkDown()\Color\Highlight)
+            DrawingMode(#PB_2DDrawing_Transparent)
+            ;}
+          Case #Image           ;{ Draw image
+            
+            If SelectElement(MarkDown()\Image(), MarkDown()\Items()\Index)
+    
+			        If MarkDown()\Image()\Num = #False ;{ Load Image
+    	          MarkDown()\Image()\Num = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+    	          If MarkDown()\Image()\Num
+    	            MarkDown()\Image()\Width  = ImageWidth(MarkDown()\Image()\Num)
+    	            MarkDown()\Image()\Height = ImageHeight(MarkDown()\Image()\Num)
+    	          EndIf ;}
+    	        EndIf
+    	        
+    	        If IsImage(MarkDown()\Image()\Num)
+    	          
+    	          DrawingMode(#PB_2DDrawing_AlphaBlend)
+    	          DrawImage(ImageID(MarkDown()\Image()\Num), PosX, PosY)
+    	          
+    	          MarkDown()\Image()\X = PosX
+    	          MarkDown()\Image()\Y = PosY
+    	          MarkDown()\Image()\Width  = MarkDown()\Image()\Width
+    	          MarkDown()\Image()\Height = MarkDown()\Image()\Height
+    	          
+    	          PosX + MarkDown()\Image()\Width
+
+    	        EndIf 
+    	        
+    	        If MarkDown()\Image()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Image()\Width : EndIf 
+    	        
+    	      EndIf
+            ;}  
+    	    Case #Keystroke       ;{ Draw keystroke
+    	      PosX = Keystroke_(PosX, PosY, Words()\String)
+    	      ;}  
+    	    Case #Link, #AutoLink ;{ Draw link
+            
+            If SelectElement(MarkDown()\Link(), Words()\Index)
+              MarkDown()\Link()\X      = PosX
+              MarkDown()\Link()\Y      = PosY
+              MarkDown()\Link()\Width  = TextWidth(Words()\String)
+              MarkDown()\Link()\Height = Height
+              If MarkDown()\Link()\State
+                Line(PosX, PosY + TextHeight(Words()\String) - 1, TextWidth(Words()\String), 1, MarkDown()\Color\LinkHighlight)
+                PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\LinkHighlight)
+              Else
+                Line(PosX, PosY + TextHeight(Words()\String) - 1, TextWidth(Words()\String), 1, MarkDown()\Color\Link)
+                PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Link)
+              EndIf
             EndIf
             ;}
-          Case #FootNote      ;{ Footnote
-            DrawingFont(FontID(MarkDown()\Font\FootNote))
-            X = DrawText_(X, Y, MarkDown()\Row()\Item()\SubItem()\String, FrontColor, 0, 0, MarkDown()\Row()\Item()\SubItem()\Index, #FootNote)
-            ;}                
-          Case #Image         ;{ Image
-            
-            If SelectElement(MarkDown()\Image(), MarkDown()\Row()\Item()\SubItem()\Index)
-        
-			        If MarkDown()\Image()\Num = #False ;{ Load Image
-			          MarkDown()\Image()\Num = LoadImage(#PB_Any, MarkDown()\Image()\Source)
-			          If MarkDown()\Image()\Num
-			            MarkDown()\Image()\Width  = ImageWidth(MarkDown()\Image()\Num)
-			            MarkDown()\Image()\Height = ImageHeight(MarkDown()\Image()\Num)
-			          EndIf ;}
-			        EndIf
-			        
-			        If IsImage(MarkDown()\Image()\Num)
-			          
-			          DrawingMode(#PB_2DDrawing_AlphaBlend)
-			          DrawImage(ImageID(MarkDown()\Image()\Num), X, Y)
-			          
-			          MarkDown()\Image()\X = X
-			          MarkDown()\Image()\Y = Y
-			          MarkDown()\Image()\Width  = MarkDown()\Image()\Width
-			          MarkDown()\Image()\Height = MarkDown()\Image()\Height
-			          
-			          Y + MarkDown()\Image()\Height
-			          
-			          If MarkDown()\Row()\Item()\SubItem()\String
-			            
-			            Y + (TextHeight / 4)
-			            
-			            OffSetX = (MarkDown()\Image()\Width - TextWidth(MarkDown()\Row()\Item()\SubItem()\String)) / 2
-			            
-			            DrawingMode(#PB_2DDrawing_Transparent)
-			            DrawText(X + OffSetX, Y, MarkDown()\Row()\Item()\SubItem()\String, FrontColor)
-			            
-			            Y + TextHeight(MarkDown()\Row()\Item()\SubItem()\String)
-			          EndIf
-			          
-			        ElseIf MarkDown()\Row()\Item()\SubItem()\String
-			          
-			          OffSetX = (MarkDown()\Image()\Width - TextWidth(MarkDown()\Row()\Item()\SubItem()\String)) / 2
-			          
-		            DrawingMode(#PB_2DDrawing_Transparent)
-		            DrawText(X + OffSetX, Y, MarkDown()\Row()\Item()\SubItem()\String, FrontColor)
-		            
-		            Y + TextHeight(MarkDown()\Row()\Item()\SubItem()\String)
-		            
-			        EndIf 
-			        
-			        If MarkDown()\Image()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Image()\Width : EndIf 
-			        
-			      EndIf
-			      
+          Case #StrikeThrough   ;{ Draw strikethrough text
+            lX   = PosX
+            PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Front)
+            Line(lX, PosY + Round(Height / 2, #PB_Round_Up), TextWidth(Words()\String), 1, MarkDown()\Color\Front)
+            ;} 
+          Case #Subscript       ;{ Draw subscripted text
+            OffSetY = Height - TextHeight(Words()\String) + dpiY(2)
+            PosX = DrawText(PosX, PosY + OffSetY, Words()\String, MarkDown()\Color\Front)
             ;}
-          Case #Link          ;{ Link
-            DrawingFont(FontID(MarkDown()\Font\Normal))
-            X = DrawText_(X, Y, MarkDown()\Row()\Item()\SubItem()\String, LinkColor, #False, 0, MarkDown()\Row()\Item()\SubItem()\Index, #Link)  
-            ;}
-          Case #Highlight     ;{ Highlight
-            DrawingFont(FontID(MarkDown()\Font\Normal))
-            X = DrawText_(X, Y, MarkDown()\Row()\Item()\SubItem()\String, FrontColor, 0, 0, #PB_Default, #Highlight)
-            ;}
-          Case #StrikeThrough ;{ StrikeThrough  
-            DrawingFont(FontID(MarkDown()\Font\Normal))
-            X = DrawText_(X, Y, MarkDown()\Row()\Item()\SubItem()\String, FrontColor, 0, 0, #PB_Default, #StrikeThrough)
-            ;}
-          Case #Subscript     ;{ SubScript
-            DrawingFont(FontID(MarkDown()\Font\Normal))
-            TextHeight = TextHeight("Abc")
-            DrawingFont(FontID(MarkDown()\Font\FootNote))
-            OffSetY = TextHeight - TextHeight(MarkDown()\Row()\Item()\SubItem()\String) + dpiY(2)
-            X = DrawText_(X, Y + OffSetY, MarkDown()\Row()\Item()\SubItem()\String, FrontColor)
-            ;}
-          Case #Superscript   ;{ SuperScript
-            DrawingFont(FontID(MarkDown()\Font\FootNote))
-            X = DrawText_(X, Y, MarkDown()\Row()\Item()\SubItem()\String, FrontColor)
-            ;}
-          Case #AutoLink      ;{ URL / EMail
-            DrawingFont(FontID(MarkDown()\Font\Normal))
-            X = DrawText_(X, Y, MarkDown()\Row()\Item()\SubItem()\String, LinkColor, #False, 0, MarkDown()\Row()\Item()\SubItem()\Index, #Link)
-            ;}  
-          Default             ;{ Text
-            DrawingFont(FontID(MarkDown()\Font\Normal))
-            X = DrawText_(X, Y, MarkDown()\Row()\Item()\SubItem()\String, FrontColor)
-            ;}
+          Default  
+            PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Front)
         EndSelect
+        
+        ;{ Abbreviation
+        If MapSize(MarkDown()\Abbreviation())
+          
+          Word$ = WordOnly_(Words()\String)
+          
+          If FindMapElement(MarkDown()\Abbreviation(), Word$)
+            
+            Pos = FindString(Words()\String, Word$)
+            If Pos > 1
+              MarkDown()\Abbreviation()\X = lX + TextWidth(Left(Words()\String, Pos - 1) )
+            Else
+              MarkDown()\Abbreviation()\X = lX  
+            EndIf
+            
+            MarkDown()\Abbreviation()\Y = lY
+            MarkDown()\Abbreviation()\Width  = TextWidth(Word$)
+            MarkDown()\Abbreviation()\Height = TextHeight(Word$)
+            
+            DashLine_(MarkDown()\Abbreviation()\X, lY + MarkDown()\Abbreviation()\Height - 1, MarkDown()\Abbreviation()\Width, MarkDown()\Color\Hint)
+          EndIf
+          
+        EndIf ;}
         
       Next
 
     EndIf
     
-		ProcedureReturn X
+    If BlockQuote            ;{ BlockQuote
+      DrawingMode(#PB_2DDrawing_Default)
+      Box(MarkDown()\LeftBorder, lY, dpiX(5), Height, MarkDown()\Color\BlockQuote)
+      If BlockQuote = 2
+        Box(MarkDown()\LeftBorder + dpiX(10), lY, dpiX(5), Height, MarkDown()\Color\BlockQuote)
+      EndIf ;}
+    EndIf
+    
+    ProcedureReturn PosY + Height
   EndProcedure
   
+  Procedure.i DrawList_(Index.i, Type.i, X.i, Y.i, Width.i, Height.i, BlockQuote.i)
+    Define.i PosX, bqY, OffSetBQ, Indent
+    Define.s Chars$, Level$
+    
+    NewMap ListNum.i()
+    
+    If BlockQuote
+      OffSetBQ = dpiX(10) * BlockQuote
+      OffSetBQ - dpiX(5)
+    EndIf 
+    
+    X + OffSetBQ
+
+    If SelectElement(MarkDown()\Lists(), Index)
+      
+      DrawingMode(#PB_2DDrawing_Transparent)
+      DrawingFont(FontID(MarkDown()\Font\Normal))
+      
+      ListNum("1") = MarkDown()\Lists()\Start - 1
+      
+      If Type = #List|#Definition
+        DrawingFont(FontID(MarkDown()\Font\Bold))
+        Y = DrawRow_(X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, #False, MarkDown()\Items()\Words())
+      EndIf
+      
+      ForEach MarkDown()\Lists()\Row()
+        
+        PosX = X
+        bqY  = Y
+        
+        Select Type
+          Case #List|#Ordered    ;{ Ordered list
+            Level$ = Str(MarkDown()\Lists()\Row()\Level)
+            ListNum(Level$) + 1
+            Chars$ = Str(ListNum(Level$)) + ". "
+            Indent = TextWidth(Chars$) * MarkDown()\Lists()\Row()\Level + MarkDown()\Indent
+            PosX   = DrawText(PosX + Indent, Y, Chars$, MarkDown()\Color\Front)
+            ;}
+          Case #List|#Definition ;{ Definition list
+            
+            Indent = MarkDown()\Indent * MarkDown()\Lists()\Row()\Level
+            PosX + Indent + MarkDown()\Indent
+            ;}
+          Case #List|#Task       ;{ Task list
+            Indent = (MarkDown()\Lists()\Row()\Height + TextWidth(" ")) * (MarkDown()\Lists()\Row()\Level + 1) + MarkDown()\Indent
+            CheckBox_(PosX + MarkDown()\Indent, Y + dpiY(1), MarkDown()\Lists()\Row()\Height - dpiY(2), MarkDown()\Color\Front, MarkDown()\Color\Back, MarkDown()\Lists()\Row()\State)
+            PosX + Indent
+            ;}
+          Default                ;{ Unordered list
+            Chars$ = #Bullet$ + " "
+            Indent = TextWidth(Chars$) * MarkDown()\Lists()\Row()\Level + MarkDown()\Indent
+            PosX   = DrawText(PosX + Indent, Y, Chars$, MarkDown()\Color\Front)
+            ;}
+        EndSelect 
+        
+        Y = DrawRow_(PosX, Y, MarkDown()\Lists()\Row()\Width, MarkDown()\Lists()\Row()\Height, #False, MarkDown()\Lists()\Row()\Words())
+        
+        If MarkDown()\Lists()\Row()\BlockQuote ;{ BlockQuote
+          DrawingMode(#PB_2DDrawing_Default)
+          Box(MarkDown()\LeftBorder, bqY, dpiX(5), MarkDown()\Lists()\Row()\Height, MarkDown()\Color\BlockQuote)
+          If MarkDown()\Lists()\Row()\BlockQuote = 2
+            Box(MarkDown()\LeftBorder + dpiX(10), bqY, dpiX(5), Y - bqY, MarkDown()\Color\BlockQuote)
+          EndIf
+          DrawingMode(#PB_2DDrawing_Transparent) ;}
+        EndIf
+
+      Next
+
+    EndIf
+    
+    ProcedureReturn Y
+  EndProcedure  
+  
+  Procedure.i DrawTable_(Index.i, X.i, Y.i, BlockQuote.i) 
+    Define.i c, PosX, PosY, ColY, OffSetY, OffSetBQ
+    Define.s Num$
+    
+    NewMap ColX.i()
+    
+    If SelectElement(MarkDown()\Table(), Index)
+      
+      If BlockQuote : OffSetBQ = dpiX(10) * BlockQuote : EndIf 
+    
+      X + OffSetBQ
+
+      ;{ ___ Columns ___
+      PosX = X
+      
+      For c=1 To MarkDown()\Table()\Cols
+        
+        Num$ = Str(c)
+        
+        ColX(Num$) = PosX 
+        
+        PosX + MarkDown()\Table()\Column(Num$)\Width
+      Next
+      ;}
+      
+      ForEach MarkDown()\Table()\Row()
+        
+        PosY = Y
+        
+        For c=1 To MarkDown()\Table()\Cols
+          
+          Num$ = Str(c)
+          
+          PosX = ColX(Num$)
+          
+          MarkDown()\WrapPos = PosX + MarkDown()\Table()\Column(Num$)\Width
+          
+          ColY = DrawRow_(PosX, PosY, MarkDown()\Table()\Row()\Col(Num$)\Width, MarkDown()\Table()\Row()\Height, BlockQuote, MarkDown()\Table()\Row()\Col(Num$)\Words(), MarkDown()\Table()\Column(Num$)\Width, MarkDown()\Table()\Column(Num$)\Align)
+          
+          If ColY > Y : Y = ColY : EndIf
+        Next
+        
+        If MarkDown()\Table()\Row()\Type = #Table|#Header ;{ Header line
+          OffSetY = MarkDown()\Table()\Row()\Height / 2
+          Line(X, Y + OffSetY, MarkDown()\Table()\Width, 1, MarkDown()\Color\Line)
+          Y + MarkDown()\Table()\Row()\Height ;}
+        EndIf 
+      
+      Next
+      
+    EndIf
+    
+    ProcedureReturn Y
+  EndProcedure
+  
+  
 	Procedure   Draw_()
-	  Define.i X, Y, Width, Height, LeftBorder, WrapPos, TextHeight, Cols
+	  Define.i X, Y, Width, Height, LeftBorder, WrapPos, TextWidth, TextHeight, Cols
 	  Define.i Indent, Level, Offset, OffSetX, OffSetY, maxCol, ImgSize
 	  Define.i c, OffsetList, NumWidth, ColWidth, TableWidth
 		Define.i FrontColor, BackColor, BorderColor, LinkColor
-		Define.s Text$, Num$, ColText$
-		
-		NewMap ListNum.i()
-		
+		Define.s Text$, Num$, ColText$, Label$
+
 		If MarkDown()\Hide : ProcedureReturn #False : EndIf 
 		
 		X = dpiX(MarkDown()\Margin\Left)
@@ -3833,7 +4392,8 @@ Module MarkDown
 		If StartDrawing(CanvasOutput(MarkDown()\CanvasNum))
 		  
 		  DrawingFont(FontID(MarkDown()\Font\Normal))
-			MarkDown()\Scroll\Height = TextHeight("Abc")
+		  TextHeight = TextHeight("X")
+			MarkDown()\Scroll\Height = TextHeight
 		  
 		  Y - MarkDown()\Scroll\Offset
 		  
@@ -3855,396 +4415,123 @@ Module MarkDown
 		  Box(0, 0, dpiX(GadgetWidth(MarkDown()\CanvasNum)), dpiY(GadgetHeight(MarkDown()\CanvasNum)), MarkDown()\Color\Gadget) ; needed for rounded corners
 			Box_(0, 0, dpiX(GadgetWidth(MarkDown()\CanvasNum)), dpiY(GadgetHeight(MarkDown()\CanvasNum)), BackColor)
 			;}
-
-			ForEach MarkDown()\Row()
-	
-			  DrawingFont(FontID(MarkDown()\Font\Normal))
-			  TextHeight = TextHeight("Abc")
+			
+			ForEach MarkDown()\Items()
 			  
-			  X = MarkDown()\LeftBorder
-			  
-			  MarkDown()\BlockQuote = MarkDown()\Row()\BlockQuote
-			  MarkDown()\WrapHeight = 0
-			  
-			  Select MarkDown()\Row()\Type
-			    Case #Heading          ;{ Heading  
-
-			      DrawingMode(#PB_2DDrawing_Transparent)
-			      Select MarkDown()\Row()\Level
-			        Case 1
-			          DrawingFont(FontID(MarkDown()\Font\H1))
-			        Case 2
-			          DrawingFont(FontID(MarkDown()\Font\H2))
-			        Case 3
-			          DrawingFont(FontID(MarkDown()\Font\H3))
-			        Case 4
-			          DrawingFont(FontID(MarkDown()\Font\H4))
-			        Case 5
-			          DrawingFont(FontID(MarkDown()\Font\H5))
-			        Case 6
-			          DrawingFont(FontID(MarkDown()\Font\H6))
-			      EndSelect
+			  Select MarkDown()\Items()\Type
+			    Case #Code             ;{ Code block
 			      
-			      DrawText_(X, Y, MarkDown()\Row()\String, FrontColor)
-			      
-			      If TextWidth(MarkDown()\Row()\String) > MarkDown()\Required\Width : MarkDown()\Required\Width = TextWidth(MarkDown()\Row()\String) : EndIf 
-			      
-			      Y + TextHeight(MarkDown()\Row()\String) + MarkDown()\WrapHeight + (TextHeight / 3)
-            ;}
-			    Case #List|#Ordered    ;{ Ordered List  
-			      
-			      ClearMap(ListNum())
+			      Y + (TextHeight / 4)
 			      
 			      DrawingMode(#PB_2DDrawing_Transparent)
-
-			      NumWidth   = Len(Str(ListSize(MarkDown()\Row()\Item()))) * TextWidth("0")
+			      DrawingFont_(MarkDown()\Block()\Font)
 			      
-			      Y + (TextHeight / 2)
+			      If SelectElement(MarkDown()\Block(), MarkDown()\Items()\Index)
+			        ForEach MarkDown()\Block()\Row()
+			          DrawText(X, Y, MarkDown()\Block()\Row(), MarkDown()\Color\Code)
+			          Y + MarkDown()\Items()\Height
+			        Next
+			      EndIf
 			      
-			      ForEach MarkDown()\Row()\Item()
-			        
-			        Offset = 0
-			        X      = MarkDown()\LeftBorder
-			        Level  = MarkDown()\Row()\Item()\Level
-			        Indent = (NumWidth + TextWidth(". ")) * (Level)
-			        
-			        If Level
-			          If MarkDown()\Row()\Item()\Type = #List
-			            Num$ = "- "
-			          Else  
-			            ListNum(Str(Level)) + 1
-			            Num$ = Str(ListNum(Str(Level-1))) + "." + Str(ListNum(Str(Level))) + ". "
-			          EndIf 
-			        Else
-			          If MarkDown()\Row()\Item()\Type = #List
-			            Num$ = #Bullet$
-			            Offset = NumWidth - TextWidth(Num$) + TextWidth(".")
-			            Num$ + "  "
-			          Else
-  			          ListNum(Str(Level)) + 1
-  			          Num$ = Str(ListNum(Str(Level)))
-  			          Offset = NumWidth - TextWidth(Num$)
-  			          Num$ + ". "
-  			        EndIf  
-			        EndIf
-
-			        X = DrawText_(X + Offset + MarkDown()\Indent + Indent, Y, Num$ + MarkDown()\Row()\Item()\String, FrontColor, Offset + MarkDown()\Indent + Indent + TextWidth(Num$))
-			        X = DrawInline_(X, Y, FrontColor)
-
-			        Y + TextHeight
-			      Next
-			      
-			      Y + MarkDown()\WrapHeight + (TextHeight / 2)
+			      Y + (TextHeight / 4)
 			      ;}
-			    Case #List|#Unordered  ;{ Unordered List
+			    Case #Heading          ;{ Headings
 			      
-			      ClearMap(ListNum())
-			      
-			      DrawingMode(#PB_2DDrawing_Transparent)
-			      
-			      NumWidth   = TextWidth("0")
-
-			      Y + (TextHeight / 2)
-			      
-			      ForEach MarkDown()\Row()\Item()
-			        
-			        X      = MarkDown()\LeftBorder
-			        Level  = MarkDown()\Row()\Item()\Level
-			        Indent = TextWidth(#Bullet$ + " ") * MarkDown()\Row()\Item()\Level
-			        
-			        If Level
-			          If MarkDown()\Row()\Item()\Type = #List|#Ordered
-			            ListNum(Str(Level)) + 1
-			            Num$ = Str(ListNum(Str(Level))) + ". "
-			          Else  
-			            Num$ = "- "
-			          EndIf
-			        Else
-			          If MarkDown()\Row()\Item()\Type = #List|#Ordered
-			            ListNum(Str(Level)) + 1
-			            Num$ = Str(ListNum(Str(Level))) + ". "
-			          Else  
-			            Num$ = #Bullet$ + " "
-			          EndIf 
-			        EndIf  
-			        
-			        DrawingMode(#PB_2DDrawing_Transparent)
-			        X = DrawText_(X + MarkDown()\Indent + Indent, Y, Num$ + MarkDown()\Row()\Item()\String, FrontColor, MarkDown()\Indent + Indent + TextWidth(Num$))
-			        X = DrawInline_(X, Y, FrontColor)
-			        
-			        Y + TextHeight
-			      Next
-			      
-			      Y + MarkDown()\WrapHeight + (TextHeight / 2)
+			      Y = DrawRow_(X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words())
+			      Y + (TextHeight / 4)
 			      ;}
-			    Case #List|#Task       ;{ Task List 
+			    Case #Image            ;{ Images
 			      
-			      Y + (TextHeight / 2)
-			      
-			      NumWidth = TextHeight + TextWidth(" ")
+			      If SelectElement(MarkDown()\Image(), MarkDown()\Items()\Index)
+    
+			        If MarkDown()\Image()\Num = #False ;{ Load Image
+    	          MarkDown()\Image()\Num = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+    	          If MarkDown()\Image()\Num
+    	            MarkDown()\Image()\Width  = ImageWidth(MarkDown()\Image()\Num)
+    	            MarkDown()\Image()\Height = ImageHeight(MarkDown()\Image()\Num)
+    	          EndIf ;}
+    	        EndIf
+    	        
+    	        If IsImage(MarkDown()\Image()\Num)
+    	          
+    	          DrawingMode(#PB_2DDrawing_AlphaBlend)
+    	          DrawImage(ImageID(MarkDown()\Image()\Num), X, Y)
+    	          
+    	          MarkDown()\Image()\X = X
+    	          MarkDown()\Image()\Y = Y
+    	          MarkDown()\Image()\Width  = MarkDown()\Image()\Width
+    	          MarkDown()\Image()\Height = MarkDown()\Image()\Height
+    	          
+    	          Y + MarkDown()\Image()\Height
+    	          
+    	          If ListSize(MarkDown()\Items()\Words())
+    	            
+    	            Y + (TextHeight / 4)
+    	            
+    	            OffSetX = (MarkDown()\Image()\Width - MarkDown()\Items()\Width) / 2
+    	            
+    	            DrawingMode(#PB_2DDrawing_Transparent)
+    	            Y = DrawRow_(X + OffSetX, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words())
 
-			      ForEach MarkDown()\Row()\Item()
-			        
-			        X = MarkDown()\LeftBorder
-			        
-			        CheckBox_(X + MarkDown()\Indent, Y + dpiY(1), TextHeight - dpiY(2), FrontColor, BackColor, MarkDown()\Row()\Item()\State)
-			      
-			        DrawingMode(#PB_2DDrawing_Transparent)
-			        X = DrawText_(X + MarkDown()\Indent + TextHeight, Y, MarkDown()\Row()\Item()\String, FrontColor, MarkDown()\Indent + NumWidth)
-			        X = DrawInline_(X, Y, FrontColor)
-			        
-			        Y + TextHeight + dpiY(2)
-			      Next
-			      
-			      Y + (TextHeight / 2)
+    	          EndIf
+    	          
+    	        ElseIf ListSize(MarkDown()\Items()\Words())
+    	          
+    	          OffSetX = (Width - MarkDown()\Items()\Width) / 2
+    	          
+                DrawingMode(#PB_2DDrawing_Transparent)
+    	          Y = DrawRow_(X + OffSetX, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words())
+               
+    	        EndIf 
+    	        
+    	        If MarkDown()\Image()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Image()\Width : EndIf 
+    	        
+    	      EndIf
 			      ;}
-			    Case #List|#Definition ;{ Definition List
+			    Case #Line             ;{ Horizontal rule  
 			      
-			      
-			      DrawingMode(#PB_2DDrawing_Transparent)  
-			      
-			      DrawingFont(FontID(MarkDown()\Font\Bold))
-			      DrawText_(X, Y, MarkDown()\Row()\String, FrontColor)
-			      
-			      Y + (TextHeight * 1.1)
-			      
-			      DrawingFont(FontID(MarkDown()\Font\Normal))
-			      ForEach MarkDown()\Row()\Item()
-			        
-			        X = MarkDown()\LeftBorder
-			        
-			        X = DrawText_(X + MarkDown()\Indent, Y, MarkDown()\Row()\Item()\String, FrontColor, MarkDown()\Indent)
-			        X = DrawInline_(X, Y, FrontColor)
-			        
-			        Y + (TextHeight * 1.1)
-			      Next
-			      
-			      Y + MarkDown()\WrapHeight
-			      ;}
-			    Case #HLine            ;{ Horizontal Rule  
-
 			      OffSetY = TextHeight / 2
-
+			      
 			      DrawingMode(#PB_2DDrawing_Default)
 			      Box(X, Y + OffSetY, Width, 2, MarkDown()\Color\Line)
+			      DrawingMode(#PB_2DDrawing_Transparent)
 			      
 			      Y + TextHeight
 			      ;}
-			    Case #Paragraph        ;{ Paragraph  
-			      Y + (TextHeight / 2)
+			    Case #List|#Definition ;{ Definition list
+			      
+			      Y = DrawList_(MarkDown()\Items()\Index, #List|#Definition, X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote) 
+			      ;}
+			    Case #List|#Ordered    ;{ Ordered list
+			      
+            Y = DrawList_(MarkDown()\Items()\Index, #List|#Ordered, X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote) 
+			      ;}
+			    Case #List|#Task       ;{ Task list
+			      
+            Y = DrawList_(MarkDown()\Items()\Index, #List|#Task, X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote) 
+			      ;}
+          Case #List|#Unordered  ;{ Unordered list
+            
+            Y = DrawList_(MarkDown()\Items()\Index, #List|#Unordered, X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote) 
+			      ;}
+			    Case #Paragraph        ;{ Paragraph
+			       Y + (TextHeight / 2)
 			      ;}
 			    Case #Table            ;{ Table
-	
-			      DrawingFont(FontID(MarkDown()\Font\Normal))
-			      TextHeight = TextHeight("Abc")
 			      
-			      X = MarkDown()\LeftBorder + dpiX(20)
-			      Y + (TextHeight / 2)
-			      
-			      TableWidth = Width - dpiX(40)
-			      
-			      DrawingMode(#PB_2DDrawing_Transparent)
-			      
-			      ForEach MarkDown()\Row()\Item()
-			        
-			        Text$ = MarkDown()\Row()\Item()\String
-			        
-			        Cols     = CountString(Text$, "|") + 1
-			        ColWidth = TableWidth / Cols
-
-			        If MarkDown()\Row()\Item()\Type = #Table|#Header
-			          DrawingFont(FontID(MarkDown()\Font\Bold))
-			        Else
-			          DrawingFont(FontID(MarkDown()\Font\Normal))
-			        EndIf  
-			        
-			        For c=0 To Cols - 1
-			          
-			          ColText$ = Trim(StringField(Text$, c+1, "|"))
-
-			          Select StringField(MarkDown()\Row()\String, c+1, "|")
-			            Case "C"
-			              OffSetX = (ColWidth - dpiX(5) - TextWidth(ColText$)) / 2
-			            Case "R"  
-			              OffSetX = ColWidth - dpiX(5)  - TextWidth(ColText$) 
-			            Default
-			              OffSetX = 0
-			          EndSelect
-			          
-			          maxCol = ColWidth * (c + 1)
-		            DrawText_(X + (ColWidth * c) + OffSetX, Y, ColText$, FrontColor, 0, maxCol + OffSetX)
-		          Next 
-		          
-		          Y + TextHeight + MarkDown()\WrapHeight
-		          
-		          If MarkDown()\Row()\Item()\Type = #Table|#Header
-  		          OffSetY = TextHeight / 2
-  		          Line(X, Y + OffSetY, TableWidth, 1, FrontColor)
-  		          Y + TextHeight 
-			        EndIf  
-			        
-			      Next
-			      
-			      Y + (TextHeight / 2)
-			      ;}
-			    Case #Code             ;{ Code Block
-			      
-			      DrawingMode(#PB_2DDrawing_Transparent)
-			      
-			      Y + (TextHeight / 2)
-			      
-			      DrawingFont(FontID(MarkDown()\Font\Code))
-			      TextHeight = TextHeight("Abc")
-			      
-			      ForEach MarkDown()\Row()\Item()
-              DrawText_(X, Y, MarkDown()\Row()\Item()\String, FrontColor)
-			        Y + TextHeight
-			      Next
-			      
-			      Y + MarkDown()\WrapHeight + (TextHeight / 2)
+			      Y = DrawTable_(MarkDown()\Items()\Index, X, Y, MarkDown()\Items()\BlockQuote) 
 			      ;}
 			    Default                ;{ Text
-			      
-			      DrawingMode(#PB_2DDrawing_Transparent)
-			      
-			      DrawingFont(FontID(MarkDown()\Font\Normal))
-			      
-			      TextHeight = TextHeight("Abc")
-            
-			      If MarkDown()\Row()\String
-			        X = DrawText_(X, Y, MarkDown()\Row()\String, FrontColor)
-  			    EndIf
-			    
-			      ForEach MarkDown()\Row()\Item()
-			        
-			        Select MarkDown()\Row()\Item()\Type
-                Case #Bold          ;{ Emphasis
-                  DrawingFont(FontID(MarkDown()\Font\Bold))
-                  X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, FrontColor)
-                Case #Italic
-                  DrawingFont(FontID(MarkDown()\Font\Italic))
-                  X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, FrontColor)
-                Case #Bold|#Italic 
-                  DrawingFont(FontID(MarkDown()\Font\BoldItalic))
-                  X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, FrontColor)
-                  ;}
-                Case #Code          ;{ Code
-                  DrawingFont(FontID(MarkDown()\Font\Code))
-                  X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, FrontColor)
-                  ;}
-                Case #Emoji         ;{ Emojis
-                  DrawingFont(FontID(MarkDown()\Font\Normal))
-                  TextHeight = TextHeight("Abc")
-                  If TextHeight <= dpiY(16)
-                    ImgSize = TextHeight - dpiY(1)
-                  Else
-                    ImgSize = dpiY(TextHeight)
-                  EndIf  
-                  OffSetY = (TextHeight - ImgSize) / 2
-                  If IsImage(Emoji(MarkDown()\Row()\Item()\String))
-                    DrawingMode(#PB_2DDrawing_AlphaBlend)
-    			          DrawImage(ImageID(Emoji(MarkDown()\Row()\Item()\String)), X, Y + OffSetY, ImgSize, ImgSize)
-    			          X + ImgSize
-                  EndIf
-                  ;}
-                Case #FootNote      ;{ Footnote
-                  DrawingFont(FontID(MarkDown()\Font\FootNote))
-                  X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, FrontColor, 0, 0, MarkDown()\Row()\Item()\Index, #FootNote)
-                  ;}                
-                Case #Image         ;{ Image
-                  
-                  If SelectElement(MarkDown()\Image(), MarkDown()\Row()\Item()\Index)
-			        
-      			        If MarkDown()\Image()\Num = #False ;{ Load Image
-      			          MarkDown()\Image()\Num = LoadImage(#PB_Any, MarkDown()\Image()\Source)
-      			          If MarkDown()\Image()\Num
-      			            MarkDown()\Image()\Width  = ImageWidth(MarkDown()\Image()\Num)
-      			            MarkDown()\Image()\Height = ImageHeight(MarkDown()\Image()\Num)
-      			          EndIf ;}
-      			        EndIf
-      			        
-      			        If IsImage(MarkDown()\Image()\Num)
-      			          
-      			          DrawingMode(#PB_2DDrawing_AlphaBlend)
-      			          DrawImage(ImageID(MarkDown()\Image()\Num), X, Y)
-      			          
-      			          MarkDown()\Image()\X = X
-      			          MarkDown()\Image()\Y = Y
-      			          MarkDown()\Image()\Width  = MarkDown()\Image()\Width
-      			          MarkDown()\Image()\Height = MarkDown()\Image()\Height
-      			          
-      			          Y + MarkDown()\Image()\Height
-      			          
-      			          If MarkDown()\Row()\Item()\String
-      			            
-      			            Y + (TextHeight / 4)
-      			            
-      			            OffSetX = (MarkDown()\Image()\Width - TextWidth(MarkDown()\Row()\Item()\String)) / 2
-      			            
-      			            DrawingMode(#PB_2DDrawing_Transparent)
-      			            DrawText(X + OffSetX, Y, MarkDown()\Row()\Item()\String, FrontColor)
-      			            
-      			            Y + TextHeight(MarkDown()\Row()\Item()\String)
-      			          EndIf
-      			          
-      			        ElseIf MarkDown()\Row()\Item()\String
-      			          
-      			          OffSetX = (MarkDown()\Image()\Width - TextWidth(MarkDown()\Row()\Item()\String)) / 2
-      			          
-      		            DrawingMode(#PB_2DDrawing_Transparent)
-      		            DrawText(X + OffSetX, Y, MarkDown()\Row()\Item()\String, FrontColor)
-      		            
-      		            Y + TextHeight(MarkDown()\Row()\Item()\String)
-      		            
-      			        EndIf 
-      			        
-      			        If MarkDown()\Image()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Image()\Width : EndIf 
-      			        
-      			      EndIf
-      			      
-                  ;}
-                Case #Link          ;{ Link
-                  DrawingFont(FontID(MarkDown()\Font\Normal))
-                  X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, LinkColor, #False, 0, MarkDown()\Row()\Item()\Index, #Link)  
-                  ;}
-                Case #Highlight     ;{ Highlight
-                  DrawingFont(FontID(MarkDown()\Font\Normal))
-                  X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, FrontColor, 0, 0, #PB_Default, #Highlight)
-                  ;}
-                Case #StrikeThrough ;{ StrikeThrough  
-                  DrawingFont(FontID(MarkDown()\Font\Normal))
-                  X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, FrontColor, 0, 0, #PB_Default, #StrikeThrough)
-                  ;}
-                Case #Subscript     ;{ SubScript
-                  DrawingFont(FontID(MarkDown()\Font\Normal))
-			            TextHeight = TextHeight("Abc")
-                  DrawingFont(FontID(MarkDown()\Font\FootNote))
-                  OffSetY = TextHeight - TextHeight(MarkDown()\Row()\Item()\String) + dpiY(2)
-                  X = DrawText_(X, Y + OffSetY, MarkDown()\Row()\Item()\String, FrontColor)
-                  ;}
-                Case #Superscript   ;{ SuperScript
-                  DrawingFont(FontID(MarkDown()\Font\FootNote))
-                  X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, FrontColor)
-                  ;}
-                Case #AutoLink      ;{ URL / EMail
-                  DrawingFont(FontID(MarkDown()\Font\Normal))
-                  X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, LinkColor, #False, 0, MarkDown()\Row()\Item()\Index, #Link)
-                  ;}  
-                Default             ;{ Text
-                  DrawingFont(FontID(MarkDown()\Font\Normal))
-                  X = DrawText_(X, Y, MarkDown()\Row()\Item()\String, FrontColor)
-                  ;}
-              EndSelect
 
-            Next 
-            
-            Y + TextHeight + MarkDown()\WrapHeight
+			      Y = DrawRow_(X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words())
 			      ;}
 			  EndSelect
-
-			Next  
+			  
+			Next
 			
 			If ListSize(MarkDown()\Footnote()) ;{ Footnotes
+			  
+			  DrawingMode(#PB_2DDrawing_Transparent)
 			  
 			  X = MarkDown()\LeftBorder
 			  MarkDown()\WrapHeight = 0
@@ -4253,7 +4540,7 @@ Module MarkDown
 			  TextHeight = TextHeight("Abc")
 			  Y + (TextHeight / 2)
 			  
-			  DrawingFont(FontID(MarkDown()\Font\FootNoteText))
+			  DrawingFont(FontID(MarkDown()\Font\FootText))
 			  TextHeight = TextHeight("Abc")
 			  
 			  OffSetY = TextHeight / 2
@@ -4263,14 +4550,17 @@ Module MarkDown
 			  
 			  ForEach MarkDown()\Footnote()
 			    
-          DrawingFont(FontID(MarkDown()\Font\FootNote))
-          X = DrawText_(MarkDown()\LeftBorder, Y, MarkDown()\FootNote()\Label + " ", FrontColor)
-          Indent = TextWidth(MarkDown()\FootNote()\Label + "  ")
+			    DrawingFont(FontID(MarkDown()\Font\FootNote))
+			    
+			    Label$ = MarkDown()\FootNote()\Label
+
+			    X = MarkDown()\LeftBorder
+          X = DrawText(X, Y, Label$ + " ", MarkDown()\Color\Hint)
           
-          DrawingFont(FontID(MarkDown()\Font\FootNoteText))
-          DrawText_(X, Y, MarkDown()\FootLabel(MarkDown()\Footnote()\Label), FrontColor, Indent)
-          
-			    Y + TextHeight
+          If FindMapElement(MarkDown()\FootLabel(), Label$)
+            Y = DrawRow_(X, Y, MarkDown()\FootLabel()\Width, MarkDown()\FootLabel()\Height, #False, MarkDown()\FootLabel()\Words())
+          EndIf
+        
 			  Next
 			  ;}
 			EndIf  
@@ -4288,7 +4578,6 @@ Module MarkDown
 		EndIf
 
 	EndProcedure
-	
 	
 	Procedure   ReDraw()
 	  
@@ -4449,14 +4738,39 @@ Module MarkDown
 			      SetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
 			      
 			      If MarkDown()\ToolTip = #False
-			        GadgetToolTip(GNum, MarkDown()\FootLabel(MarkDown()\Footnote()\Label))
-			        MarkDown()\ToolTip  = #True
+			        
+			        ToolTip$ = ""
+			        
+			        If FindMapElement(MarkDown()\FootLabel(), MarkDown()\Footnote()\Label)
+			          ForEach MarkDown()\FootLabel()\Words() : ToolTip$ + MarkDown()\FootLabel()\Words()\String + " " : Next
+			          GadgetToolTip(GNum, Trim(ToolTip$))
+			          MarkDown()\ToolTip  = #True
+			        EndIf
+			        
 			      EndIf
 			      
   			    ProcedureReturn #True
   			  EndIf
   			EndIf
   			;}
+			Next  
+			
+			ForEach MarkDown()\Abbreviation() ;{ Abbreviations
+			  
+			  If Y >= MarkDown()\Abbreviation()\Y And Y <= MarkDown()\Abbreviation()\Y + MarkDown()\Abbreviation()\Height 
+			    If X >= MarkDown()\Abbreviation()\X And X <= MarkDown()\Abbreviation()\X + MarkDown()\Abbreviation()\Width
+			      
+			      SetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
+			      
+			      If MarkDown()\ToolTip = #False
+		          GadgetToolTip(GNum, Trim(MarkDown()\Abbreviation()\String))
+		          MarkDown()\ToolTip  = #True
+			      EndIf
+			      
+  			    ProcedureReturn #True
+  			  EndIf
+  			EndIf
+			  ;}
 			Next  
 			
 			ForEach MarkDown()\Image()    ;{ Images
@@ -4622,7 +4936,7 @@ Module MarkDown
 	  
 	  If AddMapElement(MarkDown(), "Convert")
 	    
-	    ParseMD_(MarkDown)
+	    Parse_(MarkDown)
 	    
 	    Select Type
 	      Case #HTML  
@@ -4767,19 +5081,23 @@ Module MarkDown
 				MarkDown()\Margin\Right  = 5
 				MarkDown()\Margin\Bottom = 5
 				
-				MarkDown()\Indent = 10
+				MarkDown()\Indent      = 10
+				MarkDown()\LineSpacing = 1.06
 				
 				MarkDown()\Flags  = Flags
 
 				MarkDown()\Color\Back          = $FFFFFF
 				MarkDown()\Color\BlockQuote    = $C0C0C0
 				MarkDown()\Color\Border        = $E3E3E3
+				MarkDown()\Color\Code          = $808000
 				MarkDown()\Color\DisableFront  = $72727D
 				MarkDown()\Color\DisableBack   = $CCCCCA
 				MarkDown()\Color\Front         = $000000
 				MarkDown()\Color\Gadget        = $F0F0F0
 				MarkDown()\Color\Highlight     = $E3F8FC
-				MarkDown()\Color\Hint          = $578B2E
+				MarkDown()\Color\Hint          = $006400
+				MarkDown()\Color\Keystroke     = $650000
+				MarkDown()\Color\KeyStrokeBack = $F5F5F5
 				MarkDown()\Color\Line          = $A9A9A9
 				MarkDown()\Color\Link          = $8B0000
 				MarkDown()\Color\LinkHighlight = $FF0000
@@ -4872,14 +5190,18 @@ Module MarkDown
       Select Attribute
         Case #Corner
           MarkDown()\Radius        = Value
-        Case #TopMargin
+        Case #Margin_Top
           MarkDown()\Margin\Top    = Value
-        Case #LeftMargin
+        Case #Margin_Left
           MarkDown()\Margin\Left   = Value
-        Case #RightMargin
+        Case #Margin_Right
           MarkDown()\Margin\Right  = Value
-        Case #BottomMargin
+        Case #Margin_Bottom
           MarkDown()\Margin\Bottom = Value
+        Case #Indent
+          MarkDown()\Indent        = Value
+        Case #LineSpacing
+          MarkDown()\LineSpacing   = Value
       EndSelect
       
       Draw_()
@@ -4911,24 +5233,30 @@ Module MarkDown
     If FindMapElement(MarkDown(), Str(GNum))
     
       Select ColorTyp 
-        Case #BackColor
+        Case #Color_Back
           MarkDown()\Color\Back          = Value
-        Case #BlockQuoteColor 
+        Case #Color_BlockQuote
           MarkDown()\Color\BlockQuote    = Value   
-        Case #BorderColor
+        Case #Color_Border
           MarkDown()\Color\Border        = Value
-        Case #FrontColor
+        Case #Color_Code 
+          MarkDown()\Color\Code          = Value
+        Case #Color_Front
           MarkDown()\Color\Front         = Value  
-        Case #HighlightColor
+        Case #Color_HighlightBack
           MarkDown()\Color\Highlight     = Value    
-        Case #HintColor
+        Case #Color_Tooltip
           MarkDown()\Color\Hint          = Value 
-        Case #LineColor
+        Case #Color_Line
           MarkDown()\Color\Line          = Value  
-        Case #LinkColor
+        Case #Color_Link
           MarkDown()\Color\Link          = Value  
-        Case #LinkHighlightColor
-          MarkDown()\Color\LinkHighlight = Value    
+        Case #Color_HighlightLink
+          MarkDown()\Color\LinkHighlight = Value  
+        Case #Color_KeyStroke
+          MarkDown()\Color\Keystroke     = Value  
+        Case #Color_KeystrokeBack  
+          MarkDown()\Color\KeyStrokeBack = Value  
       EndSelect
       
       Draw_()
@@ -4973,14 +5301,14 @@ Module MarkDown
 	    
 	    MarkDown()\Text = Text
 	    
-	    ParseMD_(Text)
+	    Parse_(Text)
 
 	    ReDraw()
 	  EndIf
 	  
 	EndProcedure
   
-	
+
 	LoadEmojis_()
 
 	;{ _____ DataSection _____
@@ -5212,6 +5540,8 @@ CompilerIf #PB_Compiler_IsMainFile
   ; 10: Subscript / Superscript
   ; 11: Code Block
   ; 12: Emoji
+  ; 13: Abbreviations
+  ; 14: Keystrokes
   
   Define.s Text$
  
@@ -5231,34 +5561,34 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "Italicized text is the *cat's meow*."+ #LF$
       Text$ + "This text is ___really important___.  "+ #LF$
       Text$ + "The world is ~~flat~~ round.  "+ #LF$
-      Text$ + "This ==word== is highlighted.  "+ #LF$
+      Text$ + "This == word == is highlighted.  "+ #LF$
       Text$ + "-----------------------------------------" + #LF$
       Text$ + "#### Code ####" + #LF$
       Text$ + "At the command prompt, type ``nano``."+ #LF$
     Case 3
-      Text$ = "#### Ordered List ####"  + #LF$
-      Text$ + "1. First list item"+#LF$+"   2. Second list item"+#LF$+"   3. Third list item"+#LF$+"4. Fourth list item"+ #LF$
+      Text$ = "#### Ordered List ####" + #LF$
+      Text$ + "1. List item"+#LF$+"   2. List item"+#LF$+"   3. List item"+#LF$+"4. List item"+ #LF$
       Text$ + "-----" + #LF$
-      Text$ + "#### Unordered List ####"  + #LF$
-      Text$ + "- First list item" + #LF$ + "  - Second list item:" + #LF$ + "  - Third list item" + #LF$ + "- Fourth list item" + #LF$ 
+      Text$ + "#### Unordered List ####" + #LF$
+      Text$ + "- First list item" + #LF$ + "  - Second list item:" + #LF$ + "  - Third list item" + #LF$ + " - Fourth list item" + #LF$ 
     Case 4
       Text$ = "#### Links & URLs ####" + #LF$ 
-      Text$ + "URL: <https://www.markdownguide.org>  "+ #LF$
-      Text$ + "EMail: <fake@example.com>  "+ #LF$
+      Text$ + "URL: <https://www.markdownguide.org>  " + #LF$ + #LF$
+      Text$ + "EMail: <fake@example.com>  " + #LF$ + #LF$
       Text$ + "Link:  [Duck Duck Go](https://duckduckgo.com "+#DQUOTE$+"My search engine!"+#DQUOTE$+")  "+ #LF$
     Case 5
       Text$ = "#### Image ####"  + #LF$
       Text$ + " ![Programmer](Test.png " + #DQUOTE$ + "Programmer Image" + #DQUOTE$ + ")"
     Case 6
       Text$ = "#### Table ####"  + #LF$
-      Text$ + "| Syntax    | Description |" + #LF$
-      Text$ + "| :-------- | ----------: |" + #LF$
-      Text$ + "| Header    | Title       |" + #LF$ 
-      Text$ + "| Paragraph | Text        |" + #LF$ 
+      Text$ + "| Syntax    | Description   |" + #LF$
+      Text$ + "| :-------- | ------------: |" + #LF$
+      Text$ + "| *Header*  | Title         |" + #LF$ 
+      Text$ + "| Paragraph | *Text*        |" + #LF$ 
     Case 7
       Text$ = "#### Footnotes ####" + #LF$ + #LF$
       Text$ + "Here's a simple footnote,[^1] and here's a longer one.[^bignote]" + #LF$
-      Text$ + "[^1]: This is the first footnote." + #LF$
+      Text$ + "[^1]: This is the **first** footnote." + #LF$
       Text$ + "[^bignote]: Here's one with multiple paragraphs and code."
     Case 8
       Text$ = "#### Task List ####" + #LF$
@@ -5271,8 +5601,8 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + ": This is the definition of the first term." + #LF$
       Text$ + #LF$
       Text$ + "Second Term"+ #LF$
-      Text$ + ": This is one definition of the second term." + #LF$
-      Text$ + ": This is another definition of the second term." + #LF$
+      Text$ + ": This is one definition of the *second term*." + #LF$
+      Text$ + ": This is another definition of the **second term**." + #LF$
     Case 10
       Text$ = "#### SubScript / SuperScript ####" + #LF$  + #LF$
       Text$ + "Chemical formula for water: H~2~O  " + #LF$
@@ -5306,13 +5636,16 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + ":eyes:  face with rolling eyes  " + #LF$
     Case 13  
       Text$ = "#### Hint / Tooltip ####" + #LF$  + #LF$
-      Text$ + "The [HTML] specification is maintained by the [>W3C]." + #LF$
-      Text$ + "[HTML]: Hypertext Markup Language" + #LF$
-      Text$ + "[W3C]:  World Wide Web Consortium" + #LF$
+      Text$ + "The HTML specification is maintained by the W3C." + #LF$
+      Text$ + "*[HTML]: Hypertext Markup Language" + #LF$
+      Text$ + "*[W3C]:  World Wide Web Consortium" + #LF$
+     Case 14  
+      Text$ = "#### Keystrokes ####" + #LF$ + #LF$ 
+      Text$ + "Copy text with [[Ctrl]] [[C]]." + #LF$
     Default  
       Text$ = "### MarkDown ###" + #LF$ + #LF$
       Text$ + "> The gadget can display text formatted with the [MarkDown Syntax](https://www.markdownguide.org/basic-syntax/).  "+ #LF$
-      Text$ + "> Markdown[^1] is a lightweight MarkUp language that you can use to add formatting elements to plaintext text documents."+ #LF$
+      Text$ + "> Markdown[^1] is a lightweight MarkUp language that you can use to add formatting elements to plaintext text documents."+ #LF$ + #LF$
       Text$ + "- Markdown files can be read even if it isn’t rendered."  + #LF$
       Text$ + "- Markdown is portable." + #LF$ + "- Markdown is platform independent." + #LF$
       Text$ + "[^1]: Created by John Gruber in 2004."
@@ -5394,9 +5727,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 4967
-; FirstLine = 413
-; Folding = 5RCAAAAAAAQAABAAAAAAAc9ICAAAAEAAAAAAAAEQAAAAAAASQgRy
-; Markers = 2785
+; CursorPosition = 5528
+; FirstLine = 813
+; Folding = whKAAAEAAAQCAIAAAAERCAAA1DCbgIAAAACMgCAAAAAQAAEAAQSACw-
+; Markers = 5528
 ; EnableXP
 ; DPIAware
