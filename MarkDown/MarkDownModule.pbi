@@ -15,6 +15,9 @@
 ; - Added: Keystrokes "[[Ctrl]] [[C]]"
 ; - Added: Abbreviations "*[HTML]: Hypertext Markup Language"
 ; - Added: Inline Emphasis (Lists/Tables/Footnotes/...)
+; - Added: Emphasis (bold/italic) for links, autolinks, strikethrough and highlight
+; - Changed: PDF task list with images for checkboxes
+
 ;
 
 ;{ ===== MIT License =====
@@ -83,7 +86,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20200200
+  #Version  = 20200201
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -439,7 +442,6 @@ Module MarkDown
 	EndStructure ;}
 	
 	Structure MarkDown_Color_Structure     ;{ MarkDown()\Color\...
-		
 	  Back.i
 	  BlockQuote.i
 		Border.i
@@ -720,6 +722,8 @@ Module MarkDown
 	
 	Procedure   LoadEmojis_()
 	  
+	  Emoji(":check0:")   = CatchImage(#PB_Any, ?Check0, 145)
+	  Emoji(":check1:")   = CatchImage(#PB_Any, ?Check1, 276)
 	  Emoji(":angry:")    = CatchImage(#PB_Any, ?Angry, 540)
 	  Emoji(":bookmark:") = CatchImage(#PB_Any, ?BookMark, 334)
 	  Emoji(":cool:")     = CatchImage(#PB_Any, ?Cool, 629)
@@ -1720,39 +1724,43 @@ Module MarkDown
     Procedure.i EmojiPDF_(PDF.i, Emoji.s, X.i, Y.i, ImgSize.i)
       Define.i *Image
       
-  	  Select Emoji
+      Select Emoji
+        Case ":check0:"
+          PDF::ImageMemory(PDF, "CheckBox0.png", ?Check0,    145, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+        Case ":check1:"
+          PDF::ImageMemory(PDF, "CheckBox1.png", ?Check1,    276, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
   	    Case ":date:", ":calendar:"
-  	      PDF::ImageMemory(PDF, "Date.png",     ?Calendar, 485, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+  	      PDF::ImageMemory(PDF, "Date.png",      ?Calendar,  485, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
         Case ":mail:", ":envelope:"
-          PDF::ImageMemory(PDF, "Mail.png",     ?Mail,     437, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+          PDF::ImageMemory(PDF, "Mail.png",      ?Mail,      437, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
   	    Case ":bookmark:"
-          PDF::ImageMemory(PDF, "BookMark.png", ?BookMark, 334, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+          PDF::ImageMemory(PDF, "BookMark.png",  ?BookMark,  334, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
   	    Case ":memo:"
-          PDF::ImageMemory(PDF, "Memo.png",     ?Memo,     408, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+          PDF::ImageMemory(PDF, "Memo.png",      ?Memo,      408, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
   	    Case ":pencil:", ":pencil2:"
-          PDF::ImageMemory(PDF, "Pencil.png",   ?Pencil,   480, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+          PDF::ImageMemory(PDF, "Pencil.png",    ?Pencil,    480, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
   	    Case ":phone:", ":telephone_receiver:"
-          PDF::ImageMemory(PDF, "Phone.png",    ?Phone,    383, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+          PDF::ImageMemory(PDF, "Phone.png",     ?Phone,     383, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
   	    Case ":laugh:", ":smiley:"
-          PDF::ImageMemory(PDF, "Laugh.png",    ?Laugh,    568, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+          PDF::ImageMemory(PDF, "Laugh.png",     ?Laugh,     568, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
         Case ":smile:", ":simple_smile:"
-          PDF::ImageMemory(PDF, "Smile.png",    ?Smile,    512, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+          PDF::ImageMemory(PDF, "Smile.png",     ?Smile,     512, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
         Case ":sad:"
-          PDF::ImageMemory(PDF, "Sad.png",      ?Sad,      521, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+          PDF::ImageMemory(PDF, "Sad.png",       ?Sad,       521, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
         Case ":angry:"
-          PDF::ImageMemory(PDF, "Angry.png",    ?Angry,    540, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+          PDF::ImageMemory(PDF, "Angry.png",     ?Angry,     540, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
         Case ":cool:", ":sunglasses:"
-          PDF::ImageMemory(PDF, "Cool.png",     ?Cool,     629, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+          PDF::ImageMemory(PDF, "Cool.png",      ?Cool,     629, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
         Case ":smirk:"
-          PDF::ImageMemory(PDF, "Smirk.png",    ?Smirk,    532, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+          PDF::ImageMemory(PDF, "Smirk.png",     ?Smirk,    532, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
         Case ":eyes:", ":flushed:"
-          PDF::ImageMemory(PDF, "Eyes.png",     ?Eyes,     583, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+          PDF::ImageMemory(PDF, "Eyes.png",      ?Eyes,      583, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
         Case ":rolf:"
-          PDF::ImageMemory(PDF, "Rofl.png",     ?Rofl,     636, PDF::#Image_PNG, X, Y, ImgSize, ImgSize) 
+          PDF::ImageMemory(PDF, "Rofl.png",      ?Rofl,      636, PDF::#Image_PNG, X, Y, ImgSize, ImgSize) 
         Case ":wink:"
-          PDF::ImageMemory(PDF, "Wink.png",     ?Wink,     553, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+          PDF::ImageMemory(PDF, "Wink.png",      ?Wink,      553, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
         Case ":worry:", ":worried:"
-          PDF::ImageMemory(PDF, "Worry.png",    ?Worry,    554, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+          PDF::ImageMemory(PDF, "Worry.png",     ?Worry,     554, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
       EndSelect
       
   	EndProcedure    
@@ -1852,7 +1860,7 @@ Module MarkDown
             ;}             
           Case #Emoji          ;{ Emoji  
             X = PDF::GetPosX(PDF)
-            EmojiPDF_(PDF,  Words()\String, X, #PB_Default, 4)
+            EmojiPDF_(PDF, Words()\String, X, #PB_Default, 4)
             PDF::SetPosX(PDF, X + 4)
             ;}  
           Case #FootNote       ;{ Footnote
@@ -2048,22 +2056,21 @@ Module MarkDown
               If SelectElement(MarkDown()\Lists(), MarkDown()\Items()\Index)
               
                 ForEach MarkDown()\Lists()\Row()
-                
-                  Y = PDF::GetPosY(PDF)
-                  PDF::SetPosXY(PDF, 15, Y)
+                  
+                  X = PDF::GetPosX(PDF)
+                  PDF::SetPosX(PDF, 15)
                   
                   If MarkDown()\Lists()\Row()\State
-                    PDF::Cell(PDF, "x", 3.8, 3.8, #True, PDF::#Right, PDF::#CenterAlign)
+                    EmojiPDF_(PDF, ":check1:", X, #PB_Default, 4)
                   Else
-                    PDF::Cell(PDF, " ", 3.8, 3.8, #True, PDF::#Right, PDF::#CenterAlign)
+                    EmojiPDF_(PDF, ":check0:", X, #PB_Default, 4)
                   EndIf
-                  
-                  PDF::SetPosY(PDF, Y + 0.2)
-                  
-                  X = 24.8 + PDF::GetStringWidth(PDF, " ")
+
+                  X = PDF::GetPosX(PDF) + PDF::GetStringWidth(PDF, " ")
                   
                   RowPDF_(PDF, X, MarkDown()\Items()\BlockQuote, MarkDown()\Lists()\Row()\Words())
-
+                  
+                  PDF::Ln(PDF, 0.5)
                 Next
                 
               EndIf
@@ -2267,11 +2274,11 @@ Module MarkDown
   Procedure.i IsPunctationChar(Char.s)
     
     Select Char
-      Case "+", "-", ".", ",", ":", ";", "<", "=", ">", "?"
+      Case "+", "-", ".", ",", ":", ";", "<", ">", "?"
         ProcedureReturn #True
-      Case "#", "$", "%", "&", "*", "@", "^", "~", "_", "|", "/"
+      Case "#", "$", "%", "&", "*", "@", "^", "|", "/"
         ProcedureReturn #True
-      Case "(", ")", "[", "]", "{", "}", "'", "`", #DQUOTE$
+      Case "'", "`", #DQUOTE$
         ProcedureReturn #True
     EndSelect
     
@@ -2296,7 +2303,6 @@ Module MarkDown
   EndProcedure
   
   ; Table Description
-  ; KeyStrokes: [[Esc]] [[z]]
   
   ; ------------------------------------------------
 
@@ -2412,6 +2418,142 @@ Module MarkDown
     
     ProcedureReturn FirstItem
   EndProcedure  
+  
+  Procedure.i ParseString_(String.s, Font.i, Type.i, List Words.Words_Structure())
+    Define.i ePos, nPos
+    Define.s Strg$
+    
+    If Left(String, 1) = "<"  ;{ Autolinks
+
+      ePos = FindString(String, ">", 2)
+      If ePos
+
+        If AddElement(MarkDown()\Link())
+          
+          If AddElement(Words())
+            Words()\String = Mid(String, 2, ePos - 2)
+            Words()\Font   = Font
+            Words()\Index  = ListIndex(MarkDown()\Link())
+            Words()\Flag   = #AutoLink
+          EndIf
+          
+          MarkDown()\Link()\URL = Words()\String
+          
+          ProcedureReturn #True
+        EndIf
+
+      EndIf  
+      ;}
+    EndIf 
+    
+    If Left(String, 1) = "["  ;{ Links
+
+      ePos = FindString(String, "][", 2)
+      If ePos
+        ;{ Reference link
+        If AddElement(MarkDown()\Link())
+          
+          If AddElement(Words())
+            Words()\String = Mid(String, 2, ePos - 3)
+            Words()\Font   = Font
+            Words()\Index  = ListIndex(MarkDown()\Link())
+            Words()\Flag   = #Link 
+          EndIf
+          
+          nPos = ePos + 2
+          
+          ePos = FindString(String, "]", nPos)
+          If ePos
+            MarkDown()\Link()\Label = Mid(String, nPos + 1, nPos - 2)
+          EndIf
+          
+          ProcedureReturn #True
+        EndIf
+        ;}
+      Else
+        ;{ Inline link
+        ePos = FindString(String, "](", 2)
+        If ePos
+
+          If AddElement(MarkDown()\Link())
+            
+            If AddElement(Words())
+              Words()\String = Mid(String, 2, ePos - 2)
+              Words()\Font   = Font
+              Words()\Index  = ListIndex(MarkDown()\Link())
+              Words()\Flag   = #Link 
+            EndIf
+            
+            nPos = ePos + 2
+            
+            ePos = FindString(String, ")", nPos)
+            If ePos
+
+              ;{ Destination
+              Strg$ = Trim(Mid(String, nPos, ePos - nPos))
+              If Left(Strg$, 1) = "<"
+                nPos = FindString(Strg$, ">", 2)
+                If nPos
+                  MarkDown()\Link()\URL = Mid(Strg$, 2, nPos - 1)
+                  Strg$ = Trim(Mid(Strg$, nPos + 1))
+                EndIf 
+              Else
+                MarkDown()\Link()\URL = StringField(Strg$, 1, " ")
+                Strg$ = Trim(Mid(Strg$, Len(MarkDown()\Link()\URL) + 1))
+              EndIf ;}
+              
+              ;{ Title
+              If Strg$
+                Select Left(Strg$, 1)
+                  Case #DQUOTE$
+                    nPos = FindString(Strg$, #DQUOTE$, 2)  
+                  Case "'" 
+                    nPos = FindString(Strg$, "'", 2)
+                EndSelect
+                If nPos
+                  MarkDown()\Link()\Title = Mid(Strg$, 2, nPos - 2)
+                EndIf 
+              EndIf ;}
+              
+              ProcedureReturn #True
+            EndIf
+            
+          EndIf
+
+        EndIf
+        ;}
+      EndIf  
+      ;}
+    EndIf
+    
+    If Left(String, 2) = "~~" ;{ StrikeThrough
+
+      ePos = FindString(String, "~~", 3)
+      If ePos
+        
+        AddWords_(Mid(String, 3, ePos - 3), Words(), Font, #StrikeThrough)
+        
+        ProcedureReturn #True
+      EndIf
+      ;}
+    EndIf
+    
+    If Left(String, 2) = "==" ;{ Highlight
+
+      ePos = FindString(String, "==", 3)
+      If ePos
+
+        AddWords_(Mid(String, 3, ePos - 3), Words(), Font, #Highlight)
+
+        ProcedureReturn #True
+      EndIf
+      ;}
+    EndIf
+
+    AddWords_(String, Words(), Font, Type)
+    
+    ProcedureReturn #True
+  EndProcedure
   
   
   Procedure   ParseInline_(Row.s, List Words.Words_Structure())
@@ -2533,7 +2675,7 @@ Module MarkDown
                     
                     FirstItem = AddStringBefore_(sPos, Pos, Row, FirstItem, Words())
                     
-                    If AddWords_(Mid(Row, Pos + 3, ePos - Pos - 3), Words(), #Font_BoldItalic, #Bold|#Italic)
+                    If ParseString_(Mid(Row, Pos + 3, ePos - Pos - 3), #Font_BoldItalic, #Bold|#Italic, Words())
                       ePos + 2
                     EndIf
                     
@@ -2546,7 +2688,7 @@ Module MarkDown
                     
                     FirstItem = AddStringBefore_(sPos, Pos, Row, FirstItem, Words())
                     
-                    If AddWords_(Mid(Row, Pos + 2, ePos - Pos - 2), Words(), #Font_Bold, #Bold)
+                    If ParseString_(Mid(Row, Pos + 2, ePos - Pos - 2), #Font_Bold, #Bold, Words())
                       ePos + 1
                     EndIf
                     
@@ -2559,7 +2701,7 @@ Module MarkDown
                     
                     FirstItem = AddStringBefore_(sPos, Pos, Row, FirstItem, Words())
                     
-                    AddWords_(Mid(Row, Pos + 1, ePos - Pos - 1), Words(), #Font_Italic, #Italic)
+                    ParseString_(Mid(Row, Pos + 1, ePos - Pos - 1), #Font_Italic, #Italic, Words())
                     
                   EndIf
                   ;}
@@ -2718,7 +2860,7 @@ Module MarkDown
                 
                 ePos = FindString(Row, "]", nPos)
                 If ePos
-                  MarkDown()\Link()\Label = Mid(Row, Pos + 1, ePos - Pos - 1)
+                  MarkDown()\Link()\Label = Mid(Row, nPos + 1, ePos - nPos - 1)
                 EndIf
                 
               EndIf
@@ -3799,7 +3941,9 @@ Module MarkDown
     Next ;}
     
     ;{ ===== Phase 3 =====
-
+    ForEach MarkDown()\Items()
+      
+    Next 
     ;}
     
     DetermineTextSize_()
@@ -5314,9 +5458,22 @@ Module MarkDown
 	;{ _____ DataSection _____
 	; Author:   Emily Jäger
   ; License:	CC BY-SA 4.0 <https://creativecommons.org/licenses/by-sa/4.0/>
-	; Source:   <https://openmoji.org>
+  ; Source:   <https://openmoji.org>
 	
 DataSection
+  Check0:
+  Data.q $0A1A0A0D474E5089,$524448490D000000,$1000000010000000,$6891900000000208,$5948700900000036,$2E0000232E000073,
+         $0000763FA5780123,$DA78544144494300,$FC1A206464646063,$AA07AF11441FFFFF,$F7F868B00FC2C201,$5881B6481A691FEF,
+         $6A6A06D2D31F100D,$1A7C24E241B70E40,$40049033E8780208,$C6122D000893FE1A,$0000007C71B33E4E,$6042AE444E454900
+  Data.b $82
+  Check1:
+  Data.q $0A1A0A0D474E5089,$524448490D000000,$1000000010000000,$6891900000000208,$414449DB00000036,$830DEB929DDA7854,
+         $0AC1043B09840C30,$93AC03B2812C04B0,$0808C043004B101D,$5C0FA2415FA40EC1,$C5F3BE3B223FD6AA,$CE7394A532779476,
+         $C20F62FDE57B8C93,$59450C30A69A7251,$5D7514517DF7D081,$EEE733CF38404107,$D2CB2D9659D2040B,$273CF39024924D34,
+         $C265F7DF638E3F05,$6BE148B5ADA40C30,$7E48A28AAAAB09AD,$AF2940521C775512,$385B6DA776141337,$D34BF4D34E8101A0,
+         $B83467840B7D02A2,$8E3D807B91B92CB2,$0C10423AEBA631A3,$C2A3ED0C4A63850A,$A5F5D75B01EF3881,$B9299A6E29CCD607,
+         $2053DF174BFAFECD,$1B84FEF569EF405C,$B30899A7E1CE01A8,$444E454900000000
+  Data.b $AE,$42,$60,$82
   Worry:
   Data.q $0A1A0A0D474E5089,$524448490D000000,$0F0000000F000000,$02B4B40000000208,$594870090000001D,$0400009D04000073,
          $0000A16B347C019D,$DA7854414449DC01,$FAFC043FEFFFF863,$36E1D1C9ECF663F5,$3109BA49A9869171,$9FD5EDED66C1E1FA,
@@ -5560,7 +5717,7 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "I just love **bold text**." + #LF$
       Text$ + "Italicized text is the *cat's meow*."+ #LF$
       Text$ + "This text is ___really important___.  "+ #LF$
-      Text$ + "The world is ~~flat~~ round.  "+ #LF$
+      Text$ + "The world is *~~flat~~* round.  "+ #LF$
       Text$ + "This == word == is highlighted.  "+ #LF$
       Text$ + "-----------------------------------------" + #LF$
       Text$ + "#### Code ####" + #LF$
@@ -5573,9 +5730,9 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "- First list item" + #LF$ + "  - Second list item:" + #LF$ + "  - Third list item" + #LF$ + " - Fourth list item" + #LF$ 
     Case 4
       Text$ = "#### Links & URLs ####" + #LF$ 
-      Text$ + "URL: <https://www.markdownguide.org>  " + #LF$ + #LF$
+      Text$ + "URL: <https://www.markdownguide.org> " + #LF$ + #LF$
       Text$ + "EMail: <fake@example.com>  " + #LF$ + #LF$
-      Text$ + "Link:  [Duck Duck Go](https://duckduckgo.com "+#DQUOTE$+"My search engine!"+#DQUOTE$+")  "+ #LF$
+      Text$ + "Link: [Duck Duck Go](https://duckduckgo.com "+#DQUOTE$+"My search engine!"+#DQUOTE$+") "+ #LF$
     Case 5
       Text$ = "#### Image ####"  + #LF$
       Text$ + " ![Programmer](Test.png " + #DQUOTE$ + "Programmer Image" + #DQUOTE$ + ")"
@@ -5727,9 +5884,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 5528
-; FirstLine = 813
-; Folding = whKAAAEAAAQCAIAAAAERCAAA1DCbgIAAAACMgCAAAAAQAAEAAQSACw-
-; Markers = 5528
+; CursorPosition = 5685
+; FirstLine = 478
+; Folding = whKAAAAAAAQCAIAAAAEAAQAAEgAAAAAAAAQQgBUAAAAAACAgAAASAAQ+
+; Markers = 5685
 ; EnableXP
 ; DPIAware
