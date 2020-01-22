@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 11.01.2020
+; Last Update: 22.01.2020
 ;
 ; - Bugfixes
 ;
@@ -147,7 +147,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20011100
+  #Version  = 20012200
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -2792,12 +2792,20 @@ Module ListEx
             FrontColor = ListEx()\Cols()\Header\FrontColor
           EndIf
           
+          CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+            ClipOutput(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height)) 
+          CompilerEndIf
+          
           If ListEx()\Cols()\Header\Title
             textX = GetAlignOffset_(ListEx()\Cols()\Header\Title, dpiX(ListEx()\Cols()\Width), Align)
             textY = (dpiY(ListEx()\Header\Height) - TextHeight("Abc")) / 2 + 0.5
             DrawingMode(#PB_2DDrawing_Transparent)
             DrawText(colX + textX, rowY + textY, ListEx()\Cols()\Header\Title, FrontColor)
           EndIf
+          
+          CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+            UnclipOutput()
+          CompilerEndIf
           
           DrawingMode(#PB_2DDrawing_Outlined)
           Box(colX - 1, rowY, dpiX(ListEx()\Cols()\Width) + 1, dpiY(ListEx()\Header\Height) + 1, ListEx()\Color\HeaderLine)
@@ -7772,7 +7780,7 @@ CompilerIf #PB_Compiler_IsMainFile
         ListEx::SetColumnAttribute(#List, 5, ListEx::#Align, ListEx::#Center)
         
         ; --- Test sorting ---
-        ListEx::SetHeaderSort(#List, 2, ListEx::#Sort_Ascending, ListEx::#Deutsch)
+        ListEx::SetHeaderSort(#List, 2, ListEx::#Sort_Ascending|ListEx::#Sort_NoCase)
         
         ; --- Test colors ---
         ListEx::SetColor(#List, ListEx::#FrontColor, $82004B, 2) ; front color for column 2
@@ -7826,8 +7834,6 @@ CompilerIf #PB_Compiler_IsMainFile
       
       ListEx::DisableReDraw(#List, #False) 
     EndIf
-    
-    ListEx::Sort(#List, 2, #PB_Sort_Ascending, ListEx::#SortString)
     
     Repeat
       Event = WaitWindowEvent()
@@ -7920,9 +7926,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 7783
-; Folding = wRQAAAACIAQBICEAGAA+HQ5hCBAiFwwbQBgBAgQDgDAg8AAAMDOACgDAAAAAAACQA+--
-; Markers = 3231,5823
+; CursorPosition = 149
+; FirstLine = 10
+; Folding = wAAAAAACIAQBICEAGAA+HQ5hCBKJAAnoAFAGAACNAOAAuDAAwM5AIAOAAAAAAAIAB5--
+; Markers = 3239,5831
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
