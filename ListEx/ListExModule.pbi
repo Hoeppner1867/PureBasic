@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 22.01.2020
+; Last Update: 23.01.2020
 ;
 ; - Bugfixes
 ;
@@ -147,7 +147,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20012200
+  #Version  = 20012300
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -1189,7 +1189,7 @@ Module ListEx
       
       ForEach ListEx()\Cols()
         
-        If ListIndex(ListEx()\Cols()) = 1
+        If ListIndex(ListEx()\Cols()) = 0
           CSV$ = DQuote + ListEx()\Cols()\Header\Title
         Else  
           CSV$ + DQuote + Separator + DQuote + ListEx()\Cols()\Header\Title
@@ -1204,7 +1204,7 @@ Module ListEx
       
       ForEach ListEx()\Cols()
         Key$ = ListEx()\Cols()\Key
-        If ListIndex(ListEx()\Cols()) = 1
+        If ListIndex(ListEx()\Cols()) = 0
           CSV$ = DQuote + ListEx()\Rows()\Column(Key$)\Value
         Else  
           CSV$ + DQuote + Separator + DQuote + ListEx()\Rows()\Column(Key$)\Value
@@ -1215,7 +1215,7 @@ Module ListEx
     EndProcedure
     
     Procedure.i Import_CSV_Header(String.s, Separator.s, DQuote.s)
-      Define.i idx = 1
+      Define.i idx = 0
       Define.s Column$
       
       String = ReplaceString(Trim(String, DQuote), DQuote + Separator + DQuote, #LF$)
@@ -2793,7 +2793,7 @@ Module ListEx
           EndIf
           
           CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
-            ClipOutput(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height)) 
+            ClipOutput(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Header\Height)) 
           CompilerEndIf
           
           If ListEx()\Cols()\Header\Title
@@ -7831,8 +7831,11 @@ CompilerIf #PB_Compiler_IsMainFile
         
       ; --- GUI theme support ---
       ;ModuleEx::SetTheme(ModuleEx::#Theme_DarkBlue)
-      
+
       ListEx::DisableReDraw(#List, #False) 
+      
+      ListEx::ExportCSV(#List, "Export.csv")
+      
     EndIf
     
     Repeat
@@ -7926,9 +7929,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 149
-; FirstLine = 10
-; Folding = wAAAAAACIAQBICEAGAA+HQ5hCBKJAAnoAFAGAACNAOAAuDAAwM5AIAOAAAAAAAIAB5--
+; CursorPosition = 7707
+; FirstLine = 1402
+; Folding = wAQAAAACIAQFJCEAGAA+HQ5hCBqJAAnoAFAGAACNAOAAuDAFwE5AIAOAAAAAAAIAB5--
 ; Markers = 3239,5831
 ; EnableXP
 ; DPIAware
