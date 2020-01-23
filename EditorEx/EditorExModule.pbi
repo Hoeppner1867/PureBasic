@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 08.01.20
+; Last Update: 22.01.20
 ;
 ; Added: #EventType_Change
 ; Added: #UseExistingCanvas
@@ -139,7 +139,7 @@
 
 DeclareModule EditEx
   
-  #Version  = 20010800
+  #Version  = 20012200
   #ModuleEx = 20010800
   
   ;- ============================================================================
@@ -4696,6 +4696,8 @@ Module EditEx
       EndSelect
     EndIf
     
+    ReDraw_()
+    
   EndProcedure
   
   Procedure   SetData(GNum.i, Value.q)
@@ -5424,9 +5426,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 3105
-; FirstLine = 1096
-; Folding = wHOhAADASNFACwAEB-CQxk6utigAHg9q8AwjwQQoQAZHCGQKoH8EE--
+; CursorPosition = 141
+; FirstLine = 21
+; Folding = wHOhAADASNFECwAEB-CQxk6utigAHgYA6AwjwQQoQAZHCGYKoH8EE--
 ; Markers = 970,2495,2564,4638
 ; EnableXP
 ; DPIAware
