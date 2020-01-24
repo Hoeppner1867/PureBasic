@@ -1348,7 +1348,7 @@ Module PreView
       EndIf
       ;}
     Else
-      Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Container|#PB_Canvas_Border)
+      Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Container)
     EndIf
 		
 		If Result
@@ -1768,8 +1768,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 62
-; FirstLine = 9
-; Folding = 9GAAgwDAAAEfF+
+; CursorPosition = 1350
+; FirstLine = 170
+; Folding = 5GAAgwDEAAEfN+
 ; EnableXP
 ; DPIAware
