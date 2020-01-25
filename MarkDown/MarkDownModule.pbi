@@ -1417,6 +1417,14 @@ Module MarkDown
                 HTML$ + "&#9999;"
               Case ":bookmark:"
                 HTML$ + "&#128278;"
+              Case ":clip:", ":paperclip:"
+                HTML$ + "&#128206"
+              Case ":mag:", "magnifier"
+                HTML$ + "&#128270"
+              Case ":bulb:"
+                HTML$ + "&#128161"
+              Case ":warning:"  
+                HTML$ + "&#9888;"
             EndSelect
             
             endTag$ = "" 
@@ -6098,9 +6106,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 12
-; FirstLine = 6
-; Folding = 5BKAABAAAAQCAIAAAAQBAAQEgAOAAAAgAAAIJwgIQBAFIAMAABAAkAAg+-
-; Markers = 5893
+; CursorPosition = 1426
+; FirstLine = 288
+; Folding = 5BKAABAAAAQCAICABAQBAAQEgAOAAAAgAAAIJwgIQBAFIAMAABAAkAAg+-
+; Markers = 5901
 ; EnableXP
 ; DPIAware
