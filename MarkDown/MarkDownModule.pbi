@@ -9,16 +9,17 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 20.01.2020
+; Last Update: 25.01.2020
+; - New:   Emojis :warning: / :bulb: / :paperclip: / :mag:
+; - Added: underline or inserted => "++underline++"  
+; - Added: Colspan for tables    => "| long cell ||"
 ;
 ; - Internal structure of the parser completely changed
 ; - Added: Keystrokes "[[Ctrl]] [[C]]"
-; - Added: Abbreviations "*[HTML]: Hypertext Markup Language"
+; - Added: Abbreviations => "*[HTML]: Hypertext Markup Language"
 ; - Added: Inline Emphasis (Lists/Tables/Footnotes/...)
 ; - Added: Emphasis (bold/italic) for links, autolinks, strikethrough and highlight
 ; - Changed: PDF task list with images for checkboxes
-
-;
 
 ;{ ===== MIT License =====
 ;
@@ -75,7 +76,8 @@
 
 ;{ _____ Emoji _____
 
-; :bookMark: / :date: / :mail: / :memo: / :pencil: / :phone: 
+
+; :bookmark: / :date: / :mail: / :memo: / :pencil: / :phone: / :warning: / :bulb: / :paperclip: / :mag:
 ; :angry: / :cool: / :eyes: / :laugh: / / :rofl: / :sad: / :smile: / :smirk: / :wink: / :worry:
 
 ;}
@@ -193,7 +195,7 @@ Module MarkDown
 	
 	UsePNGImageDecoder()
 	UseJPEGImageDecoder()
-
+	
 	;- ============================================================================
 	;-   Module - Constants
 	;- ============================================================================
@@ -239,6 +241,7 @@ Module MarkDown
     #Table
     #Task
     #Text
+    #Underline
     #Unordered
     #AutoLink
   EndEnumeration ;}
@@ -375,6 +378,7 @@ Module MarkDown
   
   Structure Table_Cols_Structure         ;{ MarkDown()\Table()\Row()\Col('num')\...
     Width.i
+    Span.i
     List Words.Words_Structure()
   EndStructure ;}
   
@@ -721,26 +725,28 @@ Module MarkDown
 	EndProcedure
 	
 	Procedure   LoadEmojis_()
-	  
-	  Emoji(":check0:")   = CatchImage(#PB_Any, ?Check0, 145)
-	  Emoji(":check1:")   = CatchImage(#PB_Any, ?Check1, 276)
-	  Emoji(":angry:")    = CatchImage(#PB_Any, ?Angry, 540)
-	  Emoji(":bookmark:") = CatchImage(#PB_Any, ?BookMark, 334)
-	  Emoji(":cool:")     = CatchImage(#PB_Any, ?Cool, 629)
-	  Emoji(":date:")     = CatchImage(#PB_Any, ?Calendar, 485)
-	  Emoji(":eyes:")     = CatchImage(#PB_Any, ?Eyes, 583)
-	  Emoji(":laugh:")    = CatchImage(#PB_Any, ?Laugh, 568)
-    Emoji(":mail:")     = CatchImage(#PB_Any, ?Mail, 437)  
-    Emoji(":memo:")     = CatchImage(#PB_Any, ?Memo, 408) 
-    Emoji(":pencil:")   = CatchImage(#PB_Any, ?Pencil, 480)
-    Emoji(":phone:")    = CatchImage(#PB_Any, ?Phone, 383)
-    Emoji(":rolf:")     = CatchImage(#PB_Any, ?Rofl, 636)
-    Emoji(":sad:")      = CatchImage(#PB_Any, ?Sad, 521)
-    Emoji(":smile:")    = CatchImage(#PB_Any, ?Smile, 512)
-    Emoji(":smirk:")    = CatchImage(#PB_Any, ?Smirk, 532)
-    Emoji(":wink:")     = CatchImage(#PB_Any, ?Wink, 553)
-    Emoji(":worry:")    = CatchImage(#PB_Any, ?Worry, 554)
-
+	  Emoji(":check0:")    = CatchImage(#PB_Any, ?Check0, 145)
+	  Emoji(":check1:")    = CatchImage(#PB_Any, ?Check1, 276)
+	  Emoji(":angry:")     = CatchImage(#PB_Any, ?Angry, 540)
+	  Emoji(":bookmark:")  = CatchImage(#PB_Any, ?BookMark, 334)
+	  Emoji(":cool:")      = CatchImage(#PB_Any, ?Cool, 629)
+	  Emoji(":date:")      = CatchImage(#PB_Any, ?Calendar, 485)
+	  Emoji(":eyes:")      = CatchImage(#PB_Any, ?Eyes, 583)
+	  Emoji(":laugh:")     = CatchImage(#PB_Any, ?Laugh, 568)
+    Emoji(":mail:")      = CatchImage(#PB_Any, ?Mail, 437)  
+    Emoji(":memo:")      = CatchImage(#PB_Any, ?Memo, 408) 
+    Emoji(":pencil:")    = CatchImage(#PB_Any, ?Pencil, 480)
+    Emoji(":phone:")     = CatchImage(#PB_Any, ?Phone, 383)
+    Emoji(":rolf:")      = CatchImage(#PB_Any, ?Rofl, 636)
+    Emoji(":sad:")       = CatchImage(#PB_Any, ?Sad, 521)
+    Emoji(":smile:")     = CatchImage(#PB_Any, ?Smile, 512)
+    Emoji(":smirk:")     = CatchImage(#PB_Any, ?Smirk, 532)
+    Emoji(":wink:")      = CatchImage(#PB_Any, ?Wink, 553)
+    Emoji(":worry:")     = CatchImage(#PB_Any, ?Worry, 554)
+    Emoji(":warning:")   = CatchImage(#PB_Any, ?Attention, 565)
+    Emoji(":bulb:")      = CatchImage(#PB_Any, ?Bulb, 396)
+    Emoji(":paperclip:") = CatchImage(#PB_Any, ?Clip, 474)
+    Emoji(":mag:")       = CatchImage(#PB_Any, ?Magnifier, 520)
 	EndProcedure
 	
 	
@@ -1344,6 +1350,10 @@ Module MarkDown
             
             endTag$ = "</a>"
             ;}
+          Case #Highlight    ;{ Highlight
+            HTML$ + "<mark>" + EscapeHTML_(Words()\String)
+  	        endTag$ = "</mark>"
+            ;}
           Case #Image        ;{ Images
             
             If SelectElement(MarkDown()\Image(), Words()\Index)
@@ -1367,6 +1377,10 @@ Module MarkDown
   	      Case #Subscript    ;{ SubScript
   	        HTML$ + "<sub>" + EscapeHTML_(Words()\String) + "</sub>"
   	        endTag$ = ""
+  	        ;}
+  	      Case #Underline    ;{ Underline
+  	        HTML$ + "<u>" + EscapeHTML_(Words()\String)
+  	        endTag$ = "</u>"
   	        ;}
   	      Case #Emoji        ;{ Emoji
   	        
@@ -1429,7 +1443,7 @@ Module MarkDown
 	
   Procedure.s ExportHTML_(Title.s="")
     Define.i Level, c, ColWidth, Cols, tBody, Class, BlockQuote, DefList
-    Define.s HTML$, endTag$, Align$, Indent$, ID$, Link$, Title$, String$, Num$
+    Define.s HTML$, endTag$, Align$, Indent$, ID$, Link$, Title$, String$, Num$, ColSpan$
     
     HTML$ = "<!DOCTYPE html>" + #LF$ + "<html>" + #LF$ + "<head>" + #LF$ + "<title>" + Title + "</title>" + #LF$ + "</head>" + #LF$ + "<body>" + #LF$
     
@@ -1606,13 +1620,24 @@ Module MarkDown
                 EndIf 
 
                 For c=1 To Cols
+                  
+                  Num$ = Str(c)
+                  
+                  If MarkDown()\Table()\Row()\Col(Num$)\Span = 0 : Continue : EndIf
+                  
+                  If MarkDown()\Table()\Row()\Col(Num$)\Span > 1
+                    ColSpan$ = " colspan=" + #DQUOTE$ + Str(MarkDown()\Table()\Row()\Col(Num$)\Span) + #DQUOTE$
+                  Else
+                    ColSpan$ = ""
+                  EndIf
+                  Debug ColSpan$
                   Select MarkDown()\Table()\Column(Str(c))\Align
                     Case "C"
-                      HTML$ + "<td style=" + #DQUOTE$ + "text-align: center;" + #DQUOTE$ + ">" + TextHTML_(MarkDown()\Table()\Row()\Col(Num$)\Words()) + " &nbsp; </td>" + #LF$
+                      HTML$ + "<td" + ColSpan$ + " style=" + #DQUOTE$ + "text-align: center;" + #DQUOTE$ + ">" + TextHTML_(MarkDown()\Table()\Row()\Col(Num$)\Words()) + " &nbsp; </td>" + #LF$
                     Case "R"
-                      HTML$ + "<td style=" + #DQUOTE$ + "text-align: right;"  + #DQUOTE$ + ">" + TextHTML_(MarkDown()\Table()\Row()\Col(Num$)\Words()) + " &nbsp; </td>" + #LF$
+                      HTML$ + "<td" + ColSpan$ + " style=" + #DQUOTE$ + "text-align: right;"  + #DQUOTE$ + ">" + TextHTML_(MarkDown()\Table()\Row()\Col(Num$)\Words()) + " &nbsp; </td>" + #LF$
                     Default  
-                      HTML$ + "<td style=" + #DQUOTE$ + "text-align: left;"   + #DQUOTE$ + ">" + TextHTML_(MarkDown()\Table()\Row()\Col(Num$)\Words()) + " &nbsp; </td>" + #LF$
+                      HTML$ + "<td" + ColSpan$ + " style=" + #DQUOTE$ + "text-align: left;"   + #DQUOTE$ + ">" + TextHTML_(MarkDown()\Table()\Row()\Col(Num$)\Words()) + " &nbsp; </td>" + #LF$
                   EndSelect
                 Next
                 
@@ -1623,7 +1648,7 @@ Module MarkDown
 			      Next
 			      
 			      HTML$+ "</tbody>" + #LF$ + "</table>" + #LF$
-			      
+			      Debug HTML$
 		      EndIf
           ;}
         Case #Code             ;{ Code Block
@@ -1683,25 +1708,57 @@ Module MarkDown
   
   CompilerIf Defined(PDF, #PB_Module)
     
-    Procedure.i FontPDF_(PDF.i, Font.i)
+    Procedure.i FontPDF_(PDF.i, Font.i, Underline.i=#False)
 
       Select Font
         Case #Font_Bold
-          PDF::SetFont(PDF, "Arial", "B", 11)
+          If Underline
+            PDF::SetFont(PDF, "Arial", "BU", 11)
+          Else  
+            PDF::SetFont(PDF, "Arial", "B", 11)
+          EndIf  
         Case #Font_Italic
-          PDF::SetFont(PDF, "Arial", "I", 11)
-        Case #Font_BoldItalic  
-          PDF::SetFont(PDF, "Arial", "BI", 11) 
+          If Underline
+            PDF::SetFont(PDF, "Arial", "IU", 11)
+          Else
+            PDF::SetFont(PDF, "Arial", "I", 11)
+          EndIf
+        Case #Font_BoldItalic 
+          If Underline
+            PDF::SetFont(PDF, "Arial", "BIU", 11)
+          Else
+            PDF::SetFont(PDF, "Arial", "BI", 11)
+          EndIf  
         Case #Font_FootText
-          PDF::SetFont(PDF, "Arial", "", 9)
+          If Underline
+            PDF::SetFont(PDF, "Arial", "U", 9)
+          Else
+            PDF::SetFont(PDF, "Arial", "", 9)
+          EndIf  
         Case #Font_FootBold
-          PDF::SetFont(PDF, "Arial", "B", 9)  
+          If Underline
+            PDF::SetFont(PDF, "Arial", "BU", 9)
+          Else
+            PDF::SetFont(PDF, "Arial", "B", 9)
+          EndIf  
         Case #Font_FootItalic
-          PDF::SetFont(PDF, "Arial", "I", 9)    
+          If Underline
+            PDF::SetFont(PDF, "Arial", "IU", 9) 
+          Else
+            PDF::SetFont(PDF, "Arial", "I", 9) 
+          EndIf  
         Case #Font_FootBoldItalic
-          PDF::SetFont(PDF, "Arial", "BI", 9)     
+          If Underline
+            PDF::SetFont(PDF, "Arial", "BIU", 9)
+          Else
+            PDF::SetFont(PDF, "Arial", "BI", 9)
+          EndIf  
         Case #Font_Code
-          PDF::SetFont(PDF, "Courier New", "", 11)
+          If Underline
+            PDF::SetFont(PDF, "Courier New", "U", 11)
+          Else
+            PDF::SetFont(PDF, "Courier New", "", 11)
+          EndIf  
         Case #Font_H6
           PDF::SetFont(PDF, "Arial", "B", 12)
         Case #Font_H5
@@ -1715,15 +1772,17 @@ Module MarkDown
         Case #Font_H1 
           PDF::SetFont(PDF, "Arial", "B", 17)
         Default
-          PDF::SetFont(PDF, "Arial", "", 11)
+          If Underline
+            PDF::SetFont(PDF, "Arial", "U", 11)
+          Else
+            PDF::SetFont(PDF, "Arial", "", 11)
+          EndIf   
       EndSelect
-      
       ProcedureReturn Font
     EndProcedure
     
     Procedure.i EmojiPDF_(PDF.i, Emoji.s, X.i, Y.i, ImgSize.i)
-      Define.i *Image
-      
+
       Select Emoji
         Case ":check0:"
           PDF::ImageMemory(PDF, "CheckBox0.png", ?Check0,    145, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
@@ -1741,7 +1800,15 @@ Module MarkDown
           PDF::ImageMemory(PDF, "Pencil.png",    ?Pencil,    480, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
   	    Case ":phone:", ":telephone_receiver:"
           PDF::ImageMemory(PDF, "Phone.png",     ?Phone,     383, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
-  	    Case ":laugh:", ":smiley:"
+        Case  ":warning:"
+          PDF::ImageMemory(PDF, "Warning.png",   ?Attention, 565, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+        Case ":bulb:"  
+          PDF::ImageMemory(PDF, "Bulb.png",      ?Bulb,      396, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+        Case ":paperclip:", ":clip:" 
+          PDF::ImageMemory(PDF, "Clip.png",      ?Clip,      474, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+        Case ":mag:", ":magnifier:"
+          PDF::ImageMemory(PDF, "Mag.png",       ?Magnifier, 520, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+        Case ":laugh:", ":smiley:"
           PDF::ImageMemory(PDF, "Laugh.png",     ?Laugh,     568, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
         Case ":smile:", ":simple_smile:"
           PDF::ImageMemory(PDF, "Smile.png",     ?Smile,     512, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
@@ -1817,6 +1884,11 @@ Module MarkDown
       ForEach Words()
         
         If Font <> Words()\Font : Font = FontPDF_(PDF, Words()\Font) : EndIf
+        
+        If Words()\Flag = #Underline
+          FontPDF_(PDF, Words()\Font, #True)
+          Font = #PB_Default
+        EndIf
         
         TextWidth = PDF::GetStringWidth(PDF, Words()\String)
         
@@ -2119,7 +2191,10 @@ Module MarkDown
                     
                     For c=1 To Cols
                       
-                      ColWidth = mm_(MarkDown()\Table()\Column(Str(c))\Width) + 5
+                      ColWidth = MarkDown()\Table()\Column(Str(c))\Width * MarkDown()\Table()\Row()\Col(Str(c))\Span
+                      If ColWidth = #False : Continue : EndIf
+                      
+                      ColWidth =  mm_(ColWidth) + 5
                       
                       PDF::SetPosXY(PDF, 20 + ColWidth * (c-1), Y)
                       
@@ -2150,7 +2225,10 @@ Module MarkDown
                     
                     For c=1 To Cols
                       
-                      ColWidth = mm_(MarkDown()\Table()\Column(Str(c))\Width) + 5
+                      ColWidth = MarkDown()\Table()\Column(Str(c))\Width * MarkDown()\Table()\Row()\Col(Str(c))\Span
+                      If ColWidth = #False : Continue : EndIf
+                      
+                      ColWidth =  mm_(ColWidth) + 5
                       
                       PDF::SetPosXY(PDF, 20 + ColWidth * (c-1), Y)
                       
@@ -2264,6 +2342,14 @@ Module MarkDown
           ProcedureReturn ePos
         Case ":bookmark:", ":pencil2:"
           ProcedureReturn ePos  
+        Case ":warning:"
+          ProcedureReturn ePos 
+        Case ":paperclip:", ":clip:"
+          ProcedureReturn ePos 
+        Case ":bulb:"
+          ProcedureReturn ePos 
+        Case ":mag:", ":magnifier:"   
+          ProcedureReturn ePos 
       EndSelect
       
     EndIf
@@ -2300,6 +2386,22 @@ Module MarkDown
     Next
     
     ProcedureReturn Chars$
+  EndProcedure
+  
+  Procedure.i CountSpan_(String.s, Pos.i)
+    Define.i c, Span
+ 
+    For c=Pos To Len(String)
+      
+      If Mid(String, c, 1) = "|"
+        Span + 1
+      Else
+        Break
+      EndIf  
+      
+    Next
+    
+    ProcedureReturn Span
   EndProcedure
   
   ; Table Description
@@ -2418,6 +2520,7 @@ Module MarkDown
     
     ProcedureReturn FirstItem
   EndProcedure  
+  
   
   Procedure.i ParseString_(String.s, Font.i, Type.i, List Words.Words_Structure())
     Define.i ePos, nPos
@@ -2549,12 +2652,23 @@ Module MarkDown
       EndIf
       ;}
     EndIf
+    
+    If Left(String, 2) = "++" ;{ Underline
 
+      ePos = FindString(String, "++", 3)
+      If ePos
+
+        AddWords_(Mid(String, 3, ePos - 3), Words(), Font, #Underline)
+
+        ProcedureReturn #True
+      EndIf
+      ;}
+    EndIf
+    
     AddWords_(String, Words(), Font, Type)
     
     ProcedureReturn #True
   EndProcedure
-  
   
   Procedure   ParseInline_(Row.s, List Words.Words_Structure())
     Define.i Pos, sPos, ePos, nPos, Length, FirstItem
@@ -3019,6 +3133,25 @@ Module MarkDown
           
           If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf
           ;}
+        Case "+"
+          ;{ ___ Underline ___
+          If Mid(Row, Pos, 2) = "++"
+            
+            ePos = FindString(Row, "++", Pos + 2)
+            If ePos
+              
+              FirstItem = AddStringBefore_(sPos, Pos, Row, FirstItem, Words())
+
+              If AddWords_(Mid(Row, Pos + 2, ePos - Pos - 2), Words(), #Font_Normal, #Underline)
+                ePos + 1
+              EndIf
+              
+            EndIf
+            
+          EndIf
+          
+          If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf
+          ;}  
         Case ":"  
           ;{ ___ Emoji ___
           ePos = Emoji_(Row, Pos)
@@ -3835,12 +3968,15 @@ Module MarkDown
             ;}
           EndIf
           
-          String$ = Trim(Trim(Document()\String, "|"))
+          String$ = Trim(Document()\String)
+          If Left(String$, 1)  = "|" : String$ = Mid(String$, 2) : EndIf 
+          If Right(String$, 1) = "|" : String$ = Left(String$, Len(String$) - 1) : EndIf 
+          String$ = Trim(String$)
           
           If ListSize(MarkDown()\Table())
             
             Cols = CountString(String$, "|") + 1
-            
+
             If Left(String$, 3) = "---" Or Left(String$, 4) = ":---" ;{ Header 
               
               If FirstElement(MarkDown()\Table()\Row())
@@ -3875,10 +4011,20 @@ Module MarkDown
               If AddElement(MarkDown()\Table()\Row())
                 
                 MarkDown()\Table()\Row()\Type = #Table
-                
+
                 For c=1 To Cols
-                  Num$ = Str(c)
-                  ParseInline_(Trim(StringField(String$, c, "|")), MarkDown()\Table()\Row()\Col(Num$)\Words())
+                  
+                  Col$ = StringField(String$, c, "|")
+                 
+                  If Col$ = ""
+                    MarkDown()\Table()\Row()\Col(Num$)\Span + 1
+                    Continue
+                  Else
+                    Num$ = Str(c)
+                    MarkDown()\Table()\Row()\Col(Num$)\Span = 1
+                  EndIf
+                  
+                  ParseInline_(Trim(Col$), MarkDown()\Table()\Row()\Col(Num$)\Words())
                 Next
                 
               EndIf 
@@ -4146,6 +4292,11 @@ Module MarkDown
             PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Front, MarkDown()\Color\Highlight)
             DrawingMode(#PB_2DDrawing_Transparent)
             ;}
+          Case #Underline       ;{ Draw underlined text
+            lX   = PosX
+            PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Front)
+            Line(lX, PosY + TextHeight(Words()\String) - 1, TextWidth(Words()\String), 1, MarkDown()\Color\Front)
+            ;} 
           Case #Image           ;{ Draw image
             
             If SelectElement(MarkDown()\Image(), MarkDown()\Items()\Index)
@@ -4340,6 +4491,11 @@ Module MarkDown
             OffSetY = Height - TextHeight(Words()\String) + dpiY(2)
             PosX = DrawText(PosX, PosY + OffSetY, Words()\String, MarkDown()\Color\Front)
             ;}
+          Case #Underline       ;{ Draw underlined text
+            lX   = PosX
+            PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Front)
+            Line(lX, PosY + TextHeight(Words()\String) - 1, TextWidth(Words()\String), 1, MarkDown()\Color\Front)
+            ;}   
           Default  
             PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Front)
         EndSelect
@@ -4456,7 +4612,7 @@ Module MarkDown
   EndProcedure  
   
   Procedure.i DrawTable_(Index.i, X.i, Y.i, BlockQuote.i) 
-    Define.i c, PosX, PosY, ColY, OffSetY, OffSetBQ
+    Define.i c, PosX, PosY, ColY, OffSetY, OffSetBQ, colWidth
     Define.s Num$
     
     NewMap ColX.i()
@@ -4490,9 +4646,12 @@ Module MarkDown
           
           PosX = ColX(Num$)
           
-          MarkDown()\WrapPos = PosX + MarkDown()\Table()\Column(Num$)\Width
+          colWidth = MarkDown()\Table()\Column(Num$)\Width * MarkDown()\Table()\Row()\Col(Num$)\Span
+          If colWidth = #False : Continue : EndIf 
           
-          ColY = DrawRow_(PosX, PosY, MarkDown()\Table()\Row()\Col(Num$)\Width, MarkDown()\Table()\Row()\Height, BlockQuote, MarkDown()\Table()\Row()\Col(Num$)\Words(), MarkDown()\Table()\Column(Num$)\Width, MarkDown()\Table()\Column(Num$)\Align)
+          MarkDown()\WrapPos = PosX + colWidth
+          
+          ColY = DrawRow_(PosX, PosY, MarkDown()\Table()\Row()\Col(Num$)\Width, MarkDown()\Table()\Row()\Height, BlockQuote, MarkDown()\Table()\Row()\Col(Num$)\Words(), colWidth, MarkDown()\Table()\Column(Num$)\Align)
           
           If ColY > Y : Y = ColY : EndIf
         Next
@@ -5675,6 +5834,55 @@ DataSection
          $7FC32FEAAC0A7B3E,$D718B8B2DD6EB024,$5884CD70B8E348D8,$7F7B33999B70E8A3,$000051075409FCFE,$C5904085B0AA7155,
          $444E454900000000
   Data.b $AE,$42,$60,$82
+  Attention:
+  Data.q $0A1A0A0D474E5089,$524448490D000000,$1000000010000000,$6891900000000208,$414449FC01000036,$3FFFFFFC63DA7854,
+         $962B0C8C99001C03,$C2BB2B2667B7DCCD,$5118585998ABC9C4,$7C30303451181924,$D76661C0A4B1F8FC,$139AFABF7FFB9DEF,
+         $3435D00A80CB989F,$62D7D36D3BF817D6,$6731C79890C8C7FB,$3FCCB036363631C1,$32FE1A8119FF2590,$A1F0F87F54413030,
+         $4692EFF3627ECCB2,$BDFE3FEFBF90B8E6,$0DA714B33D2522F7,$85847BDE915935B5,$941E54B5951A4B99,$7B9BCDB3E74430E7,
+         $AFB7868B13939394,$F7FE684D3AD634DF,$7FA7E386B85FFDFA,$F7035F9B9B1DBB9F,$D84A525979434235,$90400D6456796551,
+         $2E2E31F66332C050,$BDF503FEFF0D982E,$01B7B5D9B3A2F178,$9C3450EF37862BE8,$D2928885F0FDFF3E,$A19919197F0CFFD6,
+         $519C276745E61436,$0FF86D91B2056592,$53099612D4C6170A,$E8F0FD43F2F2F20E,$50355DDEBD49A3D1,$C8AFDF2A683441B7,
+         $1DB6BF6BE5DA4685,$A4037A02EEACA809,$9CA2FD34AC3B3721,$3EEF8C6D903FDB14,$5E7A3732952B49FC,$4B295A61F70CC596,
+         $FBC64141417EFF77,$0E5CD3E29ECFEFF7,$578B18802050060E,$0CCE252FFBB673FF,$E5DCAF7E77DBCD0F,$B82B2731913F5751,
+         $7FC31330988AEF3A,$E32A3FF3FEFDF468,$23131D8B831C7A7F,$8053407F863FD323,$CBDCEE6E60AEC93E,$4407EBA338689A98,
+         $0CFFDFFFE1945035,$56FEFB07FF535D4C,$EC043E8704636396,$636307531BE5FFDC,$18EA408787D3D67D,$264C2134948261A1,
+         $16FFBFFF25A04606,$0411F13D11B09DEC,$6D3F347505FB9700,$4E4549000000007E
+  Data.b $44,$AE,$42,$60,$82
+  Bulb:
+  Data.q $0A1A0A0D474E5089,$524448490D000000,$1000000010000000,$6891900000000208,$4144495301000036,$3FFFFFFC63DA7854,
+         $1D8EC34D11802903,$6160E763E84C263B,$9389EFF7FBF0CFFC,$61303030A8A8AAA6,$677379B6DB6DB0D7,$C3267DF4C9565CAF,
+         $7B8BF57FDE1F4BDF,$EC59097129DD66BF,$FAAFADB75DDDDC1A,$D5E4F826198F2DF7,$608FEB75D11A82EF,$27CE76B1E01010D7,
+         $0C8C8C12409FFFC6,$1BAC09417FC63940,$7753CBC1AEC45CB6,$78DF2BE28D2022CB,$1410D7634EDBADCE,$8D814554FD51D8E0,
+         $9E779FBAD969A611,$EAF0D76074343707,$C658B4B334ACABD5,$F8873289893F1B35,$0EFDBCDFFEB756F3,$2F3F0202508E1313,
+         $D1FAD9AEFF0B0DFD,$8D3C358246539F58,$3FE1E3B863E6C37F,$AB89ED8788527243,$FCBB9C7329AA7EB7,$1403253936B74357,
+         $94D1E8F4786CB800,$616365FF7FBFBDA9,$7644EE6969656665,$B15FBFDFEF0D160F,$929ACACACD840562,$35FAFD7C69204292,
+         $DEC805CDCDC72727,$68097339BCDF77BD,$72B95E974BA58200,$B1B1B5F6F6F0C809,$000359203F01AC21,$5D963243E1B0C5CB,
+         $444E454900000000
+  Data.b $AE,$42,$60,$82
+  Clip:
+  Data.q $0A1A0A0D474E5089,$524448490D000000,$1000000010000000,$6891900000000208,$414449A101000036,$41AB4B9295DA7854,
+         $B92065CACF861851,$C13F948C0DB91764,$06425BB6944F600F,$4A06465290924606,$EA6262184DB94452,$13281801F8A1900F,
+         $713B4EB39EF3D703,$FD9EFAD6B66F939C,$3EDDBB725EFDFB7E,$F8F1E32E5CB229DE,$5162C5A54A957AF5,$5A8E1C3803FCD1A3,
+         $468D1162C5BE86AD,$B00BFDAB56AEDDBB,$AB561E90E1C3EDDB,$BD7A3A74E9122455,$71C71413C315B9FE,$D033DCB162DA74E9,
+         $72E5C5CB9774E9D1,$BFBB4142850D1A35,$9729E3C78D9B3614,$BFED3A74F9B366CB,$3A74CE86DDBB4C0B,$54A95F7EFD93264D,
+         $4652DDBB74048CFE,$8EBD7ACE9D3B56AD,$CC3060CB56AD304B,$84328F5EBD303366,$254A9776EDC60ADA,$1152A57F7EFC6186,
+         $4C98F3004081C58B,$54A8C1270E7CF9A6,$64C991D781EFC22A,$70820409D60F9F3E,$9823468D366CDC38,$E2FDC80C18312244,
+         $4289122AB56A981E,$264F1E3C7AF510A1,$7AF5E07869B0F213,$F28D1A376EDD99EF,$0D1CF234B15E3CF9,$78F060C1E5CB919E,
+         $2786CD9B1932663C,$8367E259AFC96596,$0FD2142859F3E7D7,$A0607C2AF23162C5,$EB8E2B56ACA54A93,$025E1428533F1AF5,
+         $190E5CB90E1C3FB8,$459B364912253443,$08F004FEF1BBC820,$000031BB71DB8FF6,$42AE444E45490000
+  Data.b $60,$82
+  Magnifier:
+  Data.q $0A1A0A0D474E5089,$524448490D000000,$1000000010000000,$6891900000000208,$414449CF01000036,$3FFFFFFC63DA7854,
+         $6464646490030303,$34B5365E2F578300,$CFE989899CF97CBF,$B9D9D9F68E8E7F9F,$CC0B2006A8465970,$BE8E4E4E61F0F87F,
+         $B97979D7EBF5FEBE,$ECF8AF2F2BFDFEFF,$40F443E773B993D9,$2E19151590004035,$9D9D98A8A8A32525,$F48CA7D3E9F1540D,
+         $D48505055925451C,$EDDEEF770D7454D4,$59ECC7EBF5FBEBEB,$C9E679DC42368173,$56BFBFC63CF2EE87,$361B0DA4EE8158AC,
+         $2A24C8D0C8723D1C,$DBBF57C9CA6E0A2A,$B2592D7E9979520A,$DEEFB7DBED86DD0C,$0323232D4D4D5BBD,$FEF7E5BFDFEFF222,
+         $74B7FE61E649AAAC,$BFDE2B600D2452E9,$E7F3F9FC5254577D,$8503333332572B95,$57E5C4E9BBFCBD4F,$A2D175FEF8FE66DB,
+         $994949410036E845,$8AB2376BB5EF20A0,$E8783DEF4A735F4A,$89896292B2C5B6CE,$FCFC345896969689,$0A4A4A59393933F9,
+         $E0A0A097EBF5F8C8,$82811D1D1C8F47A3,$777FBFDF0100F128,$E206058D8D8A7272,$533A801A80EB75BA,$106AE05454545252,
+         $C7E3D2D2D28C801A,$0B85C2E2F178BF8F,$C34200D80CBCBCBC,$5A8C09A181B7DBED,$1C0666E6E6EF6F6F,$B7DBE5C5C5C1A100,
+         $04E2713EFF7FBF6F,$DE6F379869F08824,$9E4F27AA81D3E9F4,$35401B80CB6B6B6C,$B9E807F3F9FD1500,$0D5005E033178BC5,
+         $BCD93C9E4F111111,$4F0061E11C303379,$E1FED7150000C8D2,$000000007062FD76,$826042AE444E4549
 EndDataSection ;}
   
 EndModule
@@ -5683,7 +5891,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 0
+  #Example = 12
   
   ;  1: Headings
   ;  2: Emphasis
@@ -5718,6 +5926,7 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "Italicized text is the *cat's meow*."+ #LF$
       Text$ + "This text is ___really important___.  "+ #LF$
       Text$ + "The world is *~~flat~~* round.  "+ #LF$
+      Text$ + "This ++text++ has been underlined.  "+ #LF$
       Text$ + "This == word == is highlighted.  "+ #LF$
       Text$ + "-----------------------------------------" + #LF$
       Text$ + "#### Code ####" + #LF$
@@ -5739,9 +5948,10 @@ CompilerIf #PB_Compiler_IsMainFile
     Case 6
       Text$ = "#### Table ####"  + #LF$
       Text$ + "| Syntax    | Description   |" + #LF$
-      Text$ + "| :-------- | ------------: |" + #LF$
+      Text$ + "| :-------: | ------------: |" + #LF$
       Text$ + "| *Header*  | Title         |" + #LF$ 
-      Text$ + "| Paragraph | *Text*        |" + #LF$ 
+      Text$ + "| Long cell                ||" + #LF$
+      ;Text$ + "| Paragraph | *Text*        |" + #LF$ 
     Case 7
       Text$ = "#### Footnotes ####" + #LF$ + #LF$
       Text$ + "Here's a simple footnote,[^1] and here's a longer one.[^bignote]" + #LF$
@@ -5781,6 +5991,10 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + ":memo:  memo  " + #LF$ + #LF$
       Text$ + ":pencil:  pencil  " + #LF$ + #LF$
       Text$ + ":bookmark:  bookmark  " + #LF$ + #LF$
+      Text$ + ":bulb:  bulb  " + #LF$ + #LF$
+      Text$ + ":mag:  magnifier  " + #LF$ + #LF$
+      Text$ + ":paperclip:  paperclip  " + #LF$ + #LF$
+      Text$ + ":warning:  warning  " + #LF$ + #LF$
       Text$ + ":laugh:  grinning face with big eyes  " + #LF$ + #LF$
       Text$ + ":smile:  slightly smiling face  " + #LF$ + #LF$
       Text$ + ":smirk:  smirking face  " + #LF$ + #LF$
@@ -5884,9 +6098,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 5685
-; FirstLine = 478
-; Folding = whKAAAAAAAQCAIAAAAEAAQAAEgAAAAAAAAQQgBUAAAAAACAgAAASAAQ+
-; Markers = 5685
+; CursorPosition = 12
+; FirstLine = 6
+; Folding = 5BKAABAAAAQCAIAAAAQBAAQEgAOAAAAgAAAIJwgIQBAFIAMAABAAkAAg+-
+; Markers = 5893
 ; EnableXP
 ; DPIAware
