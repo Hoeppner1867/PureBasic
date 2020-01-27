@@ -9,9 +9,10 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 23.01.2020
+; Last Update: 27.01.2020
 ;
 ; - Bugfixes
+; - Added:   ResetSort()
 ;
 ; - Changed: SetItemImage(GNum.i, Row.i, Column.i, Image.i, Align.i=#Left, Width.i=#PB_Default, Height.i=#PB_Default)
 ; - Added:   SetItemImageID(GNum.i, Row.i, Column.i, Width.f, Height.f, ImageID.i, Align.i=#Left)
@@ -94,6 +95,7 @@
 ; ListEx::RemoveItem()              - similar to 'RemoveGadgetItem()'
 ; ListEx::RemoveItemState()         - removes #Selected / #Checked / #Inbetween
 ; ListEx::ResetChangedState()       - reset to not edited
+; ListEx::ResetSort()               - reset sort
 ; ListEx::SelectItems()             - select all rows [#All/#None]
 ; ListEx::SetAttribute()            - similar to SetGadgetAttribute()  [#Padding] 
 ; ListEx::SetAutoResizeColumn()     - column that is reduced when the vertical scrollbar is displayed.
@@ -147,7 +149,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20012300
+  #Version  = 20012700
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -410,6 +412,7 @@ DeclareModule ListEx
   Declare   RemoveItem(GNum.i, Row.i)
   Declare   RemoveItemState(GNum.i, Row.i, State.i, Column.i=#PB_Ignore)
   Declare   ResetChangedState(GNum.i)
+  Declare   ResetSort(GNum.i)
   Declare   SaveColorTheme(GNum.i, File.s)
   Declare.i SelectItems(GNum.i, Flag.i=#All)
   Declare   SetAttribute(GNum.i, Attrib.i, Value.i)
@@ -809,6 +812,7 @@ Module ListEx
   Structure ListEx_Rows_Structure       ;{ ListEx()\Rows()\...
     ID.s
     iData.i
+    Idx.i
     Y.f
     Height.f
     FontID.i
@@ -863,6 +867,7 @@ Module ListEx
     CanvasCursor.i
     Cursor.ListEx_Cursor_Structure
     
+    RowIdx.i
     Focus.i
     MultiSelect.i
     Changed.i
@@ -917,7 +922,8 @@ Module ListEx
   Declare CloseString_(Escape.i=#False)
   Declare CloseComboBox_(Escape.i=#False)
   Declare CloseDate_(Escape.i=#False)
-
+  Declare SetRowFocus_(Row.i)
+  
   CompilerIf #PB_Compiler_OS = #PB_OS_MacOS
     ; Addition of mk-soft
     
@@ -1048,6 +1054,8 @@ Module ListEx
     ListEx()\Size\Rows   = 0
     ListEx()\Row\OffSetY = 0
     
+    PushListPosition(ListEx()\Rows())
+    
     ForEach ListEx()\Rows()
       
       If ListIndex(ListEx()\Rows()) < ListEx()\Row\Offset
@@ -1064,6 +1072,8 @@ Module ListEx
       ListEx()\Size\Rows + ListEx()\Rows()\Height
       
     Next
+    
+    PopListPosition(ListEx()\Rows())
     
   EndProcedure
   
@@ -1154,6 +1164,7 @@ Module ListEx
       
       ListEx()\Row\Number    = ListSize(ListEx()\Rows())
       ListEx()\Rows()\ID     = Label
+      ListEx()\Rows()\Idx    = ListEx()\RowIdx
       ListEx()\Rows()\Height = ListEx()\Row\Height
       ListEx()\Rows()\Color\Front = #PB_Default
       ListEx()\Rows()\Color\Back  = #PB_Default
@@ -1174,7 +1185,9 @@ Module ListEx
         Next
         
       EndIf
-
+      
+      ListEx()\RowIdx + 1
+      
     EndIf
 
     ProcedureReturn ListIndex(ListEx()\Rows())
@@ -1806,6 +1819,41 @@ Module ListEx
   
   ;- _____ Sorting _____
   
+  Procedure.i GetFocusIdx_()
+    Define.i Index = #PB_Default
+    
+    If ListEx()\Row\Focus >= 0
+      
+      PushListPosition(ListEx()\Rows())
+      
+      If SelectElement(ListEx()\Rows(), ListEx()\Row\Focus)
+        Index = ListEx()\Rows()\Idx
+      EndIf  
+      
+      PopListPosition(ListEx()\Rows())
+      
+    EndIf
+    
+    ProcedureReturn Index
+  EndProcedure  
+  
+  Procedure   SetFocusIdx_(Index.i)
+
+    If ListEx()\Focus
+      
+      ListEx()\Row\Focus = #NotValid
+      
+      ForEach ListEx()\Rows()
+        If ListEx()\Rows()\Idx = Index
+          ListEx()\Row\Focus = ListIndex(ListEx()\Rows())
+          Break
+        EndIf
+      Next
+      
+    EndIf
+    
+  EndProcedure  
+  
   Procedure.f GetCashFloat_(String.s, Currency.s)
 
     String = ReplaceString(String, ",", ".")
@@ -1838,7 +1886,10 @@ Module ListEx
   EndProcedure 
   
   Procedure   SortColumn_()
+    Define.i Index
     Define.s String$
+    
+    Index = GetFocusIdx_()
     
     If ListEx()\Sort\Flags & #SortNumber       ;{ Sort number (integer)
       
@@ -1922,9 +1973,15 @@ Module ListEx
       
       SortStructuredList(ListEx()\Rows(), ListEx()\Sort\Direction, OffsetOf(ListEx_Rows_Structure\Sort), #PB_String)
       
+      
       ;}
     EndIf
-  
+    
+    If ListEx()\Focus
+      SetFocusIdx_(Index)
+      SetRowFocus_(ListEx()\Row\Focus)
+    EndIf
+    
   EndProcedure
   
   ;- __________ Theme __________ 
@@ -3440,6 +3497,8 @@ Module ListEx
       
       SetGadgetState(ListEx()\VScrollNum, ScrollPos)
       
+      If ListEx()\Focus : SelectElement(ListEx()\Rows(), ListEx()\Row\Focus) : EndIf
+      
     EndIf
     
   EndProcedure  
@@ -3983,26 +4042,28 @@ Module ListEx
           ;}
         Case #PB_Shortcut_Up       ;{ Up
           If ListEx()\String\Flag = #False
-            ListEx()\Focus = #True
-            If PreviousElement(ListEx()\Rows())
-              ListEx()\Row\Current = ListIndex(ListEx()\Rows())
-            ElseIf FirstElement(ListEx()\Rows())
-              ListEx()\Row\Current = ListIndex(ListEx()\Rows())
+            If ListEx()\Focus = #True 
+              If PreviousElement(ListEx()\Rows())
+                ListEx()\Row\Current = ListIndex(ListEx()\Rows())
+              ElseIf FirstElement(ListEx()\Rows())
+                ListEx()\Row\Current = ListIndex(ListEx()\Rows())
+              EndIf
+              ListEx()\Row\Focus = ListEx()\Row\Current
+              SetRowFocus_(ListEx()\Row\Focus)
             EndIf
-            ListEx()\Row\Focus = ListEx()\Row\Current
-            SetRowFocus_(ListEx()\Row\Focus)
           EndIf
           ;}
         Case #PB_Shortcut_Down     ;{ Down
           If ListEx()\String\Flag = #False
-            ListEx()\Focus = #True
-            If NextElement(ListEx()\Rows())
-              ListEx()\Row\Current = ListIndex(ListEx()\Rows())
-            ElseIf LastElement(ListEx()\Rows())
-              ListEx()\Row\Current = ListIndex(ListEx()\Rows())
-            EndIf
-            ListEx()\Row\Focus = ListEx()\Row\Current
-            SetRowFocus_(ListEx()\Row\Focus)
+            If ListEx()\Focus = #True 
+              If NextElement(ListEx()\Rows())
+                ListEx()\Row\Current = ListIndex(ListEx()\Rows())
+              ElseIf LastElement(ListEx()\Rows())
+                ListEx()\Row\Current = ListIndex(ListEx()\Rows())
+              EndIf
+              ListEx()\Row\Focus = ListEx()\Row\Current
+              SetRowFocus_(ListEx()\Row\Focus)
+            EndIf  
           EndIf  
           ;}
         Case #PB_Shortcut_PageUp   ;{ PageUp
@@ -4097,7 +4158,7 @@ Module ListEx
             CloseString_()
           EndIf  
           ;}
-        Case #PB_Shortcut_Escape   ;{Escape
+        Case #PB_Shortcut_Escape   ;{ Escape
           If ListEx()\String\Flag
             CloseString_(#True)
           EndIf  
@@ -4317,9 +4378,6 @@ Module ListEx
             EndIf
             
             SortColumn_()
-            
-            ListEx()\Focus = #False
-            ListEx()\Row\Focus = #NotValid
             
             UpdateRowY_()
             
@@ -5025,6 +5083,8 @@ Module ListEx
           
           ScrollEditGadgets_() 
           
+          If ListEx()\Focus : SelectElement(ListEx()\Rows(), ListEx()\Row\Focus) : EndIf
+          
           Draw_()
           If ListEx()\String\Flag : DrawString_() : EndIf 
           
@@ -5256,7 +5316,7 @@ Module ListEx
         UpdateRowY_()
         
         ScrollEditGadgets_()
-        
+
         Draw_()
         If ListEx()\String\Flag : DrawString_() : EndIf 
         
@@ -6655,6 +6715,26 @@ Module ListEx
     
   EndProcedure  
   
+  Procedure   ResetSort(GNum.i)
+    Define.i Index
+
+    If FindMapElement(ListEx(), Str(GNum))
+      
+      Index = GetFocusIdx_()
+      
+      SortStructuredList(ListEx()\Rows(),#PB_Sort_Ascending, OffsetOf(ListEx_Rows_Structure\Idx), #PB_Integer)
+      
+      If ListEx()\Focus
+        SetFocusIdx_(Index)
+        SetRowFocus_(ListEx()\Row\Focus)
+      EndIf
+      
+      If ListEx()\ReDraw : Draw_() : EndIf
+      
+    EndIf
+    
+  EndProcedure
+  
   
   Procedure   SaveColorTheme(GNum.i, File.s)
     Define.i JSON
@@ -7635,8 +7715,8 @@ Module ListEx
         
         SortColumn_()
         
-        ListEx()\Focus = #False
-        ListEx()\Row\Focus = #NotValid
+        ;ListEx()\Focus = #False
+        ;ListEx()\Row\Focus = #NotValid
         
         If ListEx()\ReDraw : Draw_() : EndIf
       EndIf
@@ -7645,7 +7725,6 @@ Module ListEx
     
   EndProcedure
   
-
 EndModule
 
 ;- ========  Module - Example ========
@@ -7668,6 +7747,7 @@ CompilerIf #PB_Compiler_IsMainFile
     #MenuItem3
     #MenuItem4
     #MenuItem5
+    #MenuItem6
     #B_Green
     #B_Blue
     #B_Default
@@ -7694,6 +7774,7 @@ CompilerIf #PB_Compiler_IsMainFile
       MenuItem(#MenuItem3, "Theme 'Default'")
       MenuBar()
       MenuItem(#MenuItem4, "Reset gadget size")
+      MenuItem(#MenuItem6, "Reset sort")
     EndIf
     
     ButtonGadget(#Button,    420,  10, 70, 20, "Resize")
@@ -7834,7 +7915,7 @@ CompilerIf #PB_Compiler_IsMainFile
 
       ListEx::DisableReDraw(#List, #False) 
       
-      ListEx::ExportCSV(#List, "Export.csv")
+      ;ListEx::SetState(#List, 10)
       
     EndIf
     
@@ -7899,9 +7980,7 @@ CompilerIf #PB_Compiler_IsMainFile
         Case #PB_Event_Menu ;{ PopupMenu
           Select EventMenu()
             Case #MenuItem0 
-              ListEx::DebugList(#List)
               ListEx::ClearItems(#List)
-              ListEx::DebugList(#List)
             Case #MenuItem1
               ListEx::LoadColorTheme(#List, "Theme_Blue.json")
             Case #MenuItem2
@@ -7917,7 +7996,9 @@ CompilerIf #PB_Compiler_IsMainFile
             Case #MenuItem5
               CompilerIf ListEx::#Enable_CSV_Support
                 ListEx::ClipBoard(#List)
-              CompilerEndIf  
+              CompilerEndIf 
+            Case #MenuItem6
+              ListEx::ResetSort(#List)
           EndSelect ;}
       EndSelect
     Until Event = #PB_Event_CloseWindow
@@ -7929,10 +8010,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 7707
-; FirstLine = 1402
-; Folding = wAQAAAACIAQFJCEAGAA+HQ5hCBqJAAnoAFAGAACNAOAAuDAFwE5AIAOAAAAAAAIAB5--
-; Markers = 3239,5831
+; CursorPosition = 151
+; FirstLine = 21
+; Folding = QAQAAAAAIACFICEAGAAARAhHaEgmAAciSUAQYAQoBwBkwDAMB3RngB5BAICJAAgBAw19-
+; Markers = 3296,5891
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
