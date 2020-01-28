@@ -9,11 +9,12 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 27.01.2020
+; Last Update: 28.01.2020
 ;
+; - Update & Bugfixes for CSV
 ; - Bugfixes
-; - Added:   ResetSort()
 ;
+; - Added:   ResetSort()
 ; - Changed: SetItemImage(GNum.i, Row.i, Column.i, Image.i, Align.i=#Left, Width.i=#PB_Default, Height.i=#PB_Default)
 ; - Added:   SetItemImageID(GNum.i, Row.i, Column.i, Width.f, Height.f, ImageID.i, Align.i=#Left)
 
@@ -149,7 +150,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20012700
+  #Version  = 200128001
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -1064,9 +1065,9 @@ Module ListEx
       
       
       If ListEx()\Flags & #NoRowHeader
-        ListEx()\Rows()\Y  = ListEx()\Size\Rows
+        ListEx()\Rows()\Y = ListEx()\Size\Rows
       Else
-        ListEx()\Rows()\Y  = ListEx()\Size\Rows + ListEx()\Header\Height
+        ListEx()\Rows()\Y = ListEx()\Size\Rows + ListEx()\Header\Height
       EndIf
       
       ListEx()\Size\Rows + ListEx()\Rows()\Height
@@ -1083,28 +1084,20 @@ Module ListEx
  
   Procedure.i GetRow_(Y.f)
     
-    Y = DesktopUnscaledY(Y)
+    Y = DesktopUnscaledY(Y + ListEx()\Row\OffSetY)
     
     If Y > ListEx()\Size\Y And Y < ListEx()\Size\Rows + ListEx()\Header\Height
       
       If Y < ListEx()\Header\Height
         ProcedureReturn #Header 
       Else
-        
-        ListEx()\Row\OffsetY = 0
-        
+
         ForEach ListEx()\Rows()
-          
-          If ListIndex(ListEx()\Rows()) < ListEx()\Row\Offset
-            ListEx()\Row\OffsetY + ListEx()\Rows()\Height
-          Else
-            If ListEx()\Rows()\Y > Y + ListEx()\Row\OffsetY
-              ProcedureReturn ListIndex(ListEx()\Rows()) - 1
-            EndIf
+          If Y >= ListEx()\Rows()\Y And Y <= ListEx()\Rows()\Y + ListEx()\Row\Height
+            ProcedureReturn ListIndex(ListEx()\Rows())
           EndIf
         Next
-        
-        ProcedureReturn ListIndex(ListEx()\Rows())
+
       EndIf
       
     Else
@@ -1120,7 +1113,7 @@ Module ListEx
     If X > ListEx()\Size\X And X < ListEx()\Size\Cols
       
       ForEach ListEx()\Cols()
-        If ListEx()\Cols()\X >= X + ListEx()\Col\OffsetX
+        If ListEx()\Cols()\X >= X + DesktopUnscaledX(ListEx()\Col\OffsetX)
           ProcedureReturn ListIndex(ListEx()\Cols()) - 1
         EndIf
       Next
@@ -1216,11 +1209,27 @@ Module ListEx
       Define.s Key$, CSV$ 
       
       ForEach ListEx()\Cols()
+        
         Key$ = ListEx()\Cols()\Key
+        
         If ListIndex(ListEx()\Cols()) = 0
-          CSV$ = DQuote + ListEx()\Rows()\Column(Key$)\Value
-        Else  
-          CSV$ + DQuote + Separator + DQuote + ListEx()\Rows()\Column(Key$)\Value
+          
+          If ListEx()\Flags & #CheckBoxes
+            CSV$ = DQuote + Str(ListEx()\Rows()\State)
+          ElseIf ListEx()\Cols()\Flags & #CheckBoxes
+            CSV$ = DQuote + Str(ListEx()\Rows()\Column(Key$)\State)
+          Else
+            CSV$ = DQuote + ListEx()\Rows()\Column(Key$)\Value
+          EndIf  
+          
+        Else
+          
+          If ListEx()\Cols()\Flags & #CheckBoxes
+            CSV$ + DQuote + Separator + DQuote + Str(ListEx()\Rows()\Column(Key$)\State)
+          Else
+            CSV$ + DQuote + Separator + DQuote + ListEx()\Rows()\Column(Key$)\Value
+          EndIf
+          
         EndIf
       Next
 
@@ -1231,26 +1240,61 @@ Module ListEx
       Define.i idx = 0
       Define.s Column$
       
-      String = ReplaceString(Trim(String, DQuote), DQuote + Separator + DQuote, #LF$)
+      String = ReplaceString(String, DQuote + Separator + DQuote, #LF$)
+      String = Trim(String, DQuote)
       
       ForEach ListEx()\Cols()
         
-        Column$ = StringField(String, idx, #LF$)
-        If Column$
-          ListEx()\Cols()\Header\Title = Column$
-        EndIf  
-        
         idx + 1
+        
+        Column$ = StringField(String, idx, #LF$)
+        ListEx()\Cols()\Header\Title = Column$
+
       Next
     
     EndProcedure
     
     Procedure.i Import_CSV_Row(String.s, Separator.s, DQuote.s)
-
-      String = ReplaceString(String, DQuote + Separator + DQuote, #LF$)
-      String = Trim(String, DQuote)
+      Define.i i
       
-      ProcedureReturn AddItem_(-1, String, "", #False)
+      If AddElement(ListEx()\Rows())
+
+        ListEx()\Row\Number    = ListSize(ListEx()\Rows())
+        ListEx()\Rows()\ID     = ""
+        ListEx()\Rows()\Idx    = ListEx()\RowIdx
+        ListEx()\Rows()\Height = ListEx()\Row\Height
+        ListEx()\Rows()\Color\Front = #PB_Default
+        ListEx()\Rows()\Color\Back  = #PB_Default
+        ListEx()\Rows()\Color\Line  = ListEx()\Color\Line
+        
+        String = ReplaceString(String, DQuote + Separator + DQuote, #LF$)
+        String = Trim(String, DQuote)
+        
+        If String <> ""
+
+          For i=0 To CountString(String, #LF$)
+            
+            If SelectElement(ListEx()\Cols(), i)
+              
+              If i=0 And ListEx()\Flags & #CheckBoxes
+                ListEx()\Rows()\State = Val(StringField(String, i + 1, #LF$))
+              ElseIf ListEx()\Cols()\Flags & #CheckBoxes
+                ListEx()\Rows()\Column(ListEx()\Cols()\Key)\State = Val(StringField(String, i + 1, #LF$))
+              Else
+                ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Value = StringField(String, i + 1, #LF$)
+              EndIf
+            
+            EndIf
+
+          Next
+          
+        EndIf
+
+        ListEx()\RowIdx + 1
+        
+      EndIf
+      
+      ProcedureReturn 
     EndProcedure
     
   CompilerEndIf  
@@ -2896,7 +2940,7 @@ Module ListEx
         DrawingMode(#PB_2DDrawing_Default)
         
         Row = ListIndex(ListEx()\Rows())
-        
+
         ;{ Alternate Color
         If ListEx()\Color\AlternateRow <> #PB_Default
           If Mod(ListIndex(ListEx()\Rows()), 2)
@@ -3585,8 +3629,8 @@ Module ListEx
             
             ListEx()\String\Row     = Row
             ListEx()\String\Col     = Column
-            ListEx()\String\X       = ListEx()\Cols()\X
-            ListEx()\String\Y       = ListEx()\Rows()\Y
+            ListEx()\String\X       = X
+            ListEx()\String\Y       = Y
             ListEx()\String\Width   = ListEx()\Cols()\Width
             ListEx()\String\Height  = ListEx()\Rows()\Height
             ListEx()\String\Label   = ListEx()\Cols()\Key
@@ -3613,8 +3657,8 @@ Module ListEx
               SetGadgetText(ListEx()\ComboNum, ListEx()\Rows()\Column(Key$)\Value)
               ListEx()\ComboBox\Row     = Row
               ListEx()\ComboBox\Col     = Column
-              ListEx()\ComboBox\X       = ListEx()\Cols()\X
-              ListEx()\ComboBox\Y       = ListEx()\Rows()\Y
+              ListEx()\ComboBox\X       = X
+              ListEx()\ComboBox\Y       = Y
               ListEx()\ComboBox\Width   = ListEx()\Cols()\Width
               ListEx()\ComboBox\Height  = ListEx()\Rows()\Height
               ListEx()\ComboBox\Label   = ListEx()\Cols()\Key
@@ -3654,8 +3698,8 @@ Module ListEx
 
               ListEx()\Date\Row     = Row
               ListEx()\Date\Col     = Column
-              ListEx()\Date\X       = ListEx()\Cols()\X
-              ListEx()\Date\Y       = ListEx()\Rows()\Y
+              ListEx()\Date\X       = X
+              ListEx()\Date\Y       = Y
               ListEx()\Date\Width   = ListEx()\Cols()\Width
               ListEx()\Date\Height  = ListEx()\Rows()\Height
               ListEx()\Date\Label   = ListEx()\Cols()\Key
@@ -3684,7 +3728,16 @@ Module ListEx
   Procedure   ScrollEditGadgets_() 
     Define.f X, Y
     
-    If ListEx()\String\Flag : CloseString_() : EndIf
+    If ListEx()\String\Flag
+      
+      If SelectElement(ListEx()\Rows(), ListEx()\String\Row)
+        If SelectElement(ListEx()\Cols(), ListEx()\String\Col)
+          ListEx()\String\X = ListEx()\Cols()\X - ListEx()\Col\OffsetX
+          ListEx()\String\Y = ListEx()\Rows()\Y - ListEx()\Row\OffSetY
+        EndIf
+      EndIf
+      
+    EndIf
     
     If ListEx()\ComboBox\Flag
       If IsGadget(ListEx()\ComboNum)
@@ -5239,22 +5292,6 @@ Module ListEx
     
     If FindMapElement(ListEx(), Str(GadgetNum))
       
-      If ListEx()\String\Flag   ;{ Close String
-        CloseString_()
-        Draw_()
-      EndIf ;}
-      
-      If ListEx()\ComboBox\Flag ;{ Close ComboBox
-        CloseComboBox_()
-        Draw_()
-      EndIf ;}
-      
-      If ListEx()\Date\Flag     ;{ Close DateGadget
-        CloseDate_()
-        Draw_()
-      EndIf ;}
-      
-      
       ScrollPos = GetGadgetState(ScrollNum)
       If ScrollPos <> ListEx()\HScroll\Position
         
@@ -5289,22 +5326,6 @@ Module ListEx
     Define.f X, Y, ScrollPos
     
     If FindMapElement(ListEx(), Str(GadgetNum))
-      
-      If ListEx()\String\Flag   ;{ Close String
-        CloseString_()
-        Draw_()
-      EndIf ;}
-      
-      If ListEx()\ComboBox\Flag ;{ Close ComboBox
-        CloseComboBox_()
-        Draw_()
-      EndIf ;}
-      
-      If ListEx()\Date\Flag     ;{ Close DateGadget
-        CloseDate_()
-        Draw_()
-      EndIf ;}
-      
       
       ScrollPos = GetGadgetState(ScrollNum)
       If ScrollPos <> ListEx()\VScroll\Position
@@ -5644,6 +5665,11 @@ Module ListEx
       
       If FindMapElement(ListEx(), Str(GNum))
         
+        ClearList(ListEx()\Rows())
+      
+        ListEx()\Row\Number = 0
+        ListEx()\RowIdx     = 1
+        
         FileID = ReadFile(#PB_Any, File)
         If FileID
           
@@ -5942,6 +5968,7 @@ Module ListEx
       ClearList(ListEx()\Rows())
       
       ListEx()\Row\Number = 0
+      ListEx()\RowIdx     = 0
       UpdateRowY_()
       
       Draw_()
@@ -7909,13 +7936,16 @@ CompilerIf #PB_Compiler_IsMainFile
         ;ListEx::SetColumnAttribute(#List, 2, ListEx::#MaxChars, 14)
         
       CompilerEndIf  
-        
+     
       ; --- GUI theme support ---
       ;ModuleEx::SetTheme(ModuleEx::#Theme_DarkBlue)
 
       ListEx::DisableReDraw(#List, #False) 
       
       ;ListEx::SetState(#List, 10)
+      
+      ;ListEx::ExportCSV(#List, "Export.csv", ListEx::#HeaderRow)
+      ListEx::ImportCSV(#List, "Export.csv", ListEx::#HeaderRow)
       
     EndIf
     
@@ -8010,10 +8040,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 151
-; FirstLine = 21
-; Folding = QAQAAAAAIACFICEAGAAARAhHaEgmAAciSUAQYAQoBwBkwDAMB3RngB5BAICJAAgBAw19-
-; Markers = 3296,5891
+; CursorPosition = 13
+; Folding = QAQAAAAAIIAVJCEAGAAARQBEKEImEAciCAAAYAQQAAABAAIAmAHgB5BAIAAAAAAAA1c-
+; Markers = 3340,5917
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
