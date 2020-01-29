@@ -9,17 +9,15 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 25.01.2020
+; Last Update: 29.01.2020
+
+; - Bugfixes & Improvements for tables
+; - 
+;
 ; - New:   Emojis :warning: / :bulb: / :paperclip: / :mag:
 ; - Added: underline or inserted => "++underline++"  
 ; - Added: Colspan for tables    => "| long cell ||"
 ;
-; - Internal structure of the parser completely changed
-; - Added: Keystrokes "[[Ctrl]] [[C]]"
-; - Added: Abbreviations => "*[HTML]: Hypertext Markup Language"
-; - Added: Inline Emphasis (Lists/Tables/Footnotes/...)
-; - Added: Emphasis (bold/italic) for links, autolinks, strikethrough and highlight
-; - Changed: PDF task list with images for checkboxes
 
 ;{ ===== MIT License =====
 ;
@@ -76,8 +74,7 @@
 
 ;{ _____ Emoji _____
 
-
-; :bookmark: / :date: / :mail: / :memo: / :pencil: / :phone: / :warning: / :bulb: / :paperclip: / :mag:
+; :bookmark: / :date: / :mail: / :memo: / :pencil: / :phone: / :warning: / :bulb: / :paperclip: / :magnify:
 ; :angry: / :cool: / :eyes: / :laugh: / / :rofl: / :sad: / :smile: / :smirk: / :wink: / :worry:
 
 ;}
@@ -88,7 +85,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20200201
+  #Version  = 20012900
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -142,6 +139,7 @@ DeclareModule MarkDown
 		#Color_Link
 		#Color_HighlightLink
 		#Color_LineColor
+		#Color_HeaderBack
 	EndEnumeration ;}
 
 	CompilerIf Defined(ModuleEx, #PB_Module)
@@ -454,6 +452,7 @@ Module MarkDown
 		DisableFront.i
 		Front.i
 		Gadget.i
+		HeaderBack.i
 		Highlight.i
 		Hint.i
 		Keystroke.i
@@ -702,7 +701,7 @@ Module MarkDown
 	EndProcedure
 	
 	Procedure   LoadFonts_(Name.s, Size.i)
-
+    
 	  MarkDown()\Font\Normal     = LoadFont(#PB_Any, Name, Size)
 	  MarkDown()\Font\Bold       = LoadFont(#PB_Any, Name, Size, #PB_Font_Bold)
 	  MarkDown()\Font\Italic     = LoadFont(#PB_Any, Name, Size, #PB_Font_Italic)
@@ -995,9 +994,11 @@ Module MarkDown
             
             MarkDown()\Table()\Row()\Col()\Width = 0 
             
-            ForEach MarkDown()\Table()\Row()\Col()\Words()
-              
-              If Font <> MarkDown()\Table()\Row()\Col()\Words()\Font : Font = MarkDown()\Table()\Row()\Col()\Words()\Font : EndIf
+            ForEach MarkDown()\Table()\Row()\Col()\Words() ;{ Words
+
+              If Font <> MarkDown()\Table()\Row()\Col()\Words()\Font
+                Font = DrawingFont_(MarkDown()\Table()\Row()\Col()\Words()\Font)
+              EndIf        
               
               Select MarkDown()\Table()\Row()\Col()\Words()\Flag
                 Case #Emoji     ;{ Emoji (16x16)
@@ -1034,7 +1035,7 @@ Module MarkDown
             
               MarkDown()\Table()\Row()\Col()\Width + MarkDown()\Table()\Row()\Col()\Words()\Width
               If TextHeight > MarkDown()\Table()\Row()\Height : MarkDown()\Table()\Row()\Height = TextHeight : EndIf
-              
+              ;}
             Next
             
             If MarkDown()\Table()\Row()\Col()\Width > MarkDown()\Table()\Column(Key$)\Width : MarkDown()\Table()\Column(Key$)\Width = MarkDown()\Table()\Row()\Col()\Width : EndIf
@@ -1638,7 +1639,7 @@ Module MarkDown
                   Else
                     ColSpan$ = ""
                   EndIf
-                  Debug ColSpan$
+                  
                   Select MarkDown()\Table()\Column(Str(c))\Align
                     Case "C"
                       HTML$ + "<td" + ColSpan$ + " style=" + #DQUOTE$ + "text-align: center;" + #DQUOTE$ + ">" + TextHTML_(MarkDown()\Table()\Row()\Col(Num$)\Words()) + " &nbsp; </td>" + #LF$
@@ -1656,7 +1657,7 @@ Module MarkDown
 			      Next
 			      
 			      HTML$+ "</tbody>" + #LF$ + "</table>" + #LF$
-			      Debug HTML$
+			     
 		      EndIf
           ;}
         Case #Code             ;{ Code Block
@@ -3716,7 +3717,6 @@ Module MarkDown
               ePos = FindString(String$, "}")
               If ePos
                 MarkDown()\Items()\ID = Mid(String$, Pos + 1, ePos - Pos - 1)
-                Debug "ID: " + MarkDown()\Items()\ID
                 String$ = Left(String$, Pos - 1)
               EndIf  
             EndIf  
@@ -4186,6 +4186,7 @@ Module MarkDown
   	
   EndProcedure
   
+  
   Procedure.i GetAlignOffset_(WordIdx.i, Width.i, Align.s, List Words.Words_Structure())
     Define.i TextWidth, OffsetX
     
@@ -4204,18 +4205,30 @@ Module MarkDown
       EndIf
       
     Next
-    
+
     PopListPosition(Words())
     
     Select Align
       Case "C"
         OffsetX = (Width - TextWidth) / 2
       Case "R"
-        OffsetX = Width - TextWidth
+        OffsetX = Width - TextWidth - dpiX(5)
+      Default
+        OffsetX = dpiX(5)
     EndSelect    
     
     ProcedureReturn OffsetX
   EndProcedure
+  
+  Procedure.i GetSpanWidth_(Idx.i, Span.i)
+    Define.i i, Width
+    
+    For i=Idx To Idx + Span - 1
+      Width + MarkDown()\Table()\Column(Str(i))\Width
+    Next
+    
+    ProcedureReturn Width
+  EndProcedure  
   
   
   Procedure.i DrawRow_(X.i, Y.i, Width.i, Height.i, BlockQuote.i, List Words.Words_Structure(), ColWidth.i=#False, Align.s="L")
@@ -4238,21 +4251,21 @@ Module MarkDown
       
       WordIdx = 0
       
-      If ColWidth
-        OffSetX = GetAlignOffset_(0, ColWidth - dpiX(10), Align, Words())
-      EndIf
+      If ColWidth : PosX + GetAlignOffset_(0, ColWidth, Align, Words()) : EndIf
     
       ForEach Words()
         
         If Font <> Words()\Font : Font = DrawingFont_(Words()\Font) : EndIf
        
-        If PosX + Words()\Width > MarkDown()\WrapPos
+        If PosX + Words()\Width > MarkDown()\WrapPos ;{ New row
           
           PosX = X
           PosY + Height
           
           WordIdx = ListIndex(Words())
           
+          If ColWidth : PosX + GetAlignOffset_(WordIdx, ColWidth, Align, Words()) : EndIf
+
           If BlockQuote            ;{ BlockQuote
             DrawingMode(#PB_2DDrawing_Default)
             Box(MarkDown()\LeftBorder, lY, dpiX(5), Height, MarkDown()\Color\BlockQuote)
@@ -4263,7 +4276,7 @@ Module MarkDown
           EndIf
           
           lY = PosY
-          
+          ;}
         EndIf
         
         lX = PosX
@@ -4396,12 +4409,7 @@ Module MarkDown
 
       lY = PosY
       
-      If ColWidth ;{ Table
-        
-        PosX + GetAlignOffset_(0, ColWidth - dpiX(10), Align, Words())
-
-        ;}
-      EndIf
+      If ColWidth : PosX + GetAlignOffset_(0, ColWidth, Align, Words()) : EndIf
       
       ForEach Words()
         
@@ -4504,7 +4512,7 @@ Module MarkDown
             PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Front)
             Line(lX, PosY + TextHeight(Words()\String) - 1, TextWidth(Words()\String), 1, MarkDown()\Color\Front)
             ;}   
-          Default  
+          Default
             PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Front)
         EndSelect
         
@@ -4620,7 +4628,7 @@ Module MarkDown
   EndProcedure  
   
   Procedure.i DrawTable_(Index.i, X.i, Y.i, BlockQuote.i) 
-    Define.i c, PosX, PosY, ColY, OffSetY, OffSetBQ, colWidth
+    Define.i c, PosX, PosY, ColY, OffSetY, OffSetBQ, colWidth, colHeight
     Define.s Num$
     
     NewMap ColX.i()
@@ -4654,21 +4662,33 @@ Module MarkDown
           
           PosX = ColX(Num$)
           
-          colWidth = MarkDown()\Table()\Column(Num$)\Width * MarkDown()\Table()\Row()\Col(Num$)\Span
-          If colWidth = #False : Continue : EndIf 
+          If MarkDown()\Table()\Row()\Col(Num$)\Span > 1
+            colWidth = GetSpanWidth_(c, MarkDown()\Table()\Row()\Col(Num$)\Span)
+          Else
+            colWidth = MarkDown()\Table()\Column(Num$)\Width
+          EndIf
           
-          MarkDown()\WrapPos = PosX + colWidth
+          If MarkDown()\Table()\Row()\Col(Num$)\Span = 0 : Continue : EndIf 
           
-          ColY = DrawRow_(PosX, PosY, MarkDown()\Table()\Row()\Col(Num$)\Width, MarkDown()\Table()\Row()\Height, BlockQuote, MarkDown()\Table()\Row()\Col(Num$)\Words(), colWidth, MarkDown()\Table()\Column(Num$)\Align)
+          colHeight = MarkDown()\Table()\Row()\Height + dpiX(6)
           
+          MarkDown()\WrapPos = PosX + colWidth - dpiX(3)
+          
+          If MarkDown()\Table()\Row()\Type = #Table|#Header
+            DrawingMode(#PB_2DDrawing_Default)
+            Box(PosX, PosY, colWidth, colHeight, MarkDown()\Color\HeaderBack)
+          EndIf   
+          
+          DrawingMode(#PB_2DDrawing_Outlined)
+          Box(PosX, PosY, colWidth + 1, colHeight + 1, MarkDown()\Color\Front)
+          
+          DrawingMode(#PB_2DDrawing_Transparent)
+          
+          ColY = DrawRow_(PosX, PosY + dpiX(3), MarkDown()\Table()\Row()\Col(Num$)\Width, MarkDown()\Table()\Row()\Height, BlockQuote, MarkDown()\Table()\Row()\Col(Num$)\Words(), colWidth, MarkDown()\Table()\Column(Num$)\Align)
+          
+          ColY + dpiX(3)
           If ColY > Y : Y = ColY : EndIf
         Next
-        
-        If MarkDown()\Table()\Row()\Type = #Table|#Header ;{ Header line
-          OffSetY = MarkDown()\Table()\Row()\Height / 2
-          Line(X, Y + OffSetY, MarkDown()\Table()\Width, 1, MarkDown()\Color\Line)
-          Y + MarkDown()\Table()\Row()\Height ;}
-        EndIf 
       
       Next
       
@@ -5412,6 +5432,7 @@ Module MarkDown
 				MarkDown()\Color\Line          = $A9A9A9
 				MarkDown()\Color\Link          = $8B0000
 				MarkDown()\Color\LinkHighlight = $FF0000
+				MarkDown()\Color\HeaderBack    = $F5F5F5
 
 				CompilerSelect #PB_Compiler_OS ;{ Color
 					CompilerCase #PB_OS_Windows
@@ -5554,6 +5575,8 @@ Module MarkDown
           MarkDown()\Color\Code          = Value
         Case #Color_Front
           MarkDown()\Color\Front         = Value  
+        Case #Color_HeaderBack
+          MarkDown()\Color\HeaderBack    = Value
         Case #Color_HighlightBack
           MarkDown()\Color\Highlight     = Value    
         Case #Color_Tooltip
@@ -5590,6 +5613,8 @@ Module MarkDown
       FreeFonts_()
       
       LoadFonts_(Name, Size)
+      
+      DetermineTextSize_()
       
       ReDraw()
     EndIf
@@ -5899,7 +5924,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 12
+  #Example = 6
   
   ;  1: Headings
   ;  2: Emphasis
@@ -6106,9 +6131,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1426
-; FirstLine = 288
-; Folding = 5BKAABAAAAQCAICABAQBAAQEgAOAAAAgAAAIJwgIQBAFIAMAABAAkAAg+-
-; Markers = 5901
+; CursorPosition = 87
+; FirstLine = 3
+; Folding = whKAAAEAAARCHQAAAgiAAAgAAAMAAAAABAAQRglQABAAAAEAAAAAIJAo5-
+; Markers = 5926
 ; EnableXP
 ; DPIAware
