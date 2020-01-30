@@ -8,9 +8,10 @@
 ;/ ( based on 'PurePDF' by LuckyLuke / ABBKlaus / normeus )
 ;/
 
-; Last Update: 20.01.2020
+; Last Update: 30.01.2020
 ; 
-
+; Added: PDF::GetStringHeight()
+;
 
 ;{ ===== MIT License =====
 ;
@@ -71,6 +72,7 @@
   ; PDF::GetPosX()                     - Returns the abscissa of the current position.
   ; PDF::GetPosY()                     - Returns the ordinate of the current position.
   ; PDF::GetStringWidth()              - Get width of a string in the current font.
+  ; PDF::GetStringHeight()             - Get height of a string in the current font.
   ; PDF::Image()                       - Puts an image in the page.
   ; PDF::Ln()                          - Performs a line break.
   ; PDF::MultiCell()                   - This method allows printing text with line breaks.
@@ -186,7 +188,7 @@
 
 DeclareModule PDF
   
-  #Version  = 20012000
+  #Version  = 20013000
   
   #Enable_AcroFormCommands  = #True
   #Enable_Annotations       = #True
@@ -475,6 +477,7 @@ DeclareModule PDF
   Declare.f GetPosY(ID.i)
   Declare.f GetScaleFactor(ID.i)
   Declare.f GetStringWidth(ID.i, String.s)
+  Declare.f GetStringHeight(ID.i)
   Declare.f GetWordSpacing(ID.i)
   Declare   HeaderProcedure(*ProcAddress, *StructAddress=#Null)
   Declare   Image(ID.i, FileName.s, X.f=#PB_Default, Y.f=#PB_Default, Width.f=#PB_Default, Height.f=#PB_Default, Link.i=#NoLink)
@@ -3148,7 +3151,7 @@ Module PDF
     
   EndProcedure  
   
-  Procedure   Cell_(Width.f, Height.f = 0, Text.s="", Border.i=#False, Ln.i=#Right, Align.s="", Fill.i=#False, Link.i=#NoLink, Label.s="")
+  Procedure   Cell_(Width.f, Height.f = #PB_Default, Text.s="", Border.i=#False, Ln.i=#Right, Align.s="", Fill.i=#False, Link.i=#NoLink, Label.s="")
     Define.i txtLen, PageX, PageY, TextX
     Define.f WordSpace, StrgWidth, maxWidth, wLink
     Define.s sStrg, eStrg, Stream$
@@ -4310,6 +4313,14 @@ Module PDF
     
     If FindMapElement(PDF(), Str(ID))
       ProcedureReturn GetStringWidth_(String)
+    EndIf    
+    
+  EndProcedure
+  
+  Procedure.f GetStringHeight(ID.i)
+    
+    If FindMapElement(PDF(), Str(ID))
+      ProcedureReturn PDF()\Font\Size
     EndIf    
     
   EndProcedure
@@ -6956,10 +6967,9 @@ CompilerEndIf
 
 ;- ========================
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 510
-; FirstLine = 185
-; Folding = YAwiA5AegAQAAABAABAgIECIAAgBAAAAAAEAAzgIAEnoAAACOI5UQJFIAAQwwEQAA5BCAA9
-; Markers = 581,1012,2361,2461,3767,3833
+; CursorPosition = 12
+; Folding = MAwiA5AegAQAAABAAhAgIECIAAgBAAAAAAHAAzgIAEnoAAYEcQwpgSKQAAgghJgACwDEAA5
+; Markers = 584,1015,2364,2464,3770,3836
 ; EnableXP
 ; DPIAware
 ; EnablePurifier

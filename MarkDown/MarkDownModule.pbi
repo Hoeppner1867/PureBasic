@@ -9,10 +9,11 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 29.01.2020
-
+; Last Update: 30.01.2020
+; 
+; - table improvements for PDF & HTML export
+; 
 ; - Bugfixes & Improvements for tables
-; - 
 ;
 ; - New:   Emojis :warning: / :bulb: / :paperclip: / :mag:
 ; - Added: underline or inserted => "++underline++"  
@@ -816,7 +817,20 @@ Module MarkDown
 
 	EndProcedure
 	
-
+	Procedure.i GetSpanWidth_(Idx.i, Span.i, PDF.i=#False)
+    Define.i i, Width
+    
+    For i=Idx To Idx + Span - 1
+      If PDF
+        Width + mm_(MarkDown()\Table()\Column(Str(i))\Width) + 2
+      Else 
+        Width + MarkDown()\Table()\Column(Str(i))\Width
+      EndIf 
+    Next
+    
+    ProcedureReturn Width
+  EndProcedure  
+	
   Procedure.i DrawingFont_(Font.i)
 
     Select Font
@@ -1589,7 +1603,7 @@ Module MarkDown
 
             Cols = MarkDown()\Table()\Cols
             
-            HTML$ + "<table>"  + #LF$
+            HTML$ + "<table border='1'>"  + #LF$
             
 		        ForEach MarkDown()\Table()\Row()
 
@@ -1867,7 +1881,9 @@ Module MarkDown
         Case "C"
           OffsetX = (Width - TextWidth) / 2
         Case "R"
-          OffsetX = Width - TextWidth
+          OffsetX = Width - TextWidth - 1
+        Default
+          OffsetX = 1
       EndSelect    
       
       ProcedureReturn OffsetX
@@ -1880,10 +1896,10 @@ Module MarkDown
       
       ;If BlockQuote : OffSetBQ = dpiX(10) * BlockQuote : EndIf 
       
-      X + OffSetBQ
+      ;X + OffSetBQ
 
       WordIdx = 0
-      
+
       If ColWidth
         OffSetX = AlignOffsetPDF_(PDF, WordIdx, ColWidth, Align, Words())
       EndIf
@@ -1911,10 +1927,8 @@ Module MarkDown
           
           PDF::Ln(PDF, 4.5)
           PDF::SetPosX(PDF, X + OffSetX)
-          
-          ;If BlockQuote            ;{ BlockQuote
-          ;   ;}
-          ;EndIf
+
+          ; If BlockQuote : : EndIf
 
         EndIf
 
@@ -2026,9 +2040,7 @@ Module MarkDown
       PDF::Ln(PDF)
       PDF::Ln(PDF, 0.5)
       
-      ;If BlockQuote            ;{ BlockQuote
-      ;   ;}
-      ;EndIf
+      ; If BlockQuote : : EndIf
 
     EndProcedure
 
@@ -2038,7 +2050,8 @@ Module MarkDown
       Define.s Bullet$, Align$, Text$, Level$
       
       NewMap ListNum.i()
-      
+      NewMap ColX.i()
+
       PDF = PDF::Create(#PB_Any)
       If PDF
 
@@ -2184,10 +2197,18 @@ Module MarkDown
               
               If SelectElement(MarkDown()\Table(), MarkDown()\Items()\Index)
                 
-                PDF::Ln(PDF, 3)
-                
                 Cols = MarkDown()\Table()\Cols
                 
+                ClearMap(ColX())
+                
+                ;{ ___ Columns ___
+                X = 10
+                For c=1 To MarkDown()\Table()\Cols
+                  ColX(Str(c)) = X
+                  X + mm_(MarkDown()\Table()\Column(Str(c))\Width) + 2
+                Next
+                ;}
+
   			        ForEach MarkDown()\Table()\Row()
   			          
   			          RowY = 0
@@ -2195,37 +2216,37 @@ Module MarkDown
   			          If MarkDown()\Table()\Row()\Type = #Table|#Header
   			            
   			            PDF::SetFont(PDF, "Arial", "B", 11)
-                    
+  			            
+  			            PDF::SetColorRGB(PDF, PDF::#FillColor, 245, 245, 245)
+  			            
                     Y = PDF::GetPosY(PDF)
                     
                     For c=1 To Cols
                       
-                      ColWidth = MarkDown()\Table()\Column(Str(c))\Width * MarkDown()\Table()\Row()\Col(Str(c))\Span
-                      If ColWidth = #False : Continue : EndIf
+                      ColWidth = mm_(MarkDown()\Table()\Column(Str(c))\Width) + 2
+                      If MarkDown()\Table()\Row()\Col(Str(c))\Span = 0 : Continue : EndIf 
+
+                      X = ColX(Str(c))
                       
-                      ColWidth =  mm_(ColWidth) + 5
+                      PDF::SetPosXY(PDF, X, Y)
+                      PDF::DrawRectangle(PDF, X, Y, ColWidth, PDF::GetStringHeight(PDF) + 2, PDF::#DrawAndFill)
                       
-                      PDF::SetPosXY(PDF, 20 + ColWidth * (c-1), Y)
-                      
-                      X = PDF::GetPosX(PDF)
+                      PDF::SetPosY(PDF, Y + 1)
                       
                       If FindMapElement(MarkDown()\Table()\Row()\Col(), Str(c))
-                        RowPDF_(PDF, X, #False, MarkDown()\Table()\Row()\Col()\Words(), ColWidth - 2, MarkDown()\Table()\Column(Str(c))\Align)
+                        RowPDF_(PDF, X, #False, MarkDown()\Table()\Row()\Col()\Words(), ColWidth, MarkDown()\Table()\Column(Str(c))\Align)
                       EndIf
-                    
-                      If PDF::GetPosY(PDF) > RowY : RowY = PDF::GetPosY(PDF) : EndIf 
+                      
+                      PDF::Ln(PDF, 1)
+                      
+                      If PDF::GetPosY(PDF)> RowY : RowY = PDF::GetPosY(PDF) : EndIf 
 
                     Next
                     
                     PDF::SetPosY(PDF, RowY)
                     
-                    Width = 0
-                    For c=1 To Cols : Width + mm_(MarkDown()\Table()\Column(Str(c))\Width) + 5 : Next
+                    PDF::SetColorRGB(PDF, PDF::#FillColor, 255, 255, 255)
                     
-                    PDF::Ln(PDF, 2)
-                    PDF::DividingLine(PDF, 20, #PB_Default, Width)
-                    PDF::Ln(PDF, 2)
-  			            
     			        Else
     			          
     			          PDF::SetFont(PDF, "Arial", "", 11)
@@ -2234,18 +2255,26 @@ Module MarkDown
                     
                     For c=1 To Cols
                       
-                      ColWidth = MarkDown()\Table()\Column(Str(c))\Width * MarkDown()\Table()\Row()\Col(Str(c))\Span
-                      If ColWidth = #False : Continue : EndIf
+                      If MarkDown()\Table()\Row()\Col(Str(c))\Span > 1
+                        colWidth = GetSpanWidth_(c, MarkDown()\Table()\Row()\Col(Str(c))\Span, #True)
+                      Else
+                        colWidth = mm_(MarkDown()\Table()\Column(Str(c))\Width) + 2
+                      EndIf
+
+                      If MarkDown()\Table()\Row()\Col(Str(c))\Span = 0 : Continue : EndIf 
                       
-                      ColWidth =  mm_(ColWidth) + 5
+                      X = ColX(Str(c))
                       
-                      PDF::SetPosXY(PDF, 20 + ColWidth * (c-1), Y)
+                      PDF::SetPosXY(PDF, X, Y)
+                      PDF::DrawRectangle(PDF, X, Y, ColWidth, PDF::GetStringHeight(PDF) + 2)
                       
-                      X = PDF::GetPosX(PDF)
+                      PDF::SetPosY(PDF, Y + 1)
                       
                       If FindMapElement(MarkDown()\Table()\Row()\Col(), Str(c))
-                        RowPDF_(PDF, X, #False, MarkDown()\Table()\Row()\Col()\Words(), ColWidth - 2, MarkDown()\Table()\Column(Str(c))\Align)
+                        RowPDF_(PDF, X, #False, MarkDown()\Table()\Row()\Col()\Words(), ColWidth, MarkDown()\Table()\Column(Str(c))\Align)
                       EndIf
+                      
+                      PDF::Ln(PDF, 1)
                       
                       If PDF::GetPosY(PDF) > RowY : RowY = PDF::GetPosY(PDF) : EndIf 
                       
@@ -2256,8 +2285,6 @@ Module MarkDown
     			        EndIf
 
     			      Next
-    			      
-    			      PDF::Ln(PDF, 3)
     			      
   			      EndIf
               ;}
@@ -4220,16 +4247,7 @@ Module MarkDown
     ProcedureReturn OffsetX
   EndProcedure
   
-  Procedure.i GetSpanWidth_(Idx.i, Span.i)
-    Define.i i, Width
-    
-    For i=Idx To Idx + Span - 1
-      Width + MarkDown()\Table()\Column(Str(i))\Width
-    Next
-    
-    ProcedureReturn Width
-  EndProcedure  
-  
+
   
   Procedure.i DrawRow_(X.i, Y.i, Width.i, Height.i, BlockQuote.i, List Words.Words_Structure(), ColWidth.i=#False, Align.s="L")
     Define.i Font, TextWidth, ImgSize, Image, WordIdx
@@ -6131,9 +6149,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 87
-; FirstLine = 3
-; Folding = whKAAAEAAARCHQAAAgiAAAgAAAMAAAAABAAQRglQABAAAAEAAAAAIJAo5-
-; Markers = 5926
+; CursorPosition = 11
+; Folding = whKAAAEAAwgEOgAAIAEJAIABAAwAAAAAEAAAFBWCBCAAAAIAAAAAQSAQx-
+; Markers = 5944
 ; EnableXP
 ; DPIAware
