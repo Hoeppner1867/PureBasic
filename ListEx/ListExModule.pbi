@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 28.01.2020
+; Last Update: 31.01.2020
 ;
 ; - Update & Bugfixes for CSV
 ; - Bugfixes
@@ -150,7 +150,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 200128001
+  #Version  = 200131001
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -3334,6 +3334,8 @@ Module ListEx
       StopDrawing()
     EndIf  
     
+    If ListEx()\String\Flag : DrawString_() : EndIf
+    
   EndProcedure
  
   ;- __________ ScrollBars _________
@@ -4622,7 +4624,6 @@ Module ListEx
               EndIf
               
               Draw_() ; Draw Focus
-              If ListEx()\String\Flag : DrawString_() : EndIf
              ;}              
             ElseIf ListEx()\Cols()\Flags & #Buttons ;{ Button
               
@@ -4761,7 +4762,6 @@ Module ListEx
               EndIf
               
               Draw_() ; Draw Focus
-              If ListEx()\String\Flag : DrawString_() : EndIf
              ;}
             EndIf
             
@@ -4871,9 +4871,7 @@ Module ListEx
       EndIf
       
       Draw_()
-      
-      If ListEx()\String\Flag : DrawString_() : EndIf
-   
+
     EndIf
     
   EndProcedure
@@ -5104,8 +5102,10 @@ Module ListEx
     If FindMapElement(ListEx(), Str(GadgetNum))
       
       UpdateColumnX_()
+      
+      ;CloseString_()
+      
       Draw_()
-      If ListEx()\String\Flag : DrawString_() : EndIf 
       
     EndIf
     
@@ -5139,7 +5139,6 @@ Module ListEx
           If ListEx()\Focus : SelectElement(ListEx()\Rows(), ListEx()\Row\Focus) : EndIf
           
           Draw_()
-          If ListEx()\String\Flag : DrawString_() : EndIf 
           
         EndIf
 
@@ -5312,7 +5311,6 @@ Module ListEx
         UpdateColumnX_()
         
         Draw_()
-        If ListEx()\String\Flag : DrawString_() : EndIf 
         
       EndIf
       
@@ -5339,7 +5337,6 @@ Module ListEx
         ScrollEditGadgets_()
 
         Draw_()
-        If ListEx()\String\Flag : DrawString_() : EndIf 
         
       EndIf
       
@@ -7944,9 +7941,6 @@ CompilerIf #PB_Compiler_IsMainFile
       
       ;ListEx::SetState(#List, 10)
       
-      ;ListEx::ExportCSV(#List, "Export.csv", ListEx::#HeaderRow)
-      ListEx::ImportCSV(#List, "Export.csv", ListEx::#HeaderRow)
-      
     EndIf
     
     Repeat
@@ -8040,9 +8034,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 13
-; Folding = QAQAAAAAIIAVJCEAGAAARQBEKEImEAciCAAAYAQQAAABAAIAmAHgB5BAIAAAAAAAA1c-
-; Markers = 3340,5917
+; CursorPosition = 152
+; FirstLine = 1516
+; Folding = QAQAAAAAIIAVJCEAGAAARQBEKEIGEAciCGAQYAUQRIAHYAIAmAHgB5BAIAAAAAAAA1c-
+; Markers = 3342,5914
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
