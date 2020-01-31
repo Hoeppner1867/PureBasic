@@ -9,12 +9,12 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 30.01.2020
+; Last Update: 31.01.2020
 ; 
-; - table improvements for PDF & HTML export
-; 
-; - Bugfixes & Improvements for tables
+; - Added: Markdown::Requester()
 ;
+; - table improvements for PDF & HTML export
+; - Bugfixes & Improvements for tables
 ; - New:   Emojis :warning: / :bulb: / :paperclip: / :mag:
 ; - Added: underline or inserted => "++underline++"  
 ; - Added: Colspan for tables    => "| long cell ||"
@@ -86,16 +86,18 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20013001
+  #Version  = 20013100
   #ModuleEx = 19112100
   
 	;- ===========================================================================
 	;-   DeclareModule - Constants
   ;- ===========================================================================
   
+  #Enable_Requester  = #True
+  
   #Enable_Emoji      = #True
   #Enable_ExportHTML = #True
-  #Enable_Requester  = #False
+  
   
   ;{ _____ Constants _____
   #Bullet$ = "•"
@@ -103,7 +105,6 @@ DeclareModule MarkDown
 	EnumerationBinary ;{ GadgetFlags
 		#AutoResize        ; Automatic resizing of the gadget
 		#Borderless        ; Draw no border
-		#ToolTips          ; Show tooltips
 		#UseExistingCanvas ; e.g. for dialogs
 		; Requester
 		#YesNo
@@ -166,6 +167,11 @@ DeclareModule MarkDown
 	  
 	  #OK = 0
 	  
+	  Enumeration 1   ;{ Buttons
+  	  #Click
+  	  #Focus
+  	EndEnumeration ;}
+	  
 	  Enumeration 2   ;{ Result
     	#Result_Yes
     	#Result_No
@@ -217,6 +223,10 @@ DeclareModule MarkDown
   Declare   SetMargins(GNum.i, Top.i, Left.i, Right.i=#PB_Default, Bottom.i=#PB_Default)
   Declare   SetText(GNum.i, Text.s)
   
+  CompilerIf #Enable_Requester
+    Declare.i Requester(Title.s, Text.s, Flags.i=#False, ParentID.i=#PB_Default)
+  CompilerEndIf
+
 EndDeclareModule
 
 Module MarkDown
@@ -330,8 +340,8 @@ Module MarkDown
     Structure Requester_Structure        ;{ MarkDown()\Requester\...
       FontID.i
       Padding.i
+      ButtonY.i
       Result.i
-      Margin.Margin_Structure
       Image.Requester_Image_Structure
       Map Button.Requester_Button_Structure()
     EndStructure ;} 
@@ -506,10 +516,12 @@ Module MarkDown
 	Structure MarkDown_Color_Structure     ;{ MarkDown()\Color\...
 	  Back.i
 	  BlockQuote.i
-		Border.i
+	  Border.i
+	  Button.i
 		Code.i
 		DisableBack.i
 		DisableFront.i
+		Focus.i
 		Front.i
 		Gadget.i
 		HeaderBack.i
@@ -943,7 +955,10 @@ Module MarkDown
     Define.i Key$
     
     Font = #PB_Default
-
+    
+    MarkDown()\Required\Width  = 0
+    MarkDown()\Required\Height = 0
+    
     If StartDrawing(CanvasOutput(MarkDown()\CanvasNum))
       
       ;{ _____ Items _____
@@ -997,6 +1012,9 @@ Module MarkDown
         Next
         
         MarkDown()\Items()\Height * MarkDown()\LineSpacing
+        
+        MarkDown()\Required\Height + MarkDown()\Items()\Height
+        If MarkDown()\Items()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Items()\Width : EndIf 
 
       Next ;}
       
@@ -1053,11 +1071,14 @@ Module MarkDown
           Next
          
           MarkDown()\Lists()\Row()\Height * MarkDown()\LineSpacing
+          MarkDown()\Required\Height + MarkDown()\Lists()\Row()\Height
+          
+          If MarkDown()\Lists()\Row()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Lists()\Row()\Width : EndIf
           ;}
         Next
 
       Next ;} 
-      
+
       ;{ _____ Tables _____
       ForEach MarkDown()\Table()
         
@@ -1124,7 +1145,7 @@ Module MarkDown
           Next          
           
           MarkDown()\Table()\Row()\Height * MarkDown()\LineSpacing
-          
+          MarkDown()\Required\Height + MarkDown()\Table()\Row()\Height
         Next
         
         DrawingFont(FontID(MarkDown()\Font\Normal))
@@ -1135,6 +1156,8 @@ Module MarkDown
           MarkDown()\Table()\Column()\Width + dpiX(10)
           MarkDown()\Table()\Width + MarkDown()\Table()\Column()\Width
         Next
+        
+        If MarkDown()\Table()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Table()\Width : EndIf
         
       Next  
       ;}
@@ -1194,7 +1217,7 @@ Module MarkDown
 
       StopDrawing()
 		EndIf
-    
+		
   EndProcedure	
 
   ;- __________ Convert __________
@@ -4221,7 +4244,52 @@ Module MarkDown
 		ProcedureReturn RGB((Red1 * Blend) + (Red2 * (1 - Blend)), (Green1 * Blend) + (Green2 * (1 - Blend)), (Blue1 * Blend) + (Blue2 * (1 - Blend)))
 	EndProcedure
 	
-	
+	CompilerIf #Enable_Requester
+	  
+  	Procedure Button_(Key.s, X.i, Y.i)
+  	  Define.i Width, Height, OffSetX, OffsetY
+  	  Define.i BackColor, BorderColor
+  	  Define.s Text
+  	  
+  	  Width  = dpiX(#ButtonWidth)
+  	  Height = dpiY(#ButtonHeight)
+  	  
+  	  Text = MarkDown()\Requester\Button(Key)\Text
+  	  
+  	  Select MarkDown()\Requester\Button(Key)\State
+  	    Case #Focus
+  	      BackColor   = BlendColor_(MarkDown()\Color\Focus, MarkDown()\Color\Button, 10)
+  	      BorderColor = MarkDown()\Color\Border
+  	    Case #Click
+  	      BackColor   = BlendColor_(MarkDown()\Color\Focus, MarkDown()\Color\Button, 20)
+  	      BorderColor = MarkDown()\Color\Focus
+  	    Default
+  	      BackColor   = MarkDown()\Color\Button
+  	      BorderColor = MarkDown()\Color\Border
+  	  EndSelect
+  	  
+    	;{ _____ Background _____
+  	  DrawingMode(#PB_2DDrawing_Default)
+  	  Box(X, Y, Width, Height, BackColor)
+  		;}
+  	  
+  	  MarkDown()\Requester\Button(Key)\X = X
+  	  
+  	  OffSetX = (Width - TextWidth(Text)) / 2
+  	  OffsetY = (Height - TextHeight(Text)) / 2
+  	  
+  	  DrawingMode(#PB_2DDrawing_Transparent)
+  	  DrawText(X + OffSetX, Y + OffsetY, Text, MarkDown()\Color\Front)
+  
+  	  ;{ _____ Border _____
+  	  DrawingMode(#PB_2DDrawing_Outlined)
+  	  Box(X, Y, Width, Height, BorderColor)
+  	  ;}
+  	  
+  	EndProcedure
+  	
+  CompilerEndIf
+
 	Procedure.i Keystroke_(X.i, Y.i, Key.s)
 	  Define.i Width, Height
 	  
@@ -4793,7 +4861,7 @@ Module MarkDown
   
   
 	Procedure   Draw_()
-	  Define.i X, Y, Width, Height, LeftBorder, WrapPos, TextWidth, TextHeight, Cols
+	  Define.i X, Y, Width, Height, LeftBorder, WrapPos, TextWidth, TextHeight, MsgHeight, Cols
 	  Define.i Indent, Level, Offset, OffSetX, OffSetY, maxCol, ImgSize
 	  Define.i c, OffsetList, NumWidth, ColWidth, TableWidth
 		Define.i FrontColor, BackColor, BorderColor, LinkColor
@@ -4807,6 +4875,16 @@ Module MarkDown
 		Width   = dpiX(GadgetWidth(MarkDown()\CanvasNum))  - dpiX(MarkDown()\Margin\Left + MarkDown()\Margin\Right)
 		Height  = dpiY(GadgetHeight(MarkDown()\CanvasNum)) - dpiY(MarkDown()\Margin\Top  + MarkDown()\Margin\Bottom)
 		
+		CompilerIf #Enable_Requester
+		  
+  		If MarkDown()\Type = #Requester
+  		  Height - dpiY(30)
+  		  MsgHeight = dpiY(GadgetHeight(MarkDown()\CanvasNum)) - dpiY(30)
+  		  If IsImage(MarkDown()\Requester\Image\Num) : X + dpiX(MarkDown()\Requester\Image\Width + MarkDown()\Requester\Padding) : EndIf  
+  		EndIf
+  		
+  	CompilerEndIf
+  	
 		If Not MarkDown()\Scroll\Hide : Width - dpiX(#ScrollBarSize) : EndIf 
 		
 		MarkDown()\LeftBorder = X
@@ -4838,7 +4916,12 @@ Module MarkDown
 			;{ _____ Background _____
 		  DrawingMode(#PB_2DDrawing_Default)
 		  Box(0, 0, dpiX(GadgetWidth(MarkDown()\CanvasNum)), dpiY(GadgetHeight(MarkDown()\CanvasNum)), MarkDown()\Color\Gadget) ; needed for rounded corners
-			Box_(0, 0, dpiX(GadgetWidth(MarkDown()\CanvasNum)), dpiY(GadgetHeight(MarkDown()\CanvasNum)), BackColor)
+		  
+		  If MarkDown()\Type = #Requester
+		    Box_(0, 0, dpiX(GadgetWidth(MarkDown()\CanvasNum)), dpiY(GadgetHeight(MarkDown()\CanvasNum) - dpiY(30)), BackColor)
+		  Else
+		    Box_(0, 0, dpiX(GadgetWidth(MarkDown()\CanvasNum)), dpiY(GadgetHeight(MarkDown()\CanvasNum)), BackColor)
+		  EndIf 
 			;}
 			
 			ForEach MarkDown()\Items()
@@ -4993,10 +5076,44 @@ Module MarkDown
 			MarkDown()\Required\Width + MarkDown()\Margin\Left + MarkDown()\Margin\Right
 			MarkDown()\Required\Height = Y + MarkDown()\Margin\Bottom
 			
+			CompilerIf #Enable_Requester
+			  
+			  If IsImage(MarkDown()\Requester\Image\Num)
+			    OffsetY = (MsgHeight - MarkDown()\Requester\Image\Height) / 2
+    		  DrawingMode(#PB_2DDrawing_AlphaBlend)
+    		  DrawImage(ImageID(MarkDown()\Requester\Image\Num), dpiX(MarkDown()\Margin\Left), OffsetY, MarkDown()\Requester\Image\Width, MarkDown()\Requester\Image\Height)
+			  EndIf  
+			  
+			  DrawingFont(FontID(MarkDown()\Font\Normal))
+			  
+			  MarkDown()\Requester\ButtonY = MsgHeight + dpiY(5)
+			  
+			  If MarkDown()\Flags & #YesNo ;{ Buttons
+  			  X = (dpiX(GadgetWidth(MarkDown()\CanvasNum)) - (dpiX(#ButtonWidth) * 2) - dpiX(10)) / 2
+  			  Button_("Yes", X, MarkDown()\Requester\ButtonY)
+  			  X + dpiX(#ButtonWidth) + dpiX(10)
+  			  Button_("No", X, MarkDown()\Requester\ButtonY)
+  			ElseIf MarkDown()\Flags & #YesNoCancel
+  			  X = dpiX(MarkDown()\Margin\Left)
+  			  Button_("Yes", X, MarkDown()\Requester\ButtonY)
+  			  X + dpiX(#ButtonWidth) + dpiX(10)
+  			  Button_("No", X, MarkDown()\Requester\ButtonY)
+  			  X = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(#ButtonWidth) - dpiX(MarkDown()\Margin\Right)
+  			  Button_("Cancel", X, MarkDown()\Requester\ButtonY)
+  			Else
+  			  X = (dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(#ButtonWidth)) / 2
+  			  Button_("OK", X, MarkDown()\Requester\ButtonY)
+  			EndIf ;}
+			  
+			CompilerEndIf  
+			
 			;{ _____ Border ____
 			If MarkDown()\Flags & #Borderless = #False
-				DrawingMode(#PB_2DDrawing_Outlined)
-				Box_(0, 0, dpiX(GadgetWidth(MarkDown()\CanvasNum)), dpiY(GadgetHeight(MarkDown()\CanvasNum)), BorderColor)
+			  DrawingMode(#PB_2DDrawing_Outlined)
+			  Box_(0, 0, dpiX(GadgetWidth(MarkDown()\CanvasNum)), dpiY(GadgetHeight(MarkDown()\CanvasNum)), BorderColor)
+			  If MarkDown()\Type = #Requester
+			    Box_(0, 0, dpiX(GadgetWidth(MarkDown()\CanvasNum)), dpiY(GadgetHeight(MarkDown()\CanvasNum) - dpiY(30)), BorderColor)
+			  EndIf   
 			EndIf ;}
 
 			StopDrawing()
@@ -5017,7 +5134,7 @@ Module MarkDown
 	CompilerIf Defined(ModuleEx, #PB_Module)
     
     Procedure _ThemeHandler()
-
+      ; TODO: Themes 
       ForEach MarkDown()
         
         If IsFont(ModuleEx::ThemeGUI\Font\Num)
@@ -5028,6 +5145,8 @@ Module MarkDown
 				MarkDown()\Color\Back         = ModuleEx::ThemeGUI\BackColor
 				MarkDown()\Color\Border       = ModuleEx::ThemeGUI\BorderColor
 				MarkDown()\Color\Gadget       = ModuleEx::ThemeGUI\GadgetColor
+				MarkDown()\Color\Button       = ModuleEx::ThemeGUI\Button\BackColor
+			  MarkDown()\Color\Focus        = ModuleEx::ThemeGUI\Focus\BackColor
 				MarkDown()\Color\DisableFront = ModuleEx::ThemeGUI\Disable\FrontColor
 		    MarkDown()\Color\DisableBack  = ModuleEx::ThemeGUI\Disable\BackColor
 				
@@ -5060,15 +5179,35 @@ Module MarkDown
 			X = GetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_MouseX)
 			Y = GetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_MouseY)
 			
-			ForEach MarkDown()\Link()
+			ForEach MarkDown()\Link() ;{ Click link
 			  If Y >= MarkDown()\Link()\Y And Y <= MarkDown()\Link()\Y + MarkDown()\Link()\Height 
 			    If X >= MarkDown()\Link()\X And X <= MarkDown()\Link()\X + MarkDown()\Link()\Width
 			      MarkDown()\Link()\State = #True
 			      Draw_()
   			    ProcedureReturn #True
   			  EndIf
-			  EndIf
+			  EndIf ;}
 			Next  
+			
+			CompilerIf #Enable_Requester
+		  
+		    ForEach MarkDown()\Requester\Button() ;{ Click Button
+		      
+		      If Not MarkDown()\Requester\Button()\Visible : Continue : EndIf
+		      
+		      If Y >= MarkDown()\Requester\ButtonY And Y <= MarkDown()\Requester\ButtonY + dpiY(#ButtonHeight)  
+    			  If X >= MarkDown()\Requester\Button()\X And X <= MarkDown()\Requester\Button()\X + dpiX(#ButtonWidth)
+    			    If MarkDown()\Requester\Button()\State <> #Click
+    			      MarkDown()\Requester\Button()\State = #Click
+    			      Draw_()
+    			    EndIf
+  			      ProcedureReturn #True 
+    			  EndIf
+    			EndIf 
+          ;}
+  			Next 
+  			
+  		CompilerEndIf
 			
 		EndIf
 
@@ -5083,7 +5222,7 @@ Module MarkDown
 			X = GetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_MouseX)
 			Y = GetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_MouseY)
 
-			ForEach MarkDown()\Link()
+			ForEach MarkDown()\Link() ;{ Link
 			  
 			  If Y >= MarkDown()\Link()\Y And Y <= MarkDown()\Link()\Y + MarkDown()\Link()\Height 
 			    If X >= MarkDown()\Link()\X And X <= MarkDown()\Link()\X + MarkDown()\Link()\Width
@@ -5106,7 +5245,7 @@ Module MarkDown
   			    ProcedureReturn #True
   			  EndIf
   			EndIf
-  			
+  			;}
 			Next  
 			
 			ForEach MarkDown()\Link()
@@ -5115,6 +5254,29 @@ Module MarkDown
 			
 			Draw_()
 			
+			CompilerIf #Enable_Requester
+		  
+		    ForEach MarkDown()\Requester\Button() ;{ Click Button
+		      
+		      If Not MarkDown()\Requester\Button()\Visible : Continue : EndIf
+		      
+		      If Y >= MarkDown()\Requester\ButtonY And Y <= MarkDown()\Requester\ButtonY + dpiY(#ButtonHeight)  
+    			  If X >= MarkDown()\Requester\Button()\X And X <= MarkDown()\Requester\Button()\X + dpiX(#ButtonWidth)
+    			    
+    			    MarkDown()\Requester\Button()\State = #Focus
+    			    MarkDown()\Requester\Result = MarkDown()\Requester\Button()\Result
+    			    Draw_()
+    			    
+    			    PostEvent(#Event_Gadget, MarkDown()\Window\Num, MarkDown()\CanvasNum, #PB_EventType_LeftClick, MarkDown()\Requester\Result)
+    			    
+  			      ProcedureReturn #True 
+    			  EndIf
+    			EndIf 
+          ;}
+  			Next 
+  			
+  		CompilerEndIf
+
 		EndIf
 
 	EndProcedure
@@ -5129,7 +5291,7 @@ Module MarkDown
 			X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
 			Y = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
 
-			ForEach MarkDown()\Link()     ;{ Links
+			ForEach MarkDown()\Link()         ;{ Links
 			  
 			  If Y >= MarkDown()\Link()\Y And Y <= MarkDown()\Link()\Y + MarkDown()\Link()\Height 
 			    If X >= MarkDown()\Link()\X And X <= MarkDown()\Link()\X + MarkDown()\Link()\Width
@@ -5155,7 +5317,7 @@ Module MarkDown
   			;}
 			Next  
 			
-			ForEach MarkDown()\Footnote() ;{ FootNotes
+			ForEach MarkDown()\Footnote()     ;{ FootNotes
 			  
 			  If Y >= MarkDown()\Footnote()\Y And Y <= MarkDown()\Footnote()\Y + MarkDown()\Footnote()\Height 
 			    If X >= MarkDown()\Footnote()\X And X <= MarkDown()\Footnote()\X + MarkDown()\Footnote()\Width
@@ -5198,7 +5360,7 @@ Module MarkDown
 			  ;}
 			Next  
 			
-			ForEach MarkDown()\Image()    ;{ Images
+			ForEach MarkDown()\Image()        ;{ Images
 			  
 			  If MarkDown()\Image()\Title = "" : Continue : EndIf 
 			  
@@ -5219,6 +5381,31 @@ Module MarkDown
 			MarkDown()\ToolTip = #False
 			GadgetToolTip(GNum, "")
 			
+		  CompilerIf #Enable_Requester
+		  
+		    ForEach MarkDown()\Requester\Button()
+		      
+		      If Not MarkDown()\Requester\Button()\Visible : Continue : EndIf
+		      
+		      If Y >= MarkDown()\Requester\ButtonY And Y <= MarkDown()\Requester\ButtonY + dpiY(#ButtonHeight)  
+    			  If X >= MarkDown()\Requester\Button()\X And X <= MarkDown()\Requester\Button()\X + dpiX(#ButtonWidth)
+    			    If MarkDown()\Requester\Button()\State <> #Focus
+    			      MarkDown()\Requester\Button()\State = #Focus
+    			      Draw_()
+    			    EndIf
+  			      ProcedureReturn #True 
+    			  EndIf
+    			EndIf 
+    			
+    			If MarkDown()\Requester\Button()\State
+  			    MarkDown()\Requester\Button()\State = #False
+  			    Draw_()
+  			  EndIf
+    			
+  			Next 
+  			
+  		CompilerEndIf
+
 			SetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_Default)
 
 		EndIf
@@ -5353,6 +5540,8 @@ Module MarkDown
 		MarkDown()\Color\Link          = $8B0000
 		MarkDown()\Color\LinkHighlight = $FF0000
 		MarkDown()\Color\HeaderBack    = $F5F5F5
+    MarkDown()\Color\Button        = $E3E3E3
+    MarkDown()\Color\Focus         = $D77800
 
 		CompilerSelect #PB_Compiler_OS 
 			CompilerCase #PB_OS_Windows
@@ -5360,20 +5549,31 @@ Module MarkDown
 				MarkDown()\Color\Back   = GetSysColor_(#COLOR_WINDOW)
 				MarkDown()\Color\Border = GetSysColor_(#COLOR_ACTIVEBORDER)
 				MarkDown()\Color\Gadget = GetSysColor_(#COLOR_MENU)
+				MarkDown()\Color\Button = GetSysColor_(#COLOR_3DLIGHT)
+		    MarkDown()\Color\Focus  = GetSysColor_(#COLOR_HIGHLIGHT)
 			CompilerCase #PB_OS_MacOS
 				MarkDown()\Color\Front  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
 				MarkDown()\Color\Back   = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
 				MarkDown()\Color\Border = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
 				MarkDown()\Color\Gadget = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
+				MarkDown()\Color\Button = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
+		    MarkDown()\Color\Focus  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor keyboardFocusIndicatorColor"))
 			CompilerCase #PB_OS_Linux
 
 		CompilerEndSelect ;}
 		
 		;{ _____ Margins _____
-		MarkDown()\Margin\Top    = 5
-		MarkDown()\Margin\Left   = 5
-		MarkDown()\Margin\Right  = 5
-		MarkDown()\Margin\Bottom = 5
+		If MarkDown()\Type = #Requester
+		  MarkDown()\Margin\Top    = 15
+  		MarkDown()\Margin\Left   = 10
+  		MarkDown()\Margin\Right  = 10
+  		MarkDown()\Margin\Bottom = 15
+  	Else
+  	  MarkDown()\Margin\Top    = 5
+  		MarkDown()\Margin\Left   = 5
+  		MarkDown()\Margin\Right  = 5
+  		MarkDown()\Margin\Bottom = 5
+		EndIf
 		;}		
 		
 		MarkDown()\Indent      = 10
@@ -5494,7 +5694,8 @@ Module MarkDown
   EndProcedure  
 
   
-	Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
+  Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
+    ; Flags: #AutoResize | #Borderless | #UseExistingCanvas
 		Define Result.i
 		
 		CompilerIf Defined(ModuleEx, #PB_Module)
@@ -5581,10 +5782,10 @@ Module MarkDown
 	
   CompilerIf #Enable_Requester
     
-    ; TODO:  Calc requester size
-
-	  Procedure.i Requester(Title.s, Text.s, Label.s="", Flags.i=#False, ParentID.i=#PB_Default)
-	    Define.i GNum, WindowNum, DummyNum, quitWindow, Result
+	  Procedure.i Requester(Title.s, Text.s, Flags.i=#False, ParentID.i=#PB_Default)
+	    ; Flags: #YesNo / #YesNoCancel | #Info / #Question / #Error / #Warning
+	    Define.i GNum, WindowNum, quitWindow
+	    Define.i Width, Height, buttonWidth, Result
 	    
 	    CompilerIf Defined(ModuleEx, #PB_Module)
         If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
@@ -5620,70 +5821,7 @@ Module MarkDown
     				  MarkDown()\Scroll\Hide = #True
     				EndIf ;}
 
-				    CompilerSelect #PB_Compiler_OS ;{ Default Gadget Font
-    					CompilerCase #PB_OS_Windows
-    						MarkDown()\Requester\FontID = GetGadgetFont(#PB_Default)
-    					CompilerCase #PB_OS_MacOS
-    						DummyNum = TextGadget(#PB_Any, 0, 0, 0, 0, " ")
-    						If DummyNum
-    							MarkDown()\Requester\FontID = GetGadgetFont(DummyNum)
-    							FreeGadget(DummyNum)
-    						EndIf
-    					CompilerCase #PB_OS_Linux
-    						MarkDown()\Requester\FontID = GetGadgetFont(#PB_Default)
-    				CompilerEndSelect ;}
-    				
     				;{ _____ Buttons _____
-    				If Flags & #YesNo 
-    				  MarkDown()\Requester\Button("OK")\Visible     = #False
-    				  MarkDown()\Requester\Button("Yes")\Visible    = #True
-    				  MarkDown()\Requester\Button("No")\Visible     = #True
-    				  MarkDown()\Requester\Button("Cancel")\Visible = #False
-    				ElseIf Flags & #YesNoCancel
-    				  MarkDown()\Requester\Button("OK")\Visible     = #False
-    				  MarkDown()\Requester\Button("Yes")\Visible    = #True
-    				  MarkDown()\Requester\Button("No")\Visible     = #True
-    				  MarkDown()\Requester\Button("Cancel")\Visible = #True		  
-    				Else
-    				  MarkDown()\Requester\Button("OK")\Visible     = #True
-    				  MarkDown()\Requester\Button("Yes")\Visible    = #False
-    				  MarkDown()\Requester\Button("No")\Visible     = #False
-    				  MarkDown()\Requester\Button("Cancel")\Visible = #False		  
-    				EndIf ;}
-    				
-    				LoadFonts_("Arial", 9)
-    				
-    				InitDefault_()
-    				
-    				;{ _____ Margins  _____
-        	  MarkDown()\Requester\Margin\Left   = 10
-        	  MarkDown()\Requester\Margin\Top    = 15
-        	  MarkDown()\Requester\Margin\Bottom = 15
-        	  MarkDown()\Requester\Margin\Right  = 10
-        	  
-        	  MarkDown()\Requester\Padding = 10
-        	  ;}
-    				
-    				;{ _____ Image _____
-    				If MarkDown()\Flags & #Info
-    				  MarkDown()\Requester\Image\Num = CatchImage(#PB_Any, ?Information, 2128)
-    				ElseIf MarkDown()\Flags & #Question
-    				  MarkDown()\Requester\Image\Num = CatchImage(#PB_Any, ?Question, 2196)
-    				ElseIf MarkDown()\Flags & #Error
-      		    MarkDown()\Requester\Image\Num = CatchImage(#PB_Any, ?Error, 1782)
-      		  ElseIf MarkDown()\Flags & #Warning
-      		    MarkDown()\Requester\Image\Num = CatchImage(#PB_Any, ?Warning, 1699)
-      		  Else  
-      		    MarkDown()\Requester\Image\Num = #PB_Default
-      		  EndIf
-      		  
-      		  If IsImage(MarkDown()\Requester\Image\Num)
-      		    MarkDown()\Requester\Image\Width  = ImageWidth(MarkDown()\Requester\Image\Num)
-      		    MarkDown()\Requester\Image\Height = ImageHeight(MarkDown()\Requester\Image\Num)
-      		  EndIf
-      		  ;}
-      		  
-      		  ;{ _____ Buttons _____
         		If AddMapElement(MarkDown()\Requester\Button(), "OK")
         		  MarkDown()\Requester\Button()\Text   = "OK"
         		  MarkDown()\Requester\Button()\Result = #True
@@ -5703,7 +5841,51 @@ Module MarkDown
         		  MarkDown()\Requester\Button()\Text   = "Cancel" 
         		  MarkDown()\Requester\Button()\Result = #Result_Cancel
         		EndIf   
-        		;}
+    				
+    				If Flags & #YesNo 
+    				  MarkDown()\Requester\Button("OK")\Visible     = #False
+    				  MarkDown()\Requester\Button("Yes")\Visible    = #True
+    				  MarkDown()\Requester\Button("No")\Visible     = #True
+    				  MarkDown()\Requester\Button("Cancel")\Visible = #False
+    				  buttonWidth = dpiX(#ButtonWidth) * 2 + dpiX(10)
+    				ElseIf Flags & #YesNoCancel
+    				  MarkDown()\Requester\Button("OK")\Visible     = #False
+    				  MarkDown()\Requester\Button("Yes")\Visible    = #True
+    				  MarkDown()\Requester\Button("No")\Visible     = #True
+    				  MarkDown()\Requester\Button("Cancel")\Visible = #True		 
+    				  buttonWidth = dpiX(#ButtonWidth) * 3 + dpiX(30)
+    				Else
+    				  MarkDown()\Requester\Button("OK")\Visible     = #True
+    				  MarkDown()\Requester\Button("Yes")\Visible    = #False
+    				  MarkDown()\Requester\Button("No")\Visible     = #False
+    				  MarkDown()\Requester\Button("Cancel")\Visible = #False
+    				  buttonWidth = dpiX(#ButtonWidth)
+    				EndIf ;}
+    				
+    				LoadFonts_("Arial", 9)
+    				
+    				InitDefault_()
+
+        	  MarkDown()\Requester\Padding = 10
+    				
+    				;{ _____ Image _____
+    				If MarkDown()\Flags & #Info
+    				  MarkDown()\Requester\Image\Num = CatchImage(#PB_Any, ?Information, 2128)
+    				ElseIf MarkDown()\Flags & #Question
+    				  MarkDown()\Requester\Image\Num = CatchImage(#PB_Any, ?Question, 2196)
+    				ElseIf MarkDown()\Flags & #Error
+      		    MarkDown()\Requester\Image\Num = CatchImage(#PB_Any, ?Error, 1782)
+      		  ElseIf MarkDown()\Flags & #Warning
+      		    MarkDown()\Requester\Image\Num = CatchImage(#PB_Any, ?Warning, 1699)
+      		  Else  
+      		    MarkDown()\Requester\Image\Num = #PB_Default
+      		  EndIf
+      		  
+      		  If IsImage(MarkDown()\Requester\Image\Num)
+      		    MarkDown()\Requester\Image\Width  = ImageWidth(MarkDown()\Requester\Image\Num)
+      		    MarkDown()\Requester\Image\Height = ImageHeight(MarkDown()\Requester\Image\Num)
+      		  EndIf
+      		  ;}
         		
     				BindGadgetEvent(MarkDown()\CanvasNum,  @_MouseMoveHandler(),      #PB_EventType_MouseMove)
     				BindGadgetEvent(MarkDown()\CanvasNum,  @_LeftButtonDownHandler(), #PB_EventType_LeftButtonDown)
@@ -5719,13 +5901,34 @@ Module MarkDown
 				  EndIf
 				  
 				  CloseGadgetList()
-				  
-				  Draw_()
 				
 				  HideWindow(MarkDown()\Window\Num, #False)
 				  
   	    EndIf ;}  
   	    
+  	    Parse_(Text)
+  	    
+  	    ;{ _____ Image _____
+  	    If IsImage(MarkDown()\Requester\Image\Num)
+  	      If dpiY(MarkDown()\Requester\Image\Height) > MarkDown()\Required\Height
+  	        MarkDown()\Required\Height = dpiY(MarkDown()\Requester\Image\Height)
+  	      EndIf 
+  	    EndIf ;}
+  	    
+  	    If buttonWidth > MarkDown()\Required\Width : MarkDown()\Required\Width = buttonWidth : EndIf
+  	    
+  	    Width  = MarkDown()\Required\Width  + dpiX(MarkDown()\Margin\Left + MarkDown()\Margin\Right)
+  	    Height = MarkDown()\Required\Height + dpiY(MarkDown()\Margin\Top  + MarkDown()\Margin\Bottom + 30)
+  	    
+  	    If IsImage(MarkDown()\Requester\Image\Num)
+  	      Width + dpiX(MarkDown()\Requester\Image\Width + MarkDown()\Requester\Padding)
+  	    EndIf
+  	    
+  	    ResizeWindow(MarkDown()\Window\Num, #PB_Ignore, #PB_Ignore, Width, Height)
+        ResizeGadget(MarkDown()\CanvasNum, 0, 0, Width, Height)
+        
+        ReDraw()
+        
   	    Repeat
           Select WaitWindowEvent()
             Case #PB_Event_CloseWindow           ;{ Close window
@@ -5753,9 +5956,9 @@ Module MarkDown
 				
 				UnbindGadgetEvent(MarkDown()\Scroll\Num, @_SynchronizeScrollBar(),  #PB_All)
 				
-        DeleteMapElement(MarkDown(), Str(MarkDown()\CanvasNum))
-        
         CloseWindow(MarkDown()\Window\Num)
+        
+        DeleteMapElement(MarkDown(), Str(MarkDown()\CanvasNum))
   	  EndIf
   	  
       ProcedureReturn Result
@@ -6422,8 +6625,9 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 15
+  #Example = 20
   
+  ; ----- Gadget -----
   ;  1: Headings
   ;  2: Emphasis
   ;  3: Lists
@@ -6438,11 +6642,13 @@ CompilerIf #PB_Compiler_IsMainFile
   ; 12: Emoji
   ; 13: Abbreviations
   ; 14: Keystrokes
+  ; ----- Requester -----
+  ; 20:
   
   Define.s Text$
  
   Select #Example
-    Case 1   
+    Case 1   ;{ Headings
       Text$ = "Heading level 1"+ #LF$ 
       Text$ + "==============="+ #LF$
       Text$ + "Heading level 2"+ #LF$
@@ -6451,7 +6657,8 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "#### Heading level 4 ####"  + #LF$
       Text$ + "##### Heading level 5 #####"  + #LF$
       Text$ + "###### Heading level 6 #####"  + #LF$ + #LF$
-    Case 2
+      ;}
+    Case 2   ;{ Emphasis
       Text$ = "#### Emphasis ####" + #LF$
       Text$ + "I just love **bold text**." + #LF$
       Text$ + "Italicized text is the *cat's meow*."+ #LF$
@@ -6462,38 +6669,45 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "-----------------------------------------" + #LF$
       Text$ + "#### Code ####" + #LF$
       Text$ + "At the command prompt, type ``nano``."+ #LF$
-    Case 3
+      ;}
+    Case 3   ;{ Lists
       Text$ = "#### Ordered List ####" + #LF$
       Text$ + "1. List item"+#LF$+"   2. List item"+#LF$+"   3. List item"+#LF$+"4. List item"+ #LF$
       Text$ + "-----" + #LF$
       Text$ + "#### Unordered List ####" + #LF$
       Text$ + "- First list item" + #LF$ + "  - Second list item:" + #LF$ + "  - Third list item" + #LF$ + " - Fourth list item" + #LF$ 
-    Case 4
+      ;}
+    Case 4   ;{ URL and Links
       Text$ = "#### Links & URLs ####" + #LF$ 
       Text$ + "URL: <https://www.markdownguide.org> " + #LF$ + #LF$
       Text$ + "EMail: <fake@example.com>  " + #LF$ + #LF$
       Text$ + "Link: [Duck Duck Go](https://duckduckgo.com "+#DQUOTE$+"My search engine!"+#DQUOTE$+") "+ #LF$
-    Case 5
+      ;}
+    Case 5   ;{ Image
       Text$ = "#### Image ####"  + #LF$
       Text$ + " ![Programmer](Test.png " + #DQUOTE$ + "Programmer Image" + #DQUOTE$ + ")"
-    Case 6
+      ;}
+    Case 6   ;{ Table
       Text$ = "#### Table ####"  + #LF$
       Text$ + "| Syntax    | Description   |" + #LF$
       Text$ + "| :-------: | ------------: |" + #LF$
       Text$ + "| *Header*  | Title         |" + #LF$ 
       Text$ + "| Long cell                ||" + #LF$
-      ;Text$ + "| Paragraph | *Text*        |" + #LF$ 
-    Case 7
+      Text$ + "| Paragraph | *Text*        |" + #LF$ 
+      ;}
+    Case 7   ;{ Footnote
       Text$ = "#### Footnotes ####" + #LF$ + #LF$
       Text$ + "Here's a simple footnote,[^1] and here's a longer one.[^bignote]" + #LF$
       Text$ + "[^1]: This is the **first** footnote." + #LF$
       Text$ + "[^bignote]: Here's one with multiple paragraphs and code."
-    Case 8
+      ;}
+    Case 8   ;{ TaskLists
       Text$ = "#### Task List ####" + #LF$
       Text$ + "- [ ] Write the press release"+ #LF$
       Text$ + "- [X] Update the website"+ #LF$
       Text$ + "- [ ] Contact the media"+ #LF$
-    Case 9  
+      ;}
+    Case 9   ;{ Definition List
       Text$ = "#### Definition List ####" + #LF$ + #LF$
       Text$ + "First Term" + #LF$
       Text$ + ": This is the definition of the first term." + #LF$
@@ -6501,11 +6715,13 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "Second Term"+ #LF$
       Text$ + ": This is one definition of the *second term*." + #LF$
       Text$ + ": This is another definition of the **second term**." + #LF$
-    Case 10
+      ;}
+    Case 10  ;{ Subscript / Superscript
       Text$ = "#### SubScript / SuperScript ####" + #LF$  + #LF$
       Text$ + "Chemical formula for water: H~2~O  " + #LF$
       Text$ + "The area is 10m^2^  " + #LF$
-    Case 11  
+      ;}
+    Case 11  ;{ Code Block
       Text$ = "#### Code Block ####" + #LF$
       Text$ + "```json" + #LF$
       Text$ + "{" + #LF$
@@ -6514,7 +6730,8 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "  " + #DQUOTE$ + "age"       + #DQUOTE$ + ": 25" + #LF$
       Text$ + "}" + #LF$
       Text$ + "```" + #LF$
-    Case 12
+      ;}
+    Case 12  ;{ Emoji
       Text$ = "#### Emoji ####" + #LF$  + #LF$
       Text$ + ":phone:  telephone receiver  " + #LF$ + #LF$
       Text$ + ":mail:  envelope  " + #LF$ + #LF$
@@ -6536,102 +6753,123 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + ":wink:  winking face  "  + #LF$ + #LF$
       Text$ + ":rolf:  rolling on the floor laughing  " + #LF$ + #LF$
       Text$ + ":eyes:  face with rolling eyes  " + #LF$
-    Case 13  
+      ;}
+    Case 13  ;{ Abbreviations
       Text$ = "#### Hint / Tooltip ####" + #LF$  + #LF$
       Text$ + "The HTML specification is maintained by the W3C." + #LF$
       Text$ + "*[HTML]: Hypertext Markup Language" + #LF$
       Text$ + "*[W3C]:  World Wide Web Consortium" + #LF$
-     Case 14  
+      ;}
+    Case 14  ;{ Keystrokes
       Text$ = "#### Keystrokes ####" + #LF$ + #LF$ 
       Text$ + "Copy text with [[Ctrl]] [[C]]." + #LF$
-    Default  
+      ;}
+    Case 20  ;{ Reqester
+      Text$ = "Just a **short** information text.  " + #LF$
+      Text$ + "*Second requester line*" 
+      ;}
+    Default  ;{ Example text
       Text$ = "### MarkDown ###" + #LF$ + #LF$
       Text$ + "> The gadget can display text formatted with the [MarkDown Syntax](https://www.markdownguide.org/basic-syntax/).  "+ #LF$
       Text$ + "> Markdown[^1] is a lightweight MarkUp language that you can use to add formatting elements to plaintext text documents."+ #LF$ + #LF$
       Text$ + "- Markdown files can be read even if it isn’t rendered."  + #LF$
       Text$ + "- Markdown is portable." + #LF$ + "- Markdown is platform independent." + #LF$
       Text$ + "[^1]: Created by John Gruber in 2004."
+      ;}
   EndSelect
 
-  Enumeration 
-    #Font 
-    #Window
-    #MarkDown
-    #Editor
-    #Button1
-    #Button2
-    #Button3
-    #Button4
-  EndEnumeration
+  CompilerIf #Example < 20 
+    ;{ Examples - Gadget
+    Enumeration 
+      #Font 
+      #Window
+      #MarkDown
+      #Editor
+      #Button1
+      #Button2
+      #Button3
+      #Button4
+    EndEnumeration
+    
+    LoadFont(#Font, "Arial", 10)
+    
+    
+    If OpenWindow(#Window, 0, 0, 300, 290, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
+      
+      EditorGadget(#Editor, 10, 10, 280, 250)
+      SetGadgetFont(#Editor, FontID(#Font))
+      HideGadget(#Editor, #True)
+      SetGadgetText(#Editor, Text$)
+      
+      ButtonGadget(#Button2, 10, 265, 60, 20, "View")
+      ButtonGadget(#Button1, 75, 265, 60, 20, "Edit")
+      
+      ButtonGadget(#Button3, 205, 265, 40, 20, "PDF")
+      ButtonGadget(#Button4, 250, 265, 40, 20, "HTML")
+      
+      DisableGadget(#Button2, #True)
+      
+      If MarkDown::Gadget(#MarkDown, 10, 10, 280, 250, MarkDown::#AutoResize)
+        MarkDown::SetText(#MarkDown, Text$)
+        MarkDown::SetFont(#MarkDown, "Arial", 10)
+      EndIf
   
-  LoadFont(#Font, "Arial", 10)
+      Repeat
+        Event = WaitWindowEvent()
+        Select Event
+          Case MarkDown::#Event_Gadget ;{ Module Events
+            Select EventGadget()  
+              Case #MarkDown
+                Select EventType()
+                  Case MarkDown::#EventType_Link       ;{ Left mouse click
+                    Debug "Link: " + MarkDown::EventValue(#MarkDown)
+                    RunProgram(MarkDown::EventValue(#MarkDown))
+                    ;}
+                EndSelect
+            EndSelect ;}
+          Case #PB_Event_Gadget  
+            Select EventGadget()  
+              Case #Button1            ;{ Edit
+                HideGadget(#Editor,   #False)
+                HideGadget(#MarkDown, #True)
+                DisableGadget(#Button1, #True)
+                DisableGadget(#Button2, #False)
+                ;}
+              Case #Button2            ;{ View
+                HideGadget(#Editor,   #True)
+                HideGadget(#MarkDown, #False)
+                DisableGadget(#Button1, #False)
+                DisableGadget(#Button2, #True)
+                ;}
+              Case #Button3            ;{ PDF
+                CompilerIf Defined(PDF, #PB_Module)
+                  MarkDown::Export(#MarkDown, MarkDown::#PDF, "Export.pdf", "PDF")
+                  RunProgram("Export.pdf")
+                CompilerEndIf
+                ;}
+              Case #Button4            ;{ HTML
+                MarkDown::Export(#MarkDown, MarkDown::#HTML, "Export.htm", "HTML")
+                RunProgram("Export.htm")
+                ;}
+            EndSelect
+        EndSelect        
+      Until Event = #PB_Event_CloseWindow
   
-  If OpenWindow(#Window, 0, 0, 300, 290, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
-    
-    EditorGadget(#Editor, 10, 10, 280, 250)
-    SetGadgetFont(#Editor, FontID(#Font))
-    HideGadget(#Editor, #True)
-    SetGadgetText(#Editor, Text$)
-    
-    ButtonGadget(#Button2, 10, 265, 60, 20, "View")
-    ButtonGadget(#Button1, 75, 265, 60, 20, "Edit")
-    
-    ButtonGadget(#Button3, 205, 265, 40, 20, "PDF")
-    ButtonGadget(#Button4, 250, 265, 40, 20, "HTML")
-    
-    DisableGadget(#Button2, #True)
-    
-    If MarkDown::Gadget(#MarkDown, 10, 10, 280, 250, MarkDown::#AutoResize)
-      MarkDown::SetText(#MarkDown, Text$)
-      MarkDown::SetFont(#MarkDown, "Arial", 10)
-    EndIf
-
-    Repeat
-      Event = WaitWindowEvent()
-      Select Event
-        Case MarkDown::#Event_Gadget ;{ Module Events
-          Select EventGadget()  
-            Case #MarkDown
-              Select EventType()
-                Case MarkDown::#EventType_Link       ;{ Left mouse click
-                  Debug "Link: " + MarkDown::EventValue(#MarkDown)
-                  RunProgram(MarkDown::EventValue(#MarkDown))
-                  ;}
-              EndSelect
-          EndSelect ;}
-        Case #PB_Event_Gadget  
-          Select EventGadget()  
-            Case #Button1
-              HideGadget(#Editor,   #False)
-              HideGadget(#MarkDown, #True)
-              DisableGadget(#Button1, #True)
-              DisableGadget(#Button2, #False)
-            Case #Button2
-              HideGadget(#Editor,   #True)
-              HideGadget(#MarkDown, #False)
-              DisableGadget(#Button1, #False)
-              DisableGadget(#Button2, #True)
-            Case #Button3
-              CompilerIf Defined(PDF, #PB_Module)
-                MarkDown::Export(#MarkDown, MarkDown::#PDF, "Export.pdf", "PDF")
-                RunProgram("Export.pdf")
-              CompilerEndIf
-            Case #Button4
-              MarkDown::Export(#MarkDown, MarkDown::#HTML, "Export.htm", "HTML")
-              RunProgram("Export.htm")
-          EndSelect
-      EndSelect        
-    Until Event = #PB_Event_CloseWindow
-
-    CloseWindow(#Window)
-  EndIf 
+      CloseWindow(#Window)
+    EndIf 
+    ;}
+  CompilerElseIf MarkDown::#Enable_Requester
+    ;{ Examples - Requester
+    MarkDown::Requester("Markdown - Requester", Text$, MarkDown::#Info)
+    ;}
+  CompilerEndIf
   
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 6533
-; FirstLine = 534
-; Folding = wBQAAAAAEAQAkwBE9-0-PAAAAQAAwAAAAAKAAACCMCAAAAAAAAAAAAAAACAgAAU-
-; Markers = 6424
+; CursorPosition = 88
+; FirstLine = 18
+; Folding = wDihEAAAcAAASDEQw-4--AAAAAAAADAAAAIAAAIIwIQDAAAAAABAQF7AhAAiFCCAAAAIB-
+; Markers = 6627
 ; EnableXP
 ; DPIAware
