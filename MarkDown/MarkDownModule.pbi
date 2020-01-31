@@ -86,7 +86,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20013100
+  #Version  = 20013101
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -5078,32 +5078,36 @@ Module MarkDown
 			
 			CompilerIf #Enable_Requester
 			  
-			  If IsImage(MarkDown()\Requester\Image\Num)
-			    OffsetY = (MsgHeight - MarkDown()\Requester\Image\Height) / 2
-    		  DrawingMode(#PB_2DDrawing_AlphaBlend)
-    		  DrawImage(ImageID(MarkDown()\Requester\Image\Num), dpiX(MarkDown()\Margin\Left), OffsetY, MarkDown()\Requester\Image\Width, MarkDown()\Requester\Image\Height)
-			  EndIf  
+			  If MarkDown()\Type = #Requester
 			  
-			  DrawingFont(FontID(MarkDown()\Font\Normal))
-			  
-			  MarkDown()\Requester\ButtonY = MsgHeight + dpiY(5)
-			  
-			  If MarkDown()\Flags & #YesNo ;{ Buttons
-  			  X = (dpiX(GadgetWidth(MarkDown()\CanvasNum)) - (dpiX(#ButtonWidth) * 2) - dpiX(10)) / 2
-  			  Button_("Yes", X, MarkDown()\Requester\ButtonY)
-  			  X + dpiX(#ButtonWidth) + dpiX(10)
-  			  Button_("No", X, MarkDown()\Requester\ButtonY)
-  			ElseIf MarkDown()\Flags & #YesNoCancel
-  			  X = dpiX(MarkDown()\Margin\Left)
-  			  Button_("Yes", X, MarkDown()\Requester\ButtonY)
-  			  X + dpiX(#ButtonWidth) + dpiX(10)
-  			  Button_("No", X, MarkDown()\Requester\ButtonY)
-  			  X = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(#ButtonWidth) - dpiX(MarkDown()\Margin\Right)
-  			  Button_("Cancel", X, MarkDown()\Requester\ButtonY)
-  			Else
-  			  X = (dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(#ButtonWidth)) / 2
-  			  Button_("OK", X, MarkDown()\Requester\ButtonY)
-  			EndIf ;}
+  			  If IsImage(MarkDown()\Requester\Image\Num)
+  			    OffsetY = (MsgHeight - MarkDown()\Requester\Image\Height) / 2
+      		  DrawingMode(#PB_2DDrawing_AlphaBlend)
+      		  DrawImage(ImageID(MarkDown()\Requester\Image\Num), dpiX(MarkDown()\Margin\Left), OffsetY, MarkDown()\Requester\Image\Width, MarkDown()\Requester\Image\Height)
+  			  EndIf  
+  			  
+  			  DrawingFont(FontID(MarkDown()\Font\Normal))
+  			  
+  			  MarkDown()\Requester\ButtonY = MsgHeight + dpiY(5)
+  			  
+  			  If MarkDown()\Flags & #YesNo ;{ Buttons
+    			  X = (dpiX(GadgetWidth(MarkDown()\CanvasNum)) - (dpiX(#ButtonWidth) * 2) - dpiX(10)) / 2
+    			  Button_("Yes", X, MarkDown()\Requester\ButtonY)
+    			  X + dpiX(#ButtonWidth) + dpiX(10)
+    			  Button_("No", X, MarkDown()\Requester\ButtonY)
+    			ElseIf MarkDown()\Flags & #YesNoCancel
+    			  X = dpiX(MarkDown()\Margin\Left)
+    			  Button_("Yes", X, MarkDown()\Requester\ButtonY)
+    			  X + dpiX(#ButtonWidth) + dpiX(10)
+    			  Button_("No", X, MarkDown()\Requester\ButtonY)
+    			  X = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(#ButtonWidth) - dpiX(MarkDown()\Margin\Right)
+    			  Button_("Cancel", X, MarkDown()\Requester\ButtonY)
+    			Else
+    			  X = (dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(#ButtonWidth)) / 2
+    			  Button_("OK", X, MarkDown()\Requester\ButtonY)
+    			EndIf
+    			
+    		EndIf	;}
 			  
 			CompilerEndIf  
 			
@@ -6625,7 +6629,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 20
+  #Example = 0
   
   ; ----- Gadget -----
   ;  1: Headings
@@ -6643,7 +6647,7 @@ CompilerIf #PB_Compiler_IsMainFile
   ; 13: Abbreviations
   ; 14: Keystrokes
   ; ----- Requester -----
-  ; 20:
+  ; 20: Requester
   
   Define.s Text$
  
@@ -6867,9 +6871,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 88
-; FirstLine = 18
-; Folding = wDihEAAAcAAASDEQw-4--AAAAAAAADAAAAIAAAIIwIQDAAAAAABAQF7AhAAiFCCAAAAIB-
-; Markers = 6627
+; CursorPosition = 5118
+; FirstLine = 412
+; Folding = wDihEAAAcAAASDEQw-4--AAAAAAAADAAAAIAAAIIwIQDAAAAAgBAQE7AhAAiFCCAQAAKB-
+; Markers = 6631
 ; EnableXP
 ; DPIAware
