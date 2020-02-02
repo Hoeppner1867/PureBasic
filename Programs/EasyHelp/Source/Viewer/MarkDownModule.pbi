@@ -82,7 +82,7 @@
 
 ; XIncludeFile "ModuleEx.pbi"
 
-CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : CompilerEndIf
+; CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : CompilerEndIf
 
 DeclareModule MarkDown
   
@@ -6952,8 +6952,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 6712
-; FirstLine = 888
+; CursorPosition = 84
 ; Folding = wBghAAAAYAAHUrrC+-+-HEAEAAAAYAAAAANBBgFhEBYAABAAAEEAgQGIcDAgAABBIAAkg-
 ; Markers = 6712
 ; EnableXP
