@@ -1,23 +1,21 @@
 ﻿;/ ==================================
-;/ =    MarkDownLanguageModule.pbi    =
+;/ =    MarkDownModule.pbi    =
 ;/ ==================================
 ;/
 ;/ [ PB V5.7x / 64Bit / All OS / DPI ]
 ;/
-;/  Gadget to display MarkDown languages
+;/  Gadget, Requester & HelpWindow for Markdown
 ;/
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 02.02.2020
+; Last Update: 03.02.2020
 ; 
+; - Added:  Help window
+;
 ; - Bugfix: SetMargins() / Images / Heading Level 2
+; - Added:  Markdown::Requester()
 ;
-; - Added: Markdown::Requester()
-;
-
-; TODO: Blocks (4 Spaces)
-
 
 ;{ ===== MIT License =====
 ;
@@ -81,23 +79,26 @@
 
 
 ; XIncludeFile "ModuleEx.pbi"
+; XIncludeFile "TreeExModule.pbi"
 
 CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : CompilerEndIf
 
 DeclareModule MarkDown
   
-  #Version  = 20020202
+  #Version  = 20020300
   #ModuleEx = 19112100
   
 	;- ===========================================================================
 	;-   DeclareModule - Constants
   ;- ===========================================================================
   
+  #Enable_Gadget     = #True
   #Enable_Requester  = #True
+  #Enable_HelpWindow = #True  
+  #Enable_CreateHelp = #False
   
   #Enable_Emoji      = #True
   #Enable_ExportHTML = #True
-  
   
   ;{ _____ Constants _____
   #Bullet$ = "•"
@@ -118,6 +119,7 @@ DeclareModule MarkDown
 	Enumeration       ;{ Type
 	  #Gadget
 	  #Requester
+	  #Help
 	EndEnumeration  ;}
 	
 	Enumeration 1     ;{ Format
@@ -203,32 +205,39 @@ DeclareModule MarkDown
 	;- ===========================================================================
 	;-   DeclareModule
 	;- ===========================================================================
+	
+	Declare.i UsedImages(Markdown.s, List Images.s())
+	Declare   Convert(MarkDown.s, Type.i, File.s="", Title.s="")
+	
+	CompilerIf #Enable_Gadget
+    Declare   AttachPopupMenu(GNum.i, PopUpNum.i)
+    Declare   Clear(GNum.i)
+    Declare.s EventValue(GNum.i)
+    Declare   Export(GNum.i, Type.i, File.s="", Title.s="")
+    Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
+    Declare.q GetData(GNum.i)
+    Declare.s GetID(GNum.i)
+    Declare.s GetText(GNum.i, Type.i=#MarkDown, Title.s="")
+    Declare   Hide(GNum.i, State.i=#True) 
+    Declare   SetAutoResizeFlags(GNum.i, Flags.i)
+    Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
+    Declare   SetColor(GNum.i, ColorTyp.i, Value.i)
+    Declare   SetData(GNum.i, Value.q)
+    Declare   SetFont(GNum.i, Name.s, Size.i) 
+    Declare   SetID(GNum.i, String.s)
+    Declare   SetMargins(GNum.i, Top.i, Left.i, Right.i=#PB_Default, Bottom.i=#PB_Default)
+    Declare   SetText(GNum.i, Text.s)
+    Declare   UseImage(GNum.i, FileName.s, ImageNum.i)
+  CompilerEndIf  
 
-  Declare   AttachPopupMenu(GNum.i, PopUpNum.i)
-  Declare   Clear(GNum.i)
-  Declare   Convert(MarkDown.s, Type.i, File.s="", Title.s="")
-  Declare.s EventValue(GNum.i)
-  Declare   Export(GNum.i, Type.i, File.s="", Title.s="")
-  Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
-  Declare.q GetData(GNum.i)
-  Declare.s GetID(GNum.i)
-  Declare.s GetText(GNum.i, Type.i=#MarkDown, Title.s="")
-  Declare   Hide(GNum.i, State.i=#True) 
-  Declare   SetAutoResizeFlags(GNum.i, Flags.i)
-  Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
-  Declare   SetColor(GNum.i, ColorTyp.i, Value.i)
-  Declare   SetData(GNum.i, Value.q)
-  Declare   SetFont(GNum.i, Name.s, Size.i) 
-  Declare   SetID(GNum.i, String.s)
-  Declare   SetMargins(GNum.i, Top.i, Left.i, Right.i=#PB_Default, Bottom.i=#PB_Default)
-  Declare   SetText(GNum.i, Text.s)
-  Declare   UseImage(GNum.i, FileName.s, ImageNum.i)
-  Declare.i UsedImages(Markdown.s, List Images.s())
-  
   CompilerIf #Enable_Requester
-    Declare.i Requester(Title.s, Text.s, Flags.i=#False, ParentID.i=#PB_Default)
+    Declare.i Requester(Title.s, Text.s, Flags.i=#False, Parent.i=#PB_Default)
   CompilerEndIf
-
+  
+  CompilerIf #Enable_HelpWindow
+    Declare.s Help(Title.s, File.s, Label.s="", Flags.i=#False, Parent.i=#PB_Default)
+  CompilerEndIf
+  
 EndDeclareModule
 
 Module MarkDown
@@ -237,6 +246,10 @@ Module MarkDown
 	
 	UsePNGImageDecoder()
 	UseJPEGImageDecoder()
+	
+	CompilerIf #Enable_HelpWindow Or #Enable_CreateHelp
+	  UseLZMAPacker()
+	CompilerEndIf  
 	
 	;- ============================================================================
 	;-   Module - Constants
@@ -258,6 +271,7 @@ Module MarkDown
   EnumerationBinary ;{ MarkDown
     #Abbreviation
     #BlockQuote
+    #Block
     #Bold
     #Code
     #Definition
@@ -315,14 +329,25 @@ Module MarkDown
 	;-   Module - Structures
 	;- ============================================================================	
   
-  Structure Margin_Structure             ;{ ...\Margin\...
-		Top.i
-		Left.i
-		Right.i
-		Bottom.i
-	EndStructure ;}
-	
-	
+  CompilerIf #Enable_HelpWindow
+    
+    Structure Item_Structure ;{ Help\Item()\...
+      Titel.s
+      Label.s
+      Text.s
+      Level.i
+    EndStructure ;}
+    
+    Structure Help_Structure
+      TreeNum.i
+      File.s
+      Map  Label.i()
+      List Item.Item_Structure()
+    EndStructure  
+    Global Help.Help_Structure
+    
+  CompilerEndIf  
+ 
   CompilerIf #Enable_Requester
     
     Structure Requester_Image_Structure  ;{ MarkDown()\Requester\Image\...
@@ -349,7 +374,6 @@ Module MarkDown
     EndStructure ;} 
   
   CompilerEndIf
-  
   
   Structure List_Structure               ;{ Lists\...
     Marker.s ; ul: - or + or * / ol: . or ) 
@@ -445,7 +469,13 @@ Module MarkDown
     List Row.Lists_Row_Structure()
   EndStructure ;}
   
-  
+  Structure Margin_Structure             ;{ MarkDown()\Margin\...
+		Top.i
+		Left.i
+		Right.i
+		Bottom.i
+	EndStructure ;}
+	
   Structure Table_Item_Structure         ;{ MarkDown()\Table()\Row()\Col('num')\Item()\...
     Type.i
     String.s
@@ -477,7 +507,7 @@ Module MarkDown
   EndStructure ;}
   
   
-  Structure MarkDown_Items_Structure      ;{ MarkDown()\Items()\...
+  Structure MarkDown_Items_Structure     ;{ MarkDown()\Items()\...
     ID.s
     Type.i
     Level.i
@@ -1232,7 +1262,7 @@ Module MarkDown
 		EndIf
 		
   EndProcedure	
-
+  
   ;- __________ Convert __________
   
   CompilerIf #Enable_ExportHTML
@@ -3618,11 +3648,11 @@ Module MarkDown
       If Left(Row$, 4) = Space(4)
         
         ;{ _____ Indented code blocks _____ [4.4]
-        If AddDocRow_(Mid(Row$, 5), #Code) : Continue : EndIf
+        If AddDocRow_(Mid(Row$, 5), #Block) : Continue : EndIf
         
       ElseIf Left(Row$, 1) = #TAB$
         
-        If AddDocRow_(Mid(Row$, 2), #Code) : Continue : EndIf ;}
+        If AddDocRow_(Mid(Row$, 2), #Block) : Continue : EndIf ;}
         
       Else
         
@@ -4020,7 +4050,15 @@ Module MarkDown
           EndIf
           ;}
         ;}  
-        ;{ _____ Code blocks _____                [4.4] / [4.5]
+        ;{ _____ Intended Code Blocks _____       [4.4]
+        Case #Block
+          If AddElement(MarkDown()\Items())
+            MarkDown()\Items()\Type = #Block
+            MarkDown()\Items()\BlockQuote = Document()\BlockQuote
+            AddWords_(Document()\String, MarkDown()\Items()\Words(), #Font_Code)
+          EndIf  
+          ;}
+        ;{ _____ Fenced Code blocks _____         [4.5]
         Case #Code|#Header
           
           If AddElement(MarkDown()\Items())
@@ -4043,7 +4081,7 @@ Module MarkDown
               MarkDown()\Block()\Row() = Document()\String
             EndIf  
           EndIf  
-        ;}  
+          ;}  
         ;{ _____ Image _____                      [6.6]
         Case #Image  
           
@@ -4246,8 +4284,7 @@ Module MarkDown
 
   EndProcedure  
   
-  
-	;- __________ Drawing __________
+  ;- __________ Drawing __________
 
 	Procedure.i BlendColor_(Color1.i, Color2.i, Factor.i=50)
 		Define.i Red1, Green1, Blue1, Red2, Green2, Blue2
@@ -5516,7 +5553,7 @@ Module MarkDown
 	Procedure _ResizeWindowHandler()
 		Define.f X, Y, Width, Height
 		Define.f OffSetX, OffSetY
-
+		
 		ForEach MarkDown()
 
 			If IsGadget(MarkDown()\CanvasNum)
@@ -5538,10 +5575,18 @@ Module MarkDown
 							If MarkDown()\Size\Flags & #Height : Height = MarkDown()\Size\Height + OffSetY : EndIf
 
 							ResizeGadget(MarkDown()\CanvasNum, X, Y, Width, Height)
-
+	
 						Else
 							ResizeGadget(MarkDown()\CanvasNum, #PB_Ignore, #PB_Ignore, MarkDown()\Size\Width + OffSetX, MarkDown()\Size\Height + OffsetY)
 						EndIf
+						
+						CompilerIf #Enable_HelpWindow
+						  
+						  If MarkDown()\Type = #Help
+						    ResizeGadget(Help\TreeNum, #PB_Ignore, #PB_Ignore, #PB_Ignore, GadgetHeight(MarkDown()\CanvasNum))
+						  EndIf
+						  
+						CompilerEndIf
 						
 					EndIf
 
@@ -5550,7 +5595,7 @@ Module MarkDown
 			EndIf
 
 		Next
-
+		
 	EndProcedure
 	
 	;- __________ Init __________
@@ -5654,344 +5699,8 @@ Module MarkDown
 	 
 	EndProcedure  	
 	
-	
-	Procedure   AttachPopupMenu(GNum.i, PopUpNum.i)
-
-		If FindMapElement(MarkDown(), Str(GNum))
-			MarkDown()\PopupNum = PopUpNum
-		EndIf
-
-	EndProcedure
-	
-	Procedure   Clear(GNum.i)
-	  
-	  If FindMapElement(MarkDown(), Str(GNum))
-	    
-	    Clear_()
-	    
-	    ReDraw()
-	  EndIf
-	  
-	EndProcedure  
-	
-	Procedure   Disable(GNum.i, State.i=#True)
-    
-    If FindMapElement(MarkDown(), Str(GNum))
-
-      MarkDown()\Disable = State
-      DisableGadget(GNum, State)
-      
-      Draw_()
-    EndIf  
-    
-  EndProcedure 	
-  
-  Procedure   Export(GNum.i, Type.i, File.s="", Title.s="")
-	  Define.i FileID
-	  Define.s String
-	  
-	  If FindMapElement(MarkDown(), Str(GNum))
-	    
-	    Select Type
-	      Case #HTML
-	        
-	        CompilerIf #Enable_ExportHTML
-	          
-      	    String = ExportHTML_(Title)
-      	    
-      	    FileID = CreateFile(#PB_Any, File, #PB_UTF8)
-      	    If FileID
-      	      WriteStringFormat(FileID,   #PB_UTF8)
-      	      WriteString(FileID, String, #PB_UTF8)
-      	      CloseFile(FileID)
-      	    EndIf
-      	    
-      	  CompilerEndIf
-      	  
-    	  Case #PDF
-    	    
-    	    CompilerIf Defined(PDF, #PB_Module)
-    	      ExportPDF_(File, Title)
-    	    CompilerEndIf 
-    	    
-    	EndSelect
-
-	  EndIf  
-	 
-	EndProcedure 
-  
-	Procedure.s EventValue(GNum.i)
-    
-    If FindMapElement(MarkDown(), Str(GNum))
-      ProcedureReturn MarkDown()\EventValue
-    EndIf  
-    
-  EndProcedure  
-
-  
-  Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
-    ; Flags: #AutoResize | #Borderless | #UseExistingCanvas
-		Define Result.i
-		
-		CompilerIf Defined(ModuleEx, #PB_Module)
-      If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
-    CompilerEndIf
-		
-		If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
-      If IsGadget(GNum)
-        Result = #True
-      Else
-        ProcedureReturn #False
-      EndIf
-      ;}
-    Else
-      Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Container)
-    EndIf
-		
-		If Result
-
-			If GNum = #PB_Any : GNum = Result : EndIf
-
-			If AddMapElement(MarkDown(), Str(GNum))
-			  
-			  MarkDown()\Type = #Gadget
-			  
-				MarkDown()\CanvasNum = GNum
-				
-				If WindowNum = #PB_Default
-          MarkDown()\Window\Num = GetGadgetWindow()
-        Else
-          MarkDown()\Window\Num = WindowNum
-        EndIf
-
-				MarkDown()\Scroll\Num = ScrollBarGadget(#PB_Any, 0, 0, 0, Height, 0, Height, Height, #PB_ScrollBar_Vertical)
-				If MarkDown()\Scroll\Num
-				  SetGadgetData(MarkDown()\Scroll\Num, MarkDown()\CanvasNum)
-				  HideGadget(MarkDown()\Scroll\Num, #True)
-				  MarkDown()\Scroll\Hide = #True
-				EndIf
-				
-				CloseGadgetList()
-
-				LoadFonts_("Arial", 9)
-				
-				MarkDown()\Size\X = X
-				MarkDown()\Size\Y = Y
-				MarkDown()\Size\Width  = Width
-				MarkDown()\Size\Height = Height
-
-				MarkDown()\Flags  = Flags
-
-        InitDefault_()
-
-				BindGadgetEvent(MarkDown()\CanvasNum,  @_ResizeHandler(),         #PB_EventType_Resize)
-				BindGadgetEvent(MarkDown()\CanvasNum,  @_RightClickHandler(),     #PB_EventType_RightClick)
-				BindGadgetEvent(MarkDown()\CanvasNum,  @_MouseMoveHandler(),      #PB_EventType_MouseMove)
-				BindGadgetEvent(MarkDown()\CanvasNum,  @_LeftButtonDownHandler(), #PB_EventType_LeftButtonDown)
-				BindGadgetEvent(MarkDown()\CanvasNum,  @_LeftButtonUpHandler(),   #PB_EventType_LeftButtonUp)
-				BindGadgetEvent(MarkDown()\CanvasNum,  @_MouseWheelHandler(),     #PB_EventType_MouseWheel)
-				
-				BindGadgetEvent(MarkDown()\Scroll\Num, @_SynchronizeScrollBar(),  #PB_All) 
-				
-				CompilerIf Defined(ModuleEx, #PB_Module)
-          BindEvent(#Event_Theme, @_ThemeHandler())
-        CompilerEndIf
-				
-				If Flags & #AutoResize ;{ Enabel AutoResize
-					If IsWindow(MarkDown()\Window\Num)
-						MarkDown()\Window\Width  = WindowWidth(MarkDown()\Window\Num)
-						MarkDown()\Window\Height = WindowHeight(MarkDown()\Window\Num)
-						BindEvent(#PB_Event_SizeWindow, @_ResizeWindowHandler(), MarkDown()\Window\Num)
-					EndIf
-				EndIf ;}
-
-				Draw_()
-
-				ProcedureReturn GNum
-			EndIf
-
-		EndIf
-
-	EndProcedure
-	
-
-	Procedure.q GetData(GNum.i)
-	  
-	  If FindMapElement(MarkDown(), Str(GNum))
-	    ProcedureReturn MarkDown()\Quad
-	  EndIf  
-	  
-	EndProcedure	
-	
-	Procedure.s GetID(GNum.i)
-	  
-	  If FindMapElement(MarkDown(), Str(GNum))
-	    ProcedureReturn MarkDown()\ID
-	  EndIf
-	  
-	EndProcedure
-	
-	Procedure.s GetText(GNum.i, Type.i=#MarkDown, Title.s="")
-    
-    If FindMapElement(MarkDown(), Str(GNum))
-      
-      Select Type
-        Case #HTML
-          
-          CompilerIf #Enable_ExportHTML
-            ProcedureReturn ExportHTML_()
-          CompilerEndIf
-          
-        Case #MarkDown
-          ProcedureReturn MarkDown()\Text
-      EndSelect    
-      
-    EndIf
-    
-  EndProcedure
-	
-	
-	Procedure   Hide(GNum.i, State.i=#True)
-	  
-	  If FindMapElement(MarkDown(), Str(GNum))
-	    
-	    If State
-	      MarkDown()\Hide = #True
-	      HideGadget(GNum, #True)
-	    Else
-	      MarkDown()\Hide = #False
-	      HideGadget(GNum, #False)
-	      Draw_()
-	    EndIf  
-	    
-	  EndIf  
-	  
-	EndProcedure
-	
-	
-	Procedure   SetAttribute(GNum.i, Attribute.i, Value.i)
-    
-    If FindMapElement(MarkDown(), Str(GNum))
-      
-      Select Attribute
-        Case #Corner
-          MarkDown()\Radius        = Value
-        Case #Margin_Top
-          MarkDown()\Margin\Top    = Value
-        Case #Margin_Left
-          MarkDown()\Margin\Left   = Value
-        Case #Margin_Right
-          MarkDown()\Margin\Right  = Value
-        Case #Margin_Bottom
-          MarkDown()\Margin\Bottom = Value
-        Case #Indent
-          MarkDown()\Indent        = Value
-        Case #LineSpacing
-          MarkDown()\LineSpacing   = Value
-      EndSelect
-      
-      Draw_()
-    EndIf
-    
-  EndProcedure	
-  
-  Procedure   SetMargins(GNum.i, Top.i, Left.i, Right.i=#PB_Default, Bottom.i=#PB_Default)
-    
-    If FindMapElement(MarkDown(), Str(GNum))
-      
-      MarkDown()\Margin\Top    = Top
-  		MarkDown()\Margin\Left   = Left
-  		MarkDown()\Margin\Right  = Right
-  		MarkDown()\Margin\Bottom = Bottom
-  		If MarkDown()\Margin\Right  = #PB_Default : MarkDown()\Margin\Right  = MarkDown()\Margin\Left : EndIf
-  		If MarkDown()\Margin\Bottom = #PB_Default : MarkDown()\Margin\Bottom = MarkDown()\Margin\Top  : EndIf
-  		
-    EndIf
-    
-  EndProcedure  
-  
-	Procedure   SetAutoResizeFlags(GNum.i, Flags.i)
-    
-    If FindMapElement(MarkDown(), Str(GNum))
-      
-      MarkDown()\Size\Flags = Flags
-      MarkDown()\Flags | #AutoResize
-      
-    EndIf  
-   
-  EndProcedure
-  
-  Procedure   SetColor(GNum.i, ColorTyp.i, Value.i)
-    
-    If FindMapElement(MarkDown(), Str(GNum))
-    
-      Select ColorTyp 
-        Case #Color_Back
-          MarkDown()\Color\Back          = Value
-        Case #Color_BlockQuote
-          MarkDown()\Color\BlockQuote    = Value   
-        Case #Color_Border
-          MarkDown()\Color\Border        = Value
-        Case #Color_Code 
-          MarkDown()\Color\Code          = Value
-        Case #Color_Front
-          MarkDown()\Color\Front         = Value  
-        Case #Color_HeaderBack
-          MarkDown()\Color\HeaderBack    = Value
-        Case #Color_HighlightBack
-          MarkDown()\Color\Highlight     = Value    
-        Case #Color_Tooltip
-          MarkDown()\Color\Hint          = Value 
-        Case #Color_Line
-          MarkDown()\Color\Line          = Value  
-        Case #Color_Link
-          MarkDown()\Color\Link          = Value  
-        Case #Color_HighlightLink
-          MarkDown()\Color\LinkHighlight = Value  
-        Case #Color_KeyStroke
-          MarkDown()\Color\Keystroke     = Value  
-        Case #Color_KeystrokeBack  
-          MarkDown()\Color\KeyStrokeBack = Value  
-      EndSelect
-      
-      Draw_()
-    EndIf
-    
-  EndProcedure
-  
-  Procedure   SetData(GNum.i, Value.q)
-	  
-	  If FindMapElement(MarkDown(), Str(GNum))
-	    MarkDown()\Quad = Value
-	  EndIf  
-	  
-	EndProcedure
-	
-	Procedure   SetFont(GNum.i, Name.s, Size.i) 
-    
-    If FindMapElement(MarkDown(), Str(GNum))
-      
-      FreeFonts_()
-      
-      LoadFonts_(Name, Size)
-      
-      DetermineTextSize_()
-      
-      ReDraw()
-    EndIf
-    
-  EndProcedure
-  
-	Procedure   SetID(GNum.i, String.s)
-	  
-	  If FindMapElement(MarkDown(), Str(GNum))
-	    MarkDown()\ID = String
-	  EndIf
-	  
-	EndProcedure
-
 	Procedure   SetText(GNum.i, Text.s)
-	  
+  	  
 	  If FindMapElement(MarkDown(), Str(GNum))
 
 	    Clear_()
@@ -6007,31 +5716,10 @@ Module MarkDown
 	  
 	EndProcedure
 	
-	
-	Procedure   UseImage(GNum.i, FileName.s, ImageNum.i)
-	  Define.s Image$
-	  
-	  If FindMapElement(MarkDown(), Str(GNum))
-	    
-	    If IsImage(ImageNum)
-	      
-	      Image$ = GetFilePart(FileName)
-	      
-  	    If AddMapElement(MarkDown()\ImageNum(), Image$)
-  	      MarkDown()\ImageNum() = ImageNum
-  	    EndIf
-  	    
-  	  EndIf
-  	  
-	  EndIf  
-	 
-	EndProcedure	
-	
-	
 	Procedure.i UsedImages(Markdown.s, List Images.s())
 	  
-	  If AddMapElement(MarkDown(), "Parse")
-	    
+    If AddMapElement(MarkDown(), "Parse")
+    
 	    Parse_(MarkDown)
 	    
 	    ForEach MarkDown()\Image()
@@ -6047,10 +5735,371 @@ Module MarkDown
 	  
 	EndProcedure
 	
+	
+	CompilerIf #Enable_Gadget
+	  
+  	Procedure   AttachPopupMenu(GNum.i, PopUpNum.i)
+  
+  		If FindMapElement(MarkDown(), Str(GNum))
+  			MarkDown()\PopupNum = PopUpNum
+  		EndIf
+  
+  	EndProcedure
+  	
+  	Procedure   Clear(GNum.i)
+  	  
+  	  If FindMapElement(MarkDown(), Str(GNum))
+  	    
+  	    Clear_()
+  	    
+  	    ReDraw()
+  	  EndIf
+  	  
+  	EndProcedure  
+  	
+  	Procedure   Disable(GNum.i, State.i=#True)
+      
+      If FindMapElement(MarkDown(), Str(GNum))
+  
+        MarkDown()\Disable = State
+        DisableGadget(GNum, State)
+        
+        Draw_()
+      EndIf  
+      
+    EndProcedure 	
+    
+    Procedure   Export(GNum.i, Type.i, File.s="", Title.s="")
+  	  Define.i FileID
+  	  Define.s String
+  	  
+  	  If FindMapElement(MarkDown(), Str(GNum))
+  	    
+  	    Select Type
+  	      Case #HTML
+  	        
+  	        CompilerIf #Enable_ExportHTML
+  	          
+        	    String = ExportHTML_(Title)
+        	    
+        	    FileID = CreateFile(#PB_Any, File, #PB_UTF8)
+        	    If FileID
+        	      WriteStringFormat(FileID,   #PB_UTF8)
+        	      WriteString(FileID, String, #PB_UTF8)
+        	      CloseFile(FileID)
+        	    EndIf
+        	    
+        	  CompilerEndIf
+        	  
+      	  Case #PDF
+      	    
+      	    CompilerIf Defined(PDF, #PB_Module)
+      	      ExportPDF_(File, Title)
+      	    CompilerEndIf 
+      	    
+      	EndSelect
+  
+  	  EndIf  
+  	 
+  	EndProcedure 
+    
+  	Procedure.s EventValue(GNum.i)
+      
+      If FindMapElement(MarkDown(), Str(GNum))
+        ProcedureReturn MarkDown()\EventValue
+      EndIf  
+      
+    EndProcedure  
+    
+    
+  	Procedure.q GetData(GNum.i)
+  	  
+  	  If FindMapElement(MarkDown(), Str(GNum))
+  	    ProcedureReturn MarkDown()\Quad
+  	  EndIf  
+  	  
+  	EndProcedure	
+  	
+  	Procedure.s GetID(GNum.i)
+  	  
+  	  If FindMapElement(MarkDown(), Str(GNum))
+  	    ProcedureReturn MarkDown()\ID
+  	  EndIf
+  	  
+  	EndProcedure
+  	
+  	Procedure.s GetText(GNum.i, Type.i=#MarkDown, Title.s="")
+      
+      If FindMapElement(MarkDown(), Str(GNum))
+        
+        Select Type
+          Case #HTML
+            
+            CompilerIf #Enable_ExportHTML
+              ProcedureReturn ExportHTML_()
+            CompilerEndIf
+            
+          Case #MarkDown
+            ProcedureReturn MarkDown()\Text
+        EndSelect    
+        
+      EndIf
+      
+    EndProcedure
+  	
+  	
+  	Procedure   Hide(GNum.i, State.i=#True)
+  	  
+  	  If FindMapElement(MarkDown(), Str(GNum))
+  	    
+  	    If State
+  	      MarkDown()\Hide = #True
+  	      HideGadget(GNum, #True)
+  	    Else
+  	      MarkDown()\Hide = #False
+  	      HideGadget(GNum, #False)
+  	      Draw_()
+  	    EndIf  
+  	    
+  	  EndIf  
+  	  
+  	EndProcedure
+  	
+  	
+  	Procedure   SetAttribute(GNum.i, Attribute.i, Value.i)
+      
+      If FindMapElement(MarkDown(), Str(GNum))
+        
+        Select Attribute
+          Case #Corner
+            MarkDown()\Radius        = Value
+          Case #Margin_Top
+            MarkDown()\Margin\Top    = Value
+          Case #Margin_Left
+            MarkDown()\Margin\Left   = Value
+          Case #Margin_Right
+            MarkDown()\Margin\Right  = Value
+          Case #Margin_Bottom
+            MarkDown()\Margin\Bottom = Value
+          Case #Indent
+            MarkDown()\Indent        = Value
+          Case #LineSpacing
+            MarkDown()\LineSpacing   = Value
+        EndSelect
+        
+        Draw_()
+      EndIf
+      
+    EndProcedure	
+    
+    Procedure   SetMargins(GNum.i, Top.i, Left.i, Right.i=#PB_Default, Bottom.i=#PB_Default)
+      
+      If FindMapElement(MarkDown(), Str(GNum))
+        
+        MarkDown()\Margin\Top    = Top
+    		MarkDown()\Margin\Left   = Left
+    		MarkDown()\Margin\Right  = Right
+    		MarkDown()\Margin\Bottom = Bottom
+    		If MarkDown()\Margin\Right  = #PB_Default : MarkDown()\Margin\Right  = MarkDown()\Margin\Left : EndIf
+    		If MarkDown()\Margin\Bottom = #PB_Default : MarkDown()\Margin\Bottom = MarkDown()\Margin\Top  : EndIf
+    		
+      EndIf
+      
+    EndProcedure  
+    
+  	Procedure   SetAutoResizeFlags(GNum.i, Flags.i)
+      
+      If FindMapElement(MarkDown(), Str(GNum))
+        
+        MarkDown()\Size\Flags = Flags
+        MarkDown()\Flags | #AutoResize
+        
+      EndIf  
+     
+    EndProcedure
+    
+    Procedure   SetColor(GNum.i, ColorTyp.i, Value.i)
+      
+      If FindMapElement(MarkDown(), Str(GNum))
+      
+        Select ColorTyp 
+          Case #Color_Back
+            MarkDown()\Color\Back          = Value
+          Case #Color_BlockQuote
+            MarkDown()\Color\BlockQuote    = Value   
+          Case #Color_Border
+            MarkDown()\Color\Border        = Value
+          Case #Color_Code 
+            MarkDown()\Color\Code          = Value
+          Case #Color_Front
+            MarkDown()\Color\Front         = Value  
+          Case #Color_HeaderBack
+            MarkDown()\Color\HeaderBack    = Value
+          Case #Color_HighlightBack
+            MarkDown()\Color\Highlight     = Value    
+          Case #Color_Tooltip
+            MarkDown()\Color\Hint          = Value 
+          Case #Color_Line
+            MarkDown()\Color\Line          = Value  
+          Case #Color_Link
+            MarkDown()\Color\Link          = Value  
+          Case #Color_HighlightLink
+            MarkDown()\Color\LinkHighlight = Value  
+          Case #Color_KeyStroke
+            MarkDown()\Color\Keystroke     = Value  
+          Case #Color_KeystrokeBack  
+            MarkDown()\Color\KeyStrokeBack = Value  
+        EndSelect
+        
+        Draw_()
+      EndIf
+      
+    EndProcedure
+    
+    Procedure   SetData(GNum.i, Value.q)
+  	  
+  	  If FindMapElement(MarkDown(), Str(GNum))
+  	    MarkDown()\Quad = Value
+  	  EndIf  
+  	  
+  	EndProcedure
+  	
+  	Procedure   SetFont(GNum.i, Name.s, Size.i) 
+      
+      If FindMapElement(MarkDown(), Str(GNum))
+        
+        FreeFonts_()
+        
+        LoadFonts_(Name, Size)
+        
+        DetermineTextSize_()
+        
+        ReDraw()
+      EndIf
+      
+    EndProcedure
+    
+  	Procedure   SetID(GNum.i, String.s)
+  	  
+  	  If FindMapElement(MarkDown(), Str(GNum))
+  	    MarkDown()\ID = String
+  	  EndIf
+  	  
+  	EndProcedure
 
+  	Procedure   UseImage(GNum.i, FileName.s, ImageNum.i)
+  	  Define.s Image$
+  	  
+  	  If FindMapElement(MarkDown(), Str(GNum))
+  	    
+  	    If IsImage(ImageNum)
+  	      
+  	      Image$ = GetFilePart(FileName)
+  	      
+    	    If AddMapElement(MarkDown()\ImageNum(), Image$)
+    	      MarkDown()\ImageNum() = ImageNum
+    	    EndIf
+    	    
+    	  EndIf
+    	  
+  	  EndIf  
+  	 
+  	EndProcedure	
+
+	  ;- _____ Gadget _____
+	
+  	Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
+      ; Flags: #AutoResize | #Borderless | #UseExistingCanvas
+  		Define Result.i
+  		
+  		CompilerIf Defined(ModuleEx, #PB_Module)
+        If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
+      CompilerEndIf
+  		
+  		If Flags & #UseExistingCanvas ;{ Use an existing CanvasGadget
+        If IsGadget(GNum)
+          Result = #True
+        Else
+          ProcedureReturn #False
+        EndIf
+        ;}
+      Else
+        Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Container)
+      EndIf
+  		
+  		If Result
+  
+  			If GNum = #PB_Any : GNum = Result : EndIf
+  
+  			If AddMapElement(MarkDown(), Str(GNum))
+  			  
+  			  MarkDown()\Type = #Gadget
+  			  
+  				MarkDown()\CanvasNum = GNum
+  				
+  				If WindowNum = #PB_Default
+            MarkDown()\Window\Num = GetGadgetWindow()
+          Else
+            MarkDown()\Window\Num = WindowNum
+          EndIf
+  
+  				MarkDown()\Scroll\Num = ScrollBarGadget(#PB_Any, 0, 0, 0, Height, 0, Height, Height, #PB_ScrollBar_Vertical)
+  				If MarkDown()\Scroll\Num
+  				  SetGadgetData(MarkDown()\Scroll\Num, MarkDown()\CanvasNum)
+  				  HideGadget(MarkDown()\Scroll\Num, #True)
+  				  MarkDown()\Scroll\Hide = #True
+  				EndIf
+  				
+  				CloseGadgetList()
+  
+  				LoadFonts_("Arial", 9)
+  				
+  				MarkDown()\Size\X = X
+  				MarkDown()\Size\Y = Y
+  				MarkDown()\Size\Width  = Width
+  				MarkDown()\Size\Height = Height
+  
+  				MarkDown()\Flags  = Flags
+  
+          InitDefault_()
+  
+  				BindGadgetEvent(MarkDown()\CanvasNum,  @_ResizeHandler(),         #PB_EventType_Resize)
+  				BindGadgetEvent(MarkDown()\CanvasNum,  @_RightClickHandler(),     #PB_EventType_RightClick)
+  				BindGadgetEvent(MarkDown()\CanvasNum,  @_MouseMoveHandler(),      #PB_EventType_MouseMove)
+  				BindGadgetEvent(MarkDown()\CanvasNum,  @_LeftButtonDownHandler(), #PB_EventType_LeftButtonDown)
+  				BindGadgetEvent(MarkDown()\CanvasNum,  @_LeftButtonUpHandler(),   #PB_EventType_LeftButtonUp)
+  				BindGadgetEvent(MarkDown()\CanvasNum,  @_MouseWheelHandler(),     #PB_EventType_MouseWheel)
+  				
+  				BindGadgetEvent(MarkDown()\Scroll\Num, @_SynchronizeScrollBar(),  #PB_All) 
+  				
+  				CompilerIf Defined(ModuleEx, #PB_Module)
+            BindEvent(#Event_Theme, @_ThemeHandler())
+          CompilerEndIf
+  				
+  				If Flags & #AutoResize ;{ Enabel AutoResize
+  					If IsWindow(MarkDown()\Window\Num)
+  						MarkDown()\Window\Width  = WindowWidth(MarkDown()\Window\Num)
+  						MarkDown()\Window\Height = WindowHeight(MarkDown()\Window\Num)
+  						BindEvent(#PB_Event_SizeWindow, @_ResizeWindowHandler(), MarkDown()\Window\Num)
+  					EndIf
+  				EndIf ;}
+  
+  				Draw_()
+  
+  				ProcedureReturn GNum
+  			EndIf
+  
+  		EndIf
+  
+  	EndProcedure
+  	
+	CompilerEndIf
+	
+	;- _____ Requester _____
+	
 	CompilerIf #Enable_Requester
     
-	  Procedure.i Requester(Title.s, Text.s, Flags.i=#False, ParentID.i=#PB_Default)
+	  Procedure.i Requester(Title.s, Text.s, Flags.i=#False, Parent.i=#PB_Default)
 	    ; Flags: #YesNo / #YesNoCancel | #Info / #Question / #Error / #Warning
 	    Define.i GNum, WindowNum, quitWindow
 	    Define.i Width, Height, buttonWidth, Result
@@ -6059,10 +6108,10 @@ Module MarkDown
         If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
       CompilerEndIf
       
-  	  If ParentID = #PB_Default
+  	  If Parent = #PB_Default
   	    WindowNum = OpenWindow(#PB_Any, 0, 0, 0, 0, "", #PB_Window_Tool|#PB_Window_SystemMenu|#PB_Window_ScreenCentered|#PB_Window_Invisible)
   	  Else
-  	    WindowNum = OpenWindow(#PB_Any, 0, 0, 0, 0, "", #PB_Window_Tool|#PB_Window_SystemMenu|#PB_Window_WindowCentered|#PB_Window_Invisible, WindowID(ParentID))
+  	    WindowNum = OpenWindow(#PB_Any, 0, 0, 0, 0, "", #PB_Window_Tool|#PB_Window_SystemMenu|#PB_Window_WindowCentered|#PB_Window_Invisible, WindowID(Parent))
   	  EndIf
   	  
   	  If WindowNum
@@ -6088,7 +6137,9 @@ Module MarkDown
     				  HideGadget(MarkDown()\Scroll\Num, #True)
     				  MarkDown()\Scroll\Hide = #True
     				EndIf ;}
-
+    				
+    				CloseGadgetList()
+    				
     				;{ _____ Buttons _____
         		If AddMapElement(MarkDown()\Requester\Button(), "OK")
         		  MarkDown()\Requester\Button()\Text   = "OK"
@@ -6168,8 +6219,6 @@ Module MarkDown
 
 				  EndIf
 				  
-				  CloseGadgetList()
-				
 				  HideWindow(MarkDown()\Window\Num, #False)
 				  
   	    EndIf ;}  
@@ -6197,7 +6246,7 @@ Module MarkDown
         ResizeGadget(MarkDown()\CanvasNum, 0, 0, Width, Height)
         
         ReDraw()
-        
+
   	    Repeat
           Select WaitWindowEvent()
             Case #PB_Event_CloseWindow           ;{ Close window
@@ -6235,11 +6284,311 @@ Module MarkDown
 
 	CompilerEndIf
 	
+	;- _____ Help Window _____
+	
+	CompilerIf #Enable_CreateHelp
+	  
+	  Procedure.i CreateHelp(File.s)
+	    
+	    ClearList(Help\Item())
+	    Help\File = File
+	    
+	    ProcedureReturn #True
+	  EndProcedure  
+	  
+	  Procedure.i AddHelpItem(Title.s, Markdown.s, Label.s="", Level.i=0)
+	    
+	    If AddElement(Help\Item())
+	      Help\Item()\Titel = Title
+	      Help\Item()\Text  = Markdown
+	      Help\Item()\Label = Label
+	      Help\Item()\Level = Level
+	    EndIf  
+	    
+	  EndProcedure
+
+	  Procedure   CloseHelp() 
+	    Define.i Pack, JSON
+	    
+	    If CreatePack(Pack, File$, #PB_PackerPlugin_Lzma)
+    
+        If CreateJSON(JSON)  ;{ Save Markdown
+          
+          InsertJSONList(JSONValue(JSON), Help\Item())
+          
+          Size = ExportJSONSize(JSON)
+          If Size
+            *Buffer = AllocateMemory(Size)
+            If *Buffer
+              If ExportJSON(JSON, *Buffer, Size)
+                AddPackMemory(JSON, *Buffer, Size, "Help.json")
+              EndIf
+              FreeMemory(*Buffer)
+            EndIf
+          EndIf
+         
+          FreeJSON(JSON)
+          ;}
+        EndIf
+        
+        ForEach Help\Item()  ;{ Look for images
+          
+          If AddMapElement(MarkDown(), "Parse")
+	    
+	          Parse_(Help\Item()\Text)
+	        
+  	        ForEach MarkDown()\Image()
+  	          AddPackFile(Pack, MarkDown()\Image()\Source, GetFilePart(MarkDown()\Image()\Source))
+  	        Next 
+  	        
+  	        DeleteMapElement(MarkDown())
+  	      EndIf
+  	      ;}
+  	    Next
+  	    
+        ClosePack(Pack)
+      EndIf
+
+	  EndProcedure
+	  
+	CompilerEndIf
+	
+	
+	CompilerIf #Enable_HelpWindow
+
+	  Procedure.s Help(Title.s, File.s, Label.s="", Flags.i=#False, Parent.i=#PB_Default)
+	    ; Flags: #AutoResize
+	    Define.i MarkdownNum, WindowNum, WindowFlags, quitWindow
+	    Define.i Pack, JSON, Size, Selected
+	    Define.s FileName$, Link$
+	    Define   *Buffer
+	    
+	    CompilerIf Defined(ModuleEx, #PB_Module)
+        If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
+      CompilerEndIf
+      
+      WindowFlags = #PB_Window_Tool|#PB_Window_SystemMenu|#PB_Window_Invisible
+      If Flags & #AutoResize : WindowFlags | #PB_Window_SizeGadget : EndIf
+      
+      If Parent = #PB_Default
+  	    WindowNum = OpenWindow(#PB_Any, 0, 0, 630, 520, "",  WindowFlags | #PB_Window_ScreenCentered)
+  	  Else
+  	    WindowNum = OpenWindow(#PB_Any, 0, 0, 630, 520, "",  WindowFlags | #PB_Window_WindowCentered, WindowID(Parent))
+  	  EndIf
+  	  
+  	  If WindowNum
+  	    
+  	    WindowBounds(WindowNum, 445, 330, #PB_Default, #PB_Default)
+  	    
+  	    SetWindowTitle(WindowNum, " " + Title)
+  	    
+  	    ;{ _____ TreeGadget _____
+  	    CompilerIf Defined(TreeEx, #PB_Module)
+  	      Help\TreeNum = TreeEx::Gadget(#PB_Any, 10, 10, 185, 500, "", #False, WindowNum)
+  	    CompilerElse
+  	      Help\TreeNum = TreeGadget(#PB_Any, 10, 10, 185, 500)
+  	    CompilerEndIf  
+  	    ;}
+  	    
+  	    ;{ _____ CanvasGadget _____
+  	    MarkdownNum = CanvasGadget(#PB_Any, 200, 10, 420, 500, #PB_Canvas_Container)
+  	    If MarkdownNum
+
+  	      If AddMapElement(MarkDown(), Str(MarkdownNum))
+  	        
+  	        MarkDown()\Type = #Help
+  	        
+  	        MarkDown()\Window\Num  = WindowNum
+  	        MarkDown()\CanvasNum   = MarkdownNum
+
+  	        MarkDown()\Size\X      = 200
+  				  MarkDown()\Size\Y      = 10
+  				  MarkDown()\Size\Width  = 420
+  				  MarkDown()\Size\Height = 500
+				    MarkDown()\Flags       = Flags
+  	      
+				    ;{ _____ Scrollbar _____
+    				MarkDown()\Scroll\Num = ScrollBarGadget(#PB_Any, 0, 0, 0, 0, 0, 0, 0, #PB_ScrollBar_Vertical)
+    				If MarkDown()\Scroll\Num
+    				  SetGadgetData(MarkDown()\Scroll\Num, MarkDown()\CanvasNum)
+    				  HideGadget(MarkDown()\Scroll\Num, #True)
+    				  MarkDown()\Scroll\Hide = #True
+    				EndIf ;}
+    				
+    				CloseGadgetList()
+    				
+				    LoadFonts_("Arial", 9)
+    				
+    				InitDefault_()
+				    
+				    BindGadgetEvent(MarkDown()\CanvasNum,  @_MouseMoveHandler(),      #PB_EventType_MouseMove)
+    				BindGadgetEvent(MarkDown()\CanvasNum,  @_LeftButtonDownHandler(), #PB_EventType_LeftButtonDown)
+    				BindGadgetEvent(MarkDown()\CanvasNum,  @_LeftButtonUpHandler(),   #PB_EventType_LeftButtonUp)
+    				BindGadgetEvent(MarkDown()\CanvasNum,  @_MouseWheelHandler(),     #PB_EventType_MouseWheel)
+    				BindGadgetEvent(MarkDown()\CanvasNum,  @_ResizeHandler(),         #PB_EventType_Resize)
+    				
+    				BindGadgetEvent(MarkDown()\Scroll\Num, @_SynchronizeScrollBar(),  #PB_All) 
+				    
+				    CompilerIf Defined(ModuleEx, #PB_Module)
+              BindEvent(#Event_Theme, @_ThemeHandler())
+            CompilerEndIf
+            
+            If Flags & #AutoResize ;{ Enable AutoResize
+    					If IsWindow(MarkDown()\Window\Num)
+    						MarkDown()\Window\Width  = WindowWidth(MarkDown()\Window\Num)
+    						MarkDown()\Window\Height = WindowHeight(MarkDown()\Window\Num)
+    						BindEvent(#PB_Event_SizeWindow, @_ResizeWindowHandler(), MarkDown()\Window\Num)
+    					EndIf
+    				EndIf ;}
+            
+				  EndIf
+				  
+  	    EndIf
+  	    ;}
+  	    
+  	    ;{ _____ Load help file _____
+  	    Pack = OpenPack(#PB_Any, File, #PB_PackerPlugin_Lzma)
+  	    If Pack
+  	      
+  	      If ExaminePack(Pack)
+      
+            While NextPackEntry(Pack)
+              
+              FileName$ = PackEntryName(Pack)
+              
+              Size = PackEntrySize(Pack, #PB_Packer_UncompressedSize)
+              
+              *Buffer = AllocateMemory(Size)
+              If *Buffer
+                If UncompressPackMemory(Pack, *Buffer, Size, FileName$) <> -1
+                  Select FileName$
+                    Case "Help.json" ;{ Help file
+                      JSON = CatchJSON(#PB_Any, *Buffer, Size)
+                      If JSON
+                        ExtractJSONList(JSONValue(JSON), Help\Item())
+                        FreeJSON(JSON)
+                      EndIf ;}
+                    Default          ;{ Image
+                      If AddMapElement(MarkDown()\ImageNum(), FileName$) 
+                        MarkDown()\ImageNum() = CatchImage(#PB_Any, *Buffer, Size)
+                      EndIf ;}
+                  EndSelect
+                EndIf
+                FreeMemory(*Buffer)
+              EndIf
+              
+            Wend
+            
+          EndIf
+          
+          ClosePack(Pack)
+  	    EndIf  
+  	    ;}
+  	    
+  	    ForEach Help\Item()
+  	      
+  	      If Help\Item()\Label : Help\Label(Help\Item()\Label) = ListIndex(Help\Item()) : EndIf
+  	      
+  	      CompilerIf Defined(TreeEx, #PB_Module)
+  	        TreeEx::AddItem(Help\TreeNum, TreeEx::#LastRow, Help\Item()\Titel, Help\Item()\Label, #False, Help\Item()\Level)
+  	      CompilerElse
+  	        AddGadgetItem(Help\TreeNum, -1, Help\Item()\Titel, #False, Help\Item()\Level)
+  	      CompilerEndIf
+  	      
+        Next 
+
+  	    If FindMapElement(MarkDown(), Str(MarkdownNum))
+  	      
+  	      If Label ;{ Select start item
+  	        If FindMapElement(Help\Label(), Label)
+              If SelectElement(Help\Item(), Help\Label())
+                CompilerIf Defined(TreeEx, #PB_Module) 
+                  TreeEx::SetState(Help\TreeNum, Help\Label())
+                CompilerElse 
+                  SetGadgetState(Help\TreeNum, Help\Label())
+                CompilerEndIf
+                SetText(MarkdownNum, Help\Item()\Text)
+              EndIf
+            EndIf
+  	      EndIf ;}
+  	      
+  	      ReDraw()
+  	      
+  	      HideWindow(WindowNum, #False)
+  	      
+    	    Repeat
+            Select WaitWindowEvent()
+              Case #PB_Event_CloseWindow ;{ Close window
+                If EventWindow() = WindowNum
+                  quitWindow = #True
+                EndIf ;}
+              Case #PB_Event_Gadget                
+                Select EventGadget() 
+                  Case MarkdownNum       ;{ Links
+                    If EventType() = #EventType_Link
+                      If FindMapElement(MarkDown(), Str(MarkdownNum))
+                        If Left(MarkDown()\EventValue, 1) = "#"
+                          If FindMapElement(Help\Label(), LTrim(MarkDown()\EventValue, "#"))
+                            If SelectElement(Help\Item(), Help\Label())
+                              CompilerIf Defined(TreeEx, #PB_Module) 
+                                TreeEx::SetState(Help\TreeNum, Help\Label())
+                              CompilerElse 
+                                SetGadgetState(Help\TreeNum, Help\Label())
+                              CompilerEndIf
+                              SetText(MarkdownNum, Help\Item()\Text)
+                            EndIf
+                          EndIf
+                        Else
+                          RunProgram(MarkDown()\EventValue)
+                        EndIf
+                      EndIf  
+                    EndIf ;}
+                  Case Help\TreeNum      ;{ Show item text
+                    If FindMapElement(MarkDown(), Str(MarkdownNum))
+                      CompilerIf Defined(TreeEx, #PB_Module) 
+                        If EventType() = TreeEx::#EventType_Row
+                          Selected = EventData()
+                          If Selected <> -1
+                            If SelectElement(Help\Item(), Selected)
+                              SetText(MarkdownNum, Help\Item()\Text)
+                            EndIf  
+                          EndIf  
+                        EndIf
+                      CompilerElse 
+                        Selected = GetGadgetState(Help\TreeNum)
+                        If Selected <> -1
+                          If SelectElement(Help\Item(), Selected)
+                            SetText(MarkdownNum, Help\Item()\Text)
+                          EndIf  
+                        EndIf
+                      CompilerEndIf 
+                    EndIf  
+                    ;}
+                EndSelect
+            EndSelect
+          Until quitWindow
+          
+        EndIf
+        
+  	    CloseWindow(WindowNum)
+        
+        DeleteMapElement(MarkDown(), Str(MarkdownNum))
+  	  EndIf  
+      
+	  EndProcedure
+	  
+	CompilerEndIf
+	
+	; ========================
+	
+	;{ _____ Load Emoji _____
 	
 	CompilerIf #Enable_Emoji
   	LoadEmojis_()
   CompilerEndIf 
-
+  
+  ;}
+  
   ;{ _____ DataSection _____
   ; Author:   Emily Jäger
   ; License:	CC BY-SA 4.0 <https://creativecommons.org/licenses/by-sa/4.0/>
@@ -6712,7 +7061,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   #Example = 0
   
-  ; ----- Gadget -----
+  ; === Gadget ===
   ;  1: Headings
   ;  2: Emphasis
   ;  3: Lists
@@ -6723,12 +7072,15 @@ CompilerIf #PB_Compiler_IsMainFile
   ;  8: TaskLists
   ;  9: Definition List
   ; 10: Subscript / Superscript
-  ; 11: Code Block
+  ; 11: Fenced Code Block
   ; 12: Emoji
   ; 13: Abbreviations
   ; 14: Keystrokes
-  ; ----- Requester -----
-  ; 20: Requester
+  ; 15: Intended Code Block
+  ; === Requester ===
+  ; 20: Message Requester
+  ; === Help ===
+  ; 30: Help Window
   
   Define.s Text$
  
@@ -6806,8 +7158,8 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "Chemical formula for water: H~2~O  " + #LF$
       Text$ + "The area is 10m^2^  " + #LF$
       ;}
-    Case 11  ;{ Code Block
-      Text$ = "#### Code Block ####" + #LF$
+    Case 11  ;{ Fenced Code Block
+      Text$ = "#### Fenced Code Block ####" + #LF$
       Text$ + "```json" + #LF$
       Text$ + "{" + #LF$
       Text$ + "  " + #DQUOTE$ + "firstName" + #DQUOTE$ + ": " + #DQUOTE$ + "John"  + #DQUOTE$ + "," + #LF$
@@ -6849,6 +7201,14 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ = "#### Keystrokes ####" + #LF$ + #LF$ 
       Text$ + "Copy text with [[Ctrl]] [[C]]." + #LF$
       ;}
+    Case 15  ;{ Code Block
+      Text$ = "#### Code Block ####" + #LF$
+      Text$ + Space(4) + "{" + #LF$
+      Text$ + Space(4) + "  " + #DQUOTE$ + "firstName" + #DQUOTE$ + ": " + #DQUOTE$ + "John"  + #DQUOTE$ + "," + #LF$
+      Text$ + Space(4) + "  " + #DQUOTE$ + "lastName"  + #DQUOTE$ + ": " + #DQUOTE$ + "Smith" + #DQUOTE$ + "," + #LF$
+      Text$ + Space(4) + "  " + #DQUOTE$ + "age"       + #DQUOTE$ + ": 25" + #LF$
+      Text$ + Space(4) + "}" + #LF$
+      ;}
     Case 20  ;{ Reqester
       Text$ = "Just a **short** information text.  " + #LF$
       Text$ + "*Second requester line*" 
@@ -6864,6 +7224,7 @@ CompilerIf #PB_Compiler_IsMainFile
   EndSelect
 
   CompilerIf #Example < 20 
+    
     ;{ Examples - Gadget
     Enumeration 
       #Font 
@@ -6906,7 +7267,7 @@ CompilerIf #PB_Compiler_IsMainFile
             Select EventGadget()  
               Case #MarkDown
                 Select EventType()
-                  Case MarkDown::#EventType_Link       ;{ Left mouse click
+                  Case MarkDown::#EventType_Link ;{ Left mouse click
                     Debug "Link: " + MarkDown::EventValue(#MarkDown)
                     RunProgram(MarkDown::EventValue(#MarkDown))
                     ;}
@@ -6943,18 +7304,30 @@ CompilerIf #PB_Compiler_IsMainFile
       CloseWindow(#Window)
     EndIf 
     ;}
-  CompilerElseIf MarkDown::#Enable_Requester
-    ;{ Examples - Requester
-    MarkDown::Requester("Markdown - Requester", Text$, MarkDown::#Info)
-    ;}
+    
+  CompilerElseIf #Example < 30 
+    
+    CompilerIf MarkDown::#Enable_Requester
+
+      MarkDown::Requester("Markdown - Requester", Text$, MarkDown::#Info)
+
+    CompilerEndIf
+  
+  CompilerElse
+    
+    CompilerIf MarkDown::#Enable_HelpWindow
+      
+      MarkDown::Help(" Help", "Help.mdh", "EasyHelp", MarkDown::#AutoResize)
+      
+    CompilerEndIf
+    
   CompilerEndIf
   
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 6712
-; FirstLine = 888
-; Folding = wBghAAAAYAAHUrrC+-+-HEAEAAAAYAAAAANBBgFhEBYAABAAAEEAgQGIcDAgAABBIAAkg-
-; Markers = 6712
+; CursorPosition = 7081
+; FirstLine = 526
+; Folding = QBAkAAAAAIAAAq2VB-f--DCACAAAAMAAAAgCAAggAEBYAABAAAEBgIQGI1mAAAgJEABWAAEAAEA+
 ; EnableXP
 ; DPIAware
