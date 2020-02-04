@@ -7,10 +7,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 08.01.20
+; Last Update: 04.02.20
 ;
-; Added: #EventType_Change
-; Added: #UseExistingCanvas
+; Bugfix: Paste
 ;
 
 
@@ -139,7 +138,7 @@
 
 DeclareModule EditEx
   
-  #Version  = 20010800
+  #Version  = 20020400
   #ModuleEx = 20010800
   
   ;- ============================================================================
@@ -3264,7 +3263,7 @@ Module EditEx
                 DeleteSelection_(#False)
               EndIf
               
-              EditEx()\Text$ = InsertString(EditEx()\Text$, Text$, EditEx()\Cursor\Pos + 1)
+              EditEx()\Text$ = InsertString(EditEx()\Text$, Text$, EditEx()\Cursor\Pos)
               EditEx()\Cursor\Pos + Len(Text$)
               
               PostEvent(#Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Change)
@@ -5426,9 +5425,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 4415
-; FirstLine = 1393
-; Folding = wnOhAADASNFACwAEB-CQxk6utCgAHAYA8AwjwZQoQgQCSAYKpH8EE--
-; Markers = 970,2495,2564,4638
+; CursorPosition = 140
+; FirstLine = 18
+; Folding = wHOhAADASNFECwAEB-CQxk6utigAHAYABAwjwQQoQARCCGYKoH8EE--
+; Markers = 969,2494,2563,4637
 ; EnableXP
 ; DPIAware
