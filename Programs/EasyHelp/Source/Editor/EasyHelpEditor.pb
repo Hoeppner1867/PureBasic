@@ -272,6 +272,8 @@ Structure Topic_Structure ;{ Topic()\...
 EndStructure ;}
 Global NewList Topic.Topic_Structure()
 
+Global Path$
+
 ;- __________ Windows __________
 
 Procedure.i Window_Settings()
@@ -538,7 +540,7 @@ Procedure   Create(File$)
   Define.i Size, Result
   Define   *Buffer
   
-  NewList Images.s()
+  NewMap Images.s()
   
   SaveEntry()
   
@@ -568,10 +570,10 @@ Procedure   Create(File$)
       ;}
     Next
     
-    If ListSize(Images()) ;{ Save images
+    If MapSize(Images()) ;{ Save images
       
       ForEach Images()
-        AddPackFile(#Pack, Images(), GetFilePart(Images()))
+        AddPackFile(#Pack, Path$ +  GetFilePart(Images()), GetFilePart(Images()))
       Next  
       ;}
     EndIf  
@@ -591,12 +593,16 @@ Procedure.s Load_()
   File$ = OpenFileRequester(Lng("Msg_Load"), Last$, "Markdown (*.md)|*.md;*.txt", 0)
   If File$
     
-    AppReg::SetValue(#AppReg, "Last", "Path", GetPathPart(File$))
+    Path$ = GetPathPart(File$)
+    
+    AppReg::SetValue(#AppReg, "Last", "Path", Path$)
     
     If LoadJSON(#JSON, File$)
       ExtractJSONList(JSONValue(#JSON), Topic())
       FreeJSON(#JSON)
     EndIf  
+    
+    Markdown::SetImagePath(#Gadget_MarkDown_Viewer, Path$)
     
     ResetList(Topic()) 
     
@@ -631,7 +637,9 @@ Procedure.s Save_(FileName.s, SaveAs.i=#True)
         SaveJSON(#JSON, File$)
         FreeJSON(#JSON)
       EndIf
-
+      
+      ResetList(Topic()) 
+      
       ProcedureReturn GetFilePart(File$)
     EndIf
     
@@ -642,6 +650,8 @@ Procedure.s Save_(FileName.s, SaveAs.i=#True)
       SaveJSON(#JSON, Last$ + FileName)
       FreeJSON(#JSON)
     EndIf
+    
+    ResetList(Topic()) 
     
     ProcedureReturn FileName
   EndIf
@@ -667,9 +677,13 @@ Procedure.s New_(FileName.s)
   File$ = SaveFileRequester(Lng("Msg_Save"), Last$, "Markdown (*.md)|*.md;*.txt", 0)
   If File$
     
+    Path$ = GetPathPart(File$)
+    
     If GetExtensionPart(File$) = "" : File$ + ".md" : EndIf
     
-    AppReg::SetValue(#AppReg, "Last", "Path", GetPathPart(File$))
+    AppReg::SetValue(#AppReg, "Last", "Path", Path$)
+    
+    Markdown::SetImagePath(#Gadget_MarkDown_Viewer, Path$)
     
     ProcedureReturn File$
   EndIf 
@@ -817,9 +831,11 @@ Procedure.i NewEntryWindow(Idx.i=#PB_Default)
 
               Else
                 
-                Topic()\Titel = GetGadgetText(#Gadget_NewEntry_SG_Title)
-                Topic()\Label = GetGadgetText(#Gadget_NewEntry_SG_Label)
-                Topic()\Level = GetGadgetState(#Gadget_NewEntry_SpG_Level)
+                If SelectElement(Topic(), Idx)
+                  Topic()\Titel = GetGadgetText(#Gadget_NewEntry_SG_Title)
+                  Topic()\Label = GetGadgetText(#Gadget_NewEntry_SG_Label)
+                  Topic()\Level = GetGadgetState(#Gadget_NewEntry_SpG_Level)
+                EndIf
               
               EndIf
               
@@ -878,7 +894,7 @@ If Window_MarkDown()
         Select EventWindow()
           Case #Window_MarkDown
             If FileName$
-               If Markdown::Requester(Lng("Title_DelEntry"), Lng("Msg_Close") + "  " + #LF$ + "\[ **"+FileName$+"** \]", Markdown::#YesNo|Markdown::#Warning, #Window_MarkDown) = Markdown::#Result_Yes
+               If Markdown::Requester(Lng("Title_DelEntry"), Lng("Msg_Close") + "  " + #LF$ + "\[ **"+FileName$+"** \]", Markdown::#YesNo|Markdown::#Question, #Window_MarkDown) = Markdown::#Result_Yes
                 Save_(FileName$, #False)
               EndIf
             EndIf 
@@ -993,10 +1009,12 @@ If Window_MarkDown()
             Select EventType()
               Case Markdown::#EventType_Link
                 Link$ = MarkDown::EventValue(#Gadget_MarkDown_Viewer)
-                If Left(Link$, 1) = "#"
-                  SelectLink(LTrim(Link$, "#"))
-                Else
-                  RunProgram(Link$)
+                If Link$
+                  If Left(Link$, 1) = "#"
+                    SelectLink(LTrim(Link$, "#"))
+                  Else
+                    RunProgram(Link$)
+                  EndIf
                 EndIf  
             EndSelect ;}
           Case #Gadget_MarkDown_Bt_New      ;{ New document
@@ -1113,9 +1131,9 @@ AppReg::Close(#AppReg)
 
 End
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 210
-; FirstLine = 62
-; Folding = JQsgCpwAAAIk
+; CursorPosition = 572
+; FirstLine = 109
+; Folding = JAIkApKAAAAg
 ; EnableXP
 ; DPIAware
 ; UseIcon = EasyHelp.ico

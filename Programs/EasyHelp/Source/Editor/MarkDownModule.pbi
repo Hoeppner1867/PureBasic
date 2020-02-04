@@ -11,9 +11,9 @@
 
 ; Last Update: 04.02.2020
 ; 
-; - Added:  Help window
+; - Bugfix: Abbreviation
 ;
-; - Bugfix: SetMargins() / Images / Heading Level 2
+; - Added:  Markdown::Help()
 ; - Added:  Markdown::Requester()
 ;
 
@@ -82,11 +82,11 @@
 ; XIncludeFile "ModuleEx.pbi"
 ; XIncludeFile "TreeExModule.pbi"
 
-CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : CompilerEndIf
+; CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : CompilerEndIf
 
 DeclareModule MarkDown
   
-  #Version  = 20020401
+  #Version  = 20020402
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -207,7 +207,7 @@ DeclareModule MarkDown
 	;-   DeclareModule
 	;- ===========================================================================
 	
-	Declare.i UsedImages(Markdown.s, List Images.s())
+	Declare.i UsedImages(Markdown.s, Map Images.s())
 	Declare   Convert(MarkDown.s, Type.i, File.s="", Title.s="")
 	Declare   SetImagePath(GNum.i, Path.s)
 	Declare   SetText(GNum.i, Text.s)
@@ -393,7 +393,6 @@ Module MarkDown
   EndStructure ;}
   Global NewList Document.Document_Structure()
   
-  
   Structure Words_Structure              ;{ Word Structure
     Font.i
     String.s
@@ -428,11 +427,15 @@ Module MarkDown
     Label.s
   EndStructure ;}
   
-  Structure Abbreviation_Structure       ;{ MarkDown()\Abbreviation()\...
+  Structure Abbreviation_Word_Structure  ;{ MarkDown()\AbbrevWord()\...
     X.i
     Y.i
     Width.i
     Height.i
+    Word.s
+  EndStructure ;}
+  
+  Structure Abbreviation_Structure       ;{ MarkDown()\Abbreviation()\...
     String.s
   EndStructure ;}
   
@@ -642,7 +645,7 @@ Module MarkDown
     List Link.Link_Structure()
     List Lists.Lists_Structure()
     List Table.Table_Structure()
-    
+    List AbbrevWord.Abbreviation_Word_Structure()
     List Items.MarkDown_Items_Structure()
     
 	EndStructure ;}
@@ -4645,18 +4648,23 @@ Module MarkDown
           
           If FindMapElement(MarkDown()\Abbreviation(), Word$)
             
-            Pos = FindString(Words()\String, Word$)
-            If Pos > 1
-              MarkDown()\Abbreviation()\X = lX + TextWidth(Left(Words()\String, Pos - 1) )
-            Else
-              MarkDown()\Abbreviation()\X = lX  
+            If AddElement(MarkDown()\AbbrevWord())
+              
+              MarkDown()\AbbrevWord()\Word = Word$
+              
+              Pos = FindString(Words()\String, Word$)
+              If Pos > 1
+                MarkDown()\AbbrevWord()\X = lX + TextWidth(Left(Words()\String, Pos - 1) )
+              Else
+                MarkDown()\AbbrevWord()\X = lX  
+              EndIf
+              
+              MarkDown()\AbbrevWord()\Y = lY
+              MarkDown()\AbbrevWord()\Width  = TextWidth(Word$)
+              MarkDown()\AbbrevWord()\Height = TextHeight(Word$)
             EndIf
             
-            MarkDown()\Abbreviation()\Y = lY
-            MarkDown()\Abbreviation()\Width  = TextWidth(Word$)
-            MarkDown()\Abbreviation()\Height = TextHeight(Word$)
-            
-            DashLine_(MarkDown()\Abbreviation()\X, lY + MarkDown()\Abbreviation()\Height - 1, MarkDown()\Abbreviation()\Width, MarkDown()\Color\Hint)
+            DashLine_(MarkDown()\AbbrevWord()\X, lY + MarkDown()\AbbrevWord()\Height - 1, MarkDown()\AbbrevWord()\Width, MarkDown()\Color\Hint)
           EndIf
           
         EndIf ;}
@@ -4790,18 +4798,23 @@ Module MarkDown
           
           If FindMapElement(MarkDown()\Abbreviation(), Word$)
             
-            Pos = FindString(Words()\String, Word$)
-            If Pos > 1
-              MarkDown()\Abbreviation()\X = lX + TextWidth(Left(Words()\String, Pos - 1) )
-            Else
-              MarkDown()\Abbreviation()\X = lX  
+            If AddElement(MarkDown()\AbbrevWord())
+              
+              MarkDown()\AbbrevWord()\Word = Word$
+              
+              Pos = FindString(Words()\String, Word$)
+              If Pos > 1
+                MarkDown()\AbbrevWord()\X = lX + TextWidth(Left(Words()\String, Pos - 1) )
+              Else
+                MarkDown()\AbbrevWord()\X = lX  
+              EndIf
+              
+              MarkDown()\AbbrevWord()\Y = lY
+              MarkDown()\AbbrevWord()\Width  = TextWidth(Word$)
+              MarkDown()\AbbrevWord()\Height = TextHeight(Word$)
             EndIf
             
-            MarkDown()\Abbreviation()\Y = lY
-            MarkDown()\Abbreviation()\Width  = TextWidth(Word$)
-            MarkDown()\Abbreviation()\Height = TextHeight(Word$)
-            
-            DashLine_(MarkDown()\Abbreviation()\X, lY + MarkDown()\Abbreviation()\Height - 1, MarkDown()\Abbreviation()\Width, MarkDown()\Color\Hint)
+            DashLine_(MarkDown()\AbbrevWord()\X, lY + MarkDown()\AbbrevWord()\Height - 1, MarkDown()\AbbrevWord()\Width, MarkDown()\Color\Hint)
           EndIf
           
         EndIf ;}
@@ -5466,15 +5479,15 @@ Module MarkDown
   			;}
 			Next  
 			
-			ForEach MarkDown()\Abbreviation() ;{ Abbreviations
+			ForEach MarkDown()\AbbrevWord() ;{ Abbreviations
 			  
-			  If Y >= MarkDown()\Abbreviation()\Y And Y <= MarkDown()\Abbreviation()\Y + MarkDown()\Abbreviation()\Height 
-			    If X >= MarkDown()\Abbreviation()\X And X <= MarkDown()\Abbreviation()\X + MarkDown()\Abbreviation()\Width
+			  If Y >= MarkDown()\AbbrevWord()\Y And Y <= MarkDown()\AbbrevWord()\Y + MarkDown()\AbbrevWord()\Height 
+			    If X >= MarkDown()\AbbrevWord()\X And X <= MarkDown()\AbbrevWord()\X + MarkDown()\AbbrevWord()\Width
 			      
 			      SetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
 			      
 			      If MarkDown()\ToolTip = #False
-		          GadgetToolTip(GNum, Trim(MarkDown()\Abbreviation()\String))
+		          GadgetToolTip(GNum, Trim(MarkDown()\Abbreviation(MarkDown()\AbbrevWord()\Word)\String))
 		          MarkDown()\ToolTip  = #True
 			      EndIf
 			      
@@ -5786,25 +5799,28 @@ Module MarkDown
 	  
 	EndProcedure  
 	
-	Procedure.i UsedImages(Markdown.s, List Images.s())
-	  
+	Procedure.i UsedImages(Markdown.s, Map Images.s())
+	  Define.s Image$
+
     If AddMapElement(MarkDown(), "Parse")
     
 	    Parse_(MarkDown)
 	    
 	    ForEach MarkDown()\Image()
-	      If AddElement(Images())
-	        If MarkDown()\Path
-	          Images() = MarkDown()\Path + GetFilePart(MarkDown()\Image()\Source)
-	        Else  
-	          Images() = MarkDown()\Image()\Source
-	        EndIf  
-	      EndIf  
+	      
+	      Image$ = GetFilePart(MarkDown()\Image()\Source)
+	      
+        If MarkDown()\Path
+          Images(Image$) = MarkDown()\Path + Image$
+        Else  
+          Images(Image$) = MarkDown()\Image()\Source
+        EndIf
+        
 	    Next
 	    
 	    DeleteMapElement(MarkDown())
 	    
-	    ProcedureReturn ListSize(Images())
+	    ProcedureReturn MapSize(Images())
 	  EndIf
 	  
 	EndProcedure
@@ -7397,7 +7413,7 @@ CompilerIf #PB_Compiler_IsMainFile
     
     CompilerIf MarkDown::#Enable_HelpWindow
       
-      MarkDown::Help(" Help", "Help.mdh", "EasyHelp", MarkDown::#AutoResize)
+      MarkDown::Help(" Help", "Help.mdh", "Module", MarkDown::#AutoResize)
       
     CompilerEndIf
     
@@ -7406,8 +7422,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 88
-; FirstLine = 36
-; Folding = 1AAEAAAAAIAAAr2Vl-f--HCBDAAAAcAoBAgCAAgggGBYQgBYAAEMoIQGIEGBAAEXISHcAAIAAMA9
+; CursorPosition = 5822
+; FirstLine = 534
+; Folding = 1AAGAAMAAYAAACrrK--+-PECGAAAA5AADAAFAAABBNCwgACBgAIYQRosEImjAAMuQkO5AAQAAYA9
 ; EnableXP
 ; DPIAware
