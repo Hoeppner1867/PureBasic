@@ -7,9 +7,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 04.02.20
+; Last Update: 05.02.20
 ;
-; Bugfix: Paste
+; Bugfix: Paste / Selection
 ;
 
 
@@ -138,7 +138,7 @@
 
 DeclareModule EditEx
   
-  #Version  = 20020400
+  #Version  = 20020500
   #ModuleEx = 20010800
   
   ;- ============================================================================
@@ -329,6 +329,7 @@ DeclareModule EditEx
   Declare   Hide(GNum.i, State.i=#True)
   Declare   Paste(GNum.i)
   Declare   ReDraw(GNum.i)
+  Declare   ResetSelection(GNum.i)
   Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetColor(GNum.i, Attribute.i, Color.i)
@@ -2548,7 +2549,7 @@ Module EditEx
         EndIf
         
         If Not EditEx()\Disable
-          If EditEx()\Row()\Selection\State
+          If EditEx()\Selection\Flag & #Selected And EditEx()\Row()\Selection\State
             PosX = EditEx()\Row()\Selection\X - PosOffset
             DrawText(PosX, PosY, EditEx()\Row()\Selection\String, EditEx()\Color\HighlightText, EditEx()\Color\Highlight)
           EndIf  
@@ -3610,9 +3611,9 @@ Module EditEx
               NewPos = CursorPos_(CursorX, CursorY)
               If NewPos 
 
-                If CursorPos <> EditEx()\Cursor\Pos
+                If NewPos <> EditEx()\Cursor\Pos
                   
-                  EditEx()\Selection\Pos1 = CursorPos
+                  EditEx()\Selection\Pos1 = NewPos
                   EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
                   EditEx()\Selection\Flag = #Selected
                   EditEx()\Mouse\Status   = #Mouse_Select
@@ -4363,7 +4364,16 @@ Module EditEx
     EndIf
     
   EndProcedure
-
+  
+  Procedure   ResetSelection(GNum.i)
+    
+    If FindMapElement(EditEx(), Str(GNum))
+      RemoveSelection_()
+      ReDraw_()
+    EndIf
+    
+  EndProcedure  
+  
   ;- ===== Clipboard =====
   
   Procedure  Copy(GNum.i)
@@ -4806,7 +4816,7 @@ Module EditEx
     If FindMapElement(EditEx(), Str(GNum))
       
       EditEx()\Text$ = Text
-
+      
       CompilerIf #Enable_SpellChecking
         
         If EditEx()\Flags & #AutoSpellCheck
@@ -5344,7 +5354,7 @@ CompilerIf #PB_Compiler_IsMainFile
     SetGadgetText(#Editor, Text)
     SetGadgetFont(#Editor, FontID(#Font))
     
-    EditEx::Gadget(#EditEx, 8, 146, 306, 133, EditEx::#AutoResize, #Window)
+    EditEx::Gadget(#EditEx, 8, 146, 306, 133, EditEx::#AutoResize|EditEx::#WordWrap, #Window)
     EditEx::SetFont(#EditEx, FontID(#Font))
 
     ; Test WordWrap and Hyphenation
@@ -5425,9 +5435,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 140
-; FirstLine = 18
-; Folding = wHOhAADASNFECwAEB-CQxk6utigAHAYABAwjwQQoQARCCGYKoH8EE--
-; Markers = 969,2494,2563,4637
+; CursorPosition = 3615
+; FirstLine = 1223
+; Folding = wHOhAADASN2ECwAEB-CQxk6IuigAHAYABAwnwQQoQg6OEMAQSP3JI+-
+; Markers = 970,2495,2564,4647
 ; EnableXP
 ; DPIAware
