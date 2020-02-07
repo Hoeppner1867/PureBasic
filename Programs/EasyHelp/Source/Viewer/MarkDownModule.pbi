@@ -83,7 +83,7 @@
 ; XIncludeFile "ModuleEx.pbi"
 ; XIncludeFile "TreeExModule.pbi"
 
-; CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : CompilerEndIf
+CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : CompilerEndIf
 
 DeclareModule MarkDown
   
@@ -97,7 +97,7 @@ DeclareModule MarkDown
   #Enable_Gadget     = #True
   #Enable_Requester  = #True
   #Enable_HelpWindow = #True  
-  #Enable_CreateHelp = #False
+  #Enable_CreateHelp = #True
   
   #Enable_Emoji      = #True
   #Enable_ExportHTML = #True
@@ -163,6 +163,12 @@ DeclareModule MarkDown
 		#Color_LineColor
 		#Color_HeaderBack
 	EndEnumeration ;}
+	
+	EnumerationBinary ;{ Convert
+	  #Create
+	  #Content
+	  #Close
+	EndEnumeration ;}  
 	
 	CompilerIf #Enable_Requester
 	  
@@ -240,6 +246,13 @@ DeclareModule MarkDown
   CompilerIf #Enable_HelpWindow
     Declare.s Help(Title.s, File.s, Label.s="", Flags.i=#False, Parent.i=#PB_Default)
   CompilerEndIf
+  
+  CompilerIf #Enable_CreateHelp
+    Declare.s Help2PDF(Title.s, File.s, FilePDF.s="", Orientation.s="P", Format.s="")
+    Declare.i CreateHelp(File.s)
+    Declare.i AddHelpItem(Title.s, Markdown.s, Label.s="", Level.i=0)
+    Declare   SaveHelp()
+  CompilerEndIf 
   
 EndDeclareModule
 
@@ -332,14 +345,16 @@ Module MarkDown
 	;-   Module - Structures
 	;- ============================================================================	
   
+  Structure Item_Structure ;{ Help\Item()\...
+    Titel.s
+    Label.s
+    Text.s
+    Level.i
+  EndStructure ;}
+ 
   CompilerIf #Enable_HelpWindow
     
-    Structure Item_Structure ;{ Help\Item()\...
-      Titel.s
-      Label.s
-      Text.s
-      Level.i
-    EndStructure ;}
+
     
     Structure Help_Structure
       TreeNum.i
@@ -524,7 +539,12 @@ Module MarkDown
     List Words.Words_Structure()
   EndStructure ;}
   
-  
+  Structure MarkDown_ImageMem_Structure  ;{ MarkDown()\ImageMem()\...
+    Type.i
+    *Buffer
+    Size.i
+  EndStructure ;}
+    
   Structure MarkDown_Required_Structure  ;{ MarkDown()\Required\...
     Width.i
     Height.i
@@ -639,6 +659,7 @@ Module MarkDown
 		Map  Abbreviation.Abbreviation_Structure()
 		Map  Label.Label_Structure()
 		Map  ImageNum.i()
+		Map  ImageMem.MarkDown_ImageMem_Structure()
 
 		List Block.Block_Structure()
 		List Footnote.Footnote_Structure()
@@ -925,9 +946,12 @@ Module MarkDown
 
 	Procedure   Clear_()
 	  
+		ClearMap(MarkDown()\ImageNum())
+	  ClearMap(MarkDown()\Abbreviation())
 	  ClearMap(MarkDown()\FootLabel())
 	  ClearMap(MarkDown()\Label())
 	  
+    ClearList(MarkDown()\AbbrevWord())
 	  ClearList(MarkDown()\Block())
 	  ClearList(MarkDown()\Footnote())
 	  ClearList(MarkDown()\Image())
@@ -1012,7 +1036,7 @@ Module MarkDown
         MarkDown()\Items()\Height = TextHeight("X")
 
         ForEach MarkDown()\Items()\Words()
-        
+          
           If Font <> MarkDown()\Items()\Words()\Font : Font = DrawingFont_(MarkDown()\Items()\Words()\Font) : EndIf
           
           Select MarkDown()\Items()\Words()\Flag
@@ -1231,10 +1255,12 @@ Module MarkDown
         MarkDown()\FootLabel()\Width  = 0
         MarkDown()\FootLabel()\Height = TextHeight("X")
         
+        MarkDown()\Required\Height + MarkDown()\FootLabel()\Height
+        
         ForEach MarkDown()\FootLabel()\Words()
           
           If Font <> MarkDown()\FootLabel()\Words()\Font : Font = DrawingFont_(MarkDown()\FootLabel()\Words()\Font) : EndIf
-          
+
           Select MarkDown()\FootLabel()\Words()\Flag
             Case #Emoji     ;{ Emoji (16x16)
               TextHeight = dpiY(16)
@@ -1279,8 +1305,11 @@ Module MarkDown
           
         Next
         
+        MarkDown()\Required\Height + MarkDown()\FootLabel()\Height
+        If MarkDown()\FootLabel()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\FootLabel()\Width : EndIf 
+        
       Next ;}
-
+      
       StopDrawing()
 		EndIf
 		
@@ -2059,7 +2088,7 @@ Module MarkDown
     Procedure.i RowPDF_(PDF.i, X.i, BlockQuote.i, List Words.Words_Structure(), ColWidth.i=#False, Align.s="L", ID.s="")
       Define.i PosX, PosY, Width, Height, Font, TextWidth, ImgSize, Image, WordIdx
       Define.i OffSetX, OffSetY, OffSetBQ, LinkPDF
-      Define.s Link$, ID$
+      Define.s Link$, ID$, File$
       
       ;If BlockQuote : OffSetBQ = dpiX(10) * BlockQuote : EndIf 
       
@@ -2143,9 +2172,15 @@ Module MarkDown
               Height = mm_(MarkDown()\Image()\Height)
               
               If MarkDown()\Path
-                PDF::Image(PDF, MarkDown()\Path + GetFilePart(MarkDown()\Image()\Source), PosX, PosY, Width, Height)
+                File$ = MarkDown()\Path + GetFilePart(MarkDown()\Image()\Source)
+              Else
+                File$ = MarkDown()\Image()\Source
+              EndIf  
+         
+              If FindMapElement(MarkDown()\ImageMem(), GetFilePart(MarkDown()\Image()\Source))
+                PDF::ImageMemory(PDF, GetFilePart(MarkDown()\Image()\Source), MarkDown()\ImageMem()\Buffer, MarkDown()\ImageMem()\Size, MarkDown()\ImageMem()\Type, PosX, PosY, Width, Height)
               Else  
-                PDF::Image(PDF, MarkDown()\Image()\Source, PosX, PosY, Width, Height)
+                PDF::Image(PDF, File$, PosX, PosY, Width, Height)
               EndIf  
               
               PDF::SetPosY(PDF, PosY + Height)
@@ -2166,14 +2201,12 @@ Module MarkDown
               EndIf 
               
               If Left(Link$, 1) = "#"
-                PDF::AddGotoLabel(PDF, URLDecoder(Link$))
-                LinkPDF = PDF::#NoLink
+                PDF::Cell(PDF, Words()\String, TextWidth, #PB_Default, #False, PDF::#Right, "", #False, Link$)
               Else
                 LinkPDF = PDF::AddLinkURL(PDF, URLDecoder(Link$))
+                PDF::Cell(PDF, Words()\String, TextWidth, #PB_Default, #False, PDF::#Right, "", #False, "", LinkPDF)
               EndIf
-              
-              PDF::Cell(PDF, Words()\String, TextWidth, #PB_Default, #False, PDF::#Right, "", #False, "", LinkPDF)
-              
+
               PDF::SetColorRGB(PDF, PDF::#TextColor, 0)
               FontPDF_(PDF, Words()\Font)
               
@@ -2200,8 +2233,8 @@ Module MarkDown
             PDF::SubWrite(PDF, Words()\String, 4.5, 7, 0)
             ;}  
           Default
-            If ID$
-              PDF::Cell(PDF, Words()\String, TextWidth, #PB_Default, #False, PDF::#NextLine, "", #False, ID$) 
+            If ID
+              PDF::Cell(PDF, Words()\String, TextWidth, #PB_Default, #False, PDF::#NextLine, "", #False, ID) 
             Else  
               PDF::Cell(PDF, Words()\String, TextWidth)
             EndIf
@@ -2215,35 +2248,37 @@ Module MarkDown
       ; If BlockQuote : : EndIf
 
     EndProcedure
-
-    Procedure.s ExportPDF_(File.s, Title.s="")
-      Define.i PDF, X, Y, RowY, TextWidth, Link
-      Define.i c, Cols, ColWidth, OffSetX, Width, Height
-      Define.s Bullet$, Align$, Text$, Level$, Image$
+    
+    Procedure ConvertPDF_(PDF.i)
+      Define.i PosX, PosY, X, Y, Width, Height, RowY, TextWidth, Link
+      Define.i c, Cols, ColWidth, OffSetX, Width, Height, PageWidth
+      Define.s Bullet$, Align$, Text$, Level$, Image$, File$
       
       NewMap ListNum.i()
       NewMap ColX.i()
-
-      PDF = PDF::Create(#PB_Any)
+      
       If PDF
-
-        PDF::AddPage(PDF)
         
-        PDF::SetMargin(PDF, PDF::#TopMargin,  10)
-        PDF::SetMargin(PDF, PDF::#LeftMargin, 10)
-        PDF::SetMargin(PDF, PDF::#CellMargin,  0)
+        PageWidth = PDF::GetPageWidth(PDF)
         
         ForEach MarkDown()\Image() ;{ Images
           
           Image$ = GetFilePart(MarkDown()\Image()\Source)
-          
           If Not FindMapElement(MarkDown()\ImageNum(), Image$)
             If AddMapElement(MarkDown()\ImageNum(), Image$)
+              
               If MarkDown()\Path
-                MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Path + Image$)
+                File$ = MarkDown()\Path + GetFilePart(MarkDown()\Image()\Source)
+              Else
+                File$ = MarkDown()\Image()\Source
+              EndIf
+              
+              If FindMapElement(MarkDown()\ImageMem(), Image$)
+                MarkDown()\ImageNum() = CatchImage(#PB_Any, MarkDown()\ImageMem()\Buffer, MarkDown()\ImageMem()\Size)
               Else  
-                MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Image()\Source)
-              EndIf  
+                MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
+              EndIf 
+              
             EndIf
           EndIf
           
@@ -2256,7 +2291,7 @@ Module MarkDown
         
         ForEach MarkDown()\Items()
           
-          MarkDown()\WrapPos = 200
+          MarkDown()\WrapPos = PageWidth - PDF::GetMargin(PDF, PDF::#RightMargin)
           
           PDF::SetFont(PDF, "Arial", "", 11)
           
@@ -2270,6 +2305,42 @@ Module MarkDown
               EndIf  
 
               PDF::Ln(PDF, 3)
+              ;}
+            Case #Image            ;{ Image
+              If SelectElement(MarkDown()\Image(), MarkDown()\Items()\Index)
+                
+                PDF::Ln(3)
+                
+                PosY   = PDF::GetPosY(PDF)
+                Width  = mm_(MarkDown()\Image()\Width)
+                Height = mm_(MarkDown()\Image()\Height)
+                
+                PosX = (PageWidth - Width) / 2
+                
+                If MarkDown()\Path
+                  File$ = MarkDown()\Path + GetFilePart(MarkDown()\Image()\Source)
+                Else
+                  File$ = MarkDown()\Image()\Source
+                EndIf  
+                
+                If FindMapElement(MarkDown()\ImageMem(), GetFilePart(MarkDown()\Image()\Source))
+                  PDF::ImageMemory(PDF, GetFilePart(MarkDown()\Image()\Source), MarkDown()\ImageMem()\Buffer, MarkDown()\ImageMem()\Size, MarkDown()\ImageMem()\Type, PosX, PosY, Width, Height)
+                Else  
+                  PDF::Image(PDF, File$, PosX, PosY, Width, Height)
+                EndIf  
+
+                PDF::SetPosY(PDF, PosY + Height)
+
+                If ListSize(MarkDown()\Items()\Words())
+                  PDF::SetPosY(PDF, PosY + Height + 1)
+                  RowPDF_(PDF, 0, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words(), PageWidth, "C")
+                Else  
+                  PDF::SetPosY(PDF, PosY + Height)
+    	          EndIf
+    	          
+    	          PDF::Ln(3)
+    	          
+              EndIf
               ;}
             Case #List|#Ordered    ;{ Ordered List
               
@@ -2375,7 +2446,7 @@ Module MarkDown
               PDF::Ln(PDF, 3)
               ;}
             Case #Paragraph        ;{ Paragraph
-              PDF::Ln(PDF, 3)
+              PDF::Ln(PDF, 4)
               ;}
             Case #Table            ;{ Table  
               
@@ -2489,7 +2560,6 @@ Module MarkDown
               PDF::Ln(PDF, 3)
               ;}
             Default                ;{ Text
-              
               RowPDF_(PDF, 10, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words())
               ;}  
           EndSelect
@@ -2511,8 +2581,28 @@ Module MarkDown
             EndIf
           Next
     		  ;}
-    		EndIf 
+    		EndIf
         
+      EndIf  
+      
+    EndProcedure
+    
+    Procedure ExportPDF_(File.s, Title.s="")
+      Define.i PDF
+
+      PDF = PDF::Create(#PB_Any)
+      If PDF
+        
+        If Title : PDF::SetInfo(PDF, PDF::#Title, Title) : EndIf
+        
+        PDF::SetMargin(PDF, PDF::#TopMargin,  10)
+        PDF::SetMargin(PDF, PDF::#LeftMargin, 10)
+        PDF::SetMargin(PDF, PDF::#CellMargin,  0)
+        
+        PDF::AddPage(PDF)
+        
+        ConvertPDF_(PDF)
+
         PDF::Close(PDF, File)
       EndIf
       
@@ -5199,7 +5289,7 @@ Module MarkDown
 			    DrawingFont(FontID(MarkDown()\Font\FootNote))
 			    
 			    Label$ = MarkDown()\FootNote()\Label
-
+          
 			    X = MarkDown()\LeftBorder
           X = DrawText(X, Y, Label$ + " ", MarkDown()\Color\Hint)
           
@@ -5210,10 +5300,10 @@ Module MarkDown
 			  Next
 			  ;}
 			EndIf  
-			
-			MarkDown()\Required\Width + MarkDown()\Margin\Left + MarkDown()\Margin\Right
-			MarkDown()\Required\Height = Y + MarkDown()\Margin\Bottom
-			
+
+			MarkDown()\Required\Width + dpiX(MarkDown()\Margin\Left + MarkDown()\Margin\Right)
+			MarkDown()\Required\Height = Y + dpiY(MarkDown()\Margin\Bottom)
+     
 			CompilerIf #Enable_Requester
 			  
 			  If MarkDown()\Type = #Requester
@@ -5266,9 +5356,12 @@ Module MarkDown
 	Procedure   ReDraw()
 	  
 	  Draw_()
-	 
-	  If AdjustScrollBars_() : Draw_() : EndIf 
-	
+	  
+	  If AdjustScrollBars_()
+	    Draw_()
+	    AdjustScrollBars_()
+	  EndIf 
+	  
 	EndProcedure  
 	
 	;- __________ Events __________
@@ -5749,6 +5842,8 @@ Module MarkDown
 	    
 	    Parse_(MarkDown)
 	    
+	    DetermineTextSize_()
+	    
 	    Select Type
 	      Case #HTML 
 	        
@@ -5785,9 +5880,7 @@ Module MarkDown
 	    MarkDown()\Text = Text
 	    
 	    Parse_(Text)
-	    
-	    DetermineTextSize_()
-	    
+	   
 	    ReDraw()
 	  EndIf
 	  
@@ -6402,10 +6495,11 @@ Module MarkDown
 	    
 	  EndProcedure
 
-	  Procedure   CloseHelp() 
-	    Define.i Pack, JSON
+	  Procedure   SaveHelp() 
+	    Define.i Pack, JSON, Size
+	    Define   *Buffer
 	    
-	    If CreatePack(Pack, File$, #PB_PackerPlugin_Lzma)
+	    If CreatePack(Pack, Help\File, #PB_PackerPlugin_Lzma)
     
         If CreateJSON(JSON)  ;{ Save Markdown
           
@@ -6449,6 +6543,103 @@ Module MarkDown
       EndIf
 
 	  EndProcedure
+
+	  Procedure.s Help2PDF(Title.s, File.s, FilePDF.s="", Orientation.s="P", Format.s="")
+	    Define.i PDF, Pack, JSON, Size
+	    Define.s FileName$
+	    Define   *Buffer
+	    
+	    NewList Item.Item_Structure()
+	    
+	    If AddMapElement(MarkDown(), "Convert")
+
+	      ;{ _____ Load Help File _____
+  	    Pack = OpenPack(#PB_Any, File, #PB_PackerPlugin_Lzma)
+  	    If Pack
+  	      
+  	      ClearMap(MarkDown()\ImageMem())
+  	      
+  	      If ExaminePack(Pack)
+      
+            While NextPackEntry(Pack)
+              
+              FileName$ = PackEntryName(Pack)
+              
+              Size = PackEntrySize(Pack, #PB_Packer_UncompressedSize)
+              
+              *Buffer = AllocateMemory(Size)
+              If *Buffer
+                If UncompressPackMemory(Pack, *Buffer, Size, FileName$) <> -1
+                  Select FileName$
+                    Case "Help.json" ;{ Help file
+                      JSON = CatchJSON(#PB_Any, *Buffer, Size)
+                      If JSON
+                        ExtractJSONList(JSONValue(JSON), Item())
+                        FreeJSON(JSON)
+                      EndIf ;}
+                    Default ;{ Image
+                      If AddMapElement(MarkDown()\ImageMem(), FileName$) 
+                        MarkDown()\ImageMem()\Buffer = *Buffer
+                        MarkDown()\ImageMem()\Size   = Size
+                        Select GetExtensionPart(FileName$)
+                          Case "jpg", "jpeg"
+                            MarkDown()\ImageMem()\Type = PDF::#Image_JPEG
+                          Case "png"
+                            MarkDown()\ImageMem()\Type = PDF::#Image_PNG
+                        EndSelect    
+                      EndIf ;}
+                  EndSelect
+                EndIf
+              EndIf
+              
+            Wend
+            
+          EndIf
+          
+          ClosePack(Pack)
+  	    EndIf ;}
+  	    
+  	    PDF = PDF::Create(#PB_Any, Orientation, "", Format)
+        If PDF
+          
+          PDF::SetInfo(PDF, PDF::#Title, Title)
+          
+          PDF::SetMargin(PDF, PDF::#TopMargin,  10)
+          PDF::SetMargin(PDF, PDF::#LeftMargin, 10)
+          PDF::SetMargin(PDF, PDF::#CellMargin,  0)
+
+          ForEach Item()
+            
+            PDF::AddPage(PDF)
+            
+            Clear_()
+            
+            Parse_(Item()\Text)
+            
+            If Item()\Label : PDF::AddGotoLabel(PDF, "#" + Item()\Label) : EndIf
+            
+            PDF::BookMark(PDF, Item()\Titel, Item()\Level)
+
+            ConvertPDF_(PDF)
+            
+          Next
+          
+          If FilePDF = "" : FilePDF = GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + ".pdf" : EndIf 
+          
+          PDF::Close(PDF, FilePDF)
+        EndIf
+        
+        ForEach MarkDown()\ImageMem()
+          If MarkDown()\ImageMem()\Buffer And MarkDown()\ImageMem()\Size
+            FreeMemory(MarkDown()\ImageMem()\Buffer)
+          EndIf  
+        Next
+        
+  	  EndIf
+  	  
+  	  ProcedureReturn FilePDF
+	  EndProcedure
+	  
 	  
 	CompilerEndIf
 	
@@ -6677,7 +6868,7 @@ Module MarkDown
       
       ProcedureReturn Label
 	  EndProcedure
-	  
+
 	CompilerEndIf
 	
 	; ========================
@@ -7160,7 +7351,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 30
+  #Example = 31
   
   ; === Gadget ===
   ;  1: Headings
@@ -7182,6 +7373,7 @@ CompilerIf #PB_Compiler_IsMainFile
   ; 20: Message Requester
   ; === Help ===
   ; 30: Help Window
+  ; 31: Help to PDF
   
   Define.s Text$
  
@@ -7341,22 +7533,22 @@ CompilerIf #PB_Compiler_IsMainFile
     LoadFont(#Font, "Arial", 10)
     
     
-    If OpenWindow(#Window, 0, 0, 300, 290, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
+    If OpenWindow(#Window, 0, 0, 300, 300, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
       
-      EditorGadget(#Editor, 10, 10, 280, 250)
+      EditorGadget(#Editor, 10, 10, 280, 260)
       SetGadgetFont(#Editor, FontID(#Font))
       HideGadget(#Editor, #True)
       SetGadgetText(#Editor, Text$)
       
-      ButtonGadget(#Button2, 10, 265, 60, 20, "View")
-      ButtonGadget(#Button1, 75, 265, 60, 20, "Edit")
+      ButtonGadget(#Button2, 10, 275, 60, 20, "View")
+      ButtonGadget(#Button1, 75, 275, 60, 20, "Edit")
       
-      ButtonGadget(#Button3, 205, 265, 40, 20, "PDF")
-      ButtonGadget(#Button4, 250, 265, 40, 20, "HTML")
+      ButtonGadget(#Button3, 205, 275, 40, 20, "PDF")
+      ButtonGadget(#Button4, 250, 275, 40, 20, "HTML")
       
       DisableGadget(#Button2, #True)
       
-      If MarkDown::Gadget(#MarkDown, 10, 10, 280, 250, MarkDown::#AutoResize)
+      If MarkDown::Gadget(#MarkDown, 10, 10, 280, 260, MarkDown::#AutoResize)
         MarkDown::SetText(#MarkDown, Text$)
         MarkDown::SetFont(#MarkDown, "Arial", 10)
       EndIf
@@ -7416,19 +7608,25 @@ CompilerIf #PB_Compiler_IsMainFile
   
   CompilerElse
     
-    CompilerIf MarkDown::#Enable_HelpWindow
-      
-      MarkDown::Help(" Help", "Help.mdh", "Module", MarkDown::#AutoResize)
-      
-    CompilerEndIf
+    Select #Example
+      Case 30 
+        CompilerIf MarkDown::#Enable_HelpWindow
+          MarkDown::Help(" Help", "Help.mdh", "Module", MarkDown::#AutoResize)
+        CompilerEndIf   
+      Case 31
+        CompilerIf MarkDown::#Enable_CreateHelp
+          MarkDown::Help2PDF("Markdown Module", "Help.mdh", "", "P", PDF::#Format_A5) 
+          RunProgram("Help.pdf")
+        CompilerEndIf  
+    EndSelect
     
   CompilerEndIf
   
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 85
-; FirstLine = 44
-; Folding = 1AAEAAMAAYAAACrrK--+-PECGAAAA5AADAAFAAABRMCwgACBgAIQARosUIOjAAIuQkO5AAQAAYA9
+; CursorPosition = 6546
+; FirstLine = 730
+; Folding = wBCcAAAAAADAAgAYB544--BAAAIAAAcAgFGgCAAggAGRYAAlAQAEMgBUAKEEBAAQTIiBQDAABAAWA+
 ; EnableXP
 ; DPIAware

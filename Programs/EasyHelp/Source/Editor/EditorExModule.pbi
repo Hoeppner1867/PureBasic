@@ -3949,7 +3949,7 @@ Module EditEx
     Procedure   EnableAutoSpellCheck(State.i=#True)
 
       ;{ Dictionary is required
-      If ListSize(SpellCheck\Dictionary()) = 0
+      If State And ListSize(SpellCheck\Dictionary()) = 0
         Debug "ERROR: Dictionary is required => LoadSpellCheck\Dictionary()"
         ProcedureReturn #False
       EndIf ;}
@@ -5435,9 +5435,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 3613
-; FirstLine = 1223
-; Folding = wHOhAADASN2ECwAEB-CQxk6IuigAHAYABAwvwQQoQg6OEMAQSP3JI+-
+; CursorPosition = 3951
+; FirstLine = 1290
+; Folding = wHOhAADASN2ECwAEB-CQxk6IuigAHAYABAwjwaQoQg6OEMAQSP3JI+-
 ; Markers = 970,2495,2564,4647
 ; EnableXP
 ; DPIAware

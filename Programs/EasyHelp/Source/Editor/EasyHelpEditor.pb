@@ -1,5 +1,5 @@
 ﻿;/ ==================================
-;/ =    MarkDownEditor.pbi    =
+;/ =    EasyHelpEditor.pbi    =
 ;/ ==================================
 ;/
 ;/ [ PB V5.7x / 64Bit / All OS / DPI ]
@@ -9,7 +9,10 @@
 ;/ © 2020  by Thorsten Hoeppner (02/2020)
 ;/
 
-; Last Update: 
+; Last Update: 07.02.2020
+;
+; Added: Convert Help file to PDF
+;
 
 ;{ ===== Tea & Pizza Ware =====
 ; <purebasic@thprogs.de> has created this code. 
@@ -18,6 +21,7 @@
 ; (or the amount of money for it). 
 ; [ https://www.paypal.me/Hoeppner1867 ]
 ;}
+
 
 XIncludeFile "AppRegistryModule.pbi"
 XIncludeFile "ResizeExModule.pbi"
@@ -51,6 +55,8 @@ Enumeration 1
   #Window_MarkDown
   #Window_NewEntry
   #Window_Settings
+  #Window_Export_PDF
+  #Window_Table
 EndEnumeration
 ;}
 
@@ -75,6 +81,7 @@ Enumeration 1
   #Menu_Code
   #Menu_SubScript
   #Menu_SuperScript
+  #Menu_Table
   #Menu_Keystroke
   #Menu_Footnote
   #Menu_URL
@@ -98,6 +105,18 @@ Enumeration 1
   #Emoji_Warning
   ;}
   
+  ;{ #Window_Table
+  #Gadget_Table_Frame
+  #Gadget_Table_Tx_Rows
+  #Gadget_Table_SpG_Rows
+  #Gadget_Table_Tx_Columns
+  #Gadget_Table_SpG_Columns
+  #Gadget_Table_Tx_Align
+  #Gadget_Table_SpG_Align
+  #Gadget_Table_CB_Align
+  #Gadget_Table_OK
+  ;}
+  
   ;{ #Window_Settings
   #Gadget_Settings_Frame
   #Gadget_Settings_Tx_Language
@@ -105,6 +124,21 @@ Enumeration 1
   #Gadget_Settings_OG_SpellCheck
   #Gadget_Settings_CB_Dictionary
   #Gadget_Settings_Bt_Apply
+  ;}
+  
+  ;{ #Window_Export_PDF
+  #Gadget_Export_PDF_Frame_Help
+  #Gadget_Export_PDF_Tx_Load
+  #Gadget_Export_PDF_SG_HelpFile
+  #Gadget_Export_PDF_Bt_Load
+  #Gadget_Export_PDF_Frame_PDF
+  #Gadget_Export_PDF_Tx_Title
+  #Gadget_Export_PDF_SG_Title
+  #Gadget_Export_PDF_Tx_Orientation
+  #Gadget_Export_PDF_CB_Orientation
+  #Gadget_Export_PDF_Tx_Format
+  #Gadget_Export_PDF_CB_Format
+  #Gadget_Export_PDF_OK
   ;}
   
   ;{ #Window_NewEntry
@@ -133,6 +167,7 @@ Enumeration 1
   #Gadget_MarkDown_Bt_Open
   #Gadget_MarkDown_Bt_Save
   #Gadget_MarkDown_Bt_Create
+  #Gadget_MarkDown_Bt_PDF
   #Gadget_MarkDown_Bt_Settings
   ;}
 
@@ -204,6 +239,9 @@ Enumeration 1
   #IMG_Bulb
   #IMG_Clip
   #IMG_Magnifier
+  #IMG_Table
+  #IMG_PDF
+  #IMG_OpenHelp
 EndEnumeration
 ;}
 
@@ -252,6 +290,9 @@ If ResourceEx::Open(#ResEx, "EasyHelpEditor.res")
   ResourceEx::UseImage(#ResEx, #IMG_Footnote,      "FootNote.png")
   ResourceEx::UseImage(#ResEx, #IMG_H1,            "H1.png")
   ResourceEx::UseImage(#ResEx, #IMG_Code,          "Code.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Table,         "Table.png")
+  ResourceEx::UseImage(#ResEx, #IMG_PDF,           "PDF.png")
+  ResourceEx::UseImage(#ResEx, #IMG_OpenHelp,      "OpenHelp.png")
 EndIf ;}
 
 ;- __________ Structures __________
@@ -304,6 +345,64 @@ Procedure.i Window_Settings()
   EndIf
 EndProcedure
 
+Procedure.i Window_Export_PDF()
+  
+  If OpenWindow(#Window_Export_PDF, 0, 0, 260, 215, " " + Lng("Title_ConvertPDF"), #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_WindowCentered|#PB_Window_Invisible, WindowID(#Window_MarkDown))
+    
+    FrameGadget(#Gadget_Export_PDF_Frame_Help, 10, 5, 240, 65, "")
+    TextGadget(#Gadget_Export_PDF_Tx_Load, 25, 20, 180, 15, Lng("OpenHelp") + ":")
+      SetGadgetFont(#Gadget_Export_PDF_Tx_Load, FontID(#Font_Arial8B))
+    StringGadget(#Gadget_Export_PDF_SG_HelpFile, 25, 35, 180, 20, "", #PB_String_ReadOnly)
+    ButtonImageGadget(#Gadget_Export_PDF_Bt_Load, 211, 33, 24, 24, ImageID(#IMG_OpenHelp))
+    
+    FrameGadget(#Gadget_Export_PDF_Frame_PDF, 10, 70, 240, 105, "")
+    TextGadget(#Gadget_Export_PDF_Tx_Title, 25, 85, 100, 15, Lng("Title") + ":")
+      SetGadgetFont(#Gadget_Export_PDF_Tx_Title, FontID(#Font_Arial8B))
+    StringGadget(#Gadget_Export_PDF_SG_Title, 25, 100, 100, 20, "")
+    TextGadget(#Gadget_Export_PDF_Tx_Orientation, 25, 125, 100, 15, Lng("Orientation") + ":")
+      SetGadgetFont(#Gadget_Export_PDF_Tx_Orientation, FontID(#Font_Arial8B))
+    ComboBoxGadget(#Gadget_Export_PDF_CB_Orientation, 25, 140, 100, 20)
+    TextGadget(#Gadget_Export_PDF_Tx_Format, 145, 125, 90, 15, Lng("Format") + ":")
+      SetGadgetFont(#Gadget_Export_PDF_Tx_Format, FontID(#Font_Arial8B))
+    ComboBoxGadget(#Gadget_Export_PDF_CB_Format, 145, 140, 90, 20)
+    
+    ButtonGadget(#Gadget_Export_PDF_OK, 90, 180, 80, 25, Lng("Apply"))
+    
+    HideWindow(#Window_Export_PDF, #False)
+    
+    ProcedureReturn WindowID(#Window_Export_PDF)
+  EndIf
+  
+EndProcedure
+
+Procedure.i Window_Table()
+  
+  If OpenWindow(#Window_Table, 0, 0, 170, 152, " " + Lng("Table"), #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_WindowCentered|#PB_Window_Invisible, WindowID(#Window_MarkDown))
+    
+    FrameGadget(#Gadget_Table_Frame, 10, 5, 150, 107, "")
+    
+    TextGadget(#Gadget_Table_Tx_Rows, 20, 20, 50, 15, Lng("Rows")+":")
+      SetGadgetFont(#Gadget_Table_Tx_Rows, FontID(#Font_Arial9B))
+    SpinGadget(#Gadget_Table_SpG_Rows, 20, 36, 45, 20, 1, 20, #PB_Spin_Numeric)
+    
+    TextGadget(#Gadget_Table_Tx_Columns, 80, 20, 70, 15, Lng("Columns")+":")
+      SetGadgetFont(#Gadget_Table_Tx_Columns, FontID(#Font_Arial9B))
+    SpinGadget(#Gadget_Table_SpG_Columns, 80, 36, 45, 20, 1, 10, #PB_Spin_Numeric)
+    
+    TextGadget(#Gadget_Table_Tx_Align, 20, 66, 130, 15, Lng("ColAlign")+":")
+      SetGadgetFont(#Gadget_Table_Tx_Align, FontID(#Font_Arial9B))
+    SpinGadget(#Gadget_Table_SpG_Align, 20, 82, 45, 20, 1, 2, #PB_Spin_ReadOnly|#PB_Spin_Numeric)
+    ComboBoxGadget(#Gadget_Table_CB_Align, 70, 82, 80, 20)
+    
+    ButtonGadget(#Gadget_Table_OK, 45, 117, 80, 25, Lng("Apply"))
+   
+    HideWindow(#Window_Table, #False)
+   
+    ProcedureReturn WindowID(#Window_Table)
+  EndIf
+  
+EndProcedure
+
 Procedure.i Window_NewEntry()
   
   If OpenWindow(#Window_NewEntry, 0, 0, 170, 150, " " + Lng("Title_NewEntry"), #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_WindowCentered|#PB_Window_Invisible, WindowID(#Window_MarkDown))
@@ -329,6 +428,7 @@ Procedure.i Window_NewEntry()
   
 EndProcedure
 
+
 Procedure.i Window_MarkDown()
   
   If OpenWindow(#Window_MarkDown, 0, 0, 630, 580, " EasyHelp - Editor", #PB_Window_SystemMenu|#PB_Window_MinimizeGadget|#PB_Window_MaximizeGadget|#PB_Window_SizeGadget|#PB_Window_ScreenCentered|#PB_Window_Invisible)
@@ -347,20 +447,24 @@ Procedure.i Window_MarkDown()
         MenuItem(#Menu_H6, "H6")
       CloseSubMenu()
       MenuBar()
-      MenuItem(#Menu_Code, Lng("Code"),                     ImageID(#IMG_Code))  
       OpenSubMenu(Lng("Emphasis"), ImageID(#IMG_BoldItalic))
-        MenuItem(#Menu_Bold,         Lng("Bold"),           ImageID(#IMG_Bold))
-        MenuItem(#Menu_Italic,       Lng("Italic"),         ImageID(#IMG_Italic))
-        MenuItem(#Menu_BoldItalic,   Lng("Bold")+"/"+Lng("Italic"), ImageID(#IMG_BoldItalic))
+        MenuItem(#Menu_Bold,          Lng("Bold"),           ImageID(#IMG_Bold))
+        MenuItem(#Menu_Italic,        Lng("Italic"),         ImageID(#IMG_Italic))
+        MenuItem(#Menu_BoldItalic,    Lng("Bold")+"/"+Lng("Italic"), ImageID(#IMG_BoldItalic))
         MenuBar()
-        MenuItem(#Menu_Highlight,    Lng("Highlight"),      ImageID(#IMG_Highlight))
+        MenuItem(#Menu_Strikethrough, Lng("Strikethrough"),  ImageID(#IMG_Strikethrough))
+        MenuBar()
+        MenuItem(#Menu_Highlight,     Lng("Highlight"),      ImageID(#IMG_Highlight))
+        MenuBar()        
+        MenuItem(#Menu_Code,          Lng("Code"),           ImageID(#IMG_Code))  
       CloseSubMenu() 
-      MenuItem(#Menu_Strikethrough,  Lng("Strikethrough"),  ImageID(#IMG_Strikethrough))
       MenuBar()
       MenuItem(#Menu_SubScript,      Lng("SubScript"),      ImageID(#IMG_Subscript))
       MenuItem(#Menu_SuperScript,    Lng("SuperScript"),    ImageID(#IMG_Superscript))
       MenuBar()
       MenuItem(#Menu_Keystroke,      Lng("Keystroke"),      ImageID(#IMG_Keystroke))
+      MenuBar()
+      MenuItem(#Menu_Table,          Lng("Table"),          ImageID(#IMG_Table))
       MenuBar()
       MenuItem(#Menu_Footnote,       Lng("Footnote"),       ImageID(#IMG_Footnote))
       MenuItem(#Menu_URL,            "URL/" + Lng("EMail"), ImageID(#IMG_Autolink))
@@ -414,16 +518,17 @@ Procedure.i Window_MarkDown()
 
     ButtonImageGadget(#Gadget_MarkDown_Up,     140, 545, 22, 20, ImageID(#IMG_Up))
     ButtonImageGadget(#Gadget_MarkDown_Down,   163, 545, 22, 20, ImageID(#IMG_Down))
-    FrameGadget(#Gadget_MarkDown_Frame, 135, 535, 55, 35, "")
+    FrameGadget(#Gadget_MarkDown_Frame,        135, 535, 55, 35, "")
     
     ButtonImageGadget(#Gadget_MarkDown_Bt_Preview,  200, 540, 30, 30, ImageID(#IMG_Update), #PB_Button_Toggle)
     ButtonImageGadget(#Gadget_MarkDown_Bt_New,      245, 540, 30, 30, ImageID(#IMG_New))
     ButtonImageGadget(#Gadget_MarkDown_Bt_Open,     280, 540, 30, 30, ImageID(#IMG_Open))
     ButtonImageGadget(#Gadget_MarkDown_Bt_Save,     315, 540, 30, 30, ImageID(#IMG_Save))
+    ButtonImageGadget(#Gadget_MarkDown_Bt_PDF,      505, 540, 30, 30, ImageID(#IMG_PDF))
     ButtonImageGadget(#Gadget_MarkDown_Bt_Create,   545, 540, 30, 30, ImageID(#IMG_Create))
     ButtonImageGadget(#Gadget_MarkDown_Bt_Settings, 590, 540, 30, 30, ImageID(#IMG_Settings))
     
-    If Resize::AddWindow(#Window_MarkDown, 445, 330)
+    If Resize::AddWindow(#Window_MarkDown, 485, 330)
       Resize::AddGadget(#Gadget_MarkDown_Tree,        Resize::#Height)
       Resize::AddGadget(#Gadget_MarkDown_Editor,      Resize::#Width|Resize::#Height)
       Resize::AddGadget(#Gadget_MarkDown_Viewer,      Resize::#Width|Resize::#Height)
@@ -437,17 +542,19 @@ Procedure.i Window_MarkDown()
       Resize::AddGadget(#Gadget_MarkDown_Bt_New,      Resize::#MoveY)
       Resize::AddGadget(#Gadget_MarkDown_Bt_Open,     Resize::#MoveY)
       Resize::AddGadget(#Gadget_MarkDown_Bt_Save,     Resize::#MoveY)
-      Resize::AddGadget(#Gadget_MarkDown_Bt_Create,      Resize::#MoveX|Resize::#MoveY)
+      Resize::AddGadget(#Gadget_MarkDown_Bt_Create,   Resize::#MoveX|Resize::#MoveY)
+      Resize::AddGadget(#Gadget_MarkDown_Bt_PDF,      Resize::#MoveX|Resize::#MoveY)
       Resize::AddGadget(#Gadget_MarkDown_Bt_Settings, Resize::#MoveX|Resize::#MoveY)
     EndIf
     
     EditEx::Disable(#Gadget_MarkDown_Editor, #True)
     
-    DisableGadget(#Gadget_MarkDown_Bt_Save, #True)
-    DisableGadget(#Gadget_MarkDown_Bt_Create,  #True)
-    DisableGadget(#Gadget_MarkDown_Add,     #True)
-    DisableGadget(#Gadget_MarkDown_Edit,    #True)
-    DisableGadget(#Gadget_MarkDown_Delete,  #True)
+    DisableGadget(#Gadget_MarkDown_Bt_Save,   #True)
+    DisableGadget(#Gadget_MarkDown_Bt_Create, #True)
+    DisableGadget(#Gadget_MarkDown_Bt_PDF,    #True)
+    DisableGadget(#Gadget_MarkDown_Add,       #True)
+    DisableGadget(#Gadget_MarkDown_Edit,      #True)
+    DisableGadget(#Gadget_MarkDown_Delete,    #True)
     
     HideGadget(#Gadget_MarkDown_Viewer, #True)
     
@@ -472,7 +579,7 @@ Procedure   SaveEntry()
   
 EndProcedure
 
-Procedure   ListEntries(Index.i=#PB_Default)
+Procedure.i ListEntries(Index.i=#PB_Default)
   Define.i Row
   
   SaveEntry()
@@ -513,6 +620,7 @@ Procedure   ListEntries(Index.i=#PB_Default)
     DisableGadget(#Gadget_MarkDown_Delete,  #True)
   EndIf   
   
+  ProcedureReturn ListSize(Topic())
 EndProcedure  
 
 
@@ -626,7 +734,7 @@ Procedure.s Load_()
     
     ResetList(Topic()) 
     
-    ListEntries(0)
+    If ListEntries(0) : EditEx::Disable(#Gadget_MarkDown_Editor, #False) : EndIf
 
   EndIf
   
@@ -665,9 +773,11 @@ Procedure.s Save_(FileName.s, SaveAs.i=#True)
     
   Else
     
+    If GetPathPart(FileName) = "" : FileName = Last$ + FileName : EndIf
+    
     If CreateJSON(#JSON)
       InsertJSONList(JSONValue(#JSON), Topic())
-      SaveJSON(#JSON, Last$ + FileName)
+      SaveJSON(#JSON, FileName)
       FreeJSON(#JSON)
     EndIf
     
@@ -813,6 +923,169 @@ Procedure   SettingsWindow()
   
 EndProcedure  
 
+Procedure   ConvertPDFWindow()
+  Define.s Last$, File$, Title$, Orientation$, Format$
+  Define.i quitWindow = #False
+  
+  If Window_Export_PDF()
+    
+    ;{ Orientation
+    AddGadgetItem(#Gadget_Export_PDF_CB_Orientation, 0, Lng("Portrait"))
+    AddGadgetItem(#Gadget_Export_PDF_CB_Orientation, 1, Lng("Landscape"))
+    SetGadgetState(#Gadget_Export_PDF_CB_Orientation, 0)
+    ;}
+
+    ;{ Format 
+    AddGadgetItem(#Gadget_Export_PDF_CB_Format, 0, "DIN A4")
+    AddGadgetItem(#Gadget_Export_PDF_CB_Format, 1, "DIN A5")
+    AddGadgetItem(#Gadget_Export_PDF_CB_Format, 2, "DIN A6")
+    SetGadgetState(#Gadget_Export_PDF_CB_Format, 1)
+    ;}
+    
+    Repeat
+      Select WaitWindowEvent()
+        Case #PB_Event_CloseWindow          ;{ Close Window
+          Select EventWindow()
+            Case #Window_Export_PDF
+              quitWindow = #True
+          EndSelect ;}
+        Case #PB_Event_Gadget
+          Select EventGadget()
+            Case #Gadget_Export_PDF_Bt_Load ;{ Open Help File
+              
+              Last$ = AppReg::GetValue(#AppReg, "Last", "Create", GetPathPart(ProgramFilename()))
+            
+              File$ = OpenFileRequester(Lng("Msg_Load"), Last$, Lng("HelpFile") + " (*.mdh)|*.mdh", 0)
+              If File$
+                SetGadgetText(#Gadget_Export_PDF_SG_HelpFile, GetFilePart(File$))                
+              EndIf
+              ;}
+            Case #Gadget_Export_PDF_OK      ;{ Convert Help File
+              
+              If FileSize(File$) > 0
+                
+                Title$ = GetGadgetText(#Gadget_Export_PDF_SG_Title)
+                
+                Select GetGadgetState(#Gadget_Export_PDF_CB_Orientation)
+                  Case 0
+                    Orientation$ = "P"
+                  Case 1
+                    Orientation$ = "L"
+                EndSelect
+                
+                Select GetGadgetState(#Gadget_Export_PDF_CB_Format)
+                  Case 0
+                    Format$ = PDF::#Format_A4
+                  Case 1
+                    Format$ = PDF::#Format_A5
+                  Case 2
+                    Format$ = PDF::#Format_A6
+                EndSelect    
+
+                Markdown::Help2PDF(Title$, File$, "", Orientation$, Format$)
+                
+              EndIf  
+              
+              quitWindow = #True
+              ;}
+          EndSelect
+      EndSelect
+    Until quitWindow
+    
+    CloseWindow(#Window_Export_PDF)
+  EndIf
+
+EndProcedure
+
+Procedure.s TableWindow()
+  Define.i r, c, Col, Cols, Rows
+  Define.s Table$
+  Define.i quitWindow = #False
+  
+  NewMap Column.i()
+  
+  If Window_Table()
+    
+    SetGadgetText(#Gadget_Table_SpG_Rows, "1")
+    SetGadgetText(#Gadget_Table_SpG_Columns, "2")
+    SetGadgetText(#Gadget_Table_SpG_Align, "1")
+    SetGadgetAttribute(#Gadget_Table_SpG_Align, #PB_Spin_Maximum, 2)
+
+    ;{ Align
+    AddGadgetItem(#Gadget_Table_CB_Align, -1, Lng("Left"))
+    AddGadgetItem(#Gadget_Table_CB_Align, -1, Lng("Center"))
+    AddGadgetItem(#Gadget_Table_CB_Align, -1, Lng("Right"))
+    SetGadgetState(#Gadget_Table_CB_Align, 0)
+    ;}
+    
+    Repeat
+      Select WaitWindowEvent()
+        Case #PB_Event_CloseWindow ;{ Close Window
+          Select EventWindow()
+            Case #Window_Table
+              quitWindow = #True
+          EndSelect ;}
+        Case #PB_Event_Gadget
+          Select EventGadget()
+            Case #Gadget_Table_SpG_Columns ;{ Column number
+              SetGadgetAttribute(#Gadget_Table_SpG_Align, #PB_Spin_Maximum, GetGadgetState(#Gadget_Table_SpG_Columns))
+              SetGadgetState(#Gadget_Table_SpG_Align, 1)
+              ;}
+            Case #Gadget_Table_SpG_Align   ;{ Column align 
+              Col = GetGadgetState(#Gadget_Table_SpG_Align)
+              SetGadgetState(#Gadget_Table_CB_Align, Column(Str(Col)))
+              ;}
+            Case #Gadget_Table_CB_Align    ;{ Change align
+              Col = GetGadgetState(#Gadget_Table_SpG_Align)
+              If Column(Str(Col)) <> GetGadgetState(#Gadget_Table_CB_Align)
+                Column(Str(Col)) = GetGadgetState(#Gadget_Table_CB_Align)
+              EndIf ;}
+            Case #Gadget_Table_OK          ;{ Insert Table
+              
+              Rows = GetGadgetState(#Gadget_Table_SpG_Rows)
+              Cols = GetGadgetState(#Gadget_Table_SpG_Columns)
+
+              For r=0 To Rows
+                
+                Table$ + "|"
+                
+                For c=1 To Cols : Table$ + Space(7) + "|" : Next
+                
+                Table$  + #LF$
+                
+                If r=0 ;{ Header
+                  
+                  Table$ + "|"
+                  
+                  For c=1 To Cols  
+                    Select Column(Str(c))
+                      Case 1
+                        Table$ + " :---: |"
+                      Case 2
+                        Table$ + " ----: |"
+                      Default
+                        Table$ + " ----- |"
+                    EndSelect
+                  Next
+                  
+                  Table$  + #LF$
+                   ;}
+                EndIf
+                
+              Next
+              
+              quitWindow = #True
+              ;}
+          EndSelect
+      EndSelect
+    Until quitWindow
+    
+    CloseWindow(#Window_Table)
+  EndIf
+  
+  ProcedureReturn Table$
+EndProcedure
+
 Procedure.i NewEntryWindow(Idx.i=#PB_Default)
   Define.i quitWindow = #False
   
@@ -878,7 +1151,7 @@ EndProcedure
 
 Define.i Current, Selected
 Define.i quitWindow = #False
-Define.s FileName$, file$, Last$, Code$, String$, Link$
+Define.s FileName$, file$, Last$, Code$, String$, Link$, Table$
 Define   *Relative
 
 AppReg::Open(#AppReg, "EasyHelpEditor.reg", "EasyHelp", "Thorsten Hoeppner")
@@ -891,7 +1164,7 @@ EndIf ;}
 
 ;{ Load dictionary
 
-If AppReg::GetValue(#AppReg, "Settings", "SpellCheck")
+If AppReg::GetInteger(#AppReg, "Settings", "SpellCheck") = #True
   If FileSize(AppReg::GetValue(#AppReg, "Settings", "Dictionary"))
     EditEx::LoadDictionary(AppReg::GetValue(#AppReg, "Settings", "Dictionary"))
     EditEx::EnableAutoSpellCheck(#True)
@@ -900,6 +1173,7 @@ EndIf
 ;}
 
 Code$ = AppReg::GetValue(#AppReg, "Settings", "Language", "GB") 
+
 If FindMapElement(Language(), Code$)
   CopyMap(Language()\Strg(), Lng())
 EndIf  
@@ -995,6 +1269,12 @@ If Window_MarkDown()
           Case #Menu_Ref_Link
             PopupMenu_("[", "]: ")
             ;}
+          Case #Menu_Table         ;{ Table
+            Table$ = TableWindow()
+            If Table$
+              EditEx::InsertText(#Gadget_MarkDown_Editor, Table$)
+            EndIf  
+            ;}
           Case #Emoji_Bookmark     ;{ Emoji
             EditEx::InsertText(#Gadget_MarkDown_Editor, ":bookmark:")
           Case #Emoji_Bulb 
@@ -1043,17 +1323,16 @@ If Window_MarkDown()
             EndSelect ;}
           Case #Gadget_MarkDown_Bt_New      ;{ New document
             FileName$ = New_(FileName$)
-            EditEx::Disable(#Gadget_MarkDown_Editor,  #False)
             DisableGadget(#Gadget_MarkDown_Bt_Save,   #False)
             DisableGadget(#Gadget_MarkDown_Bt_Create, #False)
+            DisableGadget(#Gadget_MarkDown_Bt_PDF,    #False)
             DisableGadget(#Gadget_MarkDown_Add,       #False)
             ;}
           Case #Gadget_MarkDown_Bt_Open     ;{ Open document
             FileName$ = Load_()
-            EditEx::Disable(#Gadget_MarkDown_Editor,  #False)
-            EditEx::ResetSelection(#Gadget_MarkDown_Editor)
             DisableGadget(#Gadget_MarkDown_Bt_Save,   #False)
             DisableGadget(#Gadget_MarkDown_Bt_Create, #False)
+            DisableGadget(#Gadget_MarkDown_Bt_PDF,    #False)
             DisableGadget(#Gadget_MarkDown_Add,       #False)
             ;}
           Case #Gadget_MarkDown_Bt_Save     ;{ Save document
@@ -1072,6 +1351,9 @@ If Window_MarkDown()
               
               Create(File$)
             EndIf            
+            ;}
+          Case #Gadget_MarkDown_Bt_PDF      ;{ Export PDF
+            ConvertPDFWindow()
             ;}
           Case #Gadget_MarkDown_Bt_Preview  ;{ Preview Markdown
             
@@ -1156,9 +1438,8 @@ AppReg::Close(#AppReg)
 
 End
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 646
-; FirstLine = 306
-; Folding = JEMiHpAAAAKg
+; CursorPosition = 13
+; Folding = AAABIQaoTAAAAAA+
 ; EnableXP
 ; DPIAware
 ; UseIcon = EasyHelp.ico

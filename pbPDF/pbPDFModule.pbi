@@ -10,7 +10,7 @@
 
 ; Last Update: 07.02.2020
 ; 
-; Bugfixes: Annotation Labels
+; Bugfixes: Annotation Labels / Landscape
 ;
 ; Added: PDF::GetStringHeight()
 ;
@@ -1301,7 +1301,7 @@ Module PDF
   
   ;- ----- Memory -------------------------
   
-  Procedure.i ReplaceInPageStream(objPageContent.s, Search.s, Replace.s) ; [*]
+  Procedure.i ReplaceInPageStream(objPageContent.s, Search.s, Replace.s)
     Define.i Size, i, s, Found, fSize, rSize, sSize
     Define *Memory, *MemPtr
     
@@ -1842,7 +1842,7 @@ Module PDF
   EndProcedure
   
   
-  Procedure.i objNew_(Type.i=#False, Name.s="") ; [*]
+  Procedure.i objNew_(Type.i=#False, Name.s="")
     
     PDF()\objNum + 1 ; (no object 0)
     
@@ -2098,16 +2098,11 @@ Module PDF
         PDF()\Annots()\objPage = PDF()\objPage
         
         ;{ Scaled X / Y / Width / Height
-        If PDF()\Page\Orientation = "P" 
-          aX = PDF()\Annots()\X * PDF()\ScaleFactor
-          aY = PDF()\Page\ptHeight - (PDF()\Annots()\Y * PDF()\ScaleFactor)
-        Else
-          aX = PDF()\Annots()\X * PDF()\ScaleFactor
-          aY = PDF()\Page\ptWidth - (PDF()\Annots()\Y * PDF()\ScaleFactor)
-        EndIf
+        aX       = PDF()\Annots()\X * PDF()\ScaleFactor
+        aY       = PDF()\Page\ptHeight - (PDF()\Annots()\Y * PDF()\ScaleFactor)
         aWidth   = PDF()\Annots()\Width  * PDF()\ScaleFactor
         aHeight  = PDF()\Annots()\Height * PDF()\ScaleFactor
-        ptY      = Y   * PDF()\ScaleFactor
+        ptY      = Y * PDF()\ScaleFactor
         ptWidth  = Width  * PDF()\ScaleFactor
         ptHeight = Height * PDF()\ScaleFactor
         ;}
@@ -2182,13 +2177,8 @@ Module PDF
       Define.f ptX, ptY, ptWidth, ptHeight
       Define.s objStrg
       
-      If PDF()\Page\Orientation = "P" 
-        ptX = X * PDF()\ScaleFactor
-        ptY = PDF()\Page\ptHeight - (Y * PDF()\ScaleFactor)
-      Else
-        ptX = X * PDF()\ScaleFactor
-        ptY = PDF()\Page\ptWidth  - (Y * PDF()\ScaleFactor)
-      EndIf
+      ptX      = X * PDF()\ScaleFactor
+      ptY      = PDF()\Page\ptHeight - (Y * PDF()\ScaleFactor)
       ptWidth  = Width  * PDF()\ScaleFactor
       ptHeight = Height * PDF()\ScaleFactor
       
@@ -4717,13 +4707,15 @@ Module PDF
         EndIf ;}
         
         ;{ ___ Scaling ___
-        If PDF()\Pages()\Orientation = "P" 
-          ptX = PDF()\Page\X * PDF()\ScaleFactor
-          ptY = PDF()\Document\ptHeight - (PDF()\Page\Y * PDF()\ScaleFactor)
-        Else
-          ptX = PDF()\Page\X * PDF()\ScaleFactor
-          ptY = PDF()\Document\ptWidth  - (PDF()\Page\Y * PDF()\ScaleFactor)
-        EndIf
+        ;If PDF()\Pages()\Orientation = "P" 
+        ;  ptX = PDF()\Page\X * PDF()\ScaleFactor
+        ;  ptY = PDF()\Document\ptHeight - (PDF()\Page\Y * PDF()\ScaleFactor)
+        ;Else
+        ;  ptX = PDF()\Page\X * PDF()\ScaleFactor
+        ;  ptY = PDF()\Document\ptWidth  - (PDF()\Page\Y * PDF()\ScaleFactor)
+        ;EndIf
+        ptX       = PDF()\Page\X * PDF()\ScaleFactor
+        ptY       = PDF()\Page\ptHeight - (PDF()\Page\Y * PDF()\ScaleFactor)
         ptWidth   = Width  * PDF()\ScaleFactor
         ptHeight  = Height * PDF()\ScaleFactor
         ;}
@@ -4764,8 +4756,6 @@ Module PDF
       Define.f ptX, ptY, ptWidth, ptHeight
       Define.s objStrg
       
-      ; Flags: 
-      
       If FindMapElement(PDF(), Str(ID))
         
         If Height = #PB_Default : Height = PDF()\Font\Size : EndIf
@@ -4784,13 +4774,15 @@ Module PDF
         EndIf ;}
         
         ;{ Scaling
-        If PDF()\Pages()\Orientation = "P" 
-          ptX = PDF()\Page\X * PDF()\ScaleFactor
-          ptY = PDF()\Document\ptHeight - (PDF()\Page\Y * PDF()\ScaleFactor)
-        Else
-          ptX = PDF()\Page\X * PDF()\ScaleFactor
-          ptY = PDF()\Document\ptWidth  - (PDF()\Page\Y * PDF()\ScaleFactor)
-        EndIf
+        ;If PDF()\Pages()\Orientation = "P" 
+        ;  ptX = PDF()\Page\X * PDF()\ScaleFactor
+        ;  ptY = PDF()\Document\ptHeight - (PDF()\Page\Y * PDF()\ScaleFactor)
+        ;Else
+        ;  ptX = PDF()\Page\X * PDF()\ScaleFactor
+        ;  ptY = PDF()\Document\ptWidth  - (PDF()\Page\Y * PDF()\ScaleFactor)
+        ;EndIf
+        ptX       = PDF()\Page\X * PDF()\ScaleFactor
+        ptY       = PDF()\Page\ptHeight - (PDF()\Page\Y * PDF()\ScaleFactor)
         ptWidth   = Width  * PDF()\ScaleFactor
         ptHeight  = Height * PDF()\ScaleFactor
         ;}
@@ -4862,15 +4854,17 @@ Module PDF
         EndIf ;}
         
         ;{ Scaling
-        If PDF()\Pages()\Orientation = "P" 
-          ptX = PDF()\Page\X * PDF()\ScaleFactor
-          ptY = PDF()\Page\ptHeight - (PDF()\Page\Y * PDF()\ScaleFactor)
-        Else
-          ptX = PDF()\Page\X * PDF()\ScaleFactor
-          ptY = PDF()\Page\ptWidth  - (PDF()\Page\Y * PDF()\ScaleFactor)
-        EndIf
-        ptWidth   = Width  * PDF()\ScaleFactor
-        ptHeight  = Height * PDF()\ScaleFactor
+        ;If PDF()\Pages()\Orientation = "P" 
+        ;  ptX = PDF()\Page\X * PDF()\ScaleFactor
+        ;  ptY = PDF()\Page\ptHeight - (PDF()\Page\Y * PDF()\ScaleFactor)
+        ;Else
+        ;  ptX = PDF()\Page\X * PDF()\ScaleFactor
+        ;  ptY = PDF()\Page\ptWidth  - (PDF()\Page\Y * PDF()\ScaleFactor)
+        ;EndIf
+        ptX      = PDF()\Page\X * PDF()\ScaleFactor
+        ptY      = PDF()\Page\ptHeight - (PDF()\Page\Y * PDF()\ScaleFactor)
+        ptWidth  = Width  * PDF()\ScaleFactor
+        ptHeight = Height * PDF()\ScaleFactor
         ;}
         
         objNew_(#objAcroForm)
@@ -5069,7 +5063,7 @@ Module PDF
   
   CompilerIf #Enable_DrawingCommands
   
-    Procedure   PathArc(ID.i, X1.f, Y1.f, X2.f, Y2.f, X3.f, Y3.f) ; [*]
+    Procedure   PathArc(ID.i, X1.f, Y1.f, X2.f, Y2.f, X3.f, Y3.f)
       
       If FindMapElement(PDF(), Str(ID))
         Arc_(X1, Y1, X2, Y2, X3, Y3)
@@ -5077,7 +5071,7 @@ Module PDF
         
     EndProcedure  
   
-    Procedure   PathBegin(ID.i, X.f, Y.f)              ; [*]
+    Procedure   PathBegin(ID.i, X.f, Y.f)
       
       If FindMapElement(PDF(), Str(ID))
         PathBegin_(X, Y)
@@ -5085,7 +5079,7 @@ Module PDF
         
     EndProcedure  
   
-    Procedure   PathEnd(ID.i, Style.s=#DrawOnly)       ; [*]
+    Procedure   PathEnd(ID.i, Style.s=#DrawOnly)
       
       If FindMapElement(PDF(), Str(ID))
         PathEnd_(Style)
@@ -5093,7 +5087,7 @@ Module PDF
         
     EndProcedure   
   
-    Procedure   PathLine(ID.i, X.f, Y.f)               ; [*]
+    Procedure   PathLine(ID.i, X.f, Y.f)
       
       If FindMapElement(PDF(), Str(ID))
         PathLine_(X,Y)
@@ -5101,7 +5095,7 @@ Module PDF
       
     EndProcedure  
   
-    Procedure   DrawCircle(ID.i, X.f, Y.f, Radius.f, Style.s=#DrawOnly)              ; [*]
+    Procedure   DrawCircle(ID.i, X.f, Y.f, Radius.f, Style.s=#DrawOnly)
       
       If FindMapElement(PDF(), Str(ID))
         Ellipse_(X, Y, Radius, Radius, Style)
@@ -5109,7 +5103,7 @@ Module PDF
       
     EndProcedure
 
-    Procedure   DrawEllipse(ID.i, X.f, Y.f, xRadius.f, yRadius.f, Style.s=#DrawOnly) ; [*]
+    Procedure   DrawEllipse(ID.i, X.f, Y.f, xRadius.f, yRadius.f, Style.s=#DrawOnly)
       
       If FindMapElement(PDF(), Str(ID))
         Ellipse_(X, Y, xRadius, yRadius, Style)
@@ -5117,7 +5111,7 @@ Module PDF
       
     EndProcedure  
   
-    Procedure   DrawGrid(ID.i, Spacing=#PB_Default)    ; [*]                                                                                               ; Grid(sizemm=-1)
+    Procedure   DrawGrid(ID.i, Spacing=#PB_Default)
       Define.i i, X, Y, Width, Height, rMargin, gridSize
       Define.s Text$
       
@@ -5179,7 +5173,7 @@ Module PDF
       
     EndProcedure
   
-    Procedure   DrawLine(ID.i, X1.f, Y1.f, X2.f, Y2.f) ; [*]
+    Procedure   DrawLine(ID.i, X1.f, Y1.f, X2.f, Y2.f)
       
       If FindMapElement(PDF(), Str(ID))
         Line_(X1, Y1, X2, Y2)
@@ -5187,7 +5181,7 @@ Module PDF
       
     EndProcedure  
   
-    Procedure   DrawRectangle(ID.i, X.f, Y.f, Width.f, Height.f, Style.s=#DrawOnly)                  ; [*]
+    Procedure   DrawRectangle(ID.i, X.f, Y.f, Width.f, Height.f, Style.s=#DrawOnly)
       
       If FindMapElement(PDF(), Str(ID))
         Rectangle_(X, Y, Width, Height, Style)
@@ -5195,7 +5189,7 @@ Module PDF
       
     EndProcedure  
   
-    Procedure   DrawRoundedRectangle(ID.i, X.f, Y.f, Width.f, Height.f, Radius.f, Style.s=#DrawOnly) ; [*]
+    Procedure   DrawRoundedRectangle(ID.i, X.f, Y.f, Width.f, Height.f, Radius.f, Style.s=#DrawOnly)
       
       If FindMapElement(PDF(), Str(ID))
         
@@ -5213,7 +5207,7 @@ Module PDF
       
     EndProcedure   
   
-    Procedure   DrawSector(ID.i, X.f, Y.f, Radius.f, startAngle.f, endAngle.f, Style.s=#DrawAndFill, Clockwise.i=#True, originAngle.f=90) ; [*]
+    Procedure   DrawSector(ID.i, X.f, Y.f, Radius.f, startAngle.f, endAngle.f, Style.s=#DrawAndFill, Clockwise.i=#True, originAngle.f=90)
       Define.f radiusX, radiusY, sAngle, eAngle, ArcX, ArcY, Degree
       
       If FindMapElement(PDF(), Str(ID))
@@ -5282,7 +5276,7 @@ Module PDF
       
     EndProcedure
   
-    Procedure   DrawTriangle(ID.i, X1.f, Y1.f, X2.f, Y2.f, X3.f, Y3.f, Style.s=#DrawOnly)            ; [*]
+    Procedure   DrawTriangle(ID.i, X1.f, Y1.f, X2.f, Y2.f, X3.f, Y3.f, Style.s=#DrawOnly)
       
       If FindMapElement(PDF(), Str(ID))
         
@@ -5301,7 +5295,7 @@ Module PDF
   
   CompilerIf #Enable_TransformCommands
     
-    Procedure   MirrorHorizontal(ID.i, X.f=#PB_Default) ; [*]                                                
+    Procedure   MirrorHorizontal(ID.i, X.f=#PB_Default)                                                
     
       If FindMapElement(PDF(), Str(ID))
         Scale_(-100, 100, X, #PB_Default)
@@ -5309,7 +5303,7 @@ Module PDF
       
     EndProcedure
   
-    Procedure   MirrorVertical(ID.i, Y.f=#PB_Default)   ; [*]                                             
+    Procedure   MirrorVertical(ID.i, Y.f=#PB_Default)                                               
       
       If FindMapElement(PDF(), Str(ID))
         Scale_(100, -100, #PB_Default, Y)
@@ -5317,7 +5311,7 @@ Module PDF
       
     EndProcedure  
     
-    Procedure   ScaleHorizontal(ID.i, Factor.f=100, X.f=#PB_Default, Y.f=#PB_Default) ; [*]
+    Procedure   ScaleHorizontal(ID.i, Factor.f=100, X.f=#PB_Default, Y.f=#PB_Default)
       
       If FindMapElement(PDF(), Str(ID))
         Scale_(Factor, 100, X, Y)
@@ -5325,7 +5319,7 @@ Module PDF
         
     EndProcedure
     
-    Procedure   ScaleVertical(ID.i, Factor.f=100, X.f=#PB_Default, Y.f=#PB_Default)   ; [*]
+    Procedure   ScaleVertical(ID.i, Factor.f=100, X.f=#PB_Default, Y.f=#PB_Default)  
       
       If FindMapElement(PDF(), Str(ID))
         Scale_(100, Factor, X, Y)
@@ -5333,7 +5327,7 @@ Module PDF
         
     EndProcedure
   
-    Procedure   Scale(ID.i, Factor.f=100, X.f=#PB_Default, Y.f=#PB_Default)           ; [*]
+    Procedure   Scale(ID.i, Factor.f=100, X.f=#PB_Default, Y.f=#PB_Default)          
       
       If FindMapElement(PDF(), Str(ID))
         Scale_(Factor, Factor, X, Y)
@@ -5341,7 +5335,7 @@ Module PDF
    
     EndProcedure
     
-    Procedure   SkewHorizontal(ID.i, Angle.i, X.f=#PB_Default, Y.f=#PB_Default)       ; [*]
+    Procedure   SkewHorizontal(ID.i, Angle.i, X.f=#PB_Default, Y.f=#PB_Default)      
       
       If FindMapElement(PDF(), Str(ID))
         Skew_(Angle, 0, X, Y)
@@ -5349,7 +5343,7 @@ Module PDF
       
     EndProcedure
   
-    Procedure   SkewVertical(ID.i, Angle.i, X.f=#PB_Default, Y.f=#PB_Default)         ; [*]
+    Procedure   SkewVertical(ID.i, Angle.i, X.f=#PB_Default, Y.f=#PB_Default)        
       
       If FindMapElement(PDF(), Str(ID))
         Skew_(0, Angle, X, Y)
@@ -5357,7 +5351,7 @@ Module PDF
       
     EndProcedure    
     
-    Procedure   StartTransform(ID.i) ; [*]
+    Procedure   StartTransform(ID.i)
       
       If FindMapElement(PDF(), Str(ID))
         objOutPage_("q")
@@ -5365,7 +5359,7 @@ Module PDF
       
     EndProcedure
   
-    Procedure   StopTransform(ID.i)  ; [*]
+    Procedure   StopTransform(ID.i) 
       
       If FindMapElement(PDF(), Str(ID))
         objOutPage_("Q")
@@ -5373,7 +5367,7 @@ Module PDF
       
     EndProcedure  
   
-    Procedure   Translate(ID.i, moveX.f, moveY.f)  ; [*]
+    Procedure   Translate(ID.i, moveX.f, moveY.f) 
       
       If FindMapElement(PDF(), Str(ID))
         Transform_(1, 0, 0, 1, moveX, moveY)
@@ -5381,7 +5375,7 @@ Module PDF
       
     EndProcedure
     
-    Procedure   TranslateHorizontal(ID.i, moveX.f) ; [*]
+    Procedure   TranslateHorizontal(ID.i, moveX.f)
       
       If FindMapElement(PDF(), Str(ID))
         Transform_(1, 0, 0, 1, moveX, 0)
@@ -5389,7 +5383,7 @@ Module PDF
       
     EndProcedure
     
-    Procedure   TranslateVertical(ID.i, moveY.f)   ; [*]
+    Procedure   TranslateVertical(ID.i, moveY.f)  
       
       If FindMapElement(PDF(), Str(ID))
         Transform_(1, 0, 0, 1, 0, moveY)
@@ -5401,7 +5395,7 @@ Module PDF
  
   ;- ----------------------------------------
   
-  Procedure   AddPage(ID.i, Orientation.s="", Format.s="")             ; [*]
+  Procedure   AddPage(ID.i, Orientation.s="", Format.s="")
     
     If  FindMapElement(PDF(), Str(ID))
       
@@ -5499,7 +5493,7 @@ Module PDF
     
   EndProcedure
   
-  Procedure   Cell(ID.i, Text.s, Width.f=#PB_Default, Height.f=#PB_Default, Border.i=#False, Ln.i=#Right, Align.s="", Fill.i=#False, Label.s="", Link.i=#NoLink) ; [*]
+  Procedure   Cell(ID.i, Text.s, Width.f=#PB_Default, Height.f=#PB_Default, Border.i=#False, Ln.i=#Right, Align.s="", Fill.i=#False, Label.s="", Link.i=#NoLink)
     
     If FindMapElement(PDF(), Str(ID))
       Cell_(Width, Height, Text, Border, Ln, Align, Fill, Link, Label)
@@ -5544,7 +5538,7 @@ Module PDF
     
   EndProcedure
   
-  Procedure   DividingLine(ID.i, X.f=#PB_Default, Y.f=#PB_Default, Width.f=#PB_Default) ; [*]
+  Procedure   DividingLine(ID.i, X.f=#PB_Default, Y.f=#PB_Default, Width.f=#PB_Default)
     
     If FindMapElement(PDF(), Str(ID))
       
@@ -5558,7 +5552,7 @@ Module PDF
     
   EndProcedure   
   
-  Procedure.i EmbedFile(ID.i, Filename.s, Description.s="") ; [*]
+  Procedure.i EmbedFile(ID.i, Filename.s, Description.s="")
     ; PDF Reference Version 1.6 - Chapter 3.10
     Define.i FileNum
     Define.s objFile, objStrg
@@ -6101,7 +6095,7 @@ Module PDF
  
   EndProcedure
 
-  Procedure   Ln(ID.i, Height.f=#PB_Default)                          ; [*]
+  Procedure   Ln(ID.i, Height.f=#PB_Default)                         
     
     If FindMapElement(PDF(), Str(ID))
       
@@ -6111,7 +6105,7 @@ Module PDF
     
   EndProcedure    
     
-  Procedure.s MultiCell(ID.i, Text.s, Width.f, Height.f, Border.i=#False, Align.s="", Fill.i=#False, Indent.i=0, maxLine.i=0) ; [*]
+  Procedure.s MultiCell(ID.i, Text.s, Width.f, Height.f, Border.i=#False, Align.s="", Fill.i=#False, Indent.i=0, maxLine.i=0)
     
     If FindMapElement(PDF(), Str(ID))
       
@@ -6121,7 +6115,7 @@ Module PDF
     
   EndProcedure
   
-  Procedure   MultiCellList(ID.i, Text.s, Width.f, Height.f, Border.i=#False, Align.s="J", Fill.i=#False, Char.s=#Bullet$)    ; [*]
+  Procedure   MultiCellList(ID.i, Text.s, Width.f, Height.f, Border.i=#False, Align.s="J", Fill.i=#False, Char.s=#Bullet$)   
     Define.f CharWidth, LastX
     
     If FindMapElement(PDF(), Str(ID))
@@ -6138,7 +6132,7 @@ Module PDF
     
   EndProcedure
   
-  Procedure   PlaceText(ID.i, Text.s, X.f=#PB_Default, Y.f=#PB_Default)            ; [*]
+  Procedure   PlaceText(ID.i, Text.s, X.f=#PB_Default, Y.f=#PB_Default)           
     Define.s sStrg, eStrg
     Define.i i, txtLen
     Define   Stream.Memory_Structure
@@ -6171,7 +6165,7 @@ Module PDF
     
   EndProcedure        
   
-  Procedure   Rotate(ID.i, Angle.f, X.f=#PB_Default, Y.f=#PB_Default) ; [*]
+  Procedure   Rotate(ID.i, Angle.f, X.f=#PB_Default, Y.f=#PB_Default)
     Define.f c, s, cx, cy
     Define.s objStrg = ""
     
@@ -6305,8 +6299,8 @@ Module PDF
     Internal\Footer\StrucPtr = *StructAddress 
     
   EndProcedure 
-   
-  Procedure.i Create(ID.i, Orientation.s="P", Unit.s="", Format.s="")  ; [*]
+
+  Procedure.i Create(ID.i, Orientation.s="P", Unit.s="", Format.s="") 
     Define objRes.i
     
     If ID = #PB_Any
@@ -6979,10 +6973,9 @@ CompilerEndIf
 
 ;- ========================
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 3794
-; FirstLine = 810
-; Folding = YAQwAoAegAQAAAAAACBARIEQACADQCAAAAGCAmRxBIORBAxI5ggTBlYgAAAlATAhEAEIAAw
-; Markers = 586,1021,2194,2372,2472,3778,3848
+; CursorPosition = 12
+; Folding = YAQwAoAegAQAAAAAICBARIEQADADQAAAAAACAkVBEAORBAAAAAAw3uwAh--lMTAh9BGJAAw
+; Markers = 2184,2362,2462
 ; EnableXP
 ; DPIAware
 ; EnablePurifier
