@@ -147,7 +147,7 @@ Enumeration 1
   #Font_Arial8B
   #Font_Arial9
   #Font_Arial9B
-  #Font_Arial11
+  #Font_Arial10
 EndEnumeration  
 ;}
 
@@ -155,7 +155,7 @@ LoadFont(#Font_Arial8,   "Arial",  8)
 LoadFont(#Font_Arial8B,  "Arial",  8, #PB_Font_Bold)
 LoadFont(#Font_Arial9,   "Arial",  9)
 LoadFont(#Font_Arial9B,  "Arial",  9, #PB_Font_Bold)
-LoadFont(#Font_Arial11,  "Arial", 11)
+LoadFont(#Font_Arial10,  "Arial", 10)
 
 ;- __________ Images __________
 
@@ -399,11 +399,12 @@ Procedure.i Window_MarkDown()
     If EditEx::Gadget(#Gadget_MarkDown_Editor, 200, 10, 420, 525, EditEx::#WordWrap, #Window_MarkDown)
       EditEx::DisableSuggestions(#Gadget_MarkDown_Editor, #True)
       EditEx::SetColor(#Gadget_MarkDown_Editor, EditEx::#BackColor, $FBFFFF)
-      EditEx::SetFont(#Gadget_MarkDown_Editor, FontID(#Font_Arial11))
+      EditEx::SetFont(#Gadget_MarkDown_Editor, FontID(#Font_Arial10))
+      EditEx::SetData(#Gadget_MarkDown_Editor, #PB_Default)
     EndIf 
     
     If MarkDown::Gadget(#Gadget_MarkDown_Viewer, 200, 10, 420, 525)
-      MarkDown::SetFont(#Gadget_MarkDown_Viewer, "Arial", 11)
+      MarkDown::SetFont(#Gadget_MarkDown_Viewer, "Arial", 10)
       MarkDown::SetMargins(#Gadget_MarkDown_Viewer, 10, 10)
     EndIf
     
@@ -460,9 +461,13 @@ EndProcedure
 ;- __________ Procedures __________
 
 Procedure   SaveEntry()
+  Define.i Index
   
-  If ListIndex(Topic()) >= 0
-    Topic()\Text = ReplaceString(EditEx::GetText(#Gadget_MarkDown_Editor), #CRLF$, #LF$)
+  Index = EditEx::GetData(#Gadget_MarkDown_Editor)   
+  If Index <> #PB_Default
+    If SelectElement(Topic(), Index)
+      Topic()\Text = ReplaceString(EditEx::GetText(#Gadget_MarkDown_Editor), #CRLF$, #LF$)
+    EndIf
   EndIf
   
 EndProcedure
@@ -491,8 +496,13 @@ Procedure   ListEntries(Index.i=#PB_Default)
       TreeEx::SetState(#Gadget_MarkDown_Tree,    Index)
       EditEx::SetText(#Gadget_MarkDown_Editor,   Topic()\Text)
       Markdown::SetText(#Gadget_MarkDown_Viewer, Topic()\Text)
+      EditEx::SetData(#Gadget_MarkDown_Editor, Index)
+    Else
+      EditEx::SetData(#Gadget_MarkDown_Editor, #PB_Default)  
     EndIf
     
+  Else
+    EditEx::SetData(#Gadget_MarkDown_Editor, #PB_Default)  
   EndIf  
   
   If ListSize(Topic())
@@ -514,6 +524,11 @@ Procedure   SelectLink(Link.s)
       TreeEx::SetState(#Gadget_MarkDown_Tree, Label())
       Markdown::SetText(#Gadget_MarkDown_Viewer, Topic()\Text)
       EditEx::SetText(#Gadget_MarkDown_Editor,   Topic()\Text)
+      EditEx::SetData(#Gadget_MarkDown_Editor, Label())
+      EditEx::Disable(#Gadget_MarkDown_Editor, #False)
+    Else
+      EditEx::SetData(#Gadget_MarkDown_Editor, #PB_Default)
+      EditEx::Disable(#Gadget_MarkDown_Editor, #True)
     EndIf
   
   EndIf  
@@ -529,6 +544,11 @@ Procedure   SelectEntry(Index.i)
     If SelectElement(Topic(), Index)
       EditEx::SetText(#Gadget_MarkDown_Editor,   Topic()\Text)
       Markdown::SetText(#Gadget_MarkDown_Viewer, Topic()\Text)
+      EditEx::SetData(#Gadget_MarkDown_Editor, Index)
+      EditEx::Disable(#Gadget_MarkDown_Editor, #False)
+    Else
+      EditEx::SetData(#Gadget_MarkDown_Editor, #PB_Default)
+      EditEx::Disable(#Gadget_MarkDown_Editor, #True)
     EndIf   
     
   EndIf  
@@ -590,7 +610,7 @@ Procedure.s Load_()
   
   Last$ = AppReg::GetValue(#AppReg, "Last", "Path", GetPathPart(ProgramFilename())) 
   
-  File$ = OpenFileRequester(Lng("Msg_Load"), Last$, "Markdown (*.md)|*.md;*.txt", 0)
+  File$ = OpenFileRequester(Lng("Msg_Load"), Last$, "Markdown (*.jmd)|*.jmd;*.md", 0)
   If File$
     
     Path$ = GetPathPart(File$)
@@ -607,7 +627,7 @@ Procedure.s Load_()
     ResetList(Topic()) 
     
     ListEntries(0)
-    
+
   EndIf
   
   ProcedureReturn GetFilePart(File$)
@@ -624,11 +644,11 @@ Procedure.s Save_(FileName.s, SaveAs.i=#True)
   
   If SaveAs
     
-    File$ = SaveFileRequester(Lng("Msg_Save"), Last$ + FileName, "Markdown (*.md)|*.md;*.txt", 0)
+    File$ = SaveFileRequester(Lng("Msg_Save"), Last$ + FileName, "Markdown (*.jmd)|*.jmd;*.md", 0)
     If File$
       
-      If GetExtensionPart(File$) = "mdh" : File$ = GetPathPart(File$) + GetFilePart(File$, #PB_FileSystem_NoExtension) + ".md" : EndIf
-      If GetExtensionPart(File$) = "" : File$ + ".md" : EndIf
+      If GetExtensionPart(File$) = "mdh" : File$ = GetPathPart(File$) + GetFilePart(File$, #PB_FileSystem_NoExtension) + ".jmd" : EndIf
+      If GetExtensionPart(File$) = "" : File$ + ".jmd" : EndIf
       
       AppReg::SetValue(#AppReg, "Last", "Path", GetPathPart(File$))
       
@@ -669,17 +689,19 @@ Procedure.s New_(FileName.s)
   
   MarkDown::Clear(#Gadget_MarkDown_Viewer)
   EditEx::SetText(#Gadget_MarkDown_Editor, "")
+  EditEx::SetData(#Gadget_MarkDown_Editor, #PB_Default)
+  EditEx::Disable(#Gadget_MarkDown_Editor, #True)
   
   ClearList(Topic())
   
   Last$ = AppReg::GetValue(#AppReg, "Last", "Path", GetPathPart(ProgramFilename()))
   
-  File$ = SaveFileRequester(Lng("Msg_Save"), Last$, "Markdown (*.md)|*.md;*.txt", 0)
+  File$ = SaveFileRequester(Lng("Msg_Save"), Last$, "Markdown (*.jmd)|*.jmd;*.md", 0)
   If File$
     
     Path$ = GetPathPart(File$)
     
-    If GetExtensionPart(File$) = "" : File$ + ".md" : EndIf
+    If GetExtensionPart(File$) = "" : File$ + ".jmd" : EndIf
     
     AppReg::SetValue(#AppReg, "Last", "Path", Path$)
     
@@ -828,7 +850,9 @@ Procedure.i NewEntryWindow(Idx.i=#PB_Default)
                 EndIf
                 
                 ResetList(Topic())
-
+                
+                EditEx::Disable(#Gadget_MarkDown_Editor, #False)
+                
               Else
                 
                 If SelectElement(Topic(), Idx)
@@ -1027,6 +1051,7 @@ If Window_MarkDown()
           Case #Gadget_MarkDown_Bt_Open     ;{ Open document
             FileName$ = Load_()
             EditEx::Disable(#Gadget_MarkDown_Editor,  #False)
+            EditEx::ResetSelection(#Gadget_MarkDown_Editor)
             DisableGadget(#Gadget_MarkDown_Bt_Save,   #False)
             DisableGadget(#Gadget_MarkDown_Bt_Create, #False)
             DisableGadget(#Gadget_MarkDown_Add,       #False)
@@ -1131,9 +1156,9 @@ AppReg::Close(#AppReg)
 
 End
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 572
-; FirstLine = 109
-; Folding = JAIkApKAAAAg
+; CursorPosition = 646
+; FirstLine = 306
+; Folding = JEMiHpAAAAKg
 ; EnableXP
 ; DPIAware
 ; UseIcon = EasyHelp.ico

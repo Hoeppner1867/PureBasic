@@ -3611,7 +3611,7 @@ Module EditEx
               NewPos = CursorPos_(CursorX, CursorY)
               If NewPos 
 
-                If NewPos <> EditEx()\Cursor\Pos
+                If CursorPos <> EditEx()\Cursor\Pos
                   
                   EditEx()\Selection\Pos1 = NewPos
                   EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
@@ -5435,9 +5435,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 3615
+; CursorPosition = 3613
 ; FirstLine = 1223
-; Folding = wHOhAADASN2ECwAEB-CQxk6IuigAHAYABAwnwQQoQg6OEMAQSP3JI+-
+; Folding = wHOhAADASN2ECwAEB-CQxk6IuigAHAYABAwvwQQoQg6OEMAQSP3JI+-
 ; Markers = 970,2495,2564,4647
 ; EnableXP
 ; DPIAware

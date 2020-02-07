@@ -9,10 +9,11 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 04.02.2020
-; 
-; - Bugfix: Abbreviation
+; Last Update: 05.02.2020
 ;
+; - Added:  Color for intended code blocks 
+;
+; - Bugfix: Abbreviation
 ; - Added:  Markdown::Help()
 ; - Added:  Markdown::Requester()
 ;
@@ -86,7 +87,7 @@
 
 DeclareModule MarkDown
   
-  #Version  = 20020402
+  #Version  = 20020500
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -207,7 +208,7 @@ DeclareModule MarkDown
 	;-   DeclareModule
 	;- ===========================================================================
 	
-	Declare.i UsedImages(Markdown.s, List Images.s())
+	Declare.i UsedImages(Markdown.s, Map Images.s())
 	Declare   Convert(MarkDown.s, Type.i, File.s="", Title.s="")
 	Declare   SetImagePath(GNum.i, Path.s)
 	Declare   SetText(GNum.i, Text.s)
@@ -4093,7 +4094,7 @@ Module MarkDown
           If AddElement(MarkDown()\Items())
             MarkDown()\Items()\Type = #Block
             MarkDown()\Items()\BlockQuote = Document()\BlockQuote
-            AddWords_(Document()\String, MarkDown()\Items()\Words(), #Font_Code)
+            AddWords_(Document()\String, MarkDown()\Items()\Words(), #Font_Code, #Code)
           EndIf  
           ;}
         ;{ _____ Fenced Code blocks _____         [4.5]
@@ -4534,6 +4535,8 @@ Module MarkDown
         lX = PosX
         
         Select Words()\Flag
+          Case #Code
+            PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Code)
           Case #Emoji           ;{ Draw emoji  
             If Height <= dpiY(16)
               ImgSize = Height - dpiY(1)
@@ -4684,6 +4687,8 @@ Module MarkDown
         lX = PosX
         
         Select Words()\Flag
+          Case #Code
+            PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Code)  
           Case #Emoji           ;{ Draw emoji  
             If Height <= dpiY(16)
               ImgSize = Height - dpiY(1)
@@ -5799,25 +5804,28 @@ Module MarkDown
 	  
 	EndProcedure  
 	
-	Procedure.i UsedImages(Markdown.s, List Images.s())
-	  
+	Procedure.i UsedImages(Markdown.s, Map Images.s())
+	  Define.s Image$
+
     If AddMapElement(MarkDown(), "Parse")
     
 	    Parse_(MarkDown)
 	    
 	    ForEach MarkDown()\Image()
-	      If AddElement(Images())
-	        If MarkDown()\Path
-	          Images() = MarkDown()\Path + GetFilePart(MarkDown()\Image()\Source)
-	        Else  
-	          Images() = MarkDown()\Image()\Source
-	        EndIf  
-	      EndIf  
+	      
+	      Image$ = GetFilePart(MarkDown()\Image()\Source)
+	      
+        If MarkDown()\Path
+          Images(Image$) = MarkDown()\Path + Image$
+        Else  
+          Images(Image$) = MarkDown()\Image()\Source
+        EndIf
+        
 	    Next
 	    
 	    DeleteMapElement(MarkDown())
 	    
-	    ProcedureReturn ListSize(Images())
+	    ProcedureReturn MapSize(Images())
 	  EndIf
 	  
 	EndProcedure
@@ -7410,7 +7418,7 @@ CompilerIf #PB_Compiler_IsMainFile
     
     CompilerIf MarkDown::#Enable_HelpWindow
       
-      MarkDown::Help(" Help", "Help.mdh", "EasyHelp", MarkDown::#AutoResize)
+      MarkDown::Help(" Help", "Help.mdh", "Module", MarkDown::#AutoResize)
       
     CompilerEndIf
     
@@ -7419,8 +7427,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 84
-; FirstLine = 43
-; Folding = 1AAEAAMAAYAAACrrK--+-PECGAAAA5AADAAFAAABBNCwgACBgAIYQRosUIOiAAIuQkO5AAQAAYA5
+; CursorPosition = 85
+; FirstLine = 44
+; Folding = 1AAEAAMAAYAAACrrK--+-PECGAAAA5AADAAFAAABRMCwgACBgAIQARosUIOjAAIuQkO5AAQAAYA9
 ; EnableXP
 ; DPIAware

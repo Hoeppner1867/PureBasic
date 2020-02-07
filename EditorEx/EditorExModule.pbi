@@ -7,11 +7,10 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 05.02.20
+; Last Update: 06.02.20
 ;
-; Bugfix: Paste / Selection
+; Bugfixes
 ;
-
 
 ;{ ===== MIT License =====
 ;
@@ -138,7 +137,7 @@
 
 DeclareModule EditEx
   
-  #Version  = 20020500
+  #Version  = 20020600
   #ModuleEx = 20010800
   
   ;- ============================================================================
@@ -3611,7 +3610,7 @@ Module EditEx
               NewPos = CursorPos_(CursorX, CursorY)
               If NewPos 
 
-                If NewPos <> EditEx()\Cursor\Pos
+                If CursorPos <> EditEx()\Cursor\Pos
                   
                   EditEx()\Selection\Pos1 = NewPos
                   EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
@@ -3949,7 +3948,7 @@ Module EditEx
     Procedure   EnableAutoSpellCheck(State.i=#True)
 
       ;{ Dictionary is required
-      If ListSize(SpellCheck\Dictionary()) = 0
+      If State And ListSize(SpellCheck\Dictionary()) = 0
         Debug "ERROR: Dictionary is required => LoadSpellCheck\Dictionary()"
         ProcedureReturn #False
       EndIf ;}
@@ -5435,9 +5434,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 3615
-; FirstLine = 1223
-; Folding = wHOhAADASN2ECwAEB-CQxk6IuigAHAYABAwnwQQoQg6OEMAQSP3JI+-
-; Markers = 970,2495,2564,4647
+; CursorPosition = 139
+; FirstLine = 12
+; Folding = wHOhAADASN2ECwAEB-CQxk6IuigAHAYABAwjwaQoQg6OEMAQSP3JI+-
+; Markers = 969,2494,2563,4646
 ; EnableXP
 ; DPIAware

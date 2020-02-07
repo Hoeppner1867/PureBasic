@@ -8,8 +8,10 @@
 ;/ ( based on 'PurePDF' by LuckyLuke / ABBKlaus / normeus )
 ;/
 
-; Last Update: 30.01.2020
+; Last Update: 07.02.2020
 ; 
+; Bugfixes: Annotation Labels
+;
 ; Added: PDF::GetStringHeight()
 ;
 
@@ -952,12 +954,16 @@ Module PDF
     File.s
   EndStructure ;}
   
+  Structure PDF_Labels_Obj_Structure ;{ PDF()\Labels()\Object()\...
+    Annot.s
+    Page.s
+  EndStructure
+  
   Structure PDF_Labels_Structure     ;{ PDF()\Labels(label)\...
     Idx.i
-    objAnnot.s
-    objPage.s
     ptWidth.f
     ptHeight.f
+    List Object.PDF_Labels_Obj_Structure()
   EndStructure ;}
   
   Structure PDF_Local_Structure       ;{ PDF()\Local\...
@@ -2187,8 +2193,10 @@ Module PDF
       ptHeight = Height * PDF()\ScaleFactor
       
       objNew_()
-      PDF()\Labels(Label)\objAnnot = strObj_(PDF()\objNum)
-      PDF()\Labels(Label)\objPage  = PDF()\objPage
+      If AddElement(PDF()\Labels(Label)\Object())
+        PDF()\Labels(Label)\Object()\Annot = strObj_(PDF()\objNum)
+        PDF()\Labels(Label)\Object()\Page  = PDF()\objPage
+      EndIf
       objStrg = "/Type /Annot /Subtype /Link" + #LF$
       objStrg + "/Rect [" + strF_(ptX, 2) + " " + strF_(ptY, 2) + " " + strF_(ptX + ptWidth, 2) + " " + strF_(ptY - ptHeight, 2) + "]"+ #LF$
       objOutDictionary_(objStrg, #LF$)
@@ -3780,21 +3788,25 @@ Module PDF
         
         If SelectElement(PDF()\Annots(), PDF()\Labels()\Idx)
           
-          objPage = PDF()\Labels()\objPage
-          If AddElement(PDF()\PageAnnots(objPage)\Annot())
-            PDF()\PageAnnots(objPage)\Annot() = PDF()\Labels()\objAnnot
-          EndIf 
+          ForEach PDF()\Labels()\Object()
+            
+            objPage = PDF()\Labels()\Object()\Page
+            If AddElement(PDF()\PageAnnots(objPage)\Annot())
+              PDF()\PageAnnots(objPage)\Annot() = PDF()\Labels()\Object()\Annot
+            EndIf 
+            
+            Select PDF()\Annots()\Type
+              Case #Annot_GoTo
+                If PDF()\Annots()\Y > 0
+                  ptY = PDF()\Labels()\ptHeight - (PDF()\Annots()\Y * PDF()\ScaleFactor)
+                  objOutDictionary_("/Dest [" + PDF()\Annots()\objDest + " /XYZ 0 " + Str(ptY) + " 0]", "", #LF$, #False, PDF()\Labels()\Object()\Annot)
+                Else
+                  objOutDictionary_("/Dest [" + PDF()\Annots()\objDest + "]", "", #LF$, #False, PDF()\Labels()\Object()\Annot)
+                EndIf
+            EndSelect
+            
+          Next
           
-          Select PDF()\Annots()\Type
-            Case #Annot_GoTo
-              If PDF()\Annots()\Y > 0
-                ptY = PDF()\Labels()\ptHeight - (PDF()\Annots()\Y * PDF()\ScaleFactor)
-                objOutDictionary_("/Dest [" + PDF()\Annots()\objDest + " /XYZ 0 " + Str(ptY) + " 0]", "", #LF$, #False, PDF()\Labels()\objAnnot)
-              Else
-                objOutDictionary_("/Dest [" + PDF()\Annots()\objDest + "]", "", #LF$, #False, PDF()\Labels()\objAnnot)
-              EndIf
-          EndSelect
-        
         EndIf
         
       Next
@@ -6967,9 +6979,10 @@ CompilerEndIf
 
 ;- ========================
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 12
-; Folding = MAwiA5AegAQAAABAAhAgIECIAAgBAAAAAAHAAzgIAEnoAAYEcQwpgSKQAAgghJgACwDEAA5
-; Markers = 584,1015,2364,2464,3770,3836
+; CursorPosition = 3794
+; FirstLine = 810
+; Folding = YAQwAoAegAQAAAAAACBARIEQACADQCAAAAGCAmRxBIORBAxI5ggTBlYgAAAlATAhEAEIAAw
+; Markers = 586,1021,2194,2372,2472,3778,3848
 ; EnableXP
 ; DPIAware
 ; EnablePurifier

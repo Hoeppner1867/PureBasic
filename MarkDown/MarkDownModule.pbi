@@ -9,10 +9,11 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 04.02.2020
-; 
-; - Bugfix: Abbreviation
+; Last Update: 05.02.2020
 ;
+; - Added:  Color for intended code blocks 
+;
+; - Bugfix: Abbreviation
 ; - Added:  Markdown::Help()
 ; - Added:  Markdown::Requester()
 ;
@@ -86,7 +87,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20020402
+  #Version  = 20020500
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -4093,7 +4094,7 @@ Module MarkDown
           If AddElement(MarkDown()\Items())
             MarkDown()\Items()\Type = #Block
             MarkDown()\Items()\BlockQuote = Document()\BlockQuote
-            AddWords_(Document()\String, MarkDown()\Items()\Words(), #Font_Code)
+            AddWords_(Document()\String, MarkDown()\Items()\Words(), #Font_Code, #Code)
           EndIf  
           ;}
         ;{ _____ Fenced Code blocks _____         [4.5]
@@ -4534,6 +4535,8 @@ Module MarkDown
         lX = PosX
         
         Select Words()\Flag
+          Case #Code
+            PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Code)
           Case #Emoji           ;{ Draw emoji  
             If Height <= dpiY(16)
               ImgSize = Height - dpiY(1)
@@ -4684,6 +4687,8 @@ Module MarkDown
         lX = PosX
         
         Select Words()\Flag
+          Case #Code
+            PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Code)  
           Case #Emoji           ;{ Draw emoji  
             If Height <= dpiY(16)
               ImgSize = Height - dpiY(1)
@@ -7422,8 +7427,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 5822
-; FirstLine = 1463
-; Folding = 1AAEAAMAAYAAACrrK--+-PECGAAAA5AADAAFAAABBNCwgACBgAIYQRosUIOjAAIuQkO5AAQAAYA9
+; CursorPosition = 89
+; FirstLine = 36
+; Folding = 1AAEAAMAAYAAACrrK--+-PECGAAAA5AADAAFAAABRMCwgACBgAIQARosUIOjAAIuQkO5AAQAAYA9
 ; EnableXP
 ; DPIAware
