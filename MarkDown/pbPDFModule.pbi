@@ -6038,7 +6038,7 @@ Module PDF
       EndSelect
     EndIf
     
-  	AddPage_()
+  	If Page : AddPage_() : EndIf
   	
   	StartTOC = PDF()\pageNum
   	
@@ -6972,9 +6972,9 @@ CompilerEndIf
 
 ;- ========================
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 6045
-; FirstLine = 1373
-; Folding = MAwiA5AegAQAAABAAhAgIECIAAgBAAAAAAHAAzgIAEnoAAYEcQwpgSKQAAgghJgBAwDEAA9
+; CursorPosition = 6040
+; FirstLine = 1480
+; Folding = MAwiA5AegAQAAABAAhAgIECIAAgBAAAAAAHAAzgIAEnoAAYEcQwpgSKQAAgghJghAwDEAA9
 ; Markers = 584,1015,2364,2464,3770,3836
 ; EnableXP
 ; DPIAware
