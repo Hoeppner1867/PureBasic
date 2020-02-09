@@ -11,9 +11,10 @@
 
 ; Last Update: 09.02.2020
 ;
+; - Bugfix: ColSpan "||| Column 3 |"
+;
 ; - Added: Table of Contents - "{{TOC}}"
 ;
-; - Bugfix: ColSpan "|| Column 2 |"
 ; - Adjustments and optimizations for HTML
 ; - Added:  Color for intended code blocks 
 ; - Added:  Markdown::Help()
@@ -91,7 +92,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20020900
+  #Version  = 20020901
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -2664,6 +2665,7 @@ Module MarkDown
   			          
   			          LastX = #PB_Default
   			          RowY  = 0
+  			          LastWidth = 0
   			          
   			          Y = PDF::GetPosY(PDF)
 
@@ -2705,26 +2707,27 @@ Module MarkDown
                       Num$ = Str(c)
                       
                       X = ColX(Str(c))
-                      
-                      If MarkDown()\Table()\Row()\Col(Str(c))\Span > 1
-                        colWidth = GetSpanWidth_(c, MarkDown()\Table()\Row()\Col(Str(c))\Span, #True)
-                      Else
-                        colWidth = mm_(MarkDown()\Table()\Column(Str(c))\Width) + 4
-                      EndIf
-                      
-                      If MarkDown()\Table()\Row()\Col(Num$)\Span = 0 Or LastX >= 0 ;{ ColSpan
+
+                      If MarkDown()\Table()\Row()\Col(Num$)\Span = 0 ;{ ColSpan
  
                         If c=1
                           LastX = X
                           LastWidth = GetSpanWidth_(1, MarkDown()\Table()\Row()\Col("2")\Span, #True)
                           Continue
                         ElseIf LastX >= 0
-                          X = LastX
-                          colWidth = LastWidth
-                          LastX = #PB_Default
-                        Else
-                          Continue
+                          LastWidth = GetSpanWidth_(1, MarkDown()\Table()\Row()\Col(Str(c + 1))\Span, #True)
                         EndIf
+                        
+                        Continue
+                        
+                      ElseIf LastX >= 0
+                        X = LastX
+                        colWidth = LastWidth
+                        LastX = #PB_Default
+                      ElseIf MarkDown()\Table()\Row()\Col(Str(c))\Span > 1
+                        colWidth = GetSpanWidth_(c, MarkDown()\Table()\Row()\Col(Str(c))\Span, #True)
+                      Else
+                        colWidth = mm_(MarkDown()\Table()\Column(Str(c))\Width) + 4
                         ;}
                       EndIf 
                       
@@ -3712,7 +3715,7 @@ Module MarkDown
     ; -------------------------------------------------------------------------
     Define.i r, Rows, Pos, sPos, ePos, nPos, Length, Left, Right
     Define.i NewLine, Type,  BlockQuote, StartNum, Indent, Counter
-    Define.i c, Column, Cols, ListIdx
+    Define.i c, Column, Cols, ListIdx, ColSpan 
     Define.s Row$, tRow$, String$, Char$, Start$, Close$, Label$, Col$, Num$
     Define   Lists.List_Structure
     
@@ -4530,7 +4533,8 @@ Module MarkDown
           If ListSize(MarkDown()\Table())
             
             Cols = CountString(String$, "|") + 1
-
+            ColSpan = 0
+            
             If Left(Trim(String$), 2) = "--" Or Left(Trim(String$), 3) = ":--" ;{ Header 
               
               If FirstElement(MarkDown()\Table()\Row())
@@ -4567,11 +4571,11 @@ Module MarkDown
                 MarkDown()\Table()\Row()\Type = #Table
                 
                 For c=1 To Cols
-              
                   Col$ = StringField(String$, c, "|")
                   If Col$ = ""
                     If c=1
-                      MarkDown()\Table()\Row()\Col("2")\Span = 1
+                      ColSpan = CountSpan_(String$, 1) + 1
+                      MarkDown()\Table()\Row()\Col(Str(ColSpan))\Span = 1
                     Else  
                       MarkDown()\Table()\Row()\Col(Num$)\Span + 1
                     EndIf  
@@ -5313,7 +5317,7 @@ Module MarkDown
   EndProcedure  
   
   Procedure.i DrawTable_(Index.i, X.i, Y.i, BlockQuote.i) 
-    Define.i c, PosX, PosY, ColY, OffSetY, OffSetBQ, colWidth, colHeight, LastX, LastWidth
+    Define.i c, PosX, PosY, ColY, OffSetY, OffSetBQ, colWidth, colHeight, LastX, LastWidth, SpanPos
     Define.s Num$
     
     NewMap ColX.i()
@@ -5339,8 +5343,12 @@ Module MarkDown
       
       ForEach MarkDown()\Table()\Row()
         
-        LastX = #PB_Default
-        PosY  = Y
+        
+        PosY = Y
+        
+        SpanPos   = 1
+        LastX     = #PB_Default
+        LastWidth = 0
         
         For c=1 To MarkDown()\Table()\Cols
           
@@ -5348,26 +5356,30 @@ Module MarkDown
           
           PosX = ColX(Num$)
           
-          If MarkDown()\Table()\Row()\Col(Num$)\Span > 1
-            colWidth = GetSpanWidth_(c, MarkDown()\Table()\Row()\Col(Num$)\Span)
-          Else
-            colWidth = MarkDown()\Table()\Column(Num$)\Width
-          EndIf
-          
-          If MarkDown()\Table()\Row()\Col(Num$)\Span = 0 Or LastX >= 0
+          If MarkDown()\Table()\Row()\Col(Num$)\Span = 0     ;{ Ignored cell
             
-            If c=1
+            If c = 1
               LastX     = PosX
               LastWidth = GetSpanWidth_(1, MarkDown()\Table()\Row()\Col("2")\Span)
-              Continue
             ElseIf LastX >= 0
-              PosX     = LastX
-              colWidth = LastWidth
-              LastX = #PB_Default
-            Else
-              Continue
+              LastWidth = GetSpanWidth_(1, MarkDown()\Table()\Row()\Col(Str(c + 1))\Span)
             EndIf
             
+            Continue
+            ;}
+          ElseIf LastX >= 0                                  ;{ Colspan & Column 1
+            
+            PosX     = LastX
+            colWidth = LastWidth
+            
+            LastX = #PB_Default
+            LastWidth = 0
+            ;}
+          ElseIf MarkDown()\Table()\Row()\Col(Num$)\Span > 1 ;{ Colspan
+            colWidth = GetSpanWidth_(c, MarkDown()\Table()\Row()\Col(Num$)\Span)
+            ;}
+          Else
+            colWidth = MarkDown()\Table()\Column(Num$)\Width
           EndIf 
 
           colHeight = MarkDown()\Table()\Row()\Height + dpiX(6)
@@ -8023,12 +8035,12 @@ CompilerIf #PB_Compiler_IsMainFile
       ;}
     Case 6   ;{ Table
       Text$ = "### Table ###"  + #LF$
-      Text$ + "| Syntax    | Description   |" + #LF$
-      Text$ + "| :-------: | ------------: |" + #LF$
-      Text$ + "| *Header*  | Title         |" + #LF$ 
-      Text$ + "|| Long cell 0              |" + #LF$
-      Text$ + "| Long cell                ||" + #LF$
-      Text$ + "| Paragraph | *Text*        |" + #LF$ 
+      Text$ + "| Syntax    | Description   | Column 3 |" + #LF$
+      Text$ + "| :-------- | :-----------: | -------: |" + #LF$
+      Text$ + "| *Header*  | Title         | Subject  |" + #LF$ 
+      Text$ + "||| Very long cell                     |" + #LF$
+      Text$ + "| Cell      | Long cell               ||" + #LF$
+      Text$ + "| Paragraph | **Text**      | *Table * |" + #LF$ 
       ;}
     Case 7   ;{ Footnote
       Text$ = "### Footnotes ###" + #LF$ + #LF$
@@ -8233,9 +8245,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 16
-; FirstLine = 189
-; Folding = QBAgJAAAAAAAAAAAAQIAAAYEEAEAgAAAwAAGZACAABEEwCAYAAGCAAAAEwAgAAgDIAAAGFi5gACwAUCGACMA5
-; Markers = 2644,5314
+; CursorPosition = 7968
+; FirstLine = 833
+; Folding = wBUgJAAAAAAAAAAAAQIAAAYEAAEApAAAAAAGZAKAABEEwiAYAAGCAAgAgAGAEAAcABAAgoQEHEQAGgSwgAgBA-
+; Markers = 2645,5318
 ; EnableXP
 ; DPIAware
