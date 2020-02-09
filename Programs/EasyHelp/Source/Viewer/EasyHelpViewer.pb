@@ -176,12 +176,8 @@ Procedure.s Load_(File$)
   
   ForEach Topic()
     If Topic()\Label : Label(Topic()\Label) = ListIndex(Topic()) : EndIf
-  Next  
-  
-  
-  ForEach Topic()
     TreeEx::AddItem(#Gadget_MarkDown_Tree, TreeEx::#LastRow, Topic()\Titel, Topic()\Label, #False, Topic()\Level)
-  Next
+  Next  
   
   If FirstElement(Topic())
     TreeEx::SetState(#Gadget_MarkDown_Tree, 0)
@@ -211,7 +207,7 @@ If Window_MarkDown()
   
   Repeat
     Select WaitWindowEvent()
-      Case #PB_Event_CloseWindow   ;{ Close Window
+      Case #PB_Event_CloseWindow            ;{ Close Window
         Select EventWindow()
           Case #Window_MarkDown
             quitWindow = #True
@@ -244,9 +240,9 @@ EndIf
 
 End
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 209
-; FirstLine = 113
-; Folding = ZK5
+; CursorPosition = 210
+; FirstLine = 88
+; Folding = 6Cx
 ; EnableXP
 ; DPIAware
 ; UseIcon = EasyHelp.ico

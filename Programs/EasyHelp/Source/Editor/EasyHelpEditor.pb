@@ -980,8 +980,8 @@ Procedure   SettingsWindow()
   
 EndProcedure  
 
-Procedure   ConvertPDFWindow()
-  Define.s Last$, File$, Title$, Orientation$, Format$
+Procedure.s ConvertPDFWindow()
+  Define.s Last$, File$, Title$, Orientation$, Format$, FilePDF$
   Define.i quitWindow = #False
   
   If Window_Export_PDF()
@@ -1039,7 +1039,7 @@ Procedure   ConvertPDFWindow()
                     Format$ = PDF::#Format_A6
                 EndSelect    
 
-                Markdown::Help2PDF(Title$, File$, "", Orientation$, Format$)
+                FilePDF$ = Markdown::Help2PDF(Title$, File$, "", Orientation$, Format$)
                 
               EndIf  
               
@@ -1051,11 +1051,12 @@ Procedure   ConvertPDFWindow()
     
     CloseWindow(#Window_Export_PDF)
   EndIf
-
+  
+  ProcedureReturn FilePDF$
 EndProcedure
 
-Procedure   ConvertHTMLWindow()
-  Define.s Last$, File$, Title$
+Procedure.s ConvertHTMLWindow()
+  Define.s Last$, File$, Title$, FileHTML$
   Define.i quitWindow = #False
   
   NewMap Style.s()
@@ -1115,7 +1116,7 @@ Procedure   ConvertHTMLWindow()
               
               If FileSize(File$) > 0
                 
-                Markdown::Help2HTML(GetGadgetText(#Gadget_Export_HTML_SG_Title), File$, Style())
+                FileHTML$ = Markdown::Help2HTML(GetGadgetText(#Gadget_Export_HTML_SG_Title), File$, Style())
                 
                 If CreateJSON(#JSON)
                   InsertJSONMap(JSONValue(#JSON), Style())
@@ -1133,6 +1134,7 @@ Procedure   ConvertHTMLWindow()
     CloseWindow(#Window_Export_HTML)
   EndIf
   
+  ProcedureReturn FileHTML$
 EndProcedure  
 
 Procedure.s TableWindow()
@@ -1289,7 +1291,7 @@ EndProcedure
 
 Define.i Current, Selected
 Define.i quitWindow = #False
-Define.s FileName$, file$, Last$, Code$, String$, Link$, Table$
+Define.s FileName$, File$, Last$, Code$, String$, Link$, Table$, Export$
 Define   *Relative
 
 AppReg::Open(#AppReg, "EasyHelpEditor.reg", "EasyHelp", "Thorsten Hoeppner")
@@ -1493,10 +1495,12 @@ If Window_MarkDown()
             EndIf            
             ;}
           Case #Gadget_MarkDown_Bt_PDF      ;{ Convert to PDF
-            ConvertPDFWindow()
+            Export$ = ConvertPDFWindow()
+            If Export$ : RunProgram(Export$) : EndIf
             ;}
           Case #Gadget_MarkDown_Bt_HTML     ;{ Convert to HTML
-            ConvertHTMLWindow()
+            Export$ = ConvertHTMLWindow()
+            If Export$ : RunProgram(Export$) : EndIf
             ;}
           Case #Gadget_MarkDown_Bt_Preview  ;{ Preview Markdown
             
@@ -1585,8 +1589,9 @@ AppReg::Close(#AppReg)
 
 End
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 11
-; Folding = IAAAhApAA5EAAAAA3-
+; CursorPosition = 1054
+; FirstLine = 165
+; Folding = IAAAhApBA5EAAAAAA-
 ; EnableXP
 ; DPIAware
 ; UseIcon = EasyHelp.ico
