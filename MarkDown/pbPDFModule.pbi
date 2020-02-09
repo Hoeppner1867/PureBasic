@@ -482,7 +482,7 @@ DeclareModule PDF
   Declare   HeaderProcedure(*ProcAddress, *StructAddress=#Null)
   Declare   Image(ID.i, FileName.s, X.f=#PB_Default, Y.f=#PB_Default, Width.f=#PB_Default, Height.f=#PB_Default, Link.i=#NoLink)
   Declare   ImageMemory(ID.i, ImageName.s, *Memory, Size.i, Format.i, X.f=#PB_Default, Y.f=#PB_Default, Width.f=#PB_Default, Height.f=#PB_Default, Link.i=#NoLink)
-  Declare   InsertTOC(ID.i, Page.i=1, Label.s="", LabelFontSize.i=20, EntryFontSize.i=10, FontFamily.s="Times")
+  Declare   InsertTOC(ID.i, Page.i=0, Title.s="Local", TitleFontSize.i=20, EntryFontSize.i=10, FontFamily.s="Times")
   Declare   Ln(ID.i, Height.f=#PB_Default)
   Declare.s MultiCell(ID.i, Text.s, Width.f, Height.f, Border.i=#False, Align.s="", Fill.i=#False, Indent.i=0, maxLine.i=0)
   Declare   MultiCellList(ID.i, Text.s, Width.f, Height.f, Border.i=0, Align.s="J", Fill.i=#False, Char.s=#Bullet$)
@@ -6015,7 +6015,7 @@ Module PDF
     
   EndProcedure
 
-  Procedure   InsertTOC(ID.i, Page.i=1, Label.s="", LabelFontSize.i=20, EntryFontSize.i=10, FontFamily.s="Times")
+  Procedure   InsertTOC(ID.i, Page.i=0, Title.s="Local", TitleFontSize.i=20, EntryFontSize.i=10, FontFamily.s="Times")
     Define.i StartTOC, Level, strgWidth, i, j, Num, NumTOC
     Define.f Width, Height, PageCellSize
     Define.s Style$, String$, Page$
@@ -6023,18 +6023,18 @@ Module PDF
     
     PDF()\Numbering = #False
     
-    If Label = ""
+    If Title = "Local"
       Select PDF()\Local\Language
         Case "DE", "AT"
-          Label = "Inhaltsverzeichnis"
+          Title = "Inhaltsverzeichnis"
         Case "FR"
-          Label = "Table des matières"
+          Title = "Table des matières"
         Case "ES"
-          Label = "Table des matières"
+          Title = "Table des matières"
         Case "IT"
-          Label = "Indice di contenuto"
+          Title = "Indice di contenuto"
         Default
-          Label = "Table of Contents"
+          Title = "Table of Contents"
       EndSelect
     EndIf
     
@@ -6042,10 +6042,12 @@ Module PDF
   	
   	StartTOC = PDF()\pageNum
   	
-  	SetFont_(FontFamily, "B", LabelFontSize)
-    Cell_(0, 5, Label, 0, 1, #CenterAlign)
-    Ln_(10)
-  	
+  	If Title
+  	  SetFont_(FontFamily, "B", TitleFontSize)
+      Cell_(0, 5, Title, 0, 1, #CenterAlign)
+      Ln_(10)
+    EndIf
+    
     ForEach PDF()\TOC()
       
       ;{ level indentation
@@ -6069,6 +6071,7 @@ Module PDF
      	; Filling dots
     	SetFont_(FontFamily, "", EntryFontSize)
     	
+    	
     	Page$        = Str(PDF()\TOC()\Page)
     	PageCellSize = GetStringWidth_(Page$) + 2
     	
@@ -6079,17 +6082,19 @@ Module PDF
    		Cell_(PageCellSize , PDF()\Font\Size + 2 , Page$, 0, 1, "R")
    		
   	Next
+  	
+  	If Page
+    	*Page = SelectElement(PDF()\Pages(), Page)
+    	If SelectElement(PDF()\Pages(), PDF()\pageNum)
+    	  If *Page
+    	    MoveElement(PDF()\Pages(), #PB_List_Before, *Page)
+    	  EndIf
+    	EndIf
+    EndIf
     
-  	*Page = SelectElement(PDF()\Pages(), Page)
-  	If SelectElement(PDF()\Pages(), PDF()\pageNum)
-  	  If *Page
-  	    MoveElement(PDF()\Pages(), #PB_List_Before, *Page)
-  	  EndIf
-  	EndIf
- 
   EndProcedure
 
-  Procedure   Ln(ID.i, Height.f=#PB_Default)                          ; [*]
+  Procedure   Ln(ID.i, Height.f=#PB_Default)
     
     If FindMapElement(PDF(), Str(ID))
       
@@ -6099,7 +6104,7 @@ Module PDF
     
   EndProcedure    
     
-  Procedure.s MultiCell(ID.i, Text.s, Width.f, Height.f, Border.i=#False, Align.s="", Fill.i=#False, Indent.i=0, maxLine.i=0) ; [*]
+  Procedure.s MultiCell(ID.i, Text.s, Width.f, Height.f, Border.i=#False, Align.s="", Fill.i=#False, Indent.i=0, maxLine.i=0)
     
     If FindMapElement(PDF(), Str(ID))
       
@@ -6109,7 +6114,7 @@ Module PDF
     
   EndProcedure
   
-  Procedure   MultiCellList(ID.i, Text.s, Width.f, Height.f, Border.i=#False, Align.s="J", Fill.i=#False, Char.s=#Bullet$)    ; [*]
+  Procedure   MultiCellList(ID.i, Text.s, Width.f, Height.f, Border.i=#False, Align.s="J", Fill.i=#False, Char.s=#Bullet$)
     Define.f CharWidth, LastX
     
     If FindMapElement(PDF(), Str(ID))
@@ -6126,7 +6131,7 @@ Module PDF
     
   EndProcedure
   
-  Procedure   PlaceText(ID.i, Text.s, X.f=#PB_Default, Y.f=#PB_Default)            ; [*]
+  Procedure   PlaceText(ID.i, Text.s, X.f=#PB_Default, Y.f=#PB_Default)
     Define.s sStrg, eStrg
     Define.i i, txtLen
     Define   Stream.Memory_Structure
@@ -6159,7 +6164,7 @@ Module PDF
     
   EndProcedure        
   
-  Procedure   Rotate(ID.i, Angle.f, X.f=#PB_Default, Y.f=#PB_Default) ; [*]
+  Procedure   Rotate(ID.i, Angle.f, X.f=#PB_Default, Y.f=#PB_Default)
     Define.f c, s, cx, cy
     Define.s objStrg = ""
     
@@ -6967,8 +6972,9 @@ CompilerEndIf
 
 ;- ========================
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 12
-; Folding = MAwiA5AegAQAAABAAhAgIECIAAgBAAAAAAHAAzgIAEnoAAYEcQwpgSKQAAgghJgACwDEAA5
+; CursorPosition = 6045
+; FirstLine = 1373
+; Folding = MAwiA5AegAQAAABAAhAgIECIAAgBAAAAAAHAAzgIAEnoAAYEcQwpgSKQAAgghJgBAwDEAA9
 ; Markers = 584,1015,2364,2464,3770,3836
 ; EnableXP
 ; DPIAware

@@ -11,6 +11,7 @@
       <element key="Link">Link</element>
       <element key="Left">Links</element>
       <element key="Bulb">Glühbirne</element>
+      <element key="Title_ConvertHTML">Konvertiere nach HTML</element>
       <element key="Image">Bild</element>
       <element key="Pencil">Stift</element>
       <element key="Phone">Telefon</element>
@@ -49,6 +50,7 @@
       <element key="Msg_Save">Bitte Datei zum Speichern auswählen</element>
       <element key="Portrait">Hochformat</element>
       <element key="Magnifier">Lupe</element>
+      <element key="ChangeStyle">Ändere Style</element>
       <element key="Title_ConvertPDF">Konvertiere nach PDF</element>
       <element key="Headings">Überschriften</element>
       <element key="Date">Termin</element>
@@ -76,6 +78,7 @@
       <element key="Link">Lien</element>
       <element key="Left">Gauche</element>
       <element key="Bulb">Ampoule</element>
+      <element key="Title_ConvertHTML">Convertir en HTML</element>
       <element key="Image">Image</element>
       <element key="Pencil">Stylo</element>
       <element key="Phone">Téléphone</element>
@@ -114,6 +117,7 @@
       <element key="Msg_Save">Veuillez sélectionner le fichier à enregistrer</element>
       <element key="Portrait">Portrait</element>
       <element key="Magnifier">Loupe</element>
+      <element key="ChangeStyle">Modifier style</element>
       <element key="Title_ConvertPDF">Convertir en PDF</element>
       <element key="Headings">Rubriques</element>
       <element key="Date">Date</element>
@@ -141,6 +145,7 @@
       <element key="Link">Link</element>
       <element key="Left">Left</element>
       <element key="Bulb">Bulb</element>
+      <element key="Title_ConvertHTML">Convert to HTML</element>
       <element key="Image">Image</element>
       <element key="Pencil">Pencil</element>
       <element key="Phone">Phone</element>
@@ -179,6 +184,7 @@
       <element key="Msg_Save">Please select file to save</element>
       <element key="Portrait">Portrait</element>
       <element key="Magnifier">Magnifier</element>
+      <element key="ChangeStyle">Change Style</element>
       <element key="Title_ConvertPDF">Convert to PDF</element>
       <element key="Headings">Headings</element>
       <element key="Date">Date</element>

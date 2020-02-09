@@ -19,6 +19,8 @@
 ; - Added:  Markdown::Requester()
 ;
 
+; TODO: {{TOC}} / [?Glossary] 
+
 ;{ ===== MIT License =====
 ;
 ; Copyright (c) 2019 Thorsten Hoeppner
@@ -325,6 +327,7 @@ Module MarkDown
     #Underline
     #Unordered
     #AutoLink
+    #TOC
   EndEnumeration ;}
   
   Enumeration 1     ;{ Font
@@ -1538,6 +1541,9 @@ Module MarkDown
               ;}
     	      Case #Link         ;{ Links
     	        
+    	        ; Take me to <a href="#pookie">pookie</a>
+              ; <a name="pookie">this is pookie</a>
+    	        
     	        If SelectElement(MarkDown()\Link(), Words()\Index)
               
                 If MarkDown()\Link()\Label
@@ -2166,7 +2172,17 @@ Module MarkDown
       
       ProcedureReturn OffsetX
     EndProcedure
-
+    
+    Procedure.s StringPDF_(List Words.Words_Structure())
+  	  Define.s Text$
+  	  
+  	  ForEach Words()
+  	    Text$ + Words()\String
+  	  Next
+  	  
+  	  ProcedureReturn Text$
+  	EndProcedure
+    
     Procedure.i RowPDF_(PDF.i, X.i, BlockQuote.i, List Words.Words_Structure(), ColWidth.i=#False, Align.s="L", ID.s="")
       Define.i PosX, PosY, Width, Height, Font, TextWidth, ImgSize, Image, WordIdx
       Define.i OffSetX, OffSetY, OffSetBQ, LinkPDF
@@ -2379,6 +2395,8 @@ Module MarkDown
           
           Select MarkDown()\Items()\Type
             Case #Heading          ;{ Heading
+              
+              PDF::AddEntryTOC(PDF, StringPDF_(MarkDown()\Items()\Words()))
               
               If MarkDown()\Items()\ID
                 RowPDF_(PDF, 10, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words(), #False, "L", MarkDown()\Items()\ID)
@@ -2640,6 +2658,9 @@ Module MarkDown
               EndIf 
             
               PDF::Ln(PDF, 3)
+              ;}
+            Case #TOC              ;{ Table of Contents
+              InsertTOC(PDF)
               ;}
             Default                ;{ Text
               RowPDF_(PDF, 10, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words())
@@ -4050,6 +4071,15 @@ Module MarkDown
         EndIf
         ;}
         
+        ;{ _____ TOC _____
+        If Left(tRow$, 7) = "{{TOC}}"
+          If AddElement(Document())
+            Document()\Type = #TOC
+            Continue
+          EndIf
+        EndIf  
+        ;}
+        
         ;{ _____ Default _____
         If ListSize(Document()) = 0 Or Document()\Type <> #Parse Or NewLine
           If AddElement(Document())
@@ -4445,6 +4475,12 @@ Module MarkDown
             
           EndIf
           ;}
+        ;{ _____ TOC _____
+        Case #TOC
+          If AddElement(MarkDown()\Items())
+            MarkDown()\Items()\Type = #TOC
+          EndIf
+         ;}
         Default
           Row$ = Document()\String
           ;{ _____ Link reference definitions _____ [4.7] 
@@ -6714,7 +6750,10 @@ Module MarkDown
             PDF::SetMargin(PDF, PDF::#TopMargin,  10)
             PDF::SetMargin(PDF, PDF::#LeftMargin, 10)
             PDF::SetMargin(PDF, PDF::#CellMargin,  0)
-  
+            
+            PDF::SetPageNumbering(PDF, #True)
+            PDF::EnableTOCNums(PDF, #True)
+            
             ForEach Item()
               
               PDF::AddPage(PDF)
@@ -7626,7 +7665,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
   
-  #Example = 6
+  #Example = 31
   
   ; === Gadget ===
   ;  1: Headings
@@ -7905,7 +7944,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 13
-; Folding = wBAgBAAAAAAAAQCgFAAAAACAAAAMAAAMAgFGgEAQAgAWQYAAjAQAAIoBQAKEAAAAQTIixBISDAADAAYA+
+; CursorPosition = 1544
+; FirstLine = 314
+; Folding = wBAgJAAAAAAAAACgF1AAJACBAgAQAAAwAAWYAaAAAAEwAAGAwIAEAACaAEgCBAAAA1EiYMAi1AAwAAAGg-
 ; EnableXP
 ; DPIAware
