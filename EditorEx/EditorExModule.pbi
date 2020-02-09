@@ -7,10 +7,11 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 06.02.20
+; Last Update: 09.02.20
 ;
-; Bugfixes
+; Bugfix: Mouse selection
 ;
+
 
 ;{ ===== MIT License =====
 ;
@@ -137,7 +138,7 @@
 
 DeclareModule EditEx
   
-  #Version  = 20020600
+  #Version  = 20020900
   #ModuleEx = 20010800
   
   ;- ============================================================================
@@ -3612,7 +3613,7 @@ Module EditEx
 
                 If CursorPos <> EditEx()\Cursor\Pos
                   
-                  EditEx()\Selection\Pos1 = NewPos
+                  EditEx()\Selection\Pos1 = CursorPos
                   EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
                   EditEx()\Selection\Flag = #Selected
                   EditEx()\Mouse\Status   = #Mouse_Select
@@ -4553,8 +4554,8 @@ Module EditEx
     EndIf
     
   EndProcedure 
-  
-    Procedure.q GetData(GNum.i)
+ 
+  Procedure.q GetData(GNum.i)
 	  
 	  If FindMapElement(EditEx(), Str(GNum))
 	    ProcedureReturn EditEx()\Quad
@@ -5434,9 +5435,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 139
-; FirstLine = 12
-; Folding = wHOhAADASN2ECwAEB-CQxk6IuigAHAYABAwjwaQoQg6OEMAQSP3JI+-
-; Markers = 969,2494,2563,4646
+; CursorPosition = 3615
+; FirstLine = 1235
+; Folding = wHOhAADASN2ECwAEB-CQxk6IuigAHAYABgwCwCQoQgREEAAQSP3JI+-
+; Markers = 970,2495,2564,4647
 ; EnableXP
 ; DPIAware

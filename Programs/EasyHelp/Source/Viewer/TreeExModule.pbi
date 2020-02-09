@@ -11,8 +11,10 @@
 ;/ © 2019  by Thorsten Hoeppner (11/2019)
 ;/
 
-; Last Update: 02.02.2020
-
+; Last Update: 09.02.2020
+;
+; - Bugfixes
+; 
 
 ;{ ===== MIT License =====
 ;
@@ -79,7 +81,7 @@
 
 DeclareModule TreeEx
   
-  #Version  = 20020200
+  #Version  = 20020900
   #ModuleEx = 19112002
   
   #Enable_ProgressBar = #True
@@ -784,7 +786,7 @@ Module TreeEx
   EndProcedure
   
 	Procedure   AdjustScrollBars_()
-    Define.i Width, WidthOffset, PageRows
+    Define.i Width, WidthOffset, PageRows, Result
     
     If IsGadget(TreeEx()\VScrollNum) ;{ Vertical ScrollBar
       
@@ -794,12 +796,13 @@ Module TreeEx
         
         If TreeEx()\VScroll\Hide
           If TreeEx()\HScroll\Hide
-            ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum) - 2)
+            ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 1, 1, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum) - 2)
           Else
-            ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize - 2)
+            ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 1, 1, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize - 2)
           EndIf
           HideGadget(TreeEx()\VScrollNum, #False)
           TreeEx()\VScroll\Hide = #False
+          Result = #True
         EndIf
         
         SetGadgetAttribute(TreeEx()\VScrollNum, #PB_ScrollBar_Minimum,    0)
@@ -813,17 +816,17 @@ Module TreeEx
           If GadgetHeight(TreeEx()\VScrollNum) < GadgetHeight(TreeEx()\CanvasNum) - 2
             
             If TreeEx()\HScroll\Hide
-              ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum) - 2)
+              ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 1, 1, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum) - 2)
             Else
-              ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize - 2)
+              ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 1, 1, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize - 2)
             EndIf
             
           ElseIf GadgetHeight(TreeEx()\VScrollNum) > GadgetHeight(TreeEx()\CanvasNum)
             
             If TreeEx()\HScroll\Hide
-              ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum) - 2)
+              ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 1, 1, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum) - 2)
             Else
-              ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize - 2)
+              ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 1, 1, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize - 2)
             EndIf
             
           EndIf
@@ -841,6 +844,8 @@ Module TreeEx
           SetGadgetAttribute(TreeEx()\VScrollNum, #PB_ScrollBar_Maximum,    0)
           SetGadgetAttribute(TreeEx()\VScrollNum, #PB_ScrollBar_PageLength, 0)
         EndIf 
+        
+        Result = #True
         
       EndIf
       ;}
@@ -864,7 +869,8 @@ Module TreeEx
             TreeEx()\Cols()\Width  - WidthOffset
             TreeEx()\HScroll\Hide  = #True
             HideGadget(TreeEx()\HScrollNum, #True) 
-            ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize - 2, GadgetHeight(TreeEx()\CanvasNum) - 2)
+            ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 1, 1, #ScrollBarSize - 2, GadgetHeight(TreeEx()\CanvasNum) - 2)
+            Result = #True
           Else 
             TreeEx()\Cols()\Width = TreeEx()\AutoResize\MinWidth
           EndIf
@@ -902,6 +908,7 @@ Module TreeEx
           EndIf
           HideGadget(TreeEx()\HScrollNum, #False)
           TreeEx()\HScroll\Hide = #False
+          Result = #True
         EndIf
         
         SetGadgetAttribute(TreeEx()\HScrollNum, #PB_ScrollBar_Minimum,    0)
@@ -914,10 +921,11 @@ Module TreeEx
         If TreeEx()\HScroll\Hide = #False
           If GadgetWidth(TreeEx()\HScrollNum) < Width - 2
             If TreeEx()\VScroll\Hide
-              ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize - 1, GadgetWidth(TreeEx()\CanvasNum) - 2, #ScrollBarSize)
+              ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize, GadgetWidth(TreeEx()\CanvasNum) - 2, #ScrollBarSize)
             Else  
-              ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize - 1, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 2, #ScrollBarSize)
-            EndIf  
+              ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 2, #ScrollBarSize)
+            EndIf 
+            Result = #True
           ElseIf GadgetWidth(TreeEx()\HScrollNum) > Width - 2
             If TreeEx()\VScroll\Hide
               ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize, GadgetWidth(TreeEx()\CanvasNum) - 2, #ScrollBarSize - 2)
@@ -931,19 +939,21 @@ Module TreeEx
       ElseIf TreeEx()\Size\Cols <= Width
         
         If TreeEx()\HScroll\Hide = #False
-          ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum) - 2)
+          ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 1, 1, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum) - 2)
           HideGadget(TreeEx()\HScrollNum, #True)
           TreeEx()\HScroll\Hide = #True
+          Result = #True
         EndIf
         
       EndIf 
       
       If TreeEx()\HScroll\Hide = #False
-        ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize - 2)
+        ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 1, 1, #ScrollBarSize, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize - 2)
       EndIf  
       ;}
     EndIf
     
+    ProcedureReturn Result
   EndProcedure
 	
 	Procedure   SetHScrollPosition_()
@@ -1787,9 +1797,12 @@ Module TreeEx
 	  CalcRows() ; Height of all visible rows
 	  CalcCols() ; Width  of all columns
 	  
-	  AdjustScrollBars_()
-	  
 	  Draw_()
+	  
+	  If AdjustScrollBars_()
+	    Draw_()
+	    AdjustScrollBars_()
+	  EndIf
 	  
 	EndProcedure
 	
@@ -2019,15 +2032,15 @@ Module TreeEx
       If TreeEx()\VScroll\Hide = #False Or TreeEx()\HScroll\Hide = #False
         
         If TreeEx()\VScroll\Hide
-          ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize + 1, GadgetWidth(TreeEx()\CanvasNum) - 2, #ScrollBarSize - 2)
+          ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize, GadgetWidth(TreeEx()\CanvasNum) - 2, #ScrollBarSize - 2)
         Else
-          ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize + 1, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 2, #ScrollBarSize - 2)
+          ResizeGadget(TreeEx()\HScrollNum, 1, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 2, #ScrollBarSize - 2)
         EndIf
         
         If TreeEx()\HScroll\Hide
-          ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize - 2, GadgetHeight(TreeEx()\CanvasNum) - 2)
+          ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 1, 1, #ScrollBarSize - 2, GadgetHeight(TreeEx()\CanvasNum) - 2)
         Else  
-          ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize, 1, #ScrollBarSize - 2, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize - 2)
+          ResizeGadget(TreeEx()\VScrollNum, GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 1, 1, #ScrollBarSize - 2, GadgetHeight(TreeEx()\CanvasNum) - #ScrollBarSize - 2)
         EndIf
         
       EndIf
@@ -2247,6 +2260,7 @@ Module TreeEx
           SetGadgetData(TreeEx()\HScrollNum, TreeEx()\CanvasNum)
           TreeEx()\HScroll\Hide = #True
           HideGadget(TreeEx()\HScrollNum, #True)
+          Result = #True
         EndIf
         
         TreeEx()\VScrollNum = ScrollBarGadget(#PB_Any, 0, 0, 0, 0, 0, 0, 0, #PB_ScrollBar_Vertical)
@@ -2254,6 +2268,7 @@ Module TreeEx
           SetGadgetData(TreeEx()\VScrollNum, TreeEx()\CanvasNum)
           TreeEx()\VScroll\Hide = #True
           HideGadget(TreeEx()\VScrollNum, #True)
+          Result = #True
         EndIf
         
         CloseGadgetList()
@@ -3174,8 +3189,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 81
-; FirstLine = 21
-; Folding = 16AAIAAICSYAGgKAdIICBEAAADgh-
+; CursorPosition = 15
+; Folding = 16AAIAAIvSLCAAAQDSICBEQAADgh-
 ; EnableXP
 ; DPIAware
