@@ -7,8 +7,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 09.02.20
+; Last Update: 10.02.20
 ;
+; Bugfix: Syntax Highlight
 ; Bugfix: Mouse selection
 ;
 
@@ -138,7 +139,7 @@
 
 DeclareModule EditEx
   
-  #Version  = 20020900
+  #Version  = 20021000
   #ModuleEx = 20010800
   
   ;- ============================================================================
@@ -1101,6 +1102,7 @@ Module EditEx
     
     If Changed : CalcRows_() : EndIf
     
+    ProcedureReturn Changed
   EndProcedure
   
   Procedure   UpdateScrollBar_()
@@ -2007,7 +2009,7 @@ Module EditEx
   
   CompilerIf #Enable_SyntaxHighlight
     
-    Procedure   CalcSyntaxHighlight_(Word$, Pos, X)
+    Procedure   CalcSyntaxHighlight_(Word$, Pos.i, X.i, Part$="", WordPos.i=#True)
       Define.i wPos, DiffW
       Define.s sWord$
       
@@ -2016,8 +2018,12 @@ Module EditEx
 
       If FindMapElement(EditEx()\Syntax(), sWord$)
         
-        wPos = FindString(Word$, sWord$)
-        If wPos > 1 : X + TextWidth(Left(Word$, wPos - 1)) : EndIf
+        If Part$ : sWord$ = Part$ : EndIf
+        
+        If WordPos
+          wPos = FindString(Word$, sWord$)
+          If wPos > 1 : X + TextWidth(Left(Word$, wPos - 1)) : EndIf
+        EndIf 
         
         If AddElement(EditEx()\Row()\Highlight())
           EditEx()\Row()\Highlight()\X = X
@@ -2265,7 +2271,7 @@ Module EditEx
                       CompilerEndIf
                       
                       CompilerIf #Enable_SyntaxHighlight
-                        If SyntaxHighlight : CalcSyntaxHighlight_(Word$, Pos, PosX) : EndIf
+                        If SyntaxHighlight : CalcSyntaxHighlight_(Word$, Pos, PosX, Part$ + "-") : EndIf
                       CompilerEndIf
                       
                       If EditEx()\Selection\Flag = #Selected : CalcSelection_(PosX, Pos, WordLen, Pos1, Pos2) : EndIf
@@ -2309,7 +2315,7 @@ Module EditEx
               
               If SyntaxHighlight
                 If Part$
-                  CalcSyntaxHighlight_(Part$, Pos, PosX)
+                  CalcSyntaxHighlight_(Word$, Pos, PosX, Part$, #False)
                 Else
                   CalcSyntaxHighlight_(Word$, Pos, PosX)
                 EndIf
@@ -2640,8 +2646,8 @@ Module EditEx
     
     CalcRows_()
     
-    AdjustScrolls_()
-    
+    AdjustScrolls_() 
+
     If OffSet : CalcOffset_() : EndIf
     
     Draw_()
@@ -5385,14 +5391,14 @@ CompilerIf #PB_Compiler_IsMainFile
       
     CompilerEndIf
     
-    EditEx::SetTextWidth(#EditEx, 283)
+    ;EditEx::SetTextWidth(#EditEx, 283)
     
     ;Debug EditEx::WrapText(Text, 283, #Font, EditEx::#Hyphenation)
     ;Debug EditEx::GetText(#EditEx, EditEx::#Hyphenation)
     
     ;ModuleEx::SetTheme(ModuleEx::#Theme_Green)
     
-    EditEx::SetAttribute(#EditEx, EditEx::#Corner, 4)
+    ;EditEx::SetAttribute(#EditEx, EditEx::#Corner, 4)
     ;EditEx::Disable(#EditEx)
     
     QuitWindow = #False
@@ -5435,9 +5441,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 3615
-; FirstLine = 1235
-; Folding = wHOhAADASN2ECwAEB-CQxk6IuigAHAYABgwCwCQoQgREEAAQSP3JI+-
-; Markers = 970,2495,2564,4647
+; CursorPosition = 9
+; FirstLine = 3
+; Folding = wHOhAADAC9nACwAEB+wQBkxJqigAHAYABgwHwCQoQgREEBFQSL3JI+-
+; Markers = 971,2501,2570,4653
 ; EnableXP
 ; DPIAware
