@@ -11,6 +11,8 @@
 
 ; Last Update: 10.02.2020
 ;
+; - Added: Glossary & TOC for help files
+; - Added: External CSS for HTML help
 ; - Added: Glossary -  "[?Word]" / "{{Glossary}}"
 ;
 ; - Bugfix: ColSpan "||| Column 3 |"
@@ -90,7 +92,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20021000
+  #Version  = 20021002
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -471,6 +473,7 @@ Module MarkDown
   EndStructure ;}
   
   Structure Glossary_Structure           ;{ MarkDown()\Glossary()\...
+    Label.s
     List Words.Words_Structure()
   EndStructure ;}
   
@@ -1401,7 +1404,28 @@ Module MarkDown
   ;- __________ Convert HTML __________
   
   CompilerIf #Enable_ExportHTML
-  
+    
+    Procedure.s StyleCSS()
+      Define.s Style$
+      
+      Style$ + "ul, ol { padding-left: 1em; }" + #LF$
+      Style$ + "code { color:#006400; }" + #LF$
+      Style$ + "blockquote { margin: 0 auto; padding: 0 0 0 0.5em; border-left: 5px solid #999; }" + #LF$ ; padding: 1em; 
+      Style$ + "table { border-collapse: collapse; }" + #LF$
+      Style$ + "td, th { border: 1px solid black; }" + #LF$
+      Style$ + "dt { margin: 4px 2px 0 0; }" + #LF$ 
+      Style$ + "dd { margin: 0 0 0 10px; }" + #LF$
+      Style$ + ".footsup { font-weight: bold; }" + #LF$
+      Style$ + ".tocul { List-style-type: none; padding: 0 0 4px 20px; }" + #LF$
+      Style$ + ".tocli { padding: 3px; }" + #LF$
+      Style$ + ".para { display: block; margin-bottom: 1em; }" + #LF$
+      Style$ + ".center { display: block; margin-left: auto; margin-right: auto; }" + #LF$
+      Style$ + ".bordered { background-color: #F6F6F6 ; border: 1px solid #848484; border-radius: 4px; padding: 1px 4px 1px 4px; }" + #LF$
+      Style$ + ".footnote { font-size: 10pt; }" + #LF$
+      
+      ProcedureReturn  Style$
+    EndProcedure
+    
     Procedure.s EscapeHTML_(String.s)
   	  Define.i c
   	  Define.s Char$, HTML$
@@ -2042,6 +2066,28 @@ Module MarkDown
               
             EndIf
             ;}
+          Case #InsertTOC        ;{ Table of Contents
+            
+            Level = 0
+
+            HTML$ + "<ul class="+ #DQUOTE$ + "tocul" + #DQUOTE$ + ">" + #LF$
+
+            ForEach MarkDown()\TOC()
+              
+              If Level < MarkDown()\TOC()\Level
+                HTML$ + "<ul class="+ #DQUOTE$ + "tocul" + #DQUOTE$ + ">" + #LF$
+                Level = MarkDown()\TOC()\Level
+              ElseIf Level > MarkDown()\TOC()\Level
+                HTML$ + "</ul>" + #LF$
+                Level = MarkDown()\TOC()\Level
+              EndIf  
+              
+              HTML$ + "<li class="+ #DQUOTE$ + "tocli" + #DQUOTE$ + "><a href=#" + #DQUOTE$ + MarkDown()\TOC()\Label + #DQUOTE$ + ">" + StringHTML_(MarkDown()\TOC()\Words()) + "</a></li>" + #LF$
+              
+            Next 
+            
+            HTML$ + "</ul>" + #LF$
+            ;}
           Default                ;{ Text
             
             HTML$ + TextHTML_(MarkDown()\Items()\Words())
@@ -2073,29 +2119,30 @@ Module MarkDown
   	  ProcedureReturn HTML$
   	EndProcedure
   	
-    Procedure.s ExportHTML_(Title.s="")
+    Procedure.s ExportHTML_(Title.s="", FileCSS.s="")
       Define.s HTML$, Style$
       
-      Style$ = "<style>" + #LF$
-      Style$ + "ul, ol { padding-left: 1em; }" + #LF$
-      Style$ + "code { color:#006400; }" + #LF$
-      Style$ + "blockquote { margin: 0 auto; padding: 0 0 0 0.5em; border-left: 5px solid #999; }" + #LF$ ; padding: 1em; 
-      Style$ + "table { border-collapse: collapse; }" + #LF$
-      Style$ + "td, th { border: 1px solid black; }" + #LF$
-      Style$ + "dt { margin: 4px 2px 0 0; }" + #LF$ ; font-weight: bold;
-      Style$ + "dd { margin: 0 0 0 10px; }" + #LF$
-      Style$ + ".footsup { font-weight: bold; }" + #LF$
-      Style$ + ".para { display: block; margin-bottom: 1em; }" + #LF$
-      Style$ + ".center { display: block; margin-left: auto; margin-right: auto; }" + #LF$
-      Style$ + ".bordered { background-color: #F6F6F6 ; border: 1px solid #848484; border-radius: 4px; padding: 1px 4px 1px 4px; }" + #LF$
-      Style$ + ".footnote { font-size: 10pt; }" + #LF$
-      Style$ + "</style>" + #LF$
+      If FileCSS
+        
+        Style$ = "<link rel=" + #DQUOTE$ + "stylesheet" + #DQUOTE$ + " type=" + #DQUOTE$ + "text/css" + #DQUOTE$ + " href=" + #DQUOTE$ + FileCSS + #DQUOTE$ + ">"
+        
+        HTML$ = "<!DOCTYPE html>" + #LF$ + "<html>" + #LF$ + "<head>" + #LF$ + "<meta charset=" + #DQUOTE$ + "utf-8" + #DQUOTE$ + ">" + #LF$ + "<title>" + Title + "</title>" + #LF$ + Style$ + #LF$ + "</head>" + #LF$
+        
+      Else
+        
+        Style$ = "<style>" + #LF$
+        Style$ + StyleCSS()
+        Style$ + "</style>" + #LF$
+  
+        HTML$ = "<!DOCTYPE html>" + #LF$ + "<html>" + #LF$ + "<head>" + #LF$ + "<meta charset=" + #DQUOTE$ + "utf-8" + #DQUOTE$ + ">" + #LF$ + "<title>" + Title + "</title>" + #LF$ + Style$ + #LF$ + "</head>" + #LF$
 
-      HTML$ = "<!DOCTYPE html>" + #LF$ + "<html>" + #LF$ + "<head>" + #LF$ + "<meta charset=" + #DQUOTE$ + "utf-8" + #DQUOTE$ + ">" + #LF$ + "<title>" + Title + "</title>" + #LF$ + Style$ + #LF$ + "</head>" + #LF$ + "<body>" + #LF$
+      EndIf
+      
+      HTML$ + "<body>" + #LF$
       
       HTML$ + ConvertHTML_()
       
-      HTML$ + "</body>" + #LF$ + "</html>"
+      HTML$ + "</body>" + #LF$ + "</html>" + #LF$ 
   
       ProcedureReturn HTML$
       
@@ -4818,38 +4865,90 @@ Module MarkDown
   
   ;- __________ Tools __________
 
-  Procedure.i TOC_Entries_(Markdown.s, List TOC.TOC_Structure(), PageLabel.s) 
+  Procedure   TOC_Entries_(List TOC.TOC_Structure(), PageLabel.s) 
 	  
-	  If AddMapElement(MarkDown(), "Parse")
+    ForEach MarkDown()\TOC()
+      
+      If AddElement(TOC())
+	      TOC()\ID     = MarkDown()\TOC()\ID
+	      TOC()\Label  = PageLabel
+	      TOC()\Level  = MarkDown()\TOC()\Level
+	      TOC()\X      = MarkDown()\TOC()\X
+	      TOC()\Y      = MarkDown()\TOC()\Y
+	      TOC()\Width  = MarkDown()\TOC()\Width
+	      TOC()\Height = MarkDown()\TOC()\Height
+	      CopyList(MarkDown()\TOC()\Words(), TOC()\Words())
+	    EndIf
 	    
-	    Parse_(MarkDown)
+    Next
 
-	    ForEach MarkDown()\TOC()
-	      If AddElement(TOC())
-  	      TOC()\ID     = MarkDown()\TOC()\ID
-  	      TOC()\Label  = PageLabel
-  	      TOC()\Level  = MarkDown()\TOC()\Level
-  	      TOC()\X      = MarkDown()\TOC()\X
-  	      TOC()\Y      = MarkDown()\TOC()\Y
-  	      TOC()\Width  = MarkDown()\TOC()\Width
-  	      TOC()\Height = MarkDown()\TOC()\Height
-  	      CopyList(MarkDown()\TOC()\Words(), TOC()\Words())
-	      EndIf
-	    Next
-
-	    DeleteMapElement(MarkDown())
-	    
-	    ProcedureReturn ListSize(TOC())
-	  EndIf
 	EndProcedure
+	
+  Procedure   Glossary_Entries_(Map Glossary.Glossary_Structure(), PageLabel.s) 
+	  
+    ForEach MarkDown()\Glossary()
+      
+      If AddMapElement(Glossary(), MapKey(MarkDown()\Glossary()))
+	      Glossary()\Label = PageLabel
+	      CopyList(MarkDown()\Glossary()\Words(), Glossary()\Words())
+	    EndIf
+	    
+    Next
+
+	EndProcedure
+	
 	
   Procedure.i UpdateTOC_(List TOC.TOC_Structure())
 	  
 	  CopyList(TOC(), MarkDown()\TOC())
-	  
-	  DetermineTextSize_()
-	  
+
 	  ProcedureReturn ListSize(MarkDown()\TOC())
+	EndProcedure
+	
+	Procedure.i UpdateGlossary_(Map Glossary.Glossary_Structure())
+	  NewList Sort.s()
+	  
+	  CopyMap(Glossary(), MarkDown()\Glossary())
+	  
+	  If MapSize(MarkDown()\Glossary())
+      
+      ;{ Sort Glossary
+      ForEach MarkDown()\Glossary()
+        If AddElement(Sort())
+          Sort() = MapKey(MarkDown()\Glossary())
+        EndIf  
+      Next 
+      SortList(Sort(), #PB_Sort_Ascending|#PB_Sort_NoCase)
+      ;}
+      
+      ForEach MarkDown()\Items()
+
+        If MarkDown()\Items()\Type = #InsertGlossary ;{ Insert Glossary
+          
+          MarkDown()\Items()\Type = #List|#Glossary
+          
+          If SelectElement(MarkDown()\Lists(), MarkDown()\Items()\Index)
+            
+            ClearList(MarkDown()\Lists()\Row())
+            
+            ForEach Sort()
+              If FindMapElement(MarkDown()\Glossary(), Sort())
+                If AddElement(MarkDown()\Lists()\Row())
+                  MarkDown()\Lists()\Row()\String = MapKey(MarkDown()\Glossary())
+                  CopyList(MarkDown()\Glossary()\Words(), MarkDown()\Lists()\Row()\Words())
+                EndIf 
+              EndIf
+            Next
+            
+          EndIf  
+          ;}
+        EndIf  
+        
+      Next
+      
+    EndIf  
+
+	  ProcedureReturn MapSize(MarkDown()\Glossary())
 	EndProcedure
 	
 	;- __________ Drawing __________
@@ -7155,10 +7254,11 @@ Module MarkDown
 	  CompilerIf Defined(PDF, #PB_Module)
 	  
   	  Procedure.s Help2PDF(Title.s, File.s, FilePDF.s="", Orientation.s="P", Format.s="")
-  	    Define.i PDF, Pack, JSON, Size
+  	    Define.i PDF, Pack, JSON, Size, Counter
   	    Define.s FileName$
   	    Define   *Buffer
   	    
+  	    NewMap  Glossary.Glossary_Structure()
   	    NewList Item.Item_Structure()
   	    
   	    If AddMapElement(MarkDown(), "Convert")
@@ -7209,6 +7309,22 @@ Module MarkDown
             ClosePack(Pack)
     	    EndIf ;}
     	    
+    	    ;{ _____ Parse _____
+    	    ForEach Item()
+    	      
+    	      Clear_()
+            
+    	      Parse_(Item()\Text)
+    	      
+            If Item()\Label = ""
+              Counter + 1
+              Item()\Label = "Help" + RSet(Str(Counter), 3, "0")
+            EndIf
+
+    	      Glossary_Entries_(Glossary(), Item()\Label)
+            
+    	    Next ;}
+    	    
     	    PDF = PDF::Create(#PB_Any, Orientation, "", Format)
           If PDF
             
@@ -7228,6 +7344,8 @@ Module MarkDown
               Clear_()
               
               Parse_(Item()\Text)
+              
+              UpdateGlossary_(Glossary())
               
               If Item()\Label : PDF::AddGotoLabel(PDF, "#Page:" + Item()\Label) : EndIf
               
@@ -7263,24 +7381,26 @@ Module MarkDown
   	    Define.s File$, FileName$, HTML$, Style$, Label$, Start$
   	    Define   *Buffer
   	    
+  	    NewMap  Glossary.Glossary_Structure()
+  	    NewList TOC.TOC_Structure()
   	    NewList Item.Item_Structure()
   	    
+	      ;{ _____ Filename & Folder _____
+	      If FileHTML = "" : FileHTML = GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + ".html" : EndIf 
+        
+        If Folder
+          File$ = GetPathPart(FileHTML) + Folder + #PS$ + GetFilePart(FileHTML)
+        Else
+          File$ = FileHTML
+        EndIf
+
+        If FileSize(GetPathPart(File$)) <> -2 : CreateDirectory(GetPathPart(File$)) : EndIf
+        ;}  	    
+        
   	    If AddMapElement(MarkDown(), "Convert")
   	      
-  	      ;{ _____ Filename & Folder _____
-  	      If FileHTML = "" : FileHTML = GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + ".html" : EndIf 
-          
-          If Folder
-            File$ = GetPathPart(FileHTML) + Folder + #PS$ + GetFilePart(FileHTML)
-          Else
-            File$ = FileHTML
-          EndIf
-          
-          MarkDown()\Path = GetPathPart(File$)
-          
-          If FileSize(GetPathPart(File$)) <> -2 : CreateDirectory(GetPathPart(File$)) : EndIf
-          ;}
-          
+  	      MarkDown()\Path = GetPathPart(File$)
+  	      
   	      ;{ _____ Load Help File _____
     	    Pack = OpenPack(#PB_Any, File, #PB_PackerPlugin_Lzma)
     	    If Pack
@@ -7312,7 +7432,24 @@ Module MarkDown
             EndIf
             
             ClosePack(Pack)
-    	    EndIf ;}
+    	    EndIf ;}  
+    	    
+    	    ;{ _____ Parse _____
+    	    ForEach Item()
+    	      
+    	      Clear_()
+            
+    	      Parse_(Item()\Text)
+    	      
+            If Item()\Label = ""
+              Counter + 1
+              Item()\Label = "Help" + RSet(Str(Counter), 3, "0")
+            EndIf
+            
+            TOC_Entries_(TOC(), Item()\Label)
+    	      Glossary_Entries_(Glossary(), Item()\Label)
+            
+    	    Next ;}
     	    
     	    ;{ _____ Frames File _____
     	    ForEach Item()
@@ -7380,20 +7517,36 @@ Module MarkDown
     	    EndIf
     	    ;}
     	    
+    	    ;{ _____ CSS File _____
+    	    If Folder
+            File$ = GetPathPart(FileHTML) + Folder + #PS$ + "Markdown.css"
+          Else
+            File$ = "Markdown.css"
+          EndIf
+          
+          Style$ = StyleCSS()
+          
+    	    FileID = CreateFile(#PB_Any, File$, #PB_UTF8)
+          If FileID
+    	      WriteStringFormat(FileID,  #PB_UTF8)
+    	      WriteString(FileID, Style$, #PB_UTF8)
+    	      CloseFile(FileID)
+    	    EndIf
+    	    ;}
+    	    
     	    ;{ _____ Create Help Files _____
           ForEach Item()
             
             Clear_()
             
             Parse_(Item()\Text)
-          
-            HTML$ = ExportHTML_(Title)
+            
+            UpdateGlossary_(Glossary())
+            UpdateTOC_(TOC())
+            
+            HTML$ = ExportHTML_(Title, "Markdown.css")
             
             Label$ = Item()\Label
-            If Label$ = ""
-              Counter + 1
-              Label$ = "Help" + RSet(Str(Counter), 3, "0")
-            EndIf
             
             If Folder
               File$ = GetPathPart(FileHTML) + Folder + #PS$ + Label$ + ".html"
@@ -7431,6 +7584,7 @@ Module MarkDown
 	    Define   *Buffer
 	    
 	    NewList TOC.TOC_Structure()
+	    NewMap  Glossary.Glossary_Structure()
 	    
 	    CompilerIf Defined(ModuleEx, #PB_Module)
         If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
@@ -7554,19 +7708,27 @@ Module MarkDown
   	    EndIf  
   	    ;}
   	    
+  	    ;{  _____ Parse _____
   	    ForEach Help\Item()
-  	     
+  	      
   	      If Help\Item()\Label : Help\Label(Help\Item()\Label) = ListIndex(Help\Item()) : EndIf
   	      
-  	      TOC_Entries_(Help\Item()\Text, TOC(), Help\Item()\Label)
-  	      
+  	      If AddMapElement(MarkDown(), "Parse")
+
+    	      Parse_(Help\Item()\Text)
+    	      
+    	      TOC_Entries_(TOC(), Help\Item()\Label)
+    	      Glossary_Entries_(Glossary(), Help\Item()\Label)
+    	      
+    	    EndIf
+    	    
   	      CompilerIf Defined(TreeEx, #PB_Module)
   	        TreeEx::AddItem(Help\TreeNum, TreeEx::#LastRow, Help\Item()\Titel, Help\Item()\Label, #False, Help\Item()\Level)
   	      CompilerElse
   	        AddGadgetItem(Help\TreeNum, -1, Help\Item()\Titel, #False, Help\Item()\Level)
   	      CompilerEndIf
-  	      
-        Next 
+
+  	    Next ;}
 
   	    If FindMapElement(MarkDown(), Str(MarkdownNum))
   	      
@@ -7581,6 +7743,8 @@ Module MarkDown
                 SetText(MarkdownNum, Help\Item()\Text)
                 MarkDown()\PageLabel = Help\Item()\Label
                 If UpdateTOC_(TOC()) : ReDraw() : EndIf 
+                If UpdateGlossary_(Glossary()) : ReDraw() : EndIf 
+                DetermineTextSize_()
               EndIf
             EndIf
   	      EndIf ;}
@@ -7612,7 +7776,9 @@ Module MarkDown
                               CompilerEndIf
                               SetText(MarkdownNum, Help\Item()\Text)
                               MarkDown()\PageLabel = MarkDown()\EventLabel
+                              If UpdateGlossary_(Glossary()) : ReDraw() : EndIf 
                               If UpdateTOC_(TOC()) : ReDraw() : EndIf 
+                               DetermineTextSize_()
                             EndIf
                           EndIf
                           GotoHeading_(MarkDown()\EventValue)
@@ -7629,7 +7795,9 @@ Module MarkDown
                                 CompilerEndIf
                                 SetText(MarkdownNum, Help\Item()\Text)
                                 MarkDown()\PageLabel = Help\Item()\Label
-                                If UpdateTOC_(TOC()) : ReDraw() : EndIf 
+                                If UpdateGlossary_(Glossary()) : ReDraw() : EndIf 
+                                If UpdateTOC_(TOC()) : ReDraw() : EndIf
+                                DetermineTextSize_()
                               EndIf
                             EndIf
                           Else
@@ -7652,7 +7820,9 @@ Module MarkDown
                             If SelectElement(Help\Item(), Selected)
                               SetText(MarkdownNum, Help\Item()\Text)
                               MarkDown()\PageLabel = Help\Item()\Label
+                              If UpdateGlossary_(Glossary()) : ReDraw() : EndIf 
                               If UpdateTOC_(TOC()) : ReDraw() : EndIf 
+                              DetermineTextSize_()
                             EndIf  
                           EndIf  
                         EndIf
@@ -7662,7 +7832,9 @@ Module MarkDown
                           If SelectElement(Help\Item(), Selected)
                             SetText(MarkdownNum, Help\Item()\Text)
                             MarkDown()\PageLabel = Help\Item()\Label
+                            If UpdateGlossary_(Glossary()) : ReDraw() : EndIf 
                             If UpdateTOC_(TOC()) : ReDraw() : EndIf 
+                            DetermineTextSize_()
                           EndIf  
                         EndIf
                       CompilerEndIf 
@@ -8169,7 +8341,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
   
-  #Example = 16
+  #Example = 0
   
   ; === Gadget ===
   ;  1: Headings
@@ -8456,9 +8628,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 13
-; FirstLine = 562
-; Folding = wBQgJAAAAAAAAAAAAANAAAAiBAAAAGAAAAAADYASAAAAQADCKYAAECAAgAAEAAABAAKAAAAYQIiDCIADQJYAAgHA-
-; Markers = 2698,5500
+; CursorPosition = 14
+; Folding = wBQgJAAAAAAAAAAAAACAAAAkEAAAAAAAAAAAMgBIAAAAABMIAAYAAECAAgAAEAAABAAKAAAAYQIiDBEEYAUCCAAIBw
+; Markers = 2745,5599
 ; EnableXP
 ; DPIAware

@@ -6972,8 +6972,8 @@ CompilerEndIf
 
 ;- ========================
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 6040
-; FirstLine = 1480
+; CursorPosition = 6301
+; FirstLine = 1510
 ; Folding = MAwiA5AegAQAAABAAhAgIECIAAgBAAAAAAHAAzgIAEnoAAYEcQwpgSKQAAgghJghAwDEAA9
 ; Markers = 584,1015,2364,2464,3770,3836
 ; EnableXP
