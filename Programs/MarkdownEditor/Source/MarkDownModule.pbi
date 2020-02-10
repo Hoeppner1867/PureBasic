@@ -9,18 +9,19 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 09.02.2020
+; Last Update: 10.02.2020
 ;
+; - Added: Glossary & TOC for help files
+; - Added: External CSS for HTML help
+; - Added: Glossary -  "[?Word]" / "{{Glossary}}"
+;
+; - Bugfix: ColSpan "||| Column 3 |"
 ; - Added: Table of Contents - "{{TOC}}"
-;
-; - Bugfix: ColSpan "|| Column 2 |"
 ; - Adjustments and optimizations for HTML
 ; - Added:  Color for intended code blocks 
 ; - Added:  Markdown::Help()
 ; - Added:  Markdown::Requester()
 ;
-
-; TODO: [?Glossary] / 
 
 ;{ ===== MIT License =====
 ;
@@ -91,7 +92,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20020900
+  #Version  = 20021002
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -306,6 +307,7 @@ Module MarkDown
     #Definition
     #Emoji
     #FootNote
+    #Glossary
     #Header
     #Heading
     #Highlight
@@ -328,7 +330,8 @@ Module MarkDown
     #Underline
     #Unordered
     #AutoLink
-    #TOC
+    #InsertTOC
+    #InsertGlossary
   EndEnumeration ;}
   
   Enumeration 1     ;{ Font
@@ -456,8 +459,12 @@ Module MarkDown
     Height.i
     Label.s
   EndStructure ;}
+
+  Structure Abbreviation_Structure       ;{ MarkDown()\Abbreviation()\...
+    String.s
+  EndStructure ;}
   
-  Structure Abbreviation_Word_Structure  ;{ MarkDown()\AbbrevWord()\...
+  Structure Word_Link_Structure          ;{ MarkDown()\...\...
     X.i
     Y.i
     Width.i
@@ -465,8 +472,9 @@ Module MarkDown
     Word.s
   EndStructure ;}
   
-  Structure Abbreviation_Structure       ;{ MarkDown()\Abbreviation()\...
-    String.s
+  Structure Glossary_Structure           ;{ MarkDown()\Glossary()\...
+    Label.s
+    List Words.Words_Structure()
   EndStructure ;}
   
   Structure Image_Structure              ;{ MarkDown()\Image()\...
@@ -496,6 +504,7 @@ Module MarkDown
     Height.i
     Level.i
     State.i
+    String.s
     List Words.Words_Structure()
   EndStructure ;}
   
@@ -684,14 +693,16 @@ Module MarkDown
 		
 		Map  Abbreviation.Abbreviation_Structure()
 		Map  FootLabel.FootLabel_Structure()
+		Map  Glossary.Glossary_Structure()
 		Map  ImageMem.MarkDown_ImageMem_Structure()
 		Map  ImageNum.i()
 		Map  Label.Label_Structure()
 		Map  HeadingID.i()
 		
-		List AbbrevWord.Abbreviation_Word_Structure()
+		List AbbrevWord.Word_Link_Structure()
 		List Block.Block_Structure()
 		List Footnote.Footnote_Structure()
+		List GlossaryWord.Word_Link_Structure()
 		List Image.Image_Structure()
 		List Items.MarkDown_Items_Structure()
     List Link.Link_Structure()
@@ -1379,11 +1390,42 @@ Module MarkDown
 		EndIf
 		
   EndProcedure	
-
+  
+  Procedure.s GetString_(List Words.Words_Structure())
+	  Define.s Text$
+	  
+	  ForEach Words()
+	    Text$ + Words()\String
+	  Next
+	  
+	  ProcedureReturn Text$
+	EndProcedure
+  
   ;- __________ Convert HTML __________
   
   CompilerIf #Enable_ExportHTML
-  
+    
+    Procedure.s StyleCSS()
+      Define.s Style$
+      
+      Style$ + "ul, ol { padding-left: 1em; }" + #LF$
+      Style$ + "code { color:#006400; }" + #LF$
+      Style$ + "blockquote { margin: 0 auto; padding: 0 0 0 0.5em; border-left: 5px solid #999; }" + #LF$ ; padding: 1em; 
+      Style$ + "table { border-collapse: collapse; }" + #LF$
+      Style$ + "td, th { border: 1px solid black; }" + #LF$
+      Style$ + "dt { margin: 4px 2px 0 0; }" + #LF$ 
+      Style$ + "dd { margin: 0 0 0 10px; }" + #LF$
+      Style$ + ".footsup { font-weight: bold; }" + #LF$
+      Style$ + ".tocul { List-style-type: none; padding: 0 0 4px 20px; }" + #LF$
+      Style$ + ".tocli { padding: 3px; }" + #LF$
+      Style$ + ".para { display: block; margin-bottom: 1em; }" + #LF$
+      Style$ + ".center { display: block; margin-left: auto; margin-right: auto; }" + #LF$
+      Style$ + ".bordered { background-color: #F6F6F6 ; border: 1px solid #848484; border-radius: 4px; padding: 1px 4px 1px 4px; }" + #LF$
+      Style$ + ".footnote { font-size: 10pt; }" + #LF$
+      
+      ProcedureReturn  Style$
+    EndProcedure
+    
     Procedure.s EscapeHTML_(String.s)
   	  Define.i c
   	  Define.s Char$, HTML$
@@ -1622,6 +1664,11 @@ Module MarkDown
               
               endTag$ = "</a>"
               ;}
+            Case #Glossary     ;{ Glossary
+              Title$ = StringHTML_(MarkDown()\Glossary(Words()\String)\Words())
+              HTML$ + "<a href=#" + #DQUOTE$ + Words()\String + #DQUOTE$ + " title=" + #DQUOTE$ + Title$ + #DQUOTE$ + ">" + EscapeHTML_(Words()\String) + "</a>"
+              endTag$ = ""
+              ;}
             Case #Highlight    ;{ Highlight
               If Right(Words()\String, 1) = " "
                 HTML$ + "<mark>" + EscapeHTML_(RTrim(Words()\String))
@@ -1856,13 +1903,26 @@ Module MarkDown
                 DL = #True
               EndIf
               
-              HTML$ + "<dt>" + StringHTML_(MarkDown()\Items()\Words()) + "</dt>" + #LF$
+              HTML$ + "<dt><strong>" + StringHTML_(MarkDown()\Items()\Words()) + "</strong></dt>" + #LF$
               ForEach MarkDown()\Lists()\Row()
                 HTML$ + "<dd>" + TextHTML_(MarkDown()\Lists()\Row()\Words()) + "</dd>" + #LF$
               Next
               
             EndIf  
   			    ;}  
+          Case #List|#Glossary   ;{ Glossary
+            
+            If SelectElement(MarkDown()\Lists(), MarkDown()\Items()\Index)
+              
+              HTML$ + "<dl>" + #LF$
+              ForEach MarkDown()\Lists()\Row()
+                HTML$ + "<dt><strong id=" + #DQUOTE$ + MarkDown()\Lists()\Row()\String + #DQUOTE$ + ">" + MarkDown()\Lists()\Row()\String + "</strong></dt>" + #LF$
+                HTML$ + "<dd>" + TextHTML_(MarkDown()\Lists()\Row()\Words()) + "</dd>" + #LF$
+              Next
+              HTML$ + "</dl>" + #LF$
+              
+            EndIf 
+            ;}
           Case #Line             ;{ Horizontal Rule
             HTML$ + "<hr />" + #LF$
             ;}
@@ -2006,6 +2066,28 @@ Module MarkDown
               
             EndIf
             ;}
+          Case #InsertTOC        ;{ Table of Contents
+            
+            Level = 0
+
+            HTML$ + "<ul class="+ #DQUOTE$ + "tocul" + #DQUOTE$ + ">" + #LF$
+
+            ForEach MarkDown()\TOC()
+              
+              If Level < MarkDown()\TOC()\Level
+                HTML$ + "<ul class="+ #DQUOTE$ + "tocul" + #DQUOTE$ + ">" + #LF$
+                Level = MarkDown()\TOC()\Level
+              ElseIf Level > MarkDown()\TOC()\Level
+                HTML$ + "</ul>" + #LF$
+                Level = MarkDown()\TOC()\Level
+              EndIf  
+              
+              HTML$ + "<li class="+ #DQUOTE$ + "tocli" + #DQUOTE$ + "><a href=#" + #DQUOTE$ + MarkDown()\TOC()\Label + #DQUOTE$ + ">" + StringHTML_(MarkDown()\TOC()\Words()) + "</a></li>" + #LF$
+              
+            Next 
+            
+            HTML$ + "</ul>" + #LF$
+            ;}
           Default                ;{ Text
             
             HTML$ + TextHTML_(MarkDown()\Items()\Words())
@@ -2037,29 +2119,30 @@ Module MarkDown
   	  ProcedureReturn HTML$
   	EndProcedure
   	
-    Procedure.s ExportHTML_(Title.s="")
+    Procedure.s ExportHTML_(Title.s="", FileCSS.s="")
       Define.s HTML$, Style$
       
-      Style$ = "<style>" + #LF$
-      Style$ + "ul, ol { padding-left: 1em; }" + #LF$
-      Style$ + "code { color:#006400; }" + #LF$
-      Style$ + "blockquote { margin: 0 auto; padding: 0 0 0 0.5em; border-left: 5px solid #999; }" + #LF$ ; padding: 1em; 
-      Style$ + "table { border-collapse: collapse; }" + #LF$
-      Style$ + "td, th { border: 1px solid black; }" + #LF$
-      Style$ + "dt { font-weight: bold; margin: 4px 2px 0 0; }" + #LF$
-      Style$ + "dd { margin: 0 0 0 10px; }" + #LF$
-      Style$ + ".footsup { font-weight: bold; }" + #LF$
-      Style$ + ".para { display: block; margin-bottom: 1em; }" + #LF$
-      Style$ + ".center { display: block; margin-left: auto; margin-right: auto; }" + #LF$
-      Style$ + ".bordered { background-color: #F6F6F6 ; border: 1px solid #848484; border-radius: 4px; padding: 1px 4px 1px 4px; }" + #LF$
-      Style$ + ".footnote { font-size: 10pt; }" + #LF$
-      Style$ + "</style>" + #LF$
+      If FileCSS
+        
+        Style$ = "<link rel=" + #DQUOTE$ + "stylesheet" + #DQUOTE$ + " type=" + #DQUOTE$ + "text/css" + #DQUOTE$ + " href=" + #DQUOTE$ + FileCSS + #DQUOTE$ + ">"
+        
+        HTML$ = "<!DOCTYPE html>" + #LF$ + "<html>" + #LF$ + "<head>" + #LF$ + "<meta charset=" + #DQUOTE$ + "utf-8" + #DQUOTE$ + ">" + #LF$ + "<title>" + Title + "</title>" + #LF$ + Style$ + #LF$ + "</head>" + #LF$
+        
+      Else
+        
+        Style$ = "<style>" + #LF$
+        Style$ + StyleCSS()
+        Style$ + "</style>" + #LF$
+  
+        HTML$ = "<!DOCTYPE html>" + #LF$ + "<html>" + #LF$ + "<head>" + #LF$ + "<meta charset=" + #DQUOTE$ + "utf-8" + #DQUOTE$ + ">" + #LF$ + "<title>" + Title + "</title>" + #LF$ + Style$ + #LF$ + "</head>" + #LF$
 
-      HTML$ = "<!DOCTYPE html>" + #LF$ + "<html>" + #LF$ + "<head>" + #LF$ + "<meta charset=" + #DQUOTE$ + "utf-8" + #DQUOTE$ + ">" + #LF$ + "<title>" + Title + "</title>" + #LF$ + Style$ + #LF$ + "</head>" + #LF$ + "<body>" + #LF$
+      EndIf
+      
+      HTML$ + "<body>" + #LF$
       
       HTML$ + ConvertHTML_()
       
-      HTML$ + "</body>" + #LF$ + "</html>"
+      HTML$ + "</body>" + #LF$ + "</html>" + #LF$ 
   
       ProcedureReturn HTML$
       
@@ -2229,17 +2312,7 @@ Module MarkDown
       
       ProcedureReturn OffsetX
     EndProcedure
-    
-    Procedure.s StringPDF_(List Words.Words_Structure())
-  	  Define.s Text$
-  	  
-  	  ForEach Words()
-  	    Text$ + Words()\String
-  	  Next
-  	  
-  	  ProcedureReturn Text$
-  	EndProcedure
-    
+       
     Procedure.i RowPDF_(PDF.i, X.i, BlockQuote.i, List Words.Words_Structure(), ColWidth.i=#False, Align.s="L", ID.s="")
       Define.i PosX, PosY, Width, Height, Font, TextWidth, ImgSize, Image, WordIdx, bqY, bqHeight 
       Define.i OffSetX, OffSetY, OffSetBQ, LinkPDF
@@ -2296,7 +2369,12 @@ Module MarkDown
             PDF::SetColorRGB(PDF, PDF::#TextColor, 0, 100, 0)
             PDF::Cell(PDF, Words()\String, TextWidth)
             PDF::SetColorRGB(PDF, PDF::#TextColor, 0, 0, 0)
-            ;}  
+            ;} 
+          Case #Glossary       ;{ Glossary
+            PDF::SetColorRGB(PDF, PDF::#TextColor, 0, 0, 128)
+            PDF::Cell(PDF, Words()\String, TextWidth, #PB_Default, #False, PDF::#Right, "", #False, "Glossary")
+            PDF::SetColorRGB(PDF, PDF::#TextColor, 0, 0, 0)
+            ;}
           Case #AutoLink       ;{ AutoLink
             
             If SelectElement(MarkDown()\Link(), Words()\Index)
@@ -2368,9 +2446,7 @@ Module MarkDown
               Else
                 Link$ = MarkDown()\Link()\URL
               EndIf 
-              
-              
-              
+
               If Left(Link$, 1) = "#"
                 PDF::Cell(PDF, Words()\String, TextWidth, #PB_Default, #False, PDF::#Right, "", #False, Link$)
               Else
@@ -2475,7 +2551,7 @@ Module MarkDown
             Case #Heading          ;{ Heading
               
               If MarkDown()\Items()\Level <= 3
-                PDF::AddEntryTOC(PDF, StringPDF_(MarkDown()\Items()\Words()), MarkDown()\Items()\Level)
+                PDF::AddEntryTOC(PDF, GetString_(MarkDown()\Items()\Words()), MarkDown()\Items()\Level)
               EndIf
             
               If MarkDown()\Items()\ID
@@ -2631,7 +2707,32 @@ Module MarkDown
                 PDF::Ln(PDF, 2)
                 
               EndIf  
-			        ;}  
+              ;} 
+            Case #List|#Glossary   ;{ Glossary 
+              
+              If SelectElement(MarkDown()\Lists(), MarkDown()\Items()\Index)
+                
+                PDF::AddGotoLabel(PDF, "Glossary")
+                
+                PDF::Ln(PDF, 2)
+                
+                ForEach MarkDown()\Lists()\Row()
+                  
+                  PDF::SetPosX(PDF, 10)
+                  FontPDF_(PDF, #Font_Bold)
+                  PDF::Cell(PDF, MarkDown()\Lists()\Row()\String, PDF::GetStringWidth(PDF, MarkDown()\Lists()\Row()\String), #PB_Default, #False, PDF::#NextLine) 
+                  
+                  PDF::Ln(PDF, 1.5)
+                  
+                  FontPDF_(PDF, #Font_Normal)
+                  RowPDF_(PDF, 15, MarkDown()\Items()\BlockQuote, MarkDown()\Lists()\Row()\Words())
+                  
+                Next
+                
+                PDF::Ln(PDF, 2)
+                
+              EndIf    
+              ;}  
             Case #Line             ;{ Horizontal Rule
               PDF::Ln(PDF, 3)
               PDF::DividingLine(PDF)
@@ -2664,6 +2765,7 @@ Module MarkDown
   			          
   			          LastX = #PB_Default
   			          RowY  = 0
+  			          LastWidth = 0
   			          
   			          Y = PDF::GetPosY(PDF)
 
@@ -2705,26 +2807,27 @@ Module MarkDown
                       Num$ = Str(c)
                       
                       X = ColX(Str(c))
-                      
-                      If MarkDown()\Table()\Row()\Col(Str(c))\Span > 1
-                        colWidth = GetSpanWidth_(c, MarkDown()\Table()\Row()\Col(Str(c))\Span, #True)
-                      Else
-                        colWidth = mm_(MarkDown()\Table()\Column(Str(c))\Width) + 4
-                      EndIf
-                      
-                      If MarkDown()\Table()\Row()\Col(Num$)\Span = 0 Or LastX >= 0 ;{ ColSpan
+
+                      If MarkDown()\Table()\Row()\Col(Num$)\Span = 0 ;{ ColSpan
  
                         If c=1
                           LastX = X
                           LastWidth = GetSpanWidth_(1, MarkDown()\Table()\Row()\Col("2")\Span, #True)
                           Continue
                         ElseIf LastX >= 0
-                          X = LastX
-                          colWidth = LastWidth
-                          LastX = #PB_Default
-                        Else
-                          Continue
+                          LastWidth = GetSpanWidth_(1, MarkDown()\Table()\Row()\Col(Str(c + 1))\Span, #True)
                         EndIf
+                        
+                        Continue
+                        
+                      ElseIf LastX >= 0
+                        X = LastX
+                        colWidth = LastWidth
+                        LastX = #PB_Default
+                      ElseIf MarkDown()\Table()\Row()\Col(Str(c))\Span > 1
+                        colWidth = GetSpanWidth_(c, MarkDown()\Table()\Row()\Col(Str(c))\Span, #True)
+                      Else
+                        colWidth = mm_(MarkDown()\Table()\Column(Str(c))\Width) + 4
                         ;}
                       EndIf 
                       
@@ -2767,7 +2870,7 @@ Module MarkDown
             
               PDF::Ln(PDF, 3)
               ;}
-            Case #TOC              ;{ Table of Contents
+            Case #InsertTOC        ;{ Table of Contents
               PDF::InsertTOC(PDF, #False, "")
               ;}
             Default                ;{ Text
@@ -3437,7 +3540,7 @@ Module MarkDown
           EndIf   
           ;}
         Case "["
-          ;{ ___ Footnotes / Keystrokes / Links
+          ;{ ___ Footnotes / Glossary / Keystrokes / Links
           If Mid(Row, Pos, 2) = "[^"
             ;{ ___ Footnote ___
             ePos = FindString(Row, "]", Pos + 1)
@@ -3455,6 +3558,30 @@ Module MarkDown
                 EndIf
                 
                 MarkDown()\Footnote()\Label = Words()\String
+
+              EndIf
+              
+            EndIf 
+          
+            If ePos : Pos  = ePos : sPos = Pos + 1 : EndIf  
+            ;}
+          ElseIf Mid(Row, Pos, 2) = "[?"  
+            ;{ ___ Glossary ___
+            ePos = FindString(Row, "]", Pos + 1)
+            If ePos
+              
+              FirstItem = AddStringBefore_(sPos, Pos, Row, FirstItem, Words())
+              
+              If AddElement(MarkDown()\GlossaryWord())
+                
+                If AddElement(Words())
+                  Words()\String = Mid(Row, Pos + 2, ePos - Pos - 2)
+                  Words()\Font   = #Font_Normal
+                  Words()\Index  = ListIndex(MarkDown()\GlossaryWord())
+                  Words()\Flag   = #Glossary
+                EndIf
+                
+                MarkDown()\GlossaryWord()\Word = Words()\String
 
               EndIf
               
@@ -3712,9 +3839,11 @@ Module MarkDown
     ; -------------------------------------------------------------------------
     Define.i r, Rows, Pos, sPos, ePos, nPos, Length, Left, Right
     Define.i NewLine, Type,  BlockQuote, StartNum, Indent, Counter
-    Define.i c, Column, Cols, ListIdx
+    Define.i c, Column, Cols, ListIdx, ColSpan 
     Define.s Row$, tRow$, String$, Char$, Start$, Close$, Label$, Col$, Num$
     Define   Lists.List_Structure
+    
+    NewList Sort.s()
     
     If Text = "" : ProcedureReturn #False : EndIf 
     
@@ -3997,7 +4126,7 @@ Module MarkDown
       Else
         
         ;{ _____ Setext headings _____      [4.3]
-        If ListSize(Document()) And Document()\Type = #Parse And Not NewLine
+        If ListSize(Document()) And Trim(Document()\String) And Document()\Type = #Parse And Not NewLine 
 
           If Left(tRow$, 1) = "=" And CountString(Trim(Row$), "=") = Len(Trim(Row$))
             
@@ -4065,16 +4194,17 @@ Module MarkDown
           ;}
         EndIf ;}
         
-        ;{ _____ Paragraphs _____           [4.8]
-        If tRow$ = "" And (ListIndex(Document()) = -1 Or Document()\String)
-          If AddDocRow_("", #Paragraph) : Continue : EndIf 
-        EndIf ;} 
-        
         ;{ _____ Thematic breaks _____      [4.1]
+        
         Select Left(RemoveString(tRow$, " "), 3) 
           Case "---", "***", "___"
             If AddDocRow_(tRow$, #Line) : Continue : EndIf 
-        EndSelect ;}
+        EndSelect ;}        
+        
+        ;{ _____ Paragraphs _____           [4.8]
+        If Trim(tRow$) = "" And (ListIndex(Document()) = -1 Or Document()\String)
+          If AddDocRow_("", #Paragraph) : Continue : EndIf 
+        EndIf ;} 
         
         ;{ _____ Fenced code blocks _____   [4.5]
         Select Left(tRow$, 3)
@@ -4179,10 +4309,38 @@ Module MarkDown
         EndIf
         ;}
         
+        ;{ _____ Glossary reference definitions _____
+        If Left(tRow$, 2) = "[?"
+          
+          ePos = FindString(tRow$, "]:", 3)
+          If ePos
+            
+            Label$ = Mid(tRow$, 3, ePos - 3)
+            If Label$
+              If AddMapElement(MarkDown()\Glossary(), Label$)
+                ParseInline_(Trim(Mid(Row$, ePos + 2)), MarkDown()\Glossary()\Words())
+              EndIf 
+              Continue
+            EndIf
+            
+          EndIf 
+          
+        EndIf
+        ;}
+        
+        ;{ _____ Glossary _____
+        If Left(tRow$, 12) = "{{Glossary}}"
+          If AddElement(Document())
+            Document()\Type = #InsertGlossary
+            Continue
+          EndIf
+        EndIf  
+        ;}
+        
         ;{ _____ TOC _____
         If Left(tRow$, 7) = "{{TOC}}"
           If AddElement(Document())
-            Document()\Type = #TOC
+            Document()\Type = #InsertTOC
             Continue
           EndIf
         EndIf  
@@ -4276,7 +4434,7 @@ Module MarkDown
               MarkDown()\TOC()\ID = MarkDown()\Items()\ID
               CopyList(MarkDown()\Items()\Words(), MarkDown()\TOC()\Words())
               ForEach MarkDown()\TOC()\Words()
-                MarkDown()\TOC()\Words()\Flag = #TOC
+                MarkDown()\TOC()\Words()\Flag = #InsertTOC
                 MarkDown()\TOC()\Words()\Font = #Font_Normal 
               Next
             EndIf
@@ -4530,7 +4688,8 @@ Module MarkDown
           If ListSize(MarkDown()\Table())
             
             Cols = CountString(String$, "|") + 1
-
+            ColSpan = 0
+            
             If Left(Trim(String$), 2) = "--" Or Left(Trim(String$), 3) = ":--" ;{ Header 
               
               If FirstElement(MarkDown()\Table()\Row())
@@ -4567,11 +4726,11 @@ Module MarkDown
                 MarkDown()\Table()\Row()\Type = #Table
                 
                 For c=1 To Cols
-              
                   Col$ = StringField(String$, c, "|")
                   If Col$ = ""
                     If c=1
-                      MarkDown()\Table()\Row()\Col("2")\Span = 1
+                      ColSpan = CountSpan_(String$, 1) + 1
+                      MarkDown()\Table()\Row()\Col(Str(ColSpan))\Span = 1
                     Else  
                       MarkDown()\Table()\Row()\Col(Num$)\Span + 1
                     EndIf  
@@ -4599,11 +4758,18 @@ Module MarkDown
           EndIf
           ;}
         ;{ _____ TOC _____
-        Case #TOC
+        Case #InsertTOC
           If AddElement(MarkDown()\Items())
-            MarkDown()\Items()\Type = #TOC
+            MarkDown()\Items()\Type = #InsertTOC
           EndIf
          ;}
+        ;{ _____ Glossary _____
+        Case #InsertGlossary
+          If AddElement(MarkDown()\Items())
+            MarkDown()\Items()\Type = #InsertGlossary
+          EndIf
+         ;}
+          
         Default
           Row$ = Document()\String
           ;{ _____ Link reference definitions _____ [4.7] 
@@ -4654,43 +4820,135 @@ Module MarkDown
       EndSelect
       
     Next ;}
+    
+    ;{ ===== Phase 3 =====
+    If MapSize(MarkDown()\Glossary())
+      
+      ;{ Sort Glossary
+      ForEach MarkDown()\Glossary()
+        If AddElement(Sort())
+          Sort() = MapKey(MarkDown()\Glossary())
+        EndIf  
+      Next 
+      SortList(Sort(), #PB_Sort_Ascending|#PB_Sort_NoCase)
+      ;}
+      
+      ForEach MarkDown()\Items()
 
+        If MarkDown()\Items()\Type = #InsertGlossary ;{ Insert Glossary
+          
+          MarkDown()\Items()\Type = #List|#Glossary
+          
+          If AddElement(MarkDown()\Lists())
+            
+            MarkDown()\Items()\Index = ListIndex(MarkDown()\Lists())
+            
+            ForEach Sort()
+              If FindMapElement(MarkDown()\Glossary(), Sort())
+                If AddElement(MarkDown()\Lists()\Row())
+                  MarkDown()\Lists()\Row()\String = MapKey(MarkDown()\Glossary())
+                  CopyList(MarkDown()\Glossary()\Words(), MarkDown()\Lists()\Row()\Words())
+                EndIf 
+              EndIf
+            Next
+            
+          EndIf  
+          ;}
+        EndIf  
+        
+      Next
+      
+    EndIf  
+    ;}
+    
   EndProcedure  
   
   ;- __________ Tools __________
 
-  Procedure.i TOC_Entries_(Markdown.s, List TOC.TOC_Structure(), PageLabel.s) 
+  Procedure   TOC_Entries_(List TOC.TOC_Structure(), PageLabel.s) 
 	  
-	  If AddMapElement(MarkDown(), "Parse")
+    ForEach MarkDown()\TOC()
+      
+      If AddElement(TOC())
+	      TOC()\ID     = MarkDown()\TOC()\ID
+	      TOC()\Label  = PageLabel
+	      TOC()\Level  = MarkDown()\TOC()\Level
+	      TOC()\X      = MarkDown()\TOC()\X
+	      TOC()\Y      = MarkDown()\TOC()\Y
+	      TOC()\Width  = MarkDown()\TOC()\Width
+	      TOC()\Height = MarkDown()\TOC()\Height
+	      CopyList(MarkDown()\TOC()\Words(), TOC()\Words())
+	    EndIf
 	    
-	    Parse_(MarkDown)
+    Next
 
-	    ForEach MarkDown()\TOC()
-	      If AddElement(TOC())
-  	      TOC()\ID     = MarkDown()\TOC()\ID
-  	      TOC()\Label  = PageLabel
-  	      TOC()\Level  = MarkDown()\TOC()\Level
-  	      TOC()\X      = MarkDown()\TOC()\X
-  	      TOC()\Y      = MarkDown()\TOC()\Y
-  	      TOC()\Width  = MarkDown()\TOC()\Width
-  	      TOC()\Height = MarkDown()\TOC()\Height
-  	      CopyList(MarkDown()\TOC()\Words(), TOC()\Words())
-	      EndIf
-	    Next
-
-	    DeleteMapElement(MarkDown())
-	    
-	    ProcedureReturn ListSize(TOC())
-	  EndIf
 	EndProcedure
+	
+  Procedure   Glossary_Entries_(Map Glossary.Glossary_Structure(), PageLabel.s) 
+	  
+    ForEach MarkDown()\Glossary()
+      
+      If AddMapElement(Glossary(), MapKey(MarkDown()\Glossary()))
+	      Glossary()\Label = PageLabel
+	      CopyList(MarkDown()\Glossary()\Words(), Glossary()\Words())
+	    EndIf
+	    
+    Next
+
+	EndProcedure
+	
 	
   Procedure.i UpdateTOC_(List TOC.TOC_Structure())
 	  
 	  CopyList(TOC(), MarkDown()\TOC())
-	  
-	  DetermineTextSize_()
-	  
+
 	  ProcedureReturn ListSize(MarkDown()\TOC())
+	EndProcedure
+	
+	Procedure.i UpdateGlossary_(Map Glossary.Glossary_Structure())
+	  NewList Sort.s()
+	  
+	  CopyMap(Glossary(), MarkDown()\Glossary())
+	  
+	  If MapSize(MarkDown()\Glossary())
+      
+      ;{ Sort Glossary
+      ForEach MarkDown()\Glossary()
+        If AddElement(Sort())
+          Sort() = MapKey(MarkDown()\Glossary())
+        EndIf  
+      Next 
+      SortList(Sort(), #PB_Sort_Ascending|#PB_Sort_NoCase)
+      ;}
+      
+      ForEach MarkDown()\Items()
+
+        If MarkDown()\Items()\Type = #InsertGlossary ;{ Insert Glossary
+          
+          MarkDown()\Items()\Type = #List|#Glossary
+          
+          If SelectElement(MarkDown()\Lists(), MarkDown()\Items()\Index)
+            
+            ClearList(MarkDown()\Lists()\Row())
+            
+            ForEach Sort()
+              If FindMapElement(MarkDown()\Glossary(), Sort())
+                If AddElement(MarkDown()\Lists()\Row())
+                  MarkDown()\Lists()\Row()\String = MapKey(MarkDown()\Glossary())
+                  CopyList(MarkDown()\Glossary()\Words(), MarkDown()\Lists()\Row()\Words())
+                EndIf 
+              EndIf
+            Next
+            
+          EndIf  
+          ;}
+        EndIf  
+        
+      Next
+      
+    EndIf  
+
+	  ProcedureReturn MapSize(MarkDown()\Glossary())
 	EndProcedure
 	
 	;- __________ Drawing __________
@@ -4936,6 +5194,16 @@ Module MarkDown
             
             PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Hint)
             ;}
+          Case #Glossary        ;{ Draw Glossary
+            If SelectElement(MarkDown()\GlossaryWord(), Words()\Index)
+              MarkDown()\GlossaryWord()\X = PosX
+              MarkDown()\GlossaryWord()\Y = PosY
+              MarkDown()\GlossaryWord()\Width  = TextWidth(Words()\String)
+              MarkDown()\GlossaryWord()\Height = Height
+            EndIf
+            
+            PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Hint)
+            ;}
           Case #Highlight       ;{ Draw highlighted text
             DrawingMode(#PB_2DDrawing_Default)
             PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Front, MarkDown()\Color\Highlight)
@@ -5013,7 +5281,7 @@ Module MarkDown
             OffSetY = Height - TextHeight(Words()\String) + dpiY(2)
             PosX = DrawText(PosX, PosY + OffSetY, Words()\String, MarkDown()\Color\Front)
             ;}    
-          Case #TOC             ;{ Table of Contents
+          Case #InsertTOC             ;{ Table of Contents
             PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Link)
             ;}
           Default 
@@ -5092,6 +5360,16 @@ Module MarkDown
             
             PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Hint)
             ;}
+          Case #Glossary        ;{ Draw Glossary
+            If SelectElement(MarkDown()\GlossaryWord(), Words()\Index)
+              MarkDown()\GlossaryWord()\X = PosX
+              MarkDown()\GlossaryWord()\Y = PosY
+              MarkDown()\GlossaryWord()\Width  = TextWidth(Words()\String)
+              MarkDown()\GlossaryWord()\Height = Height
+            EndIf
+            
+            PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Hint)
+            ;}  
           Case #Highlight       ;{ Draw highlighted text
             DrawingMode(#PB_2DDrawing_Default)
             PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Front, MarkDown()\Color\Highlight)
@@ -5169,7 +5447,7 @@ Module MarkDown
             PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Front)
             Line(lX, PosY + TextHeight(Words()\String) - 1, TextWidth(Words()\String), 1, MarkDown()\Color\Front)
             ;}   
-          Case #TOC             ;{ Table of Contents
+          Case #InsertTOC       ;{ Table of Contents
             PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Link)
             ;}  
           Default
@@ -5285,6 +5563,13 @@ Module MarkDown
             CheckBox_(PosX + MarkDown()\Indent, Y + dpiY(1), MarkDown()\Lists()\Row()\Height - dpiY(2), MarkDown()\Color\Front, MarkDown()\Color\Back, MarkDown()\Lists()\Row()\State)
             PosX + Indent
             ;}
+          Case #List|#Glossary   ;{ Glossary 
+            DrawingFont(FontID(MarkDown()\Font\Bold))
+            DrawText(PosX, Y, MarkDown()\Lists()\Row()\String, MarkDown()\Color\Front)
+            Y + TextHeight(MarkDown()\Lists()\Row()\String)
+            Indent = MarkDown()\Indent * MarkDown()\Lists()\Row()\Level
+            PosX + Indent + MarkDown()\Indent
+            ;}
           Default                ;{ Unordered list
             Chars$ = #Bullet$ + " "
             Indent = TextWidth(Chars$) * MarkDown()\Lists()\Row()\Level + MarkDown()\Indent
@@ -5313,7 +5598,7 @@ Module MarkDown
   EndProcedure  
   
   Procedure.i DrawTable_(Index.i, X.i, Y.i, BlockQuote.i) 
-    Define.i c, PosX, PosY, ColY, OffSetY, OffSetBQ, colWidth, colHeight, LastX, LastWidth
+    Define.i c, PosX, PosY, ColY, OffSetY, OffSetBQ, colWidth, colHeight, LastX, LastWidth, SpanPos
     Define.s Num$
     
     NewMap ColX.i()
@@ -5339,8 +5624,12 @@ Module MarkDown
       
       ForEach MarkDown()\Table()\Row()
         
-        LastX = #PB_Default
-        PosY  = Y
+        
+        PosY = Y
+        
+        SpanPos   = 1
+        LastX     = #PB_Default
+        LastWidth = 0
         
         For c=1 To MarkDown()\Table()\Cols
           
@@ -5348,26 +5637,30 @@ Module MarkDown
           
           PosX = ColX(Num$)
           
-          If MarkDown()\Table()\Row()\Col(Num$)\Span > 1
-            colWidth = GetSpanWidth_(c, MarkDown()\Table()\Row()\Col(Num$)\Span)
-          Else
-            colWidth = MarkDown()\Table()\Column(Num$)\Width
-          EndIf
-          
-          If MarkDown()\Table()\Row()\Col(Num$)\Span = 0 Or LastX >= 0
+          If MarkDown()\Table()\Row()\Col(Num$)\Span = 0     ;{ Ignored cell
             
-            If c=1
+            If c = 1
               LastX     = PosX
               LastWidth = GetSpanWidth_(1, MarkDown()\Table()\Row()\Col("2")\Span)
-              Continue
             ElseIf LastX >= 0
-              PosX     = LastX
-              colWidth = LastWidth
-              LastX = #PB_Default
-            Else
-              Continue
+              LastWidth = GetSpanWidth_(1, MarkDown()\Table()\Row()\Col(Str(c + 1))\Span)
             EndIf
             
+            Continue
+            ;}
+          ElseIf LastX >= 0                                  ;{ Colspan & Column 1
+            
+            PosX     = LastX
+            colWidth = LastWidth
+            
+            LastX = #PB_Default
+            LastWidth = 0
+            ;}
+          ElseIf MarkDown()\Table()\Row()\Col(Num$)\Span > 1 ;{ Colspan
+            colWidth = GetSpanWidth_(c, MarkDown()\Table()\Row()\Col(Num$)\Span)
+            ;}
+          Else
+            colWidth = MarkDown()\Table()\Column(Num$)\Width
           EndIf 
 
           colHeight = MarkDown()\Table()\Row()\Height + dpiX(6)
@@ -5573,17 +5866,19 @@ Module MarkDown
             Y = DrawList_(MarkDown()\Items()\Index, #List|#Task, X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote) 
 			      ;}
           Case #List|#Unordered  ;{ Unordered list
-            
             Y = DrawList_(MarkDown()\Items()\Index, #List|#Unordered, X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote) 
 			      ;}
-			    Case #Paragraph        ;{ Paragraph
+          Case #List|#Glossary   ;{ Glossary
+            Y = DrawList_(MarkDown()\Items()\Index, #List|#Glossary, X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote)
+            ;}
+          Case #Paragraph        ;{ Paragraph
 			       Y + (TextHeight / 2)
 			      ;}
 			    Case #Table            ;{ Table
 			      
 			      Y = DrawTable_(MarkDown()\Items()\Index, X, Y, MarkDown()\Items()\BlockQuote) 
 			      ;}
-			    Case #TOC              ;{ Table of Contents
+			    Case #InsertTOC              ;{ Table of Contents
 			      Y = DrawTOC(X, Y)
 			      ;}
 			    Default                ;{ Text
@@ -5967,7 +6262,26 @@ Module MarkDown
 			  ;}
 			Next  
 			
-			ForEach MarkDown()\TOC()  ;{ Table of Contents
+			ForEach MarkDown()\GlossaryWord() ;{ Glossary
+			  
+			  If Y >= MarkDown()\GlossaryWord()\Y And Y <= MarkDown()\GlossaryWord()\Y + MarkDown()\GlossaryWord()\Height 
+			    If X >= MarkDown()\GlossaryWord()\X And X <= MarkDown()\GlossaryWord()\X + MarkDown()\GlossaryWord()\Width
+			      
+			      SetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
+			      
+			      If MarkDown()\ToolTip = #False
+			        ToolTip$ = Trim(GetString_(MarkDown()\Glossary(MarkDown()\GlossaryWord()\Word)\Words()))
+		          GadgetToolTip(GNum, ToolTip$)
+		          MarkDown()\ToolTip  = #True
+			      EndIf
+			      
+  			    ProcedureReturn #True
+  			  EndIf
+  			EndIf
+			  ;}
+			Next  
+			
+			ForEach MarkDown()\TOC()          ;{ Table of Contents
 			  If Y >= MarkDown()\TOC()\Y And Y <= MarkDown()\TOC()\Y + MarkDown()\TOC()\Height 
 			    If X >= MarkDown()\TOC()\X And X <= MarkDown()\TOC()\X + MarkDown()\TOC()\Width
 			      
@@ -6161,7 +6475,7 @@ Module MarkDown
 		MarkDown()\Color\Front         = $000000
 		MarkDown()\Color\Gadget        = $F0F0F0
 		MarkDown()\Color\Highlight     = $E3F8FC
-		MarkDown()\Color\Hint          = $006400
+		MarkDown()\Color\Hint          = $800000
 		MarkDown()\Color\Keystroke     = $650000
 		MarkDown()\Color\KeyStrokeBack = $F6F6F6 
 		MarkDown()\Color\Line          = $A9A9A9
@@ -6940,10 +7254,11 @@ Module MarkDown
 	  CompilerIf Defined(PDF, #PB_Module)
 	  
   	  Procedure.s Help2PDF(Title.s, File.s, FilePDF.s="", Orientation.s="P", Format.s="")
-  	    Define.i PDF, Pack, JSON, Size
+  	    Define.i PDF, Pack, JSON, Size, Counter
   	    Define.s FileName$
   	    Define   *Buffer
   	    
+  	    NewMap  Glossary.Glossary_Structure()
   	    NewList Item.Item_Structure()
   	    
   	    If AddMapElement(MarkDown(), "Convert")
@@ -6994,6 +7309,22 @@ Module MarkDown
             ClosePack(Pack)
     	    EndIf ;}
     	    
+    	    ;{ _____ Parse _____
+    	    ForEach Item()
+    	      
+    	      Clear_()
+            
+    	      Parse_(Item()\Text)
+    	      
+            If Item()\Label = ""
+              Counter + 1
+              Item()\Label = "Help" + RSet(Str(Counter), 3, "0")
+            EndIf
+
+    	      Glossary_Entries_(Glossary(), Item()\Label)
+            
+    	    Next ;}
+    	    
     	    PDF = PDF::Create(#PB_Any, Orientation, "", Format)
           If PDF
             
@@ -7013,6 +7344,8 @@ Module MarkDown
               Clear_()
               
               Parse_(Item()\Text)
+              
+              UpdateGlossary_(Glossary())
               
               If Item()\Label : PDF::AddGotoLabel(PDF, "#Page:" + Item()\Label) : EndIf
               
@@ -7048,24 +7381,26 @@ Module MarkDown
   	    Define.s File$, FileName$, HTML$, Style$, Label$, Start$
   	    Define   *Buffer
   	    
+  	    NewMap  Glossary.Glossary_Structure()
+  	    NewList TOC.TOC_Structure()
   	    NewList Item.Item_Structure()
   	    
+	      ;{ _____ Filename & Folder _____
+	      If FileHTML = "" : FileHTML = GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + ".html" : EndIf 
+        
+        If Folder
+          File$ = GetPathPart(FileHTML) + Folder + #PS$ + GetFilePart(FileHTML)
+        Else
+          File$ = FileHTML
+        EndIf
+
+        If FileSize(GetPathPart(File$)) <> -2 : CreateDirectory(GetPathPart(File$)) : EndIf
+        ;}  	    
+        
   	    If AddMapElement(MarkDown(), "Convert")
   	      
-  	      ;{ _____ Filename & Folder _____
-  	      If FileHTML = "" : FileHTML = GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + ".html" : EndIf 
-          
-          If Folder
-            File$ = GetPathPart(FileHTML) + Folder + #PS$ + GetFilePart(FileHTML)
-          Else
-            File$ = FileHTML
-          EndIf
-          
-          MarkDown()\Path = GetPathPart(File$)
-          
-          If FileSize(GetPathPart(File$)) <> -2 : CreateDirectory(GetPathPart(File$)) : EndIf
-          ;}
-          
+  	      MarkDown()\Path = GetPathPart(File$)
+  	      
   	      ;{ _____ Load Help File _____
     	    Pack = OpenPack(#PB_Any, File, #PB_PackerPlugin_Lzma)
     	    If Pack
@@ -7097,7 +7432,24 @@ Module MarkDown
             EndIf
             
             ClosePack(Pack)
-    	    EndIf ;}
+    	    EndIf ;}  
+    	    
+    	    ;{ _____ Parse _____
+    	    ForEach Item()
+    	      
+    	      Clear_()
+            
+    	      Parse_(Item()\Text)
+    	      
+            If Item()\Label = ""
+              Counter + 1
+              Item()\Label = "Help" + RSet(Str(Counter), 3, "0")
+            EndIf
+            
+            TOC_Entries_(TOC(), Item()\Label)
+    	      Glossary_Entries_(Glossary(), Item()\Label)
+            
+    	    Next ;}
     	    
     	    ;{ _____ Frames File _____
     	    ForEach Item()
@@ -7165,20 +7517,36 @@ Module MarkDown
     	    EndIf
     	    ;}
     	    
+    	    ;{ _____ CSS File _____
+    	    If Folder
+            File$ = GetPathPart(FileHTML) + Folder + #PS$ + "Markdown.css"
+          Else
+            File$ = "Markdown.css"
+          EndIf
+          
+          Style$ = StyleCSS()
+          
+    	    FileID = CreateFile(#PB_Any, File$, #PB_UTF8)
+          If FileID
+    	      WriteStringFormat(FileID,  #PB_UTF8)
+    	      WriteString(FileID, Style$, #PB_UTF8)
+    	      CloseFile(FileID)
+    	    EndIf
+    	    ;}
+    	    
     	    ;{ _____ Create Help Files _____
           ForEach Item()
             
             Clear_()
             
             Parse_(Item()\Text)
-          
-            HTML$ = ExportHTML_(Title)
+            
+            UpdateGlossary_(Glossary())
+            UpdateTOC_(TOC())
+            
+            HTML$ = ExportHTML_(Title, "Markdown.css")
             
             Label$ = Item()\Label
-            If Label$ = ""
-              Counter + 1
-              Label$ = "Help" + RSet(Str(Counter), 3, "0")
-            EndIf
             
             If Folder
               File$ = GetPathPart(FileHTML) + Folder + #PS$ + Label$ + ".html"
@@ -7216,6 +7584,7 @@ Module MarkDown
 	    Define   *Buffer
 	    
 	    NewList TOC.TOC_Structure()
+	    NewMap  Glossary.Glossary_Structure()
 	    
 	    CompilerIf Defined(ModuleEx, #PB_Module)
         If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
@@ -7339,19 +7708,27 @@ Module MarkDown
   	    EndIf  
   	    ;}
   	    
+  	    ;{  _____ Parse _____
   	    ForEach Help\Item()
-  	     
+  	      
   	      If Help\Item()\Label : Help\Label(Help\Item()\Label) = ListIndex(Help\Item()) : EndIf
   	      
-  	      TOC_Entries_(Help\Item()\Text, TOC(), Help\Item()\Label)
-  	      
+  	      If AddMapElement(MarkDown(), "Parse")
+
+    	      Parse_(Help\Item()\Text)
+    	      
+    	      TOC_Entries_(TOC(), Help\Item()\Label)
+    	      Glossary_Entries_(Glossary(), Help\Item()\Label)
+    	      
+    	    EndIf
+    	    
   	      CompilerIf Defined(TreeEx, #PB_Module)
   	        TreeEx::AddItem(Help\TreeNum, TreeEx::#LastRow, Help\Item()\Titel, Help\Item()\Label, #False, Help\Item()\Level)
   	      CompilerElse
   	        AddGadgetItem(Help\TreeNum, -1, Help\Item()\Titel, #False, Help\Item()\Level)
   	      CompilerEndIf
-  	      
-        Next 
+
+  	    Next ;}
 
   	    If FindMapElement(MarkDown(), Str(MarkdownNum))
   	      
@@ -7366,6 +7743,8 @@ Module MarkDown
                 SetText(MarkdownNum, Help\Item()\Text)
                 MarkDown()\PageLabel = Help\Item()\Label
                 If UpdateTOC_(TOC()) : ReDraw() : EndIf 
+                If UpdateGlossary_(Glossary()) : ReDraw() : EndIf 
+                DetermineTextSize_()
               EndIf
             EndIf
   	      EndIf ;}
@@ -7397,7 +7776,9 @@ Module MarkDown
                               CompilerEndIf
                               SetText(MarkdownNum, Help\Item()\Text)
                               MarkDown()\PageLabel = MarkDown()\EventLabel
+                              If UpdateGlossary_(Glossary()) : ReDraw() : EndIf 
                               If UpdateTOC_(TOC()) : ReDraw() : EndIf 
+                               DetermineTextSize_()
                             EndIf
                           EndIf
                           GotoHeading_(MarkDown()\EventValue)
@@ -7414,7 +7795,9 @@ Module MarkDown
                                 CompilerEndIf
                                 SetText(MarkdownNum, Help\Item()\Text)
                                 MarkDown()\PageLabel = Help\Item()\Label
-                                If UpdateTOC_(TOC()) : ReDraw() : EndIf 
+                                If UpdateGlossary_(Glossary()) : ReDraw() : EndIf 
+                                If UpdateTOC_(TOC()) : ReDraw() : EndIf
+                                DetermineTextSize_()
                               EndIf
                             EndIf
                           Else
@@ -7437,7 +7820,9 @@ Module MarkDown
                             If SelectElement(Help\Item(), Selected)
                               SetText(MarkdownNum, Help\Item()\Text)
                               MarkDown()\PageLabel = Help\Item()\Label
+                              If UpdateGlossary_(Glossary()) : ReDraw() : EndIf 
                               If UpdateTOC_(TOC()) : ReDraw() : EndIf 
+                              DetermineTextSize_()
                             EndIf  
                           EndIf  
                         EndIf
@@ -7447,7 +7832,9 @@ Module MarkDown
                           If SelectElement(Help\Item(), Selected)
                             SetText(MarkdownNum, Help\Item()\Text)
                             MarkDown()\PageLabel = Help\Item()\Label
+                            If UpdateGlossary_(Glossary()) : ReDraw() : EndIf 
                             If UpdateTOC_(TOC()) : ReDraw() : EndIf 
+                            DetermineTextSize_()
                           EndIf  
                         EndIf
                       CompilerEndIf 
@@ -7470,7 +7857,7 @@ Module MarkDown
 
 	CompilerEndIf
 	
-	; ========================
+	; ===========================
 	
 	;{ _____ Load Emoji _____
 	
@@ -7972,6 +8359,7 @@ CompilerIf #PB_Compiler_IsMainFile
   ; 13: Abbreviations
   ; 14: Keystrokes
   ; 15: Intended Code Block
+  ; 16: Glossary
   ; === Requester ===
   ; 20: Message Requester
   ; === Help ===
@@ -8023,12 +8411,12 @@ CompilerIf #PB_Compiler_IsMainFile
       ;}
     Case 6   ;{ Table
       Text$ = "### Table ###"  + #LF$
-      Text$ + "| Syntax    | Description   |" + #LF$
-      Text$ + "| :-------: | ------------: |" + #LF$
-      Text$ + "| *Header*  | Title         |" + #LF$ 
-      Text$ + "|| Long cell 0              |" + #LF$
-      Text$ + "| Long cell                ||" + #LF$
-      Text$ + "| Paragraph | *Text*        |" + #LF$ 
+      Text$ + "| Syntax    | Description   | Column 3 |" + #LF$
+      Text$ + "| :-------- | :-----------: | -------: |" + #LF$
+      Text$ + "| *Header*  | Title         | Subject  |" + #LF$ 
+      Text$ + "||| Very long cell                     |" + #LF$
+      Text$ + "| Cell      | Long cell               ||" + #LF$
+      Text$ + "| Paragraph | **Text**      | *Table * |" + #LF$ 
       ;}
     Case 7   ;{ Footnote
       Text$ = "### Footnotes ###" + #LF$ + #LF$
@@ -8105,6 +8493,13 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + Space(4) + "  " + #DQUOTE$ + "lastName"  + #DQUOTE$ + ": " + #DQUOTE$ + "Smith" + #DQUOTE$ + "," + #LF$
       Text$ + Space(4) + "  " + #DQUOTE$ + "age"       + #DQUOTE$ + ": 25" + #LF$
       Text$ + Space(4) + "}" + #LF$
+      ;}
+    Case 16  ;{ Glossary 
+      Text$ = "### Glossary ###" + #LF$ + #LF$
+      Text$ + "[?Glossary] is a glossary term." + #LF$ + #LF$
+      Text$ + "[?Glossary]: The glossary collects information about important terms used in your document." + #LF$ + #LF$
+      Text$ + "-----------------------------------------" + #LF$ + #LF$
+      Text$ + "{{Glossary}}" + #LF$
       ;}
     Case 20  ;{ Reqester
       Text$ = "Just a **short** information text.  " + #LF$
@@ -8233,9 +8628,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 16
-; FirstLine = 189
-; Folding = QBAgJAAAAAAAAAAAAQIAAAYEEAEAgAAAwAAGZACAABEEwCAYAAGCAAAAEwAgAAgDIAAAGFi5gACwAUCGACMA5
-; Markers = 2644,5314
+; CursorPosition = 14
+; Folding = wBQgJAAAAAAAAAAAAACAAAAkEAAAAAAAAAAAMgBIAAAAABMIAAYAAECAAgAAEAAABAAKAAAAYQIiDBEEYAUCCAAIBw
+; Markers = 2745,5599
 ; EnableXP
 ; DPIAware
