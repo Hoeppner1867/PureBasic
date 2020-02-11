@@ -13,12 +13,12 @@
 
 ; PDF-Icon: Icon erstellt von Dimitry Miroliubov (https://www.flaticon.com)
 
-XIncludeFile "AppRegistryModule.pbi"
-XIncludeFile "ResizeExModule.pbi"
-XIncludeFile "ResourceExModule.pbi"
-XIncludeFile "pbPDFModule.pbi"
-XIncludeFile "MarkDownModule.pbi"
-XIncludeFile "EditorExModule.pbi"
+XIncludeFile "Module\AppRegistryModule.pbi"
+XIncludeFile "Module\ResizeExModule.pbi"
+XIncludeFile "Module\ResourceExModule.pbi"
+XIncludeFile "Module\pbPDFModule.pbi"
+XIncludeFile "Module\MarkDownModule.pbi"
+XIncludeFile "Module\EditorExModule.pbi"
 
 EnableExplicit
 
@@ -101,6 +101,7 @@ Enumeration 1
   #Gadget_MarkDown_Bt_Open
   #Gadget_MarkDown_Bt_Save
   #Gadget_MarkDown_Bt_PDF
+  #Gadget_MarkDown_Bt_HTML
   ;}
   
   ;{ #Window_Settings
@@ -155,6 +156,7 @@ Enumeration 1
   #IMG_Table
   #IMG_Settings
   #IMG_PDF
+  #IMG_HTML
   #IMG_Bookmark
   #IMG_Date
   #IMG_Mail
@@ -198,6 +200,7 @@ If ResourceEx::Open(#ResEx, "MarkDownEditor.res")
   ResourceEx::UseImage(#ResEx, #IMG_Table,         "Table.png")
   ResourceEx::UseImage(#ResEx, #IMG_Settings,      "Settings.png")
   ResourceEx::UseImage(#ResEx, #IMG_PDF,           "PDF.png")
+  ResourceEx::UseImage(#ResEx, #IMG_HTML,          "HTML.png")
   ResourceEx::UseImage(#ResEx, #IMG_Bookmark,      "BookMark.png")
   ResourceEx::UseImage(#ResEx, #IMG_Date,          "Date.png")
   ResourceEx::UseImage(#ResEx, #IMG_Mail,          "Mail.png")
@@ -372,12 +375,14 @@ Procedure.i Window_MarkDown()
     EndIf
 
     ButtonImageGadget(#Gadget_MarkDown_Bt_Update,    10, 560, 30, 30, ImageID(#IMG_Update))
-    ButtonImageGadget(#Gadget_MarkDown_Bt_Table,     60, 560, 30, 30, ImageID(#IMG_Table))
-    ButtonImageGadget(#Gadget_MarkDown_Bt_Settings, 365, 560, 30, 30, ImageID(#IMG_Settings))
-    ButtonImageGadget(#Gadget_MarkDown_Bt_New,      630, 560, 30, 30, ImageID(#IMG_New))
-    ButtonImageGadget(#Gadget_MarkDown_Bt_Open,     670, 560, 30, 30, ImageID(#IMG_Open))
-    ButtonImageGadget(#Gadget_MarkDown_Bt_Save,     710, 560, 30, 30, ImageID(#IMG_Save))
-    ButtonImageGadget(#Gadget_MarkDown_Bt_PDF,      760, 560, 30, 30, ImageID(#IMG_PDF))
+    ButtonImageGadget(#Gadget_MarkDown_Bt_Table,     55, 560, 30, 30, ImageID(#IMG_Table))
+    
+    ButtonImageGadget(#Gadget_MarkDown_Bt_New,      405, 560, 30, 30, ImageID(#IMG_New))
+    ButtonImageGadget(#Gadget_MarkDown_Bt_Open,     440, 560, 30, 30, ImageID(#IMG_Open))
+    ButtonImageGadget(#Gadget_MarkDown_Bt_Save,     475, 560, 30, 30, ImageID(#IMG_Save))
+    ButtonImageGadget(#Gadget_MarkDown_Bt_Settings, 515, 560, 30, 30, ImageID(#IMG_Settings))
+    ButtonImageGadget(#Gadget_MarkDown_Bt_PDF,      725, 560, 30, 30, ImageID(#IMG_PDF))
+    ButtonImageGadget(#Gadget_MarkDown_Bt_HTML,     760, 560, 30, 30, ImageID(#IMG_HTML))
     
     If Resize::AddWindow(#Window_MarkDown, 400, 300)
       Resize::AddGadget(#Gadget_MarkDown_Editor,      Resize::#Width|Resize::#Height)
@@ -388,9 +393,13 @@ Procedure.i Window_MarkDown()
       Resize::AddGadget(#Gadget_MarkDown_Bt_Table,    Resize::#MoveY)
       Resize::AddGadget(#Gadget_MarkDown_Bt_Settings, Resize::#MoveX|Resize::#MoveY)
       Resize::SetFactor(#Gadget_MarkDown_Bt_Settings, Resize::#HFactor, "50%")
+      
       Resize::AddGadget(#Gadget_MarkDown_Bt_New,      Resize::#MoveX|Resize::#MoveY)
+      Resize::SetFactor(#Gadget_MarkDown_Bt_New,      Resize::#HFactor, "50%")
       Resize::AddGadget(#Gadget_MarkDown_Bt_Open,     Resize::#MoveX|Resize::#MoveY)
+      Resize::SetFactor(#Gadget_MarkDown_Bt_Open,     Resize::#HFactor, "50%")
       Resize::AddGadget(#Gadget_MarkDown_Bt_Save,     Resize::#MoveX|Resize::#MoveY)
+      Resize::SetFactor(#Gadget_MarkDown_Bt_Save,     Resize::#HFactor, "50%")
       Resize::AddGadget(#Gadget_MarkDown_Bt_PDF,      Resize::#MoveX|Resize::#MoveY)
     EndIf
     
@@ -429,7 +438,7 @@ Procedure.s Load_()
     
   EndIf
   
-  ProcedureReturn GetFilePart(File$)
+  ProcedureReturn File$
 EndProcedure
 
 Procedure.s Save_(FileName.s, SaveAs.i=#True)
@@ -676,7 +685,7 @@ EndProcedure
 ;- __________ Main - Loop __________
 
 Define.i quitWindow = #False
-Define.s FileName$, Code$, String$, Table$
+Define.s FileName$, File$, Path$, Code$, String$, Table$
 
 AppReg::Open(#AppReg, "MarkdownEditor.reg", "MarkdownEditor", "Thorsten Hoeppner")
 
@@ -820,15 +829,21 @@ If Window_MarkDown()
             FileName$ = ""
             ;}
           Case #Gadget_MarkDown_Bt_Open     ;{ Open document
-            FileName$ = Load_()
+            File$     = Load_()
+            Path$     = GetPathPart(File$)
+            FileName$ = GetFilePart(File$)
             ;}
           Case #Gadget_MarkDown_Bt_Save     ;{ Save document
             FileName$ = Save_(FileName$)
             ;}
           Case #Gadget_MarkDown_Bt_PDF      ;{ Export PDF
-            MarkDown::Export(#Gadget_MarkDown_Viewer, MarkDown::#PDF, "Export.pdf", "PDF")
-            RunProgram("Export.pdf")
+            MarkDown::Export(#Gadget_MarkDown_Viewer, MarkDown::#PDF, Path$ + "Export.pdf", "PDF")
+            RunProgram(Path$ + "Export.pdf")
             ;}
+           Case #Gadget_MarkDown_Bt_HTML    ;{ Export HTML
+            MarkDown::Export(#Gadget_MarkDown_Viewer, MarkDown::#HTML, Path$ + "Export.html", "HTML")
+            RunProgram(Path$ + "Export.html")
+            ;} 
           Case #Gadget_MarkDown_Bt_Update   ;{ Update Markdown Gadget
             MarkDown::SetText(#Gadget_MarkDown_Viewer, EditEx::GetText(#Gadget_MarkDown_Editor))
             ;}
@@ -854,9 +869,9 @@ AppReg::Close(#AppReg)
 
 End
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 526
-; FirstLine = 106
-; Folding = GBAGQCAAEo
+; CursorPosition = 687
+; FirstLine = 259
+; Folding = EMFGQCAAgG-
 ; EnableXP
 ; DPIAware
 ; UseIcon = Markdown.ico
