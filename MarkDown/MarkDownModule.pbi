@@ -9,18 +9,14 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 10.02.2020
+; Last Update: 12.02.2020
 ;
-; - Added: Glossary & TOC for help files
+; - Added: Notes (info/question/error/caution)
+;
 ; - Added: External CSS for HTML help
-; - Added: Glossary -  "[?Word]" / "{{Glossary}}"
-;
-; - Bugfix: ColSpan "||| Column 3 |"
-; - Added: Table of Contents - "{{TOC}}"
-; - Adjustments and optimizations for HTML
-; - Added:  Color for intended code blocks 
-; - Added:  Markdown::Help()
-; - Added:  Markdown::Requester()
+; - Added: Glossary - "[?Word]" / "{{Glossary}}"
+; - Added: Markdown::Help()
+; - Added: Markdown::Requester()
 ;
 
 ;{ ===== MIT License =====
@@ -92,7 +88,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20021002
+  #Version  = 20021200
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -295,6 +291,9 @@ Module MarkDown
       #ScrollBarSize  = 18
   CompilerEndSelect ;}
   
+  #Caution$ = Chr($26A0)
+  #Circle$  = Chr($26AA)
+  
   #CodeBlock = 2
   #Parse     = 0
   
@@ -311,7 +310,7 @@ Module MarkDown
     #Header
     #Heading
     #Highlight
-    #Hint
+    #Note
     #Line
     #Image
     #Italic
@@ -432,6 +431,19 @@ Module MarkDown
     Index.i
     Width.i
     Flag.i
+  EndStructure ;}
+  
+  Structure Note_Rows_Structure          ;{ MarkDown()\Note()\Words()\...
+    Width.i
+    Height.i
+    List Words.Words_Structure()
+  EndStructure ;}
+  
+  Structure Note_Structure               ;{ MarkDown()\Note()\...
+    Type.s
+    Width.i
+    Height.i
+    List Row.Note_Rows_Structure()
   EndStructure ;}
   
   Structure Block_Structure              ;{ MarkDown()\Block()\...
@@ -590,6 +602,7 @@ Module MarkDown
     Italic.i
     BoldItalic.i
     Code.i
+    Note.i
     FootNote.i
     FootText.i
     FootBold.i
@@ -709,6 +722,7 @@ Module MarkDown
     List Lists.Lists_Structure()
     List Table.Table_Structure()
     List TOC.TOC_Structure()
+    List Note.Note_Structure()
     
 	EndStructure ;}
 	Global NewMap MarkDown.MarkDown_Structure()
@@ -885,6 +899,7 @@ Module MarkDown
 	  MarkDown()\Font\Italic     = LoadFont(#PB_Any, Name, Size, #PB_Font_Italic)
 	  MarkDown()\Font\BoldItalic = LoadFont(#PB_Any, Name, Size, #PB_Font_Bold|#PB_Font_Italic)
 	  MarkDown()\Font\Code       = LoadFont(#PB_Any, "Courier New", Size + 1)
+	  MarkDown()\Font\Note       = LoadFont(#PB_Any, "Arial", Size + 4, #PB_Font_Bold)
 	  
 	  MarkDown()\Font\FootNote       = LoadFont(#PB_Any, Name, Round(Size / 1.5, #PB_Round_Up), #PB_Font_Bold)
 	  MarkDown()\Font\FootText       = LoadFont(#PB_Any, Name, Size - 2)
@@ -1294,12 +1309,86 @@ Module MarkDown
       Next  
       ;}
       
+      ;{ _____ Notes _____
+      ForEach MarkDown()\Note()
+        
+        Font = #PB_Default
+        TextHeight = 0
+        
+        DrawingFont(FontID(MarkDown()\Font\Normal))
+        MarkDown()\Note()\Height = TextHeight("X")
+        
+        ForEach MarkDown()\Note()\Row()
+  
+          MarkDown()\Note()\Row()\Width = 0
+          
+          ForEach MarkDown()\Note()\Row()\Words()
+          
+            If Font <> MarkDown()\Note()\Row()\Words()\Font : Font = DrawingFont_(MarkDown()\Note()\Row()\Words()\Font) : EndIf
+            
+            Select MarkDown()\Note()\Row()\Words()\Flag
+              Case #Emoji     ;{ Emoji (16x16)
+                TextHeight = dpiY(16)
+                MarkDown()\Note()\Row()\Words()\Width = dpiX(16)
+                ;}
+              Case #Image     ;{ Image
+                
+                If SelectElement(MarkDown()\Image(), MarkDown()\Note()\Row()\Words()\Index)
+                  
+                  Image$ = GetFilePart(MarkDown()\Image()\Source)
+                  
+                  If Not FindMapElement(MarkDown()\ImageNum(), Image$)
+                    If AddMapElement(MarkDown()\ImageNum(), Image$)
+                      If MarkDown()\Path
+                        MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Path + Image$)
+                      Else  
+                        MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+                      EndIf
+                    EndIf
+                  EndIf
+                  
+                  If IsImage(MarkDown()\ImageNum())
+    			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
+    			          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
+    			          TextHeight = dpiY(MarkDown()\Image()\Height)
+    			          MarkDown()\Note()\Row()\Words()\Width = dpiX(MarkDown()\Image()\Width)  
+    			        EndIf
+   
+    			      EndIf
+    			      ;}
+    			    Case #Keystroke ;{ Keystroke (5 + Key + 5)  
+    			      TextHeight = TextHeight(MarkDown()\Note()\Row()\Words()\String)
+    			      MarkDown()\Note()\Row()\Words()\Width = TextWidth(MarkDown()\Note()\Row()\Words()\String) + dpiX(10)
+    			      ;}
+    			    Default  
+                TextHeight = TextHeight(MarkDown()\Note()\Row()\Words()\String)
+                MarkDown()\Note()\Row()\Words()\Width = TextWidth(MarkDown()\Note()\Row()\Words()\String)
+            EndSelect
+            
+            MarkDown()\Note()\Row()\Width + MarkDown()\Note()\Row()\Words()\Width
+            
+            If TextHeight > MarkDown()\Note()\Row()\Height : MarkDown()\Note()\Row()\Height = TextHeight : EndIf
+            
+          Next
+
+          MarkDown()\Note()\Row()\Height * MarkDown()\LineSpacing
+          MarkDown()\Note()\Height + MarkDown()\Note()\Row()\Height 
+          
+        Next
+
+        If MarkDown()\Note()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Note()\Width : EndIf 
+        
+      Next
+      
+      MarkDown()\Required\Height + MarkDown()\Note()\Height
+      ;}
+      
       ;{ _____ Footnotes _____
       ForEach MarkDown()\FootLabel()
         
         Font = #PB_Default
         TextHeight = 0
-        
+
         DrawingFont(FontID(MarkDown()\Font\FootText))
         MarkDown()\FootLabel()\Width  = 0
         MarkDown()\FootLabel()\Height = TextHeight("X")
@@ -2082,7 +2171,11 @@ Module MarkDown
                 Level = MarkDown()\TOC()\Level
               EndIf  
               
-              HTML$ + "<li class="+ #DQUOTE$ + "tocli" + #DQUOTE$ + "><a href=#" + #DQUOTE$ + MarkDown()\TOC()\Label + #DQUOTE$ + ">" + StringHTML_(MarkDown()\TOC()\Words()) + "</a></li>" + #LF$
+              If MarkDown()\TOC()\Label
+                HTML$ + "<li class="+ #DQUOTE$ + "tocli" + #DQUOTE$ + "><a href=" + #DQUOTE$ + MarkDown()\TOC()\Label + ".html" + #DQUOTE$ + ">" + StringHTML_(MarkDown()\TOC()\Words()) + "</a></li>" + #LF$
+              ElseIf MarkDown()\TOC()\ID
+                HTML$ + "<li class="+ #DQUOTE$ + "tocli" + #DQUOTE$ + "><a href=#" + #DQUOTE$ + MarkDown()\TOC()\ID + #DQUOTE$ + ">" + StringHTML_(MarkDown()\TOC()\Words()) + "</a></li>" + #LF$
+              EndIf
               
             Next 
             
@@ -3874,7 +3967,15 @@ Module MarkDown
               AddDocRow_(Row$, #Code)
               Continue
             EndIf
-          EndIf  
+          EndIf ;}
+        Case #Note ;{ Add to note block  
+          If Trim(Row$) = Close$
+            Type = #False
+            Continue
+          Else
+            AddDocRow_(Row$, #Note)
+            Continue
+          EndIf
           ;}
       EndSelect    
       
@@ -4218,7 +4319,15 @@ Module MarkDown
             Continue
         EndSelect
         ;}
-
+        
+        ;{ _____ Note _____
+        If Left(tRow$, 3) = "!!!"
+          Close$ = GetChars_(tRow$, "!")
+          If AddDocRow_(Trim(Mid(tRow$, Len(Close$) + 1)), #Note|#Header) : Type = #Note : EndIf
+          Continue
+        EndIf  
+        ;}
+        
         ;{ _____ Tables _____
         If Left(tRow$, 2) = "| " Or Left(tRow$, 2) = "||"
           AddDocRow_(Trim(tRow$), #Table)
@@ -4603,6 +4712,36 @@ Module MarkDown
               MarkDown()\Block()\Row() = Document()\String
             EndIf  
           EndIf  
+          ;} 
+        ;{ _____ Note _____
+        Case #Note|#Header
+          
+          If AddElement(MarkDown()\Items())
+            
+            MarkDown()\Items()\Type = #Note
+            MarkDown()\Items()\BlockQuote = Document()\BlockQuote
+            
+            If AddElement(MarkDown()\Note())
+              
+              MarkDown()\Items()\Index  = ListIndex(MarkDown()\Note())
+              
+              MarkDown()\Note()\Type = LCase(StringField(Document()\String, 1, " "))
+              
+              Pos = FindString(Document()\String, " ")
+              If Pos
+                ParseInline_(Trim(Mid(Document()\String, Pos + 1)), MarkDown()\Items()\Words())
+              EndIf
+            EndIf
+            
+          EndIf
+          
+        Case #Note
+          
+          If ListSize(MarkDown()\Note())
+            If AddElement(MarkDown()\Note()\Row())
+              ParseInline_(Document()\String, MarkDown()\Note()\Row()\Words())
+            EndIf  
+          EndIf 
           ;}  
         ;{ _____ Image _____                      [6.6]
         Case #Image  
@@ -5497,6 +5636,86 @@ Module MarkDown
     ProcedureReturn PosY + Height
   EndProcedure
   
+  Procedure.i DrawSymbol(Char.s, X.i, Y.i, Height.i, Color.i)
+    Define.i OffsetX, OffsetY, cWidth
+    
+    DrawingFont(FontID(MarkDown()\Font\Note))
+    cWidth  = TextWidth(#Circle$) 
+    OffsetY = (Height - TextHeight(#Circle$)) / 2
+    
+    DrawText(X, Y + OffsetY, #Circle$, Color)
+    
+    DrawingFont(FontID(MarkDown()\Font\Bold))
+    OffsetX = (cWidth - TextWidth(Char)) / 2 
+    OffsetY = (Height - TextHeight(Char)) / 2
+    
+    DrawText(X + OffsetX, Y + OffsetY + dpiY(1), Char, Color)
+    
+    ProcedureReturn X + cWidth
+  EndProcedure
+  
+  Procedure.i DrawNote(Index.i, X.i, Y.i, Width) 
+    Define.i PosX, HeaderHeight, OffsetX, OffsetY, BackColor
+    Define.s Symbol$, Char$
+    
+    If SelectElement(MarkDown()\Note(), Index)
+      
+      Debug Chr($275E)
+      
+      Select MarkDown()\Note()\Type
+        Case "info"  
+          BackColor = BlendColor_($B48246, $FFFFFF, 30)
+        Case "question"  
+          BackColor = BlendColor_($32CD9A, $FFFFFF, 30)
+        Case "error"
+          BackColor = BlendColor_($2222B2, $FFFFFF, 30)
+        Case "caution"
+          BackColor = BlendColor_($008CFF, $FFFFFF, 30)
+      EndSelect
+    
+      DrawingMode(#PB_2DDrawing_Default)
+      RoundBox(X, Y, Width, MarkDown()\Items()\Height + dpiY(14), dpiX(4), dpiX(4), BackColor)
+      Box(X, Y + MarkDown()\Items()\Height + dpiY(10), Width, dpiY(8), $FFFFFF)
+      
+      DrawingMode(#PB_2DDrawing_Outlined)
+      RoundBox(X, Y, Width, MarkDown()\Note()\Height + dpiY(20), dpiX(4), dpiX(4), MarkDown()\Color\Border)
+      Line(X, Y + MarkDown()\Items()\Height + dpiY(10), Width, 1, MarkDown()\Color\Border)
+      
+      PosX = X + dpiY(10)
+      HeaderHeight = MarkDown()\Items()\Height + dpiY(10)
+      
+      DrawingMode(#PB_2DDrawing_Transparent)
+      
+      Select MarkDown()\Note()\Type
+        Case "info"  
+          PosX = DrawSymbol("i", PosX, Y, HeaderHeight, $B48246)
+        Case "question"
+          PosX = DrawSymbol("?", PosX, Y, HeaderHeight, $32CD9A)
+        Case "error"
+          PosX = DrawSymbol("!", PosX, Y, HeaderHeight, $2222B2)
+        Case "caution"
+          DrawingFont(FontID(MarkDown()\Font\Note))
+          OffsetY = (HeaderHeight - TextHeight(#Caution$)) / 2
+          DrawText(PosX, Y + OffsetY, #Caution$, $008CFF)
+          PosX + TextWidth(#Caution$)
+      EndSelect
+      
+      DrawingFont(FontID(MarkDown()\Font\Bold))
+      
+      OffsetY = (MarkDown()\Items()\Height + dpiY(10) - TextHeight("X")) / 2
+      
+      Y = DrawRow_(PosX + dpiX(10), Y + OffsetY, MarkDown()\Items()\Width, MarkDown()\Items()\Height, #False, MarkDown()\Items()\Words())
+      Y + dpiY(10)
+      
+      ForEach MarkDown()\Note()\Row()
+        Y = DrawRow_(X + dpiX(10), Y, Width - dpiX(30), MarkDown()\Note()\Row()\Height, #False, MarkDown()\Note()\Row()\Words())
+      Next
+      
+      ProcedureReturn Y + dpiY(5)
+    EndIf  
+    
+  EndProcedure
+  
   Procedure.i DrawTOC(X.i, Y.i)
     Define.i OffsetX
     
@@ -5725,10 +5944,6 @@ Module MarkDown
 		
 		If StartDrawing(CanvasOutput(MarkDown()\CanvasNum))
 		  
-		  DrawingFont(FontID(MarkDown()\Font\Normal))
-		  TextHeight = TextHeight("X")
-			MarkDown()\Scroll\Height = TextHeight
-		  
 		  Y - MarkDown()\Scroll\Offset
 		  
 		  ;{ _____ Colors _____
@@ -5756,6 +5971,10 @@ Module MarkDown
 			;}
 			
 			ForEach MarkDown()\Items()
+			  
+			  DrawingFont(FontID(MarkDown()\Font\Normal))
+			  TextHeight = TextHeight("X")
+			  MarkDown()\Scroll\Height = TextHeight
 			  
 			  Select MarkDown()\Items()\Type
 			    Case #Code             ;{ Code block
@@ -5871,6 +6090,9 @@ Module MarkDown
           Case #List|#Glossary   ;{ Glossary
             Y = DrawList_(MarkDown()\Items()\Index, #List|#Glossary, X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote)
             ;}
+          Case #Note             ;{ Note
+            Y = DrawNote(MarkDown()\Items()\Index, X, Y, Width) 
+            ;}
           Case #Paragraph        ;{ Paragraph
 			       Y + (TextHeight / 2)
 			      ;}
@@ -5878,7 +6100,7 @@ Module MarkDown
 			      
 			      Y = DrawTable_(MarkDown()\Items()\Index, X, Y, MarkDown()\Items()\BlockQuote) 
 			      ;}
-			    Case #InsertTOC              ;{ Table of Contents
+			    Case #InsertTOC        ;{ Table of Contents
 			      Y = DrawTOC(X, Y)
 			      ;}
 			    Default                ;{ Text
@@ -8341,7 +8563,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
   
-  #Example = 0
+  #Example = 17
   
   ; === Gadget ===
   ;  1: Headings
@@ -8360,6 +8582,7 @@ CompilerIf #PB_Compiler_IsMainFile
   ; 14: Keystrokes
   ; 15: Intended Code Block
   ; 16: Glossary
+  ; 17: Notes
   ; === Requester ===
   ; 20: Message Requester
   ; === Help ===
@@ -8381,7 +8604,7 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "###### Heading level 6 #####"  + #LF$ + #LF$
       ;}
     Case 2   ;{ Emphasis
-      Text$ = "### Emphasis ###" + #LF$
+      Text$ = "## Emphasis ##" + #LF$
       Text$ + "I just love **bold text**." + #LF$
       Text$ + "Italicized text is the *cat's meow*."+ #LF$
       Text$ + "This text is ___really important___.  "+ #LF$
@@ -8389,28 +8612,28 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "This ++text++ has been underlined.  "+ #LF$
       Text$ + "This == word == is highlighted.  "+ #LF$
       Text$ + "-----------------------------------------" + #LF$
-      Text$ + "### Code ###" + #LF$
+      Text$ + "## Code ##" + #LF$
       Text$ + "At the command prompt, type ``nano``."+ #LF$
       ;}
     Case 3   ;{ Lists
-      Text$ = "### Ordered List ###" + #LF$
+      Text$ = "## Ordered List ##" + #LF$
       Text$ + "1. List item"+#LF$+"   2. List item"+#LF$+"   3. List item"+#LF$+"4. List item"+ #LF$
       Text$ + "-----" + #LF$
-      Text$ + "### Unordered List ###" + #LF$
+      Text$ + "## Unordered List ##" + #LF$
       Text$ + "- First list item" + #LF$ + "  - Second list item:" + #LF$ + "  - Third list item" + #LF$ + " - Fourth list item" + #LF$ 
       ;}
     Case 4   ;{ URL and Links
-      Text$ = "### Links & URLs ###" + #LF$  + #LF$ 
+      Text$ = "## Links & URLs ##" + #LF$  + #LF$ 
       Text$ + "URL: <https://www.markdownguide.org> " + #LF$ + #LF$
       Text$ + "EMail: <fake@example.com>  " + #LF$ + #LF$
       Text$ + "Link: [Duck Duck Go](https://duckduckgo.com "+#DQUOTE$+"My search engine!"+#DQUOTE$+") "+ #LF$
       ;}
     Case 5   ;{ Image
-      Text$ = "### Image ###"  + #LF$
+      Text$ = "## Image ##"  + #LF$
       Text$ + " ![Programmer](Test.png " + #DQUOTE$ + "Programmer Image" + #DQUOTE$ + ")"
       ;}
     Case 6   ;{ Table
-      Text$ = "### Table ###"  + #LF$
+      Text$ = "## Table ##"  + #LF$
       Text$ + "| Syntax    | Description   | Column 3 |" + #LF$
       Text$ + "| :-------- | :-----------: | -------: |" + #LF$
       Text$ + "| *Header*  | Title         | Subject  |" + #LF$ 
@@ -8419,19 +8642,19 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "| Paragraph | **Text**      | *Table * |" + #LF$ 
       ;}
     Case 7   ;{ Footnote
-      Text$ = "### Footnotes ###" + #LF$ + #LF$
+      Text$ = "## Footnotes ##" + #LF$ + #LF$
       Text$ + "Here's a simple footnote,[^1] and here's a longer one.[^bignote]" + #LF$
       Text$ + "[^1]: This is the **first** footnote." + #LF$
       Text$ + "[^bignote]: Here's one with multiple paragraphs and code."
       ;}
     Case 8   ;{ TaskLists
-      Text$ = "### Task List ###" + #LF$
+      Text$ = "## Task List ##" + #LF$
       Text$ + "- [ ] Write the press release"+ #LF$
       Text$ + "- [X] Update the website"+ #LF$
       Text$ + "- [ ] Contact the media"+ #LF$
       ;}
     Case 9   ;{ Definition List
-      Text$ = "### Definition List ###" + #LF$ + #LF$
+      Text$ = "## Definition List ##" + #LF$ + #LF$
       Text$ + "First Term" + #LF$
       Text$ + ": This is the definition of the first term." + #LF$
       Text$ + "Second Term"+ #LF$
@@ -8439,12 +8662,12 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + ": This is another definition of the **second term**." + #LF$
       ;}
     Case 10  ;{ Subscript / Superscript
-      Text$ = "### SubScript / SuperScript ###" + #LF$  + #LF$
+      Text$ = "## SubScript / SuperScript ##" + #LF$  + #LF$
       Text$ + "Chemical formula for water: H~2~O  " + #LF$
       Text$ + "The area is 10m^2^  " + #LF$
       ;}
     Case 11  ;{ Fenced Code Block
-      Text$ = "### Fenced Code Block ###" + #LF$
+      Text$ = "## Fenced Code Block ##" + #LF$
       Text$ + "```" + #LF$
       Text$ + "{" + #LF$
       Text$ + "  " + #DQUOTE$ + "firstName" + #DQUOTE$ + ": " + #DQUOTE$ + "John"  + #DQUOTE$ + "," + #LF$
@@ -8454,7 +8677,7 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "```" + #LF$
       ;}
     Case 12  ;{ Emoji
-      Text$ = "### Emoji ###" + #LF$  + #LF$
+      Text$ = "## Emoji ##" + #LF$  + #LF$
       Text$ + ":phone:  telephone receiver  " + #LF$ + #LF$
       Text$ + ":mail:  envelope  " + #LF$ + #LF$
       Text$ + ":date:  calendar  " + #LF$ + #LF$
@@ -8477,17 +8700,17 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + ":eyes:  face with rolling eyes  " + #LF$
       ;}
     Case 13  ;{ Abbreviations
-      Text$ = "### Hint / Tooltip ###" + #LF$  + #LF$
+      Text$ = "## Hint / Tooltip ##" + #LF$  + #LF$
       Text$ + "The HTML specification is maintained by the W3C." + #LF$
       Text$ + "*[HTML]: Hypertext Markup Language" + #LF$
       Text$ + "*[W3C]:  World Wide Web Consortium" + #LF$
       ;}
     Case 14  ;{ Keystrokes
-      Text$ = "### Keystrokes ###" + #LF$ + #LF$ 
+      Text$ = "## Keystrokes ##" + #LF$ + #LF$ 
       Text$ + "Copy text with [[Ctrl]] [[C]]." + #LF$
       ;}
     Case 15  ;{ Code Block
-      Text$ = "### Code Block ###" + #LF$
+      Text$ = "## Code Block ##" + #LF$
       Text$ + Space(4) + "{" + #LF$
       Text$ + Space(4) + "  " + #DQUOTE$ + "firstName" + #DQUOTE$ + ": " + #DQUOTE$ + "John"  + #DQUOTE$ + "," + #LF$
       Text$ + Space(4) + "  " + #DQUOTE$ + "lastName"  + #DQUOTE$ + ": " + #DQUOTE$ + "Smith" + #DQUOTE$ + "," + #LF$
@@ -8495,11 +8718,26 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + Space(4) + "}" + #LF$
       ;}
     Case 16  ;{ Glossary 
-      Text$ = "### Glossary ###" + #LF$ + #LF$
+      Text$ = "## Glossary ##" + #LF$ + #LF$
       Text$ + "[?Glossary] is a glossary term." + #LF$ + #LF$
       Text$ + "[?Glossary]: The glossary collects information about important terms used in your document." + #LF$ + #LF$
       Text$ + "-----------------------------------------" + #LF$ + #LF$
       Text$ + "{{Glossary}}" + #LF$
+      ;}
+    Case 17  ;{ Notes
+      Text$ = "## Notes ##" + #LF$ + #LF$
+      Text$ + "!!! info **Note**" + #LF$
+      Text$ + "Lorem ipsum" + #LF$
+      Text$ + "!!!" + #LF$ + #LF$
+      Text$ + "!!! question **Note**" + #LF$
+      Text$ + "Lorem ipsum" + #LF$
+      Text$ + "!!!" + #LF$ + #LF$
+      Text$ + "!!! error **Note**" + #LF$
+      Text$ + "Lorem ipsum" + #LF$
+      Text$ + "!!!" + #LF$ + #LF$
+      Text$ + "!!! caution **Note**" + #LF$
+      Text$ + "Lorem ipsum" + #LF$
+      Text$ + "!!!" + #LF$ + #LF$
       ;}
     Case 20  ;{ Reqester
       Text$ = "Just a **short** information text.  " + #LF$
@@ -8628,8 +8866,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 14
-; Folding = wBQgJAAAAAAAAAAAAACAAAAkEAAAAAAAAAAAMgBIAAAAABMIAAYAAECAAgAAEAAABAAKAAAAYQIiDBEEYAUCCAAIBw
-; Markers = 2745,5599
+; CursorPosition = 5662
+; FirstLine = 339
+; Folding = wBQgBAAAAAAAAAAAAAEBAAAAUAAAAAAAAAAAAMgBIAAAAEEkBBAADAgQAAQQAhFIAABAAKAAAAQQIgBBAAYAUCCAAQCg
+; Markers = 2838,4718,5818
 ; EnableXP
 ; DPIAware

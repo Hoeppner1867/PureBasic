@@ -5183,7 +5183,7 @@ Module PDF
       
     EndProcedure  
   
-    Procedure   DrawRoundedRectangle(ID.i, X.f, Y.f, Width.f, Height.f, Radius.f, Style.s=#DrawOnly) ; [*]
+    Procedure   DrawRoundedRectangle(ID.i, X.f, Y.f, Width.f, Height.f, Radius.f, Style.s=#DrawOnly)
       
       If FindMapElement(PDF(), Str(ID))
         
@@ -5201,7 +5201,7 @@ Module PDF
       
     EndProcedure   
   
-    Procedure   DrawSector(ID.i, X.f, Y.f, Radius.f, startAngle.f, endAngle.f, Style.s=#DrawAndFill, Clockwise.i=#True, originAngle.f=90) ; [*]
+    Procedure   DrawSector(ID.i, X.f, Y.f, Radius.f, startAngle.f, endAngle.f, Style.s=#DrawAndFill, Clockwise.i=#True, originAngle.f=90)
       Define.f radiusX, radiusY, sAngle, eAngle, ArcX, ArcY, Degree
       
       If FindMapElement(PDF(), Str(ID))
@@ -5270,7 +5270,7 @@ Module PDF
       
     EndProcedure
   
-    Procedure   DrawTriangle(ID.i, X1.f, Y1.f, X2.f, Y2.f, X3.f, Y3.f, Style.s=#DrawOnly)            ; [*]
+    Procedure   DrawTriangle(ID.i, X1.f, Y1.f, X2.f, Y2.f, X3.f, Y3.f, Style.s=#DrawOnly)
       
       If FindMapElement(PDF(), Str(ID))
         
@@ -5389,7 +5389,7 @@ Module PDF
  
   ;- ----------------------------------------
   
-  Procedure   AddPage(ID.i, Orientation.s="", Format.s="")             ; [*]
+  Procedure   AddPage(ID.i, Orientation.s="", Format.s="")
     
     If  FindMapElement(PDF(), Str(ID))
       
@@ -6972,9 +6972,9 @@ CompilerEndIf
 
 ;- ========================
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 6301
-; FirstLine = 1510
-; Folding = MAwiA5AegAQAAABAAhAgIECIAAgBAAAAAAHAAzgIAEnoAAYEcQwpgSKQAAgghJghAwDEAA9
+; CursorPosition = 2489
+; FirstLine = 647
+; Folding = MAwiA5AegAQAAABAAhAgIECIAAgDAAAAAAHAAzgIAAnoAAAAAAAogCIJIAAghJghAwCEAA5
 ; Markers = 584,1015,2364,2464,3770,3836
 ; EnableXP
 ; DPIAware
