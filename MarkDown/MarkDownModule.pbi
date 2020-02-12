@@ -1380,7 +1380,7 @@ Module MarkDown
         
       Next
       
-      MarkDown()\Required\Height + MarkDown()\Note()\Height
+      If ListSize(MarkDown()\Note()) : MarkDown()\Required\Height + MarkDown()\Note()\Height : EndIf
       ;}
       
       ;{ _____ Footnotes _____
@@ -5660,8 +5660,6 @@ Module MarkDown
     
     If SelectElement(MarkDown()\Note(), Index)
       
-      Debug Chr($275E)
-      
       Select MarkDown()\Note()\Type
         Case "info"  
           BackColor = BlendColor_($B48246, $FFFFFF, 30)
@@ -8866,9 +8864,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 5662
-; FirstLine = 339
-; Folding = wBQgBAAAAAAAAAAAAAEBAAAAUAAAAAAAAAAAAMgBIAAAAEEkBBAADAgQAAQQAhFIAABAAKAAAAQQIgBBAAYAUCCAAQCg
-; Markers = 2838,4718,5818
+; CursorPosition = 5661
+; FirstLine = 389
+; Folding = wBQgBAAAAAAAAAQAAEEBAAAAUAAAAAAAAAAAAMgBIAAAAEEkBBAADAgQAAQQAgFIAABAAKAAAAQQIgBBAAYAUCCAAQCg
+; Markers = 2838,4718,5816
 ; EnableXP
 ; DPIAware
