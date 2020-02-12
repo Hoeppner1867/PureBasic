@@ -11,6 +11,7 @@
 
 ; Last Update: 12.02.2020
 ;
+; - Added: Notes for PDF
 ; - Added: Notes (info/question/error/caution)
 ;
 ; - Added: External CSS for HTML help
@@ -88,7 +89,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20021200
+  #Version  = 20021201
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -344,6 +345,7 @@ Module MarkDown
 	  #Font_FootBold
 	  #Font_FootItalic
 	  #Font_FootBoldItalic
+	  #FontNote
 	  #Font_H6
 	  #Font_H5
 	  #Font_H4
@@ -2250,6 +2252,8 @@ Module MarkDown
     Procedure.i FontPDF_(PDF.i, Font.i, Underline.i=#False)
 
       Select Font
+        Case #FontNote
+          PDF::SetFont(PDF, "Arial", "B", 16)
         Case #Font_Bold
           If Underline
             PDF::SetFont(PDF, "Arial", "BU", 12)
@@ -2405,7 +2409,7 @@ Module MarkDown
       
       ProcedureReturn OffsetX
     EndProcedure
-       
+  
     Procedure.i RowPDF_(PDF.i, X.i, BlockQuote.i, List Words.Words_Structure(), ColWidth.i=#False, Align.s="L", ID.s="")
       Define.i PosX, PosY, Width, Height, Font, TextWidth, ImgSize, Image, WordIdx, bqY, bqHeight 
       Define.i OffSetX, OffSetY, OffSetBQ, LinkPDF
@@ -2592,6 +2596,95 @@ Module MarkDown
         PDF::SetColorRGB(PDF, PDF::#FillColor, 255, 255, 255)
       EndIf
 
+    EndProcedure
+    
+    
+    Procedure.i SymbolPDF(PDF.i, Char.s, X.i, Y.i, Height.i, Color.i, Triangle.i=#False)
+      Define.f cWidth, OffsetX, OffsetY
+      
+      cWidth = (Height - 2.8) / 2
+      
+      OffsetX = cWidth / 2
+      OffsetY = (Height / 2)
+      
+      If Triangle
+        PDF::DrawTriangle(PDF, X - OffsetX, Y + (Height - 1.4), X + OffsetX, Y + 1.4, X + (cWidth + OffsetX), Y + (Height - 1.4))
+      Else
+        PDF::DrawCircle(PDF, X + OffsetX, Y + OffsetY, cWidth) 
+      EndIf  
+
+      OffsetX = (cWidth - PDF::GetStringWidth(PDF, Char)) / 2
+      
+      PDF::SetColorRGB(PDF, PDF::#TextColor, Red(Color), Green(Color), Blue(Color))
+      
+      If Triangle
+        PDF::SetPosXY(PDF, X + OffsetX, Y + 0.7)
+      Else  
+        PDF::SetPosXY(PDF, X + OffsetX, Y + 0.2)
+      EndIf
+      
+      PDF::Cell(PDF, Char, cWidth, Height)
+      
+      PDF::SetColorRGB(PDF, PDF::#TextColor, 0, 0, 0)
+      
+      ProcedureReturn X + (cWidth * 2)
+    EndProcedure
+    
+    Procedure.i NotePDF(PDF.i, Index.i, X.i, Y.i, Width) 
+      Define.i PosX, Height, HeaderHeight, OffsetX, OffsetY, BackColor
+      Define.s Symbol$, Char$
+      
+      If SelectElement(MarkDown()\Note(), Index)
+        
+        FontPDF_(PDF, #Font_Bold)
+        
+        Height = (ListSize(MarkDown()\Note()\Row()) + 1) * PDF::GetStringHeight(PDF) + 8
+        HeaderHeight = PDF::GetStringHeight(PDF) + 4
+        
+        Select MarkDown()\Note()\Type
+          Case "info"  
+            PDF::SetColorRGB(PDF, PDF::#DrawColor,  70, 130, 180)
+          Case "question"  
+            PDF::SetColorRGB(PDF, PDF::#DrawColor, 154, 205,  50)
+          Case "error"
+            PDF::SetColorRGB(PDF, PDF::#DrawColor, 178,  34,  34)
+          Case "caution"
+            PDF::SetColorRGB(PDF, PDF::#DrawColor, 255, 140,   0)
+        EndSelect  
+        
+        PDF::SetLineThickness(PDF, 0.4)
+        
+        PDF::DrawRoundedRectangle(PDF, X, Y, Width, Height, 2)
+        PDF::DividingLine(PDF, X, Y + HeaderHeight, Width)
+
+        Select MarkDown()\Note()\Type
+          Case "info"  
+            PosX = SymbolPDF(PDF, "i", 14, Y, HeaderHeight, $B48246)
+          Case "question"  
+            PosX = SymbolPDF(PDF, "?", 14, Y, HeaderHeight, $32CD9A)
+          Case "error"
+            PosX = SymbolPDF(PDF, "!", 14, Y, HeaderHeight, $2222B2)
+          Case "caution"
+            PosX = SymbolPDF(PDF, "!", 14, Y, HeaderHeight, $008CFF, #True)
+        EndSelect   
+        
+        PDF::SetPosY(PDF, Y + 2)
+        
+        RowPDF_(PDF, PosX + 1, #False, MarkDown()\Items()\Words(), Width)
+        
+        PDF::Ln(PDF, 3)
+        
+        ForEach MarkDown()\Note()\Row()
+          RowPDF_(PDF, 13, #False, MarkDown()\Note()\Row()\Words(), Width)
+        Next
+        
+        PDF::SetLineThickness(PDF, 0.2)
+        
+        PDF::SetColorRGB(PDF, PDF::#DrawColor, 0, 0, 0)
+        
+        PDF::SetPosY(PDF, Y + Height)
+      EndIf
+      
     EndProcedure
     
     Procedure   ConvertPDF_(PDF.i)
@@ -2963,6 +3056,11 @@ Module MarkDown
             
               PDF::Ln(PDF, 3)
               ;}
+            Case #Note             ;{ Note
+              
+              Y = PDF::GetPosY(PDF)
+              NotePDF(PDF, MarkDown()\Items()\Index, 10, Y, PageWidth - 30) 
+            ;}  
             Case #InsertTOC        ;{ Table of Contents
               PDF::InsertTOC(PDF, #False, "")
               ;}
@@ -8864,9 +8962,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 5661
-; FirstLine = 389
-; Folding = wBQgBAAAAAAAAAQAAEEBAAAAUAAAAAAAAAAAAMgBIAAAAEEkBBAADAgQAAQQAgFIAABAAKAAAAQQIgBBAAYAUCCAAQCg
-; Markers = 2838,4718,5816
+; CursorPosition = 91
+; FirstLine = 24
+; Folding = wBQgRAAAAAAAAAAAAEEAAAAAUEAAAAAAAAAAAgBMABAAAgggMIAAYAAECAACCIAgAAIAAQBAAAACCBMIAAADgSQAAASA9
+; Markers = 2931,4816,5914
 ; EnableXP
 ; DPIAware
