@@ -11,6 +11,7 @@
  
 ; Last Update: 13.02.2020
 ;
+; - Added: Flag #NoButtons for CSV
 ; - Added: SetColumnImage() 
 ;
 
@@ -147,7 +148,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 200131001
+  #Version  = 20021301
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -227,6 +228,7 @@ DeclareModule ListEx
     #Checked    = #PB_ListIcon_Checked
     #Inbetween  = #PB_ListIcon_Inbetween
     #HeaderRow
+    #NoButtons
   EndEnumeration ;}
   
   EnumerationBinary  ; ProgressBars
@@ -1189,25 +1191,31 @@ Module ListEx
   
   CompilerIf #Enable_CSV_Support
     
-    Procedure.s Export_CSV_Header(Separator.s, DQuote.s)
+    Procedure.s Export_CSV_Header(Separator.s, DQuote.s, Flags.i=#False)
       Define.s CSV$ 
       
+      
       ForEach ListEx()\Cols()
+        
+        If Flags & #NoButtons And ListEx()\Cols()\Type = #Buttons : Continue : EndIf
         
         If ListIndex(ListEx()\Cols()) = 0
           CSV$ = DQuote + ListEx()\Cols()\Header\Title
         Else  
           CSV$ + DQuote + Separator + DQuote + ListEx()\Cols()\Header\Title
         EndIf
+        
       Next
 
       ProcedureReturn CSV$ + DQuote
     EndProcedure
     
-    Procedure.s Export_CSV_Row(Separator.s, DQuote.s)
+    Procedure.s Export_CSV_Row(Separator.s, DQuote.s, Flags.i=#False)
       Define.s Key$, CSV$ 
       
       ForEach ListEx()\Cols()
+        
+        If Flags & #NoButtons And ListEx()\Cols()\Type = #Buttons : Continue : EndIf
         
         Key$ = ListEx()\Cols()\Key
         
@@ -1235,7 +1243,7 @@ Module ListEx
       ProcedureReturn CSV$ + DQuote
     EndProcedure
     
-    Procedure.i Import_CSV_Header(String.s, Separator.s, DQuote.s)
+    Procedure.i Import_CSV_Header(String.s, Separator.s, DQuote.s, Flags.i=#False)
       Define.i idx = 0
       Define.s Column$
       
@@ -1243,6 +1251,8 @@ Module ListEx
       String = Trim(String, DQuote)
       
       ForEach ListEx()\Cols()
+        
+        If Flags & #NoButtons And ListEx()\Cols()\Type = #Buttons : Continue : EndIf
         
         idx + 1
         
@@ -1253,7 +1263,7 @@ Module ListEx
     
     EndProcedure
     
-    Procedure.i Import_CSV_Row(String.s, Separator.s, DQuote.s)
+    Procedure.i Import_CSV_Row(String.s, Separator.s, DQuote.s, Flags.i=#False)
       Define.i i
       
       If AddElement(ListEx()\Rows())
@@ -1274,6 +1284,8 @@ Module ListEx
           For i=0 To CountString(String, #LF$)
             
             If SelectElement(ListEx()\Cols(), i)
+              
+              If Flags & #NoButtons And ListEx()\Cols()\Type = #Buttons : Continue : EndIf
               
               If i=0 And ListEx()\Flags & #CheckBoxes
                 ListEx()\Rows()\State = Val(StringField(String, i + 1, #LF$))
@@ -5612,7 +5624,7 @@ Module ListEx
       If FindMapElement(ListEx(), Str(GNum))
         
         If Flags & #HeaderRow
-          CSV$ = Export_CSV_Header(Separator, DQuote) + #LF$
+          CSV$ = Export_CSV_Header(Separator, DQuote, Flags) + #LF$
         EndIf
         
         PushListPosition(ListEx()\Rows())
@@ -5621,19 +5633,19 @@ Module ListEx
           
           If Flags & #Selected
             If ListEx()\Rows()\State & #Selected
-              CSV$ + Export_CSV_Row(Separator, DQuote) + #LF$
+              CSV$ + Export_CSV_Row(Separator, DQuote, Flags) + #LF$
             EndIf
           ElseIf Flags & #Checked
             If ListEx()\Rows()\State & #Checked
-              CSV$ + Export_CSV_Row(Separator, DQuote) + #LF$
+              CSV$ + Export_CSV_Row(Separator, DQuote, Flags) + #LF$
             EndIf  
           ElseIf Flags & #Inbetween
             If ListEx()\Rows()\State & #Inbetween
-              CSV$ + Export_CSV_Row(Separator, DQuote) + #LF$
+              CSV$ + Export_CSV_Row(Separator, DQuote, Flags) + #LF$
             EndIf   
           Else  
             If ListEx()\Rows()\State & #Selected Or ListEx()\Rows()\State & #Checked
-              CSV$ + Export_CSV_Row(Separator, DQuote) + #LF$
+              CSV$ + Export_CSV_Row(Separator, DQuote, Flags) + #LF$
             EndIf
           EndIf
 
@@ -5660,7 +5672,7 @@ Module ListEx
           WriteStringFormat(FileID, #PB_UTF8)
           
           If Flags & #HeaderRow
-            Row$ = Export_CSV_Header(Separator, DQuote)
+            Row$ = Export_CSV_Header(Separator, DQuote, Flags)
             WriteStringN(FileID, Row$)
           EndIf
           
@@ -5670,21 +5682,21 @@ Module ListEx
             
             If Flags & #Selected
               If ListEx()\Rows()\State & #Selected
-               Row$ = Export_CSV_Row(Separator, DQuote)
+               Row$ = Export_CSV_Row(Separator, DQuote, Flags)
                 WriteStringN(FileID, Row$)
               EndIf
             ElseIf Flags & #Checked
               If ListEx()\Rows()\State & #Checked
-                Row$ = Export_CSV_Row(Separator, DQuote)
+                Row$ = Export_CSV_Row(Separator, DQuote, Flags)
                 WriteStringN(FileID, Row$)
               EndIf  
             ElseIf Flags & #Inbetween
               If ListEx()\Rows()\State & #Inbetween
-                Row$ = Export_CSV_Row(Separator, DQuote)
+                Row$ = Export_CSV_Row(Separator, DQuote, Flags)
                 WriteStringN(FileID, Row$)
               EndIf   
             Else
-              Row$ = Export_CSV_Row(Separator, DQuote)
+              Row$ = Export_CSV_Row(Separator, DQuote, Flags)
               WriteStringN(FileID, Row$)
             EndIf
 
@@ -5718,12 +5730,12 @@ Module ListEx
           
           If Flags & #HeaderRow
             Row$ = ReadString(FileID, BOM)
-            Import_CSV_Header(Row$, Separator, DQuote)
+            Import_CSV_Header(Row$, Separator, DQuote, Flags)
           EndIf
           
           While Eof(FileID) = #False
             Row$ = ReadString(FileID, BOM)
-            Import_CSV_Row(Row$, Separator, DQuote)
+            Import_CSV_Row(Row$, Separator, DQuote, Flags)
           Wend
 
           CloseFile(FileID)
@@ -8117,10 +8129,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 7997
-; FirstLine = 1384
-; Folding = UAQAAAADIIAVJCkBGAAARQBEJEImAAgEFIAAwAAgiAACAAQAMBOACwDAAAAAgAAAAww0
-; Markers = 3386,5958
+; CursorPosition = 13
+; FirstLine = 3
+; Folding = wCQAAAADIIAFJCkBGAAARQBEJEAmAAgEFIAAwAAgiAACAAQAMBOACwDAAAAAgAAAAww0
+; Markers = 3398,5970
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
