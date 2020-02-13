@@ -9,9 +9,9 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 12.02.2020
+; Last Update: 13.02.2020
 ;
-; - Added: Notes for PDF
+; - Added: Notes for PDF & HTML
 ; - Added: Notes (info/question/error/caution)
 ;
 ; - Added: External CSS for HTML help
@@ -89,7 +89,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20021201
+  #Version  = 20021300
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -1491,7 +1491,17 @@ Module MarkDown
 	  
 	  ProcedureReturn Text$
 	EndProcedure
-  
+	
+	Procedure.i BlendColor_(Color1.i, Color2.i, Factor.i=50)
+		Define.i Red1, Green1, Blue1, Red2, Green2, Blue2
+		Define.f Blend = Factor / 100
+
+		Red1 = Red(Color1): Green1 = Green(Color1): Blue1 = Blue(Color1)
+		Red2 = Red(Color2): Green2 = Green(Color2): Blue2 = Blue(Color2)
+
+		ProcedureReturn RGB((Red1 * Blend) + (Red2 * (1 - Blend)), (Green1 * Blend) + (Green2 * (1 - Blend)), (Blue1 * Blend) + (Blue2 * (1 - Blend)))
+	EndProcedure
+	
   ;- __________ Convert HTML __________
   
   CompilerIf #Enable_ExportHTML
@@ -1513,7 +1523,10 @@ Module MarkDown
       Style$ + ".center { display: block; margin-left: auto; margin-right: auto; }" + #LF$
       Style$ + ".bordered { background-color: #F6F6F6 ; border: 1px solid #848484; border-radius: 4px; padding: 1px 4px 1px 4px; }" + #LF$
       Style$ + ".footnote { font-size: 10pt; }" + #LF$
-      
+      Style$ + ".boxtitle { border: 2px solid #E3E3E3; border-radius: 10px 10px 0 0;  border-bottom: 1px solid #E3E3E3; padding: 10px; position: relative; }" + #LF$
+      Style$ + ".box { border: 2px solid #E3E3E3; border-radius: 0 0 10px 10px; border-top: 1px solid #E3E3E3; padding: 10px; }" + #LF$
+      Style$ + ".symbol { font-size:1.8em; margin: 0; position: absolute; top: 49%; -ms-transform: translateY(-50%); transform: translateY(-50%); }" + #LF$
+      Style$ + ".note { position: relative; padding: 0 0 0 2.3em; }" + #LF$
       ProcedureReturn  Style$
     EndProcedure
     
@@ -1872,7 +1885,7 @@ Module MarkDown
   	
   	Procedure.s ConvertHTML_()
   	  Define.i Level, c, ColWidth, Cols, tBody, Class, BlockQuote, DL
-      Define.s HTML$, Style$, endTag$, Align$, Indent$, ID$, Link$, Title$, String$, Num$, ColSpan$, Image$, File$, Size$, Class$
+      Define.s HTML$, Style$, endTag$, Align$, Indent$, ID$, Link$, Title$, String$, Num$, ColSpan$, Image$, File$, Size$, Class$, BackColor$, Symbol$
       
       ForEach MarkDown()\Image() ;{ Images
        
@@ -2156,6 +2169,34 @@ Module MarkDown
               HTML$ + "  </code>" + #LF$ + "</pre>" + #LF$
               
             EndIf
+            ;}
+          Case #Note             ;{ Note
+            
+            If SelectElement(MarkDown()\Note(), MarkDown()\Items()\Index)
+            
+              Select MarkDown()\Note()\Type
+                Case "info"  
+                  Symbol$    = "<strong class=" + #DQUOTE$ + "symbol" + #DQUOTE$ + " style=" + #DQUOTE$ + "color:#4682B4" + #DQUOTE$ + ">&#x1F6C8; </strong>"
+                  BackColor$ = "background-color:#C7D9E8"
+                Case "question" 
+                  Symbol$    = "<strong class=" + #DQUOTE$ + "symbol" + #DQUOTE$ + " style=" + #DQUOTE$ + "color:#9ACD32" + #DQUOTE$ + ">&nbsp;?</strong>"
+                  BackColor$ = "background-color:#E1F0C1"
+                Case "error"
+                  Symbol$    = "<strong class=" + #DQUOTE$ + "symbol" + #DQUOTE$ + " style=" + #DQUOTE$ + "color:#B22222" + #DQUOTE$ + ">&nbsp;!</strong>"
+                  BackColor$ = "background-color:#E8BDBD"
+                Case "caution"
+                  Symbol$    = "<strong class=" + #DQUOTE$ + "symbol" + #DQUOTE$ + " style=" + #DQUOTE$ + "color:#FF8C32" + #DQUOTE$ + ">&#x26A0; </strong>"
+                  BackColor$ = "background-color:#FFDCB2"
+              EndSelect
+              
+              HTML$ + "<div class=" + #DQUOTE$ + "boxtitle" + #DQUOTE$ + " style=" + #DQUOTE$ + BackColor$ + #DQUOTE$ + ">"
+              HTML$ + Symbol$ + " <strong class=" + #DQUOTE$ + "note" + #DQUOTE$ + ">Note</strong>"
+              HTML$ + "</div>"
+              HTML$ + "<div class=" + #DQUOTE$ + "box" + #DQUOTE$ + ">"
+              HTML$ + "Lore Ipsum"
+              HTML$ + "</div>"
+              
+            EndIf  
             ;}
           Case #InsertTOC        ;{ Table of Contents
             
@@ -2641,32 +2682,47 @@ Module MarkDown
         Height = (ListSize(MarkDown()\Note()\Row()) + 1) * PDF::GetStringHeight(PDF) + 8
         HeaderHeight = PDF::GetStringHeight(PDF) + 4
         
+        PDF::SetLineThickness(PDF, 0.4)
+        
         Select MarkDown()\Note()\Type
           Case "info"  
-            PDF::SetColorRGB(PDF, PDF::#DrawColor,  70, 130, 180)
+            BackColor = BlendColor_($B48246, $FFFFFF, 30)
           Case "question"  
-            PDF::SetColorRGB(PDF, PDF::#DrawColor, 154, 205,  50)
+            BackColor = BlendColor_($32CD9A, $FFFFFF, 30)
           Case "error"
-            PDF::SetColorRGB(PDF, PDF::#DrawColor, 178,  34,  34)
+            BackColor = BlendColor_($2222B2, $FFFFFF, 30)
           Case "caution"
-            PDF::SetColorRGB(PDF, PDF::#DrawColor, 255, 140,   0)
-        EndSelect  
+            BackColor = BlendColor_($008CFF, $FFFFFF, 30)
+        EndSelect
         
-        PDF::SetLineThickness(PDF, 0.4)
+        PDF::SetColorRGB(PDF, PDF::#FillColor, Red(BackColor), Green(BackColor), Blue(BackColor))
+
+        PDF::DrawRoundedRectangle(PDF, X, Y, Width, HeaderHeight + 2, 2, PDF::#FillOnly)
+        
+        PDF::SetColorRGB(PDF, PDF::#FillColor, 255, 255, 255)
+        PDF::DrawRectangle(PDF, X, Y + HeaderHeight, Width, 2, PDF::#FillOnly)
+        
+        PDF::SetColorRGB(PDF, PDF::#DrawColor, 227, 227, 227)
         
         PDF::DrawRoundedRectangle(PDF, X, Y, Width, Height, 2)
         PDF::DividingLine(PDF, X, Y + HeaderHeight, Width)
-
+        
         Select MarkDown()\Note()\Type
-          Case "info"  
+          Case "info"
+            PDF::SetColorRGB(PDF, PDF::#DrawColor, 70, 130, 180)
             PosX = SymbolPDF(PDF, "i", 14, Y, HeaderHeight, $B48246)
-          Case "question"  
+          Case "question"
+            PDF::SetColorRGB(PDF, PDF::#DrawColor, 154, 205, 50)
             PosX = SymbolPDF(PDF, "?", 14, Y, HeaderHeight, $32CD9A)
           Case "error"
+            PDF::SetColorRGB(PDF, PDF::#DrawColor, 178, 34, 34)
             PosX = SymbolPDF(PDF, "!", 14, Y, HeaderHeight, $2222B2)
           Case "caution"
+            PDF::SetColorRGB(PDF, PDF::#DrawColor, 255, 140, 0)
             PosX = SymbolPDF(PDF, "!", 14, Y, HeaderHeight, $008CFF, #True)
         EndSelect   
+
+        PDF::SetLineThickness(PDF, 0.2)
         
         PDF::SetPosY(PDF, Y + 2)
         
@@ -2677,8 +2733,6 @@ Module MarkDown
         ForEach MarkDown()\Note()\Row()
           RowPDF_(PDF, 13, #False, MarkDown()\Note()\Row()\Words(), Width)
         Next
-        
-        PDF::SetLineThickness(PDF, 0.2)
         
         PDF::SetColorRGB(PDF, PDF::#DrawColor, 0, 0, 0)
         
@@ -5190,16 +5244,6 @@ Module MarkDown
 	
 	;- __________ Drawing __________
 
-	Procedure.i BlendColor_(Color1.i, Color2.i, Factor.i=50)
-		Define.i Red1, Green1, Blue1, Red2, Green2, Blue2
-		Define.f Blend = Factor / 100
-
-		Red1 = Red(Color1): Green1 = Green(Color1): Blue1 = Blue(Color1)
-		Red2 = Red(Color2): Green2 = Green(Color2): Blue2 = Blue(Color2)
-
-		ProcedureReturn RGB((Red1 * Blend) + (Red2 * (1 - Blend)), (Green1 * Blend) + (Green2 * (1 - Blend)), (Blue1 * Blend) + (Blue2 * (1 - Blend)))
-	EndProcedure
-	
 	CompilerIf #Enable_Requester
 	  
   	Procedure Button_(Key.s, X.i, Y.i)
@@ -8962,9 +9006,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 91
-; FirstLine = 24
-; Folding = wBQgRAAAAAAAAAAAAEEAAAAAUEAAAAAAAAAAAgBMABAAAgggMIAAYAAECAACCIAgAAIAAQBAAAACCBMIAAADgSQAAASA9
-; Markers = 2931,4816,5914
+; CursorPosition = 2712
+; FirstLine = 222
+; Folding = wBQgRAAAAAAAAAAAAEEEAAAAIQAAAAAgAAAAAAGwAEAAAACCygAAwAAIEAAAEQAABAQAAgDIAAAGECYQAAAGAlgAAAkA5
+; Markers = 2985,4870,5958
 ; EnableXP
 ; DPIAware
