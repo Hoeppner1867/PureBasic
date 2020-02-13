@@ -9,14 +9,10 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 31.01.2020
+; Last Update: 13.02.2020
 ;
-; - Update & Bugfixes for CSV
-; - Bugfixes
+; - Added: SetColumnImage() 
 ;
-; - Added:   ResetSort()
-; - Changed: SetItemImage(GNum.i, Row.i, Column.i, Image.i, Align.i=#Left, Width.i=#PB_Default, Height.i=#PB_Default)
-; - Added:   SetItemImageID(GNum.i, Row.i, Column.i, Width.f, Height.f, ImageID.i, Align.i=#Left)
 
 ;{ ===== MIT License =====
 ;
@@ -108,6 +104,7 @@
 ; ListEx::SetColorTheme()           - change the color theme
 ; ListEx::SetColumnAttribute()      - [#Align/#ColumnWidth]
 ; ListEx::SetColumnFlags()          - [#FitColumn | #Left/#Right/#Center]
+; ListEx::SetColumnImage()          - set image for all rows of column
 ; ListEx::SetColumnMask()           - Format content
 ; ListEx::SetColumnState()          - similar to 'SetGadgetItemState()' for a specific column
 ; ListEx::SetCurrency()             - 
@@ -426,6 +423,7 @@ DeclareModule ListEx
   Declare   SetColorTheme(GNum.i, Theme.i=#Theme_Default, File.s="") 
   Declare   SetColumnAttribute(GNum.i, Column.i, Attrib.i, Value.i)
   Declare   SetColumnFlags(GNum.i, Column.i, Flags.i)
+  Declare   SetColumnImage(GNum.i, Column.i, Image.i, Align.i=#Left, Width.i=#PB_Default, Height.i=#PB_Default)
   Declare   SetColumnMask(GNum.i, Column.i, Mask.s)
   Declare   SetColumnState(GNum.i, Row.i, Column.i, State.i)
   Declare   SetCurrency(GNum.i, String.s, Column.i=#PB_Ignore)
@@ -794,6 +792,7 @@ Module ListEx
     FrontColor.i
     BackColor.i
     Header.Cols_Header_Structure
+    Image.Image_Structure
   EndStructure ;}  
   
 
@@ -2783,7 +2782,7 @@ Module ListEx
   EndProcedure  
 
   Procedure   Draw_()
-    Define.f colX, rowY, textY, textX, colW0, colWidth, rowHeight, imgY, imgX, imgWidth
+    Define.f colX, rowY, textY, textX, colW0, colWidth, rowHeight, imgY, imgX, imgWidth, imgHeight
     Define.i r, Width, Height, PageRows, textRows
     Define.i Flags, imgFlags, Align, Mark, Row
     Define.i FrontColor, FocusColor, RowColor, FontID, RowFontID, Time
@@ -3105,7 +3104,7 @@ Module ListEx
               If Flags & #Image
                 
                 imgFlags = ListEx()\Rows()\Column(Key$)\Image\Flags
-              
+                
                 If imgFlags & #Center
                   imgX  = (dpiX(ListEx()\Cols()\Width) - dpiX(ListEx()\Rows()\Column(Key$)\Image\Width)) / 2
                 ElseIf imgFlags & #Right
@@ -3113,14 +3112,34 @@ Module ListEx
                 Else 
                   imgX = dpiX(4)
                 EndIf
-
-                imgY = (dpiY(ListEx()\Rows()\Height) - dpiY(ListEx()\Rows()\Column(Key$)\Image\Height)) / 2 + dpiY(1)
-              
-                DrawingMode(#PB_2DDrawing_AlphaBlend)
-                DrawImage(ListEx()\Rows()\Column(Key$)\Image\ID, colX + imgX, rowY + imgY, dpiX(ListEx()\Rows()\Column(Key$)\Image\Width), dpiY(ListEx()\Rows()\Column(Key$)\Image\Height)) 
                 
+                imgWidth  = dpiX(ListEx()\Rows()\Column(Key$)\Image\Width) ;+ dpiX(4)
+                imgHeight = dpiY(ListEx()\Rows()\Column(Key$)\Image\Height)
+                imgY      = (dpiY(ListEx()\Rows()\Height) - dpiY(ListEx()\Rows()\Column(Key$)\Image\Height)) / 2 + dpiY(1)
+                
+                DrawingMode(#PB_2DDrawing_AlphaBlend)
+                DrawImage(ListEx()\Rows()\Column(Key$)\Image\ID, colX + imgX, rowY + imgY, imgWidth, imgHeight) 
+
+              ElseIf ListEx()\Cols()\Flags & #Image
+                
+                imgFlags = ListEx()\Cols()\Image\Flags
+                
+                If imgFlags & #Center
+                  imgX  = (dpiX(ListEx()\Cols()\Width) - dpiX(ListEx()\Cols()\Image\Width)) / 2
+                ElseIf imgFlags & #Right
+                  imgX  = dpiX(ListEx()\Cols()\Width)  - dpiX(ListEx()\Cols()\Image\Width) - dpiX(4)
+                Else 
+                  imgX = dpiX(4)
+                EndIf
+                
+                imgWidth  = dpiX(ListEx()\Cols()\Image\Width) ; + dpiX(4)
+                imgHeight = dpiY(ListEx()\Cols()\Image\Height)
+                imgY      = (dpiY(ListEx()\Rows()\Height) - dpiY(ListEx()\Cols()\Image\Height)) / 2 + dpiY(1)
+                
+                DrawingMode(#PB_2DDrawing_AlphaBlend)
+                DrawImage(ListEx()\Cols()\Image\ID, colX + imgX, rowY + imgY, imgWidth, imgHeight) 
               EndIf
-              
+
               If Flags & #CellFont : DrawingFont(RowFontID) : EndIf
               
               CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
@@ -3137,30 +3156,54 @@ Module ListEx
                 If Flags & #CellFont : DrawingFont(RowFontID) : EndIf
                 
               CompilerEndIf 
-            ElseIf Flags & #Image                                         ;{ Image
+            ElseIf Flags & #Image Or ListEx()\Cols()\Flags & #Image       ;{ Image
               
               CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
                 ClipOutput(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height))
               CompilerEndIf
-              
-              imgFlags = ListEx()\Rows()\Column(Key$)\Image\Flags
-              
-              If imgFlags & #Center
-                imgX  = (dpiX(ListEx()\Cols()\Width) - dpiX(ListEx()\Rows()\Column(Key$)\Image\Width)) / 2
-              ElseIf imgFlags & #Right
-                imgX  = dpiX(ListEx()\Cols()\Width)  - dpiX(ListEx()\Rows()\Column(Key$)\Image\Width) - dpiX(4)
-              Else 
-                imgX = dpiX(4)
+
+              If Flags & #Image
+                
+                imgFlags = ListEx()\Rows()\Column(Key$)\Image\Flags
+                
+                If imgFlags & #Center
+                  imgX  = (dpiX(ListEx()\Cols()\Width) - dpiX(ListEx()\Rows()\Column(Key$)\Image\Width)) / 2
+                ElseIf imgFlags & #Right
+                  imgX  = dpiX(ListEx()\Cols()\Width)  - dpiX(ListEx()\Rows()\Column(Key$)\Image\Width) - dpiX(4)
+                Else 
+                  imgX = dpiX(4)
+                EndIf
+                
+                imgWidth  = dpiX(ListEx()\Rows()\Column(Key$)\Image\Width) ;+ dpiX(4)
+                imgHeight = dpiY(ListEx()\Rows()\Column(Key$)\Image\Height)
+                imgY      = (dpiY(ListEx()\Rows()\Height) - dpiY(ListEx()\Rows()\Column(Key$)\Image\Height)) / 2 + dpiY(1)
+                
+                DrawingMode(#PB_2DDrawing_AlphaBlend)
+                DrawImage(ListEx()\Rows()\Column(Key$)\Image\ID, colX + imgX, rowY + imgY, imgWidth, imgHeight) 
+
+              ElseIf ListEx()\Cols()\Flags & #Image
+                
+                imgFlags = ListEx()\Cols()\Image\Flags
+                
+                If imgFlags & #Center
+                  imgX  = (dpiX(ListEx()\Cols()\Width) - dpiX(ListEx()\Cols()\Image\Width)) / 2
+                ElseIf imgFlags & #Right
+                  imgX  = dpiX(ListEx()\Cols()\Width)  - dpiX(ListEx()\Cols()\Image\Width) - dpiX(4)
+                Else 
+                  imgX = dpiX(4)
+                EndIf
+                
+                imgWidth  = dpiX(ListEx()\Cols()\Image\Width) ; + dpiX(4)
+                imgHeight = dpiY(ListEx()\Cols()\Image\Height)
+                imgY      = (dpiY(ListEx()\Rows()\Height) - dpiY(ListEx()\Cols()\Image\Height)) / 2 + dpiY(1)
+                
+                DrawingMode(#PB_2DDrawing_AlphaBlend)
+                DrawImage(ListEx()\Cols()\Image\ID, colX + imgX, rowY + imgY, imgWidth, imgHeight) 
+
               EndIf
-              
-              imgWidth = dpiX(ListEx()\Rows()\Column(Key$)\Image\Width) + dpiX(4)
-              imgY     = (dpiY(ListEx()\Rows()\Height) - dpiY(ListEx()\Rows()\Column(Key$)\Image\Height)) / 2 + dpiY(1)
-              
-              DrawingMode(#PB_2DDrawing_AlphaBlend)
-              DrawImage(ListEx()\Rows()\Column(Key$)\Image\ID, colX + imgX, rowY + imgY, dpiX(ListEx()\Rows()\Column(Key$)\Image\Width), dpiY(ListEx()\Rows()\Column(Key$)\Image\Height)) 
-              
-              Text$ = ListEx()\Rows()\Column(Key$)\Value
-              If Text$ <> ""
+
+              Text$ = ListEx()\Rows()\Column(Key$)\Value 
+              If Text$ <> "" ;{ Text & Image
                 
                 If Flags & #CellFont : FontID = ListEx()\Rows()\Column(Key$)\FontID : EndIf
                 
@@ -3171,7 +3214,7 @@ Module ListEx
                 ElseIf imgFlags & #Right
                   textX = GetAlignOffset_(Text$, dpiX(ListEx()\Cols()\Width), #Left)
                 Else 
-                  textX = dpiX(ListEx()\Rows()\Column(Key$)\Image\Width) + dpiX(8)
+                  textX = imgWidth + dpiX(8)
                 EndIf
                 
                 DrawingMode(#PB_2DDrawing_Transparent)
@@ -3214,8 +3257,9 @@ Module ListEx
                 EndIf
               
                 If Flags & #CellFont : DrawingFont(RowFontID) : EndIf
-                
-              EndIf  
+                ;}
+              EndIf
+              
               CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
                 UnclipOutput()
               CompilerEndIf
@@ -7015,6 +7059,36 @@ Module ListEx
     
   EndProcedure 
   
+  Procedure   SetColumnImage(GNum.i, Column.i, Image.i, Align.i=#Left, Width.i=#PB_Default, Height.i=#PB_Default)
+
+    If FindMapElement(ListEx(), Str(GNum))
+      
+      If SelectElement(ListEx()\Cols(), Column)
+
+        If IsImage(Image)
+          
+          If Width  = #PB_Default : Width  = ImageWidth(Image)  : EndIf 
+          If Height = #PB_Default : Height = ImageHeight(Image) : EndIf 
+          
+          ListEx()\Cols()\Image\ID     = ImageID(Image)
+          ListEx()\Cols()\Image\Width  = Width
+          ListEx()\Cols()\Image\Height = Height
+          ListEx()\Cols()\Image\Flags  = Align
+          ListEx()\Cols()\Flags | #Image
+
+        Else
+          ListEx()\Cols()\Flags & ~#Image
+        EndIf
+        
+        If ListEx()\FitCols : FitColumns_() : EndIf
+        If ListEx()\ReDraw  : Draw_()       : EndIf
+        
+      EndIf
+      
+    EndIf
+    
+  EndProcedure 
+  
   Procedure   SetColumnMask(GNum.i, Column.i, Mask.s)
 
     If FindMapElement(ListEx(), Str(GNum))
@@ -7447,10 +7521,15 @@ Module ListEx
         
         If SelectElement(ListEx()\Cols(), Column)
           If IsImage(Image)
+            
+            If Width  = #PB_Default : Width  = ImageWidth(Image)  : EndIf 
+            If Height = #PB_Default : Height = ImageHeight(Image) : EndIf 
+            
             ListEx()\Cols()\Header\Image\ID     = ImageID(Image)
             ListEx()\Cols()\Header\Image\Width  = Width
             ListEx()\Cols()\Header\Image\Height = Height
             ListEx()\Cols()\Header\Image\Flags  = Align
+            
             ListEx()\Cols()\Header\Flags | #Image
           Else
             ListEx()\Cols()\Header\Flags & ~#Image
@@ -7844,7 +7923,7 @@ CompilerIf #PB_Compiler_IsMainFile
         ; --- design of header row ---
         ListEx::SetHeaderAttribute(#List, ListEx::#Align, ListEx::#Center)
         ;ListEx::SetItemColor(#List, ListEx::#Header, ListEx::#FrontColor, $0000FF, 1)
-        
+
         ListEx::SetFont(#List, FontID(#Font_Arial9))
         ListEx::SetFont(#List, FontID(#Font_Arial9B), ListEx::#HeaderFont)
         
@@ -7916,6 +7995,7 @@ CompilerIf #PB_Compiler_IsMainFile
           ListEx::SetItemImage(#List, 0, 1, #Image)
           ListEx::SetItemImage(#List, 1, 5, #Image, ListEx::#Center, 14, 14)
           ListEx::SetItemImage(#List, ListEx::#Header, 2, 14, 14, #Image, ListEx::#Right)
+          ;ListEx::SetColumnImage(#List, 5, #Image)
         EndIf
         
         ; --- Test single cell flags ---
@@ -7940,6 +8020,9 @@ CompilerIf #PB_Compiler_IsMainFile
       ListEx::DisableReDraw(#List, #False) 
       
       ;ListEx::SetState(#List, 10)
+      
+      ;ListEx::SetFont(#List, FontID(#Font_Arial9B), #False, 5)
+      ;ListEx::SetColumnAttribute(#List, 5, ListEx::#Font, #Font_Arial9B)
       
     EndIf
     
@@ -8034,10 +8117,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 152
-; FirstLine = 1516
-; Folding = QAQAAAAAIIAVJCEAGAAARQBEKEIGEAciCGAQYAUQRIAHYAIAmAHgB5BAIAAAAAAAA1c-
-; Markers = 3342,5914
+; CursorPosition = 7997
+; FirstLine = 1384
+; Folding = UAQAAAADIIAVJCkBGAAARQBEJEImAAgEFIAAwAAgiAACAAQAMBOACwDAAAAAgAAAAww0
+; Markers = 3386,5958
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
