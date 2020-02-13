@@ -11,7 +11,7 @@
  
 ; Last Update: 13.02.2020
 ;
-; - Added: Flag #NoButtons for CSV
+; - Added: Flag #NoButtons & #NoCheckBoxes for CSV
 ; - Added: SetColumnImage() 
 ;
 
@@ -148,7 +148,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20021301
+  #Version  = 20021302
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -229,6 +229,7 @@ DeclareModule ListEx
     #Inbetween  = #PB_ListIcon_Inbetween
     #HeaderRow
     #NoButtons
+    #NoCheckBoxes
   EndEnumeration ;}
   
   EnumerationBinary  ; ProgressBars
@@ -777,7 +778,7 @@ Module ListEx
   EndStructure ;}
   
   Structure ListEx_Cols_Structure       ;{ ListEx()\Cols()\...
-    Type.i
+    ;Type.i
     X.f
     Key.s
     Width.f
@@ -1197,12 +1198,28 @@ Module ListEx
       
       ForEach ListEx()\Cols()
         
-        If Flags & #NoButtons And ListEx()\Cols()\Type = #Buttons : Continue : EndIf
+        If Flags & #NoButtons And ListEx()\Cols()\Flags & #Buttons : Continue : EndIf
+        If Flags & #NoCheckBoxes And ListEx()\Cols()\Flags & #CheckBoxes : Continue : EndIf
         
-        If ListIndex(ListEx()\Cols()) = 0
-          CSV$ = DQuote + ListEx()\Cols()\Header\Title
+        If Flags & #NoCheckBoxes And ListEx()\Flags & #CheckBoxes 
+          
+          Select ListIndex(ListEx()\Cols())
+            Case 0  
+              Continue
+            Case 1
+              CSV$ = DQuote + ListEx()\Cols()\Header\Title
+            Default
+              CSV$ + DQuote + Separator + DQuote + ListEx()\Cols()\Header\Title
+          EndSelect    
+          
         Else  
-          CSV$ + DQuote + Separator + DQuote + ListEx()\Cols()\Header\Title
+          
+          If ListIndex(ListEx()\Cols()) = 0
+            CSV$ = DQuote + ListEx()\Cols()\Header\Title
+          Else  
+            CSV$ + DQuote + Separator + DQuote + ListEx()\Cols()\Header\Title
+          EndIf
+          
         EndIf
         
       Next
@@ -1215,29 +1232,51 @@ Module ListEx
       
       ForEach ListEx()\Cols()
         
-        If Flags & #NoButtons And ListEx()\Cols()\Type = #Buttons : Continue : EndIf
+        If Flags & #NoButtons And ListEx()\Cols()\Flags & #Buttons : Continue : EndIf
+        If Flags & #NoCheckBoxes And ListEx()\Cols()\Flags & #CheckBoxes : Continue : EndIf
         
         Key$ = ListEx()\Cols()\Key
         
-        If ListIndex(ListEx()\Cols()) = 0
+        
+        If Flags & #NoCheckBoxes And ListEx()\Flags & #CheckBoxes 
           
-          If ListEx()\Flags & #CheckBoxes
-            CSV$ = DQuote + Str(ListEx()\Rows()\State)
-          ElseIf ListEx()\Cols()\Flags & #CheckBoxes
-            CSV$ = DQuote + Str(ListEx()\Rows()\Column(Key$)\State)
-          Else
-            CSV$ = DQuote + ListEx()\Rows()\Column(Key$)\Value
-          EndIf  
-          
+          Select ListIndex(ListEx()\Cols())
+            Case 0
+              Continue
+            Case 1
+              CSV$ = DQuote + ListEx()\Rows()\Column(Key$)\Value
+            Default
+              If ListEx()\Cols()\Flags & #CheckBoxes
+                CSV$ + DQuote + Separator + DQuote + Str(ListEx()\Rows()\Column(Key$)\State)
+              Else
+                CSV$ + DQuote + Separator + DQuote + ListEx()\Rows()\Column(Key$)\Value
+              EndIf
+          EndSelect
+
         Else
           
-          If ListEx()\Cols()\Flags & #CheckBoxes
-            CSV$ + DQuote + Separator + DQuote + Str(ListEx()\Rows()\Column(Key$)\State)
+          If ListIndex(ListEx()\Cols()) = 0
+  
+            If ListEx()\Flags & #CheckBoxes
+              CSV$ = DQuote + Str(ListEx()\Rows()\State)
+            ElseIf ListEx()\Cols()\Flags & #CheckBoxes
+              CSV$ = DQuote + Str(ListEx()\Rows()\Column(Key$)\State)
+            Else
+              CSV$ = DQuote + ListEx()\Rows()\Column(Key$)\Value
+            EndIf
+            
           Else
-            CSV$ + DQuote + Separator + DQuote + ListEx()\Rows()\Column(Key$)\Value
+            
+            If ListEx()\Cols()\Flags & #CheckBoxes
+              CSV$ + DQuote + Separator + DQuote + Str(ListEx()\Rows()\Column(Key$)\State)
+            Else
+              CSV$ + DQuote + Separator + DQuote + ListEx()\Rows()\Column(Key$)\Value
+            EndIf
+            
           EndIf
-          
+
         EndIf
+
       Next
 
       ProcedureReturn CSV$ + DQuote
@@ -1252,7 +1291,9 @@ Module ListEx
       
       ForEach ListEx()\Cols()
         
-        If Flags & #NoButtons And ListEx()\Cols()\Type = #Buttons : Continue : EndIf
+        If Flags & #NoButtons And ListEx()\Cols()\Flags & #Buttons : Continue : EndIf
+        If Flags & #NoCheckBoxes And ListEx()\Cols()\Flags & #CheckBoxes : Continue : EndIf
+        If Flags & #NoCheckBoxes And ListEx()\Flags & #CheckBoxes And ListIndex(ListEx()\Cols()) = 0 : Continue : EndIf
         
         idx + 1
         
@@ -1285,7 +1326,9 @@ Module ListEx
             
             If SelectElement(ListEx()\Cols(), i)
               
-              If Flags & #NoButtons And ListEx()\Cols()\Type = #Buttons : Continue : EndIf
+              If Flags & #NoButtons And ListEx()\Cols()\Flags & #Buttons : Continue : EndIf
+              If Flags & #NoCheckBoxes And ListEx()\Cols()\Flags & #CheckBoxes : Continue : EndIf
+              If Flags & #NoCheckBoxes And ListEx()\Flags & #CheckBoxes And ListIndex(ListEx()\Cols()) = 0 : Continue : EndIf
               
               If i=0 And ListEx()\Flags & #CheckBoxes
                 ListEx()\Rows()\State = Val(StringField(String, i + 1, #LF$))
@@ -8036,6 +8079,8 @@ CompilerIf #PB_Compiler_IsMainFile
       ;ListEx::SetFont(#List, FontID(#Font_Arial9B), #False, 5)
       ;ListEx::SetColumnAttribute(#List, 5, ListEx::#Font, #Font_Arial9B)
       
+      ;ListEx::ExportCSV(#List, "Export.csv", ListEx::#NoButtons|ListEx::#NoCheckBoxes|ListEx::#HeaderRow)
+      
     EndIf
     
     Repeat
@@ -8129,10 +8174,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 13
-; FirstLine = 3
-; Folding = wCQAAAADIIAFJCkBGAAARQBEJEAmAAgEFIAAwAAgiAACAAQAMBOACwDAAAAAgAAAAww0
-; Markers = 3398,5970
+; CursorPosition = 150
+; FirstLine = 15
+; Folding = wCQAAAACIIA0JCkBGAAARQBEJEAmAAgEFIAAwAAgiAACAAQBNBOACwDAAAAAgAAAAww-
+; Markers = 3441,6013
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
