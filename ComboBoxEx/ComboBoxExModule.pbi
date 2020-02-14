@@ -7,9 +7,9 @@
 ;/ © 2019 Thorsten1867 (12/2019)
 ;/
 
-; Last Update: 28.12.2019
+; Last Update: 14.02.2020
 ;
-; Bugfix: SetState()
+; Scrollbar added
 
 ;{ ===== MIT License =====
 ;
@@ -87,7 +87,7 @@
 
 DeclareModule ComboBoxEx
   
-  #Version  = 19122800
+  #Version  = 20021400
   #ModuleEx = 19112600
   
   ;- ===========================================================================
@@ -908,12 +908,14 @@ Module ComboBoxEx
 
       If PageRows < ListSize(ComboEx()\ListView\Item())
         
-        If ComboEx()\ListView\ScrollBar\Hide
+        If ComboEx()\ListView\ScrollBar\Hide = #False
           
           If IsGadget(ComboEx()\ListView\ScrollBar\Num)
             scrollX = Width - #ScrollBarSize - 1
             SetGadgetAttribute(ComboEx()\ListView\ScrollBar\Num, #PB_ScrollBar_PageLength, PageRows)
-            ResizeGadget(ComboEx()\ListView\ScrollBar\Num, scrollX, 1, #PB_Ignore, GadgetHeight(ComboEx()\ListView\Num - 2))
+            SetGadgetAttribute(ComboEx()\ListView\ScrollBar\Num, #PB_ScrollBar_Minimum, 1)
+            SetGadgetAttribute(ComboEx()\ListView\ScrollBar\Num, #PB_ScrollBar_Maximum, ListSize(ComboEx()\ListView\Item()))
+            ResizeGadget(ComboEx()\ListView\ScrollBar\Num, scrollX, 1, #PB_Ignore, GadgetHeight(ComboEx()\ListView\Num) - 2)
             HideGadget(ComboEx()\ListView\ScrollBar\Num, #False)
             ComboEx()\ListView\ScrollBar\Hide = #False
           EndIf
@@ -1230,6 +1232,8 @@ Module ComboBoxEx
     EndIf
   
     If RowsHeight < Height : Height = RowsHeight : EndIf
+    
+    If RowsHeight > Height : ComboEx()\ListView\ScrollBar\Hide = #False : EndIf  
     
     SetGadgetData(ComboEx()\ListView\Num, ComboEx()\CanvasNum)
     
@@ -2846,7 +2850,12 @@ CompilerIf #PB_Compiler_IsMainFile
           ComboBoxEx::AddItem(#ComboEx, ComboBoxEx::#LastItem, "Item 1")
           ComboBoxEx::AddItem(#ComboEx, ComboBoxEx::#LastItem, "Item 2")          
           ComboBoxEx::AddItem(#ComboEx, ComboBoxEx::#LastItem, "Item 3")
-          
+          ComboBoxEx::AddItem(#ComboEx, ComboBoxEx::#LastItem, "Item 4")
+          ComboBoxEx::AddItem(#ComboEx, ComboBoxEx::#LastItem, "Item 5")          
+          ComboBoxEx::AddItem(#ComboEx, ComboBoxEx::#LastItem, "Item 6")
+          ComboBoxEx::AddItem(#ComboEx, ComboBoxEx::#LastItem, "Item 7")          
+          ComboBoxEx::AddItem(#ComboEx, ComboBoxEx::#LastItem, "Item 8")
+           
           ComboBoxEx::SetItemImage(#ComboEx, 1, #Image)
           ComboBoxEx::SetItemImage(#ComboEx, 2, #Image, ComboBoxEx::#Right)
           
@@ -2893,9 +2902,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 11
-; FirstLine = 9
-; Folding = IcAESAAAwIAAJEAAAgBgFAAYAAAAw-
+; CursorPosition = 89
+; Folding = YeAESAAAwEAAJEAAAgBAEAAYAAAAg-
 ; EnableThread
 ; EnableXP
 ; DPIAware
