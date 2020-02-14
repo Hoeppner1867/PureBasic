@@ -9,11 +9,12 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 13.02.2020
+; Last Update: 14.02.2020
+;
+; - Bugfix: Table of Contents
 ;
 ; - Added: Notes for PDF & HTML
 ; - Added: Notes (info/question/error/caution)
-;
 ; - Added: External CSS for HTML help
 ; - Added: Glossary - "[?Word]" / "{{Glossary}}"
 ; - Added: Markdown::Help()
@@ -89,7 +90,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20021300
+  #Version  = 20021400
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -5867,7 +5868,7 @@ Module MarkDown
       MarkDown()\TOC()\Y = Y
       
       Y = DrawRow_(X + OffsetX, Y, MarkDown()\TOC()\Width, MarkDown()\TOC()\Height, #False, MarkDown()\TOC()\Words())
-      
+    
     Next
     
     ProcedureReturn Y
@@ -7941,7 +7942,7 @@ Module MarkDown
 	  Procedure.s Help(Title.s, File.s, Label.s="", Flags.i=#False, Parent.i=#PB_Default)
 	    ; Flags: #AutoResize
 	    Define.i MarkdownNum, WindowNum, WindowFlags, quitWindow
-	    Define.i Pack, JSON, Size, Selected
+	    Define.i Pack, JSON, Size, Selected, Result
 	    Define.s FileName$, Link$
 	    Define   *Buffer
 	    
@@ -8096,7 +8097,8 @@ Module MarkDown
   	      
   	      If Label ;{ Select start item
   	        If FindMapElement(Help\Label(), Label)
-              If SelectElement(Help\Item(), Help\Label())
+  	          If SelectElement(Help\Item(), Help\Label())
+  	            Result = #False
                 CompilerIf Defined(TreeEx, #PB_Module) 
                   TreeEx::SetState(Help\TreeNum, Help\Label())
                 CompilerElse 
@@ -8104,9 +8106,12 @@ Module MarkDown
                 CompilerEndIf
                 SetText(MarkdownNum, Help\Item()\Text)
                 MarkDown()\PageLabel = Help\Item()\Label
-                If UpdateTOC_(TOC()) : ReDraw() : EndIf 
-                If UpdateGlossary_(Glossary()) : ReDraw() : EndIf 
-                DetermineTextSize_()
+                If UpdateGlossary_(Glossary()) : Result = #True : EndIf 
+                If UpdateTOC_(TOC()) : Result = #True : EndIf 
+                If Result
+                  DetermineTextSize_()
+                  ReDraw()
+                EndIf   
               EndIf
             EndIf
   	      EndIf ;}
@@ -8127,7 +8132,7 @@ Module MarkDown
                     If EventType() = #EventType_Link
                       
                       If FindMapElement(MarkDown(), Str(MarkdownNum))
-                        
+                        Result = #False
                         If MarkDown()\EventLabel ;{ Table of Contents
                           If FindMapElement(Help\Label(), MarkDown()\EventLabel)
                             If SelectElement(Help\Item(), Help\Label())
@@ -8138,9 +8143,12 @@ Module MarkDown
                               CompilerEndIf
                               SetText(MarkdownNum, Help\Item()\Text)
                               MarkDown()\PageLabel = MarkDown()\EventLabel
-                              If UpdateGlossary_(Glossary()) : ReDraw() : EndIf 
-                              If UpdateTOC_(TOC()) : ReDraw() : EndIf 
-                               DetermineTextSize_()
+                              If UpdateGlossary_(Glossary()) : Result = #True : EndIf 
+                              If UpdateTOC_(TOC()) : Result = #True : EndIf 
+                              If Result
+                                DetermineTextSize_()
+                                ReDraw()
+                              EndIf   
                             EndIf
                           EndIf
                           GotoHeading_(MarkDown()\EventValue)
@@ -8157,9 +8165,12 @@ Module MarkDown
                                 CompilerEndIf
                                 SetText(MarkdownNum, Help\Item()\Text)
                                 MarkDown()\PageLabel = Help\Item()\Label
-                                If UpdateGlossary_(Glossary()) : ReDraw() : EndIf 
-                                If UpdateTOC_(TOC()) : ReDraw() : EndIf
-                                DetermineTextSize_()
+                                If UpdateGlossary_(Glossary()) : Result = #True : EndIf 
+                                If UpdateTOC_(TOC()) : Result = #True : EndIf 
+                                If Result
+                                  DetermineTextSize_()
+                                  ReDraw()
+                                EndIf   
                               EndIf
                             EndIf
                           Else
@@ -8170,8 +8181,10 @@ Module MarkDown
                       EndIf  
                     EndIf ;}
                   Case Help\TreeNum      ;{ Show item text
+                    
                     If FindMapElement(MarkDown(), Str(MarkdownNum))
                       
+                      Result = #False
                       MarkDown()\Scroll\Offset = 0
                       _SynchronizeScrollBar()
                       
@@ -8182,9 +8195,12 @@ Module MarkDown
                             If SelectElement(Help\Item(), Selected)
                               SetText(MarkdownNum, Help\Item()\Text)
                               MarkDown()\PageLabel = Help\Item()\Label
-                              If UpdateGlossary_(Glossary()) : ReDraw() : EndIf 
-                              If UpdateTOC_(TOC()) : ReDraw() : EndIf 
-                              DetermineTextSize_()
+                              If UpdateGlossary_(Glossary()) : Result = #True : EndIf 
+                              If UpdateTOC_(TOC()) : Result = #True : EndIf 
+                              If Result
+                                DetermineTextSize_()
+                                ReDraw()
+                              EndIf  
                             EndIf  
                           EndIf  
                         EndIf
@@ -8194,9 +8210,12 @@ Module MarkDown
                           If SelectElement(Help\Item(), Selected)
                             SetText(MarkdownNum, Help\Item()\Text)
                             MarkDown()\PageLabel = Help\Item()\Label
-                            If UpdateGlossary_(Glossary()) : ReDraw() : EndIf 
-                            If UpdateTOC_(TOC()) : ReDraw() : EndIf 
-                            DetermineTextSize_()
+                            If UpdateGlossary_(Glossary()) : Result = #True : EndIf 
+                            If UpdateTOC_(TOC()) : Result = #True : EndIf 
+                            If Result
+                              DetermineTextSize_()
+                              ReDraw()
+                            EndIf  
                           EndIf  
                         EndIf
                       CompilerEndIf 
@@ -8703,7 +8722,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
   
-  #Example = 17
+  #Example = 30
   
   ; === Gadget ===
   ;  1: Headings
@@ -9006,9 +9025,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 2712
-; FirstLine = 222
-; Folding = wBQgRAAAAAAAAAAAAEEEAAAAIQAAAAAgAAAAAAGwAEAAAACCygAAwAAIEAAAEQAABAQAAgDIAAAGECYQAAAGAlgAAAkA5
-; Markers = 2985,4870,5958
+; CursorPosition = 92
+; FirstLine = 21
+; Folding = wBQgRAAAAAAAAAQAAAUEAAAAIQAAgAAgAAAAAAGwAEAAAACCygAAwAAIEAAIEQAAJAQAAgDIAAAGECYQAADGg2gBAAkA5
+; Markers = 2986,4871,5959
 ; EnableXP
 ; DPIAware
