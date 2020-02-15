@@ -7,9 +7,8 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 10.02.20
+; Last Update: 15.02.20
 ;
-; Bugfix: Syntax Highlight
 ; Bugfix: Mouse selection
 ;
 
@@ -139,7 +138,7 @@
 
 DeclareModule EditEx
   
-  #Version  = 20021000
+  #Version  = 20021500
   #ModuleEx = 20010800
   
   ;- ============================================================================
@@ -542,6 +541,7 @@ Module EditEx
     DeltaX.i ; will be used to relativise absolute X,Y
     DeltaY.i
     Cursor.i
+    LeftButton.i
     Status.i
   EndStructure ;}
 
@@ -3482,6 +3482,8 @@ Module EditEx
       CursorX   = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
       CursorY   = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
       
+      EditEx()\Mouse\LeftButton = #True
+      
       CompilerIf #Enable_SpellChecking
         If EditEx()\Visible\WordList = #True
           HideWindow(EditEx()\WinNum, #True)
@@ -3516,7 +3518,7 @@ Module EditEx
 
       CursorX   = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
       CursorY   = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
-      
+
       If EditEx()\Mouse\Status = #Mouse_Select
         
         CursorPos = CursorPos_(CursorX, CursorY)
@@ -3529,6 +3531,7 @@ Module EditEx
         EditEx()\Mouse\Status = #Mouse_Move
       EndIf
       
+      EditEx()\Mouse\LeftButton = #False
     EndIf
     
   EndProcedure  
@@ -3607,7 +3610,7 @@ Module EditEx
       CursorY   = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
       CursorPos = EditEx()\Cursor\Pos
 
-      If GetGadgetAttribute(GNum, #PB_Canvas_Buttons) = #PB_Canvas_LeftButton ;{ Left Mouse Button
+      If EditEx()\Mouse\LeftButton ;{ Left Mouse Button
         
         Select EditEx()\Mouse\Status
           Case #Mouse_Move   ;{ Start Selection
@@ -5441,9 +5444,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 9
-; FirstLine = 3
-; Folding = wHOhAADAC9nACwAEB+wQBkxJqigAHAYABgwHwCQoQgREEBFQSL3JI+-
-; Markers = 971,2501,2570,4653
+; CursorPosition = 142
+; FirstLine = 24
+; Folding = wHOhABDAi9nACwAEB+wQBkxJqigAHAYABA1HwCQoQgREEBFQSL3JI+-
+; Markers = 971,2501,2570,4656
 ; EnableXP
 ; DPIAware

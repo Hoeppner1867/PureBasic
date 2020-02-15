@@ -9,7 +9,7 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 14.02.2020
+; Last Update: 15.02.2020
 ;
 ; - Bugfix: Table of Contents
 ;
@@ -62,6 +62,7 @@
 ; MarkDown::Gadget()             - new MarkDown gadget
 ; MarkDown::GetData()            - similar to 'GetGadgetData()'
 ; MarkDown::GetID()              - similar to 'GetGadgetData()', but string
+; MarkDown::GotoHeading()        - goto heading with this ID
 ; MarkDown::Hide()               - similar to 'HideGadget()'
 ; MarkDown::SetAutoResizeFlags() - [#MoveX|#MoveY|#Width|#Height]
 ; MarkDown::SetAttribute()       - similar to 'SetGadgetAttribute()'
@@ -90,7 +91,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20021400
+  #Version  = 20021500
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -212,7 +213,42 @@ DeclareModule MarkDown
 		
 	CompilerEndIf
 	;}
-
+	
+  ;- ===========================================================================
+	;-   DeclareModule - Structure
+  ;- ===========================================================================
+	
+	Structure Item_Structure               ;{ Help\Item()\...
+    Titel.s
+    Label.s
+    Text.s
+    Level.i
+  EndStructure ;}
+	
+	Structure Words_Structure              ;{ Word Structure
+    Font.i
+    String.s
+    Index.i
+    Width.i
+    Flag.i
+  EndStructure ;}
+  
+  Structure TOC_Structure                ;{ MarkDown()\TOC()\...
+    ID.s
+    Level.i
+    Label.s
+    X.i
+    Y.i
+    Width.i
+    Height.i
+    List Words.Words_Structure()
+  EndStructure ;}
+ 
+  Structure Glossary_Structure           ;{ MarkDown()\Glossary()\...
+    Label.s
+    List Words.Words_Structure()
+  EndStructure ;}
+  
 	;- ===========================================================================
 	;-   DeclareModule
 	;- ===========================================================================
@@ -221,16 +257,18 @@ DeclareModule MarkDown
 	Declare   Convert(MarkDown.s, Type.i, File.s="", Title.s="")
 	Declare   SetImagePath(GNum.i, Path.s)
 	Declare   SetText(GNum.i, Text.s)
-	
+		
 	CompilerIf #Enable_Gadget
     Declare   AttachPopupMenu(GNum.i, PopUpNum.i)
-    Declare   Clear(GNum.i)
+    Declare   Clear(GNum.i)    
     Declare.s EventValue(GNum.i)
+	  Declare.s EventLabel(GNum.i)
     Declare   Export(GNum.i, Type.i, File.s="", Title.s="")
     Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
     Declare.q GetData(GNum.i)
     Declare.s GetID(GNum.i)
     Declare.s GetText(GNum.i, Type.i=#MarkDown, Title.s="")
+    Declare   GotoHeading(GNum.i, ID.s)
     Declare   Hide(GNum.i, State.i=#True) 
     Declare   SetAutoResizeFlags(GNum.i, Flags.i)
     Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
@@ -265,6 +303,11 @@ DeclareModule MarkDown
     Declare   SaveHelp()
     
   CompilerEndIf 
+  
+  ;{ Internal
+  Declare MergeHelp(List Items.Item_Structure(), List TOC.TOC_Structure(), Map Glossary.Glossary_Structure())
+  Declare UpdateHelp(GNum.i, List TOC.TOC_Structure(), Map Glossary.Glossary_Structure(), Export.i=#False)
+  ;}
   
 EndDeclareModule
 
@@ -363,14 +406,7 @@ Module MarkDown
 	;- ============================================================================
 	;-   Module - Structures
 	;- ============================================================================	
-  
-  Structure Item_Structure ;{ Help\Item()\...
-    Titel.s
-    Label.s
-    Text.s
-    Level.i
-  EndStructure ;}
- 
+
   CompilerIf #Enable_HelpWindow
     
 
@@ -427,15 +463,7 @@ Module MarkDown
     String.s
   EndStructure ;}
   Global NewList Document.Document_Structure()
-  
-  Structure Words_Structure              ;{ Word Structure
-    Font.i
-    String.s
-    Index.i
-    Width.i
-    Flag.i
-  EndStructure ;}
-  
+   
   Structure Note_Rows_Structure          ;{ MarkDown()\Note()\Words()\...
     Width.i
     Height.i
@@ -485,11 +513,6 @@ Module MarkDown
     Width.i
     Height.i
     Word.s
-  EndStructure ;}
-  
-  Structure Glossary_Structure           ;{ MarkDown()\Glossary()\...
-    Label.s
-    List Words.Words_Structure()
   EndStructure ;}
   
   Structure Image_Structure              ;{ MarkDown()\Image()\...
@@ -564,18 +587,7 @@ Module MarkDown
     Map Column.Table_Column_Structure()
     List Row.Table_Row_Structure()
   EndStructure ;}
-  
-  Structure TOC_Structure                ;{ MarkDown()\TOC()\...
-    ID.s
-    Level.i
-    Label.s
-    X.i
-    Y.i
-    Width.i
-    Height.i
-    List Words.Words_Structure()
-  EndStructure ;}
-  
+    
   Structure MarkDown_Items_Structure     ;{ MarkDown()\Items()\...
     ID.s
     Type.i
@@ -3321,7 +3333,7 @@ Module MarkDown
     EndIf 
     
   EndProcedure 	
-    
+
 	Procedure.i AddItemByType_(Type.i, BlockQuote.i)
     
     If ListSize(MarkDown()\Items()) = 0 Or MarkDown()\Items()\Type <> Type
@@ -5156,93 +5168,114 @@ Module MarkDown
   EndProcedure  
   
   ;- __________ Tools __________
-
-  Procedure   TOC_Entries_(List TOC.TOC_Structure(), PageLabel.s) 
-	  
-    ForEach MarkDown()\TOC()
-      
-      If AddElement(TOC())
-	      TOC()\ID     = MarkDown()\TOC()\ID
-	      TOC()\Label  = PageLabel
-	      TOC()\Level  = MarkDown()\TOC()\Level
-	      TOC()\X      = MarkDown()\TOC()\X
-	      TOC()\Y      = MarkDown()\TOC()\Y
-	      TOC()\Width  = MarkDown()\TOC()\Width
-	      TOC()\Height = MarkDown()\TOC()\Height
-	      CopyList(MarkDown()\TOC()\Words(), TOC()\Words())
-	    EndIf
-	    
-    Next
-
-	EndProcedure
-	
-  Procedure   Glossary_Entries_(Map Glossary.Glossary_Structure(), PageLabel.s) 
-	  
-    ForEach MarkDown()\Glossary()
-      
-      If AddMapElement(Glossary(), MapKey(MarkDown()\Glossary()))
-	      Glossary()\Label = PageLabel
-	      CopyList(MarkDown()\Glossary()\Words(), Glossary()\Words())
-	    EndIf
-	    
-    Next
-
-	EndProcedure
-	
-	
-  Procedure.i UpdateTOC_(List TOC.TOC_Structure())
-	  
-	  CopyList(TOC(), MarkDown()\TOC())
-
-	  ProcedureReturn ListSize(MarkDown()\TOC())
-	EndProcedure
-	
-	Procedure.i UpdateGlossary_(Map Glossary.Glossary_Structure())
-	  NewList Sort.s()
-	  
-	  CopyMap(Glossary(), MarkDown()\Glossary())
-	  
-	  If MapSize(MarkDown()\Glossary())
-      
-      ;{ Sort Glossary
-      ForEach MarkDown()\Glossary()
-        If AddElement(Sort())
-          Sort() = MapKey(MarkDown()\Glossary())
-        EndIf  
-      Next 
-      SortList(Sort(), #PB_Sort_Ascending|#PB_Sort_NoCase)
-      ;}
-      
-      ForEach MarkDown()\Items()
-
-        If MarkDown()\Items()\Type = #InsertGlossary ;{ Insert Glossary
-          
-          MarkDown()\Items()\Type = #List|#Glossary
-          
-          If SelectElement(MarkDown()\Lists(), MarkDown()\Items()\Index)
-            
-            ClearList(MarkDown()\Lists()\Row())
-            
-            ForEach Sort()
-              If FindMapElement(MarkDown()\Glossary(), Sort())
-                If AddElement(MarkDown()\Lists()\Row())
-                  MarkDown()\Lists()\Row()\String = MapKey(MarkDown()\Glossary())
-                  CopyList(MarkDown()\Glossary()\Words(), MarkDown()\Lists()\Row()\Words())
-                EndIf 
-              EndIf
-            Next
-            
-          EndIf  
-          ;}
-        EndIf  
+  
+  Declare ReDraw()
+  
+  Procedure   MergeHelp(List Items.Item_Structure(), List TOC.TOC_Structure(), Map Glossary.Glossary_Structure())
+    Define.i Result, Counter
+    Define.s GNum$  
+    
+    ClearList(TOC())
+    ClearMap(Glossary())
+    
+    ForEach Items()
+    
+      If AddMapElement(MarkDown(), "Parse")
         
-      Next
+        Parse_(Items()\Text)
+        
+        If Items()\Label = ""
+          Counter + 1
+          Items()\Label = "Help" + RSet(Str(Counter), 3, "0")
+        EndIf
+        
+        ForEach MarkDown()\TOC()       ;{ TOC
+          
+          If AddElement(TOC())
+    	      TOC()\ID     = MarkDown()\TOC()\ID
+    	      TOC()\Label  = Items()\Label
+    	      TOC()\Level  = MarkDown()\TOC()\Level
+    	      TOC()\X      = MarkDown()\TOC()\X
+    	      TOC()\Y      = MarkDown()\TOC()\Y
+    	      TOC()\Width  = MarkDown()\TOC()\Width
+    	      TOC()\Height = MarkDown()\TOC()\Height
+    	      CopyList(MarkDown()\TOC()\Words(), TOC()\Words())
+    	    EndIf
+    	    ;}
+        Next
+        
+        ForEach MarkDown()\Glossary()  ;{ Glossary
+        
+          If AddMapElement(Glossary(), MapKey(MarkDown()\Glossary()))
+    	      Glossary()\Label = Items()\Label
+    	      CopyList(MarkDown()\Glossary()\Words(), Glossary()\Words())
+    	    EndIf
+    	    ;}
+        Next
+        
+      EndIf
       
-    EndIf  
+    Next
+    
+  EndProcedure
 
-	  ProcedureReturn MapSize(MarkDown()\Glossary())
-	EndProcedure
-	
+  Procedure   UpdateHelp(GNum.i, List TOC.TOC_Structure(), Map Glossary.Glossary_Structure(), Export.i=#False)
+ 
+    NewList Sort.s() 
+    
+    If FindMapElement(MarkDown(), Str(GNum))
+      
+      CopyList(TOC(), MarkDown()\TOC())
+      
+      CopyMap(Glossary(), MarkDown()\Glossary())
+      
+      If MapSize(MarkDown()\Glossary())
+      
+        ;{ Sort Glossary
+        ForEach MarkDown()\Glossary()
+          If AddElement(Sort())
+            Sort() = MapKey(MarkDown()\Glossary())
+          EndIf  
+        Next 
+        SortList(Sort(), #PB_Sort_Ascending|#PB_Sort_NoCase)
+        ;}
+      
+        ForEach MarkDown()\Items()
+          If MarkDown()\Items()\Type = #InsertGlossary ;{ Insert Glossary
+            
+            MarkDown()\Items()\Type = #List|#Glossary
+            
+            If SelectElement(MarkDown()\Lists(), MarkDown()\Items()\Index)
+              
+              ClearList(MarkDown()\Lists()\Row())
+              
+              ForEach Sort()
+                If FindMapElement(MarkDown()\Glossary(), Sort())
+                  If AddElement(MarkDown()\Lists()\Row())
+                    MarkDown()\Lists()\Row()\String = MapKey(MarkDown()\Glossary())
+                    CopyList(MarkDown()\Glossary()\Words(), MarkDown()\Lists()\Row()\Words())
+                  EndIf 
+                EndIf
+              Next
+              
+            EndIf  
+            ;}
+          EndIf
+        Next
+        
+      EndIf  
+      
+      If Export = #False
+        If ListSize(MarkDown()\TOC()) Or MapSize(MarkDown()\Glossary())
+          DetermineTextSize_()
+          ReDraw()
+        EndIf
+      EndIf
+      
+    EndIf
+    
+  EndProcedure
+  
 	;- __________ Drawing __________
 
 	CompilerIf #Enable_Requester
@@ -6900,7 +6933,7 @@ Module MarkDown
 	  Define.i FileID
 	  Define.s String
 	  
-	  If AddMapElement(MarkDown(), "Convert")
+	  If AddMapElement(MarkDown(), "Parse")
 	    
 	    Parse_(MarkDown)
 	    
@@ -7104,7 +7137,16 @@ Module MarkDown
       EndIf
       
     EndProcedure
-  	
+    
+    Procedure   GotoHeading(GNum.i, ID.s)
+      
+      If FindMapElement(MarkDown(), Str(GNum))
+
+        GotoHeading_(ID)
+        
+      EndIf  
+      
+    EndProcedure
   	
   	Procedure   Hide(GNum.i, State.i=#True)
   	  
@@ -7621,10 +7663,11 @@ Module MarkDown
   	    Define.s FileName$
   	    Define   *Buffer
   	    
+  	    NewList TOC.TOC_Structure()
   	    NewMap  Glossary.Glossary_Structure()
   	    NewList Item.Item_Structure()
   	    
-  	    If AddMapElement(MarkDown(), "Convert")
+  	    If AddMapElement(MarkDown(), "Parse")
   
   	      ;{ _____ Load Help File _____
     	    Pack = OpenPack(#PB_Any, File, #PB_PackerPlugin_Lzma)
@@ -7672,21 +7715,7 @@ Module MarkDown
             ClosePack(Pack)
     	    EndIf ;}
     	    
-    	    ;{ _____ Parse _____
-    	    ForEach Item()
-    	      
-    	      Clear_()
-            
-    	      Parse_(Item()\Text)
-    	      
-            If Item()\Label = ""
-              Counter + 1
-              Item()\Label = "Help" + RSet(Str(Counter), 3, "0")
-            EndIf
-
-    	      Glossary_Entries_(Glossary(), Item()\Label)
-            
-    	    Next ;}
+    	    MergeHelp(Item(), TOC(), Glossary())
     	    
     	    PDF = PDF::Create(#PB_Any, Orientation, "", Format)
           If PDF
@@ -7708,7 +7737,7 @@ Module MarkDown
               
               Parse_(Item()\Text)
               
-              UpdateGlossary_(Glossary())
+              UpdateHelp(#PB_Default, TOC(), Glossary(), #True)
               
               If Item()\Label : PDF::AddGotoLabel(PDF, "#Page:" + Item()\Label) : EndIf
               
@@ -7760,7 +7789,7 @@ Module MarkDown
         If FileSize(GetPathPart(File$)) <> -2 : CreateDirectory(GetPathPart(File$)) : EndIf
         ;}  	    
         
-  	    If AddMapElement(MarkDown(), "Convert")
+  	    If AddMapElement(MarkDown(), "Parse")
   	      
   	      MarkDown()\Path = GetPathPart(File$)
   	      
@@ -7797,23 +7826,8 @@ Module MarkDown
             ClosePack(Pack)
     	    EndIf ;}  
     	    
-    	    ;{ _____ Parse _____
-    	    ForEach Item()
-    	      
-    	      Clear_()
-            
-    	      Parse_(Item()\Text)
-    	      
-            If Item()\Label = ""
-              Counter + 1
-              Item()\Label = "Help" + RSet(Str(Counter), 3, "0")
-            EndIf
-            
-            TOC_Entries_(TOC(), Item()\Label)
-    	      Glossary_Entries_(Glossary(), Item()\Label)
-            
-    	    Next ;}
-    	    
+    	    MergeHelp(Item(), TOC(), Glossary())
+
     	    ;{ _____ Frames File _____
     	    ForEach Item()
     	      If Item()\Label
@@ -7904,10 +7918,9 @@ Module MarkDown
             
             Parse_(Item()\Text)
             
-            UpdateGlossary_(Glossary())
-            UpdateTOC_(TOC())
+            UpdateHelp(#PB_Default, TOC(), Glossary(), #True)
             
-            HTML$ = ExportHTML_(Title, "Markdown.css")
+            HTML$  = ExportHTML_(Title, "Markdown.css")
             
             Label$ = Item()\Label
             
@@ -7938,7 +7951,7 @@ Module MarkDown
 	
 	
 	CompilerIf #Enable_HelpWindow
-
+	 
 	  Procedure.s Help(Title.s, File.s, Label.s="", Flags.i=#False, Parent.i=#PB_Default)
 	    ; Flags: #AutoResize
 	    Define.i MarkdownNum, WindowNum, WindowFlags, quitWindow
@@ -8071,20 +8084,12 @@ Module MarkDown
   	    EndIf  
   	    ;}
   	    
-  	    ;{  _____ Parse _____
+  	    MergeHelp(Help\Item(), TOC(), Glossary())
+  	    
   	    ForEach Help\Item()
   	      
   	      If Help\Item()\Label : Help\Label(Help\Item()\Label) = ListIndex(Help\Item()) : EndIf
-  	      
-  	      If AddMapElement(MarkDown(), "Parse")
 
-    	      Parse_(Help\Item()\Text)
-    	      
-    	      TOC_Entries_(TOC(), Help\Item()\Label)
-    	      Glossary_Entries_(Glossary(), Help\Item()\Label)
-    	      
-    	    EndIf
-    	    
   	      CompilerIf Defined(TreeEx, #PB_Module)
   	        TreeEx::AddItem(Help\TreeNum, TreeEx::#LastRow, Help\Item()\Titel, Help\Item()\Label, #False, Help\Item()\Level)
   	      CompilerElse
@@ -8106,12 +8111,7 @@ Module MarkDown
                 CompilerEndIf
                 SetText(MarkdownNum, Help\Item()\Text)
                 MarkDown()\PageLabel = Help\Item()\Label
-                If UpdateGlossary_(Glossary()) : Result = #True : EndIf 
-                If UpdateTOC_(TOC()) : Result = #True : EndIf 
-                If Result
-                  DetermineTextSize_()
-                  ReDraw()
-                EndIf   
+                UpdateHelp(MarkdownNum, TOC(), Glossary()) 
               EndIf
             EndIf
   	      EndIf ;}
@@ -8143,12 +8143,7 @@ Module MarkDown
                               CompilerEndIf
                               SetText(MarkdownNum, Help\Item()\Text)
                               MarkDown()\PageLabel = MarkDown()\EventLabel
-                              If UpdateGlossary_(Glossary()) : Result = #True : EndIf 
-                              If UpdateTOC_(TOC()) : Result = #True : EndIf 
-                              If Result
-                                DetermineTextSize_()
-                                ReDraw()
-                              EndIf   
+                              UpdateHelp(MarkdownNum, TOC(), Glossary())  
                             EndIf
                           EndIf
                           GotoHeading_(MarkDown()\EventValue)
@@ -8165,12 +8160,7 @@ Module MarkDown
                                 CompilerEndIf
                                 SetText(MarkdownNum, Help\Item()\Text)
                                 MarkDown()\PageLabel = Help\Item()\Label
-                                If UpdateGlossary_(Glossary()) : Result = #True : EndIf 
-                                If UpdateTOC_(TOC()) : Result = #True : EndIf 
-                                If Result
-                                  DetermineTextSize_()
-                                  ReDraw()
-                                EndIf   
+                                UpdateHelp(MarkdownNum, TOC(), Glossary()) 
                               EndIf
                             EndIf
                           Else
@@ -8195,12 +8185,7 @@ Module MarkDown
                             If SelectElement(Help\Item(), Selected)
                               SetText(MarkdownNum, Help\Item()\Text)
                               MarkDown()\PageLabel = Help\Item()\Label
-                              If UpdateGlossary_(Glossary()) : Result = #True : EndIf 
-                              If UpdateTOC_(TOC()) : Result = #True : EndIf 
-                              If Result
-                                DetermineTextSize_()
-                                ReDraw()
-                              EndIf  
+                              UpdateHelp(MarkdownNum, TOC(), Glossary()) 
                             EndIf  
                           EndIf  
                         EndIf
@@ -8210,12 +8195,7 @@ Module MarkDown
                           If SelectElement(Help\Item(), Selected)
                             SetText(MarkdownNum, Help\Item()\Text)
                             MarkDown()\PageLabel = Help\Item()\Label
-                            If UpdateGlossary_(Glossary()) : Result = #True : EndIf 
-                            If UpdateTOC_(TOC()) : Result = #True : EndIf 
-                            If Result
-                              DetermineTextSize_()
-                              ReDraw()
-                            EndIf  
+                            UpdateHelp(MarkdownNum, TOC(), Glossary()) 
                           EndIf  
                         EndIf
                       CompilerEndIf 
@@ -9025,9 +9005,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 92
-; FirstLine = 21
-; Folding = wBQgRAAAAAAAAAQAAAUEAAAAIQAAgAAgAAAAAAGwAEAAAACCygAAwAAIEAAIEQAAJAQAAgDIAAAGECYQAADGg2gBAAkA5
-; Markers = 2986,4871,5959
+; CursorPosition = 270
+; FirstLine = 99
+; Folding = 1AQZoAAAAAACAAAAAAoIAAAAQAAAAAAABAAAAAMgBIAAAAEEgBBwgBAQIAAAIAAAAggOAAFQAoAQQICGEADGwCwAAAGA9
+; Markers = 2998,4883,5992
 ; EnableXP
 ; DPIAware
