@@ -44,6 +44,7 @@ Enumeration 1
   #Window_MarkDown
   #Window_Settings
   #Window_Table
+  #Window_Note
 EndEnumeration
 ;}
 
@@ -51,6 +52,9 @@ EndEnumeration
 Enumeration 1
   
   ;{ Menue items
+  #Menu_Insert
+  #Menu_Ins_Toc
+  #Menu_Ins_Glossary
   #Menu_Copy
   #Menu_Cut
   #Menu_Paste
@@ -68,6 +72,7 @@ Enumeration 1
   #Menu_Code
   #Menu_SubScript
   #Menu_SuperScript
+  #Menu_Table
   #Menu_Keystroke
   #Menu_Footnote
   #Menu_URL
@@ -75,10 +80,13 @@ Enumeration 1
   #Menu_LinkRef
   #Menu_Image
   #Menu_ImageRef
+  #Menu_Glossary
   #Menu_Abbreviation
+  #Menu_Note
   #Menu_Ref_Footnote
   #Menu_Ref_Link
   #Menu_Ref_Image  
+  #Menu_Ref_Glossary
   #Emoji_Bookmark
   #Emoji_Date
   #Emoji_Mail
@@ -89,12 +97,14 @@ Enumeration 1
   #Emoji_Clip
   #Emoji_Magnifier
   #Emoji_Warning
+  #Menu_CodeBlock
   ;}
   
   ;{ #Window_MarkDown  
   #Gadget_MarkDown_Editor
   #Gadget_MarkDown_Bt_Update
   #Gadget_MarkDown_Bt_Table
+  #Gadget_MarkDown_Bt_Note
   #Gadget_MarkDown_Bt_Settings
   #Gadget_MarkDown_Viewer
   #Gadget_MarkDown_Bt_New
@@ -125,6 +135,15 @@ Enumeration 1
   #Gadget_Table_OK
   ;}
   
+  ;{ #Window_Note
+  #Gadget_Note_Frame
+  #Gadget_Note_OG_Info
+  #Gadget_Note_OG_Question
+  #Gadget_Note_OG_Error
+  #Gadget_Note_OG_Warning
+  #Gadget_Note_OK
+  ;}
+  
 EndEnumeration
 ;}
 
@@ -146,89 +165,99 @@ LoadFont(#Font_Arial11,  "Arial", 11)
 
 ;{ Image Constants
 Enumeration 1
+  #IMG_Autolink
+  #IMG_Bold
+  #IMG_BoldItalic
+  #IMG_Bookmark
+  #IMG_Bulb
+  #IMG_Clip
+  #IMG_Code
+  #IMG_CodeBlock
   #IMG_Copy
   #IMG_Cut
-  #IMG_Paste
-  #IMG_New
-  #IMG_Open
-  #IMG_Save
-  #IMG_Update
-  #IMG_Table
-  #IMG_Settings
-  #IMG_PDF
-  #IMG_HTML
-  #IMG_Bookmark
   #IMG_Date
-  #IMG_Mail
-  #IMG_Memo
-  #IMG_Pencil
-  #IMG_Phone
-  #IMG_Bold
-  #IMG_Italic
-  #IMG_BoldItalic
-  #IMG_Strikethrough
-  #IMG_Subscript
-  #IMG_Superscript
-  #IMG_LinkAdd
-  #IMG_Link
-  #IMG_LinkInline
+  #IMG_Glossary
+  #IMG_Footnote
+  #IMG_H1
   #IMG_Highlight
+  #IMG_HTML
+  #IMG_Keystroke
   #IMG_Image
   #IMG_ImageInline
   #IMG_ImageLink
-  #IMG_Autolink
-  #IMG_Keystroke
-  #IMG_Footnote
-  #IMG_H1
-  #IMG_Code
-  #IMG_Warning
-  #IMG_Bulb
-  #IMG_Clip
+  #IMG_Italic
+  #IMG_Link
+  #IMG_LinkAdd
+  #IMG_LinkInline
   #IMG_Magnifier
+  #IMG_Mail
+  #IMG_Memo
+  #IMG_New
+  #IMG_Note
+  #IMG_Open
+  #IMG_Paste
+  #IMG_PDF
+  #IMG_Pencil
+  #IMG_Phone
+  #IMG_Save
+  #IMG_Settings
+  #IMG_Strikethrough
+  #IMG_Subscript
+  #IMG_Superscript
+  #IMG_Table
+  #IMG_Update
+  #IMG_Warning
+  #IMG_Bt_Note
+  #IMG_Bt_Table
 EndEnumeration
 ;}
 
 ;{ Load Images
 If ResourceEx::Open(#ResEx, "MarkDownEditor.res")
+  ResourceEx::UseImage(#ResEx, #IMG_Autolink,      "AutoLink.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Bold,          "Bold.png")
+  ResourceEx::UseImage(#ResEx, #IMG_BoldItalic,    "BoldItalic.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Bookmark,      "BookMark.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Bulb,          "Bulb.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Clip,          "Clip.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Code,          "Code.png")
+  ResourceEx::UseImage(#ResEx, #IMG_CodeBlock,     "CodeBlock.png")
   ResourceEx::UseImage(#ResEx, #IMG_Copy,          "Copy.png")
   ResourceEx::UseImage(#ResEx, #IMG_Cut,           "Cut.png")
-  ResourceEx::UseImage(#ResEx, #IMG_Paste,         "Paste.png")
-  ResourceEx::UseImage(#ResEx, #IMG_New,           "New.png")
-  ResourceEx::UseImage(#ResEx, #IMG_Open,          "Open.png")
-  ResourceEx::UseImage(#ResEx, #IMG_Save,          "Save.png")
-  ResourceEx::UseImage(#ResEx, #IMG_Update,        "Update.png")
-  ResourceEx::UseImage(#ResEx, #IMG_Table,         "Table.png")
-  ResourceEx::UseImage(#ResEx, #IMG_Settings,      "Settings.png")
-  ResourceEx::UseImage(#ResEx, #IMG_PDF,           "PDF.png")
-  ResourceEx::UseImage(#ResEx, #IMG_HTML,          "HTML.png")
-  ResourceEx::UseImage(#ResEx, #IMG_Bookmark,      "BookMark.png")
   ResourceEx::UseImage(#ResEx, #IMG_Date,          "Date.png")
-  ResourceEx::UseImage(#ResEx, #IMG_Mail,          "Mail.png")
-  ResourceEx::UseImage(#ResEx, #IMG_Memo,          "Memo.png")
-  ResourceEx::UseImage(#ResEx, #IMG_Pencil,        "Pencil.png")
-  ResourceEx::UseImage(#ResEx, #IMG_Phone,         "Phone.png")
-  ResourceEx::UseImage(#ResEx, #IMG_Bold,          "Bold.png")
-  ResourceEx::UseImage(#ResEx, #IMG_Italic,        "Italic.png")
-  ResourceEx::UseImage(#ResEx, #IMG_BoldItalic,    "BoldItalic.png")
-  ResourceEx::UseImage(#ResEx, #IMG_Strikethrough, "Strikethrough.png")
-  ResourceEx::UseImage(#ResEx, #IMG_Subscript,     "Subscript.png")
-  ResourceEx::UseImage(#ResEx, #IMG_Superscript,   "Superscript.png")
-  ResourceEx::UseImage(#ResEx, #IMG_LinkAdd,       "LinkAdd.png")
-  ResourceEx::UseImage(#ResEx, #IMG_Link,          "Link.png")
-  ResourceEx::UseImage(#ResEx, #IMG_LinkInline,    "LinkInline.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Footnote,      "FootNote.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Glossary,      "Glossary.png")
+  ResourceEx::UseImage(#ResEx, #IMG_H1,            "H1.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Highlight,     "Highlight.png")
+  ResourceEx::UseImage(#ResEx, #IMG_HTML,          "HTML.png")
   ResourceEx::UseImage(#ResEx, #IMG_Image,         "Image.png")
   ResourceEx::UseImage(#ResEx, #IMG_ImageInline,   "ImageInline.png")
   ResourceEx::UseImage(#ResEx, #IMG_ImageLink,     "ImageLink.png")
-  ResourceEx::UseImage(#ResEx, #IMG_Autolink,      "AutoLink.png")
-  ResourceEx::UseImage(#ResEx, #IMG_Highlight,     "Highlight.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Italic,        "Italic.png")
   ResourceEx::UseImage(#ResEx, #IMG_Keystroke,     "KeyStroke.png")
-  ResourceEx::UseImage(#ResEx, #IMG_Footnote,      "FootNote.png")
-  ResourceEx::UseImage(#ResEx, #IMG_H1,            "H1.png")
-  ResourceEx::UseImage(#ResEx, #IMG_Code,          "Code.png")
-  ResourceEx::UseImage(#ResEx, #IMG_Warning,       "Warning.png")
-  ResourceEx::UseImage(#ResEx, #IMG_Bulb,          "Bulb.png")
-  ResourceEx::UseImage(#ResEx, #IMG_Clip,          "Clip.png")
+  ResourceEx::UseImage(#ResEx, #IMG_LinkAdd,       "LinkAdd.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Link,          "Link.png")
+  ResourceEx::UseImage(#ResEx, #IMG_LinkInline,    "LinkInline.png")
   ResourceEx::UseImage(#ResEx, #IMG_Magnifier,     "Magnifier.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Mail,          "Mail.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Memo,          "Memo.png")
+  ResourceEx::UseImage(#ResEx, #IMG_New,           "New.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Note,          "Note.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Open,          "Open.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Paste,         "Paste.png")
+  ResourceEx::UseImage(#ResEx, #IMG_PDF,           "PDF.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Pencil,        "Pencil.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Phone,         "Phone.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Save,          "Save.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Settings,      "Settings.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Strikethrough, "Strikethrough.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Subscript,     "Subscript.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Superscript,   "Superscript.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Table,         "Table.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Update,        "Update.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Warning,       "Warning.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Bt_Table,      "Bt_Table.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Bt_Note,       "Bt_Note.png")
 EndIf ;}
 
 ;- __________ Structures __________
@@ -241,6 +270,29 @@ Global NewMap Language.Language_Structure()
 Global NewMap Lng.s()
 
 ;- __________ Windows __________
+
+Procedure.i Window_Note()
+  
+  If OpenWindow(#Window_Note, 0, 0, 175, 170, " " + Lng("Note"), #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_WindowCentered|#PB_Window_Invisible)
+    
+      FrameGadget(#Gadget_Note_Frame, 10, 5, 155, 125, "")
+      OptionGadget(#Gadget_Note_OG_Info, 24, 25, 125, 15, " " + Lng("Info"))
+        SetGadgetFont(#Gadget_Note_OG_Info, FontID(#Font_Arial9B))
+      OptionGadget(#Gadget_Note_OG_Question,24, 50, 125, 15, " " + Lng("Question"))
+        SetGadgetFont(#Gadget_Note_OG_Question, FontID(#Font_Arial9B))
+      OptionGadget(#Gadget_Note_OG_Error, 24, 75, 125, 15, " " + Lng("Error"))
+        SetGadgetFont(#Gadget_Note_OG_Error, FontID(#Font_Arial9B))
+      OptionGadget(#Gadget_Note_OG_Warning, 24, 100, 125, 15, " " + Lng("Caution"))
+        SetGadgetFont(#Gadget_Note_OG_Warning, FontID(#Font_Arial9B))
+      
+      ButtonGadget(#Gadget_Note_OK,45,135,80,25,"Apply")
+      
+      HideWindow(#Window_Note, #False)
+      
+    ProcedureReturn WindowID(#Window_Note)
+  EndIf
+  
+EndProcedure
 
 Procedure.i Window_Table()
   
@@ -316,20 +368,26 @@ Procedure.i Window_MarkDown()
         MenuItem(#Menu_H6, "H6")
       CloseSubMenu()
       MenuBar()
-      MenuItem(#Menu_Code, Lng("Code"),                     ImageID(#IMG_Code))  
       OpenSubMenu(Lng("Emphasis"), ImageID(#IMG_BoldItalic))
-        MenuItem(#Menu_Bold,         Lng("Bold"),           ImageID(#IMG_Bold))
-        MenuItem(#Menu_Italic,       Lng("Italic"),         ImageID(#IMG_Italic))
-        MenuItem(#Menu_BoldItalic,   Lng("Bold")+"/"+Lng("Italic"), ImageID(#IMG_BoldItalic))
+        MenuItem(#Menu_Bold,          Lng("Bold"),           ImageID(#IMG_Bold))
+        MenuItem(#Menu_Italic,        Lng("Italic"),         ImageID(#IMG_Italic))
+        MenuItem(#Menu_BoldItalic,    Lng("Bold")+"/"+Lng("Italic"), ImageID(#IMG_BoldItalic))
         MenuBar()
-        MenuItem(#Menu_Highlight,    Lng("Highlight"),      ImageID(#IMG_Highlight))
+        MenuItem(#Menu_Strikethrough, Lng("Strikethrough"),  ImageID(#IMG_Strikethrough))
+        MenuBar()
+        MenuItem(#Menu_Highlight,     Lng("Highlight"),      ImageID(#IMG_Highlight))
+        MenuBar()        
+        MenuItem(#Menu_Code,          Lng("Code"),           ImageID(#IMG_Code))  
       CloseSubMenu() 
-      MenuItem(#Menu_Strikethrough,  Lng("Strikethrough"),  ImageID(#IMG_Strikethrough))
       MenuBar()
       MenuItem(#Menu_SubScript,      Lng("SubScript"),      ImageID(#IMG_Subscript))
       MenuItem(#Menu_SuperScript,    Lng("SuperScript"),    ImageID(#IMG_Superscript))
       MenuBar()
       MenuItem(#Menu_Keystroke,      Lng("Keystroke"),      ImageID(#IMG_Keystroke))
+      MenuBar()
+      MenuItem(#Menu_CodeBlock,      Lng("CodeBlock"),      ImageID(#IMG_CodeBlock))
+      MenuItem(#Menu_Table,          Lng("Table"),          ImageID(#IMG_Table))
+      MenuItem(#Menu_Note,           Lng("Note"),           ImageID(#IMG_Note))
       MenuBar()
       MenuItem(#Menu_Footnote,       Lng("Footnote"),       ImageID(#IMG_Footnote))
       MenuItem(#Menu_URL,            "URL/" + Lng("EMail"), ImageID(#IMG_Autolink))
@@ -341,22 +399,28 @@ Procedure.i Window_MarkDown()
         MenuItem(#Menu_Image,        Lng("Inline"),         ImageID(#IMG_ImageInline))
         MenuItem(#Menu_ImageRef,     Lng("Reference"),      ImageID(#IMG_ImageLink))
       CloseSubMenu()
+      MenuItem(#Menu_Glossary,       Lng("Glossary"),       ImageID(#IMG_Glossary))  
       MenuBar()
       MenuItem(#Menu_Abbreviation,   Lng("Abbreviation"))
       OpenSubMenu(Lng("Reference"))
         MenuItem(#Menu_Ref_Footnote, Lng("Footnote"),       ImageID(#IMG_Footnote))
         MenuItem(#Menu_Ref_Link,     Lng("Link"),           ImageID(#IMG_Link))
         MenuItem(#Menu_Ref_Image,    Lng("Image"),          ImageID(#IMG_Image))
+        MenuItem(#Menu_Ref_Glossary, Lng("Glossary"),       ImageID(#IMG_Glossary))
+      CloseSubMenu()
+      OpenSubMenu(Lng("Insert"))
+        MenuItem(#Menu_Ins_Toc,       Lng("TOC"))
+        MenuItem(#Menu_Ins_Glossary,  Lng("Glossary"))
       CloseSubMenu()
       MenuBar()
       OpenSubMenu(Lng("Emoji"))
         MenuItem(#Emoji_Bookmark,    Lng("Bookmark"),       ImageID(#IMG_Bookmark))
         MenuItem(#Emoji_Bulb,        Lng("Bulb"),           ImageID(#IMG_Bulb))
-        MenuItem(#Emoji_Clip,        Lng("Paperclip"),      ImageID(#IMG_Clip))
         MenuItem(#Emoji_Date,        Lng("Date"),           ImageID(#IMG_Date))
         MenuItem(#Emoji_Magnifier,   Lng("Magnifier"),      ImageID(#IMG_Magnifier))
         MenuItem(#Emoji_Mail,        Lng("Mail"),           ImageID(#IMG_Mail))
         MenuItem(#Emoji_Memo,        Lng("Memo"),           ImageID(#IMG_Memo))
+        MenuItem(#Emoji_Clip,        Lng("Paperclip"),      ImageID(#IMG_Clip))
         MenuItem(#Emoji_Pencil,      Lng("Pencil"),         ImageID(#IMG_Pencil))
         MenuItem(#Emoji_Phone,       Lng("Phone"),          ImageID(#IMG_Phone))
         MenuItem(#Emoji_Warning,     Lng("Warning"),        ImageID(#IMG_Warning))
@@ -375,7 +439,8 @@ Procedure.i Window_MarkDown()
     EndIf
 
     ButtonImageGadget(#Gadget_MarkDown_Bt_Update,    10, 560, 30, 30, ImageID(#IMG_Update))
-    ButtonImageGadget(#Gadget_MarkDown_Bt_Table,     55, 560, 30, 30, ImageID(#IMG_Table))
+    ButtonImageGadget(#Gadget_MarkDown_Bt_Table,     55, 560, 30, 30, ImageID(#IMG_Bt_Table))
+    ButtonImageGadget(#Gadget_MarkDown_Bt_Note,      90, 560, 30, 30, ImageID(#IMG_Bt_Note))
     
     ButtonImageGadget(#Gadget_MarkDown_Bt_New,      405, 560, 30, 30, ImageID(#IMG_New))
     ButtonImageGadget(#Gadget_MarkDown_Bt_Open,     440, 560, 30, 30, ImageID(#IMG_Open))
@@ -391,6 +456,7 @@ Procedure.i Window_MarkDown()
       Resize::SetFactor(#Gadget_MarkDown_Viewer,      Resize::#HFactor, "50%")
       Resize::AddGadget(#Gadget_MarkDown_Bt_Update,   Resize::#MoveY)
       Resize::AddGadget(#Gadget_MarkDown_Bt_Table,    Resize::#MoveY)
+      Resize::AddGadget(#Gadget_MarkDown_Bt_Note,     Resize::#MoveY)
       Resize::AddGadget(#Gadget_MarkDown_Bt_Settings, Resize::#MoveX|Resize::#MoveY)
       Resize::SetFactor(#Gadget_MarkDown_Bt_Settings, Resize::#HFactor, "50%")
       
@@ -507,6 +573,46 @@ Procedure   PopupMenu_(sStrg.s, eStrg.s)
 EndProcedure
 
 ;- __________ Window - Procedures __________
+
+Procedure.s NoteWindow()
+  Define.s Note$
+  Define.i quitWindow = #False
+  
+  If Window_Note()
+
+    Repeat
+      Select WaitWindowEvent()
+        Case #PB_Event_CloseWindow ;{ Close Window
+          Select EventWindow()
+            Case #Window_Note
+              quitWindow = #True
+          EndSelect ;}
+        Case #PB_Event_Gadget
+          Select EventGadget()
+            Case #Gadget_Note_OK
+              
+              If GetGadgetState(#Gadget_Note_OG_Info)
+                Note$ = "!!! info " + Lng("Note") + #LF$
+              ElseIf GetGadgetState(#Gadget_Note_OG_Question)
+                Note$ = "!!! question " + Lng("Note") + #LF$
+              ElseIf GetGadgetState(#Gadget_Note_OG_Error)
+                Note$ = "!!! error " + Lng("Note") + #LF$
+              ElseIf GetGadgetState(#Gadget_Note_OG_Warning)
+                Note$ = "!!! caution " + Lng("Note") + #LF$
+              EndIf
+              
+              Note$ + #LF$ + "!!!" + #LF$
+              
+              quitWindow = #True
+          EndSelect
+      EndSelect
+    Until quitWindow
+    
+    CloseWindow(#Window_Note)
+  EndIf
+  
+  ProcedureReturn Note$
+EndProcedure
 
 Procedure.s TableWindow()
   Define.i r, c, Col, Cols, Rows
@@ -793,6 +899,19 @@ If Window_MarkDown()
           Case #Menu_Ref_Link
             PopupMenu_("[", "]: ")
             ;}
+          Case #Menu_Note          ;{ Note
+            String$ = NoteWindow()
+            If String$
+              EditEx::InsertText(#Gadget_MarkDown_Editor, String$)
+            EndIf  
+            ;}
+          Case #Menu_CodeBlock     ;{ CodeBlock
+            PopupMenu_("```" + #LF$, #LF$ + "```")    
+            ;}    
+          Case #Menu_Ins_Glossary
+            EditEx::InsertText(#Gadget_MarkDown_Editor, "{{Glossary}}")
+          Case #Menu_Ins_Toc
+            EditEx::InsertText(#Gadget_MarkDown_Editor, "{{TOC}}")  
           Case #Emoji_Bookmark     ;{ Emoji
             EditEx::InsertText(#Gadget_MarkDown_Editor, ":bookMark:")
           Case #Emoji_Date
@@ -840,7 +959,7 @@ If Window_MarkDown()
             MarkDown::Export(#Gadget_MarkDown_Viewer, MarkDown::#PDF, Path$ + "Export.pdf", "PDF")
             RunProgram(Path$ + "Export.pdf")
             ;}
-           Case #Gadget_MarkDown_Bt_HTML    ;{ Export HTML
+          Case #Gadget_MarkDown_Bt_HTML     ;{ Export HTML
             MarkDown::Export(#Gadget_MarkDown_Viewer, MarkDown::#HTML, Path$ + "Export.html", "HTML")
             RunProgram(Path$ + "Export.html")
             ;} 
@@ -853,6 +972,12 @@ If Window_MarkDown()
               EditEx::InsertText(#Gadget_MarkDown_Editor, Table$)
             EndIf  
             ;}
+          Case #Gadget_MarkDown_Bt_Note     ;{ Insert Note  
+            String$ = NoteWindow()
+            If String$
+              EditEx::InsertText(#Gadget_MarkDown_Editor, String$)
+            EndIf  
+            ;} 
           Case #Gadget_MarkDown_Bt_Settings ;{ Settings
             SettingsWindow()
             ;}
@@ -869,9 +994,9 @@ AppReg::Close(#AppReg)
 
 End
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 687
-; FirstLine = 259
-; Folding = EMFGQCAAgG-
+; CursorPosition = 409
+; FirstLine = 185
+; Folding = MAMgBkAAAAA-
 ; EnableXP
 ; DPIAware
 ; UseIcon = Markdown.ico
