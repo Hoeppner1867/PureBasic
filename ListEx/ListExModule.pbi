@@ -9,8 +9,10 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 13.02.2020
+; Last Update: 16.02.2020
 ;
+; - Bugfixes
+; 
 ; - Added: Flag #NoButtons & #NoCheckBoxes for CSV
 ; - Added: SetColumnImage() 
 ;
@@ -148,7 +150,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20021302
+  #Version  = 20021600
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -2984,9 +2986,13 @@ Module ListEx
           Continue
         EndIf
         
-        If ListEx()\Rows()\FontID : FontID = ListEx()\Rows()\FontID : EndIf
+        If ListEx()\Rows()\FontID
+          FontID = ListEx()\Rows()\FontID
+        Else
+          FontID = ListEx()\Row\FontID
+        EndIf
         RowFontID = FontID
-
+    
         rowHeight + dpiY(ListEx()\Rows()\Height)
         
         colX = dpiX(ListEx()\Size\X) - dpiX(ListEx()\Col\OffsetX)
@@ -3080,7 +3086,7 @@ Module ListEx
               EndIf
             EndIf ;}
             
-            If ListEx()\Cols()\Flags & #CheckBoxes                        ;{ CheckBox
+            If ListEx()\Cols()\Flags & #CheckBoxes                             ;{ CheckBox
               
               If ListEx()\Focus And ListIndex(ListEx()\Rows()) = ListEx()\Row\Focus
                 CheckBox_(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), TextHeight("X") - dpiY(3), FocusColor, ListEx()\Rows()\Column(Key$)\State)
@@ -3097,7 +3103,7 @@ Module ListEx
               EndIf
               ;}
             ElseIf Flags & #Buttons Or Flags & #Strings Or Flags & #DateGadget ;{ Single cells
-              
+
               Text$ = ListEx()\Rows()\Column(Key$)\Value
               If Text$ <> ""
                 
@@ -3146,7 +3152,7 @@ Module ListEx
                 
               EndIf
               ;}
-            ElseIf ListEx()\Cols()\Flags & #Buttons                       ;{ Button
+            ElseIf ListEx()\Cols()\Flags & #Buttons                            ;{ Button
               
               CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
                 ClipOutput(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height))
@@ -3156,7 +3162,7 @@ Module ListEx
 
               Button_(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), ListEx()\Rows()\Column(Key$)\Value, #False, FontID)
               
-              If Flags & #Image
+              If Flags & #Image ;{ Image
                 
                 imgFlags = ListEx()\Rows()\Column(Key$)\Image\Flags
                 
@@ -3174,7 +3180,7 @@ Module ListEx
                 
                 DrawingMode(#PB_2DDrawing_AlphaBlend)
                 DrawImage(ListEx()\Rows()\Column(Key$)\Image\ID, colX + imgX, rowY + imgY, imgWidth, imgHeight) 
-
+                
               ElseIf ListEx()\Cols()\Flags & #Image
                 
                 imgFlags = ListEx()\Cols()\Image\Flags
@@ -3193,9 +3199,10 @@ Module ListEx
                 
                 DrawingMode(#PB_2DDrawing_AlphaBlend)
                 DrawImage(ListEx()\Cols()\Image\ID, colX + imgX, rowY + imgY, imgWidth, imgHeight) 
+                ;}
               EndIf
 
-              If Flags & #CellFont : DrawingFont(RowFontID) : EndIf
+              If Flags & #CellFont : FontID = RowFontID : EndIf
               
               CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
                 UnclipOutput()
@@ -3642,7 +3649,7 @@ Module ListEx
       
       SetGadgetState(ListEx()\VScrollNum, ScrollPos)
       
-      If ListEx()\Focus : SelectElement(ListEx()\Rows(), ListEx()\Row\Focus) : EndIf
+      If ListEx()\Focus And ListEx()\Row\Focus >= 0 : SelectElement(ListEx()\Rows(), ListEx()\Row\Focus) : EndIf
       
     EndIf
     
@@ -7261,7 +7268,7 @@ Module ListEx
   
   Procedure   SetFont(GNum.i, FontID.i, Type.i=#False, Column.i=#PB_Ignore)      ; GNum: #Theme => change all gadgets
 
-    If GNum = #Theme 
+    If GNum = #Theme ;{ Theme
       
       ForEach ListEx()
         
@@ -7278,7 +7285,7 @@ Module ListEx
         EndIf
 
       Next  
-
+      ;}
     ElseIf FindMapElement(ListEx(), Str(GNum))
       
       Select Type
@@ -7968,12 +7975,12 @@ CompilerIf #PB_Compiler_IsMainFile
         ListEx::AddColumn(#List, ListEx::#LastItem, "Combo",   72, "combo",  ListEx::#ComboBoxes)
         ListEx::AddColumn(#List, ListEx::#LastItem, "Date",    76, "date",   ListEx::#DateGadget)
         ListEx::AddColumn(#List, ListEx::#LastItem, "Buttons", 60, "button", ListEx::#Buttons) ; ListEx::#Hide
-    
+        
         ; --- Test ProgressBar ---
-        ;CompilerIf ListEx::#Enable_ProgressBar
-        ;  ListEx::AddColumn(#List, ListEx::#LastItem, "Progress", 60, "progress", ListEx::#ProgressBar)
-        ;  ListEx::SetProgressBarFlags(#List, ListEx::#ShowPercent)
-        ;CompilerEndIf
+        CompilerIf ListEx::#Enable_ProgressBar
+          ;ListEx::AddColumn(#List, ListEx::#LastItem, "Progress", 60, "progress", ListEx::#ProgressBar)
+          ;ListEx::SetProgressBarFlags(#List, ListEx::#ShowPercent)
+        CompilerEndIf
         
         ; --- design of header row ---
         ListEx::SetHeaderAttribute(#List, ListEx::#Align, ListEx::#Center)
@@ -7994,10 +8001,6 @@ CompilerIf #PB_Compiler_IsMainFile
         ListEx::AddItem(#List, ListEx::#LastItem, "Ava"      + #LF$ + "Evans"    + #LF$ + #LF$ + #LF$ + "Push")
         ListEx::AddItem(#List, ListEx::#LastItem, "Thomas"   + #LF$ + "Roberts"  + #LF$ + #LF$ + #LF$ + "Push")
         ListEx::AddItem(#List, ListEx::#LastItem, "Harriet"  + #LF$ + "Smith"    + #LF$ + #LF$ + #LF$ + "Push")
-        
-        ;For m = 1 To 100
-        ;  ListEx::AddItem(#List, ListEx::#LastItem, RSet(Str(m),3,"0")  + " Harriet"  + #LF$ + "Smith"    + #LF$ + #LF$ + #LF$ + "Push")
-        ;Next
         
         ; --- Set focus to row 9 ---
         ; ListEx::SetState(#List, 9)
@@ -8050,18 +8053,17 @@ CompilerIf #PB_Compiler_IsMainFile
           ListEx::SetItemImage(#List, 0, 1, #Image)
           ListEx::SetItemImage(#List, 1, 5, #Image, ListEx::#Center, 14, 14)
           ListEx::SetItemImage(#List, ListEx::#Header, 2, 14, 14, #Image, ListEx::#Right)
-          ;ListEx::SetColumnImage(#List, 5, #Image)
         EndIf
         
         ; --- Test single cell flags ---
         ;ListEx::SetCellFlags(#List, 2, 5, ListEx::#Strings)
         
         ; --- Test ProgressBar ---
-        ;CompilerIf ListEx::#Enable_ProgressBar
-        ;  ListEx::SetCellState(#List, 1, "progress", 100) ; or SetItemState(#List, 1, 75, 5)
-        ;  ListEx::SetCellState(#List, 2, "progress", 50) ; or SetItemState(#List, 2, 50, 5)
-        ;  ListEx::SetCellState(#List, 3, "progress", 25) ; or SetItemState(#List, 3, 25, 5)
-        ;CompilerEndIf
+        CompilerIf ListEx::#Enable_ProgressBar
+          ;ListEx::SetCellState(#List, 1, "progress", 100) ; or SetItemState(#List, 1, 75, 5)
+          ;ListEx::SetCellState(#List, 2, "progress", 50) ; or SetItemState(#List, 2, 50, 5)
+          ;ListEx::SetCellState(#List, 3, "progress", 25) ; or SetItemState(#List, 3, 25, 5)
+        CompilerEndIf
   
         ; --- max. number of characters ---
         ;ListEx::SetAttribute(#List, ListEx::#MaxChars, 6)
@@ -8076,7 +8078,7 @@ CompilerIf #PB_Compiler_IsMainFile
       
       ;ListEx::SetState(#List, 10)
       
-      ;ListEx::SetFont(#List, FontID(#Font_Arial9B), #False, 5)
+      ;ListEx::SetFont(#List, FontID(#Font_Arial9B), #False, 6)
       ;ListEx::SetColumnAttribute(#List, 5, ListEx::#Font, #Font_Arial9B)
       
       ;ListEx::ExportCSV(#List, "Export.csv", ListEx::#NoButtons|ListEx::#NoCheckBoxes|ListEx::#HeaderRow)
@@ -8174,10 +8176,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 150
-; FirstLine = 15
-; Folding = wCQAAAACIIA0JCkBGAAARQBEJEAmAAgEFIAAwAAgiAACAAQBNBOACwDAAAAAgAAAAww-
-; Markers = 3441,6013
+; CursorPosition = 7981
+; FirstLine = 1657
+; Folding = wCQAAAACIIA0JCkBGAAARQBEJEImACAJKQAA6HgBBMAEAAgAYCcAEgHAAAAAABAAAAn9-
+; Markers = 3448,6020
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
