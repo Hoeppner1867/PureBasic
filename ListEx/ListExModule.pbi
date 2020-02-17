@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 16.02.2020
+; Last Update: 17.02.2020
 ;
 ; - Bugfixes
 ; 
@@ -150,7 +150,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20021600
+  #Version  = 20021700
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -2786,9 +2786,9 @@ Module ListEx
       DrawingMode(#PB_2DDrawing_Default)
       Box(dpiX(ListEx()\String\X), dpiY(ListEx()\String\Y), dpiX(ListEx()\String\Width), dpiY(ListEx()\String\Height), BackColor)
       ;}
-      
+
       Text      = ListEx()\String\Text
-      txtHeight = TextHeight(ListEx()\String\Text)
+      txtHeight = TextHeight("X")
       
       PosX    = dpiX(ListEx()\String\X + 3)
       PosY    = dpiY(ListEx()\String\Y) + ((dpiY(ListEx()\String\Height) - txtHeight) / 2) 
@@ -2799,13 +2799,18 @@ Module ListEx
       CompilerEndIf
       
       ListEx()\Cursor\Pos       = ListEx()\String\CursorPos
-      ListEx()\Cursor\X         = PosX + TextWidth(Left(Text, ListEx()\String\CursorPos)) - 1
+      If Text
+        ListEx()\Cursor\X = PosX + TextWidth(Left(Text, ListEx()\String\CursorPos)) - 1
+      Else
+        ListEx()\Cursor\X = PosX
+      EndIf   
       ListEx()\Cursor\Y         = PosY
       ListEx()\Cursor\ClipX     = maxPosX
       ListEx()\Cursor\Height    = txtHeight
       ListEx()\Cursor\BackColor = BackColor
       
-      If ListEx()\Cursor\X > maxPosX
+      
+      If Text And ListEx()\Cursor\X > maxPosX
         
         Text = Left(Text, ListEx()\String\CursorPos)
         
@@ -7971,11 +7976,12 @@ CompilerIf #PB_Compiler_IsMainFile
         
         ; --- Add different types of columns  ---
         ListEx::AddColumn(#List, 1, "Link", 75, "link",   ListEx::#Links)     ; |ListEx::#FitColumn
-        ListEx::AddColumn(#List, 2, "Edit", 85, "edit",   ListEx::#Editable) ; |ListEx::#FitColumn
+        ListEx::AddColumn(#List, 2, "Edit", 85, "edit",   ListEx::#Editable)  ; |ListEx::#FitColumn                                                                      
         ListEx::AddColumn(#List, ListEx::#LastItem, "Combo",   72, "combo",  ListEx::#ComboBoxes)
         ListEx::AddColumn(#List, ListEx::#LastItem, "Date",    76, "date",   ListEx::#DateGadget)
         ListEx::AddColumn(#List, ListEx::#LastItem, "Buttons", 60, "button", ListEx::#Buttons) ; ListEx::#Hide
-        
+        ;ListEx::AddColumn(#List, ListEx::#LastItem, "Float", 85, "", ListEx::#Float|ListEx::#Editable)
+
         ; --- Test ProgressBar ---
         CompilerIf ListEx::#Enable_ProgressBar
           ;ListEx::AddColumn(#List, ListEx::#LastItem, "Progress", 60, "progress", ListEx::#ProgressBar)
@@ -8176,10 +8182,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 7981
-; FirstLine = 1657
-; Folding = wCQAAAACIIA0JCkBGAAARQBEJEImACAJKQAA6HgBBMAEAAgAYCcAEgHAAAAAABAAAAn9-
-; Markers = 3448,6020
+; CursorPosition = 152
+; FirstLine = 6
+; Folding = 5RQAAAACIIA0JCkI-AAARQBEJ9ImACAJKQAA6HgBBMAEAAgAYCcAEgHAAAAAADAAAAn9-
+; Markers = 3453,6025
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
