@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 15.02.20
+; Last Update: 17.02.20
 ;
 ; Bugfix: Mouse selection
 ;
@@ -138,7 +138,7 @@
 
 DeclareModule EditEx
   
-  #Version  = 20021500
+  #Version  = 20021700
   #ModuleEx = 20010800
   
   ;- ============================================================================
@@ -869,7 +869,7 @@ Module EditEx
 
       If SelectElement(EditEx()\Row(), Row)
         
-        PosX = EditEx()\Row()\X - EditEx()\Visible\PosOffset
+        PosX = EditEx()\Row()\X - dpiX(EditEx()\Visible\PosOffset)
         PosY = EditEx()\Row()\Y - RowOffset
 
         If StartDrawing(CanvasOutput(EditEx()\CanvasNum))
@@ -915,7 +915,7 @@ Module EditEx
     
     ForEach EditEx()\Row()
       
-      PosX = EditEx()\Row()\X - EditEx()\Visible\PosOffset
+      PosX = EditEx()\Row()\X - dpiX(EditEx()\Visible\PosOffset)
       PosY = EditEx()\Row()\Y - RowOffSet
 
       If CursorY >= PosY And CursorY <= PosY + EditEx()\Text\Height
@@ -928,7 +928,7 @@ Module EditEx
             
             If TextWidth(Mid(EditEx()\Text$, EditEx()\Row()\Pos, c + 1)) > CursorX
               
-              CursorPos =  EditEx()\Row()\Pos + c
+              CursorPos = EditEx()\Row()\Pos + c
               
               If Change
                 EditEx()\Cursor\X   = PosX + TextWidth(RTrim(Mid(EditEx()\Text$, EditEx()\Row()\Pos, c), #LF$))
@@ -1142,8 +1142,8 @@ Module EditEx
     If EditEx()\Selection\Flag = #Selected
       
       EditEx()\Selection\Flag = #NoSelection
-      EditEx()\Selection\Pos1 = #False
-      EditEx()\Selection\Pos2 = #False
+      EditEx()\Selection\Pos1 = #PB_Default
+      EditEx()\Selection\Pos2 = #PB_Default
       EditEx()\Mouse\Status   = #False
       
     EndIf
@@ -1373,7 +1373,7 @@ Module EditEx
         ForEach EditEx()\Row()
 
           If Pos >= EditEx()\Row()\Pos And Pos < EditEx()\Row()\Pos + EditEx()\Row()\Len
-            X = DesktopUnscaledX(EditEx()\Row()\X - EditEx()\Visible\PosOffset + TextWidth(StringSegment(EditEx()\Text$, EditEx()\Row()\Pos, Pos)))
+            X = DesktopUnscaledX(EditEx()\Row()\X + TextWidth(StringSegment(EditEx()\Text$, EditEx()\Row()\Pos, Pos))) - EditEx()\Visible\PosOffset
             Y = DesktopUnscaledY(EditEx()\Row()\Y - RowOffset + EditEx()\Text\Height)
             Break
           EndIf
@@ -2396,7 +2396,7 @@ Module EditEx
       ;}
       
       ;{ _____ Cursor _____
-      PosOffset = dpiY(EditEx()\Visible\PosOffset)
+      PosOffset = dpiX(EditEx()\Visible\PosOffset)
       RowOffset = EditEx()\Visible\RowOffset * EditEx()\Text\Height
       
       If EditEx()\Cursor\Pos = 0                     ;{ Empty text
@@ -2508,6 +2508,8 @@ Module EditEx
     
     If StartDrawing(CanvasOutput(EditEx()\CanvasNum)) 
       
+      If EditEx()\FontID : DrawingFont(EditEx()\FontID) : EndIf
+      
       FrontColor  = EditEx()\Color\Front
       BackColor   = EditEx()\Color\Back
       BorderColor = EditEx()\Color\Border
@@ -2523,11 +2525,10 @@ Module EditEx
       Box(0, 0, dpiX(GadgetWidth(EditEx()\CanvasNum)), dpiY(GadgetHeight(EditEx()\CanvasNum)), BackColor)  
       ;}
       
-      PosOffset = dpiY(EditEx()\Visible\PosOffset)
+      PosOffset = dpiX(EditEx()\Visible\PosOffset)
       RowOffset = EditEx()\Visible\RowOffset * EditEx()\Text\Height
 
       ;{ _____ Draw Text _____
-      If EditEx()\FontID : DrawingFont(EditEx()\FontID) : EndIf
 
       ForEach EditEx()\Row()
         
@@ -3494,7 +3495,8 @@ Module EditEx
       CursorPos = CursorPos_(CursorX, CursorY)
       If CursorPos
         
-        EditEx()\Cursor\LastX = EditEx()\Cursor\X ; last cursor position for cursor up/down
+        EditEx()\Selection\Pos1 = #PB_Default
+        EditEx()\Cursor\LastX   = EditEx()\Cursor\X ; last cursor position for cursor up/down
         
         RemoveSelection_()
 
@@ -3602,14 +3604,15 @@ Module EditEx
   
   Procedure _MouseMoveHandler()
     Define.i GNum = EventGadget()
-    Define.i CursorPos, NewPos, CursorX, CursorY
+    Define.i CursorPos, LastCursorPos, CursorX, CursorY
     
     If FindMapElement(EditEx(), Str(GNum))
       
       CursorX   = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
       CursorY   = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
-      CursorPos = EditEx()\Cursor\Pos
-
+      
+      LastCursorPos = EditEx()\Cursor\Pos
+      
       If EditEx()\Mouse\LeftButton ;{ Left Mouse Button
         
         Select EditEx()\Mouse\Status
@@ -3617,13 +3620,13 @@ Module EditEx
             
             If EditEx()\Selection\Flag = #NoSelection
               
-              NewPos = CursorPos_(CursorX, CursorY)
-              If NewPos 
+              CursorPos = CursorPos_(CursorX, CursorY)
+              If CursorPos 
 
-                If CursorPos <> EditEx()\Cursor\Pos
+                If LastCursorPos <> CursorPos
                   
-                  EditEx()\Selection\Pos1 = CursorPos
-                  EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
+                  EditEx()\Selection\Pos1 = LastCursorPos
+                  EditEx()\Selection\Pos2 = CursorPos
                   EditEx()\Selection\Flag = #Selected
                   EditEx()\Mouse\Status   = #Mouse_Select
                   
@@ -3638,12 +3641,10 @@ Module EditEx
             
             If EditEx()\Selection\Flag = #Selected
               
-              NewPos = CursorPos_(CursorX, CursorY)
-              If NewPos 
+              CursorPos = CursorPos_(CursorX, CursorY)
+              If CursorPos 
                 
-                EditEx()\Cursor\Pos = NewPos
-                
-                If CursorPos <> EditEx()\Cursor\Pos
+                If LastCursorPos <> CursorPos
                   EditEx()\Selection\Pos2 = EditEx()\Cursor\Pos
                   ReDraw_()
                 EndIf
@@ -5032,6 +5033,11 @@ Module EditEx
         EditEx()\Visible\Width  = Width  - 8
         EditEx()\Visible\Height = Height - 4
         
+        EditEx()\Selection\Flag = #NoSelection
+        EditEx()\Selection\Pos1 = #PB_Default
+        EditEx()\Selection\Pos2 = #PB_Default
+        EditEx()\Mouse\Status   = #False
+        
         If WindowNum = #PB_Default
           EditEx()\Window\Num = GetGadgetWindow()
         Else
@@ -5444,9 +5450,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 142
-; FirstLine = 24
-; Folding = wHOhABDAi9nACwAEB+wQBkxJqigAHAYABA1HwCQoQgREEBFQSL3JI+-
-; Markers = 971,2501,2570,4656
+; CursorPosition = 2531
+; FirstLine = 1129
+; Folding = wHOhABDAm0-AGwAEB+YQDkbBqigAHAYABgwPwCQoQgZMEBFQAPmJI+-
+; Markers = 971,2501,2571,4657
 ; EnableXP
 ; DPIAware
