@@ -150,7 +150,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20021700
+  #Version  = 20021701
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -1662,7 +1662,7 @@ Module ListEx
       
       Value = ReplaceString(Value, ",", ".") 
       
-      If CountString(Value, ".") <> 1 : ProcedureReturn #False : EndIf
+      ;If CountString(Value, ".") <> 1 : ProcedureReturn #False : EndIf
       
       For i=1 To Len(Value)
         Select Asc(Mid(Value, i, 1))
@@ -8183,8 +8183,8 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 152
-; FirstLine = 6
-; Folding = 5RQAAAACIIA0JCkI-AAARQBEJ9ImACAJKQAA6HgBBMAEAAgAYCcAEgHAAAAAADAAAAn9-
+; FirstLine = 12
+; Folding = 5RQAAAACIIAEICkQ-AAARQBEJ9ImACAJKQAA6HgBBMAEAAgAYCcAEgHAAAAAADAAAAn9-
 ; Markers = 3453,6025
 ; EnableXP
 ; DPIAware
