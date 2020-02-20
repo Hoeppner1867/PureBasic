@@ -10,11 +10,11 @@
 ;/ Pattern based on (http://tug.org/tex-hyphen/)
 ;/
 
-; Last Update: 25.12.19
+; Last Update: 20.02.20
 ;
-; Added: Content Tree
-; Added: Link and URL are underlined
-; Added: #UseExistingCanvas
+; Added: Label.s to Load()
+; Added: SetMargins()
+; Bugfix
 ;
 
 ;{ ===== MIT License =====
@@ -107,7 +107,7 @@
 
 DeclareModule ViewerEx
   
-  #Version  = 19122500
+  #Version  = 20022000
   #ModuleEx = 19111702
   
   #Enable_Hyphenation         = #True
@@ -235,10 +235,11 @@ DeclareModule ViewerEx
   Declare.s EventValue(GNum.i)
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
   Declare   Hide(GNum.i, State.i=#True)
-  Declare.i Load(GNum.i, File.s)
+  Declare.i Load(GNum.i, File.s, Label.s="")
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetContent(GNum.i, Label.s="")
   Declare   SetHeadingOffset(GNum.i, Value.i, Level.i=0)
+  Declare   SetMargins(GNum.i, Left.i, Top.i, Bottom.i=#PB_Default, Right.i=#PB_Default)
   
 EndDeclareModule
 
@@ -790,7 +791,7 @@ Module ViewerEx
     ElseIf Flags & #Right
       ProcedureReturn Width - TextWidth(Text) - VGEx()\Content\Label()\Margin\Right - VGEx()\Size\X 
     Else
-      ProcedureReturn Indent + VGEx()\Content\Label()\Margin\Left
+      ProcedureReturn Indent
     EndIf  
     
   EndProcedure  
@@ -852,9 +853,9 @@ Module ViewerEx
           Box(0, 0, dpiX(GadgetWidth(VGEx()\CanvasNum)), dpiY(GadgetHeight(VGEx()\CanvasNum)), VGEx()\Color\Back)
         EndIf
         ;}
-      
+        
         ForEach VGEx()\Content\Label()\Item()
-          
+
           Image      = 0
           imgOffset  = 0
           itemHeight = 0
@@ -1223,7 +1224,6 @@ Module ViewerEx
                     Else
                       
                       Text = RemoveString(Text, #LF$)
-                      
                       aX = AlignX_(Text, Indent + imgOffset, VGEx()\Content\Text()\Flags)
                       If visible : DrawText_(X + aX, Y, Text, FrontColor, BackColor) : EndIf
                       
@@ -2924,13 +2924,12 @@ Module ViewerEx
     
   EndProcedure 
   
-  Procedure.i Load(GNum.i, File.s)
+  Procedure.i Load(GNum.i, File.s, Label.s="")
     Define.i JSON, Pack, Size, Result = #False
     Define  *Buffer
     Define   Content.ViewerEx_Content_Structure
     
     If FindMapElement(VGEx(), Str(GNum))
-      
       Pack = OpenPack(#PB_Any, File, #PB_PackerPlugin_Lzma)
       If Pack
         
@@ -2965,6 +2964,7 @@ Module ViewerEx
           CopyList(Content\Text(),  VGEx()\Content\Text())
           CopyList(Content\Tree(),  VGEx()\Content\Tree())
           ;}
+          
           
           ;{ Copy content maps
           CopyMap(Content\Label(),   VGEx()\Content\Label())
@@ -3038,9 +3038,20 @@ Module ViewerEx
         
         ClosePack(Pack)
       EndIf
-      
-      ReDraw_()
-      
+
+      If Label 
+        
+        If FindMapElement(VGEx()\Content\Label(), Label)
+          VGEx()\Label   = Label
+          VGEx()\Pattern = VGEx()\Content\Label()\Pattern
+        Else
+          VGEx()\Label = Str(#PB_Default)
+          VGEx()\Pattern = ""
+        EndIf
+        
+        ReDraw_()
+      EndIf
+
     EndIf
     
     ProcedureReturn Result
@@ -3102,7 +3113,31 @@ Module ViewerEx
 	  EndIf
 	  
 	EndProcedure
+	
+	Procedure   SetMargins(GNum.i, Left.i, Top.i, Bottom.i=#PB_Default, Right.i=#PB_Default)
+	  
+	  If FindMapElement(VGEx(), Str(GNum))
+	    
+	    VGEx()\Content\Label(VGEx()\Label)\Margin\Left   = dpiX(Left)
+      VGEx()\Content\Label(VGEx()\Label)\Margin\Top    = dpiY(Top)
 
+      If Bottom = #PB_Default
+        VGEx()\Content\Label(VGEx()\Label)\Margin\Bottom = dpiY(Top)
+      Else
+        VGEx()\Content\Label(VGEx()\Label)\Margin\Bottom = dpiY(Bottom)
+      EndIf  
+     
+      If Right = #PB_Default
+        VGEx()\Content\Label(VGEx()\Label)\Margin\Right  = dpiX(Left)
+      Else
+        VGEx()\Content\Label(VGEx()\Label)\Margin\Right  = dpiX(Right)
+      EndIf
+      
+      ReDraw_()
+    EndIf
+    
+	EndProcedure
+	
 EndModule
 
 ;- ========  Module - Example ========
@@ -3284,9 +3319,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 167
-; FirstLine = 61
-; Folding = 5gAAgMABApFAAkAAggQAABkAAol
+; CursorPosition = 1225
+; FirstLine = 501
+; Folding = 5gAAgMAHJJ2iAkAAwiQACBkAFAD-
 ; Markers = 2103
 ; EnableXP
 ; DPIAware
