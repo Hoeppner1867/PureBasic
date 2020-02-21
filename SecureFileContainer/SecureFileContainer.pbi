@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (08/2019)
 ;/
 
-; Last Update: 7.11.2019
+; Last Update: 21.02.2020
 ;
 ; BugFix: IsProgID()
 ;
@@ -70,7 +70,7 @@
 
 DeclareModule SFC
   
-  #Version  = 19110707
+  #Version  = 20022100
   
   ;- ===========================================================================
   ;-   DeclareModule - Constants / Structures
@@ -1093,6 +1093,10 @@ Module SFC
     
       Content\ProgID  = ProgID
       Content\Creator = "Secure FileContainer"
+      Content\Author  = ""
+      Content\Titel   = ""
+      Content\Subject = ""
+      
       Content\idSFC   = PackEx()\idSFC
 
       TempDir_(ID)
@@ -1862,8 +1866,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 72
-; FirstLine = 5
-; Folding = MGB+eAYAQAYED9
+; Folding = MGB+OAYARAYEC9
 ; EnableXP
 ; DPIAware
 ; EnablePurifier
