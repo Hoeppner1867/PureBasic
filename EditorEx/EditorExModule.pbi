@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 17.02.20
+; Last Update: 21.02.20
 ;
 ; Bugfix: Mouse selection
 ;
@@ -138,7 +138,7 @@
 
 DeclareModule EditEx
   
-  #Version  = 20021700
+  #Version  = 20022100
   #ModuleEx = 20010800
   
   ;- ============================================================================
@@ -1040,9 +1040,9 @@ Module EditEx
           HideGadget(EditEx()\HScroll\ID, #False)
           
           If VScroll
-            ResizeGadget(EditEx()\HScroll\ID, 2, GadgetHeight(EditEx()\CanvasNum) - #Scroll_Width - 1, GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 4, #Scroll_Width)
+            ResizeGadget(EditEx()\HScroll\ID, 1, GadgetHeight(EditEx()\CanvasNum) - #Scroll_Width - 1, GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 2, #Scroll_Width)
           Else
-            ResizeGadget(EditEx()\HScroll\ID, 2, GadgetHeight(EditEx()\CanvasNum) - #Scroll_Width - 1, GadgetWidth(EditEx()\CanvasNum) - 4, #Scroll_Width)
+            ResizeGadget(EditEx()\HScroll\ID, 1, GadgetHeight(EditEx()\CanvasNum) - #Scroll_Width - 1, GadgetWidth(EditEx()\CanvasNum) - 2, #Scroll_Width)
           EndIf
           
           Changed = #True
@@ -1074,9 +1074,9 @@ Module EditEx
           HideGadget(EditEx()\VScroll\ID, #False)
           
           If HScroll
-            ResizeGadget(EditEx()\VScroll\ID, GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 1, 2, #Scroll_Width, GadgetHeight(EditEx()\CanvasNum) - #Scroll_Width - 4) 
+            ResizeGadget(EditEx()\VScroll\ID, GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 1, 1, #Scroll_Width, GadgetHeight(EditEx()\CanvasNum) - #Scroll_Width - 2) 
           Else
-            ResizeGadget(EditEx()\VScroll\ID, GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 1, 2, #Scroll_Width, GadgetHeight(EditEx()\CanvasNum) - 4)
+            ResizeGadget(EditEx()\VScroll\ID, GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 1, 1, #Scroll_Width, GadgetHeight(EditEx()\CanvasNum) - 2)
           EndIf 
           
           Changed = #True
@@ -2201,17 +2201,16 @@ Module EditEx
       EditEx()\Text\Len = Len(EditEx()\Text$)
       If EditEx()\Text\Len : Pos = 1 : EndIf
       
-      Pos    = 1
-      PosY   = Y
+      PosY = Y
       
       Rows = CountString(EditEx()\Text$, #LF$) + 1 
       For r=1 To Rows
-
+        
         PosX = X
         
         Row$ = StringField(EditEx()\Text$, r, #LF$)
         If r <> Rows : Row$ + #LF$ : EndIf
-
+        
         If EditEx()\Flags & #WordWrap Or EditEx()\Flags & #Hyphenation ;{ WordWrap / Hyphenation
           
           AddRow_(Pos, PosX, PosY) 
@@ -2378,10 +2377,14 @@ Module EditEx
             
             If EditEx()\Selection\Flag = #Selected : CalcSelection_(PosX, Pos, WordLen, Pos1, Pos2) : EndIf
             
-            PosX  = TextWidth(RTrim(Word$, #LF$))
+            PosX + TextWidth(RTrim(Word$, #LF$))
             
             EditEx()\Row()\Len   + WordLen
             EditEx()\Row()\Width + TextWidth(Word$)
+            
+            If EditEx()\Row()\Width > EditEx()\Text\maxRowWidth
+              EditEx()\Text\maxRowWidth = EditEx()\Row()\Width
+            EndIf
             
             Pos + WordLen
           Next
@@ -2529,7 +2532,6 @@ Module EditEx
       RowOffset = EditEx()\Visible\RowOffset * EditEx()\Text\Height
 
       ;{ _____ Draw Text _____
-
       ForEach EditEx()\Row()
         
         PosX = EditEx()\Row()\X - PosOffset
@@ -2628,8 +2630,12 @@ Module EditEx
       Box(0, dpiY(GadgetHeight(EditEx()\CanvasNum) - EditEx()\Size\PaddingY), dpiX(GadgetWidth(EditEx()\CanvasNum)), dpiY(EditEx()\Size\PaddingY), BackColor)
       Box(dpiX(GadgetWidth(EditEx()\CanvasNum) - EditEx()\Size\PaddingX), 0, dpiX(EditEx()\Size\PaddingX), dpiY(GadgetHeight(EditEx()\CanvasNum)), BackColor)
       If EditEx()\VScroll\Hide = #False
-        Box(dpiX(GadgetWidth(EditEx()\CanvasNum)) - dpiX(#Scroll_Width + 1), dpiX(2), dpiX(#Scroll_Width), dpiY(GadgetHeight(EditEx()\CanvasNum)) - dpiY(4), EditEx()\Color\ScrollBar)
-      EndIf ;}
+        Box(dpiX(GadgetWidth(EditEx()\CanvasNum)) - dpiX(#Scroll_Width), dpiX(1), dpiX(#Scroll_Width), dpiY(GadgetHeight(EditEx()\CanvasNum)) - dpiY(2), EditEx()\Color\ScrollBar)
+      EndIf
+      If EditEx()\HScroll\Hide = #False
+        Box(dpiX(1), dpiX(GadgetHeight(EditEx()\CanvasNum)) - dpiX(#Scroll_Width), dpiY(GadgetWidth(EditEx()\CanvasNum)) - dpiY(2), dpiX(#Scroll_Width), EditEx()\Color\ScrollBar)
+      EndIf
+      ;}
       
       ;{ _____ Border _____
       If EditEx()\Flags & #Borderless = #False
@@ -3624,7 +3630,7 @@ Module EditEx
               If CursorPos 
 
                 If LastCursorPos <> CursorPos
-                  
+               
                   EditEx()\Selection\Pos1 = LastCursorPos
                   EditEx()\Selection\Pos2 = CursorPos
                   EditEx()\Selection\Flag = #Selected
@@ -3754,8 +3760,8 @@ Module EditEx
       
       If Not EditEx()\VScroll\Hide And Not EditEx()\HScroll\Hide
         If IsGadget(EditEx()\HScroll\ID) And IsGadget(EditEx()\VScroll\ID)
-          ResizeGadget(EditEx()\HScroll\ID, 1, GadgetHeight(EditEx()\CanvasNum) - #Scroll_Width - 1,  GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 2, #Scroll_Width)
-          ResizeGadget(EditEx()\VScroll\ID, GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 1, 1, #Scroll_Width, GadgetHeight(EditEx()\CanvasNum) - #Scroll_Width - 2)
+          ResizeGadget(EditEx()\HScroll\ID, 1, GadgetHeight(EditEx()\CanvasNum) - #Scroll_Width - 1,  GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 1, #Scroll_Width)
+          ResizeGadget(EditEx()\VScroll\ID, GadgetWidth(EditEx()\CanvasNum) - #Scroll_Width - 1, 1, #Scroll_Width, GadgetHeight(EditEx()\CanvasNum) - #Scroll_Width - 1)
         EndIf  
       ElseIf Not EditEx()\VScroll\Hide 
         If IsGadget(EditEx()\VScroll\ID)
@@ -5095,8 +5101,8 @@ Module EditEx
         
         ;{ Scrollbars
         If EditEx()\Flags & #ScrollBar_Horizontal And EditEx()\Flags & #ScrollBar_Vertical
-          EditEx()\HScroll\ID = ScrollBarGadget(#PB_Any, 2, Height - #Scroll_Width - 1, Width - #Scroll_Width - 4, #Scroll_Width, 0, 0, 0)
-          EditEx()\VScroll\ID = ScrollBarGadget(#PB_Any, Width - #Scroll_Width - 1, 2, #Scroll_Width, Height - #Scroll_Width - 4, 0, 0, 0, #PB_ScrollBar_Vertical)
+          EditEx()\HScroll\ID = ScrollBarGadget(#PB_Any, 1, Height - #Scroll_Width - 1, Width - #Scroll_Width - 2, #Scroll_Width, 0, 0, 0)
+          EditEx()\VScroll\ID = ScrollBarGadget(#PB_Any, Width - #Scroll_Width - 1, 1, #Scroll_Width, Height - #Scroll_Width - 2, 0, 0, 0, #PB_ScrollBar_Vertical)
           SetGadgetData(EditEx()\VScroll\ID, GNum)
           SetGadgetData(EditEx()\HScroll\ID, GNum)
           HideGadget(EditEx()\HScroll\ID, #True)
@@ -5104,13 +5110,13 @@ Module EditEx
           BindGadgetEvent(EditEx()\HScroll\ID, @_SynchronizeScrollPos(),  #PB_All)
           BindGadgetEvent(EditEx()\VScroll\ID, @_SynchronizeScrollRows(), #PB_All) 
         ElseIf EditEx()\Flags & #ScrollBar_Horizontal
-          EditEx()\HScroll\ID = ScrollBarGadget(#PB_Any, 2, Height - #Scroll_Width - 1, Width - #Scroll_Width - 4, #Scroll_Width, 0, 0, 0)
+          EditEx()\HScroll\ID = ScrollBarGadget(#PB_Any, 1, Height - #Scroll_Width - 1, Width - #Scroll_Width - 2, #Scroll_Width, 0, 0, 0)
           EditEx()\VScroll\ID = #PB_Default
           SetGadgetData(EditEx()\HScroll\ID, GNum)
           HideGadget(EditEx()\HScroll\ID, #True)
           BindGadgetEvent(EditEx()\HScroll\ID, @_SynchronizeScrollPos(), #PB_All)
         ElseIf EditEx()\Flags & #ScrollBar_Vertical
-          EditEx()\VScroll\ID = ScrollBarGadget(#PB_Any, Width - #Scroll_Width - 1, 2, #Scroll_Width, Height - #Scroll_Width - 4, 0, 0, 0, #PB_ScrollBar_Vertical)
+          EditEx()\VScroll\ID = ScrollBarGadget(#PB_Any, Width - #Scroll_Width - 1, 1, #Scroll_Width, Height - #Scroll_Width - 2, 0, 0, 0, #PB_ScrollBar_Vertical)
           EditEx()\HScroll\ID = #PB_Default
           SetGadgetData(EditEx()\VScroll\ID, GNum)
           HideGadget(EditEx()\VScroll\ID, #True)
@@ -5369,7 +5375,7 @@ CompilerIf #PB_Compiler_IsMainFile
     SetGadgetText(#Editor, Text)
     SetGadgetFont(#Editor, FontID(#Font))
     
-    EditEx::Gadget(#EditEx, 8, 146, 306, 133, EditEx::#AutoResize|EditEx::#WordWrap, #Window)
+    EditEx::Gadget(#EditEx, 8, 146, 306, 133, EditEx::#AutoResize|EditEx::#WordWrap, #Window) ; 
     EditEx::SetFont(#EditEx, FontID(#Font))
 
     ; Test WordWrap and Hyphenation
@@ -5450,9 +5456,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 2531
-; FirstLine = 1129
-; Folding = wHOhABDAm0-AGwAEB+YQDkbBqigAHAYABgwPwCQoQgZMEBFQAPmJI+-
-; Markers = 971,2501,2571,4657
+; CursorPosition = 140
+; FirstLine = 27
+; Folding = wHOhABDAmFAAGwAGB+YQBEQgpigAHAYABgwP3DQoQAQEEAAQAPuJI+-
+; Markers = 971,2504,2573,4663
 ; EnableXP
 ; DPIAware
