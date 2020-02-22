@@ -11,7 +11,7 @@
 ;/ © 2019  by Thorsten Hoeppner (11/2019)
 ;/
 
-; Last Update: 19.02.2020
+; Last Update: 22.02.2020
 ;
 ; - Bugfixes
 ; 
@@ -81,7 +81,7 @@
 
 DeclareModule TreeEx
   
-  #Version  = 20021900
+  #Version  = 20022200
   #ModuleEx = 19112002
   
   #Enable_ProgressBar = #True
@@ -219,7 +219,8 @@ DeclareModule TreeEx
 	Declare.q GetData(GNum.i)
 	Declare.s GetID(GNum.i)
   Declare   SetData(GNum.i, Value.q)
-	Declare   SetID(GNum.i, String.s)
+  Declare   SetID(GNum.i, String.s)
+  Declare.i GetItemAttribute(GNum.i, Row.i, Attribute.i)
 	Declare.i GetItemColor(GNum.i, Row.i, ColorTyp.i, Column.i=#PB_Ignore)
 	Declare.i GetItemData(GNum.i, Row.i)
 	Declare.s GetItemLabel(GNum.i, Row.i)
@@ -3191,6 +3192,7 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 83
-; Folding = 16AAIAAI-QCCAAAADQIABEQAADgh-
+; FirstLine = 15
+; Folding = s6AAIAAI-QCCAAAADQIARkAAADwh-
 ; EnableXP
 ; DPIAware
