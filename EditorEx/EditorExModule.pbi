@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 21.02.20
+; Last Update: 22.02.20
 ;
 ; Bugfix: Mouse selection
 ;
@@ -138,7 +138,7 @@
 
 DeclareModule EditEx
   
-  #Version  = 20022100
+  #Version  = 20022200
   #ModuleEx = 20010800
   
   ;- ============================================================================
@@ -915,7 +915,7 @@ Module EditEx
     
     ForEach EditEx()\Row()
       
-      PosX = EditEx()\Row()\X - dpiX(EditEx()\Visible\PosOffset)
+      PosX = EditEx()\Row()\X
       PosY = EditEx()\Row()\Y - RowOffSet
 
       If CursorY >= PosY And CursorY <= PosY + EditEx()\Text\Height
@@ -926,12 +926,12 @@ Module EditEx
           
           For c=0 To EditEx()\Row()\Len - 1
             
-            If TextWidth(Mid(EditEx()\Text$, EditEx()\Row()\Pos, c + 1)) > CursorX
+            If TextWidth(Mid(EditEx()\Text$, EditEx()\Row()\Pos, c + 1)) > CursorX + dpiX(EditEx()\Visible\PosOffset)
               
               CursorPos = EditEx()\Row()\Pos + c
               
               If Change
-                EditEx()\Cursor\X   = PosX + TextWidth(RTrim(Mid(EditEx()\Text$, EditEx()\Row()\Pos, c), #LF$))
+                EditEx()\Cursor\X   = EditEx()\Row()\X + TextWidth(RTrim(Mid(EditEx()\Text$, EditEx()\Row()\Pos, c), #LF$)) - dpiX(EditEx()\Visible\PosOffset)
                 EditEx()\Cursor\Y   = PosY
                 EditEx()\Cursor\Pos = CursorPos
                 EditEx()\Cursor\Row = ListIndex(EditEx()\Row())
@@ -5457,8 +5457,8 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 140
-; FirstLine = 27
-; Folding = wHOhABDAmFAAGwAGB+YQBEQgpigAHAYABgwP3DQoQAQEEAAQAPuJI+-
+; FirstLine = 33
+; Folding = wHOhABDAGBAACwAGB+YABkTBoggAHAYABg9P3bYoQAQEEAAQAPuJI+-
 ; Markers = 971,2504,2573,4663
 ; EnableXP
 ; DPIAware
