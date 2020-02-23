@@ -9,12 +9,10 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 17.02.2020
+; Last Update: 23.02.2020
 ;
-; - Bugfixes
-; 
-; - Added: Flag #NoButtons & #NoCheckBoxes for CSV
-; - Added: SetColumnImage() 
+; Use ComboBoxEx if available
+; #ComboFrontColor and #ComboBackColor for SetColor()
 ;
 
 ;{ ===== MIT License =====
@@ -147,10 +145,12 @@
 
 
 ; XIncludeFile "ModuleEx.pbi"
+;XIncludeFile "ComboBoxExModule.pbi"
+
 
 DeclareModule ListEx
   
-  #Version  = 20021701
+  #Version  = 20022300
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -223,6 +223,8 @@ DeclareModule ListEx
     #HeaderBackColor
     #HeaderLineColor
     #AlternateRowColor
+    #ComboFrontColor
+    #ComboBackColor
   EndEnumeration ;}
   
   EnumerationBinary ;{ Row status 
@@ -2235,6 +2237,14 @@ Module ListEx
         ListEx()\Color\Canvas       = Value
       Case #AlternateRowColor
         ListEx()\Color\AlternateRow = Value
+      Case #ComboFrontColor
+        If Defined(ComboBoxEx, #PB_Module)  
+          ComboBoxEx::SetColor(ListEx()\ComboNum, ComboBoxEx::#FrontColor, Value)
+        EndIf
+      Case #ComboBackColor
+        If Defined(ComboBoxEx, #PB_Module)  
+          ComboBoxEx::SetColor(ListEx()\ComboNum, ComboBoxEx::#BackColor, Value)
+        EndIf
     EndSelect
 
   EndProcedure
@@ -3691,15 +3701,25 @@ Module ListEx
     
     If IsGadget(ListEx()\ComboNum)
       
-      ClearGadgetItems(ListEx()\ComboNum)
+      If Defined(ComboBoxEx, #PB_Module)
+        ComboBoxEx::ClearItems(ListEx()\ComboNum)
+      Else  
+        ClearGadgetItems(ListEx()\ComboNum)
+      EndIf   
       
       If SelectElement(ListEx()\Cols(), Column)
         
         If FindMapElement(ListEx()\ComboBox\Column(), ListEx()\Cols()\Key)
           
-          ForEach ListEx()\ComboBox\Column()\Items()
-            AddGadgetItem(ListEx()\ComboNum, -1, ListEx()\ComboBox\Column()\Items())
-          Next
+          If Defined(ComboBoxEx, #PB_Module)
+            ForEach ListEx()\ComboBox\Column()\Items()
+              ComboBoxEx::AddItem(ListEx()\ComboNum, ComboBoxEx::#LastItem, ListEx()\ComboBox\Column()\Items())
+            Next
+          Else
+            ForEach ListEx()\ComboBox\Column()\Items()
+              AddGadgetItem(ListEx()\ComboNum, -1, ListEx()\ComboBox\Column()\Items())
+            Next
+          EndIf
           
         EndIf
         
@@ -3766,8 +3786,15 @@ Module ListEx
             If ListEx()\Editable
               
               ResizeGadget(ListEx()\ComboNum, X, Y + 1, ListEx()\Cols()\Width - 1,  ListEx()\Rows()\Height)
+              
               LoadComboItems_(Column)
-              SetGadgetText(ListEx()\ComboNum, ListEx()\Rows()\Column(Key$)\Value)
+              
+              If Defined(ComboBoxEx, #PB_Module)
+                ComboBoxEx::SetText(ListEx()\ComboNum, ListEx()\Rows()\Column(Key$)\Value)
+              Else 
+                SetGadgetText(ListEx()\ComboNum, ListEx()\Rows()\Column(Key$)\Value)
+              EndIf
+              
               ListEx()\ComboBox\Row     = Row
               ListEx()\ComboBox\Col     = Column
               ListEx()\ComboBox\X       = X
@@ -3778,7 +3805,12 @@ Module ListEx
               ListEx()\ComboBox\Flag    = #True
               
               BindShortcuts_(#True)
-              HideGadget(ListEx()\ComboNum, #False)
+              
+              If Defined(ComboBoxEx, #PB_Module)
+                ComboBoxEx::Hide(ListEx()\ComboNum, #False)
+              Else  
+                HideGadget(ListEx()\ComboNum, #False)
+              EndIf   
               
               SetActiveGadget(ListEx()\ComboNum)
               
@@ -3858,9 +3890,21 @@ Module ListEx
         Y = ListEx()\ComboBox\Y - ListEx()\Row\OffSetY
         ResizeGadget(ListEx()\ComboNum, X, Y + 1, #PB_Ignore, #PB_Ignore)
         If X + ListEx()\ComboBox\Width > GadgetWidth(ListEx()\CanvasNum) Or Y + ListEx()\ComboBox\Height > GadgetHeight(ListEx()\CanvasNum) Or Y < ListEx()\Header\Height
-          HideGadget(ListEx()\ComboNum, #True) 
-        Else  
-          HideGadget(ListEx()\ComboNum, #False)
+          
+          If Defined(ComboBoxEx, #PB_Module)
+            ComboBoxEx::Hide(ListEx()\ComboNum, #True)
+          Else  
+            HideGadget(ListEx()\ComboNum, #True)
+          EndIf  
+          
+        Else 
+          
+          If Defined(ComboBoxEx, #PB_Module)
+            ComboBoxEx::Hide(ListEx()\ComboNum, #False)
+          Else  
+            HideGadget(ListEx()\ComboNum, #False)
+          EndIf  
+          
         EndIf
       EndIf
     EndIf
@@ -4014,6 +4058,7 @@ Module ListEx
         ListEx()\Cursor\State ! #True
       
         If StartDrawing(CanvasOutput(ListEx()\CanvasNum))
+          
           DrawingMode(#PB_2DDrawing_Default)
           If ListEx()\Cursor\State
             Line(ListEx()\Cursor\X, ListEx()\Cursor\Y, 1, ListEx()\Cursor\Height, $000000)
@@ -5579,6 +5624,8 @@ Module ListEx
   EndProcedure
   
   Procedure  CloseComboBox_(Escape.i=#False)
+    Define.i State
+    Define.s Text$
     
     If IsGadget(ListEx()\ComboNum)
       
@@ -5587,18 +5634,37 @@ Module ListEx
       If Escape
         UpdateEventData_(#EventType_ComboBox, #NotValid, #NotValid, "", #NotValid, "")
       Else
+        
         If SelectElement(ListEx()\Rows(), ListEx()\ComboBox\Row)
-          ListEx()\Rows()\Column(ListEx()\ComboBox\Label)\Value = GetGadgetText(ListEx()\ComboNum)
+          
+          If Defined(ComboBoxEx, #PB_Module)
+            State = ComboBoxEx::GetState(ListEx()\ComboNum)
+            Text$ = ComboBoxEx::GetText(ListEx()\ComboNum)
+          Else  
+            State = GetGadgetState(ListEx()\ComboNum)
+            Text$ = GetGadgetText(ListEx()\ComboNum)
+          EndIf   
+          ListEx()\Rows()\Column(ListEx()\ComboBox\Label)\Value = Text$
+          
           ListEx()\Changed = #True
-          UpdateEventData_(#EventType_ComboBox,ListEx()\ComboBox\Row, ListEx()\ComboBox\Col, GetGadgetText(ListEx()\ComboNum), GetGadgetState(ListEx()\ComboNum), ListEx()\Rows()\ID)
+          
+          UpdateEventData_(#EventType_ComboBox,ListEx()\ComboBox\Row, ListEx()\ComboBox\Col, Text$, State, ListEx()\Rows()\ID)
           If IsWindow(ListEx()\Window\Num)
             PostEvent(#PB_Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_ComboBox)
             PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_ComboBox)
           EndIf
+          
         EndIf
+        
       EndIf
       
-      HideGadget(ListEx()\ComboNum, #True)
+      If Defined(ComboBoxEx, #PB_Module)
+        ComboBoxEx::Hide(ListEx()\ComboNum, #True)
+      Else  
+        HideGadget(ListEx()\ComboNum, #True)
+      EndIf  
+      
+      
       BindShortcuts_(#False)
       
       ListEx()\ComboBox\Label = ""
@@ -6308,10 +6374,22 @@ Module ListEx
         ;}        
 
         ;{ Gadgets
-        ListEx()\ComboNum = ComboBoxGadget(#PB_Any, 0, 0, 0, 0, #PB_ComboBox_Editable)
+        If Defined(ComboBoxEx, #PB_Module)
+          ListEx()\ComboNum = ComboBoxEx::Gadget(#PB_Any, 0, 0, 0, 0, 80, "", #False, ListEx()\Window\Num)
+        Else  
+          ListEx()\ComboNum = ComboBoxGadget(#PB_Any, 0, 0, 0, 0, #PB_ComboBox_Editable)
+        EndIf
+        
         If IsGadget(ListEx()\ComboNum)
-          SetGadgetData(ListEx()\ComboNum, ListEx()\CanvasNum)
-          HideGadget(ListEx()\ComboNum, #True)
+          
+          If Defined(ComboBoxEx, #PB_Module)
+            ComboBoxEx::SetData(ListEx()\ComboNum, ListEx()\CanvasNum)
+            ComboBoxEx::Hide(ListEx()\ComboNum, #True)
+          Else  
+            SetGadgetData(ListEx()\ComboNum, ListEx()\CanvasNum)
+            HideGadget(ListEx()\ComboNum, #True)
+          EndIf 
+          
         EndIf
         
         ListEx()\DateNum = DateGadget(#PB_Any, 0, 0, 0, 0, ListEx()\Country\DateMask)
@@ -7024,6 +7102,12 @@ Module ListEx
   EndProcedure
   
   Procedure   SetColor(GNum.i, ColorTyp.i, Value.i, Column.i=#PB_Ignore)         ; GNum: #Theme => change all gadgets
+    ; #FrontColor | #BackColor | #LineColor | #FocusColor | #AlternateRowColor | #EditColor
+    ; #HeaderFrontColor | #HeaderBackColor | #HeaderLineColor
+    ; #ButtonColor | ButtonBorderColor
+    ; #ComboFrontColor | #ComboBackColor
+    ; #LinkColor | #ActiveLinkColor 
+    ; #ProgressBarColor | #GradientColor
     
     If GNum = #Theme 
       
@@ -8182,10 +8266,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 152
-; FirstLine = 12
-; Folding = 5RQAAAACIIAEICkQ-AAARQBEJ9ImACAJKQAA6HgBBMAEAAgAYCcAEgHAAAAAADAAAAn9-
-; Markers = 3453,6025
+; CursorPosition = 15
+; FirstLine = 3
+; Folding = wBQAAAAAIIAEICkAmAAARCBEJ1AmACAJKgAA5HAABIAEAAAAYCcAAEGAAAAAAAAAAAm9-
+; Markers = 3463,6091
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
