@@ -11,6 +11,7 @@
  
 ; Last Update: 24.02.2020
 ;
+; Bugfixes
 ; Changed: SetState() - Set the focus on an (editable) cell when the 'Column' parameter is used.
 ;
 ; Use ComboBoxEx if available
@@ -152,7 +153,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20022400
+  #Version  = 20022401
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -1093,16 +1094,16 @@ Module ListEx
  
   Procedure.i GetRow_(Y.f)
     
-    Y = DesktopUnscaledY(Y + ListEx()\Row\OffSetY)
-    
-    If Y > ListEx()\Size\Y And Y < ListEx()\Size\Rows + ListEx()\Header\Height
+    Y = Y + dpiY(ListEx()\Row\OffSetY)
+ 
+    If Y > dpiY(ListEx()\Size\Y) And Y < dpiY(ListEx()\Size\Rows + ListEx()\Header\Height)
       
-      If Y < ListEx()\Header\Height
+      If Y < dpiY(ListEx()\Header\Height)
         ProcedureReturn #Header 
       Else
 
         ForEach ListEx()\Rows()
-          If Y >= ListEx()\Rows()\Y And Y <= ListEx()\Rows()\Y + ListEx()\Row\Height
+          If Y >= dpiY(ListEx()\Rows()\Y) And Y <= dpiY(ListEx()\Rows()\Y + ListEx()\Row\Height)
             ProcedureReturn ListIndex(ListEx()\Rows())
           EndIf
         Next
@@ -8100,7 +8101,9 @@ CompilerIf #PB_Compiler_IsMainFile
         ListEx::AddItem(#List, ListEx::#LastItem, "Ava"      + #LF$ + "Evans"    + #LF$ + #LF$ + #LF$ + "Push")
         ListEx::AddItem(#List, ListEx::#LastItem, "Thomas"   + #LF$ + "Roberts"  + #LF$ + #LF$ + #LF$ + "Push")
         ListEx::AddItem(#List, ListEx::#LastItem, "Harriet"  + #LF$ + "Smith"    + #LF$ + #LF$ + #LF$ + "Push")
-        
+        For I=11 To 100
+           ListEx::AddItem(#List, ListEx::#LastItem, "Harriet"  + #LF$ + Str(i))
+        Next
         ; --- Set focus to row 9 ---
         ; ListEx::SetState(#List, 9)
         
@@ -8175,7 +8178,7 @@ CompilerIf #PB_Compiler_IsMainFile
 
       ListEx::DisableReDraw(#List, #False) 
       
-      ListEx::SetState(#List, 4, 2)
+      ;ListEx::SetState(#List, 4, 2)
       
       ;ListEx::SetFont(#List, FontID(#Font_Arial9B), #False, 6)
       ;ListEx::SetColumnAttribute(#List, 5, ListEx::#Font, #Font_Arial9B)
@@ -8275,10 +8278,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 154
-; FirstLine = 12
-; Folding = wTQAAAAAIIAEICkAmAABROEQkQDYCIAko1xMAgfAAEgCQAAMAAmAHAAHGAAAAAAAAAAIn9-
-; Markers = 3466,6094
+; CursorPosition = 13
+; Folding = wTQAAAAAIICEJCkAmAABROEQkQj5DIAks1zOAgfAGEgiQAAMAAmBHgAnGAAAAAAAAAAIn9-
+; Markers = 1095,3467,6095
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
