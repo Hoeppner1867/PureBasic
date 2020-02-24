@@ -9,7 +9,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 23.02.2020
+; Last Update: 24.02.2020
+;
+; Changed: SetState() - Set the focus on an (editable) cell when the 'Column' parameter is used.
 ;
 ; Use ComboBoxEx if available
 ; #ComboFrontColor and #ComboBackColor for SetColor()
@@ -150,7 +152,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20022300
+  #Version  = 20022400
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -227,11 +229,12 @@ DeclareModule ListEx
     #ComboBackColor
   EndEnumeration ;}
   
-  EnumerationBinary ;{ Row status 
+  EnumerationBinary ;{ State 
     #Selected   = #PB_ListIcon_Selected
     #Checked    = #PB_ListIcon_Checked
     #Inbetween  = #PB_ListIcon_Inbetween
     #HeaderRow
+    #Edit
     #NoButtons
     #NoCheckBoxes
   EndEnumeration ;}
@@ -450,7 +453,7 @@ DeclareModule ListEx
   Declare   SetItemState(GNum.i, Row.i, State.i, Column.i=#PB_Ignore)
   Declare   SetItemText(GNum.i, Row.i, Text.s , Column.i)
   Declare   SetRowsHeight(GNum.i, Height.f)
-  Declare   SetState(GNum.i, Row.i=#PB_Default)
+  Declare   SetState(GNum.i, Row.i=#PB_Default, Column.i=#PB_Ignore)
   Declare   SetTimeMask(GNum.i, Mask.s, Column.i=#PB_Ignore)
   Declare   Sort(GNum.i, Column.i, Direction.i, Flags.i)
   
@@ -2238,13 +2241,13 @@ Module ListEx
       Case #AlternateRowColor
         ListEx()\Color\AlternateRow = Value
       Case #ComboFrontColor
-        If Defined(ComboBoxEx, #PB_Module)  
+        CompilerIf Defined(ComboBoxEx, #PB_Module)  
           ComboBoxEx::SetColor(ListEx()\ComboNum, ComboBoxEx::#FrontColor, Value)
-        EndIf
+        CompilerEndIf
       Case #ComboBackColor
-        If Defined(ComboBoxEx, #PB_Module)  
+        CompilerIf Defined(ComboBoxEx, #PB_Module)  
           ComboBoxEx::SetColor(ListEx()\ComboNum, ComboBoxEx::#BackColor, Value)
-        EndIf
+        CompilerEndIf
     EndSelect
 
   EndProcedure
@@ -3701,25 +3704,25 @@ Module ListEx
     
     If IsGadget(ListEx()\ComboNum)
       
-      If Defined(ComboBoxEx, #PB_Module)
+      CompilerIf Defined(ComboBoxEx, #PB_Module)
         ComboBoxEx::ClearItems(ListEx()\ComboNum)
-      Else  
+      CompilerElse  
         ClearGadgetItems(ListEx()\ComboNum)
-      EndIf   
+      CompilerEndIf   
       
       If SelectElement(ListEx()\Cols(), Column)
         
         If FindMapElement(ListEx()\ComboBox\Column(), ListEx()\Cols()\Key)
           
-          If Defined(ComboBoxEx, #PB_Module)
+          CompilerIf Defined(ComboBoxEx, #PB_Module)
             ForEach ListEx()\ComboBox\Column()\Items()
               ComboBoxEx::AddItem(ListEx()\ComboNum, ComboBoxEx::#LastItem, ListEx()\ComboBox\Column()\Items())
             Next
-          Else
+          CompilerElse
             ForEach ListEx()\ComboBox\Column()\Items()
               AddGadgetItem(ListEx()\ComboNum, -1, ListEx()\ComboBox\Column()\Items())
             Next
-          EndIf
+          CompilerEndIf
           
         EndIf
         
@@ -3789,11 +3792,11 @@ Module ListEx
               
               LoadComboItems_(Column)
               
-              If Defined(ComboBoxEx, #PB_Module)
+              CompilerIf Defined(ComboBoxEx, #PB_Module)
                 ComboBoxEx::SetText(ListEx()\ComboNum, ListEx()\Rows()\Column(Key$)\Value)
-              Else 
+              CompilerElse 
                 SetGadgetText(ListEx()\ComboNum, ListEx()\Rows()\Column(Key$)\Value)
-              EndIf
+              CompilerEndIf
               
               ListEx()\ComboBox\Row     = Row
               ListEx()\ComboBox\Col     = Column
@@ -3806,11 +3809,11 @@ Module ListEx
               
               BindShortcuts_(#True)
               
-              If Defined(ComboBoxEx, #PB_Module)
+              CompilerIf Defined(ComboBoxEx, #PB_Module)
                 ComboBoxEx::Hide(ListEx()\ComboNum, #False)
-              Else  
+              CompilerElse  
                 HideGadget(ListEx()\ComboNum, #False)
-              EndIf   
+              CompilerEndIf   
               
               SetActiveGadget(ListEx()\ComboNum)
               
@@ -3891,19 +3894,19 @@ Module ListEx
         ResizeGadget(ListEx()\ComboNum, X, Y + 1, #PB_Ignore, #PB_Ignore)
         If X + ListEx()\ComboBox\Width > GadgetWidth(ListEx()\CanvasNum) Or Y + ListEx()\ComboBox\Height > GadgetHeight(ListEx()\CanvasNum) Or Y < ListEx()\Header\Height
           
-          If Defined(ComboBoxEx, #PB_Module)
+          CompilerIf Defined(ComboBoxEx, #PB_Module)
             ComboBoxEx::Hide(ListEx()\ComboNum, #True)
-          Else  
+          CompilerElse  
             HideGadget(ListEx()\ComboNum, #True)
-          EndIf  
+          CompilerEndIf  
           
         Else 
           
-          If Defined(ComboBoxEx, #PB_Module)
+          CompilerIf Defined(ComboBoxEx, #PB_Module)
             ComboBoxEx::Hide(ListEx()\ComboNum, #False)
-          Else  
+          CompilerElse  
             HideGadget(ListEx()\ComboNum, #False)
-          EndIf  
+          CompilerEndIf  
           
         EndIf
       EndIf
@@ -5637,13 +5640,13 @@ Module ListEx
         
         If SelectElement(ListEx()\Rows(), ListEx()\ComboBox\Row)
           
-          If Defined(ComboBoxEx, #PB_Module)
+          CompilerIf Defined(ComboBoxEx, #PB_Module)
             State = ComboBoxEx::GetState(ListEx()\ComboNum)
             Text$ = ComboBoxEx::GetText(ListEx()\ComboNum)
-          Else  
+          CompilerElse  
             State = GetGadgetState(ListEx()\ComboNum)
             Text$ = GetGadgetText(ListEx()\ComboNum)
-          EndIf   
+          CompilerEndIf   
           ListEx()\Rows()\Column(ListEx()\ComboBox\Label)\Value = Text$
           
           ListEx()\Changed = #True
@@ -5658,11 +5661,11 @@ Module ListEx
         
       EndIf
       
-      If Defined(ComboBoxEx, #PB_Module)
+      CompilerIf Defined(ComboBoxEx, #PB_Module)
         ComboBoxEx::Hide(ListEx()\ComboNum, #True)
-      Else  
+      CompilerElse  
         HideGadget(ListEx()\ComboNum, #True)
-      EndIf  
+      CompilerEndIf  
       
       
       BindShortcuts_(#False)
@@ -6374,21 +6377,21 @@ Module ListEx
         ;}        
 
         ;{ Gadgets
-        If Defined(ComboBoxEx, #PB_Module)
+        CompilerIf Defined(ComboBoxEx, #PB_Module)
           ListEx()\ComboNum = ComboBoxEx::Gadget(#PB_Any, 0, 0, 0, 0, 80, "", #False, ListEx()\Window\Num)
-        Else  
+        CompilerElse  
           ListEx()\ComboNum = ComboBoxGadget(#PB_Any, 0, 0, 0, 0, #PB_ComboBox_Editable)
-        EndIf
+        CompilerEndIf
         
         If IsGadget(ListEx()\ComboNum)
           
-          If Defined(ComboBoxEx, #PB_Module)
+          CompilerIf Defined(ComboBoxEx, #PB_Module)
             ComboBoxEx::SetData(ListEx()\ComboNum, ListEx()\CanvasNum)
             ComboBoxEx::Hide(ListEx()\ComboNum, #True)
-          Else  
+          CompilerElse  
             SetGadgetData(ListEx()\ComboNum, ListEx()\CanvasNum)
             HideGadget(ListEx()\ComboNum, #True)
-          EndIf 
+          CompilerEndIf 
           
         EndIf
         
@@ -7354,7 +7357,7 @@ Module ListEx
     EndIf  
     
   EndProcedure
-  
+    
   Procedure   SetFont(GNum.i, FontID.i, Type.i=#False, Column.i=#PB_Ignore)      ; GNum: #Theme => change all gadgets
 
     If GNum = #Theme ;{ Theme
@@ -7888,7 +7891,7 @@ Module ListEx
     
   EndProcedure  
   
-  Procedure   SetState(GNum.i, Row.i=#PB_Default)
+  Procedure   SetState(GNum.i, Row.i=#PB_Default, Column.i=#PB_Ignore)
     
     If FindMapElement(ListEx(), Str(GNum))
       
@@ -7910,10 +7913,16 @@ Module ListEx
       Else 
 
         If SelectElement(ListEx()\Rows(), Row)
+          
           ListEx()\Focus = #True
           ListEx()\Row\Current = Row
           ListEx()\Row\Focus = ListEx()\Row\Current
           SetRowFocus_(ListEx()\Row\Focus)
+          
+          If Column <> #PB_Ignore And Column >= 0
+            ManageEditGadgets_(Row, Column)
+          EndIf 
+          
         EndIf
         
       EndIf
@@ -8166,7 +8175,7 @@ CompilerIf #PB_Compiler_IsMainFile
 
       ListEx::DisableReDraw(#List, #False) 
       
-      ;ListEx::SetState(#List, 10)
+      ListEx::SetState(#List, 4, 2)
       
       ;ListEx::SetFont(#List, FontID(#Font_Arial9B), #False, 6)
       ;ListEx::SetColumnAttribute(#List, 5, ListEx::#Font, #Font_Arial9B)
@@ -8266,10 +8275,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 15
-; FirstLine = 3
-; Folding = wBQAAAAAIIAEICkAmAAARCBEJ1AmACAJKgAA5HAABIAEAAAAYCcAAEGAAAAAAAAAAAm9-
-; Markers = 3463,6091
+; CursorPosition = 154
+; FirstLine = 12
+; Folding = wTQAAAAAIIAEICkAmAABROEQkQDYCIAko1xMAgfAAEgCQAAMAAmAHAAHGAAAAAAAAAAIn9-
+; Markers = 3466,6094
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
