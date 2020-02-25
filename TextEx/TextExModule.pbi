@@ -9,11 +9,11 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 29.12.19
+; Last Update: 25.02.20
 ;
-; Added:   AdjustSize()
-; Changed: #ResizeWidth  -> #Width
-; Changed: #ResizeHeight -> #Height
+; Added: #WordWrap
+; Added: #GadgetColor for SetColor()
+;
 
 
 ;{ ===== MIT License =====
@@ -64,7 +64,7 @@
 
 DeclareModule TextEx
   
-  #Version  = 19122900
+  #Version  = 20022501
   #ModuleEx = 19112102
   
   ;- ===========================================================================
@@ -79,6 +79,7 @@ DeclareModule TextEx
     #Gradient
     #AutoResize
     #MultiLine
+    #WordWrap
     #UseExistingCanvas
     #Border = #PB_Text_Border
   EndEnumeration ;}
@@ -99,6 +100,7 @@ DeclareModule TextEx
     #BackColor
     #GradientColor
     #BorderColor
+    #GadgetColor
   EndEnumeration ;}
   
   CompilerIf Defined(ModuleEx, #PB_Module)
@@ -142,7 +144,7 @@ Module TextEx
   Structure   TextEx_Required_Structure  ;{ TextEx()\Required\...
     Width.i
     Height.i
-  EndStructure
+  EndStructure ;}
   
   Structure TextEx_Window_Structure  ;{ TextEx()\Window\...
     Num.i
@@ -336,9 +338,9 @@ Module TextEx
   
   Procedure Draw_()
     Define.f textY, textX, OffsetX
-    Define.i TextHeight, Rows, r
+    Define.i TextHeight, Width, Rows, r, Words
     Define.i FrontColor, BackColor, BorderColor, GradientColor
-    Define.s Text
+    Define.s Text$, Row$, Word$
     
     If TextEx()\Hide : ProcedureReturn #False : EndIf
     
@@ -376,19 +378,44 @@ Module TextEx
       
       DrawingMode(#PB_2DDrawing_Transparent)
       
-      If TextEx()\Flags & #MultiLine
+      If TextEx()\Flags & #WordWrap ;{ WordWrap
+        
+        TextEx()\Required\Width = TextEx()\Size\Width
+        
+        Words = CountString(TextEx()\Text, " ") + 1
+        
+        For r = 1 To Words
+          
+          Word$ = StringField(TextEx()\Text, r, " ")
+          
+          If TextWidth(Row$ + Word$) > TextEx()\Size\Width - OffsetX
+            Text$ + Row$ + #LF$ 
+            Row$ = Word$ + " "
+          Else
+            Row$ + Word$ + " "
+          EndIf
+
+        Next
+        
+        If Row$ : Text$ + Row$ : EndIf
+        ;}
+      Else
+        Text$ = TextEx()\Text
+      EndIf
+        
+      If TextEx()\Flags & #MultiLine Or TextEx()\Flags & #WordWrap
         
         TextEx()\Required\Width = 0
         
-        Rows = CountString(TextEx()\Text, #LF$) + 1
+        Rows = CountString(Text$, #LF$) + 1
         
         textY = (TextEx()\Size\Height - (TextHeight * Rows)) / 2
         
         For r = 1 To Rows
-          Text  = StringField(TextEx()\Text, r, #LF$)
-          textX = GetOffsetX_(Text, OffsetX)
-          DrawText(textX, textY, Text, FrontColor)
-          If TextWidth(Text) > TextEx()\Required\Width : TextEx()\Required\Width = TextWidth(Text) : EndIf 
+          Row$ = StringField(Text$, r, #LF$)
+          textX = GetOffsetX_(Row$, OffsetX)
+          DrawText(textX, textY, Row$, FrontColor)
+          If TextWidth(Row$) > TextEx()\Required\Width : TextEx()\Required\Width = TextWidth(Row$) : EndIf 
           textY + TextHeight
         Next
         
@@ -396,11 +423,11 @@ Module TextEx
       Else
         
         textY = (TextEx()\Size\Height - TextHeight) / 2
-        textX = GetOffsetX_(TextEx()\Text, OffsetX) 
+        textX = GetOffsetX_(Text$, OffsetX) 
         
-        DrawText(textX, textY, TextEx()\Text, FrontColor)
+        DrawText(textX, textY, Text$, FrontColor)
         
-        TextEx()\Required\Width  = TextWidth(TextEx()\Text)
+        TextEx()\Required\Width  = TextWidth(Text$)
         TextEx()\Required\Height = TextHeight
       EndIf ;}
       
@@ -649,6 +676,8 @@ Module TextEx
           TextEx()\Color\Border   = Color
         Case #GradientColor
           TextEx()\Color\Gradient = Color
+        Case #GadgetColor
+          TextEx()\Color\Gadget   = Color
       EndSelect
       
       Draw_()
@@ -829,7 +858,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   If OpenWindow(#Window, 0, 0, 180, 60, "Example", #PB_Window_SystemMenu | #PB_Window_ScreenCentered | #PB_Window_SizeGadget)
     
-    TextEx::Gadget(#Text, 5, 5, 170, 50, "Gradient Background", TextEx::#Center|TextEx::#Border|TextEx::#Gradient|TextEx::#AutoResize|TextEx::#MultiLine, #Window)
+    TextEx::Gadget(#Text, 5, 5, 170, 50, "Gradient Background", TextEx::#Center|TextEx::#Border|TextEx::#Gradient|TextEx::#AutoResize|TextEx::#MultiLine, #Window) ; |TextEx::#WordWrap
  
     TextEx::SetColor(#Text, TextEx::#FrontColor,    $FFFFFF)
     TextEx::SetColor(#Text, TextEx::#BackColor,     $DEC4B0)
@@ -837,10 +866,9 @@ CompilerIf #PB_Compiler_IsMainFile
     
     TextEx::SetFont(#Text, FontID(#Font))
     TextEx::SetText(#Text, "Row 1" + #LF$ + "Row 2")
-    
-    TextEx::AdjustSize(#Text, TextEx::#Width|TextEx::#Height)
-    
-    
+
+    ;TextEx::AdjustSize(#Text, TextEx::#Width|TextEx::#Height)
+
     TextEx::SetAutoResizeFlags(#Text, TextEx::#MoveY|TextEx::#Width)
       
     ;ModuleEx::SetTheme(ModuleEx::#Theme_Dark)
@@ -854,7 +882,7 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 402
-; FirstLine = 151
-; Folding = EMAAUCAAg-
+; CursorPosition = 864
+; FirstLine = 210
+; Folding = EFAAFEAAA-
 ; EnableXP
