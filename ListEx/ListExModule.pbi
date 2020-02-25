@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 24.02.2020
+; Last Update: 25.02.2020
 ;
 ; Bugfixes
 ; Changed: SetState() - Set the focus on an (editable) cell when the 'Column' parameter is used.
@@ -153,7 +153,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20022401
+  #Version  = 20022500
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -216,8 +216,10 @@ DeclareModule ListEx
     #ButtonBorderColor
     #ProgressBarColor
     #GradientColor
-    #EditColor
+    #EditFrontColor
+    #EditBackColor
     #FocusColor
+    #FocusTextColor
     #FrontColor
     #GadgetBackColor
     #LineColor
@@ -228,6 +230,8 @@ DeclareModule ListEx
     #AlternateRowColor
     #ComboFrontColor
     #ComboBackColor
+    #StringFrontColor
+    #StringBackColor
   EndEnumeration ;}
   
   EnumerationBinary ;{ State 
@@ -508,6 +512,7 @@ Module ListEx
   #DefaultDateSeparator    = "."
   #DefaultDecimalSeperator = ","
   
+  #ButtonWidth     = 18
   #CursorFrequency = 600
   
   #NoFocus = -1
@@ -518,6 +523,7 @@ Module ListEx
   #Cursor_Sort    = #PB_Cursor_Hand
   #Cursor_Click   = #PB_Cursor_Hand
   #Cursor_Button  = #PB_Cursor_Default
+  #Cursor_Text    = #PB_Cursor_IBeam
   
   Enumeration ColorFlag 1
     #Focus
@@ -544,6 +550,13 @@ Module ListEx
   ;-   Module - Structures
   ;- ============================================================================  
   
+  Structure ListView_Structure
+    Window.i
+    Gadget.i
+    ScrollBar.i
+  EndStructure
+  Global ListView.ListView_Structure
+  
   ; ===== Structures =====
   
   Structure Cursor_Thread_Structure     ;{ Thread\...
@@ -559,6 +572,7 @@ Module ListEx
     Height.i
     ClipX.i
     State.i
+    Pause.i
     Frequency.i
     Thread.i
     BackColor.i
@@ -657,13 +671,17 @@ Module ListEx
     AlternateRow.i
     Front.i
     Back.i
+    ComboFront.i
+    ComboBack.i
     Line.i
     HeaderFront.i
     HeaderBack.i
     HeaderLine.i
     Canvas.i
     Focus.i
-    Edit.i
+    FocusText.i
+    EditFront.i
+    EditBack.i
     ButtonFront.i
     ButtonBack.i
     ButtonBorder.i
@@ -672,6 +690,8 @@ Module ListEx
     Link.i
     ActiveLink.i
     ScrollBar.i
+    StringFront.i
+    StringBack.i
     WrongFront.i
     WrongBack.i
     Mark1.i
@@ -720,15 +740,53 @@ Module ListEx
     Pressed.i
   EndStructure ;}
   
+  ; ----- ComboBox -----
+  
+  Structure ListView_Scroll_Structure   ;{ ListEx()\ListView\ScrollBar\...
+    Num.i
+    Pos.i
+    Hide.i
+  EndStructure ;}
+  
+  Structure ListView_Item_Structure     ;{ ListEx()\ListView\Item()\...
+    ;ID.s
+    ;Quad.q
+    Y.i
+    String.s
+    Color.i
+    Flags.i
+  EndStructure ;}
+  
+  Structure ListEx_ListView_Structure   ;{ ListEx()\ListView\...
+    Num.i
+    Window.i
+    Width.f
+    Height.f
+    Offset.i
+    RowHeight.i
+    FontID.i
+    FrontColor.i
+    Focus.i
+    State.i
+    Hide.i
+    ScrollBar.ListView_Scroll_Structure
+    Map  Index.i() 
+    List Item.ListView_Item_Structure()
+  EndStructure ;}
+  
   Structure ListEx_ComboBox_Structure   ;{ ListEx()\ComboBox\...
     Row.i
     Col.i
-    X.f
-    Y.f
-    Width.f
-    Height.f
+    X.i
+    Y.i
+    Width.i
+    Height.i
+    ButtonX.i
     Label.s
     Text.s
+    MaxChars.i
+    FontID.i
+    CursorPos.i
     State.i
     Flag.i
     Map Column.ComboBox_Item_Structure()
@@ -864,13 +922,15 @@ Module ListEx
     Quad.i
     
     CanvasNum.i
-    ComboNum.i
+    ;ComboNum.i
     DateNum.i
     PopUpID.i
     HScrollNum.i
     VScrollNum.i
     ShortCutID.i
-
+    
+    FontID.i
+    
     Editable.i
     ReDraw.i
     Hide.i
@@ -903,6 +963,7 @@ Module ListEx
     Button.ListEx_Button_Structure
     CheckBox.ListEx_CheckBox_Structure
     ComboBox.ListEx_ComboBox_Structure
+    ListView.ListEx_ListView_Structure
     ProgressBar.ListEx_ProgressBar
     Country.Country_Structure
     Date.ListEx_Date_Structure
@@ -2142,6 +2203,7 @@ Module ListEx
         ListEx()\Color\Canvas       = $FFFFFF
         ListEx()\Color\ScrollBar    = $F0F0F0
         ListEx()\Color\Focus        = $D77800
+        ListEx()\Color\FocusText    = $FFFFFF
         ListEx()\Color\HeaderFront  = $000000
         ListEx()\Color\HeaderBack   = $FAFAFA
         ListEx()\Color\HeaderLine   = $A0A0A0
@@ -2151,13 +2213,19 @@ Module ListEx
         ListEx()\Color\ButtonBorder = $A0A0A0
         ListEx()\Color\ProgressBar  = $32CD32
         ListEx()\Color\Gradient     = $00FC7C
-        ListEx()\Color\Edit         = $BE7D61
+        ListEx()\Color\EditFront    = $000000
+        ListEx()\Color\EditBack     = $FFFFFF
         ListEx()\Color\Link         = $8B0000
         ListEx()\Color\ActiveLink   = $FF0000
         ListEx()\Color\WrongFront   = $0000FF
         ListEx()\Color\WrongBack    = $FFFFFF
         ListEx()\Color\Mark1        = $008B45
         ListEx()\Color\Mark2        = $0000FF
+        ListEx()\Color\StringFront  = #PB_Default
+        ListEx()\Color\StringBack   = #PB_Default
+        ListEx()\Color\ComboFront   = #PB_Default
+        ListEx()\Color\ComboBack    = #PB_Default
+        
         
         CompilerSelect  #PB_Compiler_OS
           CompilerCase #PB_OS_Windows
@@ -2227,8 +2295,12 @@ Module ListEx
         ListEx()\Color\Line         = Value
       Case #FocusColor
         ListEx()\Color\Focus        = Value
-      Case #EditColor
-        ListEx()\Color\Edit         = Value
+      Case #FocusTextColor
+        ListEx()\Color\FocusText    = Value  
+      Case #EditFrontColor
+        ListEx()\Color\EditFront    = Value
+      Case #EditBackColor
+        ListEx()\Color\EditBack     = Value  
       Case #LinkColor
         ListEx()\Color\Link         = Value
       Case #HeaderFrontColor
@@ -2242,13 +2314,13 @@ Module ListEx
       Case #AlternateRowColor
         ListEx()\Color\AlternateRow = Value
       Case #ComboFrontColor
-        CompilerIf Defined(ComboBoxEx, #PB_Module)  
-          ComboBoxEx::SetColor(ListEx()\ComboNum, ComboBoxEx::#FrontColor, Value)
-        CompilerEndIf
+        ListEx()\Color\ComboFront   = Value
       Case #ComboBackColor
-        CompilerIf Defined(ComboBoxEx, #PB_Module)  
-          ComboBoxEx::SetColor(ListEx()\ComboNum, ComboBoxEx::#BackColor, Value)
-        CompilerEndIf
+        ListEx()\Color\ComboBack    = Value
+      Case #StringFrontColor
+        ListEx()\Color\StringFront  = Value
+      Case #StringBackColor
+        ListEx()\Color\StringBack   = Value
     EndSelect
 
   EndProcedure
@@ -2467,7 +2539,7 @@ Module ListEx
   EndProcedure
   
   
-  Procedure.i Arrow_(X.i, Y.i, Width.i, Height.i, Direction.i, Color.i=#PB_Default)
+  Procedure.i HeaderArrow_(X.i, Y.i, Width.i, Height.i, Direction.i, Color.i=#PB_Default)
     Define.i aX, aY, aWidth, aHeight
     
     If Color = #PB_Default : Color = BlendColor_($000000, ListEx()\Color\HeaderBack) : EndIf
@@ -2501,7 +2573,76 @@ Module ListEx
     EndIf
     
   EndProcedure
+  
+  Procedure   ComboArrow_(X.i, Y.i, Width.i, Height.i, Color.i)
+	  Define.i aWidth, aHeight, aColor
 
+	  If StartVectorDrawing(CanvasVectorOutput(ListEx()\CanvasNum))
+
+      aColor  = RGBA(Red(Color), Green(Color), Blue(Color), 255)
+      
+	    aWidth  = dpiX(8)
+      aHeight = dpiX(4)
+      
+      X + ((Width  - aWidth) / 2)
+      Y + ((Height - aHeight) / 2)
+      
+      MovePathCursor(X, Y)
+	    
+      AddPathLine(X + dpiX(4), Y + aHeight)
+      AddPathLine(X + aWidth, Y)
+      VectorSourceColor(aColor)
+      StrokePath(1, #PB_Path_RoundCorner)
+
+	    StopVectorDrawing()
+	  EndIf
+	  
+	EndProcedure
+  
+  Procedure   ComboButton_(ColorFlag.i=#False)
+    Define.i BackColor, BorderColor
+    Define.i X, Y, Width, Height
+    
+    If StartDrawing(CanvasOutput(ListEx()\CanvasNum))
+      
+      X      = ListEx()\ComboBox\ButtonX - ListEx()\Col\OffsetX
+      Y      = ListEx()\ComboBox\Y - ListEx()\Row\OffSetY
+      Width  = dpiX(#ButtonWidth)
+      Height = ListEx()\ComboBox\Height
+      
+      If ListEx()\Color\ComboBack = #PB_Default
+        BackColor = ListEx()\Color\EditBack
+      Else  
+        BackColor = ListEx()\Color\ComboBack
+      EndIf 
+      
+      If ColorFlag = #Click
+        BackColor   = BlendColor_(ListEx()\Color\Focus, BackColor, 20)
+        BorderColor = ListEx()\Color\Focus
+      ElseIf ColorFlag = #Focus
+        BackColor   = BlendColor_(ListEx()\Color\Focus, BackColor, 10)
+        BorderColor = ListEx()\Color\Focus
+      Else  
+        BorderColor = ListEx()\Color\ButtonBorder
+      EndIf
+      
+      DrawingMode(#PB_2DDrawing_Default)
+      
+      If ColorFlag & #Click Or ColorFlag & #Focus
+        Box(X, Y, Width, Height, BackColor)
+        DrawingMode(#PB_2DDrawing_Outlined)
+        Box(X, Y, Width, Height, BorderColor)
+      Else
+        Box(X, Y + dpiY(1), Width - dpiX(1), Height - dpiY(2), BackColor)
+      EndIf
+      
+      StopDrawing()
+    EndIf
+    
+    ComboArrow_(X, Y, Width, Height, ListEx()\Color\Front)
+    
+  EndProcedure
+  
   Procedure.i Button_(X.f, Y.f, Width.f, Height.f, Text.s, ColorFlag.i=#False, FontID.i=#PB_Default)
     Define.f textX, textY
     Define.i BackColor, BorderColor
@@ -2583,6 +2724,66 @@ Module ListEx
     
   EndProcedure
   
+  Procedure.i String_(X.i, Y.i, Width.i, Height.i, Text.s, CursorPos.i, TextColor.i, BackColor.i, BorderColor.i, FontID.i)
+    Define.i p, PosX, PosY, txtHeight, CursorX, maxPosX
+    Define.i TextColor, BackColor, BorderColor
+
+    DrawingFont(FontID)
+
+    ;{ _____ Background _____
+    DrawingMode(#PB_2DDrawing_Default)
+    Box(X, Y, Width, Height, BackColor)
+    ;}
+
+    txtHeight = TextHeight("X")
+   
+    PosX    = X + dpiX(3)
+    PosY    = Y + ((Height - txtHeight) / 2) 
+    maxPosX = X + Width - dpiX(1)
+   
+    CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+      ClipOutput(X, Y, Width, Height) 
+    CompilerEndIf
+   
+    If Text
+      
+      CursorX = PosX + TextWidth(Left(Text, CursorPos)) - 1
+      
+      If CursorX > maxPosX
+        
+        Text = Left(Text, CursorPos)
+        
+        For p = Len(Text) To 0 Step -1
+          If PosX + TextWidth(Right(Text, p)) <= maxPosX
+            Text = Right(Text, p)
+            CursorX = PosX + TextWidth(Text) - 1
+            Break  
+          EndIf 
+        Next
+
+      EndIf
+      
+      DrawingMode(#PB_2DDrawing_Transparent)
+      DrawText(PosX, PosY, Text, TextColor)
+      
+    Else
+      CursorX = PosX
+    EndIf  
+
+    Line(CursorX, PosY, 1, txtHeight, $000000)
+   
+    CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+      UnclipOutput()
+    CompilerEndIf
+   
+    ;{ _____ Border _____
+    DrawingMode(#PB_2DDrawing_Outlined)
+    Box(X, Y, Width, Height, BorderColor)
+    ;}
+
+    ProcedureReturn CursorX
+  EndProcedure  
+  
   CompilerIf #Enable_ProgressBar
     
     Procedure   DrawProgressBar_(X.f, Y.f, Width.f, Height.f, State.i, Text.s, TextColor.i, Align.i, FontID.i)
@@ -2646,6 +2847,172 @@ Module ListEx
     EndProcedure
     
   CompilerEndIf
+  
+  Procedure   DrawListView_()
+    Define.i X, Y, Width, Height, OffsetX, OffsetY, TextHeight, RowHeight, maxHeight, PageRows, scrollX
+    Define.i FrontColor, BackColor, BorderColor, FocusBack
+    Define.f Factor
+    
+    If ListEx()\ListView\Hide : ProcedureReturn #False : EndIf 
+    
+    ;{ --- Color --- 
+    If ListEx()\Color\ComboBack = #PB_Default
+      BackColor = ListEx()\Color\EditBack
+    Else  
+      BackColor = ListEx()\Color\ComboBack
+    EndIf 
+    FrontColor  = ListEx()\Color\EditFront
+    BorderColor = ListEx()\Color\ButtonBorder
+    FocusBack   = BlendColor_(ListEx()\Color\Focus, BackColor, 10)
+    ;}
+    
+    If StartDrawing(CanvasOutput(ListEx()\ListView\Num))
+      
+      Width  = dpiX(GadgetWidth(ListEx()\ListView\Num))
+      Height = dpiY(GadgetHeight(ListEx()\ListView\Num))
+      
+      ;{ _____ Background _____
+      DrawingMode(#PB_2DDrawing_Default)
+      Box(0, 0, Width, Height, BackColor)
+      ;}
+      
+      X = 0
+      Y = dpiY(2)
+      
+      DrawingFont(ListEx()\FontID)
+      
+      TextHeight = TextHeight("X")
+      RowHeight  = TextHeight + dpiY(2)
+      OffsetY    = dpiY(1) 
+      
+      ;{ _____ ScrollBar _____
+      PageRows  = Height / RowHeight
+
+      If PageRows < ListSize(ListEx()\ListView\Item())
+        
+        If ListEx()\ListView\ScrollBar\Hide = #False
+          
+          If IsGadget(ListEx()\ListView\ScrollBar\Num)
+            scrollX = Width - #ScrollBar_Width - 1
+            SetGadgetAttribute(ListEx()\ListView\ScrollBar\Num, #PB_ScrollBar_PageLength, PageRows)
+            SetGadgetAttribute(ListEx()\ListView\ScrollBar\Num, #PB_ScrollBar_Minimum, 1)
+            SetGadgetAttribute(ListEx()\ListView\ScrollBar\Num, #PB_ScrollBar_Maximum, ListSize(ListEx()\ListView\Item()))
+            ResizeGadget(ListEx()\ListView\ScrollBar\Num, scrollX, 1, #PB_Ignore, GadgetHeight(ListEx()\ListView\Num) - 2)
+            HideGadget(ListEx()\ListView\ScrollBar\Num, #False)
+            ListEx()\ListView\ScrollBar\Hide = #False
+          EndIf
+          
+        EndIf  
+        
+      EndIf ;}
+      
+      ;{ _____ Rows _____
+      CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+        ClipOutput(0, 0, Width, Height) 
+      CompilerEndIf
+
+      ForEach ListEx()\ListView\Item()
+        
+        OffSetX = dpiX(5)
+        
+        If ListIndex(ListEx()\ListView\Item()) < ListEx()\ListView\Offset - 1
+          ListEx()\ListView\Item()\Y = 0
+          Continue
+        EndIf  
+        
+        If ListEx()\ListView\Item()\Color <> #PB_Default
+          FrontColor = ListEx()\ListView\Item()\Color
+        Else
+          FrontColor = ListEx()\Color\Front
+        EndIf        
+
+        DrawingMode(#PB_2DDrawing_Transparent)
+
+        If ListEx()\ListView\Focus = ListIndex(ListEx()\ListView\Item())
+          Box(X + dpiX(3), Y, Width - dpiX(6), RowHeight, BlendColor_(ListEx()\Color\Focus, BackColor, 10))
+        EndIf
+        DrawText(X  + OffsetX, Y + OffsetY, ListEx()\ListView\Item()\String, FrontColor)
+
+        ListEx()\ListView\Item()\Y = Y
+
+        Y + RowHeight
+
+        If Y > Y + Height : Break : EndIf
+      Next
+      
+      ListEx()\ListView\RowHeight = RowHeight
+      
+      CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+        UnclipOutput() 
+      CompilerEndIf
+      ;}
+
+      ;{ _____ Border _____
+      DrawingMode(#PB_2DDrawing_Outlined)
+      Box(0, 0, Width, Height, BorderColor)
+      ;}
+      
+      StopDrawing()
+    EndIf
+    
+  EndProcedure
+  
+  Procedure   DrawComboBox_()
+    Define.i X, Y, Width, Height, txtHeight
+    Define.i TextColor, BackColor, BorderColor
+    
+    If ListEx()\ComboBox\X < 0 Or ListEx()\ComboBox\Y < 0 : ProcedureReturn #False : EndIf 
+    
+    X      = dpiX(ListEx()\ComboBox\X)
+    Y      = dpiY(ListEx()\ComboBox\Y)
+    Width  = dpiX(ListEx()\ComboBox\Width)
+    Height = dpiY(ListEx()\ComboBox\Height)
+
+    If Y < dpiY(ListEx()\Header\Height) : ProcedureReturn #False : EndIf 
+    
+    ;{ --- Color ---
+    If ListEx()\Color\ComboFront = #PB_Default
+      TextColor = ListEx()\Color\EditFront
+    Else  
+      TextColor = ListEx()\Color\ComboFront
+    EndIf   
+    
+    If SelectElement(ListEx()\Cols(), ListEx()\String\Col)
+      If ListEx()\Cols()\FrontColor <> #PB_Default
+        TextColor = ListEx()\Cols()\FrontColor
+      EndIf
+    EndIf   
+    
+    If ListEx()\Color\ComboBack = #PB_Default
+      BackColor = ListEx()\Color\EditBack
+    Else  
+      BackColor = ListEx()\Color\ComboBack
+    EndIf  
+
+    BorderColor = ListEx()\Color\Focus
+    ;}
+    
+    If StartDrawing(CanvasOutput(ListEx()\CanvasNum))
+      
+      DrawingFont(ListEx()\ComboBox\FontID)
+
+      txtHeight = TextHeight("X")
+
+      ListEx()\Cursor\X         = String_(X, Y, Width, Height, ListEx()\ComboBox\Text, ListEx()\ComboBox\CursorPos, TextColor, BackColor, BorderColor, ListEx()\ComboBox\FontID)
+      ListEx()\Cursor\Y         = Y + ((Height - txtHeight) / 2) 
+      ListEx()\Cursor\ClipX     = X + Width - dpiX(1)
+      ListEx()\Cursor\Height    = txtHeight
+      ListEx()\Cursor\BackColor = BackColor
+      ListEx()\Cursor\Pos       = ListEx()\ComboBox\CursorPos
+      
+      ListEx()\ComboBox\ButtonX = X + Width - dpiX(#ButtonWidth)
+      
+      StopDrawing()
+    EndIf
+    
+    ComboArrow_(ListEx()\ComboBox\ButtonX, Y, dpiX(#ButtonWidth), Height, ListEx()\Color\Front)
+    
+  EndProcedure
   
   Procedure   DrawButton_(X.f, Y.f, Width.f, Height.f, Text.s, ColorFlag.i, TextColor.i, FontID.i, *Image.Image_Structure)
     Define.f colX, rowY, imgX, imgY
@@ -2772,22 +3139,44 @@ Module ListEx
   EndProcedure
   
   Procedure   DrawString_()
-    Define.i p, PosX, PosY, txtHeight, CursorX, maxPosX
+    Define.i X, Y, Width, Height, txtHeight
     Define.i TextColor, BackColor, BorderColor
-    Define.s Text
+    
+    If ListEx()\String\X < 0 Or ListEx()\String\Y < 0 : ProcedureReturn #False : EndIf 
+    
+    X      = dpiX(ListEx()\String\X)
+    Y      = dpiY(ListEx()\String\Y)
+    Width  = dpiX(ListEx()\String\Width)
+    Height = dpiY(ListEx()\String\Height)
+    
+    If Y < 0 Or Y < dpiY(ListEx()\Header\Height) : ProcedureReturn #False : EndIf
     
     ;{ --- Color ---
     If IsContentValid_(ListEx()\String\Text) = #False
+      
       TextColor = ListEx()\Color\WrongFront
       BackColor = ListEx()\Color\WrongBack
-    Else  
-      TextColor = ListEx()\Color\Front
+      
+    Else
+      
+      If ListEx()\Color\StringFront = #PB_Default
+        TextColor = ListEx()\Color\EditFront
+      Else  
+        TextColor = ListEx()\Color\StringFront
+      EndIf       
+      
       If SelectElement(ListEx()\Cols(), ListEx()\String\Col)
         If ListEx()\Cols()\FrontColor <> #PB_Default
           TextColor = ListEx()\Cols()\FrontColor
         EndIf
-      EndIf   
-      BackColor = $FFFFFF
+      EndIf
+      
+      If ListEx()\Color\StringBack = #PB_Default
+        BackColor = ListEx()\Color\EditBack
+      Else
+        BackColor = ListEx()\Color\StringBack
+      EndIf
+    
     EndIf 
     BorderColor = ListEx()\Color\Focus
     ;}
@@ -2796,61 +3185,14 @@ Module ListEx
       
       DrawingFont(ListEx()\String\FontID)
 
-      ;{ _____ Background _____
-      DrawingMode(#PB_2DDrawing_Default)
-      Box(dpiX(ListEx()\String\X), dpiY(ListEx()\String\Y), dpiX(ListEx()\String\Width), dpiY(ListEx()\String\Height), BackColor)
-      ;}
-
-      Text      = ListEx()\String\Text
       txtHeight = TextHeight("X")
-      
-      PosX    = dpiX(ListEx()\String\X + 3)
-      PosY    = dpiY(ListEx()\String\Y) + ((dpiY(ListEx()\String\Height) - txtHeight) / 2) 
-      maxPosX = dpiX(ListEx()\String\X + ListEx()\String\Width - 1)
-      
-      CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
-        ClipOutput(dpiX(ListEx()\String\X), dpiY(ListEx()\String\Y), dpiX(ListEx()\String\Width), dpiY(ListEx()\String\Height)) 
-      CompilerEndIf
-      
-      ListEx()\Cursor\Pos       = ListEx()\String\CursorPos
-      If Text
-        ListEx()\Cursor\X = PosX + TextWidth(Left(Text, ListEx()\String\CursorPos)) - 1
-      Else
-        ListEx()\Cursor\X = PosX
-      EndIf   
-      ListEx()\Cursor\Y         = PosY
-      ListEx()\Cursor\ClipX     = maxPosX
+
+      ListEx()\Cursor\X         = String_(X, Y, Width, Height, ListEx()\String\Text, ListEx()\String\CursorPos, TextColor, BackColor, BorderColor, ListEx()\String\FontID)
+      ListEx()\Cursor\Y         = Y + ((Height - txtHeight) / 2) 
+      ListEx()\Cursor\ClipX     = X + Width - dpiX(1)
       ListEx()\Cursor\Height    = txtHeight
       ListEx()\Cursor\BackColor = BackColor
-      
-      
-      If Text And ListEx()\Cursor\X > maxPosX
-        
-        Text = Left(Text, ListEx()\String\CursorPos)
-        
-        For p = Len(Text) To 0 Step -1
-          If PosX + TextWidth(Right(Text, p)) <= maxPosX
-            Text = Right(Text, p)
-            ListEx()\Cursor\X = PosX + TextWidth(Text) - 1
-            Break  
-          EndIf 
-        Next
-        
-      EndIf
-      
-      DrawingMode(#PB_2DDrawing_Transparent)
-      DrawText(PosX, PosY, Text, TextColor)
-
-      Line(ListEx()\Cursor\X, PosY, 1, txtHeight, $000000)
-      
-      CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
-        UnclipOutput()
-      CompilerEndIf
-      
-      ;{ _____ Border _____
-      DrawingMode(#PB_2DDrawing_Outlined)
-      Box(dpiX(ListEx()\String\X), dpiY(ListEx()\String\Y), dpiX(ListEx()\String\Width), dpiY(ListEx()\String\Height), BorderColor)
-      ;}
+      ListEx()\Cursor\Pos       = ListEx()\String\CursorPos
       
       StopDrawing()
     EndIf
@@ -2926,7 +3268,7 @@ Module ListEx
           EndIf 
           
           If CurrentColumn_() = ListEx()\Sort\Column And ListEx()\Cols()\Header\Sort & #SortArrows
-            Arrow_(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Header\Height), ListEx()\Cols()\Header\Direction) 
+            HeaderArrow_(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Header\Height), ListEx()\Cols()\Header\Direction) 
           EndIf
           
           If ListEx()\Cols()\Header\Flags & #Image ;{ Image
@@ -3459,10 +3801,93 @@ Module ListEx
       StopDrawing()
     EndIf  
     
-    If ListEx()\String\Flag : DrawString_() : EndIf
+    If ListEx()\String\Flag   : DrawString_()   : EndIf
+    If ListEx()\ComboBox\Flag : DrawComboBox_() : EndIf
     
   EndProcedure
- 
+  
+  ;- __________ ComboBox _________
+  
+  Procedure   ListViewWindow_()
+    
+    ListView\Window = OpenWindow(#PB_Any, 0, 0, 0, 0, "", #PB_Window_BorderLess|#PB_Window_Invisible) 
+    If ListView\Window
+      ListView\Gadget = CanvasGadget(#PB_Any, 0, 0, 0, 0, #PB_Canvas_Container)
+      If ListView\Gadget
+        ListView\ScrollBar = ScrollBarGadget(#PB_Any, 0, 0, #ScrollBar_Width, 0, 1, 100, 0, #PB_ScrollBar_Vertical)
+        CloseGadgetList()
+      EndIf
+      StickyWindow(ListView\Window, #True)
+    EndIf  
+
+  EndProcedure
+  
+  Procedure   CalcListViewRowHeight()
+    
+    If StartDrawing(CanvasOutput(ListEx()\ListView\Num))
+      DrawingFont(ListEx()\FontID)
+      ListEx()\ListView\RowHeight = TextHeight("X") + dpiY(4)
+      StopDrawing()
+    EndIf
+    
+  EndProcedure 
+  
+  Procedure   OpenListView_()
+    Define.i X, Y, RowsHeight, Width, Height, SubItems
+    
+    ListEx()\Cursor\Pause = #True
+    
+    X      = GadgetX(ListEx()\CanvasNum, #PB_Gadget_ScreenCoordinate) + DesktopUnscaledX(ListEx()\ComboBox\X)
+    Y      = GadgetY(ListEx()\CanvasNum, #PB_Gadget_ScreenCoordinate) + DesktopUnscaledY(ListEx()\ComboBox\Y)
+    Width  = DesktopUnscaledX(ListEx()\ComboBox\Width)
+    Height = ListEx()\ListView\Height
+    
+    CalcListViewRowHeight()
+
+    RowsHeight = ListSize(ListEx()\ListView\Item()) * DesktopUnscaledY(ListEx()\ListView\RowHeight) 
+    If RowsHeight = 0 : RowsHeight = DesktopUnscaledY(ListEx()\ListView\RowHeight) : EndIf
+      
+    If RowsHeight < Height : Height = RowsHeight : EndIf
+    
+    If RowsHeight > Height : ListEx()\ListView\ScrollBar\Hide = #False : EndIf  
+    
+    SetGadgetData(ListEx()\ListView\Num, ListEx()\CanvasNum)
+    
+    If IsWindow(ListEx()\ListView\Window)
+      ResizeWindow(ListEx()\ListView\Window, X, Y + DesktopUnscaledY(ListEx()\ComboBox\Height), Width, Height)
+      ResizeGadget(ListEx()\ListView\Num, 0, 0, Width, Height)
+    EndIf
+    
+    HideWindow(ListEx()\ListView\Window, #False)
+    
+    SetActiveGadget(ListEx()\ListView\Num)
+    
+    ListEx()\ListView\Focus = #PB_Default
+    ListEx()\ListView\Hide  = #False
+    
+    ListEx()\ListView\State = #PB_Default
+    ForEach ListEx()\ListView\Item()
+      If ListEx()\ListView\Item()\String = ListEx()\ComboBox\Text
+        ListEx()\ListView\State = ListIndex(ListEx()\ListView\Item())
+        Break
+      EndIf   
+    Next
+    DrawListView_()
+    
+  EndProcedure
+  
+  Procedure   CloseListView_()
+    
+    HideWindow(ListEx()\ListView\Window, #True)
+    
+    ListEx()\ListView\Hide  = #True
+    
+    ListEx()\Cursor\Pause = #False
+    
+    Draw_()
+    
+  EndProcedure  
+  
   ;- __________ ScrollBars _________
 
   Procedure   AdjustScrollBars_(Force.i=#False)
@@ -3701,38 +4126,6 @@ Module ListEx
     
   EndProcedure    
   
-  Procedure   LoadComboItems_(Column.i)
-    
-    If IsGadget(ListEx()\ComboNum)
-      
-      CompilerIf Defined(ComboBoxEx, #PB_Module)
-        ComboBoxEx::ClearItems(ListEx()\ComboNum)
-      CompilerElse  
-        ClearGadgetItems(ListEx()\ComboNum)
-      CompilerEndIf   
-      
-      If SelectElement(ListEx()\Cols(), Column)
-        
-        If FindMapElement(ListEx()\ComboBox\Column(), ListEx()\Cols()\Key)
-          
-          CompilerIf Defined(ComboBoxEx, #PB_Module)
-            ForEach ListEx()\ComboBox\Column()\Items()
-              ComboBoxEx::AddItem(ListEx()\ComboNum, ComboBoxEx::#LastItem, ListEx()\ComboBox\Column()\Items())
-            Next
-          CompilerElse
-            ForEach ListEx()\ComboBox\Column()\Items()
-              AddGadgetItem(ListEx()\ComboNum, -1, ListEx()\ComboBox\Column()\Items())
-            Next
-          CompilerEndIf
-          
-        EndIf
-        
-      EndIf
-      
-    EndIf
-    
-  EndProcedure
-  
   Procedure.i ManageEditGadgets_(Row.i, Column.i)
     Define.f X, Y
     Define.i Date
@@ -3754,10 +4147,12 @@ Module ListEx
         
         If ListEx()\Rows()\Column(Key$)\Flags & #LockCell : ProcedureReturn #False : EndIf
         
-        If ListEx()\Cols()\Flags & #Strings Or ListEx()\Rows()\Column(Key$)\Flags & #Strings           ;{ Editable Cells
+        If ListEx()\Cols()\Flags & #Strings Or ListEx()\Rows()\Column(Key$)\Flags & #Strings           ;{ String Gadget
   
           If ListEx()\Editable
-
+            
+            ListEx()\Cursor\Pause = #False
+            
             If ListEx()\Cols()\FontID
               ListEx()\String\FontID = ListEx()\Cols()\FontID
             Else
@@ -3777,52 +4172,58 @@ Module ListEx
             
             ListEx()\String\CursorPos = Len(ListEx()\String\Text)
             
-            DrawString_()
-            
             BindTabulator_(#False)
             
+            DrawString_()
+
           EndIf
           ;}
         ElseIf ListEx()\Cols()\Flags & #ComboBoxes Or ListEx()\Rows()\Column(Key$)\Flags & #ComboBoxes ;{ ComboCoxes
-
-          If IsGadget(ListEx()\ComboNum)
+ 
+          If ListEx()\Editable
             
-            If ListEx()\Editable
+            ListEx()\Cursor\Pause = #False
+
+            If ListEx()\Cols()\FontID
+              ListEx()\ComboBox\FontID = ListEx()\Cols()\FontID
+            Else
+              ListEx()\ComboBox\FontID = ListEx()\Row\FontID
+            EndIf 
+            
+            ListEx()\ComboBox\Row     = Row
+            ListEx()\ComboBox\Col     = Column
+            ListEx()\ComboBox\X       = X
+            ListEx()\ComboBox\Y       = Y
+            ListEx()\ComboBox\Width   = ListEx()\Cols()\Width
+            ListEx()\ComboBox\Height  = ListEx()\Rows()\Height
+            ListEx()\ComboBox\Label   = ListEx()\Cols()\Key
+            ListEx()\ComboBox\Text    = ListEx()\Rows()\Column(Key$)\Value
+            ListEx()\ComboBox\Flag    = #True
+            
+            ;{ Load Items
+            ClearList(ListEx()\ListView\Item())
+            
+            If FindMapElement(ListEx()\ComboBox\Column(), ListEx()\Cols()\Key)
               
-              ResizeGadget(ListEx()\ComboNum, X, Y + 1, ListEx()\Cols()\Width - 1,  ListEx()\Rows()\Height)
-              
-              LoadComboItems_(Column)
-              
-              CompilerIf Defined(ComboBoxEx, #PB_Module)
-                ComboBoxEx::SetText(ListEx()\ComboNum, ListEx()\Rows()\Column(Key$)\Value)
-              CompilerElse 
-                SetGadgetText(ListEx()\ComboNum, ListEx()\Rows()\Column(Key$)\Value)
-              CompilerEndIf
-              
-              ListEx()\ComboBox\Row     = Row
-              ListEx()\ComboBox\Col     = Column
-              ListEx()\ComboBox\X       = X
-              ListEx()\ComboBox\Y       = Y
-              ListEx()\ComboBox\Width   = ListEx()\Cols()\Width
-              ListEx()\ComboBox\Height  = ListEx()\Rows()\Height
-              ListEx()\ComboBox\Label   = ListEx()\Cols()\Key
-              ListEx()\ComboBox\Flag    = #True
-              
-              BindShortcuts_(#True)
-              
-              CompilerIf Defined(ComboBoxEx, #PB_Module)
-                ComboBoxEx::Hide(ListEx()\ComboNum, #False)
-              CompilerElse  
-                HideGadget(ListEx()\ComboNum, #False)
-              CompilerEndIf   
-              
-              SetActiveGadget(ListEx()\ComboNum)
+              ForEach ListEx()\ComboBox\Column()\Items()
+                If AddElement(ListEx()\ListView\Item())
+                  ListEx()\ListView\Item()\String = ListEx()\ComboBox\Column()\Items()
+                  ListEx()\ListView\Item()\Color  = #PB_Default
+                EndIf  
+              Next
               
             EndIf  
-          
-          EndIf
+            ;}
+
+            ListEx()\ComboBox\CursorPos = Len(ListEx()\ComboBox\Text)
+            
+            BindTabulator_(#False)
+            
+            DrawComboBox_()
+            
+          EndIf  
           ;}
-        ElseIf ListEx()\Cols()\Flags & #DateGadget Or ListEx()\Rows()\Column(Key$)\Flags & #DateGadget           ;{ DateGadget
+        ElseIf ListEx()\Cols()\Flags & #DateGadget Or ListEx()\Rows()\Column(Key$)\Flags & #DateGadget ;{ DateGadget
 
           If IsGadget(ListEx()\DateNum)
             
@@ -3889,28 +4290,16 @@ Module ListEx
     EndIf
     
     If ListEx()\ComboBox\Flag
-      If IsGadget(ListEx()\ComboNum)
-        X = ListEx()\ComboBox\X - ListEx()\Col\OffsetX
-        Y = ListEx()\ComboBox\Y - ListEx()\Row\OffSetY
-        ResizeGadget(ListEx()\ComboNum, X, Y + 1, #PB_Ignore, #PB_Ignore)
-        If X + ListEx()\ComboBox\Width > GadgetWidth(ListEx()\CanvasNum) Or Y + ListEx()\ComboBox\Height > GadgetHeight(ListEx()\CanvasNum) Or Y < ListEx()\Header\Height
-          
-          CompilerIf Defined(ComboBoxEx, #PB_Module)
-            ComboBoxEx::Hide(ListEx()\ComboNum, #True)
-          CompilerElse  
-            HideGadget(ListEx()\ComboNum, #True)
-          CompilerEndIf  
-          
-        Else 
-          
-          CompilerIf Defined(ComboBoxEx, #PB_Module)
-            ComboBoxEx::Hide(ListEx()\ComboNum, #False)
-          CompilerElse  
-            HideGadget(ListEx()\ComboNum, #False)
-          CompilerEndIf  
-          
+      
+      CloseListView_()
+      
+      If SelectElement(ListEx()\Rows(), ListEx()\ComboBox\Row)
+        If SelectElement(ListEx()\Cols(), ListEx()\ComboBox\Col)
+          ListEx()\ComboBox\X = ListEx()\Cols()\X - ListEx()\Col\OffsetX
+          ListEx()\ComboBox\Y = ListEx()\Rows()\Y - ListEx()\Row\OffSetY
         EndIf
       EndIf
+
     EndIf
     
     If ListEx()\Date\Flag
@@ -4011,6 +4400,7 @@ Module ListEx
         EndIf  
         
         ListEx()\Color\Focus        = ModuleEx::ThemeGUI\Focus\BackColor
+        ListEx()\Color\FocusText    = ModuleEx::ThemeGUI\Focus\FrontColor
         ListEx()\Color\Front        = ModuleEx::ThemeGUI\FrontColor
         ListEx()\Color\Back         = ModuleEx::ThemeGUI\BackColor
         ListEx()\Color\Line         = ModuleEx::ThemeGUI\LineColor
@@ -4024,7 +4414,9 @@ Module ListEx
         ListEx()\Color\ButtonFront  = ModuleEx::ThemeGUI\Button\FrontColor
         ListEx()\Color\ButtonBack   = ModuleEx::ThemeGUI\Button\BackColor
         ListEx()\Color\ButtonBorder = ModuleEx::ThemeGUI\Button\BorderColor
-
+        ListEx()\Color\EditFront    = ModuleEx::ThemeGUI\FrontColor
+        ListEx()\Color\EditBack     = ModuleEx::ThemeGUI\BackColor
+        
         Draw_()
       Next
       
@@ -4052,23 +4444,35 @@ Module ListEx
   
   Procedure _CursorDrawing() ; Trigger from Thread (PostEvent Change)
     Define.i WindowNum = EventWindow()
-    
+
     ForEach ListEx()
       
+      If ListEx()\Cursor\Pause And ListEx()\Cursor\State = #False : Continue : EndIf 
+     
       If ListEx()\Cursor\X >= ListEx()\Cursor\ClipX : Continue : EndIf
-      
-      If ListEx()\String\Flag
+
+      If ListEx()\String\Flag Or ListEx()\ComboBox\Flag
 
         ListEx()\Cursor\State ! #True
       
         If StartDrawing(CanvasOutput(ListEx()\CanvasNum))
           
           DrawingMode(#PB_2DDrawing_Default)
-          If ListEx()\Cursor\State
-            Line(ListEx()\Cursor\X, ListEx()\Cursor\Y, 1, ListEx()\Cursor\Height, $000000)
-          Else
+          
+          If ListEx()\Cursor\Pause
+            
             Line(ListEx()\Cursor\X, ListEx()\Cursor\Y, 1, ListEx()\Cursor\Height, ListEx()\Cursor\BackColor)
+            
+          Else
+            
+            If ListEx()\Cursor\State
+              Line(ListEx()\Cursor\X, ListEx()\Cursor\Y, 1, ListEx()\Cursor\Height, $000000)
+            Else
+              Line(ListEx()\Cursor\X, ListEx()\Cursor\Y, 1, ListEx()\Cursor\Height, ListEx()\Cursor\BackColor)
+            EndIf
+            
           EndIf
+          
           StopDrawing()
         EndIf
 
@@ -4077,6 +4481,73 @@ Module ListEx
     Next
     
   EndProcedure  
+  
+  Procedure _ListViewHandler()
+    Define.i GNum, X, Y
+    Define.i ComboExNum = EventGadget()
+    
+    GNum = GetGadgetData(ComboExNum)
+    If FindMapElement(ListEx(), Str(GNum))
+
+      If ComboExNum = ListEx()\ListView\Num 
+        
+        X = GetGadgetAttribute(ComboExNum, #PB_Canvas_MouseX)
+        Y = GetGadgetAttribute(ComboExNum, #PB_Canvas_MouseY)
+
+        Select EventType()
+          Case #PB_EventType_LeftButtonDown ;{ Left Button Down
+            
+            ForEach ListEx()\ListView\Item()
+
+              If Y >= ListEx()\ListView\Item()\Y And Y <= ListEx()\ListView\Item()\Y + ListEx()\ListView\RowHeight
+                ListEx()\ListView\State = ListIndex(ListEx()\ListView\Item())
+                DrawListView_()
+                ProcedureReturn #True
+              EndIf
+              
+            Next 
+            ;}
+          Case #PB_EventType_LeftButtonUp   ;{ Left Button Up
+            
+            ForEach ListEx()\ListView\Item()
+              If Y >= ListEx()\ListView\Item()\Y And Y <= ListEx()\ListView\Item()\Y + ListEx()\ListView\RowHeight
+                If ListEx()\ListView\State <> ListIndex(ListEx()\ListView\Item())
+                  ListEx()\ListView\State = #PB_Default
+                  ProcedureReturn  #False
+                EndIf
+                ListEx()\ComboBox\Text      = ListEx()\ListView\Item()\String
+                ListEx()\ComboBox\CursorPos = Len(ListEx()\ComboBox\Text)
+                ListEx()\ListView\State = ListIndex(ListEx()\ListView\Item())
+                DrawListView_()
+                CloseListView_()
+                PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_Change, ListEx()\ListView\State)
+                PostEvent(#PB_Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_Change, ListEx()\ListView\State)
+                ProcedureReturn #True
+              EndIf
+            Next 
+            ;}
+          Case #PB_EventType_MouseMove      ;{ Mouse Move
+
+            ForEach ListEx()\ListView\Item()
+              If Y >= ListEx()\ListView\Item()\Y And Y <= ListEx()\ListView\Item()\Y + ListEx()\ListView\RowHeight
+                ListEx()\ListView\Focus = ListIndex(ListEx()\ListView\Item())
+                DrawListView_()
+                ProcedureReturn #True
+              EndIf
+            Next 
+            ;}
+          Case #PB_EventType_MouseLeave     ;{ Mouse Leave
+            ListEx()\ListView\Focus = #PB_Default
+            DrawListView_()
+            ProcedureReturn #True
+            ;}
+        EndSelect 
+        
+      EndIf
+   
+    EndIf
+    
+  EndProcedure
   
   
   Procedure _KeyShiftTabHandler()
@@ -4090,20 +4561,6 @@ Module ListEx
       If FindMapElement(ListEx(), Str(GNum))  
 
         Select ActiveID 
-          Case ListEx()\ComboNum
-            CloseComboBox_()
-            Column = PreviousEditColumn_(ListEx()\ComboBox\Col)
-            If Column = #NotValid
-              Row = ListEx()\ComboBox\Row - 1
-              If SelectElement(ListEx()\Rows(), Row)
-                Column = PreviousEditColumn_(#PB_Default)
-                If Column <> #NotValid
-                  ManageEditGadgets_(Row, Column)
-                EndIf 
-              EndIf
-            Else
-              ManageEditGadgets_(ListEx()\ComboBox\Row, Column)
-            EndIf
           Case ListEx()\DateNum
             CloseDate_()
             Column = PreviousEditColumn_(ListEx()\Date\Col)
@@ -4137,20 +4594,6 @@ Module ListEx
       If FindMapElement(ListEx(), Str(GNum))  
         
         Select ActiveID 
-          Case ListEx()\ComboNum
-            CloseComboBox_()
-            Column = NextEditColumn_(ListEx()\ComboBox\Col)
-            If Column = #NotValid
-              Row = ListEx()\ComboBox\Row + 1
-              If SelectElement(ListEx()\Rows(), Row)
-                Column = NextEditColumn_(#PB_Default)
-                If Column <> #NotValid
-                  ManageEditGadgets_(Row, Column)
-                EndIf 
-              EndIf
-            Else
-              ManageEditGadgets_(ListEx()\ComboBox\Row, Column)
-            EndIf
           Case ListEx()\DateNum
             CloseDate_()
             Column = NextEditColumn_(ListEx()\Date\Col)
@@ -4165,6 +4608,8 @@ Module ListEx
             Else
               ManageEditGadgets_(ListEx()\Date\Row, Column)
             EndIf
+          Case ListEx()\CanvasNum
+            Debug "Tabulator"
         EndSelect
         
       EndIf
@@ -4183,10 +4628,6 @@ Module ListEx
       If FindMapElement(ListEx(), Str(GNum))  
         
         Select ActiveID 
-          Case ListEx()\ComboNum
-            
-            CloseComboBox_()
-            
           Case ListEx()\DateNum
             
             CloseDate_()
@@ -4208,11 +4649,7 @@ Module ListEx
       GNum = GetGadgetData(ActiveID)
       If FindMapElement(ListEx(), Str(GNum))  
  
-        Select ActiveID 
-          Case ListEx()\ComboNum
-            
-            CloseComboBox_(#True)
-            
+        Select ActiveID  
           Case ListEx()\DateNum
             
             CloseDate_(#True)
@@ -4240,6 +4677,10 @@ Module ListEx
             If ListEx()\String\CursorPos > 0
               ListEx()\String\CursorPos - 1
             EndIf
+          ElseIf ListEx()\ComboBox\Flag
+            If ListEx()\ComboBox\CursorPos > 0
+              ListEx()\ComboBox\CursorPos - 1
+            EndIf  
           Else  
             ListEx()\Col\OffsetX - 20
             SetHScrollPosition_()
@@ -4250,13 +4691,17 @@ Module ListEx
             If ListEx()\String\CursorPos < Len(ListEx()\String\Text)
               ListEx()\String\CursorPos + 1
             EndIf
+          ElseIf ListEx()\ComboBox\Flag 
+            If ListEx()\ComboBox\CursorPos < Len(ListEx()\ComboBox\Text)
+              ListEx()\ComboBox\CursorPos + 1
+            EndIf  
           Else 
             ListEx()\Col\OffsetX + 20
             SetHScrollPosition_()
           EndIf  
           ;}
         Case #PB_Shortcut_Up       ;{ Up
-          If ListEx()\String\Flag = #False
+          If ListEx()\String\Flag = #False And ListEx()\ComboBox\Flag = #False
             If ListEx()\Focus = #True 
               If PreviousElement(ListEx()\Rows())
                 ListEx()\Row\Current = ListIndex(ListEx()\Rows())
@@ -4269,7 +4714,7 @@ Module ListEx
           EndIf
           ;}
         Case #PB_Shortcut_Down     ;{ Down
-          If ListEx()\String\Flag = #False
+          If ListEx()\String\Flag = #False And ListEx()\ComboBox\Flag = #False
             If ListEx()\Focus = #True 
               If NextElement(ListEx()\Rows())
                 ListEx()\Row\Current = ListIndex(ListEx()\Rows())
@@ -4278,11 +4723,11 @@ Module ListEx
               EndIf
               ListEx()\Row\Focus = ListEx()\Row\Current
               SetRowFocus_(ListEx()\Row\Focus)
-            EndIf  
+            EndIf 
           EndIf  
           ;}
         Case #PB_Shortcut_PageUp   ;{ PageUp
-          If ListEx()\String\Flag = #False
+          If ListEx()\String\Flag = #False And ListEx()\ComboBox\Flag = #False
             PageRows = GetPageRows_()
             ListEx()\Row\Current = ListEx()\Row\Focus - PageRows
             If ListEx()\Row\Current < 0 : ListEx()\Row\Current = 0 : EndIf
@@ -4297,7 +4742,7 @@ Module ListEx
           EndIf  
           ;}
         Case #PB_Shortcut_PageDown ;{ PageDown
-          If ListEx()\String\Flag = #False
+          If ListEx()\String\Flag = #False And ListEx()\ComboBox\Flag = #False
             PageRows = GetPageRows_()
             ListEx()\Row\Current = ListEx()\Row\Focus + PageRows
             If ListEx()\Row\Current >= ListSize(ListEx()\Rows()) : ListEx()\Row\Current = ListSize(ListEx()\Rows()) - 1 : EndIf 
@@ -4314,6 +4759,8 @@ Module ListEx
         Case #PB_Shortcut_Home     ;{ Home
           If ListEx()\String\Flag
             ListEx()\String\CursorPos = 0
+          ElseIf ListEx()\ComboBox\Flag
+            ListEx()\ComboBox\CursorPos = 0
           Else
             If Modifier & #PB_Canvas_Control
               If FirstElement(ListEx()\Rows())
@@ -4327,6 +4774,8 @@ Module ListEx
         Case #PB_Shortcut_End      ;{ End
           If ListEx()\String\Flag
             ListEx()\String\CursorPos = Len(ListEx()\String\Text)
+          ElseIf ListEx()\ComboBox\Flag
+            ListEx()\ComboBox\CursorPos = Len(ListEx()\ComboBox\Text)
           Else          
             If Modifier & #PB_Canvas_Control
               If LastElement(ListEx()\Rows())
@@ -4343,6 +4792,11 @@ Module ListEx
               ListEx()\String\Text = DeleteStringPart_(ListEx()\String\Text, ListEx()\String\CursorPos)
               ListEx()\String\CursorPos - 1
             EndIf
+          ElseIf ListEx()\ComboBox\Flag
+            If ListEx()\ComboBox\CursorPos > 0
+              ListEx()\ComboBox\Text = DeleteStringPart_(ListEx()\ComboBox\Text, ListEx()\ComboBox\CursorPos)
+              ListEx()\ComboBox\CursorPos - 1
+            EndIf
           EndIf   
           ;}
         Case #PB_Shortcut_Delete   ;{ Delete
@@ -4350,41 +4804,51 @@ Module ListEx
             If ListEx()\String\CursorPos < Len(ListEx()\String\Text)
               ListEx()\String\Text = DeleteStringPart_(ListEx()\String\Text, ListEx()\String\CursorPos + 1)
             EndIf
+          ElseIf ListEx()\ComboBox\Flag  
+            If ListEx()\ComboBox\CursorPos < Len(ListEx()\ComboBox\Text)
+              ListEx()\ComboBox\Text = DeleteStringPart_(ListEx()\ComboBox\Text, ListEx()\ComboBox\CursorPos + 1)
+            EndIf
           EndIf   
           ;} 
         Case #PB_Shortcut_Insert   ;{ Paste (Shift-Ins)
-          If ListEx()\String\Flag
-            If Modifier & #PB_Canvas_Shift
-              Text = GetClipboardText()
+          If Modifier & #PB_Canvas_Shift
+            Text = GetClipboardText()
+            If ListEx()\String\Flag
               ListEx()\String\Text = InsertString(ListEx()\String\Text, Text, ListEx()\String\CursorPos + 1)
               ListEx()\String\CursorPos + Len(Text)
+            ElseIf ListEx()\ComboBox\Flag
+              ListEx()\ComboBox\Text = InsertString(ListEx()\ComboBox\Text, Text, ListEx()\ComboBox\CursorPos + 1)
+              ListEx()\ComboBox\CursorPos + Len(Text)
             EndIf
           EndIf
           ;}  
         Case #PB_Shortcut_V        ;{ Paste (Ctrl-V) 
+          Text = GetClipboardText()
           If ListEx()\String\Flag
-            Text = GetClipboardText()
             ListEx()\String\Text = InsertString(ListEx()\String\Text, Text, ListEx()\String\CursorPos + 1)
             ListEx()\String\CursorPos + Len(Text)
+          ElseIf ListEx()\ComboBox\Flag
+            ListEx()\ComboBox\Text = InsertString(ListEx()\ComboBox\Text, Text, ListEx()\ComboBox\CursorPos + 1)
+            ListEx()\ComboBox\CursorPos + Len(Text)
           EndIf  
           ;} 
         Case #PB_Shortcut_Return   ;{ Return
-          If ListEx()\String\Flag
-            CloseString_()
-          EndIf  
+
+          If ListEx()\String\Flag   : CloseString_()   : EndIf 
+          If ListEx()\ComboBox\Flag : CloseComboBox_() : EndIf  
           ;}
         Case #PB_Shortcut_Escape   ;{ Escape
-          If ListEx()\String\Flag
-            CloseString_(#True)
-          EndIf  
+          If ListEx()\String\Flag   : CloseString_(#True)   : EndIf 
+          If ListEx()\ComboBox\Flag : CloseComboBox_(#True) : EndIf
           ;}  
         Case #PB_Shortcut_Tab      ;{ Tabulator
+
+          If Modifier & #PB_Canvas_Shift
           
-          If ListEx()\String\Flag
-            
-            CloseString_()
-            
-            If Modifier & #PB_Canvas_Shift
+            If ListEx()\String\Flag       ;{ String Gadget
+              
+              CloseString_()
+  
               Column = PreviousEditColumn_(ListEx()\String\Col)
               If Column = #NotValid
                 Row = ListEx()\String\Row - 1
@@ -4397,7 +4861,32 @@ Module ListEx
               Else
                 ManageEditGadgets_(ListEx()\String\Row, Column)
               EndIf
-            Else
+              ;}
+            ElseIf ListEx()\ComboBox\Flag ;{ ComboBox
+              
+              CloseComboBox_()
+              
+              Column = PreviousEditColumn_(ListEx()\ComboBox\Col)
+              If Column = #NotValid
+                Row = ListEx()\ComboBox\Row - 1
+                If SelectElement(ListEx()\Rows(), Row)
+                  Column = PreviousEditColumn_(#PB_Default)
+                  If Column <> #NotValid
+                    ManageEditGadgets_(Row, Column)
+                  EndIf 
+                EndIf
+              Else
+                ManageEditGadgets_(ListEx()\ComboBox\Row, Column)
+              EndIf
+              ;}
+            EndIf
+            
+          Else
+            
+            If ListEx()\String\Flag       ;{ String Gadget
+              
+              CloseString_()
+  
               Column = NextEditColumn_(ListEx()\String\Col)
               If Column = #NotValid
                 Row = ListEx()\String\Row + 1
@@ -4410,13 +4899,34 @@ Module ListEx
               Else
                 ManageEditGadgets_(ListEx()\String\Row, Column)
               EndIf
+              ;}
+            ElseIf ListEx()\ComboBox\Flag ;{ ComboBox
+            
+              CloseComboBox_()
+              
+              Column = NextEditColumn_(ListEx()\ComboBox\Col)
+              If Column = #NotValid
+                Row = ListEx()\ComboBox\Row + 1
+                If SelectElement(ListEx()\Rows(), Row)
+                  Column = NextEditColumn_(#PB_Default)
+                  If Column <> #NotValid
+                    ManageEditGadgets_(Row, Column)
+                  EndIf 
+                EndIf
+              Else
+                ManageEditGadgets_(ListEx()\ComboBox\Row, Column)
+              EndIf              
+              ;}  
             EndIf
+
           EndIf    
           ;}
       EndSelect
       
       If ListEx()\String\Flag
         DrawString_()
+      ElseIf ListEx()\ComboBox\Flag
+        DrawComboBox_()
       Else
         Draw_()
       EndIf  
@@ -4432,7 +4942,7 @@ Module ListEx
     
     If FindMapElement(ListEx(), Str(GNum))
 
-      If ListEx()\String\Flag
+      If ListEx()\String\Flag ;{ String Gadget
         
         Char = GetGadgetAttribute(GNum, #PB_Canvas_Input)
         If Char >= 32
@@ -4458,8 +4968,38 @@ Module ListEx
           PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_Change)
           
           DrawString_()
+          
         EndIf
+        ;}
+      ElseIf ListEx()\ComboBox\Flag ;{ ComboBox
         
+        Char = GetGadgetAttribute(GNum, #PB_Canvas_Input)
+        If Char >= 32
+          
+          Char$ = Chr(Char)
+          ListEx()\ComboBox\CursorPos + 1  
+          
+          If ListEx()\ComboBox\MaxChars
+            ListEx()\ComboBox\Text = Left(InsertString(ListEx()\ComboBox\Text, Char$, ListEx()\ComboBox\CursorPos), ListEx()\ComboBox\MaxChars)
+          Else
+            
+            ListEx()\ComboBox\Text = InsertString(ListEx()\ComboBox\Text, Char$, ListEx()\ComboBox\CursorPos)
+            
+            If SelectElement(ListEx()\Cols(), ListEx()\ComboBox\Col)
+              If ListEx()\Cols()\MaxChars
+                ListEx()\ComboBox\Text = Left(ListEx()\ComboBox\Text, ListEx()\Cols()\MaxChars)
+              EndIf  
+            EndIf
+          
+          EndIf   
+          
+          PostEvent(#PB_Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_Change)
+          PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_Change)
+          
+          DrawComboBox_()
+          
+        EndIf
+        ;}
       EndIf
       
     EndIf
@@ -4540,14 +5080,25 @@ Module ListEx
       ListEx()\Row\Current = GetRow_(Y)
       ListEx()\Col\Current = GetColumn_(X)
 
-      If ListEx()\String\Flag   ;{ Close String
+      If ListEx()\String\Flag And (ListEx()\String\Row <> ListEx()\Row\Current Or ListEx()\String\Col <> ListEx()\Col\Current)       ;{ Close String
         CloseString_()
         Draw_()
       EndIf ;}
       
       If ListEx()\ComboBox\Flag ;{ Close ComboBox
-        CloseComboBox_()
-        Draw_()
+        
+        If ListEx()\ComboBox\Row = ListEx()\Row\Current And ListEx()\ComboBox\Col = ListEx()\Col\Current
+          
+          If X >= ListEx()\ComboBox\ButtonX - ListEx()\Col\OffsetX
+            ComboButton_(#Click)
+            ProcedureReturn #True
+          EndIf
+          
+        Else  
+          CloseComboBox_()
+          Draw_()
+        EndIf
+        
       EndIf ;}
       
       If ListEx()\Date\Flag     ;{ Close DateGadget
@@ -4784,7 +5335,7 @@ Module ListEx
               EndIf
               
               Draw_() ; Draw Focus
-             ;}              
+             ;}               
             ElseIf ListEx()\Cols()\Flags & #Buttons ;{ Button
               
               Value$ = ListEx()\Rows()\Column(Key$)\Value
@@ -4940,12 +5491,16 @@ Module ListEx
   EndProcedure
   
   Procedure _LeftButtonUpHandler()
+    Define.i X, Y
     Define GNum.i = EventGadget()
     
     If FindMapElement(ListEx(), Str(GNum))
       
-      ListEx()\Row\Current = GetRow_(GetGadgetAttribute(GNum, #PB_Canvas_MouseY))
-      ListEx()\Col\Current = GetColumn_(GetGadgetAttribute(GNum, #PB_Canvas_MouseX))
+      X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
+      Y = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
+      
+      ListEx()\Row\Current = GetRow_(Y)
+      ListEx()\Col\Current = GetColumn_(X)
       
       If ListEx()\CanvasCursor <> #Cursor_Default
         ListEx()\CanvasCursor = #Cursor_Default
@@ -4956,6 +5511,29 @@ Module ListEx
       
       If ListEx()\Row\Current < 0 Or ListEx()\Col\Current < 0 : ProcedureReturn #False : EndIf
       
+      If ListEx()\ComboBox\Flag ;{ ComboBox
+        
+        If ListEx()\ComboBox\Row = ListEx()\Row\Current And ListEx()\ComboBox\Col = ListEx()\Col\Current
+          
+          If X >= ListEx()\ComboBox\ButtonX - ListEx()\Col\OffsetX
+            
+            If ListEx()\ListView\Hide
+              OpenListView_()
+            Else
+              CloseListView_()
+            EndIf
+            
+            ComboButton_(#Focus)
+            
+            ProcedureReturn #True
+          EndIf
+
+        EndIf
+        
+        ComboButton_(#False)
+        ;}
+      EndIf
+
       If ListEx()\Button\Pressed ;{ Button pressed
         
         If ListEx()\Button\Row = ListEx()\Row\Current And ListEx()\Button\Col = ListEx()\Col\Current
@@ -4996,8 +5574,7 @@ Module ListEx
       PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #PB_EventType_LeftClick, ListEx()\Row\Current)
       
     EndIf
-    
-    
+
   EndProcedure  
   
   Procedure _LeftDoubleClickHandler()
@@ -5025,7 +5602,7 @@ Module ListEx
       If ListEx()\Row\Current = #Header
         
       Else
-        
+   
         ManageEditGadgets_(ListEx()\Row\Current, ListEx()\Col\Current)
  
       EndIf
@@ -5036,10 +5613,9 @@ Module ListEx
     
   EndProcedure
   
-  
   Procedure _MouseMoveHandler()
     Define.i Row, Column, Flags
-    Define.f X, Y, ColX, ColWidth
+    Define.f X, Y, ColX, ColWidth, RowY
     Define.s Key$, Value$, Focus$
     Define   Image.Image_Structure
     Define.i GNum = EventGadget()
@@ -5173,49 +5749,89 @@ Module ListEx
           If SelectElement(ListEx()\Rows(), Row)
             If SelectElement(ListEx()\Cols(), Column)
               
-              Y = ListEx()\Rows()\Y - ListEx()\Row\OffsetY
-              X = ListEx()\Cols()\X - ListEx()\Col\OffsetX
+              RowY = ListEx()\Rows()\Y - ListEx()\Row\OffsetY
+              ColX = ListEx()\Cols()\X - ListEx()\Col\OffsetX
               
               Key$   = ListEx()\Cols()\Key
               Flags  = ListEx()\Rows()\Column(Key$)\Flags
               
               ; Change Cursor
-              If ListEx()\Cols()\Flags & #Strings Or Flags & #Strings
+              If ListEx()\Cols()\Flags & #Strings Or Flags & #Strings            ;{ String Gadget
+
+                If ListEx()\String\Flag And ListEx()\String\Row = Row And ListEx()\String\Col = Column
+                  
+                  If ListEx()\CanvasCursor <> #Cursor_Text
+                    ListEx()\CanvasCursor = #Cursor_Text
+                    SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
+                  EndIf
+                  
+                Else
+                  
+                  If ListEx()\CanvasCursor <> #Cursor_Edit
+                    ListEx()\CanvasCursor = #Cursor_Edit
+                    SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
+                  EndIf
+                
+                EndIf
+                ;}
+              ElseIf ListEx()\Cols()\Flags & #ComboBoxes Or Flags & #ComboBoxes  ;{ ComboBox
+                
+                If ListEx()\ComboBox\Flag
+                  
+                  If ListEx()\ComboBox\Row = Row And ListEx()\ComboBox\Col = Column
+                  
+                    If X < ListEx()\ComboBox\ButtonX - ListEx()\Col\OffsetX
+                      
+                      If ListEx()\CanvasCursor <> #Cursor_Text
+                        ListEx()\CanvasCursor = #Cursor_Text
+                        SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
+                      EndIf
+
+                    Else
+  
+                      If ListEx()\CanvasCursor <> #Cursor_Button
+                        ListEx()\CanvasCursor = #Cursor_Button
+                        SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
+                      EndIf
+                      
+                      ComboButton_(#Focus)
+                      
+                      ProcedureReturn #True
+                    EndIf
+                    
+                  EndIf
+                  
+                Else
+
+                  If ListEx()\CanvasCursor <> #Cursor_Edit
+                    ListEx()\CanvasCursor = #Cursor_Edit
+                    SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
+                  EndIf
+                  
+                EndIf
+                ;}
+              ElseIf ListEx()\Cols()\Flags & #CheckBoxes                         ;{ CheckBox
                 
                 If ListEx()\CanvasCursor <> #Cursor_Edit
                   ListEx()\CanvasCursor = #Cursor_Edit
                   SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
                 EndIf
-                
-              ElseIf ListEx()\Cols()\Flags & #ComboBoxes Or Flags & #ComboBoxes
-                
-                If ListEx()\CanvasCursor <> #Cursor_Edit
-                  ListEx()\CanvasCursor = #Cursor_Edit
-                  SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
-                EndIf
-                
-              ElseIf ListEx()\Cols()\Flags & #CheckBoxes
+                ;}
+              ElseIf ListEx()\Cols()\Flags & #DateGadget Or Flags & #DateGadget  ;{ Date Gadget
                 
                 If ListEx()\CanvasCursor <> #Cursor_Edit
                   ListEx()\CanvasCursor = #Cursor_Edit
                   SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
                 EndIf
-                
-              ElseIf ListEx()\Cols()\Flags & #DateGadget Or Flags & #DateGadget
-                
-                If ListEx()\CanvasCursor <> #Cursor_Edit
-                  ListEx()\CanvasCursor = #Cursor_Edit
-                  SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
-                EndIf
-                
-              ElseIf ListEx()\Cols()\Flags & #Links
+                ;}
+              ElseIf ListEx()\Cols()\Flags & #Links                              ;{ Links
                 
                 If ListEx()\CanvasCursor <> #Cursor_Click
                   ListEx()\CanvasCursor = #Cursor_Click
                   SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
                 EndIf
-                
-              ElseIf ListEx()\Cols()\Flags & #Buttons
+                ;}
+              ElseIf ListEx()\Cols()\Flags & #Buttons                            ;{ Buttons
 
                 ListEx()\Button\Focus = Focus$
                 
@@ -5230,13 +5846,13 @@ Module ListEx
                   Image\ID = #False
                 EndIf
               
-                DrawButton_(X, Y, ListEx()\Cols()\Width, ListEx()\Rows()\Height, Value$, #Focus, ListEx()\Rows()\Color\Front, ListEx()\Rows()\FontID, @Image)
+                DrawButton_(ColX, RowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height, Value$, #Focus, ListEx()\Rows()\Color\Front, ListEx()\Rows()\FontID, @Image)
                 
                 If ListEx()\CanvasCursor <> #Cursor_Button
                   ListEx()\CanvasCursor = #Cursor_Button
                   SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
                 EndIf
-                
+                ;}
               Else
                 
                 If ListEx()\CanvasCursor <> #Cursor_Default
@@ -5245,6 +5861,8 @@ Module ListEx
                 EndIf
                 
               EndIf
+              
+              If ListEx()\ComboBox\Flag : ComboButton_(#False) : EndIf
               
             EndIf  
           EndIf
@@ -5261,9 +5879,11 @@ Module ListEx
     
     If FindMapElement(ListEx(), Str(GadgetNum))
       
+      If GetGadgetAttribute(GadgetNum, #PB_Canvas_MouseY) = #PB_Default
+        If ListEx()\ComboBox\Flag : CloseListView_() : EndIf 
+      EndIf
+    
       UpdateColumnX_()
-      
-      ;CloseString_()
       
       Draw_()
       
@@ -5352,7 +5972,7 @@ Module ListEx
     Define.i GadgetNum = EventGadget()
     
     If FindMapElement(ListEx(), Str(GadgetNum))
-      
+
       If ListEx()\VScroll\Hide = #False Or ListEx()\HScroll\Hide = #False
         
         If ListEx()\VScroll\Hide
@@ -5385,7 +6005,7 @@ Module ListEx
     ForEach ListEx()
       
       If IsGadget(ListEx()\CanvasNum)
-        
+ 
         If ListEx()\Flags & #AutoResize
           
           If IsWindow(ListEx()\Window\Num)
@@ -5548,6 +6168,8 @@ Module ListEx
   
   Procedure  CloseString_(Escape.i=#False)
     
+    ListEx()\Cursor\Pause = #True
+    
     PushListPosition(ListEx()\Rows())
     
     If SelectElement(ListEx()\Rows(), ListEx()\String\Row)
@@ -5615,12 +6237,13 @@ Module ListEx
       EndIf
       
       HideGadget(ListEx()\DateNum, #True)
-      BindShortcuts_(#False)
-      
+
       ListEx()\Date\Label = ""
       ListEx()\Date\Flag  = #False
       
       PopListPosition(ListEx()\Rows())
+      
+      BindShortcuts_(#False)
       
       Draw_()        
     EndIf
@@ -5631,55 +6254,75 @@ Module ListEx
     Define.i State
     Define.s Text$
     
-    If IsGadget(ListEx()\ComboNum)
-      
-      PushListPosition(ListEx()\Rows())
-      
-      If Escape
-        UpdateEventData_(#EventType_ComboBox, #NotValid, #NotValid, "", #NotValid, "")
-      Else
+    If ListEx()\ListView\Hide = #False : CloseListView_() : EndIf
+    
+    ListEx()\Cursor\Pause = #True
+    
+    PushListPosition(ListEx()\Rows())
+    
+    If SelectElement(ListEx()\Rows(), ListEx()\ComboBox\Row)
+      If SelectElement(ListEx()\Cols(), ListEx()\ComboBox\Col)
         
-        If SelectElement(ListEx()\Rows(), ListEx()\ComboBox\Row)
+        If Escape
+        
+          UpdateEventData_(#EventType_String, #NotValid, #NotValid, "", #NotValid, "")
           
-          CompilerIf Defined(ComboBoxEx, #PB_Module)
-            State = ComboBoxEx::GetState(ListEx()\ComboNum)
-            Text$ = ComboBoxEx::GetText(ListEx()\ComboNum)
-          CompilerElse  
-            State = GetGadgetState(ListEx()\ComboNum)
-            Text$ = GetGadgetText(ListEx()\ComboNum)
-          CompilerEndIf   
-          ListEx()\Rows()\Column(ListEx()\ComboBox\Label)\Value = Text$
+        Else
+
+          ListEx()\Rows()\Column(ListEx()\ComboBox\Label)\Value = ListEx()\ComboBox\Text
+          
+          UpdateEventData_(#EventType_String, ListEx()\ComboBox\Row, ListEx()\ComboBox\Col, ListEx()\ComboBox\Text, #NotValid, ListEx()\Rows()\ID)
+          
+          If IsWindow(ListEx()\Window\Num)
+            PostEvent(#PB_Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_String)
+            PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_String)
+          EndIf 
           
           ListEx()\Changed = #True
-          
-          UpdateEventData_(#EventType_ComboBox,ListEx()\ComboBox\Row, ListEx()\ComboBox\Col, Text$, State, ListEx()\Rows()\ID)
-          If IsWindow(ListEx()\Window\Num)
-            PostEvent(#PB_Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_ComboBox)
-            PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_ComboBox)
-          EndIf
-          
+        EndIf
+
+        ListEx()\ComboBox\Text  = ""
+        ListEx()\ComboBox\Label = ""
+        ListEx()\ComboBox\Flag  = #False
+
+      EndIf
+    EndIf
+
+    PopListPosition(ListEx()\Rows())
+    
+    Draw_()
+
+  EndProcedure
+  
+  ; _________ Internal _________
+  
+  Procedure   InitList_()
+
+    ListEx()\ListView\Window = ListView\Window
+    
+    If IsWindow(ListEx()\ListView\Window)
+      
+      ListEx()\ListView\Num = ListView\Gadget
+      
+      If IsGadget(ListEx()\ListView\Num)
+        
+        ListEx()\ListView\ScrollBar\Num = ListView\ScrollBar
+        
+        If IsGadget(ListEx()\ListView\ScrollBar\Num)
+          SetGadgetData(ListEx()\ListView\ScrollBar\Num, ListEx()\CanvasNum)
+          HideGadget(ListEx()\ListView\ScrollBar\Num, #True)
         EndIf
         
-      EndIf
+        BindGadgetEvent(ListEx()\ListView\Num, @_ListViewHandler())
+        
+      EndIf 
       
-      CompilerIf Defined(ComboBoxEx, #PB_Module)
-        ComboBoxEx::Hide(ListEx()\ComboNum, #True)
-      CompilerElse  
-        HideGadget(ListEx()\ComboNum, #True)
-      CompilerEndIf  
+      ListEx()\ListView\Height = 80
       
-      
-      BindShortcuts_(#False)
-      
-      ListEx()\ComboBox\Label = ""
-      ListEx()\ComboBox\Flag  = #False
-      
-      PopListPosition(ListEx()\Rows())
-      
-      Draw_()        
+      ListEx()\ListView\Hide = #True
     EndIf
-    
-  EndProcedure
+  
+  EndProcedure 
   
   ;- ==========================================================================
   ;-   Module - Declared Procedures
@@ -6283,7 +6926,7 @@ Module ListEx
   
   
   Procedure.i Gadget(GNum.i, X.f, Y.f, Width.f, Height.f, ColTitle.s, ColWidth.f, ColLabel.s="", Flags.i=#False, WindowNum.i=#PB_Default)
-    Define.i Result
+    Define.i Result, txtNum
 
     CompilerIf Defined(ModuleEx, #PB_Module)
       If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
@@ -6332,6 +6975,21 @@ Module ListEx
           
         CompilerEndIf
         
+        ListEx()\Cursor\Pause = #True
+        
+        CompilerSelect #PB_Compiler_OS ;{ Font
+          CompilerCase #PB_OS_Windows
+            ListEx()\FontID = GetGadgetFont(#PB_Default)
+          CompilerCase #PB_OS_MacOS
+            txtNum = TextGadget(#PB_Any, 0, 0, 0, 0, " ")
+            If txtNum
+              ListEx()\FontID = GetGadgetFont(txtNum)
+              FreeGadget(txtNum)
+            EndIf
+          CompilerCase #PB_OS_Linux
+            ListEx()\FontID = GetGadgetFont(#PB_Default)
+        CompilerEndSelect ;}
+        
         ListEx()\Flags  = Flags
         ListEx()\ReDraw = #True
         
@@ -6346,12 +7004,16 @@ Module ListEx
         ListEx()\ProgressBar\Minimum = 0
         ListEx()\ProgressBar\Maximum = 100
         
+        InitList_()
+        
+        ListEx()\ListView\FontID     = ListEx()\FontID
+        
         ListEx()\PopUpID = -1
         
         ;{ Country defaults
-        ListEx()\Country\Code     = #DefaultCountry
-        ListEx()\Country\Currency = #DefaultCurrency
-        ListEx()\Country\Clock    = #DefaultClock
+        ListEx()\Country\Code             = #DefaultCountry
+        ListEx()\Country\Currency         = #DefaultCurrency
+        ListEx()\Country\Clock            = #DefaultClock
         ListEx()\Country\TimeSeparator    = #DefaultTimeSeparator
         ListEx()\Country\DateSeperator    = #DefaultDateSeparator
         ListEx()\Country\DecimalSeperator = #DefaultDecimalSeperator
@@ -6378,24 +7040,6 @@ Module ListEx
         ;}        
 
         ;{ Gadgets
-        CompilerIf Defined(ComboBoxEx, #PB_Module)
-          ListEx()\ComboNum = ComboBoxEx::Gadget(#PB_Any, 0, 0, 0, 0, 80, "", #False, ListEx()\Window\Num)
-        CompilerElse  
-          ListEx()\ComboNum = ComboBoxGadget(#PB_Any, 0, 0, 0, 0, #PB_ComboBox_Editable)
-        CompilerEndIf
-        
-        If IsGadget(ListEx()\ComboNum)
-          
-          CompilerIf Defined(ComboBoxEx, #PB_Module)
-            ComboBoxEx::SetData(ListEx()\ComboNum, ListEx()\CanvasNum)
-            ComboBoxEx::Hide(ListEx()\ComboNum, #True)
-          CompilerElse  
-            SetGadgetData(ListEx()\ComboNum, ListEx()\CanvasNum)
-            HideGadget(ListEx()\ComboNum, #True)
-          CompilerEndIf 
-          
-        EndIf
-        
         ListEx()\DateNum = DateGadget(#PB_Any, 0, 0, 0, 0, ListEx()\Country\DateMask)
         If IsGadget(ListEx()\DateNum)
           SetGadgetData(ListEx()\DateNum, ListEx()\CanvasNum)
@@ -6434,7 +7078,7 @@ Module ListEx
         Else  
           ListEx()\Header\Height = 20
         EndIf
-        ListEx()\Header\FontID   = FontID(LoadFont(#PB_Any, "Arial", 9))  
+        ListEx()\Header\FontID   = ListEx()\FontID
         ListEx()\Header\Align    = #False
         ;}
         
@@ -6442,8 +7086,8 @@ Module ListEx
         ListEx()\Row\Focus       = #NotValid
         ListEx()\Row\Current     = #NoFocus
         ListEx()\Row\StartSelect = #PB_Default
-        ListEx()\Row\FontID  = ListEx()\Header\FontID
-        ListEx()\Size\Rows   = ListEx()\Row\Height ; Height of all rows
+        ListEx()\Row\FontID      = ListEx()\FontID
+        ListEx()\Size\Rows       = ListEx()\Row\Height ; Height of all rows
         ;}
         
         ;{ Column
@@ -6470,6 +7114,8 @@ Module ListEx
         ;} 
         
         ColorTheme_(#Theme_Default)
+
+        ListEx()\ListView\FrontColor = ListEx()\Color\Front
         
         BindGadgetEvent(ListEx()\CanvasNum,  @_RightClickHandler(),      #PB_EventType_RightClick)
         BindGadgetEvent(ListEx()\CanvasNum,  @_LeftButtonDownHandler(),  #PB_EventType_LeftButtonDown)
@@ -7011,7 +7657,8 @@ Module ListEx
         Case #Padding
           ListEx()\Col\Padding     = Value
         Case #MaxChars
-          ListEx()\String\MaxChars = Value
+          ListEx()\String\MaxChars   = Value
+          ListEx()\ComboBox\MaxChars = Value
       EndSelect
       
       If ListEx()\ReDraw : Draw_() : EndIf
@@ -7110,8 +7757,9 @@ Module ListEx
     ; #HeaderFrontColor | #HeaderBackColor | #HeaderLineColor
     ; #ButtonColor | ButtonBorderColor
     ; #ComboFrontColor | #ComboBackColor
-    ; #LinkColor | #ActiveLinkColor 
     ; #ProgressBarColor | #GradientColor
+    ; #StringFrontColor | #StringBackColor
+    ; #LinkColor | #ActiveLinkColor 
     
     If GNum = #Theme 
       
@@ -7989,6 +8637,10 @@ Module ListEx
     
   EndProcedure
   
+  ; __________ Init _________
+  
+  ListViewWindow_()
+  
 EndModule
 
 ;- ========  Module - Example ========
@@ -8101,9 +8753,7 @@ CompilerIf #PB_Compiler_IsMainFile
         ListEx::AddItem(#List, ListEx::#LastItem, "Ava"      + #LF$ + "Evans"    + #LF$ + #LF$ + #LF$ + "Push")
         ListEx::AddItem(#List, ListEx::#LastItem, "Thomas"   + #LF$ + "Roberts"  + #LF$ + #LF$ + #LF$ + "Push")
         ListEx::AddItem(#List, ListEx::#LastItem, "Harriet"  + #LF$ + "Smith"    + #LF$ + #LF$ + #LF$ + "Push")
-        For I=11 To 100
-           ListEx::AddItem(#List, ListEx::#LastItem, "Harriet"  + #LF$ + Str(i))
-        Next
+
         ; --- Set focus to row 9 ---
         ; ListEx::SetState(#List, 9)
         
@@ -8181,9 +8831,10 @@ CompilerIf #PB_Compiler_IsMainFile
       ;ListEx::SetState(#List, 4, 2)
       
       ;ListEx::SetFont(#List, FontID(#Font_Arial9B), #False, 6)
-      ;ListEx::SetColumnAttribute(#List, 5, ListEx::#Font, #Font_Arial9B)
       
       ;ListEx::ExportCSV(#List, "Export.csv", ListEx::#NoButtons|ListEx::#NoCheckBoxes|ListEx::#HeaderRow)
+      
+      ;ListEx::SetColor(#List, ListEx::#ComboBackColor, $FFFFF0)
       
     EndIf
     
@@ -8278,9 +8929,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 13
-; Folding = wTQAAAAAIICEJCkAmAABROEQkQj5DIAks1zOAgfAGEgiQAAMAAmBHgAnGAAAAAAAAAAIn9-
-; Markers = 1095,3467,6095
+; CursorPosition = 2932
+; FirstLine = 610
+; Folding = wBQAAAAAQBAgARgAwEAAICIgAADrQJAiAQCpAABHAAAgAAAAQAAAAAATgDQAhBAAAAAAAAAAwJ-
+; Markers = 1156,3892,6738
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
