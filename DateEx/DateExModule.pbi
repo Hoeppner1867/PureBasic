@@ -9,7 +9,10 @@
 ;/ © 2019  by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 10.12.2019
+; Last Update: 25.02.2020
+;
+; Added: #Minimum / #Maximum
+;
 
 ;{ ===== MIT License =====
 ;
@@ -68,7 +71,7 @@ CompilerIf Not Defined(Calendar, #PB_Module) : XIncludeFile "CalendarModule.pbi"
 
 DeclareModule DateEx
   
-  #Version  = 19121001
+  #Version  = 20022500
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -91,6 +94,8 @@ DeclareModule DateEx
 	EndEnumeration ;}
 	
 	Enumeration 1     ;{ Attribute
+	  #Minimum = #PB_Date_Minimum
+	  #Maximum = #PB_Date_Maximum
 	  #Day
 	  #Month
 	  #Year
@@ -143,7 +148,7 @@ DeclareModule DateEx
   Declare.s GetText(GNum.i, Mask.s="")
   Declare   Hide(GNum.i, State.i=#True)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
-  Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
+  Declare   SetAttribute(GNum.i, Attribute.i, Value.q)
   Declare   SetColor(GNum.i, ColorTyp.i, Value.i)
   Declare   SetFont(GNum.i, FontID.i)
   Declare   SetState(GNum.i, Date.q)
@@ -254,6 +259,9 @@ Module DateEx
 		DateMask.s
 		StartDate.i
 		
+		Minimum.i
+		Maximum.i
+		
 		Input.i
 		Focus.i
 		
@@ -265,8 +273,7 @@ Module DateEx
 		Color.DateEx_Color_Structure
 		Window.DateEx_Window_Structure
 		Size.DateEx_Size_Structure
-		
-		
+
 		List Mask.DateEx_Mask_Structure()
 		Map  MaskIdx.i()
 		Map  Date.s()
@@ -562,6 +569,19 @@ Module DateEx
     
   EndProcedure
   
+  Procedure.q GetDate_()
+	  Define.i Year, Month, Day, Hour, Minute, Second
+
+    Year   = Val(DateEx()\Date("%yyyy"))
+    Month  = Val(DateEx()\Date("%mm"))
+    Day    = Val(DateEx()\Date("%dd"))
+    Hour   = Val(DateEx()\Date("%hh"))
+    Minute = Val(DateEx()\Date("%ii"))
+    Second = Val(DateEx()\Date("%ss"))
+    
+    ProcedureReturn Date_(Year, Month, Day, Hour, Minute, Second)
+  EndProcedure  
+  
   Procedure   SetDate_(Date.i)
 	  
 	  DateEx()\Date("%yyyy") = Str(Year_(Date))
@@ -571,6 +591,24 @@ Module DateEx
 	  DateEx()\Date("%hh")   = RSet(Str(Hour_(Date)), 2, "0")
 	  DateEx()\Date("%ii")   = RSet(Str(Minute_(Date)), 2, "0")
 	  DateEx()\Date("%ss")   = RSet(Str(Second_(Date)), 2, "0")
+	  
+	  Debug DateEx()\Date("%dd") + "." + DateEx()\Date("%mm") + "." + DateEx()\Date("%yyyy")
+	  
+	EndProcedure
+	
+	Procedure   LimitDate_()
+    
+	  If DateEx()\Minimum
+	    If GetDate_() < DateEx()\Minimum
+	      SetDate_(DateEx()\Minimum)
+	    EndIf
+	  EndIf  
+	  
+	  If DateEx()\Maximum
+	    If GetDate_() > DateEx()\Maximum
+	      SetDate_(DateEx()\Maximum)
+	    EndIf  
+	  EndIf  
 	  
 	EndProcedure
 	
@@ -584,7 +622,7 @@ Module DateEx
 	  Y = GadgetY(DateEx()\CanvasNum, #PB_Gadget_ScreenCoordinate)
 	  
 	  X + DateEx()\Calendar\X
-	  Y + DateEx()\Calendar\Y - 1
+	  Y + GadgetHeight(DateEx()\CanvasNum) - 1
 
 	  ResizeWindow(DateEx()\Calendar\Window, X, Y, #PB_Ignore,#PB_Ignore)
 	  HideWindow(DateEx()\Calendar\Window, #False)
@@ -596,7 +634,10 @@ Module DateEx
     Hour   = Val(DateEx()\Date("%hh"))
     Minute = Val(DateEx()\Date("%ii"))
     Second = Val(DateEx()\Date("%ss"))
-	
+    
+    If DateEx()\Minimum : Calendar::SetAttribute(DateEx()\Calendar\Num, Calendar::#Minimum, DateEx()\Minimum) : EndIf
+    If DateEx()\Maximum : Calendar::SetAttribute(DateEx()\Calendar\Num, Calendar::#Maximum, DateEx()\Maximum) : EndIf
+    
     Calendar::SetState(DateEx()\Calendar\Num, Date_(Year, Month, Day, Hour, Minute, Second)) 
     
     DateEx()\Calendar\Visible = #True
@@ -918,6 +959,8 @@ Module DateEx
                   EndIf ;}
               EndSelect 
               
+              LimitDate_()
+              
               PostEvent(#Event_Gadget,    DateEx()\Window\Num, DateEx()\CanvasNum, #EventType_Change)
               PostEvent(#PB_Event_Gadget, DateEx()\Window\Num, DateEx()\CanvasNum, #EventType_Change)
               
@@ -1035,6 +1078,8 @@ Module DateEx
                   EndIf ;}
               EndSelect 
               
+              LimitDate_()
+              
               PostEvent(#Event_Gadget,    DateEx()\Window\Num, DateEx()\CanvasNum, #EventType_Change)
               PostEvent(#PB_Event_Gadget, DateEx()\Window\Num, DateEx()\CanvasNum, #EventType_Change)
            
@@ -1109,6 +1154,8 @@ Module DateEx
                     DateEx()\Date("%ss") = "59"
                   EndIf ;}
               EndSelect 
+              
+              LimitDate_()
               
               PostEvent(#Event_Gadget,    DateEx()\Window\Num, DateEx()\CanvasNum, #EventType_Change)
               PostEvent(#PB_Event_Gadget, DateEx()\Window\Num, DateEx()\CanvasNum, #EventType_Change)
@@ -1576,16 +1623,10 @@ Module DateEx
 	Procedure.q GetState(GNum.i)
 	  Define.i Year, Month, Day, Hour, Minute, Second
 	  
-	  If FindMapElement(DateEx(), Str(GNum))
+	  If FindMapElement(DateEx(), Str(GNum))   
 	    
-	    Year   = Val(DateEx()\Date("%yyyy"))
-	    Month  = Val(DateEx()\Date("%mm"))
-	    Day    = Val(DateEx()\Date("%dd"))
-	    Hour   = Val(DateEx()\Date("%hh"))
-	    Minute = Val(DateEx()\Date("%ii"))
-	    Second = Val(DateEx()\Date("%ss"))
+	    ProcedureReturn GetDate_()
 	    
-      ProcedureReturn Date_(Year, Month, Day, Hour, Minute, Second)
     EndIf
     
   EndProcedure  
@@ -1629,13 +1670,17 @@ Module DateEx
 	EndProcedure
 	
 	
-	Procedure   SetAttribute(GNum.i, Attribute.i, Value.i)
+	Procedure   SetAttribute(GNum.i, Attribute.i, Value.q)
     
     If FindMapElement(DateEx(), Str(GNum))
       
       Select Attribute
+        Case #Minimum
+           DateEx()\Minimum = Value
+        Case #Maximum
+           DateEx()\Maximum = Value
         Case #Corner
-          DateEx()\Radius  = Value
+          DateEx()\Radius   = Value
       EndSelect
       
       Draw_()
@@ -1756,8 +1801,12 @@ CompilerIf #PB_Compiler_IsMainFile
     
     DateGadget(#Date, 10, 10, 100, 25, "%yyyy/%mm/%dd")
     
+    Minimum.q = Date(2020, 1, 18, 0, 0, 0)
+    Maximum.q = Date(2020, 4, 20, 0, 0, 0)
+    
     If DateEx::Gadget(#DateEx, 120, 10, 90, 25, "%yyyy/%mm/%dd")
-      
+      DateEx::SetAttribute(#DateEx, DateEx::#Minimum, Minimum)
+      DateEx::SetAttribute(#DateEx, DateEx::#Maximum, Maximum)
     EndIf
     
     Repeat
@@ -1789,7 +1838,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 70
-; Folding = 5hTAIgAAAMB1OgQ-AEwgA50
+; CursorPosition = 625
+; FirstLine = 190
+; Folding = 5BDAIoAAAMCQhABCAAADAg4
 ; EnableXP
 ; DPIAware
