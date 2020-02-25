@@ -148,12 +148,11 @@
 
 
 ; XIncludeFile "ModuleEx.pbi"
-;XIncludeFile "ComboBoxExModule.pbi"
 
 
 DeclareModule ListEx
   
-  #Version  = 20022500
+  #Version  = 20022501
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -209,6 +208,9 @@ DeclareModule ListEx
     #MultiSelect
     #FitColumn
     #EditableCombobox
+  EndEnumeration ;}
+  
+  Enumeration 1
     ; --- Color ---
     #ActiveLinkColor
     #BackColor
@@ -232,7 +234,7 @@ DeclareModule ListEx
     #ComboBackColor
     #StringFrontColor
     #StringBackColor
-  EndEnumeration ;}
+  EndEnumeration  
   
   EnumerationBinary ;{ State 
     #Selected   = #PB_ListIcon_Selected
@@ -8834,7 +8836,7 @@ CompilerIf #PB_Compiler_IsMainFile
       
       ;ListEx::ExportCSV(#List, "Export.csv", ListEx::#NoButtons|ListEx::#NoCheckBoxes|ListEx::#HeaderRow)
       
-      ;ListEx::SetColor(#List, ListEx::#ComboBackColor, $FFFFF0)
+      ListEx::SetColor(#List, ListEx::#ComboBackColor, $FFFFF0)
       
     EndIf
     
@@ -8928,11 +8930,11 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 2932
-; FirstLine = 610
-; Folding = wBQAAAAAQBAgARgAwEAAICIgAADrQJAiAQCpAABHAAAgAAAAQAAAAAATgDQAhBAAAAAAAAAAwJ-
-; Markers = 1156,3892,6738
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 7763
+; FirstLine = 827
+; Folding = wBQAAAAAABAAARgAwEAAISIgAAArQJAiAQCoAABHAAAgAAAAQAAAAAATgDAAhBAAAAABAQAAwJ4
+; Markers = 1158,3894,6740
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
