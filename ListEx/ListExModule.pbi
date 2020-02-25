@@ -11,7 +11,8 @@
  
 ; Last Update: 25.02.2020
 ;
-; Bugfixes
+; Added:   Use DateEx, if available.
+; Added:   Scrollbars for ComboBox
 ; Changed: SetState() - Set the focus on an (editable) cell when the 'Column' parameter is used.
 ;
 ; Use ComboBoxEx if available
@@ -148,11 +149,11 @@
 
 
 ; XIncludeFile "ModuleEx.pbi"
-
+; XIncludeFile "DateExModule.pbi"
 
 DeclareModule ListEx
   
-  #Version  = 20022501
+  #Version  = 20022503
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -210,8 +211,7 @@ DeclareModule ListEx
     #EditableCombobox
   EndEnumeration ;}
   
-  Enumeration 1
-    ; --- Color ---
+  Enumeration 1     ;{ Color
     #ActiveLinkColor
     #BackColor
     #ButtonColor
@@ -234,7 +234,7 @@ DeclareModule ListEx
     #ComboBackColor
     #StringFrontColor
     #StringBackColor
-  EndEnumeration  
+  EndEnumeration ;}
   
   EnumerationBinary ;{ State 
     #Selected   = #PB_ListIcon_Selected
@@ -246,7 +246,7 @@ DeclareModule ListEx
     #NoCheckBoxes
   EndEnumeration ;}
   
-  EnumerationBinary  ; ProgressBars
+  EnumerationBinary ; ProgressBars
     #ShowPercent
   EndEnumeration
   
@@ -458,7 +458,7 @@ DeclareModule ListEx
   Declare   SetItemImage(GNum.i, Row.i, Column.i, Image.i, Align.i=#Left, Width.i=#PB_Default, Height.i=#PB_Default)
   Declare   SetItemImageID(GNum.i, Row.i, Column.i, Width.f, Height.f, ImageID.i, Align.i=#Left)
   Declare   SetItemState(GNum.i, Row.i, State.i, Column.i=#PB_Ignore)
-  Declare   SetItemText(GNum.i, Row.i, Text.s , Column.i)
+  Declare   SetItemText(GNum.i, Row.i, Text.s, Column.i)
   Declare   SetRowsHeight(GNum.i, Height.f)
   Declare   SetState(GNum.i, Row.i=#PB_Default, Column.i=#PB_Ignore)
   Declare   SetTimeMask(GNum.i, Mask.s, Column.i=#PB_Ignore)
@@ -4234,18 +4234,32 @@ Module ListEx
               Mask$ = ListEx()\Date\Mask
               
               If FindMapElement(ListEx()\Date\Column(), Key$)
-                If ListEx()\Date\Column()\Min  : SetGadgetAttribute(ListEx()\DateNum, #PB_Date_Minimum, ListEx()\Date\Column()\Min) : EndIf
-                If ListEx()\Date\Column()\Max  : SetGadgetAttribute(ListEx()\DateNum, #PB_Date_Maximum, ListEx()\Date\Column()\Max) : EndIf
+                CompilerIf Defined(DateEx, #PB_Module)
+                  If ListEx()\Date\Column()\Min  : DateEx::SetAttribute(ListEx()\DateNum, DateEx::#Minimum, ListEx()\Date\Column()\Min) : EndIf
+                  If ListEx()\Date\Column()\Max  : DateEx::SetAttribute(ListEx()\DateNum, DateEx::#Maximum, ListEx()\Date\Column()\Max) : EndIf
+                CompilerElse  
+                  If ListEx()\Date\Column()\Min  : SetGadgetAttribute(ListEx()\DateNum, #PB_Date_Minimum, ListEx()\Date\Column()\Min) : EndIf
+                  If ListEx()\Date\Column()\Max  : SetGadgetAttribute(ListEx()\DateNum, #PB_Date_Maximum, ListEx()\Date\Column()\Max) : EndIf
+                CompilerEndIf
                 If ListEx()\Date\Column()\Mask : Mask$ = ListEx()\Date\Column()\Mask : EndIf
               EndIf
 
               ResizeGadget(ListEx()\DateNum, X, Y, ListEx()\Cols()\Width - 1, ListEx()\Rows()\Height)
-              SetGadgetText(ListEx()\DateNum, Mask$)
-
+              
+              CompilerIf Defined(DateEx, #PB_Module)
+                DateEx::SetText(ListEx()\DateNum, Mask$)
+              CompilerElse    
+                SetGadgetText(ListEx()\DateNum, Mask$)
+              CompilerEndIf
+              
               Value$ = ListEx()\Rows()\Column(Key$)\Value
               If Value$
                 Date = ParseDate(Mask$, Value$)
-                If Date > 0 : SetGadgetState(ListEx()\DateNum, Date) : EndIf
+                CompilerIf Defined(DateEx, #PB_Module)
+                  If Date > 0 : DateEx::SetState(ListEx()\DateNum, Date) : EndIf
+                CompilerElse   
+                  If Date > 0 : SetGadgetState(ListEx()\DateNum, Date) : EndIf
+                CompilerEndIf
               EndIf
 
               ListEx()\Date\Row     = Row
@@ -4258,7 +4272,12 @@ Module ListEx
               ListEx()\Date\Flag    = #True
             
               BindShortcuts_(#True)
-              HideGadget(ListEx()\DateNum, #False)
+              
+              CompilerIf Defined(DateEx, #PB_Module)
+                DateEx::Hide(ListEx()\DateNum, #False)
+              CompilerElse  
+                HideGadget(ListEx()\DateNum, #False)
+              CompilerEndIf
               
               SetActiveGadget(ListEx()\DateNum)
               
@@ -4310,9 +4329,17 @@ Module ListEx
         Y = ListEx()\Date\Y - ListEx()\Row\OffSetY
         ResizeGadget(ListEx()\DateNum, X, Y + 1, #PB_Ignore, #PB_Ignore)
         If X + ListEx()\Date\Width > GadgetWidth(ListEx()\CanvasNum) Or Y + ListEx()\Date\Height > GadgetHeight(ListEx()\CanvasNum) Or Y < ListEx()\Header\Height
-          HideGadget(ListEx()\DateNum, #True) 
-        Else  
-          HideGadget(ListEx()\DateNum, #False)
+          CompilerIf Defined(DateEx, #PB_Module)
+            DateEx::Hide(ListEx()\DateNum, #True) 
+          CompilerElse
+            HideGadget(ListEx()\DateNum, #True)
+          CompilerEndIf
+        Else
+          CompilerIf Defined(DateEx, #PB_Module)
+            DateEx::Hide(ListEx()\DateNum, #False)
+          CompilerElse  
+            HideGadget(ListEx()\DateNum, #False)
+          CompilerEndIf    
         EndIf
       EndIf
     EndIf
@@ -4610,8 +4637,6 @@ Module ListEx
             Else
               ManageEditGadgets_(ListEx()\Date\Row, Column)
             EndIf
-          Case ListEx()\CanvasNum
-            Debug "Tabulator"
         EndSelect
         
       EndIf
@@ -4631,9 +4656,7 @@ Module ListEx
         
         Select ActiveID 
           Case ListEx()\DateNum
-            
-            CloseDate_()
-            
+            CloseDate_()  
         EndSelect
         
       EndIf
@@ -4653,9 +4676,7 @@ Module ListEx
  
         Select ActiveID  
           Case ListEx()\DateNum
-            
             CloseDate_(#True)
-
         EndSelect
         
       EndIf
@@ -6126,6 +6147,30 @@ Module ListEx
     
   EndProcedure 
   
+  Procedure _SynchronizeComboList()
+    Define.i ScrollNum = EventGadget()
+    Define.i GadgetNum = GetGadgetData(ScrollNum)
+    Define.i ScrollPos
+    
+    If FindMapElement(ListEx(), Str(GadgetNum))
+      
+      If Not ListEx()\ListView\Hide
+        
+        ScrollPos = GetGadgetState(ScrollNum)
+        If ScrollPos <> ListEx()\ListView\ScrollBar\Pos
+          
+          ListEx()\ListView\ScrollBar\Pos = ScrollPos
+          ListEx()\ListView\Offset        = ScrollPos
+          
+          DrawListView_()      
+        EndIf
+        
+      EndIf 
+      
+    EndIf
+    
+  EndProcedure ;}
+  
   ;- __________ Editing Cells __________
   
   Procedure  BindShortcuts_(Flag.i=#True)
@@ -6219,6 +6264,8 @@ Module ListEx
   EndProcedure
   
   Procedure  CloseDate_(Escape.i=#False)
+    Define.i State
+    Define.s Text$
     
     If IsGadget(ListEx()\DateNum)
       
@@ -6228,9 +6275,18 @@ Module ListEx
         UpdateEventData_(#EventType_Date, #NotValid, #NotValid, "", #NotValid, "")
       Else  
         If SelectElement(ListEx()\Rows(), ListEx()\Date\Row)
-          ListEx()\Rows()\Column(ListEx()\Date\Label)\Value = GetGadgetText(ListEx()\DateNum)
+          
+          CompilerIf Defined(DateEx, #PB_Module)
+            State = DateEx::GetState(ListEx()\DateNum)
+            Text$ = DateEx::GetText(ListEx()\DateNum)
+          CompilerElse  
+            State = GetGadgetState(ListEx()\DateNum)
+            Text$ = GetGadgetText(ListEx()\DateNum)
+          CompilerEndIf
+        
+          ListEx()\Rows()\Column(ListEx()\Date\Label)\Value = Text$
           ListEx()\Changed = #True
-          UpdateEventData_(#EventType_Date, ListEx()\Date\Row, ListEx()\Date\Col, GetGadgetText(ListEx()\DateNum), GetGadgetState(ListEx()\DateNum), ListEx()\Rows()\ID)
+          UpdateEventData_(#EventType_Date, ListEx()\Date\Row, ListEx()\Date\Col, Text$, State, ListEx()\Rows()\ID)
           If IsWindow(ListEx()\Window\Num)
             PostEvent(#PB_Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_Date)
             PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_Date)
@@ -6238,8 +6294,12 @@ Module ListEx
         EndIf
       EndIf
       
-      HideGadget(ListEx()\DateNum, #True)
-
+      CompilerIf Defined(DateEx, #PB_Module)
+        DateEx::Hide(ListEx()\DateNum, #True)
+      CompilerElse  
+        HideGadget(ListEx()\DateNum, #True)
+      CompilerEndIf
+      
       ListEx()\Date\Label = ""
       ListEx()\Date\Flag  = #False
       
@@ -6316,6 +6376,7 @@ Module ListEx
         EndIf
         
         BindGadgetEvent(ListEx()\ListView\Num, @_ListViewHandler())
+        BindGadgetEvent(ListEx()\ListView\ScrollBar\Num, @_SynchronizeComboList(), #PB_All) 
         
       EndIf 
       
@@ -7042,11 +7103,19 @@ Module ListEx
         ;}        
 
         ;{ Gadgets
-        ListEx()\DateNum = DateGadget(#PB_Any, 0, 0, 0, 0, ListEx()\Country\DateMask)
-        If IsGadget(ListEx()\DateNum)
-          SetGadgetData(ListEx()\DateNum, ListEx()\CanvasNum)
-          HideGadget(ListEx()\DateNum, #True)
-        EndIf
+        CompilerIf Defined(DateEx, #PB_Module)
+          ListEx()\DateNum = DateEx::Gadget(#PB_Any, 0, 0, 0, 0, ListEx()\Country\DateMask)
+          If IsGadget(ListEx()\DateNum)
+            DateEx::SetData(ListEx()\DateNum, ListEx()\CanvasNum)
+            DateEx::Hide(ListEx()\DateNum, #True)
+          EndIf  
+        CompilerElse  
+          ListEx()\DateNum = DateGadget(#PB_Any, 0, 0, 0, 0, ListEx()\Country\DateMask)
+          If IsGadget(ListEx()\DateNum)
+            SetGadgetData(ListEx()\DateNum, ListEx()\CanvasNum)
+            HideGadget(ListEx()\DateNum, #True)
+          EndIf
+        CompilerEndIf
         ListEx()\Date\Mask = ListEx()\Country\DateMask
         
         ListEx()\HScrollNum = ScrollBarGadget(#PB_Any, 0, 0, 0, 0, 0, 0, 0)
@@ -8177,8 +8246,7 @@ Module ListEx
     EndIf
     
   EndProcedure
-  
-  
+   
   Procedure   SetItemColor(GNum.i, Row.i, ColorTyp.i, Value.i, Column.i=#PB_Ignore)
     Define.s Key$
     
@@ -8836,7 +8904,7 @@ CompilerIf #PB_Compiler_IsMainFile
       
       ;ListEx::ExportCSV(#List, "Export.csv", ListEx::#NoButtons|ListEx::#NoCheckBoxes|ListEx::#HeaderRow)
       
-      ListEx::SetColor(#List, ListEx::#ComboBackColor, $FFFFF0)
+      ;ListEx::SetColor(#List, ListEx::#ComboBackColor, $FFFFF0)
       
     EndIf
     
@@ -8930,11 +8998,11 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 7763
-; FirstLine = 827
-; Folding = wBQAAAAAABAAARgAwEAAISIgAAArQJAiAQCoAABHAAAgAAAAQAAAAAATgDAAhBAAAAABAQAAwJ4
-; Markers = 1158,3894,6740
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 151
+; FirstLine = 3
+; Folding = wAgAAAAAACAAAiABgJAAQEQABAQWhSAEBgEQhICCOAAAABAAAgAAAcAAwE5AEwwAAAAAAAAAAAwk8
+; Markers = 4243,7107
 ; EnableXP
 ; DPIAware
 ; EnableUnicode

@@ -9,8 +9,10 @@
 ;/ © 2019 Thorsten1867 (11/2019)
 ;/
 
-; Last Update:
-
+; Last Update: 25.02.2020
+;
+; Added: #Minimum / #Maximum
+;
 
 ;{ ===== MIT License =====
 ;
@@ -78,7 +80,7 @@ CompilerIf Not Defined(Date64, #PB_Module)  : XIncludeFile "Date64Module.pbi" : 
 
 DeclareModule Calendar
   
-  #Version  = 19120600
+  #Version  = 20022500
   #ModuleEx = 19120600
 
   ;- ===========================================================================
@@ -92,6 +94,8 @@ DeclareModule Calendar
   EndEnumeration ;}
   
   Enumeration 1     ;{ Attribute
+    #Minimum = #PB_Date_Minimum
+	  #Maximum = #PB_Date_Maximum
     #Spacing ; Horizontal spacing for month name
   EndEnumeration ;}
   
@@ -159,7 +163,7 @@ DeclareModule Calendar
   Declare   Disable(GNum.i, State.i=#True)
   Declare   DisableReDraw(GNum.i, State.i=#False)
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i=#PB_Default, Height.i=#PB_Default, Date.i=#PB_Default, Flags.i=#False, WindowNum.i=#PB_Default)
-  Declare.i GetAttribute(GNum.i, Attribute.i)
+  Declare.q GetAttribute(GNum.i, Attribute.i)
   Declare.q GetData(GNum.i)
   Declare.q GetDate(Day.i, Month.i, Year.i, Hour.i=0, Minute.i=0, Second.i=0)
   Declare.i GetDay(GNum.i)
@@ -171,6 +175,7 @@ DeclareModule Calendar
   Declare   Hide(GNum.i, State.i=#True)
   Declare   MonthName(Month.i, Name.s)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
+  Declare   SetAttribute(GNum.i, Attribute.i, Value.q)
   Declare   SetColor(GNum.i, ColorType.i, Value.i)
   Declare   SetData(GNum.i, Value.q)
   Declare   SetDate(GNum.i, Year.i, Month.i, Day.i=1, Hour.i=0, Minute.i=0, Second.i=0)
@@ -384,6 +389,9 @@ Module Calendar
     Disable.i
     Hide.i
     
+    Minimum.i
+    Maximum.i
+    
     Flags.i
     
     Size.Calendar_Size_Structure
@@ -394,8 +402,7 @@ Module Calendar
     Year.Calendar_Year_Structure
     Month.Calendar_Month_Structure
     Week.Calendar_Week_Structure
-    
-    
+
     Button.Button_Size_Structure
     Cursor.Calendar_Cursor_Structure
     String.Calendar_String_Structure
@@ -1267,6 +1274,7 @@ Module Calendar
   
   Procedure  ChangeYear_(State.i=#True)
     Define.i Year, OffsetY, FontID
+    Define.q NewDate
     
     If State
       
@@ -1295,10 +1303,54 @@ Module Calendar
       If Year > 1600 And Year < 2100
         
         Calendar()\String\Visible = #False
-
-        Calendar()\Current\Year  = Year
-        Calendar()\Current\Date  = Date_(Year, Calendar()\Current\Month, 1, 0, 0, 0)
         
+        NewDate = Date_(Year, Calendar()\Current\Month, 1, 0, 0, 0)
+        
+        Calendar()\Current\Year  = Year
+        Calendar()\Current\Date  = NewDate
+
+        If Calendar()\Minimum And Calendar()\Maximum
+          
+          If NewDate >= Date_(Year_(Calendar()\Minimum), Month_(Calendar()\Minimum)) And NewDate <= Date_(Year_(Calendar()\Maximum), Month_(Calendar()\Maximum))
+            Calendar()\Current\Year  = Year
+            Calendar()\Current\Date  = NewDate
+          ElseIf NewDate < Date_(Year_(Calendar()\Minimum), Month_(Calendar()\Minimum))
+            Calendar()\Current\Year  = Year_(Calendar()\Minimum)
+            Calendar()\Current\Month = Month_(Calendar()\Minimum)
+            Calendar()\Current\Date  = Date_(Year_(Calendar()\Minimum), Month_(Calendar()\Minimum))
+          ElseIf NewDate > Date_(Year_(Calendar()\Maximum), Month_(Calendar()\Maximum))
+            Calendar()\Current\Year  = Year_(Calendar()\Maximum)
+            Calendar()\Current\Month = Month_(Calendar()\Maximum)
+            Calendar()\Current\Date  = Date_(Year_(Calendar()\Maximum), Month_(Calendar()\Maximum))  
+          EndIf
+          
+        ElseIf Calendar()\Minimum
+          
+          If NewDate < Date_(Year_(Calendar()\Minimum), Month_(Calendar()\Minimum))
+            Calendar()\Current\Year  = Year_(Calendar()\Minimum)
+            Calendar()\Current\Month = Month_(Calendar()\Minimum)
+            Calendar()\Current\Date  = Date_(Year_(Calendar()\Minimum), Month_(Calendar()\Minimum))
+          Else
+            Calendar()\Current\Year  = Year
+            Calendar()\Current\Date  = NewDate
+          EndIf
+          
+        ElseIf Calendar()\Maximum
+          
+          If NewDate > Date_(Year_(Calendar()\Maximum), Month_(Calendar()\Maximum))
+            Calendar()\Current\Year  = Year_(Calendar()\Maximum)
+            Calendar()\Current\Month = Month_(Calendar()\Maximum)
+            Calendar()\Current\Date  = Date_(Year_(Calendar()\Maximum), Month_(Calendar()\Maximum))  
+          Else
+            Calendar()\Current\Year  = Year
+            Calendar()\Current\Date  = NewDate 
+          EndIf
+          
+        Else
+          Calendar()\Current\Year  = Year
+          Calendar()\Current\Date  = NewDate
+        EndIf
+
         Calendar()\Year\State = #False
         
         Draw_()
@@ -1314,6 +1366,7 @@ Module Calendar
   
   Procedure  ChangeMonth_(State.i=#True)
     Define.i Month
+    Define.q NewDate
     
     If State
       
@@ -1341,8 +1394,51 @@ Module Calendar
       
       Month = Calendar()\ListView\State + 1
       If Month >= 1 And Month <= 12
-        Calendar()\Current\Month = Month
-        Calendar()\Current\Date  = Date_(Calendar()\Current\Year, Month, 1, 0, 0, 0)
+        
+        NewDate = Date_(Calendar()\Current\Year, Month, 1, 0, 0, 0)
+        
+        If Calendar()\Minimum And Calendar()\Maximum
+          
+          If NewDate >= Date_(Year_(Calendar()\Minimum), Month_(Calendar()\Minimum)) And NewDate <= Date_(Year_(Calendar()\Maximum), Month_(Calendar()\Maximum))
+            Calendar()\Current\Month = Month
+            Calendar()\Current\Date  = NewDate
+          ElseIf NewDate < Date_(Year_(Calendar()\Minimum), Month_(Calendar()\Minimum))
+            Calendar()\Current\Year  = Year_(Calendar()\Minimum)
+            Calendar()\Current\Month = Month_(Calendar()\Minimum)
+            Calendar()\Current\Date  = Date_(Year_(Calendar()\Minimum), Month_(Calendar()\Minimum))
+          ElseIf NewDate > Date_(Year_(Calendar()\Maximum), Month_(Calendar()\Maximum))
+            Calendar()\Current\Year  = Year_(Calendar()\Maximum)
+            Calendar()\Current\Month = Month_(Calendar()\Maximum)
+            Calendar()\Current\Date  = Date_(Year_(Calendar()\Maximum), Month_(Calendar()\Maximum))  
+          EndIf
+          
+        ElseIf Calendar()\Minimum
+          
+          If NewDate < Date_(Year_(Calendar()\Minimum), Month_(Calendar()\Minimum))
+            Calendar()\Current\Year  = Year_(Calendar()\Minimum)
+            Calendar()\Current\Month = Month_(Calendar()\Minimum)
+            Calendar()\Current\Date  = Date_(Year_(Calendar()\Minimum), Month_(Calendar()\Minimum))
+          Else
+            Calendar()\Current\Month = Month
+            Calendar()\Current\Date  = NewDate
+          EndIf
+          
+        ElseIf Calendar()\Maximum
+          
+          If NewDate > Date_(Year_(Calendar()\Maximum), Month_(Calendar()\Maximum))
+            Calendar()\Current\Year  = Year_(Calendar()\Maximum)
+            Calendar()\Current\Month = Month_(Calendar()\Maximum)
+            Calendar()\Current\Date  = Date_(Year_(Calendar()\Maximum), Month_(Calendar()\Maximum))  
+          Else
+            Calendar()\Current\Month = Month
+            Calendar()\Current\Date  = NewDate  
+          EndIf
+          
+        Else
+          Calendar()\Current\Month = Month
+          Calendar()\Current\Date  = NewDate
+        EndIf
+        
       EndIf
 
       Draw_()
@@ -1562,7 +1658,8 @@ Module Calendar
   EndProcedure
 
   Procedure _LeftButtonUpHandler()  
-    Define.i X, Y, Angle
+    Define.i X, Y, Angle, Month, Year
+    Define.q NewDate
     Define.i GadgetNum = EventGadget()
     
     If FindMapElement(Calendar(), Str(GadgetNum))
@@ -1574,7 +1671,6 @@ Module Calendar
         
         If X > Calendar()\ListView\X And X < Calendar()\ListView\X + Calendar()\ListView\Width
           If Y > Calendar()\ListView\Y And Y < Calendar()\ListView\Y + Calendar()\ListView\Height
-            
             ForEach Calendar()\ListView\Item()
               If Y >= Calendar()\ListView\Item()\Y And Y <= Calendar()\ListView\Item()\Y + Calendar()\ListView\RowHeight
                 Calendar()\ListView\State = ListIndex(Calendar()\ListView\Item())
@@ -1594,16 +1690,46 @@ Module Calendar
       ;{ Buttons: Previous & Next
       If Y >= Calendar()\Button\Y And Y <= Calendar()\Button\Y + Calendar()\Button\Height
         If X >= Calendar()\Button\prevX And X <= Calendar()\Button\prevX + Calendar()\Button\Width
-          Calendar()\Current\Date  = AddDate_(Calendar()\Current\Date, #PB_Date_Month, -1)
-          Calendar()\Current\Month = Month_(Calendar()\Current\Date)
-          Calendar()\Current\Year  = Year_(Calendar()\Current\Date)
+
+          NewDate = AddDate_(Calendar()\Current\Date, #PB_Date_Month, -1)
+          Month   = Month_(NewDate)
+          Year    = Year_(NewDate)
+          
+          If Calendar()\Minimum
+            If newDate >= Date_(Year_(Calendar()\Minimum), Month_(Calendar()\Minimum))
+              Calendar()\Current\Date  = NewDate
+              Calendar()\Current\Month = Month
+              Calendar()\Current\Year  = Year
+            EndIf  
+          Else  
+            Calendar()\Current\Date  = NewDate
+            Calendar()\Current\Month = Month
+            Calendar()\Current\Year  = Year
+          EndIf
+
           Draw_()
+          
           ProcedureReturn #True
         ElseIf X >= Calendar()\Button\nextX And X <= Calendar()\Button\nextX + Calendar()\Button\Width
-          Calendar()\Current\Date  = AddDate_(Calendar()\Current\Date, #PB_Date_Month, 1)
-          Calendar()\Current\Month = Month_(Calendar()\Current\Date)
-          Calendar()\Current\Year  = Year_(Calendar()\Current\Date)
+          
+          NewDate = AddDate_(Calendar()\Current\Date, #PB_Date_Month, 1)
+          Month   = Month_(NewDate)
+          Year    = Year_(NewDate)
+          
+          If Calendar()\Maximum
+            If newDate <= Date_(Year_(Calendar()\Maximum), Month_(Calendar()\Maximum), 31)
+              Calendar()\Current\Date  = NewDate
+              Calendar()\Current\Month = Month
+              Calendar()\Current\Year  = Year
+            EndIf 
+          Else 
+            Calendar()\Current\Date  = NewDate
+            Calendar()\Current\Month = Month
+            Calendar()\Current\Year  = Year
+          EndIf
+          
           Draw_()
+          
           ProcedureReturn #True
         EndIf
       EndIf ;}
@@ -1624,9 +1750,42 @@ Module Calendar
         ForEach Calendar()\Day()
           If Y >= Calendar()\Day()\Y And Y <= Calendar()\Day()\Y + Calendar()\Day()\Height
             If X >= Calendar()\Day()\X And X <= Calendar()\Day()\X + Calendar()\Day()\Width
-              Calendar()\Current\Focus = Date_(Calendar()\Current\Year, Calendar()\Current\Month, Val(MapKey(Calendar()\Day())), 0, 0, 0)
+              
+              NewDate = Date_(Calendar()\Current\Year, Calendar()\Current\Month, Val(MapKey(Calendar()\Day())), 0, 0, 0)
+              
+              If Calendar()\Minimum And Calendar()\Maximum
+                
+                If NewDate < Calendar()\Minimum
+                  Calendar()\Current\Focus = Calendar()\Minimum
+                ElseIf NewDate > Calendar()\Maximum
+                  Calendar()\Current\Focus = Calendar()\Maximum
+                Else
+                  Calendar()\Current\Focus = NewDate
+                EndIf 
+                
+              ElseIf Calendar()\Minimum
+                
+                If NewDate < Calendar()\Minimum
+                  Calendar()\Current\Focus = Calendar()\Minimum
+                Else
+                  Calendar()\Current\Focus = NewDate
+                EndIf   
+               
+              ElseIf Calendar()\Maximum
+                
+                If NewDate > Calendar()\Maximum
+                  Calendar()\Current\Focus = Calendar()\Maximum
+                Else
+                  Calendar()\Current\Focus = NewDate
+                EndIf
+                
+              Else  
+                Calendar()\Current\Focus = NewDate
+              EndIf
+            
               PostEvent(#PB_Event_Gadget, Calendar()\Window\Num, Calendar()\CanvasNum, #EventType_Select, Calendar()\Current\Focus)
               PostEvent(#Event_Gadget,    Calendar()\Window\Num, Calendar()\CanvasNum, #EventType_Select, Calendar()\Current\Focus)
+              
               Draw_()
               Break
             EndIf
@@ -2048,11 +2207,15 @@ Module Calendar
   EndProcedure    
   
   
-  Procedure   GetAttribute(GNum.i, Attribute.i)
+  Procedure.q GetAttribute(GNum.i, Attribute.i)
     
     If FindMapElement(Calendar(), Str(GNum))
       
       Select Attribute
+        Case #Minimum
+          ProcedureReturn Calendar()\Minimum
+        Case #Maximum
+          ProcedureReturn Calendar()\Maximum
         Case #Spacing
           ProcedureReturn DesktopUnscaledX(Calendar()\Month\Spacing)
       EndSelect
@@ -2158,11 +2321,15 @@ Module Calendar
   EndProcedure  
   
   
-  Procedure   SetAttribute(GNum.i, Attribute.i, Value.i)
+  Procedure   SetAttribute(GNum.i, Attribute.i, Value.q)
     
     If FindMapElement(Calendar(), Str(GNum))
       
       Select Attribute
+        Case #Minimum
+          Calendar()\Minimum = Value
+        Case #Maximum
+          Calendar()\Maximum = Value
         Case #Spacing
           Calendar()\Month\Spacing = dpiX(Value)
       EndSelect
@@ -2308,8 +2475,12 @@ CompilerIf #PB_Compiler_IsMainFile
 
   If OpenWindow(#Window, 0, 0, 230, 180, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
     
+    Minimum.q = Calendar::GetDate(18, 1, 2020)
+    Maximum.q = Calendar::GetDate(1, 4, 2020)
+    
     Calendar::Gadget(#Calendar, 10, 10, #PB_Default, #PB_Default, #PB_Default, #Window)
-
+    ;Calendar::SetAttribute(#Calendar, Calendar::#Minimum, Minimum)
+    ;Calendar::SetAttribute(#Calendar, Calendar::#Maximum, Maximum)
     ;ModuleEx::SetTheme(ModuleEx::#Theme_Blue)
     
     Repeat
@@ -2332,9 +2503,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 2312
-; FirstLine = 319
-; Folding = YABAAAAAAAQYBKMDAAAAiBAAg-
-; Markers = 964,2230
+; CursorPosition = 2482
+; FirstLine = 233
+; Folding = YABAAAgAAAQYBKMAAAAAiBAAg-
+; Markers = 971,2397
 ; EnableXP
 ; DPIAware
