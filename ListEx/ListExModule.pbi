@@ -9,14 +9,14 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 25.02.2020
+; Last Update: 26.02.2020
+;
+; Added:   Color for ComboBox items -> AddComboBoxItem()
+; Bugfix:  Move window
 ;
 ; Added:   Use DateEx, if available.
 ; Added:   Scrollbars for ComboBox
 ; Changed: SetState() - Set the focus on an (editable) cell when the 'Column' parameter is used.
-;
-; Use ComboBoxEx if available
-; #ComboFrontColor and #ComboBackColor for SetColor()
 ;
 
 ;{ ===== MIT License =====
@@ -56,6 +56,7 @@
 ; ListEx::AddCells()                - adds a new row and insert text in cells with label
 ; ListEx::AddColumn()               - similar to 'AddGadgetColumn()'
 ; ListEx::AddComboBoxItems()        - add items to the comboboxes of the column (items seperated by #LF$)
+; ListEx::AddComboBoxItem()         - add a single item to the comboboxes of the column (color possible)
 ; ListEx::AddItem()                 - similar to 'AddGadgetItem()'
 ; ListEx::CountItems()              - similar to 'CountGadgetItems()' [#Selected/#Checked/#Inbetween]
 ; ListEx::ChangeCountrySettings()   - change default settings
@@ -153,7 +154,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20022503
+  #Version  = 20022600
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -383,7 +384,8 @@ DeclareModule ListEx
 	Declare   SetID(GNum.i, String.s)
   
   Declare.i AddColumn(GNum.i, Column.i, Title.s, Width.f, Label.s="", Flags.i=#False)
-  Declare.i AddComboBoxItems(GNum.i, Column.i, Text.s)
+  Declare.i AddComboBoxItems(GNum.i, Column.i, Items.s)
+  Declare.i AddComboBoxItem(GNum.i, Column.i, Item.s, Color.i=#PB_Default)
   Declare.i AddCells(GNum.i, Row.i=-1, Labels.s="", Text.s="", RowID.s="", Flags.i=#False) 
   Declare.i AddItem(GNum.i, Row.i=-1, Text.s="", Label.s="", Flags.i=#False)
   Declare   AttachPopupMenu(GNum.i, Popup.i)
@@ -627,16 +629,6 @@ Module ListEx
     Flags.i
   EndStructure ;}
 
-  Structure ComboBox_Item_Structure     ;{ ListEx()\ComboBox\Column('num')\...
-    List Items.s()
-  EndStructure ;}
-  
-  Structure Date_Structure              ;{ ListEx()\Date\Column('num')\...
-    Min.i
-    Max.i
-    Mask.s
-  EndStructure ;}
-  
   Structure Event_Structure             ;{ ListEx()\Event\...
     Type.i
     Row.i
@@ -645,15 +637,6 @@ Module ListEx
     State.i
     ID.s
   EndStructure  ;}
-  
-  Structure Rows_Column_Structure       ;{ ListEx()\Rows()\Column('label')\...
-    Value.s
-    FontID.i
-    State.i ; e.g. CheckBoxes
-    Flags.i
-    Image.Image_Structure
-    Color.Color_Structure
-  EndStructure ;}
   
   Structure ListEx_Sort_Structure       ;{ ListEx()\Sort\...
     Column.i
@@ -669,37 +652,7 @@ Module ListEx
     maxWidth.f
   EndStructure ;}
   
-  Structure ListEx_Color_Structure      ;{ ListEx()\Color\...
-    AlternateRow.i
-    Front.i
-    Back.i
-    ComboFront.i
-    ComboBack.i
-    Line.i
-    HeaderFront.i
-    HeaderBack.i
-    HeaderLine.i
-    Canvas.i
-    Focus.i
-    FocusText.i
-    EditFront.i
-    EditBack.i
-    ButtonFront.i
-    ButtonBack.i
-    ButtonBorder.i
-    ProgressBar.i
-    Gradient.i
-    Link.i
-    ActiveLink.i
-    ScrollBar.i
-    StringFront.i
-    StringBack.i
-    WrongFront.i
-    WrongBack.i
-    Mark1.i
-    Mark2.i
-  EndStructure ;}
-  
+  ; ----- Gadgets -----
 
   Structure ListEx_ProgressBar          ;{ ListEx()\ProgressBar\...
     Minimum.i
@@ -742,6 +695,34 @@ Module ListEx
     Pressed.i
   EndStructure ;}
   
+  Structure ListEx_CheckBox_Structure   ;{ ListEx()\CheckBox\...
+    Row.i
+    Col.i
+    Label.s
+    State.i
+  EndStructure ;}
+  
+  ; ----- Date Gadget -----
+  
+  Structure Date_Structure              ;{ ListEx()\Date\Column('num')\...
+    Min.i
+    Max.i
+    Mask.s
+  EndStructure ;}
+  
+  Structure ListEx_Date_Structure       ;{ ListEx()\Date\...
+    Row.i
+    Col.i
+    X.f
+    Y.f
+    Width.f
+    Height.f
+    Mask.s
+    Label.s
+    Flag.i
+    Map Column.Date_Structure()
+  EndStructure ;}
+  
   ; ----- ComboBox -----
   
   Structure ListView_Scroll_Structure   ;{ ListEx()\ListView\ScrollBar\...
@@ -776,6 +757,15 @@ Module ListEx
     List Item.ListView_Item_Structure()
   EndStructure ;}
   
+  Structure ComboBox_Item_Structure    ;{ ListEx()\ComboBox\Column('num')\Items()\...
+    String.s
+    Color.i
+  EndStructure ;}
+  
+  Structure ComboBox_Items_Structure    ;{ ListEx()\ComboBox\Column('num')\...
+    List Items.ComboBox_Item_Structure()
+  EndStructure ;}
+  
   Structure ListEx_ComboBox_Structure   ;{ ListEx()\ComboBox\...
     Row.i
     Col.i
@@ -791,28 +781,10 @@ Module ListEx
     CursorPos.i
     State.i
     Flag.i
-    Map Column.ComboBox_Item_Structure()
+    Map Column.ComboBox_Items_Structure()
   EndStructure ;}
-  
-  Structure ListEx_CheckBox_Structure   ;{ ListEx()\CheckBox\...
-    Row.i
-    Col.i
-    Label.s
-    State.i
-  EndStructure ;}
-  
-  Structure ListEx_Date_Structure       ;{ ListEx()\Date\...
-    Row.i
-    Col.i
-    X.f
-    Y.f
-    Width.f
-    Height.f
-    Mask.s
-    Label.s
-    Flag.i
-    Map Column.Date_Structure()
-  EndStructure ;}
+
+  ; ----- Header -----
   
   Structure ListEx_Header_Structure     ;{ ListEx()\Header\...
     Col.i
@@ -821,17 +793,7 @@ Module ListEx
     FontID.i
   EndStructure ;}   
   
-  
-  Structure ListEx_Col_Structure        ;{ ListEx()\Col\...
-    Current.i
-    Counter.i
-    Width.f
-    Padding.i
-    OffsetX.f
-    MouseX.i
-    Resize.i
-    CheckBoxes.i
-  EndStructure ;}
+  ; ----- Columns -----
   
   Structure Cols_Header_Structure       ;{ ListEx()\Cols()\Header\...
     Title.s
@@ -843,8 +805,19 @@ Module ListEx
     FrontColor.i
     BackColor.i
     Flags.i
+  EndStructure ;} 
+   
+  Structure ListEx_Col_Structure        ;{ ListEx()\Col\...
+    Current.i
+    Counter.i
+    Width.f
+    Padding.i
+    OffsetX.f
+    MouseX.i
+    Resize.i
+    CheckBoxes.i
   EndStructure ;}
-  
+
   Structure ListEx_Cols_Structure       ;{ ListEx()\Cols()\...
     ;Type.i
     X.f
@@ -866,7 +839,8 @@ Module ListEx
     Image.Image_Structure
   EndStructure ;}  
   
-
+  ; ----- Rows -----
+  
   Structure ListEx_Row_Structure        ;{ ListEx()\Row\...
     Current.i
     CurrentKey.i
@@ -879,6 +853,15 @@ Module ListEx
     StartSelect.i
     Color.Color_Structure ; Default colors
   EndStructure ;}  
+  
+  Structure Rows_Column_Structure       ;{ ListEx()\Rows()\Column('label')\...
+    Value.s
+    FontID.i
+    State.i ; e.g. CheckBoxes
+    Flags.i
+    Image.Image_Structure
+    Color.Color_Structure
+  EndStructure ;}
   
   Structure ListEx_Rows_Structure       ;{ ListEx()\Rows()\...
     ID.s
@@ -895,6 +878,38 @@ Module ListEx
     Map Column.Rows_Column_Structure()
   EndStructure ;}  
   
+  ; ---------------
+  
+  Structure ListEx_Color_Structure      ;{ ListEx()\Color\...
+    AlternateRow.i
+    Front.i
+    Back.i
+    ComboFront.i
+    ComboBack.i
+    Line.i
+    HeaderFront.i
+    HeaderBack.i
+    HeaderLine.i
+    Canvas.i
+    Focus.i
+    FocusText.i
+    EditFront.i
+    EditBack.i
+    ButtonFront.i
+    ButtonBack.i
+    ButtonBorder.i
+    ProgressBar.i
+    Gradient.i
+    Link.i
+    ActiveLink.i
+    ScrollBar.i
+    StringFront.i
+    StringBack.i
+    WrongFront.i
+    WrongBack.i
+    Mark1.i
+    Mark2.i
+  EndStructure ;}
   
   Structure ListEx_Scroll_Structure     ;{ ListEx()\VScroll\...
     MinPos.f
@@ -4209,8 +4224,8 @@ Module ListEx
               
               ForEach ListEx()\ComboBox\Column()\Items()
                 If AddElement(ListEx()\ListView\Item())
-                  ListEx()\ListView\Item()\String = ListEx()\ComboBox\Column()\Items()
-                  ListEx()\ListView\Item()\Color  = #PB_Default
+                  ListEx()\ListView\Item()\String = ListEx()\ComboBox\Column()\Items()\String
+                  ListEx()\ListView\Item()\Color  = ListEx()\ComboBox\Column()\Items()\Color
                 EndIf  
               Next
               
@@ -5901,10 +5916,6 @@ Module ListEx
     Define.i GadgetNum = EventGadget()
     
     If FindMapElement(ListEx(), Str(GadgetNum))
-      
-      If GetGadgetAttribute(GadgetNum, #PB_Canvas_MouseY) = #PB_Default
-        If ListEx()\ComboBox\Flag : CloseListView_() : EndIf 
-      EndIf
     
       UpdateColumnX_()
       
@@ -6062,6 +6073,19 @@ Module ListEx
     Next
     
   EndProcedure
+  
+  Procedure _MoveWindowHandler()
+    Define.i Window = EventWindow()
+    
+    ForEach ListEx()
+
+      If Window = ListEx()\Window\Num
+        If ListEx()\ComboBox\Flag : CloseListView_() : EndIf 
+      EndIf  
+
+    Next
+    
+  EndProcedure 
   
   Procedure _CloseWindowHandler()
     Define.i Window = EventWindow()
@@ -6698,7 +6722,7 @@ Module ListEx
     ProcedureReturn ListIndex(ListEx()\Cols())
   EndProcedure
   
-  Procedure.i AddComboBoxItems(GNum.i, Column.i, Text.s)
+  Procedure.i AddComboBoxItems(GNum.i, Column.i, Items.s)
     Define.i i, Count
     Define.s Key$
     
@@ -6708,11 +6732,34 @@ Module ListEx
         
         Key$ = ListEx()\Cols()\Key
         
-        Count = CountString(Text, #LF$) + 1
+        Count = CountString(Items, #LF$) + 1
         For i = 1 To Count
           AddElement(ListEx()\ComboBox\Column(Key$)\Items())
-          ListEx()\ComboBox\Column(Key$)\Items() = StringField(Text, i, #LF$)
+          ListEx()\ComboBox\Column(Key$)\Items()\String = StringField(Items, i, #LF$)
+          ListEx()\ComboBox\Column(Key$)\Items()\Color  = #PB_Default
         Next
+        
+      EndIf  
+        
+      ProcedureReturn ListSize(ListEx()\ComboBox\Column(Key$)\Items())      
+    EndIf
+    
+  EndProcedure
+  
+  Procedure.i AddComboBoxItem(GNum.i, Column.i, Item.s, Color.i=#PB_Default)
+    Define.i i, Count
+    Define.s Key$
+    
+    If FindMapElement(ListEx(), Str(GNum))
+      
+      If SelectElement(ListEx()\Cols(), Column)
+        
+        Key$ = ListEx()\Cols()\Key
+
+        If AddElement(ListEx()\ComboBox\Column(Key$)\Items())
+          ListEx()\ComboBox\Column(Key$)\Items()\String = Item
+          ListEx()\ComboBox\Column(Key$)\Items()\Color  = Color
+        EndIf
         
       EndIf  
         
@@ -7138,7 +7185,8 @@ Module ListEx
           If Flags & #AutoResize
             BindEvent(#PB_Event_SizeWindow, @_ResizeWindowHandler(), ListEx()\Window\Num)
           EndIf
-          BindEvent(#PB_Event_CloseWindow,  @_CloseWindowHandler(),  ListEx()\Window\Num)
+          BindEvent(#PB_Event_MoveWindow,  @_MoveWindowHandler(),  ListEx()\Window\Num) 
+          BindEvent(#PB_Event_CloseWindow, @_CloseWindowHandler(), ListEx()\Window\Num)
         Else
           Debug "ERROR: No active Window"
         EndIf ;}
@@ -8750,7 +8798,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   If OpenWindow(#Window, 0, 0, 500, 250, "Window", #PB_Window_SystemMenu|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
     
-    If CreatePopupMenu(#PopupMenu)
+    If CreatePopupMenu(#PopupMenu) ;{ Popup menu
       MenuItem(#MenuItem5, "Copy to clipboard")
       MenuBar()
       MenuItem(#MenuItem0, "Clear List")
@@ -8761,7 +8809,7 @@ CompilerIf #PB_Compiler_IsMainFile
       MenuBar()
       MenuItem(#MenuItem4, "Reset gadget size")
       MenuItem(#MenuItem6, "Reset sort")
-    EndIf
+    EndIf ;}
     
     ButtonGadget(#Button,    420,  10, 70, 20, "Resize")
     ButtonGadget(#B_Default, 420,  50, 70, 20, "Default")
@@ -8790,28 +8838,37 @@ CompilerIf #PB_Compiler_IsMainFile
         
       CompilerElse
         
-        ; --- Add different types of columns  ---
+        ;{ ===== Add different types of columns =====
         ListEx::AddColumn(#List, 1, "Link", 75, "link",   ListEx::#Links)     ; |ListEx::#FitColumn
         ListEx::AddColumn(#List, 2, "Edit", 85, "edit",   ListEx::#Editable)  ; |ListEx::#FitColumn                                                                      
         ListEx::AddColumn(#List, ListEx::#LastItem, "Combo",   72, "combo",  ListEx::#ComboBoxes)
         ListEx::AddColumn(#List, ListEx::#LastItem, "Date",    76, "date",   ListEx::#DateGadget)
         ListEx::AddColumn(#List, ListEx::#LastItem, "Buttons", 60, "button", ListEx::#Buttons) ; ListEx::#Hide
-        ;ListEx::AddColumn(#List, ListEx::#LastItem, "Float", 85, "", ListEx::#Float|ListEx::#Editable)
 
         ; --- Test ProgressBar ---
         CompilerIf ListEx::#Enable_ProgressBar
           ;ListEx::AddColumn(#List, ListEx::#LastItem, "Progress", 60, "progress", ListEx::#ProgressBar)
           ;ListEx::SetProgressBarFlags(#List, ListEx::#ShowPercent)
         CompilerEndIf
+        ;}
         
-        ; --- design of header row ---
+        ; --- Use column attributes ---
+        ListEx::SetColumnAttribute(#List, 1, ListEx::#FontID, FontID(#Font_Arial9U))
+        ListEx::SetColumnAttribute(#List, 5, ListEx::#Align, ListEx::#Center)
+        
+        ; --- Design of Header Row & List ---
         ListEx::SetHeaderAttribute(#List, ListEx::#Align, ListEx::#Center)
+        ListEx::SetFont(#List, FontID(#Font_Arial9B), ListEx::#HeaderFont)
         ;ListEx::SetItemColor(#List, ListEx::#Header, ListEx::#FrontColor, $0000FF, 1)
 
         ListEx::SetFont(#List, FontID(#Font_Arial9))
-        ListEx::SetFont(#List, FontID(#Font_Arial9B), ListEx::#HeaderFont)
+        ;ListEx::SetFont(#List, FontID(#Font_Arial9B), #False, 6)
+        ListEx::SetItemFont(#List,  0, FontID(#Font_Arial9B), 2)
         
-        ; --- Add content ---
+        ; --- Change row height ---
+        ListEx::SetRowsHeight(#List, 22)
+        
+        ;{ ===== Add Content =====
         ListEx::AddItem(#List, ListEx::#LastItem, "Image"    + #LF$ + "no Image" + #LF$ + #LF$ + #LF$ + "Push")
         ListEx::AddItem(#List, ListEx::#LastItem, "Thorsten" + #LF$ + "Hoeppner" + #LF$ + "male" + #LF$ + "18.07.1967" + #LF$ + "", "PureBasic")
         ListEx::AddItem(#List, ListEx::#LastItem, "Amelia"   + #LF$ + "Smith"    + #LF$ + "female"+ #LF$ + #LF$ + "Push")
@@ -8823,26 +8880,23 @@ CompilerIf #PB_Compiler_IsMainFile
         ListEx::AddItem(#List, ListEx::#LastItem, "Ava"      + #LF$ + "Evans"    + #LF$ + #LF$ + #LF$ + "Push")
         ListEx::AddItem(#List, ListEx::#LastItem, "Thomas"   + #LF$ + "Roberts"  + #LF$ + #LF$ + #LF$ + "Push")
         ListEx::AddItem(#List, ListEx::#LastItem, "Harriet"  + #LF$ + "Smith"    + #LF$ + #LF$ + #LF$ + "Push")
-
+        ;}
+        
+        ;{ --- ComboBox in column 3 ---
+        ;ListEx::AddComboBoxItems(#List, 3, "male" + #LF$ + "female")
+        ListEx::AddComboBoxItem(#List, 3, "male",   $8B0000)
+        ListEx::AddComboBoxItem(#List, 3, "female", $9314FF)
+        ;}
+        
         ; --- Set focus to row 9 ---
         ; ListEx::SetState(#List, 9)
         
         ; --- Change item state of row 3 ---
         ListEx::SetItemState(#List, 3, ListEx::#Inbetween)
         
-        ; --- Change row height ---
-        ListEx::SetRowsHeight(#List, 22)
-        
         ; --- Use PopupMenu ---
         ListEx::AttachPopupMenu(#List, #PopupMenu)
-        
-        ; --- ComboBox in column 3 ---
-        ListEx::AddComboBoxItems(#List, 3, "male" + #LF$ + "female")
-        
-        ; --- Use column attributes ---
-        ListEx::SetColumnAttribute(#List, 1, ListEx::#FontID, FontID(#Font_Arial9U))
-        ListEx::SetColumnAttribute(#List, 5, ListEx::#Align, ListEx::#Center)
-        
+
         ; --- Test sorting ---
         ListEx::SetHeaderSort(#List, 2, ListEx::#Sort_Ascending|ListEx::#Sort_NoCase)
         
@@ -8850,8 +8904,7 @@ CompilerIf #PB_Compiler_IsMainFile
         ListEx::SetColor(#List, ListEx::#FrontColor, $82004B, 2) ; front color for column 2
         ;ListEx::SetItemColor(#List, 5, ListEx::#FrontColor, $228B22, 2)
         ;ListEx::SetItemColor(#List, 5, ListEx::#BackColor, $FAFFF5)
-        ListEx::SetItemFont(#List,  0, FontID(#Font_Arial9B), 2)
-        
+
         ; --- Define AutoResize ---
         ListEx::SetAutoResizeColumn(#List, 2, 50)
         ListEx::SetAutoResizeFlags(#List, ListEx::#Height|ListEx::#Width) ; 
@@ -8899,9 +8952,7 @@ CompilerIf #PB_Compiler_IsMainFile
       ListEx::DisableReDraw(#List, #False) 
       
       ;ListEx::SetState(#List, 4, 2)
-      
-      ;ListEx::SetFont(#List, FontID(#Font_Arial9B), #False, 6)
-      
+
       ;ListEx::ExportCSV(#List, "Export.csv", ListEx::#NoButtons|ListEx::#NoCheckBoxes|ListEx::#HeaderRow)
       
       ;ListEx::SetColor(#List, ListEx::#ComboBackColor, $FFFFF0)
@@ -8999,10 +9050,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 151
-; FirstLine = 3
-; Folding = wAgAAAAAACAAAiABgJAAQEQABAQWhSAEBgEQhICCOAAAABAAAgAAAcAAwE5AEwwAAAAAAAAAAAwk8
-; Markers = 4243,7107
+; CursorPosition = 13
+; Folding = QAgAAAAAAEAAAEBCATAAgIgACAgsClAICAJgCcEEcAAAACAAAABCAgBAAjAHAECGAAAAAAAAAAAFB4
+; Markers = 4258,7154
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
