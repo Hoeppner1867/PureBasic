@@ -73,7 +73,7 @@
 
 DeclareModule ScrollEx
   
-  #Version  = 20022600
+  #Version  = 20022800
   #ModuleEx = 20022800
   
 	;- ===========================================================================
@@ -684,7 +684,9 @@ Module ScrollEx
 	  DrawButton_(ScrollEx()\Button\Backwards\X, ScrollEx()\Button\Backwards\Y, ScrollEx()\Button\Backwards\Width, ScrollEx()\Button\Backwards\Height, #Backwards, ScrollEx()\Button\Backwards\State)
 		
 	EndProcedure
-
+	
+	
+	
 	;- __________ Events __________
 	
 	CompilerIf Defined(ModuleEx, #PB_Module)
@@ -917,7 +919,23 @@ Module ScrollEx
 		EndIf
 
 	EndProcedure
-
+	
+	Procedure.i GetSteps_(Cursor.i)
+	  Define.i Steps
+	  
+	  Steps = (Cursor - ScrollEx()\Cursor) / ScrollEx()\Thumb\Factor
+	  
+	  If Steps = 0
+	    If Cursor < ScrollEx()\Cursor
+	      Steps = -1
+	    Else
+	      Steps = 1
+	    EndIf
+	  EndIf
+	  
+	  ProcedureReturn Steps
+	EndProcedure
+	
 	Procedure _MouseMoveHandler()
 		Define.i X, Y
 		Define.i GNum = EventGadget()
@@ -979,15 +997,14 @@ Module ScrollEx
 			  If Y >= ScrollEx()\Thumb\Y And Y <= ScrollEx()\Thumb\Y + ScrollEx()\Thumb\Height
 			    ;{ Move Thumb
 			    If ScrollEx()\Cursor <> #PB_Default
-		        If Y > ScrollEx()\Cursor
-		          ScrollEx()\Thumb\Pos + 1
-		          If ScrollEx()\Thumb\Pos > ScrollEx()\Thumb\maxPos : ScrollEx()\Thumb\Pos = ScrollEx()\Thumb\maxPos : EndIf
-		          ScrollEx()\Cursor = Y
-		        ElseIf Y < ScrollEx()\Cursor
-		          ScrollEx()\Thumb\Pos - 1
-		          If ScrollEx()\Thumb\Pos < ScrollEx()\Thumb\minPos : ScrollEx()\Thumb\Pos = ScrollEx()\Thumb\minPos : EndIf
-		          ScrollEx()\Cursor = Y
-		        EndIf
+			      
+			      ScrollEx()\Thumb\Pos + GetSteps_(Y)
+			      
+			      If ScrollEx()\Thumb\Pos > ScrollEx()\Thumb\maxPos : ScrollEx()\Thumb\Pos = ScrollEx()\Thumb\maxPos : EndIf
+			      If ScrollEx()\Thumb\Pos < ScrollEx()\Thumb\minPos : ScrollEx()\Thumb\Pos = ScrollEx()\Thumb\minPos : EndIf
+			      
+			      ScrollEx()\Cursor = Y
+		        
 		        Draw_()
 		        ProcedureReturn #True
 		      EndIf ;}
@@ -1034,15 +1051,14 @@ Module ScrollEx
 			  If X >= ScrollEx()\Thumb\X And X <= ScrollEx()\Thumb\X + ScrollEx()\Thumb\Width
 			    ;{ Thumb Button
 			    If ScrollEx()\Cursor <> #PB_Default
-		        If X > ScrollEx()\Cursor
-		          ScrollEx()\Thumb\Pos + 1
-		          If ScrollEx()\Thumb\Pos > ScrollEx()\Thumb\maxPos : ScrollEx()\Thumb\Pos = ScrollEx()\Thumb\maxPos : EndIf
-		          ScrollEx()\Cursor = X
-		        ElseIf X < ScrollEx()\Cursor
-		          ScrollEx()\Thumb\Pos - 1
-		          If ScrollEx()\Thumb\Pos < ScrollEx()\Thumb\minPos : ScrollEx()\Thumb\Pos = ScrollEx()\Thumb\minPos : EndIf
-		          ScrollEx()\Cursor = X
-		        EndIf
+
+		        ScrollEx()\Thumb\Pos + GetSteps_(X)
+		        
+		        If ScrollEx()\Thumb\Pos > ScrollEx()\Thumb\maxPos : ScrollEx()\Thumb\Pos = ScrollEx()\Thumb\maxPos : EndIf
+		        If ScrollEx()\Thumb\Pos < ScrollEx()\Thumb\minPos : ScrollEx()\Thumb\Pos = ScrollEx()\Thumb\minPos : EndIf
+		        
+		        ScrollEx()\Cursor = X
+		        
 		        Draw_()
 		        ProcedureReturn #True
 		      EndIf ;}
@@ -1526,9 +1542,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1477
-; FirstLine = 406
-; Folding = ccAAAgmTfjAAAMAA-
+; CursorPosition = 75
+; Folding = ccAAAgATYDjgAQAA+
 ; EnableXP
 ; DPIAware
-; DisableDebugger
