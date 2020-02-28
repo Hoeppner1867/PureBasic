@@ -9,8 +9,6 @@
 ;/ © 2020  by Thorsten Hoeppner (02/2020)
 ;/
 
-; Last Update:
-
 ; - Adjust scrollbar length if vertical and horizontal are displayed
 ; - Support of the mouse wheel when the cursor is over the scrollbar
 ; - Automatic size adjustment
@@ -18,6 +16,11 @@
 ; - Support for rounded corners
 ; - Full color support
 
+; Last Update: 28.02.2020
+;
+; - Added: AutoScroll for buttons   (hold button)
+; - Added: Scroll page width/height (click gap)
+;
 
 ;{ ===== MIT License =====
 ;
@@ -71,7 +74,7 @@
 DeclareModule ScrollEx
   
   #Version  = 20022600
-  #ModuleEx = 19112100
+  #ModuleEx = 20022800
   
 	;- ===========================================================================
 	;-   DeclareModule - Constants
@@ -105,16 +108,25 @@ DeclareModule ScrollEx
 		#GadgetColor
 		#ScrollBarColor
 	EndEnumeration ;}
-
+	
+	Enumeration 1     ;{ Direction
+	  #Up
+	  #Down
+	  #Left
+	  #Right
+	EndEnumeration ;}
+	
 	CompilerIf Defined(ModuleEx, #PB_Module)
 
 		#Event_Gadget = ModuleEx::#Event_Gadget
 		#Event_Theme  = ModuleEx::#Event_Theme
+		#Event_Timer  = ModuleEx::#Event_Timer
 		
 	CompilerElse
 
 		Enumeration #PB_Event_FirstCustomValue
-			#Event_Gadget
+		  #Event_Gadget
+		  #Event_Timer
 		EndEnumeration
 
 	CompilerEndIf
@@ -147,13 +159,9 @@ Module ScrollEx
 	;- ============================================================================
 	
 	#ButtonSize = 18
-  
-	Enumeration 1  ;{ Arrow
-	  #Up
-	  #Down
-	  #Left
-	  #Right
-	EndEnumeration ;}
+	
+	#Frequency  = 100
+	#TimerDelay = 3
 	
 	Enumeration 1  ;{ Button
 	  #Forwards
@@ -165,6 +173,12 @@ Module ScrollEx
 	;- ============================================================================
 	;-   Module - Structures
 	;- ============================================================================
+	
+	Structure Timer_Thread_Structure ;{
+    Num.i
+    Active.i
+    Exit.i
+  EndStructure ;}
 	
 	Structure Button_Structure           ;{ ScrollEx()\Button\...
 	  X.i
@@ -242,6 +256,9 @@ Module ScrollEx
 		Maximum.i
 		PageLength.i
 		
+		Timer.i
+		TimerDelay.i
+		
 		Flags.i
 		
 		Thumb.ScrollEx_Thumb_Structure
@@ -253,7 +270,9 @@ Module ScrollEx
 
 	EndStructure ;}
 	Global NewMap ScrollEx.ScrollEx_Structure()
-
+	
+	Global Thread.Timer_Thread_Structure
+	
 	;- ============================================================================
 	;-   Module - Internal
 	;- ============================================================================
@@ -692,7 +711,58 @@ Module ScrollEx
     EndProcedure
     
   CompilerEndIf 
-
+  
+  Procedure _TimerThread(Frequency.i)
+    Define.i ElapsedTime
+    
+    Repeat
+      
+      If ElapsedTime >= Frequency
+        PostEvent(#Event_Timer)
+        ElapsedTime = 0
+      EndIf
+      
+      Delay(100)
+      
+      ElapsedTime + 100
+      
+    Until Thread\Exit
+    
+  EndProcedure
+  
+  Procedure _AutoScroll()
+    Define.i X, Y
+    
+    ForEach ScrollEx()
+      
+      If ScrollEx()\Timer
+        
+        If ScrollEx()\TimerDelay
+          ScrollEx()\TimerDelay - 1
+          Continue
+        EndIf  
+        
+        Select ScrollEx()\Timer
+          Case #Up, #Left
+            ScrollEx()\Thumb\Pos - 1
+            If ScrollEx()\Thumb\Pos < ScrollEx()\Thumb\minPos : ScrollEx()\Thumb\Pos = ScrollEx()\Thumb\minPos : EndIf
+            PostEvent(#Event_Gadget,    ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_Change, ScrollEx()\Timer)
+            PostEvent(#PB_Event_Gadget, ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_Change, ScrollEx()\Timer)
+            Draw_()
+          Case #Down, #Right
+            ScrollEx()\Thumb\Pos + 1
+            If ScrollEx()\Thumb\Pos > ScrollEx()\Thumb\maxPos : ScrollEx()\Thumb\Pos = ScrollEx()\Thumb\maxPos : EndIf
+            PostEvent(#Event_Gadget,    ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_Change, ScrollEx()\Timer)
+            PostEvent(#PB_Event_Gadget, ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_Change, ScrollEx()\Timer)
+            Draw_()
+  			EndSelect
+  			
+      EndIf   
+      
+    Next
+    
+  EndProcedure
+  
 	Procedure _LeftButtonDownHandler()
 		Define.i X, Y
 		Define.i GNum = EventGadget()
@@ -711,16 +781,18 @@ Module ScrollEx
 			    ;{ Backwards Button
 			    If ScrollEx()\Button\Backwards\State <> #Click
 			      DrawButton_(ScrollEx()\Button\Backwards\X, ScrollEx()\Button\Backwards\Y, ScrollEx()\Button\Backwards\Width, ScrollEx()\Button\Backwards\Height, #Backwards, #Click)
+			      ScrollEx()\TimerDelay = #TimerDelay
+			      ScrollEx()\Timer      = #Up
 			      ScrollEx()\Button\Backwards\State = #Click
 			    EndIf ;}
-			    ProcedureReturn #True
 			  ElseIf Y >= ScrollEx()\Button\Forwards\Y
 			    ;{ Forwards Button
 			    If ScrollEx()\Button\Forwards\State <> #Click
 			      DrawButton_(ScrollEx()\Button\Forwards\X, ScrollEx()\Button\Forwards\Y, ScrollEx()\Button\Forwards\Width, ScrollEx()\Button\Forwards\Height, #Forwards, #Click)
+			      ScrollEx()\TimerDelay = #TimerDelay
+			      ScrollEx()\Timer      = #Down
 			      ScrollEx()\Button\Forwards\State = #Click
 			    EndIf ;}
-			    ProcedureReturn #True
 			  ElseIf Y >= ScrollEx()\Thumb\Y And Y <= ScrollEx()\Thumb\Y + ScrollEx()\Thumb\Height
 			    ;{ Thumb Button
 			    If ScrollEx()\Thumb\State <> #Click
@@ -728,7 +800,6 @@ Module ScrollEx
 			      ScrollEx()\Cursor = Y
 			      Draw_()
 			    EndIf ;} 
-			    ProcedureReturn #True  
 			  EndIf
 			  
 			Else
@@ -737,16 +808,18 @@ Module ScrollEx
 			    ;{ Backwards Button
 			    If ScrollEx()\Button\Backwards\State <> #Click
 			      DrawButton_(ScrollEx()\Button\Backwards\X, ScrollEx()\Button\Backwards\Y, ScrollEx()\Button\Backwards\Width, ScrollEx()\Button\Backwards\Height, #Backwards, #Click)
+			      ScrollEx()\TimerDelay = #TimerDelay
+			      ScrollEx()\Timer      = #Left
 			      ScrollEx()\Button\Backwards\State = #Click
 			    EndIf ;}
-			    ProcedureReturn #True
 			  ElseIf X >= ScrollEx()\Button\Forwards\X
 			    ;{ Forwards Button
 			    If ScrollEx()\Button\Forwards\State <> #Click
 			      DrawButton_(ScrollEx()\Button\Forwards\X, ScrollEx()\Button\Forwards\Y, ScrollEx()\Button\Forwards\Width, ScrollEx()\Button\Forwards\Height, #Forwards, #Click)
+			      ScrollEx()\TimerDelay = #TimerDelay
+			      ScrollEx()\Timer      = #Right
 			      ScrollEx()\Button\Forwards\State = #Click
 			    EndIf ;}
-			    ProcedureReturn #True
 			  ElseIf X >= ScrollEx()\Thumb\X And X <= ScrollEx()\Thumb\X + ScrollEx()\Thumb\Width
 			    ;{ Thumb Button
 			    If ScrollEx()\Thumb\State <> #Click
@@ -754,7 +827,6 @@ Module ScrollEx
 			      ScrollEx()\Cursor = X
 			      Draw_()
 			    EndIf ;} 
-			    ProcedureReturn #True  
 			  EndIf
 			  
 			EndIf ;}
@@ -773,21 +845,36 @@ Module ScrollEx
 			Y = GetGadgetAttribute(ScrollEx()\CanvasNum, #PB_Canvas_MouseY)
 			
 			ScrollEx()\Cursor = #PB_Default
+			ScrollEx()\Timer  = #False
 			
 			If ScrollEx()\Flags & #Vertical
 			  
 			  If Y <= ScrollEx()\Button\Backwards\Y + ScrollEx()\Button\Backwards\Height
 			    ScrollEx()\Thumb\Pos - 1
 			    If ScrollEx()\Thumb\Pos < ScrollEx()\Thumb\minPos : ScrollEx()\Thumb\Pos = ScrollEx()\Thumb\minPos : EndIf
-			    PostEvent(#Event_Gadget,    ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_LeftClick, #Up)
-			    PostEvent(#PB_Event_Gadget, ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_LeftClick, #Up)
+			    PostEvent(#Event_Gadget,    ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_Change, #Up)
+			    PostEvent(#PB_Event_Gadget, ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_Change, #Up)
 			    Draw_()
 			    ProcedureReturn #True
 			  ElseIf Y >= ScrollEx()\Button\Forwards\Y
 			    ScrollEx()\Thumb\Pos + 1
 			    If ScrollEx()\Thumb\Pos > ScrollEx()\Thumb\maxPos : ScrollEx()\Thumb\Pos = ScrollEx()\Thumb\maxPos : EndIf
-			    PostEvent(#Event_Gadget,    ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_LeftClick, #Down)
-			    PostEvent(#PB_Event_Gadget, ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_LeftClick, #Down)
+			    PostEvent(#Event_Gadget,    ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_Change, #Down)
+			    PostEvent(#PB_Event_Gadget, ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_Change, #Down)
+			    Draw_()
+			    ProcedureReturn #True
+			  ElseIf Y < ScrollEx()\Thumb\Y
+			    ScrollEx()\Thumb\Pos - ScrollEx()\PageLength
+			    If ScrollEx()\Thumb\Pos < ScrollEx()\Thumb\minPos : ScrollEx()\Thumb\Pos = ScrollEx()\Thumb\minPos : EndIf
+			    PostEvent(#Event_Gadget,    ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_Change, #Up)
+			    PostEvent(#PB_Event_Gadget, ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_Change, #Up)
+			    Draw_()
+			    ProcedureReturn #True
+			  ElseIf Y > ScrollEx()\Thumb\Y + ScrollEx()\Thumb\Height
+			    ScrollEx()\Thumb\Pos + ScrollEx()\PageLength
+			    If ScrollEx()\Thumb\Pos > ScrollEx()\Thumb\maxPos : ScrollEx()\Thumb\Pos = ScrollEx()\Thumb\maxPos : EndIf
+			    PostEvent(#Event_Gadget,    ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_Change, #Down)
+			    PostEvent(#PB_Event_Gadget, ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_Change, #Down)
 			    Draw_()
 			    ProcedureReturn #True
 			  EndIf
@@ -797,15 +884,29 @@ Module ScrollEx
 			  If X <= ScrollEx()\Button\Backwards\X + ScrollEx()\Button\Backwards\Width
 			    ScrollEx()\Thumb\Pos - 1
 			    If ScrollEx()\Thumb\Pos < ScrollEx()\Thumb\minPos : ScrollEx()\Thumb\Pos = ScrollEx()\Thumb\minPos : EndIf
-			    PostEvent(#Event_Gadget,    ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_LeftClick, #Left)
-			    PostEvent(#PB_Event_Gadget, ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_LeftClick, #Left)
+			    PostEvent(#Event_Gadget,    ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_Change, #Left)
+			    PostEvent(#PB_Event_Gadget, ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_Change, #Left)
 			    Draw_()
 			    ProcedureReturn #True
 			  ElseIf X >= ScrollEx()\Button\Forwards\X
 			    ScrollEx()\Thumb\Pos + 1
 			    If ScrollEx()\Thumb\Pos > ScrollEx()\Thumb\maxPos : ScrollEx()\Thumb\Pos = ScrollEx()\Thumb\maxPos : EndIf
-			    PostEvent(#Event_Gadget,    ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_LeftClick, #Right)
-			    PostEvent(#PB_Event_Gadget, ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_LeftClick, #Right)
+			    PostEvent(#Event_Gadget,    ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_Change, #Right)
+			    PostEvent(#PB_Event_Gadget, ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_Change, #Right)
+			    Draw_()
+			    ProcedureReturn #True
+			  ElseIf X < ScrollEx()\Thumb\X
+			    ScrollEx()\Thumb\Pos - ScrollEx()\PageLength
+			    If ScrollEx()\Thumb\Pos < ScrollEx()\Thumb\minPos : ScrollEx()\Thumb\Pos = ScrollEx()\Thumb\minPos : EndIf
+			    PostEvent(#Event_Gadget,    ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_Change, #Left)
+			    PostEvent(#PB_Event_Gadget, ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_Change, #Left)
+			    Draw_()
+			    ProcedureReturn #True
+			  ElseIf X > ScrollEx()\Thumb\X + ScrollEx()\Thumb\Width
+			    ScrollEx()\Thumb\Pos + ScrollEx()\PageLength
+			    If ScrollEx()\Thumb\Pos > ScrollEx()\Thumb\maxPos : ScrollEx()\Thumb\Pos = ScrollEx()\Thumb\maxPos : EndIf
+			    PostEvent(#Event_Gadget,    ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_Change, #Right)
+			    PostEvent(#PB_Event_Gadget, ScrollEx()\Window\Num, ScrollEx()\CanvasNum, #PB_EventType_Change, #Right)
 			    Draw_()
 			    ProcedureReturn #True
 			  EndIf
@@ -861,6 +962,8 @@ Module ScrollEx
 			    ProcedureReturn #True
 			  EndIf
 			  
+			  ScrollEx()\Timer = #False
+			  
 			  If ScrollEx()\Button\Backwards\State <> #False ;{ Backwards Button
 			    ScrollEx()\Button\Backwards\State = #False
 			    DrawButton_(ScrollEx()\Button\Backwards\X, ScrollEx()\Button\Backwards\Y, ScrollEx()\Button\Backwards\Width, ScrollEx()\Button\Backwards\Height, #Backwards)
@@ -913,6 +1016,8 @@ Module ScrollEx
 			    EndIf ;}
 			    ProcedureReturn #True
 			  EndIf
+			  
+			  ScrollEx()\Timer = #False
 			  
   			If ScrollEx()\Button\Backwards\State <> #False ;{ Backwards Button
   			  DrawButton_(ScrollEx()\Button\Backwards\X, ScrollEx()\Button\Backwards\Y, ScrollEx()\Button\Backwards\Width, ScrollEx()\Button\Backwards\Height, #Backwards)
@@ -1118,7 +1223,13 @@ Module ScrollEx
         Else
           ScrollEx()\Window\Num = WindowNum
         EndIf
-
+        
+        If Thread\Active = #False 
+          Thread\Exit   = #False
+          Thread\Num    = CreateThread(@_TimerThread(), #Frequency)
+          Thread\Active = #True
+        EndIf
+        
 				ScrollEx()\Size\X = X
 				ScrollEx()\Size\Y = Y
 				ScrollEx()\Size\Width  = Width
@@ -1171,6 +1282,8 @@ Module ScrollEx
 				BindGadgetEvent(ScrollEx()\CanvasNum,  @_LeftButtonUpHandler(),    #PB_EventType_LeftButtonUp)
 				
 				BindGadgetEvent(ScrollEx()\CanvasNum,  @_MouseWheelHandler(),      #PB_EventType_MouseWheel)
+				
+				BindEvent(#Event_Timer, @_AutoScroll())
 				
 				CompilerIf Defined(ModuleEx, #PB_Module)
           BindEvent(#Event_Theme, @_ThemeHandler())
@@ -1361,8 +1474,10 @@ CompilerIf #PB_Compiler_IsMainFile
   EndEnumeration
   
   If OpenWindow(#Window, 0, 0, 200, 180, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
-
-    If ScrollEx::Gadget(#VScrollEx, 180, 0, 20, 180, 1, 100, 90, ScrollEx::#AutoResize|ScrollEx::#Vertical|ScrollEx::#ThumbBorder|ScrollEx::#ButtonBorder|ScrollEx::#DragLines)
+    
+    ;ScrollBarGadget(#VScroll, 160, 0, 20, 160, 1, 100, 30, #PB_ScrollBar_Vertical)
+    
+    If ScrollEx::Gadget(#VScrollEx, 180, 0, 20, 180, 1, 100, 30, ScrollEx::#AutoResize|ScrollEx::#Vertical|ScrollEx::#ThumbBorder|ScrollEx::#ButtonBorder|ScrollEx::#DragLines)
       ; |ScrollEx::#ThumbBorder|ScrollEx::#ButtonBorder|ScrollEx::#DragLines|ScrollEx::#Border
       ScrollEx::SetColor(#VScrollEx, ScrollEx::#ButtonColor, $E3E3E3)
       ScrollEx::SetColor(#VScrollEx, ScrollEx::#BackColor,   $FAFAFA)
@@ -1370,7 +1485,7 @@ CompilerIf #PB_Compiler_IsMainFile
       ; ScrollEx::SetAttribute(#VScrollEx, ScrollEx::#Corner, 3)
     EndIf
     
-    If ScrollEx::Gadget(#HScrollEx, 0, 160, 200, 20, 1, 100, 90, ScrollEx::#AutoResize|ScrollEx::#ThumbBorder|ScrollEx::#ButtonBorder|ScrollEx::#DragLines)
+    If ScrollEx::Gadget(#HScrollEx, 0, 160, 200, 20, 1, 100, 80, ScrollEx::#AutoResize|ScrollEx::#ThumbBorder|ScrollEx::#ButtonBorder|ScrollEx::#DragLines)
       ; |ScrollEx::#ThumbBorder|ScrollEx::#ButtonBorder|ScrollEx::#DragLines|ScrollEx::#Border|
       ScrollEx::SetColor(#HScrollEx, ScrollEx::#ButtonColor, $E3E3E3)
       ScrollEx::SetColor(#HScrollEx, ScrollEx::#BackColor,   $FAFAFA)
@@ -1384,18 +1499,24 @@ CompilerIf #PB_Compiler_IsMainFile
         Case ScrollEx::#Event_Gadget ;{ Module Events
           Select EventGadget()  
             Case #VScrollEx
-              Select EventType()
-                Case #PB_EventType_LeftClick       ;{ Left mouse click
-                  Debug "Left Click"
-                  ;}
-                Case #PB_EventType_LeftDoubleClick ;{ LeftDoubleClick
-                  Debug "Left DoubleClick"
-                  ;}
-                Case #PB_EventType_RightClick      ;{ Right mouse click
-                  Debug "Right Click"
-                  ;}
-              EndSelect
-          EndSelect ;}
+              If EventType() = #PB_EventType_Change 
+                Select EventData()
+                  Case ScrollEx::#Up
+                    Debug "ScrollBar: Up"
+                  Case ScrollEx::#Down
+                    Debug "ScrollBar: Down"
+                EndSelect    
+              EndIf
+            Case #HScrollEx
+              If EventType() = #PB_EventType_Change
+                Select EventData()
+                  Case ScrollEx::#Left
+                    Debug "ScrollBar: Left"
+                  Case ScrollEx::#Right
+                    Debug "ScrollBar: Right"
+                EndSelect 
+              EndIf  
+          EndSelect ;} 
       EndSelect        
     Until Event = #PB_Event_CloseWindow
 
@@ -1405,8 +1526,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1375
-; FirstLine = 190
-; Folding = MIAAAQzpfEAgAEAI9
+; CursorPosition = 1477
+; FirstLine = 406
+; Folding = ccAAAgmTfjAAAMAA-
 ; EnableXP
 ; DPIAware
+; DisableDebugger

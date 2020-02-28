@@ -65,7 +65,7 @@
 
 DeclareModule ModuleEx
   
-  #Version = 20010800
+  #Version = 20022800
   
   #Enable_Tabulator_Management = #True
   
@@ -90,6 +90,7 @@ DeclareModule ModuleEx
     #Event_Gadget
     #Event_Cursor
     #Event_Theme
+    #Event_Timer
     #Event_ToolTip
   EndEnumeration ;}
   
@@ -97,15 +98,16 @@ DeclareModule ModuleEx
     #EventType_Button
     #EventType_Change
     #EventType_CheckBox
+    #EventType_Collapsed
     #EventType_ComboBox
     #EventType_Date
     #EventType_Day
     #EventType_DropDown
+    #EventType_Expanded
     #EventType_Focus
     #EventType_Header
     #EventType_HyperLink
     #EventType_ImageButton
-    #EventType_TextButton
     #EventType_Link
     #EventType_LostFocus
     #EventType_Month
@@ -115,10 +117,9 @@ DeclareModule ModuleEx
     #EventType_Select
     #EventType_SpinBox
     #EventType_String
+    #EventType_TextButton
     #EventType_TrackBar
     #EventType_Year
-    #EventType_Collapsed
-    #EventType_Expanded
   EndEnumeration ;}
   
   #Event_Tabulator      = 64000
@@ -1327,8 +1328,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 111
-; FirstLine = 22
-; Folding = kBABAAAACwBwP+
+; CursorPosition = 67
+; FirstLine = 3
+; Folding = kBABAAAACwBAA+
 ; EnableXP
 ; DPIAware
