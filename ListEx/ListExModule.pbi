@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 26.02.2020
+; Last Update: 28.02.2020
 ;
 ; Added:   Color for ComboBox items -> AddComboBoxItem()
 ; Bugfix:  Move window
@@ -154,7 +154,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20022600
+  #Version  = 20022800
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -3060,7 +3060,9 @@ Module ListEx
         imgY  = (Height - dpiY(*Image\Height)) / 2 + dpiY(1)
         
         DrawingMode(#PB_2DDrawing_AlphaBlend)
-        DrawImage(*Image\ID, X + imgX, Y + imgY, dpiX(*Image\Width), dpiY(*Image\Height)) 
+        If *Image\ID
+          DrawImage(*Image\ID, X + imgX, Y + imgY, dpiX(*Image\Width), dpiY(*Image\Height))
+        EndIf  
         ;}
       EndIf
       
@@ -3101,8 +3103,10 @@ Module ListEx
         imgY  = (Height - dpiY(*Image\Height)) / 2 + dpiY(1)
         
         DrawingMode(#PB_2DDrawing_AlphaBlend)
-        DrawImage(*Image\ID, X + imgX + dpiX(1), Y + imgY + dpiY(1), dpiX(*Image\Width - 2), dpiY(*Image\Height - 2)) 
-        
+        If *Image\ID
+          DrawImage(*Image\ID, X + imgX + dpiX(1), Y + imgY + dpiY(1), dpiX(*Image\Width - 2), dpiY(*Image\Height - 2)) 
+        EndIf 
+      
         If Text <> ""
           
           If FontID > 0
@@ -3301,10 +3305,11 @@ Module ListEx
             EndIf
 
             imgY  = (dpiY(ListEx()\Header\Height) - dpiY(ListEx()\Cols()\Header\Image\Height)) / 2 + dpiY(1)
-          
+
             DrawingMode(#PB_2DDrawing_AlphaBlend)
-            DrawImage(ListEx()\Cols()\Header\Image\ID, colX + imgX, rowY + imgY, dpiX(ListEx()\Cols()\Header\Image\Width), dpiY(ListEx()\Cols()\Header\Image\Height)) 
-            
+            If ListEx()\Cols()\Header\Image\ID
+              DrawImage(ListEx()\Cols()\Header\Image\ID, colX + imgX, rowY + imgY, dpiX(ListEx()\Cols()\Header\Image\Width), dpiY(ListEx()\Cols()\Header\Image\Height)) 
+            EndIf
             
             ListEx()\Cols()\minWidth = TextWidth(ListEx()\Cols()\Header\Title) + dpiX(ListEx()\Cols()\Header\Image\Width) + dpiX(10)
             ListEx()\Cols()\MaxWidth = TextWidth(ListEx()\Cols()\Header\Title) + dpiX(ListEx()\Cols()\Header\Image\Width) + dpiX(4)
@@ -3557,7 +3562,9 @@ Module ListEx
                 imgY      = (dpiY(ListEx()\Rows()\Height) - dpiY(ListEx()\Rows()\Column(Key$)\Image\Height)) / 2 + dpiY(1)
                 
                 DrawingMode(#PB_2DDrawing_AlphaBlend)
-                DrawImage(ListEx()\Rows()\Column(Key$)\Image\ID, colX + imgX, rowY + imgY, imgWidth, imgHeight) 
+                If ListEx()\Rows()\Column(Key$)\Image\ID
+                  DrawImage(ListEx()\Rows()\Column(Key$)\Image\ID, colX + imgX, rowY + imgY, imgWidth, imgHeight) 
+                EndIf
                 
               ElseIf ListEx()\Cols()\Flags & #Image
                 
@@ -3576,7 +3583,9 @@ Module ListEx
                 imgY      = (dpiY(ListEx()\Rows()\Height) - dpiY(ListEx()\Cols()\Image\Height)) / 2 + dpiY(1)
                 
                 DrawingMode(#PB_2DDrawing_AlphaBlend)
-                DrawImage(ListEx()\Cols()\Image\ID, colX + imgX, rowY + imgY, imgWidth, imgHeight) 
+                If ListEx()\Cols()\Image\ID
+                  DrawImage(ListEx()\Cols()\Image\ID, colX + imgX, rowY + imgY, imgWidth, imgHeight)
+                EndIf  
                 ;}
               EndIf
 
@@ -3619,8 +3628,10 @@ Module ListEx
                 imgY      = (dpiY(ListEx()\Rows()\Height) - dpiY(ListEx()\Rows()\Column(Key$)\Image\Height)) / 2 + dpiY(1)
                 
                 DrawingMode(#PB_2DDrawing_AlphaBlend)
-                DrawImage(ListEx()\Rows()\Column(Key$)\Image\ID, colX + imgX, rowY + imgY, imgWidth, imgHeight) 
-
+                If ListEx()\Rows()\Column(Key$)\Image\ID
+                  DrawImage(ListEx()\Rows()\Column(Key$)\Image\ID, colX + imgX, rowY + imgY, imgWidth, imgHeight) 
+                EndIf
+                
               ElseIf ListEx()\Cols()\Flags & #Image
                 
                 imgFlags = ListEx()\Cols()\Image\Flags
@@ -3638,8 +3649,9 @@ Module ListEx
                 imgY      = (dpiY(ListEx()\Rows()\Height) - dpiY(ListEx()\Cols()\Image\Height)) / 2 + dpiY(1)
                 
                 DrawingMode(#PB_2DDrawing_AlphaBlend)
-                DrawImage(ListEx()\Cols()\Image\ID, colX + imgX, rowY + imgY, imgWidth, imgHeight) 
-
+                If ListEx()\Cols()\Image\ID
+                  DrawImage(ListEx()\Cols()\Image\ID, colX + imgX, rowY + imgY, imgWidth, imgHeight) 
+                EndIf
               EndIf
 
               Text$ = ListEx()\Rows()\Column(Key$)\Value 
@@ -9050,9 +9062,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 13
-; Folding = QAgAAAAAAEAAAEBCATAAgIgACAgsClAICAJgCcEEcAAAACAAAABCAgBAAjAHAECGAAAAAAAAAAAFB4
-; Markers = 4258,7154
+; CursorPosition = 8448
+; FirstLine = 1400
+; Folding = gChAAAAAAEAAAEBCATAAgIgASAg9XthIKBJgCcEMcAAAACAAAABGAgBAAjAHgECGAAAAAAAAACAFB4
+; Markers = 4270,7166
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
