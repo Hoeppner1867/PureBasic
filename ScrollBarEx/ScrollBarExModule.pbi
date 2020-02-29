@@ -16,7 +16,7 @@
 ; - Support for rounded corners
 ; - Full color support
 
-; Last Update: 28.02.2020
+; Last Update: 29.02.2020
 ;
 ; - Added: AutoScroll for buttons   (hold button)
 ; - Added: Scroll page width/height (click gap)
@@ -73,7 +73,7 @@
 
 DeclareModule ScrollEx
   
-  #Version  = 20022800
+  #Version  = 20022900
   #ModuleEx = 20022800
   
 	;- ===========================================================================
@@ -370,8 +370,7 @@ Module ScrollEx
 	    ProcedureReturn DesktopScaledY(Num)
 	  EndIf  
 	EndProcedure
-	
-	
+
 	Procedure.i CalcThumb()
 	  Define.i Size, Range
 	  
@@ -401,7 +400,23 @@ Module ScrollEx
 	  EndIf
 
 	EndProcedure
-
+	
+	Procedure.i GetSteps_(Cursor.i)
+	  Define.i Steps
+	  
+	  Steps = (Cursor - ScrollEx()\Cursor) / ScrollEx()\Thumb\Factor
+	  
+	  If Steps = 0
+	    If Cursor < ScrollEx()\Cursor
+	      Steps = -1
+	    Else
+	      Steps = 1
+	    EndIf
+	  EndIf
+	  
+	  ProcedureReturn Steps
+	EndProcedure
+	
 	;- __________ Drawing __________
 
 	Procedure.i BlendColor_(Color1.i, Color2.i, Factor.i=50)
@@ -684,9 +699,7 @@ Module ScrollEx
 	  DrawButton_(ScrollEx()\Button\Backwards\X, ScrollEx()\Button\Backwards\Y, ScrollEx()\Button\Backwards\Width, ScrollEx()\Button\Backwards\Height, #Backwards, ScrollEx()\Button\Backwards\State)
 		
 	EndProcedure
-	
-	
-	
+		
 	;- __________ Events __________
 	
 	CompilerIf Defined(ModuleEx, #PB_Module)
@@ -919,23 +932,7 @@ Module ScrollEx
 		EndIf
 
 	EndProcedure
-	
-	Procedure.i GetSteps_(Cursor.i)
-	  Define.i Steps
-	  
-	  Steps = (Cursor - ScrollEx()\Cursor) / ScrollEx()\Thumb\Factor
-	  
-	  If Steps = 0
-	    If Cursor < ScrollEx()\Cursor
-	      Steps = -1
-	    Else
-	      Steps = 1
-	    EndIf
-	  EndIf
-	  
-	  ProcedureReturn Steps
-	EndProcedure
-	
+
 	Procedure _MouseMoveHandler()
 		Define.i X, Y
 		Define.i GNum = EventGadget()
@@ -1223,7 +1220,7 @@ Module ScrollEx
       EndIf
       ;}
     Else
-      Result = CanvasGadget(GNum, X, Y, Width, Height)
+      Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Keyboard)
     EndIf
 		
 		If Result
@@ -1543,6 +1540,7 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 75
-; Folding = ccAAAgATYDjgAQAA+
+; FirstLine = 18
+; Folding = 9QAAAAAm5GjgAYAA+
 ; EnableXP
 ; DPIAware
