@@ -9,9 +9,9 @@
 ;/ © 2019  by Thorsten Hoeppner (11/2019)
 ;/
 
-; Last Update: 20.12.2019
+; Last Update: 29.02.2020
 ;
-; Added: SyntaxHighlight (#Enable_SyntaxHighlight)
+; Changed: ScrollBarGadget() replaced by drawing routine
 ;
 
 ;{ ===== MIT License =====
@@ -88,7 +88,7 @@
 
 DeclareModule ListView
   
-  #Version  = 19122000
+  #Version  = 20022900
   #ModuleEx = 19120100
 
 	;- ===========================================================================
@@ -96,6 +96,22 @@ DeclareModule ListView
 	;- ===========================================================================
   
   #Enable_SyntaxHighlight = #True
+  
+  ;{ _____ ScrollBar _____
+	Enumeration 1
+	  #ScrollBar_Up
+	  #ScrollBar_Down
+	  #ScrollBar_Left
+	  #ScrollBar_Right
+	EndEnumeration 
+	
+	EnumerationBinary 
+		#ScrollBar_Border            ; Draw gadget border
+		#ScrollBar_ButtonBorder      ; Draw button borders
+		#ScrollBar_ThumbBorder       ; Draw thumb border
+		#ScrollBar_DragLines         ; Draw drag lines
+	EndEnumeration
+	;}
   
   ;{ _____ Constants _____
   #FirstItem = 0
@@ -138,11 +154,7 @@ DeclareModule ListView
 		#Width
 		#Height
 	EndEnumeration ;}
-	
-	Enumeration 1     ;{ Attribute
-	  
-	EndEnumeration ;}
-	
+		
 	Enumeration 1     ;{ Color
 		#FrontColor
 		#BackColor
@@ -154,11 +166,13 @@ DeclareModule ListView
 
 		#Event_Gadget = ModuleEx::#Event_Gadget
 		#Event_Theme  = ModuleEx::#Event_Theme
+		#Event_Timer  = ModuleEx::#Event_Timer
 		
 	CompilerElse
 
 		Enumeration #PB_Event_FirstCustomValue
-			#Event_Gadget
+		  #Event_Gadget
+		  #Event_Timer
 		EndEnumeration
 
 	CompilerEndIf
@@ -220,18 +234,123 @@ Module ListView
 	;-   Module - Constants
 	;- ============================================================================
 	
+	;{ _____ ScrollBar _____
 	#ScrollBarSize = 16
+	#ScrollBar_ButtonSize = 16
+  
+  #ScrollBar_Horizontal = 0
+  #ScrollBar_Vertical   = #PB_ScrollBar_Vertical
 
+  #ScrollBar_Timer      = 100
+	#ScrollBar_TimerDelay = 3
+	
+	Enumeration 1 
+	  #ScrollBar_Forwards
+	  #ScrollBar_Backwards
+	  #ScrollBar_Focus
+	  #ScrollBar_Click
+	EndEnumeration
+	;}
+	
 	;- ============================================================================
 	;-   Module - Structures
 	;- ============================================================================
 	
-	Structure ListView_Scroll_Structure  ;{ ListView()\ScrollBar\...
+	;{ _____ ScrollBar _____
+	Structure ScrollBar_Timer_Thread_Structure ;{ Thread\...
     Num.i
-    Pos.i
-    Hide.i
+    Active.i
+    Exit.i
   EndStructure ;}
+  Global TimerThread.ScrollBar_Timer_Thread_Structure
   
+  Structure ScrollBar_Button_Structure       ;{ ...\ScrollBar\Item()\Buttons\Forwards\...
+	  X.i
+	  Y.i
+	  Width.i
+	  Height.i
+	  State.i
+	EndStructure ;}
+	
+	Structure ScrollBar_Buttons_Structure      ;{ ...\ScrollBar\Item()\Buttons\...
+	  Backwards.ScrollBar_Button_Structure
+	  Forwards.ScrollBar_Button_Structure
+	EndStructure ;}
+	
+	Structure ScrollBar_Thumb_Structure        ;{ ...\ScrollBar\Item()\Thumb\...
+	  X.i
+	  Y.i
+	  Width.i
+	  Height.i
+	  Factor.f
+	  Size.i
+	  State.i
+	EndStructure ;}
+	
+  Structure ScrollBar_Area_Structure         ;{ ...\ScrollBar\Item()\Area\...
+	  X.i
+	  Y.i
+	  Width.i
+	  Height.i
+	EndStructure ;}
+  
+	Structure ScrollBar_Item_Structure         ;{ ...\ScrollBar\Item()\...
+    Type.i
+    
+    Pos.i
+	  minPos.i
+	  maxPos.i
+	  Ratio.f
+	  
+		Minimum.i
+		Maximum.i
+		PageLength.i
+		
+		X.i
+		Y.i
+		Width.i
+		Height.i
+		
+		Timer.i
+	  TimerDelay.i
+	  
+	  Cursor.i
+	  
+	  Disable.i
+		Hide.i
+
+		Thumb.ScrollBar_Thumb_Structure
+		Buttons.ScrollBar_Buttons_Structure
+		Area.ScrollBar_Area_Structure
+
+	EndStructure ;}  
+	
+	Structure ScrollBar_Color_Structure        ;{ ...\ScrollBar\Color\...
+		Front.i
+		Back.i
+		Border.i
+		Button.i
+		Focus.i
+		Gadget.i
+		ScrollBar.i
+		DisableFront.i
+		DisableBack.i
+	EndStructure  ;}
+	
+	Structure ScrollBar_Structure              ;{ ...\ScrollBar\...
+	  Num.i
+	  
+	  Adjust.i
+	  Radius.i
+
+	  Flags.i
+	  
+	  Color.ScrollBar_Color_Structure
+
+    Map Item.ScrollBar_Item_Structure()
+  EndStructure ;}
+	;}
+	
   Structure CheckBox_Structure         ;{ 
     X.i
     Y.i
@@ -319,7 +438,7 @@ Module ListView
 		Color.ListView_Color_Structure
 		Window.ListView_Window_Structure
 		Rows.ListView_Rows_Structure
-		ScrollBar.ListView_Scroll_Structure
+		ScrollBar.ScrollBar_Structure
 		Size.ListView_Size_Structure
 		
 		List Item.ListView_Item_Structure()
@@ -453,6 +572,58 @@ Module ListView
 
 	EndProcedure
 	
+	;{ _____ ScrollBar _____
+  Procedure.i CalcScrollBarThumb_(ScrollBar.s)
+	  Define.i Size, Range, HRange
+	  
+	  If FindMapElement(ListView()\ScrollBar\Item(), ScrollBar)
+	    
+  	  ListView()\ScrollBar\Item()\minPos   = ListView()\ScrollBar\Item()\Minimum
+  	  ListView()\ScrollBar\Item()\maxPos   = ListView()\ScrollBar\Item()\Maximum - ListView()\ScrollBar\Item()\PageLength + 1
+  	  ListView()\ScrollBar\Item()\Ratio    = ListView()\ScrollBar\Item()\PageLength / ListView()\ScrollBar\Item()\Maximum
+  	  ListView()\ScrollBar\Item()\Pos      = ListView()\ScrollBar\Item()\Minimum
+  	  
+  	  Range = ListView()\ScrollBar\Item()\maxPos - ListView()\ScrollBar\Item()\minPos
+  	  
+  	  If ListView()\ScrollBar\Item()\Type = #ScrollBar_Vertical
+  	    ListView()\ScrollBar\Item()\Area\X       = dpiX(ListView()\ScrollBar\Item()\X)
+    	  ListView()\ScrollBar\Item()\Area\Y       = dpiY(ListView()\ScrollBar\Item()\Y) + dpiY(#ScrollBar_ButtonSize) + dpiY(1)
+    	  ListView()\ScrollBar\Item()\Area\Width   = dpiX(ListView()\ScrollBar\Item()\Width)
+    	  ListView()\ScrollBar\Item()\Area\Height  = dpiY(ListView()\ScrollBar\Item()\Height) - dpiY(ListView()\ScrollBar\Adjust) - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(2)
+    	  ListView()\ScrollBar\Item()\Thumb\Y      = ListView()\ScrollBar\Item()\Area\Y
+    	  ListView()\ScrollBar\Item()\Thumb\Size   = Round(ListView()\ScrollBar\Item()\Area\Height * ListView()\ScrollBar\Item()\Ratio, #PB_Round_Down)
+    	  ListView()\ScrollBar\Item()\Thumb\Factor = (ListView()\ScrollBar\Item()\Area\Height - ListView()\ScrollBar\Item()\Thumb\Size) / Range
+  	  Else
+  	    ListView()\ScrollBar\Item()\Area\X       = dpiX(ListView()\ScrollBar\Item()\X) + dpiX(#ScrollBar_ButtonSize) + dpiX(1)
+    	  ListView()\ScrollBar\Item()\Area\Y       = dpiY(ListView()\ScrollBar\Item()\Y)
+    	  ListView()\ScrollBar\Item()\Area\Width   = dpiX(ListView()\ScrollBar\Item()\Width) - dpiX(ListView()\ScrollBar\Adjust) - dpiX(#ScrollBar_ButtonSize * 2) - dpiX(2)
+    	  ListView()\ScrollBar\Item()\Area\Height  = dpiY(ListView()\ScrollBar\Item()\Height)
+    	  ListView()\ScrollBar\Item()\Thumb\X      = ListView()\ScrollBar\Item()\Area\X
+    	  ListView()\ScrollBar\Item()\Thumb\Size   = Round(ListView()\ScrollBar\Item()\Area\Width * ListView()\ScrollBar\Item()\Ratio, #PB_Round_Down)
+    	  ListView()\ScrollBar\Item()\Thumb\Factor = (ListView()\ScrollBar\Item()\Area\Width - ListView()\ScrollBar\Item()\Thumb\Size) / Range
+  	  EndIf  
+  	  
+	  EndIf   
+
+	EndProcedure
+	
+	Procedure.i GetSteps_(Cursor.i)
+	  Define.i Steps
+	  
+	  Steps = (Cursor - ListView()\ScrollBar\Item()\Cursor) / ListView()\ScrollBar\Item()\Thumb\Factor
+	  
+	  If Steps = 0
+	    If Cursor < ListView()\ScrollBar\Item()\Cursor
+	      Steps = -1
+	    Else
+	      Steps = 1
+	    EndIf
+	  EndIf
+	  
+	  ProcedureReturn Steps
+	EndProcedure
+	;}
+	
 	;- __________ Drawing __________
 
 	Procedure.i BlendColor_(Color1.i, Color2.i, Factor.i=50)
@@ -465,6 +636,291 @@ Module ListView
 		ProcedureReturn RGB((Red1 * Blend) + (Red2 * (1 - Blend)), (Green1 * Blend) + (Green2 * (1 - Blend)), (Blue1 * Blend) + (Blue2 * (1 - Blend)))
 	EndProcedure
 	
+	;{ _____ ScrollBar _____
+	Procedure   DrawScrollArrow_(X.i, Y.i, Width.i, Height.i, Color.i, Flag.i)
+	  Define.i aWidth, aHeight, aColor
+
+	  If StartVectorDrawing(CanvasVectorOutput(ListView()\ScrollBar\Num))
+
+      aColor  = RGBA(Red(Color), Green(Color), Blue(Color), 255)
+      
+      If Flag = #ScrollBar_Up Or Flag = #ScrollBar_Down
+  	    aWidth  = dpiX(8)
+  	    aHeight = dpiX(4)
+  	  Else
+        aWidth  = dpiX(4)
+        aHeight = dpiX(8)  
+  	  EndIf  
+
+      X + ((Width  - aWidth) / 2)
+      Y + ((Height - aHeight) / 2)
+      
+      Select Flag
+        Case #ScrollBar_Up
+          MovePathCursor(X, Y + aHeight)
+          AddPathLine(X + aWidth / 2, Y)
+          AddPathLine(X + aWidth, Y + aHeight)
+        Case #ScrollBar_Down 
+          MovePathCursor(X, Y)
+          AddPathLine(X + aWidth / 2, Y + aHeight)
+          AddPathLine(X + aWidth, Y)
+        Case #ScrollBar_Left
+          MovePathCursor(X + aWidth, Y)
+          AddPathLine(X, Y + aHeight / 2)
+          AddPathLine(X + aWidth, Y + aHeight)
+        Case #ScrollBar_Right
+          MovePathCursor(X, Y)
+          AddPathLine(X + aWidth, Y + aHeight / 2)
+          AddPathLine(X, Y + aHeight)
+      EndSelect
+      
+      VectorSourceColor(aColor)
+      StrokePath(2, #PB_Path_RoundCorner)
+
+	    StopVectorDrawing()
+	  EndIf
+	  
+	EndProcedure
+	
+	Procedure   DrawScrollButton_(X.i, Y.i, Width.i, Height.i, ScrollBar.s, Type.i, State.i=#False)
+	  Define.i Color, Border
+	  
+	  If StartDrawing(CanvasOutput(ListView()\ScrollBar\Num))
+	    
+	    DrawingMode(#PB_2DDrawing_Default)
+	    
+	    Select State
+	      Case #ScrollBar_Focus
+	        Color  = BlendColor_(ListView()\ScrollBar\Color\Focus, ListView()\ScrollBar\Color\Button, 10)
+	        Border = BlendColor_(ListView()\ScrollBar\Color\Focus, ListView()\ScrollBar\Color\Border, 10)
+	      Case #ScrollBar_Click
+	        Color  = BlendColor_(ListView()\ScrollBar\Color\Focus, ListView()\ScrollBar\Color\Button, 20)
+	        Border = BlendColor_(ListView()\ScrollBar\Color\Focus, ListView()\ScrollBar\Color\Border, 20)
+	      Default
+	        Color  = ListView()\ScrollBar\Color\Button
+	        Border = ListView()\ScrollBar\Color\Border
+	    EndSelect    
+	    
+	    If FindMapElement(ListView()\ScrollBar\Item(), ScrollBar)
+	      
+	      If ListView()\ScrollBar\Item()\Hide : ProcedureReturn #False : EndIf 
+	      
+	      Select Type
+  	      Case #ScrollBar_Forwards
+  	        If ListView()\ScrollBar\Item()\Type = #ScrollBar_Vertical
+  	          Box(ListView()\ScrollBar\Item()\Buttons\Forwards\X,  ListView()\ScrollBar\Item()\Buttons\Forwards\Y,  ListView()\ScrollBar\Item()\Buttons\Forwards\Width, ListView()\ScrollBar\Item()\Buttons\Forwards\Height,  Color)
+  	        Else
+  	          Box(ListView()\ScrollBar\Item()\Buttons\Forwards\X,  ListView()\ScrollBar\Item()\Buttons\Forwards\Y,  ListView()\ScrollBar\Item()\Buttons\Forwards\Width,  ListView()\ScrollBar\Item()\Buttons\Forwards\Height,  Color)
+  	        EndIf  
+  	      Case #ScrollBar_Backwards
+  	        If ListView()\ScrollBar\Item()\Type = #ScrollBar_Vertical
+  	          Box(ListView()\ScrollBar\Item()\Buttons\Backwards\X, ListView()\ScrollBar\Item()\Buttons\Backwards\Y, ListView()\ScrollBar\Item()\Buttons\Backwards\Width, ListView()\ScrollBar\Item()\Buttons\Backwards\Height, Color)
+  	        Else
+  	          Box(ListView()\ScrollBar\Item()\Buttons\Backwards\X, ListView()\ScrollBar\Item()\Buttons\Backwards\Y, ListView()\ScrollBar\Item()\Buttons\Backwards\Width, ListView()\ScrollBar\Item()\Buttons\Backwards\Height, Color)
+  	        EndIf   
+  	    EndSelect    
+	      
+	      If ListView()\ScrollBar\Flags & #ScrollBar_ButtonBorder
+	      
+  	      DrawingMode(#PB_2DDrawing_Outlined)
+  	      
+  	      Select Type
+  	        Case #ScrollBar_Forwards
+  	          If ListView()\ScrollBar\Item()\Type = #ScrollBar_Vertical
+  	            Box(ListView()\ScrollBar\Item()\Buttons\Forwards\X - dpiX(1), ListView()\ScrollBar\Item()\Buttons\Forwards\Y, ListView()\ScrollBar\Item()\Buttons\Forwards\Width + dpiX(2), ListView()\ScrollBar\Item()\Buttons\Forwards\Height + dpiY(1), Border)
+  	          Else
+  	            Box(ListView()\ScrollBar\Item()\Buttons\Forwards\X, ListView()\ScrollBar\Item()\Buttons\Forwards\Y - dpiY(1), ListView()\ScrollBar\Item()\Buttons\Forwards\Width + dpiX(1), ListView()\ScrollBar\Item()\Buttons\Forwards\Height + dpiY(2), Border)
+  	          EndIf  
+    	      Case #ScrollBar_Backwards
+    	        If ListView()\ScrollBar\Item()\Type = #ScrollBar_Vertical
+    	          Box(ListView()\ScrollBar\Item()\Buttons\Backwards\X - dpiX(1), ListView()\ScrollBar\Item()\Buttons\Backwards\Y - dpiY(1), ListView()\ScrollBar\Item()\Buttons\Backwards\Width + dpiX(2), ListView()\ScrollBar\Item()\Buttons\Backwards\Height + dpiY(1), Border)
+    	        Else
+  	            Box(ListView()\ScrollBar\Item()\Buttons\Backwards\X - dpiX(1), ListView()\ScrollBar\Item()\Buttons\Backwards\Y - dpiY(1), ListView()\ScrollBar\Item()\Buttons\Backwards\Width + dpiX(1), ListView()\ScrollBar\Item()\Buttons\Backwards\Height + dpiY(2), Border)
+  	          EndIf   
+    	    EndSelect 
+    	    
+  	    EndIf 
+	    
+	    EndIf
+
+	    StopDrawing()
+	  EndIf
+	  
+	  ;{ ----- Draw Arrows -----
+	  If FindMapElement(ListView()\ScrollBar\Item(), ScrollBar)
+	    
+  	  Select Type
+        Case #ScrollBar_Forwards
+          If ListView()\ScrollBar\Item()\Type = #ScrollBar_Vertical
+            DrawScrollArrow_(ListView()\ScrollBar\Item()\Buttons\Forwards\X, ListView()\ScrollBar\Item()\Buttons\Forwards\Y, ListView()\ScrollBar\Item()\Buttons\Forwards\Width, ListView()\ScrollBar\Item()\Buttons\Forwards\Height, ListView()\ScrollBar\Color\Front, #ScrollBar_Down)
+          Else
+            DrawScrollArrow_(ListView()\ScrollBar\Item()\Buttons\Forwards\X, ListView()\ScrollBar\Item()\Buttons\Forwards\Y, ListView()\ScrollBar\Item()\Buttons\Forwards\Width, ListView()\ScrollBar\Item()\Buttons\Forwards\Height, ListView()\ScrollBar\Color\Front, #ScrollBar_Right)
+          EndIf  
+        Case #ScrollBar_Backwards
+          If ListView()\ScrollBar\Item()\Type = #ScrollBar_Vertical
+        		DrawScrollArrow_(ListView()\ScrollBar\Item()\Buttons\Backwards\X, ListView()\ScrollBar\Item()\Buttons\Backwards\Y, ListView()\ScrollBar\Item()\Buttons\Backwards\Width, ListView()\ScrollBar\Item()\Buttons\Backwards\Height, ListView()\ScrollBar\Color\Front, #ScrollBar_Up)
+        	Else
+        	  DrawScrollArrow_(ListView()\ScrollBar\Item()\Buttons\Backwards\X, ListView()\ScrollBar\Item()\Buttons\Backwards\Y, ListView()\ScrollBar\Item()\Buttons\Backwards\Width, ListView()\ScrollBar\Item()\Buttons\Backwards\Height, ListView()\ScrollBar\Color\Front, #ScrollBar_Left)
+        	EndIf  
+      EndSelect
+    
+    EndIf ;}
+
+	EndProcedure
+	
+	Procedure   DrawScrollBar_(ScrollBar.s)
+		Define.i X, Y, Width, Height, Offset, OffsetX, OffsetY
+		Define.i FrontColor, BackColor, BorderColor, ScrollBorderColor
+		
+		If FindMapElement(ListView()\ScrollBar\Item(), ScrollBar)
+		  
+      If ListView()\ScrollBar\Item()\Hide : ProcedureReturn #False : EndIf 
+  	 
+      ;{ ----- Size -----
+		  X      = dpiX(ListView()\ScrollBar\Item()\X)
+		  Y      = dpiY(ListView()\ScrollBar\Item()\Y)
+		  Width  = dpiX(ListView()\ScrollBar\Item()\Width) 
+		  Height = dpiY(ListView()\ScrollBar\Item()\Height)
+		  ;}
+		  
+		  Offset = (ListView()\ScrollBar\Item()\Pos - ListView()\ScrollBar\Item()\minPos) * ListView()\ScrollBar\Item()\Thumb\Factor
+		  
+		  If ListView()\ScrollBar\Item()\Type = #ScrollBar_Vertical
+		    
+        ;{ ----- Buttons -----
+  		  ListView()\ScrollBar\Item()\Buttons\Forwards\X       = X + dpiX(1)
+    		ListView()\ScrollBar\Item()\Buttons\Forwards\Y       = Y + Height - dpiY(#ScrollBar_ButtonSize) - dpiY(ListView()\ScrollBar\Adjust) - dpiY(1)
+    		ListView()\ScrollBar\Item()\Buttons\Forwards\Width   = Width - dpiX(2)
+    		ListView()\ScrollBar\Item()\Buttons\Forwards\Height  = dpiY(#ScrollBar_ButtonSize)	
+    		ListView()\ScrollBar\Item()\Buttons\Backwards\X      = X + dpiX(1)
+    		ListView()\ScrollBar\Item()\Buttons\Backwards\Y      = Y + dpiY(1)
+    		ListView()\ScrollBar\Item()\Buttons\Backwards\Width  = Width - dpiX(2)
+    		ListView()\ScrollBar\Item()\Buttons\Backwards\Height = dpiY(#ScrollBar_ButtonSize)
+    		;}
+        ;{ ----- ScrollArea -----
+    		ListView()\ScrollBar\Item()\Area\X = X
+    	  ListView()\ScrollBar\Item()\Area\Y = Y + dpiY(#ScrollBar_ButtonSize) + dpiY(1)
+    	  ListView()\ScrollBar\Item()\Area\Width  = Width
+    	  ListView()\ScrollBar\Item()\Area\Height = Height - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(2)
+    	  ;}
+        ;{ ----- Thumb -----
+    	  ListView()\ScrollBar\Item()\Thumb\X      = X
+    	  ListView()\ScrollBar\Item()\Thumb\Y      = ListView()\ScrollBar\Item()\Area\Y + Offset
+    	  ListView()\ScrollBar\Item()\Thumb\Width  = Width
+    	  ListView()\ScrollBar\Item()\Thumb\Height = ListView()\ScrollBar\Item()\Thumb\Size
+    	  If ListView()\ScrollBar\Flags & #ScrollBar_ButtonBorder
+    	    ListView()\ScrollBar\Item()\Thumb\Y + dpiY(1)
+    	    ListView()\ScrollBar\Item()\Thumb\Height - dpiY(2)
+    	  EndIf ;}
+    	  
+    	Else
+    	  
+  		  ;{ ----- Buttons -----
+  		  ListView()\ScrollBar\Item()\Buttons\Forwards\X       = X + Width - dpiX(#ScrollBar_ButtonSize) - dpiX(ListView()\ScrollBar\Adjust) - dpiY(1)
+    		ListView()\ScrollBar\Item()\Buttons\Forwards\Y       = Y + dpiY(1)
+    		ListView()\ScrollBar\Item()\Buttons\Forwards\Width   = dpiX(#ScrollBar_ButtonSize)
+    		ListView()\ScrollBar\Item()\Buttons\Forwards\Height  = Height - dpiY(2)
+    		ListView()\ScrollBar\Item()\Buttons\Backwards\X      = X + dpiX(1)
+    		ListView()\ScrollBar\Item()\Buttons\Backwards\Y      = Y + dpiY(1)
+    		ListView()\ScrollBar\Item()\Buttons\Backwards\Width  = dpiX(#ScrollBar_ButtonSize)
+    		ListView()\ScrollBar\Item()\Buttons\Backwards\Height = Height - dpiY(2)
+    		;}
+    		;{ ----- ScrollArea -----
+    		ListView()\ScrollBar\Item()\X = X + dpiX(#ScrollBar_ButtonSize) + dpiX(1)
+    	  ListView()\ScrollBar\Item()\Y = Y
+    	  ListView()\ScrollBar\Item()\Area\Width  = Width - dpiX(#ScrollBar_ButtonSize * 2) - dpiX(2)
+    	  ListView()\ScrollBar\Item()\Area\Height = Height
+    	  ;}
+    	  ;{ ----- Thumb -----
+    	  ListView()\ScrollBar\Item()\Thumb\X      = ListView()\ScrollBar\Item()\Area\X + Offset
+    	  ListView()\ScrollBar\Item()\Thumb\Y      = Y
+    	  ListView()\ScrollBar\Item()\Width        = ListView()\ScrollBar\Item()\Thumb\Size
+    	  ListView()\ScrollBar\Item()\Thumb\Height = Height
+    	  If ListView()\ScrollBar\Flags & #ScrollBar_ButtonBorder
+    	    ListView()\ScrollBar\Item()\Thumb\X + dpiX(1)
+    	    ListView()\ScrollBar\Item()\Thumb\Width - dpiX(2)
+    	  EndIf ;}	
+  	  
+		  EndIf
+
+  		If StartDrawing(CanvasOutput(ListView()\ScrollBar\Num))
+  		  
+  		  ;{ _____ Color _____
+  		  FrontColor  = ListView()\ScrollBar\Color\Front
+  		  BackColor   = ListView()\ScrollBar\Color\Back
+  		  BorderColor = ListView()\ScrollBar\Color\Border
+  		  
+  		  If ListView()\ScrollBar\Item()\Disable
+  		    FrontColor  = ListView()\ScrollBar\Color\DisableFront
+  		    BackColor   = ListView()\ScrollBar\Color\DisableBack
+  		    BorderColor = ListView()\ScrollBar\Color\DisableFront
+  		  EndIf
+  		  ;}
+  		  
+  		  DrawingMode(#PB_2DDrawing_Default)
+  		  
+  		  ;{ _____ Background _____
+  		  Box(X, Y, Width, Height, ListView()\ScrollBar\Color\Gadget) ; needed for rounded corners
+  		  Box(ListView()\ScrollBar\Item()\Area\X, ListView()\ScrollBar\Item()\Area\Y, ListView()\ScrollBar\Item()\Area\Width, ListView()\ScrollBar\Item()\Area\Height, ListView()\ScrollBar\Color\Back)
+  			;}
+  			
+  		  ;{ _____ Draw Thumb _____
+  		  Select ListView()\ScrollBar\Item()\Thumb\State
+  			  Case #ScrollBar_Focus
+  			    Box(ListView()\ScrollBar\Item()\Thumb\X, ListView()\ScrollBar\Item()\Thumb\Y, ListView()\ScrollBar\Item()\Thumb\Width, ListView()\ScrollBar\Item()\Thumb\Height, BlendColor_(ListView()\ScrollBar\Color\Focus, ListView()\ScrollBar\Color\ScrollBar, 10))
+  			  Case #ScrollBar_Click
+  			    Box(ListView()\ScrollBar\Item()\Thumb\X, ListView()\ScrollBar\Item()\Thumb\Y, ListView()\ScrollBar\Item()\Thumb\Width, ListView()\ScrollBar\Item()\Thumb\Height, BlendColor_(ListView()\ScrollBar\Color\Focus, ListView()\ScrollBar\Color\ScrollBar, 20))
+  			  Default
+  			    Box(ListView()\ScrollBar\Item()\Thumb\X, ListView()\ScrollBar\Item()\Thumb\Y, ListView()\ScrollBar\Item()\Thumb\Width, ListView()\ScrollBar\Item()\Thumb\Height, ListView()\ScrollBar\Color\ScrollBar)
+  			EndSelect
+  			
+  		  If ListView()\ScrollBar\Flags & #ScrollBar_DragLines   ;{ Drag Lines
+  		    
+  		    If ListView()\ScrollBar\Item()\Type = #ScrollBar_Vertical
+  		      
+    			  If ListView()\ScrollBar\Item()\Thumb\Size > dpiY(10)
+    		      OffsetY = (ListView()\ScrollBar\Item()\Thumb\Size - dpiY(7)) / 2			      
+    		      Line(ListView()\ScrollBar\Item()\Thumb\X + dpiX(4), ListView()\ScrollBar\Item()\Thumb\Y + OffsetY, ListView()\ScrollBar\Item()\Thumb\Width - dpiX(8), dpiY(1), ListView()\ScrollBar\Color\Front)
+    		      Line(ListView()\ScrollBar\Item()\Thumb\X + dpiX(4), ListView()\ScrollBar\Item()\Thumb\Y + OffsetY + dpiY(3), ListView()\ScrollBar\Item()\Thumb\Width - dpiX(8), dpiY(1), ListView()\ScrollBar\Color\Front)
+    		      Line(ListView()\ScrollBar\Item()\Thumb\X + dpiX(4), ListView()\ScrollBar\Item()\Thumb\Y + OffsetY + dpiY(6), ListView()\ScrollBar\Item()\Thumb\Width - dpiX(8), dpiY(1), ListView()\ScrollBar\Color\Front)
+    		    EndIf
+    		    
+    		  Else
+  
+    			  If ListView()\ScrollBar\Item()\Thumb\Size > dpiX(10)
+      		    OffsetX = (ListView()\ScrollBar\Item()\Thumb\Size - dpiX(7)) / 2
+      		    Line(ListView()\ScrollBar\Item()\Thumb\X + OffsetX, ListView()\ScrollBar\Item()\Thumb\Y + dpiX(4), dpiX(1), ListView()\ScrollBar\Item()\Thumb\Height - dpiY(8), ListView()\ScrollBar\Color\Front)
+  			      Line(ListView()\ScrollBar\Item()\Thumb\X + OffsetX + dpiX(3), ListView()\ScrollBar\Item()\Thumb\Y + dpiX(4), dpiX(1), ListView()\ScrollBar\Item()\Thumb\Height - dpiY(8), ListView()\ScrollBar\Color\Front)
+  			      Line(ListView()\ScrollBar\Item()\Thumb\X + OffsetX + dpiX(6), ListView()\ScrollBar\Item()\Thumb\Y + dpiX(4), dpiX(1), ListView()\ScrollBar\Item()\Thumb\Height - dpiY(8), ListView()\ScrollBar\Color\Front)
+  			    EndIf
+  			    
+  			  EndIf
+  			  ;}
+  			EndIf
+  			
+  			If ListView()\ScrollBar\Flags & #ScrollBar_ThumbBorder ;{ Thumb Border
+  			  DrawingMode(#PB_2DDrawing_Outlined)
+  			  Box(ListView()\ScrollBar\Item()\Thumb\X, ListView()\ScrollBar\Item()\Thumb\Y, ListView()\ScrollBar\Item()\Thumb\Width, ListView()\ScrollBar\Item()\Thumb\Height, ListView()\ScrollBar\Color\Border)
+  			  ;}
+  			EndIf
+  			;}
+  			
+  			;{ _____ Border ____
+  			If ListView()\ScrollBar\Flags & #ScrollBar_Border
+  				DrawingMode(#PB_2DDrawing_Outlined)
+  				Box(X, Y, Width, Height, BorderColor)
+  			EndIf ;}
+  
+  			StopDrawing()
+  		EndIf
+  		
+    	DrawScrollButton_(ListView()\ScrollBar\Item()\Buttons\Forwards\X,  ListView()\ScrollBar\Item()\Buttons\Forwards\Y,  ListView()\ScrollBar\Item()\Buttons\Forwards\Width,  ListView()\ScrollBar\Item()\Buttons\Forwards\Height,  ScrollBar, #ScrollBar_Forwards,  ListView()\ScrollBar\Item()\Buttons\Forwards\State)
+    	DrawScrollButton_(ListView()\ScrollBar\Item()\Buttons\Backwards\X, ListView()\ScrollBar\Item()\Buttons\Backwards\Y, ListView()\ScrollBar\Item()\Buttons\Backwards\Width, ListView()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards, ListView()\ScrollBar\Item()\Buttons\Backwards\State)
+
+    EndIf
+    
+	EndProcedure  
+	;}
 	
 	Procedure.i CheckBox_(X.i, Y.i, Width.i, Height.i, boxWidth.i, FrontColor.i, BackColor.i, State.i)
     Define.i X1, X2, Y1, Y2
@@ -539,8 +995,10 @@ Module ListView
     If StartDrawing(CanvasOutput(ListView()\CanvasNum))
       
       Width  = dpiX(GadgetWidth(ListView()\CanvasNum)) 
-		  Height = dpiY(GadgetHeight(ListView()\CanvasNum))
-		  If Not ListView()\ScrollBar\Hide : Width - dpiX(#ScrollBarSize) : EndIf
+      Height = dpiY(GadgetHeight(ListView()\CanvasNum))
+      
+      
+		  If Not ListView()\ScrollBar\Item("VScroll")\Hide : Width - dpiX(#ScrollBarSize) : EndIf
 		  
       ;{ _____ Background _____
       DrawingMode(#PB_2DDrawing_Default)
@@ -574,20 +1032,29 @@ Module ListView
       If OffsetY < 0 : OffsetY = 0 : EndIf
       
       ;{ _____ ScrollBar _____
-      PageRows = Height / RowHeight
-   
-      If PageRows < ListSize(ListView()\Item())
+      If FindMapElement(ListView()\ScrollBar\Item(), "VScroll")
+      
+        PageRows = Round((Height - dpiY(6)) / RowHeight, #PB_Round_Down)
         
-        SetGadgetAttribute(ListView()\ScrollBar\Num, #PB_ScrollBar_PageLength, PageRows)
-        SetGadgetAttribute(ListView()\ScrollBar\Num, #PB_ScrollBar_Maximum,    ListSize(ListView()\Item()))
-        
-        If ListView()\ScrollBar\Hide
-          If IsGadget(ListView()\ScrollBar\Num)
-            ResizeGadget(ListView()\ScrollBar\Num, GadgetWidth(ListView()\CanvasNum) - #ScrollBarSize - 1, 1, #PB_Ignore, GadgetHeight(ListView()\CanvasNum) - 2)
-            HideGadget(ListView()\ScrollBar\Num, #False)
-            ListView()\ScrollBar\Hide = #False
+        If PageRows < ListSize(ListView()\Item())
+          
+          ListView()\ScrollBar\Item()\X          = GadgetWidth(ListView()\CanvasNum) - #ScrollBarSize - 1
+          ListView()\ScrollBar\Item()\Y          = 1
+          ListView()\ScrollBar\Item()\Height     = GadgetHeight(ListView()\CanvasNum) - 2
+          ListView()\ScrollBar\Item()\Maximum    = ListSize(ListView()\Item())
+          ListView()\ScrollBar\Item()\PageLength = PageRows
+           
+          If ListView()\ScrollBar\Item()\Hide
+            CalcScrollBarThumb_("VScroll")
+            ListView()\ScrollBar\Item()\Hide = #False
           EndIf
-        EndIf  
+          
+          ListView()\Rows\Offset = ListView()\ScrollBar\Item()\Pos - 1
+          
+        Else
+          ListView()\Rows\Offset = 0
+          ListView()\ScrollBar\Item()\Hide = #True
+        EndIf
         
       EndIf ;}
       
@@ -598,7 +1065,7 @@ Module ListView
       
       ForEach ListView()\Item()
         
-        If ListIndex(ListView()\Item()) < ListView()\Rows\Offset - 1
+        If ListIndex(ListView()\Item()) < ListView()\Rows\Offset
           ListView()\Item()\Y = 0
           Continue
         EndIf  
@@ -607,8 +1074,16 @@ Module ListView
           ItemFrontColor = ListView()\Color\DisableFront
           ItemBackColor  = ListView()\Color\DisableBack
         Else
-          ItemFrontColor = ListView()\Item()\Color\Front
-          ItemBackColor  = ListView()\Item()\Color\Back
+          If ListView()\Item()\Color\Front = #PB_Default
+            ItemFrontColor = FrontColor
+          Else
+            ItemFrontColor = ListView()\Item()\Color\Front
+          EndIf   
+          If ListView()\Item()\Color\Back = #PB_Default
+            ItemBackColor = BackColor
+          Else
+            ItemBackColor = ListView()\Item()\Color\Back
+          EndIf  
         EndIf   
         
         ListView()\Item()\Y = Y
@@ -616,12 +1091,15 @@ Module ListView
         ;{ Row background
         DrawingMode(#PB_2DDrawing_Default)
         If ListView()\Flags & #ClickSelect And ListView()\Item()\State & #Selected
-          Box(0, Y, Width, RowHeight, ListView()\Color\FocusBack)
+          ItemBackColor = ListView()\Color\FocusBack
+          Box(0, Y, Width, RowHeight, ItemBackColor)
         ElseIf ListView()\State = ListIndex(ListView()\Item()) Or ListView()\Item()\State & #Selected
-          Box(0, Y, Width, RowHeight, ListView()\Color\FocusBack)
+          ItemBackColor = ListView()\Color\FocusBack
+          Box(0, Y, Width, RowHeight, ItemBackColor)
         Else  
           If ListView()\Focus = ListIndex(ListView()\Item())
-            Box(X - dpiX(2), Y, TextWidth(ListView()\Item()\String) + dpiX(6), RowHeight, BlendColor_(ListView()\Color\FocusBack, BackColor, 10))
+            ItemBackColor = BlendColor_(ListView()\Color\FocusBack, BackColor, 10)
+            Box(X - dpiX(2), Y, TextWidth(ListView()\Item()\String) + dpiX(6), RowHeight, ItemBackColor)
           ElseIf ListView()\Item()\Color\Back <> #PB_Default
             Box(X - dpiX(2), Y, Width, RowHeight, ItemBackColor)
           EndIf
@@ -713,7 +1191,7 @@ Module ListView
             If Pos
               DrawingMode(#PB_2DDrawing_Default)
               wordX = TextWidth(Left(ListView()\Item()\String, Pos - 1))
-              DrawText(X + OffsetX + wordX, Y + OffsetY, MapKey(ListView()\Syntax()), ListView()\Syntax(), BackColor)
+              DrawText(X + OffsetX + wordX, Y + OffsetY, MapKey(ListView()\Syntax()), ListView()\Syntax(), ItemBackColor)
             EndIf  
           Next   
         CompilerEndIf
@@ -749,7 +1227,9 @@ Module ListView
       
       StopDrawing()
     EndIf
-
+    
+    DrawScrollBar_("VScroll")
+    
 	EndProcedure
 
 	;- __________ Events __________
@@ -774,15 +1254,73 @@ Module ListView
         ListView()\Color\FocusFront   = ModuleEx::ThemeGUI\Focus\BackColor
 				ListView()\Color\DisableFront = ModuleEx::ThemeGUI\Disable\FrontColor
 		    ListView()\Color\DisableBack  = ModuleEx::ThemeGUI\Disable\BackColor
-				
+		    
+		    ListView()\ScrollBar\Color\Front        = ModuleEx::ThemeGUI\FrontColor
+  			ListView()\ScrollBar\Color\Back         = ModuleEx::ThemeGUI\BackColor
+  			ListView()\ScrollBar\Color\Border       = ModuleEx::ThemeGUI\BorderColor
+  			ListView()\ScrollBar\Color\Gadget       = ModuleEx::ThemeGUI\GadgetColor
+  			ListView()\ScrollBar\Color\Focus        = ModuleEx::ThemeGUI\FocusBack
+        ListView()\ScrollBar\Color\Button       = ModuleEx::ThemeGUI\Button\BackColor
+        ListView()\ScrollBar\Color\ScrollBar    = ModuleEx::ThemeGUI\ScrollbarColor
+		    
         Draw_()
       Next
       
     EndProcedure
     
   CompilerEndIf 
-	
-	
+  
+  Procedure _TimerThread(Frequency.i)
+    Define.i ElapsedTime
+    
+    Repeat
+      
+      If ElapsedTime >= Frequency
+        PostEvent(#Event_Timer)
+        ElapsedTime = 0
+      EndIf
+      
+      Delay(100)
+      
+      ElapsedTime + 100
+      
+    Until TimerThread\Exit
+    
+  EndProcedure
+  
+  Procedure _AutoScroll()
+    Define.i X, Y
+    
+    ForEach ListView()
+      
+      ForEach ListView()\ScrollBar\Item()
+        
+        If ListView()\ScrollBar\Item()\Timer
+          
+          If ListView()\ScrollBar\Item()\TimerDelay
+            ListView()\ScrollBar\Item()\TimerDelay - 1
+            Continue
+          EndIf  
+          
+          Select ListView()\ScrollBar\Item()\Timer
+            Case #ScrollBar_Up, #ScrollBar_Left
+              ListView()\ScrollBar\Item()\Pos - 1
+              If ListView()\ScrollBar\Item()\Pos < ListView()\ScrollBar\Item()\minPos : ListView()\ScrollBar\Item()\Pos = ListView()\ScrollBar\Item()\minPos : EndIf
+            Case #ScrollBar_Down, #ScrollBar_Right
+              ListView()\ScrollBar\Item()\Pos + 1
+              If ListView()\ScrollBar\Item()\Pos > ListView()\ScrollBar\Item()\maxPos : ListView()\ScrollBar\Item()\Pos = ListView()\ScrollBar\Item()\maxPos : EndIf
+          EndSelect
+          
+          DrawScrollBar_(MapKey(ListView()\ScrollBar\Item()))
+          
+    		EndIf 
+    		
+      Next
+      
+    Next
+    
+  EndProcedure
+  
 	Procedure _LeftDoubleClickHandler()
 		Define.i X, Y
 		Define.i GNum = EventGadget()
@@ -840,6 +1378,7 @@ Module ListView
 	EndProcedure
 
 	Procedure _LeftButtonDownHandler()
+	  Define.s ScrollBar
 	  Define.i X, Y, Index, Clear
 	  Define.i Row = #PB_Default
 		Define.i GNum = EventGadget()
@@ -848,9 +1387,88 @@ Module ListView
 
 			X = GetGadgetAttribute(ListView()\CanvasNum, #PB_Canvas_MouseX)
 			Y = GetGadgetAttribute(ListView()\CanvasNum, #PB_Canvas_MouseY)
-
+			
+		  ;{ _____ ScrollBar _____
+		  ForEach ListView()\ScrollBar\Item()
+    
+        If ListView()\ScrollBar\Item()\Hide : Continue : EndIf 
+        
+        ListView()\ScrollBar\Item()\Cursor = #PB_Default
+        
+        ScrollBar = MapKey(ListView()\ScrollBar\Item())
+  
+  			;{ ----- Button Click -----
+  			If ListView()\ScrollBar\Item()\Type = #ScrollBar_Vertical
+  			  
+  			  If X >= ListView()\ScrollBar\Item()\X And X <= ListView()\ScrollBar\Item()\X + ListView()\ScrollBar\Item()\Width
+  			    
+    			  If Y <= ListView()\ScrollBar\Item()\Buttons\Backwards\Y + ListView()\ScrollBar\Item()\Buttons\Backwards\Height
+    			    ;{ Backwards Button
+    			    If ListView()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Click
+    			      DrawScrollButton_(ListView()\ScrollBar\Item()\Buttons\Backwards\X, ListView()\ScrollBar\Item()\Buttons\Backwards\Y, ListView()\ScrollBar\Item()\Buttons\Backwards\Width, ListView()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards, #ScrollBar_Click)
+    			      ListView()\ScrollBar\Item()\TimerDelay = #ScrollBar_TimerDelay
+    			      ListView()\ScrollBar\Item()\Timer      = #ScrollBar_Up
+    			      ListView()\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Click
+    			    EndIf ;}
+    			  ElseIf Y >= ListView()\ScrollBar\Item()\Buttons\Forwards\Y
+    			    ;{ Forwards Button
+    			    If ListView()\ScrollBar\Item()\Buttons\Forwards\State <> #ScrollBar_Click
+    			      DrawScrollButton_(ListView()\ScrollBar\Item()\Buttons\Forwards\X, ListView()\ScrollBar\Item()\Buttons\Forwards\Y, ListView()\ScrollBar\Item()\Buttons\Forwards\Width, ListView()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards, #ScrollBar_Click)
+    			      ListView()\ScrollBar\Item()\TimerDelay = #ScrollBar_TimerDelay
+    			      ListView()\ScrollBar\Item()\Timer      = #ScrollBar_Down
+    			      ListView()\ScrollBar\Item()\Buttons\Forwards\State = #ScrollBar_Click
+    			    EndIf ;}
+    			  ElseIf Y >= ListView()\ScrollBar\Item()\Thumb\Y And Y <= ListView()\ScrollBar\Item()\Thumb\Y + ListView()\ScrollBar\Item()\Thumb\Height
+    			    ;{ Thumb Button
+    			    If ListView()\ScrollBar\Item()\Thumb\State <> #ScrollBar_Click
+    			      ListView()\ScrollBar\Item()\Thumb\State = #ScrollBar_Click
+    			      ListView()\ScrollBar\Item()\Cursor = Y
+    			      DrawScrollBar_(ScrollBar) 
+    			    EndIf ;} 
+    			  EndIf
+    			  
+    			  ProcedureReturn #True
+  			  EndIf
+  			  
+  			Else
+  			  
+  			  If Y >= ListView()\ScrollBar\Item()\Y And Y <= ListView()\ScrollBar\Item()\Y + ListView()\ScrollBar\Item()\Height
+  			    
+    			  If X <= ListView()\ScrollBar\Item()\Buttons\Backwards\X + ListView()\ScrollBar\Item()\Buttons\Backwards\Width
+    			    ;{ Backwards Button
+    			    If ListView()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Click
+    			      DrawScrollButton_(ListView()\ScrollBar\Item()\Buttons\Backwards\X, ListView()\ScrollBar\Item()\Buttons\Backwards\Y, ListView()\ScrollBar\Item()\Buttons\Backwards\Width, ListView()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards, #ScrollBar_Click)
+    			      ListView()\ScrollBar\Item()\TimerDelay = #ScrollBar_TimerDelay
+    			      ListView()\ScrollBar\Item()\Timer      = #ScrollBar_Left
+    			      ListView()\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Click
+    			    EndIf ;}
+    			  ElseIf X >= ListView()\ScrollBar\Item()\Buttons\Forwards\X
+    			    ;{ Forwards Button
+    			    If ListView()\ScrollBar\Item()\Buttons\Forwards\State <> #ScrollBar_Click
+    			      DrawScrollButton_(ListView()\ScrollBar\Item()\Buttons\Forwards\X, ListView()\ScrollBar\Item()\Buttons\Forwards\Y, ListView()\ScrollBar\Item()\Buttons\Forwards\Width, ListView()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards, #ScrollBar_Click)
+    			      ListView()\ScrollBar\Item()\TimerDelay = #ScrollBar_TimerDelay
+    			      ListView()\ScrollBar\Item()\Timer      = #ScrollBar_Right
+    			      ListView()\ScrollBar\Item()\Buttons\Forwards\State = #ScrollBar_Click
+    			    EndIf ;}
+    			  ElseIf X >= ListView()\ScrollBar\Item()\Thumb\X And X <= ListView()\ScrollBar\Item()\Thumb\X + ListView()\ScrollBar\Item()\Thumb\Width
+    			    ;{ Thumb Button
+    			    If ListView()\ScrollBar\Item()\Thumb\State <> #ScrollBar_Click
+    			      ListView()\ScrollBar\Item()\Thumb\State = #ScrollBar_Click
+    			      ListView()\ScrollBar\Item()\Cursor = X
+    			      DrawScrollBar_(ScrollBar)
+    			    EndIf ;} 
+    			  EndIf
+    			  
+    			  ProcedureReturn #True
+    			EndIf
+    			
+  			EndIf ;}
+        
+      Next
+      ;}
+      
 			ForEach ListView()\Item()
-			  
+
 			  If Y >= ListView()\Item()\Y And Y <= ListView()\Item()\Y + ListView()\Rows\Height
 			    
 			    If ListView()\Flags & #CheckBoxes ;{ #CheckBoxes enabled
@@ -986,58 +1604,360 @@ Module ListView
 		EndIf
 
 	EndProcedure
+	
+	Procedure _LeftButtonUpHandler()
+	  Define.i X, Y
+	  Define.s ScrollBar
+	  Define.i GNum = EventGadget()
+	  
+		If FindMapElement(ListView(), Str(GNum))
 
-  Procedure _MouseWheelHandler()
+			X = GetGadgetAttribute(ListView()\CanvasNum, #PB_Canvas_MouseX)
+			Y = GetGadgetAttribute(ListView()\CanvasNum, #PB_Canvas_MouseY)
+		
+  		ForEach ListView()\ScrollBar\Item()
+        
+  		  If ListView()\ScrollBar\Item()\Hide : Continue : EndIf 
+  		  
+  			ListView()\ScrollBar\Item()\Cursor = #PB_Default
+  			ListView()\ScrollBar\Item()\Timer  = #False
+  			
+  			ScrollBar = MapKey(ListView()\ScrollBar\Item())
+  			
+  			If ListView()\ScrollBar\Item()\Type = #ScrollBar_Vertical ;{ Vertical Scrollbar
+  			  
+  			  If X >= ListView()\ScrollBar\Item()\X And X <= ListView()\ScrollBar\Item()\X + ListView()\ScrollBar\Item()\Width
+  			   
+  			    If Y >= ListView()\ScrollBar\Item()\Buttons\Backwards\Y And Y <= ListView()\ScrollBar\Item()\Buttons\Backwards\Y + ListView()\ScrollBar\Item()\Buttons\Backwards\Height
+    			    ListView()\ScrollBar\Item()\Pos - 1
+    			    If ListView()\ScrollBar\Item()\Pos < ListView()\ScrollBar\Item()\minPos : ListView()\ScrollBar\Item()\Pos = ListView()\ScrollBar\Item()\minPos : EndIf
+    			    Draw_()
+    			  ElseIf Y >= ListView()\ScrollBar\Item()\Buttons\Forwards\Y And Y <= ListView()\ScrollBar\Item()\Buttons\Forwards\Y + ListView()\ScrollBar\Item()\Buttons\Forwards\Height
+    			    ListView()\ScrollBar\Item()\Pos + 1
+    			    If ListView()\ScrollBar\Item()\Pos > ListView()\ScrollBar\Item()\maxPos : ListView()\ScrollBar\Item()\Pos = ListView()\ScrollBar\Item()\maxPos : EndIf
+    			   Draw_()
+    			  ElseIf Y < ListView()\ScrollBar\Item()\Thumb\Y
+    			    ListView()\ScrollBar\Item()\Pos - ListView()\ScrollBar\Item()\PageLength
+    			    If ListView()\ScrollBar\Item()\Pos < ListView()\ScrollBar\Item()\minPos : ListView()\ScrollBar\Item()\Pos = ListView()\ScrollBar\Item()\minPos : EndIf
+    			    Draw_()
+    			  ElseIf Y > ListView()\ScrollBar\Item()\Thumb\Y + ListView()\ScrollBar\Item()\Thumb\Height
+    			    ListView()\ScrollBar\Item()\Pos + ListView()\ScrollBar\Item()\PageLength
+    			    If ListView()\ScrollBar\Item()\Pos > ListView()\ScrollBar\Item()\maxPos : ListView()\ScrollBar\Item()\Pos = ListView()\ScrollBar\Item()\maxPos : EndIf
+    			    Draw_()
+    			  EndIf
+    			  
+    			  ProcedureReturn #True
+    			EndIf  
+  			  ;}
+  			Else                                                      ;{ Horizontal Scrollbar
+  			  
+  			  If Y >= ListView()\ScrollBar\Item()\Y And Y <= ListView()\ScrollBar\Item()\Y + ListView()\ScrollBar\Item()\Height
+  			    
+    			  If X <= ListView()\ScrollBar\Item()\Buttons\Backwards\X + ListView()\ScrollBar\Item()\Buttons\Backwards\Width
+    			    ListView()\ScrollBar\Item()\Pos - 1
+    			    If ListView()\ScrollBar\Item()\Pos < ListView()\ScrollBar\Item()\minPos : ListView()\ScrollBar\Item()\Pos = ListView()\ScrollBar\Item()\minPos : EndIf
+    			    PostEvent(#Event_Gadget,    ListView()\Window\Num, ListView()\ScrollBar\Num, #PB_EventType_Change, #ScrollBar_Left)
+    			    PostEvent(#PB_Event_Gadget, ListView()\Window\Num, ListView()\ScrollBar\Num, #PB_EventType_Change, #ScrollBar_Left)
+    			    DrawScrollBar_(ScrollBar)
+    			  ElseIf X >= ListView()\ScrollBar\Item()\Buttons\Forwards\X
+    			    ListView()\ScrollBar\Item()\Pos + 1
+    			    If ListView()\ScrollBar\Item()\Pos > ListView()\ScrollBar\Item()\maxPos : ListView()\ScrollBar\Item()\Pos = ListView()\ScrollBar\Item()\maxPos : EndIf
+    			    PostEvent(#Event_Gadget,    ListView()\Window\Num, ListView()\ScrollBar\Num, #PB_EventType_Change, #ScrollBar_Right)
+    			    PostEvent(#PB_Event_Gadget, ListView()\Window\Num, ListView()\ScrollBar\Num, #PB_EventType_Change, #ScrollBar_Right)
+    			    DrawScrollBar_(ScrollBar)
+    			  ElseIf X < ListView()\ScrollBar\Item()\Thumb\X
+    			    ListView()\ScrollBar\Item()\Pos - ListView()\ScrollBar\Item()\PageLength
+    			    If ListView()\ScrollBar\Item()\Pos < ListView()\ScrollBar\Item()\minPos : ListView()\ScrollBar\Item()\Pos = ListView()\ScrollBar\Item()\minPos : EndIf
+    			    PostEvent(#Event_Gadget,    ListView()\Window\Num, ListView()\ScrollBar\Num, #PB_EventType_Change, #ScrollBar_Left)
+    			    PostEvent(#PB_Event_Gadget, ListView()\Window\Num, ListView()\ScrollBar\Num, #PB_EventType_Change, #ScrollBar_Left)
+    			    DrawScrollBar_(ScrollBar)
+    			  ElseIf X > ListView()\ScrollBar\Item()\Thumb\X + ListView()\ScrollBar\Item()\Thumb\Width
+    			    ListView()\ScrollBar\Item()\Pos + ListView()\ScrollBar\Item()\PageLength
+    			    If ListView()\ScrollBar\Item()\Pos > ListView()\ScrollBar\Item()\maxPos : ListView()\ScrollBar\Item()\Pos = ListView()\ScrollBar\Item()\maxPos : EndIf
+    			    PostEvent(#Event_Gadget,    ListView()\Window\Num, ListView()\ScrollBar\Num, #PB_EventType_Change, #ScrollBar_Right)
+    			    PostEvent(#PB_Event_Gadget, ListView()\Window\Num, ListView()\ScrollBar\Num, #PB_EventType_Change, #ScrollBar_Right)
+    			    DrawScrollBar_(ScrollBar)
+    			  EndIf
+    			  
+    			  ProcedureReturn #True
+    			EndIf  
+  			  ;}
+  			EndIf
+  			
+  		Next
+		
+    EndIf
+
+	EndProcedure
+	
+	Procedure _MouseMoveHandler()
+	  Define.s ScrollBar
+	  Define.i X, Y
+	  Define.i GNum = EventGadget()
+	  
+		If FindMapElement(ListView(), Str(GNum))
+
+			X = GetGadgetAttribute(ListView()\CanvasNum, #PB_Canvas_MouseX)
+			Y = GetGadgetAttribute(ListView()\CanvasNum, #PB_Canvas_MouseY)
+	  
+  	  ForEach ListView()\ScrollBar\Item()
+        
+  	    If ListView()\ScrollBar\Item()\Hide : Continue : EndIf
+  	    
+  	    ScrollBar = MapKey(ListView()\ScrollBar\Item())
+  	    
+  	    If ListView()\ScrollBar\Item()\Type = #ScrollBar_Vertical        ;{ Vertical Scrollbar
+  	      
+  	      If X >= ListView()\ScrollBar\Item()\X And X <= ListView()\ScrollBar\Item()\X + ListView()\ScrollBar\Item()\Width
+  	      
+    	      If Y <= ListView()\ScrollBar\Item()\Buttons\Backwards\Y + ListView()\ScrollBar\Item()\Buttons\Backwards\Height
+    			    ;{ Backwards Button
+    			    If ListView()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Focus
+    			      
+    			      ListView()\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Focus
+    			      
+    			      If ListView()\ScrollBar\Item()\Thumb\State <> #False
+    			        ListView()\ScrollBar\Item()\Thumb\State = #False
+    			        DrawScrollBar_(ScrollBar)
+    			      Else 
+    			        DrawScrollButton_(ListView()\ScrollBar\Item()\Buttons\Backwards\X, ListView()\ScrollBar\Item()\Buttons\Backwards\Y, ListView()\ScrollBar\Item()\Buttons\Backwards\Width, ListView()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards, #ScrollBar_Focus)
+    			      EndIf 
+    			      
+    			    EndIf
+    			    
+    			    
+  			    ;}
+    			    ProcedureReturn #True
+    			  ElseIf Y >= ListView()\ScrollBar\Item()\Buttons\Forwards\Y
+    			    ;{ Forwards Button
+    			    If ListView()\ScrollBar\Item()\Buttons\Forwards\State <> #ScrollBar_Focus
+    			      
+    			      ListView()\ScrollBar\Item()\Buttons\Forwards\State = #ScrollBar_Focus
+    			      
+    			      If ListView()\ScrollBar\Item()\Thumb\State <> #False
+    			        ListView()\ScrollBar\Item()\Thumb\State = #False
+    			        DrawScrollBar_(ScrollBar)
+    			      Else 
+    			        DrawScrollButton_(ListView()\ScrollBar\Item()\Buttons\Forwards\X, ListView()\ScrollBar\Item()\Buttons\Forwards\Y, ListView()\ScrollBar\Item()\Buttons\Forwards\Width, ListView()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards, #ScrollBar_Focus)
+    			      EndIf
+    			      
+    			    EndIf ;}
+    			    ProcedureReturn #True
+    			  EndIf
+  
+    			  ListView()\ScrollBar\Item()\Timer = #False
+    			  
+    			  If ListView()\ScrollBar\Item()\Buttons\Backwards\State <> #False ;{ Backwards Button
+    			    ListView()\ScrollBar\Item()\Buttons\Backwards\State = #False
+    			    DrawScrollButton_(ListView()\ScrollBar\Item()\Buttons\Backwards\X, ListView()\ScrollBar\Item()\Buttons\Backwards\Y, ListView()\ScrollBar\Item()\Buttons\Backwards\Width, ListView()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards)
+      			  ;}
+      			EndIf
+      			
+      			If ListView()\ScrollBar\Item()\Buttons\Forwards\State <> #False  ;{ Forwards Button
+      			  ListView()\ScrollBar\Item()\Buttons\Forwards\State = #False
+      			  DrawScrollButton_(ListView()\ScrollBar\Item()\Buttons\Forwards\X, ListView()\ScrollBar\Item()\Buttons\Forwards\Y, ListView()\ScrollBar\Item()\Buttons\Forwards\Width, ListView()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards)
+      			  ;}
+      			EndIf
+    
+    			  If Y >= ListView()\ScrollBar\Item()\Thumb\Y And Y <= ListView()\ScrollBar\Item()\Thumb\Y + ListView()\ScrollBar\Item()\Thumb\Height
+    			    ;{ Move Thumb
+    			    If ListView()\ScrollBar\Item()\Cursor <> #PB_Default
+    			      
+    			      ListView()\ScrollBar\Item()\Pos + GetSteps_(Y)
+    			      
+    			      If ListView()\ScrollBar\Item()\Pos > ListView()\ScrollBar\Item()\maxPos : ListView()\ScrollBar\Item()\Pos = ListView()\ScrollBar\Item()\maxPos : EndIf
+    			      If ListView()\ScrollBar\Item()\Pos < ListView()\ScrollBar\Item()\minPos : ListView()\ScrollBar\Item()\Pos = ListView()\ScrollBar\Item()\minPos : EndIf
+    			      
+    			      ListView()\ScrollBar\Item()\Cursor = Y
+    		        
+    		        Draw_()
+    		        ProcedureReturn #True
+    		      EndIf ;}
+    			    ;{ Thumb Focus
+    			    If ListView()\ScrollBar\Item()\Thumb\State <> #ScrollBar_Focus
+    			      ListView()\ScrollBar\Item()\Thumb\State = #ScrollBar_Focus
+    			      DrawScrollBar_(ScrollBar)
+    			    EndIf ;} 
+    			    ProcedureReturn #True
+    			  EndIf
+    			  
+    			EndIf  
+  			  ;}
+  	    Else                                                             ;{ Horizontal Scrollbar
+  	      
+  	      If Y >= ListView()\ScrollBar\Item()\Y And Y <= ListView()\ScrollBar\Item()\Y + ListView()\ScrollBar\Item()\Height
+  	      
+    	      If X <= ListView()\ScrollBar\Item()\Buttons\Backwards\X + ListView()\ScrollBar\Item()\Buttons\Backwards\Width
+    			    ;{ Backwards Button
+    			    If ListView()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Focus
+    			      DrawScrollButton_(ListView()\ScrollBar\Item()\Buttons\Backwards\X, ListView()\ScrollBar\Item()\Buttons\Backwards\Y, ListView()\ScrollBar\Item()\Buttons\Backwards\Width, ListView()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards, #ScrollBar_Focus)
+    			      ListView()\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Focus
+    			    EndIf ;}
+    			    ProcedureReturn #True
+    			  ElseIf X >= ListView()\ScrollBar\Item()\Buttons\Forwards\X
+    			    ;{ Forwards Button
+    			    If ListView()\ScrollBar\Item()\Buttons\Forwards\State <> #ScrollBar_Focus
+    			      DrawScrollButton_(ListView()\ScrollBar\Item()\Buttons\Forwards\X, ListView()\ScrollBar\Item()\Buttons\Forwards\Y, ListView()\ScrollBar\Item()\Buttons\Forwards\Width, ListView()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards, #ScrollBar_Focus)
+    			      ListView()\ScrollBar\Item()\Buttons\Forwards\State = #ScrollBar_Focus
+    			    EndIf ;}
+    			    ProcedureReturn #True
+    			  EndIf
+
+    			  ListView()\ScrollBar\Item()\Timer = #False
+    			  
+      			If ListView()\ScrollBar\Item()\Buttons\Backwards\State <> #False ;{ Backwards Button
+      			  DrawScrollButton_(ListView()\ScrollBar\Item()\Buttons\Backwards\X, ListView()\ScrollBar\Item()\Buttons\Backwards\Y, ListView()\ScrollBar\Item()\Buttons\Backwards\Width, ListView()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards)
+      			  ListView()\ScrollBar\Item()\Buttons\Backwards\State = #False
+      			  ;}
+      			EndIf
+      			
+      			If ListView()\ScrollBar\Item()\Buttons\Forwards\State <> #False  ;{ Forwards Button
+      			  DrawScrollButton_(ListView()\ScrollBar\Item()\Buttons\Forwards\X, ListView()\ScrollBar\Item()\Buttons\Forwards\Y, ListView()\ScrollBar\Item()\Buttons\Forwards\Width, ListView()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards)
+      			  ListView()\ScrollBar\Item()\Buttons\Forwards\State = #False
+      			  ;}
+      			EndIf
+    			  
+    			  If X >= ListView()\ScrollBar\Item()\Thumb\X And X <= ListView()\ScrollBar\Item()\Thumb\X + ListView()\ScrollBar\Item()\Thumb\Width
+    			    ;{ Thumb Button
+    			    If ListView()\ScrollBar\Item()\Cursor <> #PB_Default
+    
+    		        ListView()\ScrollBar\Item()\Pos + GetSteps_(X)
+    		        
+    		        If ListView()\ScrollBar\Item()\Pos > ListView()\ScrollBar\Item()\maxPos : ListView()\ScrollBar\Item()\Pos = ListView()\ScrollBar\Item()\maxPos : EndIf
+    		        If ListView()\ScrollBar\Item()\Pos < ListView()\ScrollBar\Item()\minPos : ListView()\ScrollBar\Item()\Pos = ListView()\ScrollBar\Item()\minPos : EndIf
+    		        
+    		        ListView()\ScrollBar\Item()\Cursor = X
+    		        
+    		        DrawScrollBar_(ScrollBar)
+    		        ProcedureReturn #True
+    		      EndIf ;}
+    			    ;{ Thumb Focus
+    			    If ListView()\ScrollBar\Item()\Thumb\State <> #ScrollBar_Focus
+    			      ListView()\ScrollBar\Item()\Thumb\State = #ScrollBar_Focus
+    			      DrawScrollBar_(ScrollBar)
+    			    EndIf ;} 
+    			    ProcedureReturn #True
+    			  EndIf
+  			  
+  			  EndIf
+  			  ;}
+  			EndIf
+  			
+  			If ListView()\ScrollBar\Item()\Buttons\Backwards\State <> #False ;{ Backwards Button
+  			  DrawScrollButton_(ListView()\ScrollBar\Item()\Buttons\Backwards\X, ListView()\ScrollBar\Item()\Buttons\Backwards\Y, ListView()\ScrollBar\Item()\Buttons\Backwards\Width, ListView()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards)
+  			  ListView()\ScrollBar\Item()\Buttons\Backwards\State = #False
+  			  ;}
+  			EndIf
+  			
+  			If ListView()\ScrollBar\Item()\Buttons\Forwards\State <> #False  ;{ Forwards Button
+  			  DrawScrollButton_(ListView()\ScrollBar\Item()\Buttons\Forwards\X, ListView()\ScrollBar\Item()\Buttons\Forwards\Y, ListView()\ScrollBar\Item()\Buttons\Forwards\Width, ListView()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards)
+  			  ListView()\ScrollBar\Item()\Buttons\Forwards\State = #False
+  			  ;}
+  			EndIf
+  			
+  			If ListView()\ScrollBar\Item()\Thumb\State <> #False             ;{ Thumb Button
+  			  ListView()\ScrollBar\Item()\Thumb\State = #False
+  			  DrawScrollBar_(ScrollBar)
+  			  ;}
+  			EndIf
+  
+  		Next
+		
+		EndIf
+
+	EndProcedure
+	
+	Procedure _MouseWheelHandler()
+	  Define.s ScrollBar
+	  Define.i X, Y
+	  Define.i Delta, ScrollPos
     Define.i GadgetNum = EventGadget()
-    Define.i Delta, ScrollPos
     
     If FindMapElement(ListView(), Str(GadgetNum))
       
-      Delta = GetGadgetAttribute(GadgetNum, #PB_Canvas_WheelDelta)
+      X = GetGadgetAttribute(ListView()\CanvasNum, #PB_Canvas_MouseX)
+			Y = GetGadgetAttribute(ListView()\CanvasNum, #PB_Canvas_MouseY)
       
-      If IsGadget(ListView()\ScrollBar\Num) And ListView()\ScrollBar\Hide = #False
+  	  Delta = GetGadgetAttribute(ListView()\ScrollBar\Num, #PB_Canvas_WheelDelta)
+  	  
+  	  ForEach ListView()\ScrollBar\Item()
         
-        ScrollPos = GetGadgetState(ListView()\ScrollBar\Num) - Delta
-        
-        If ScrollPos <> ListView()\ScrollBar\Pos
-
-          ListView()\ScrollBar\Pos = ScrollPos
-          ListView()\Rows\Offset   = ScrollPos
-          
-          SetGadgetState(ListView()\ScrollBar\Num, ScrollPos)
-          
-          Draw_()      
-        EndIf
-
-      EndIf
-
+  	    If ListView()\ScrollBar\Item()\Hide : Continue : EndIf
+  
+  	    If X >= ListView()\ScrollBar\Item()\X And X <= ListView()\ScrollBar\Item()\X + ListView()\ScrollBar\Item()\Width
+  	      If Y >= ListView()\ScrollBar\Item()\Y And Y <= ListView()\ScrollBar\Item()\Y + ListView()\ScrollBar\Item()\Height
+  	        
+  	        ScrollBar = MapKey(ListView()\ScrollBar\Item())
+  	        
+  	        ListView()\ScrollBar\Item()\Pos - Delta
+  
+            If ListView()\ScrollBar\Item()\Pos > ListView()\ScrollBar\Item()\maxPos : ListView()\ScrollBar\Item()\Pos = ListView()\ScrollBar\Item()\maxPos : EndIf
+            If ListView()\ScrollBar\Item()\Pos < ListView()\ScrollBar\Item()\minPos : ListView()\ScrollBar\Item()\Pos = ListView()\ScrollBar\Item()\minPos : EndIf
+            
+            Draw_()
+            
+  	        ProcedureReturn #True
+  	      EndIf 
+  	    EndIf
+  	    
+  	  Next
+      
     EndIf
     
   EndProcedure
   
-  Procedure _SynchronizeScrollBar()
-    Define.i ScrollNum = EventGadget()
-    Define.i GadgetNum = GetGadgetData(ScrollNum)
-    Define.i ScrollPos
+  Procedure _MouseLeaveHandler()
+    Define.s ScrollBar
+	  Define.i GadgetNum = EventGadget()
     
     If FindMapElement(ListView(), Str(GadgetNum))
     
-      ScrollPos = GetGadgetState(ScrollNum)
-      If ScrollPos <> ListView()\ScrollBar\Pos
-        ListView()\ScrollBar\Pos = ScrollPos
-        ListView()\Rows\Offset   = ScrollPos
-        Draw_()      
-      EndIf
-      
-    EndIf
-    
-  EndProcedure 
-  
+      ForEach ListView()\ScrollBar\Item()
+        
+  	    If ListView()\ScrollBar\Item()\Hide : Continue : EndIf
+  	    
+  	    ScrollBar = MapKey(ListView()\ScrollBar\Item())
+  	    
+  	    If ListView()\ScrollBar\Item()\Buttons\Backwards\State <> #False
+  			  DrawScrollButton_(ListView()\ScrollBar\Item()\Buttons\Backwards\X, ListView()\ScrollBar\Item()\Buttons\Backwards\Y, ListView()\ScrollBar\Item()\Buttons\Backwards\Width, ListView()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards)
+  			  ListView()\ScrollBar\Item()\Buttons\Backwards\State = #False
+  			EndIf
+  			
+  			If ListView()\ScrollBar\Item()\Buttons\Forwards\State <> #False
+  			  DrawScrollButton_(ListView()\ScrollBar\Item()\Buttons\Forwards\X, ListView()\ScrollBar\Item()\Buttons\Forwards\Y, ListView()\ScrollBar\Item()\Buttons\Forwards\Width, ListView()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards)
+  			  ListView()\ScrollBar\Item()\Buttons\Forwards\State = #False
+  			EndIf
+  			
+  	    If ListView()\ScrollBar\Item()\Thumb\State <> #False
+  	      ListView()\ScrollBar\Item()\Thumb\State = #False
+  	      DrawScrollBar_(ScrollBar)
+  	    EndIf  
+  	    
+      Next
+
+	  EndIf
+	  
+	EndProcedure
+
 	Procedure _ResizeHandler()
+	  Define.s ScrollBar
 		Define.i GadgetID = EventGadget()
 
 		If FindMapElement(ListView(), Str(GadgetID))
-			Draw_()
+
+		  Draw_()
+		  
+		  ForEach ListView()\ScrollBar\Item()
+      
+  	    If ListView()\ScrollBar\Item()\Hide : Continue : EndIf
+  	    
+  	    ScrollBar = MapKey(ListView()\ScrollBar\Item())
+  	    
+  		  CalcScrollBarThumb_(ScrollBar)
+  		  DrawScrollBar_(ScrollBar)
+  		  
+  	  Next
+		  
 		EndIf
 
 	EndProcedure
@@ -1082,7 +2002,80 @@ Module ListView
 		Next
 
 	EndProcedure
+	
+  ;{ _____ ScrollBar _____
+	Procedure InitScrollBar_(CanvasNum.i, Flags.i=#False)
+	  
+	  ListView()\ScrollBar\Num = CanvasNum
+	  
+	  ListView()\ScrollBar\Flags = Flags
+	  
+	  If TimerThread\Active = #False 
+      TimerThread\Exit   = #False
+      TimerThread\Num    = CreateThread(@_TimerThread(), #ScrollBar_Timer)
+      TimerThread\Active = #True
+    EndIf
+	  
+		ListView()\ScrollBar\Color\Back         = $F0F0F0
+		ListView()\ScrollBar\Color\Border       = $A0A0A0
+		ListView()\ScrollBar\Color\Button       = $F0F0F0
+		ListView()\ScrollBar\Color\Focus        = $D77800
+		ListView()\ScrollBar\Color\Front        = $646464
+		ListView()\ScrollBar\Color\Gadget       = $F0F0F0
+		ListView()\ScrollBar\Color\ScrollBar    = $C8C8C8
+		ListView()\ScrollBar\Color\DisableFront = $72727D
+		ListView()\ScrollBar\Color\DisableBack  = $CCCCCA
+		
+		CompilerSelect #PB_Compiler_OS ;{ Color
+			CompilerCase #PB_OS_Windows
+				ListView()\ScrollBar\Color\Front     = GetSysColor_(#COLOR_GRAYTEXT)
+				ListView()\ScrollBar\Color\Back      = GetSysColor_(#COLOR_MENU)
+				ListView()\ScrollBar\Color\Border    = GetSysColor_(#COLOR_3DSHADOW)
+				ListView()\ScrollBar\Color\Gadget    = GetSysColor_(#COLOR_MENU)
+				ListView()\ScrollBar\Color\Focus     = GetSysColor_(#COLOR_MENUHILIGHT)
+				ListView()\ScrollBar\Color\ScrollBar = GetSysColor_(#COLOR_SCROLLBAR)
+			CompilerCase #PB_OS_MacOS
+				ListView()\ScrollBar\Color\Front  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+				ListView()\ScrollBar\Color\Back   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
+				ListView()\ScrollBar\Color\Border = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+				ListView()\ScrollBar\Color\Gadget = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
+				ListView()\ScrollBar\Color\Focus  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedControlColor"))
+				; ListView()\ScrollBar\Color\ScrollBar = 
+			CompilerCase #PB_OS_Linux
 
+		CompilerEndSelect ;}
+    
+		BindEvent(#Event_Timer, @_AutoScroll())
+		
+	EndProcedure
+	
+  Procedure CreateScrollBar_(Label.s, X.i, Y.i, Width.i, Height.i, Minimum.i, Maximum.i, PageLength.i, Type.i=#False)
+    
+    If AddMapElement(ListView()\ScrollBar\Item(), Label)
+    
+      ListView()\ScrollBar\Item()\X = X
+      ListView()\ScrollBar\Item()\Y = Y
+      ListView()\ScrollBar\Item()\Width      = Width
+      ListView()\ScrollBar\Item()\Height     = Height
+      ListView()\ScrollBar\Item()\Minimum    = Minimum
+      ListView()\ScrollBar\Item()\Maximum    = Maximum
+      ListView()\ScrollBar\Item()\PageLength = PageLength
+      ListView()\ScrollBar\Item()\Hide       = #True
+      ListView()\ScrollBar\Item()\Type       = Type
+      
+      ListView()\ScrollBar\Item()\Cursor = #PB_Default
+		
+			ListView()\ScrollBar\Item()\Buttons\Forwards\State  = #PB_Default
+			ListView()\ScrollBar\Item()\Buttons\Backwards\State = #PB_Default
+			
+			CalcScrollBarThumb_(Label)
+		  DrawScrollBar_(Label)
+			
+    EndIf
+    
+  EndProcedure 
+  ;}
+	
 	;- ==========================================================================
 	;-   Module - Declared Procedures
 	;- ==========================================================================
@@ -1241,12 +2234,9 @@ Module ListView
 
 				ListView()\CanvasNum = GNum
 				
-				ListView()\ScrollBar\Num = ScrollBarGadget(#PB_Any, 1, 1, #ScrollBarSize, Height, 0, 100, 0, #PB_ScrollBar_Vertical)
-        If IsGadget(ListView()\ScrollBar\Num)
-          SetGadgetData(ListView()\ScrollBar\Num, GNum)
-          HideGadget(ListView()\ScrollBar\Num, #True)
-          ListView()\ScrollBar\Hide = #True
-        EndIf
+				InitScrollBar_(GNum)
+				
+				CreateScrollBar_("VScroll", Width - #ScrollBarSize - 1, 1, #ScrollBarSize, Height - 2, 1, 0, 0, #ScrollBar_Vertical)
 
         If WindowNum = #PB_Default
           ListView()\Window\Num = GetGadgetWindow()
@@ -1316,9 +2306,10 @@ Module ListView
 				BindGadgetEvent(ListView()\CanvasNum,  @_RightClickHandler(),      #PB_EventType_RightClick)
 				BindGadgetEvent(ListView()\CanvasNum,  @_LeftDoubleClickHandler(), #PB_EventType_LeftDoubleClick)
 				BindGadgetEvent(ListView()\CanvasNum,  @_LeftButtonDownHandler(),  #PB_EventType_LeftButtonDown)
+				BindGadgetEvent(ListView()\CanvasNum,  @_LeftButtonUpHandler(),    #PB_EventType_LeftButtonUp)
+				BindGadgetEvent(ListView()\CanvasNum,  @_MouseMoveHandler(),       #PB_EventType_MouseMove)
 				BindGadgetEvent(ListView()\CanvasNum,  @_MouseWheelHandler(),      #PB_EventType_MouseWheel)
-				
-        BindGadgetEvent(ListView()\ScrollBar\Num, @_SynchronizeScrollBar(), #PB_All) 
+				BindGadgetEvent(ListView()\CanvasNum,  @_MouseLeaveHandler(),      #PB_EventType_MouseLeave)
 				
 				CompilerIf Defined(ModuleEx, #PB_Module)
           BindEvent(#Event_Theme, @_ThemeHandler())
@@ -1796,8 +2787,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 90
-; Folding = o8DAAACBAAAgFAEAAAAc+
-; Markers = 709
+; CursorPosition = 13
+; Folding = 5TCAAAAEpAEScECEAgAAUABAAEAAAA+-
+; Markers = 1187
 ; EnableXP
 ; DPIAware
