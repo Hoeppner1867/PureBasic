@@ -11,6 +11,7 @@
  
 ; Last Update: 01.03.2020
 ;
+; Added:   Attribute #FirstVisibleRow / #VisibleRows
 ; Added:   Flag #StartSelected for columns
 ;
 ; Added:   Color for ComboBox items -> AddComboBoxItem()
@@ -282,6 +283,8 @@ DeclareModule ListEx
     #Gadget
     #HeaderFont
     #GadgetFont
+    #FirstVisibleRow
+    #VisibleRows
   EndEnumeration ;}
   
   EnumerationBinary ;{ Column Flags
@@ -3444,7 +3447,7 @@ Module ListEx
       ListEx()\Row\OffSetY = 0
 
       ForEach ListEx()\Rows()
-        
+        Debug ListEx()\Row\Offset
         If ListIndex(ListEx()\Rows()) < ListEx()\Row\Offset
           ListEx()\Row\OffSetY + ListEx()\Rows()\Height
           Continue
@@ -4915,7 +4918,7 @@ Module ListEx
               If FirstElement(ListEx()\Rows())
                 ListEx()\Focus = #True
                 ListEx()\Row\Current = ListIndex(ListEx()\Rows())
-                ListEx()\Row\Focus = ListEx()\Row\Current
+                ListEx()\Row\Focus   = ListEx()\Row\Current
                 SetRowFocus_(ListEx()\Row\Focus)
               EndIf
             EndIf
@@ -7415,6 +7418,10 @@ Module ListEx
     If FindMapElement(ListEx(), Str(GNum))
       
       Select Attribute
+        Case #FirstVisibleRow
+          ProcedureReturn ListEx()\Row\Offset
+        Case #VisibleRows
+          ProcedureReturn GetPageRows_()
         Case #ColumnCount  
           ProcedureReturn ListSize(ListEx()\Cols())
         Case #Gadget  
@@ -9189,10 +9196,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 157
-; FirstLine = 15
-; Folding = wlhAAAAAAIAQAARgAwEAAICIggAQWpyQElgEQBECEOAgAlIAAIgAAAwAAgRgDACBDAAAAAAAAAAgmg8
-; Markers = 4363,7293
+; CursorPosition = 13
+; FirstLine = 3
+; Folding = wwhAAAAAAIAAAARgAwEAAICIgAAQWpiQElgEQBECEOAAAlIAAIgAAAwAAgRgDACBHBAAAAAAAAAgmg8
+; Markers = 4366,7296
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
