@@ -9,11 +9,12 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 28.02.2020
+; Last Update: 01.03.2020
+;
+; Added:   Flag #StartSelected for columns
 ;
 ; Added:   Color for ComboBox items -> AddComboBoxItem()
 ; Bugfix:  Move window
-;
 ; Added:   Use DateEx, if available.
 ; Added:   Scrollbars for ComboBox
 ; Changed: SetState() - Set the focus on an (editable) cell when the 'Column' parameter is used.
@@ -154,7 +155,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20022800
+  #Version  = 20030100
   #ModuleEx = 19112100
   
   #Enable_CSV_Support   = #True
@@ -289,7 +290,7 @@ DeclareModule ListEx
     #Center  = 1<<2
     #CheckBoxes  ; checkbox gadget
     #ComboBoxes  ; combobox gadget
-    #DateGadget       ; date gadget
+    #DateGadget  ; date gadget
     #Strings     ; string gadget
     #Buttons     ; button
     #Links       ; link
@@ -302,6 +303,7 @@ DeclareModule ListEx
     #CellBack
     #CellLine
     #LockCell
+    #StartSelected
     ; --------
     #Date        ; contains dates
     #Cash        ; contains cash
@@ -522,6 +524,8 @@ Module ListEx
   #NoFocus = -1
   #NotSelected = -1
   
+  #TextSelected = #True
+  
   #Cursor_Default = #PB_Cursor_Default
   #Cursor_Edit    = #PB_Cursor_Hand
   #Cursor_Sort    = #PB_Cursor_Hand
@@ -658,6 +662,12 @@ Module ListEx
     Minimum.i
     Maximum.i
     Flags.i
+  EndStructure ;}
+  
+  Structure Selection_Structure  ;{ ListEx()\String\Selection\
+    Pos1.i
+    Pos2.i
+    Flag.i
   EndStructure ;}
   
   Structure ListEx_String_Structure     ;{ ListEx()\String\...
@@ -987,6 +997,7 @@ Module ListEx
     Event.Event_Structure
     Link.ListEx_Link_Structure
     String.ListEx_String_Structure
+    Selection.Selection_Structure
     
     Map Mark.ListEx_Mark_Structure()
     
@@ -1193,7 +1204,7 @@ Module ListEx
     EndIf
     
   EndProcedure
-  
+
   Procedure.i GetColumn_(X.i)
     
     X = DesktopUnscaledX(X)
@@ -1213,6 +1224,45 @@ Module ListEx
     
   EndProcedure
   
+  
+  Procedure   RemoveSelection_() ; Remove & Reset selection 
+    ListEx()\Selection\Pos1 = #False
+    ListEx()\Selection\Pos2 = #False
+    ListEx()\Selection\Flag = #False
+  EndProcedure  
+  
+  Procedure   DeleteSelection_() 
+    Define.s Text
+    
+    If ListEx()\Selection\Flag = #TextSelected
+      
+      If ListEx()\String\Flag
+        
+        If ListEx()\Selection\Pos1 > ListEx()\Selection\Pos2
+          ListEx()\String\Text = Left(ListEx()\String\Text, ListEx()\Selection\Pos2) + Mid(ListEx()\String\Text, ListEx()\Selection\Pos1 + 1)
+          ListEx()\Cursor\Pos = ListEx()\Selection\Pos2
+        Else
+          ListEx()\String\Text = Left(ListEx()\String\Text, ListEx()\Selection\Pos1) + Mid(ListEx()\String\Text, ListEx()\Selection\Pos2 + 1)
+          ListEx()\Cursor\Pos = ListEx()\Selection\Pos1
+        EndIf  
+
+      ElseIf ListEx()\ComboBox\Flag
+        
+        If ListEx()\Selection\Pos1 > ListEx()\Selection\Pos2
+          ListEx()\ComboBox\Text = Left(ListEx()\ComboBox\Text, ListEx()\Selection\Pos2) + Mid(ListEx()\ComboBox\Text, ListEx()\Selection\Pos1 + 1)
+          ListEx()\Cursor\Pos = ListEx()\Selection\Pos2
+        Else
+          ListEx()\ComboBox\Text = Left(ListEx()\ComboBox\Text, ListEx()\Selection\Pos1) + Mid(ListEx()\ComboBox\Text, ListEx()\Selection\Pos2 + 1)
+          ListEx()\Cursor\Pos = ListEx()\Selection\Pos1
+        EndIf 
+        
+      EndIf
+
+      RemoveSelection_() 
+    EndIf
+    
+  EndProcedure
+  
   Procedure.s DeleteStringPart_(String.s, Position.i, Length.i=1) ; Delete string part at Position (with Length)
     
     If Position <= 0 : Position = 1 : EndIf
@@ -1220,6 +1270,15 @@ Module ListEx
     
     ProcedureReturn Left(String, Position - 1) + Mid(String, Position + Length)
   EndProcedure
+  
+  Procedure.s StringSegment_(String.s, Pos1.i, Pos2.i=#PB_Ignore) ; Return String from Pos1 to Pos2 
+    Define.i Length = Pos2 - Pos1
+    If Pos2 = #PB_Ignore
+      ProcedureReturn Mid(String, Pos1, Len(String) - Pos1 + 1)
+    Else
+      ProcedureReturn Mid(String, Pos1, Pos2 - Pos1 + 1)
+    EndIf
+  EndProcedure 
   
   Procedure.i AddItem_(Row.i, Text.s, Label.s, Flags.i) 
     Define.i i, nc, FitColumn, Result
@@ -2742,9 +2801,10 @@ Module ListEx
   EndProcedure
   
   Procedure.i String_(X.i, Y.i, Width.i, Height.i, Text.s, CursorPos.i, TextColor.i, BackColor.i, BorderColor.i, FontID.i)
-    Define.i p, PosX, PosY, txtHeight, CursorX, maxPosX
+    Define.i p, PosX, PosY, txtHeight, CursorX, maxPosX, startX
     Define.i TextColor, BackColor, BorderColor
-
+    Define.s strgPart
+    
     DrawingFont(FontID)
 
     ;{ _____ Background _____
@@ -2782,12 +2842,33 @@ Module ListEx
       
       DrawingMode(#PB_2DDrawing_Transparent)
       DrawText(PosX, PosY, Text, TextColor)
-      
+
     Else
       CursorX = PosX
     EndIf  
+    
+     ListEx()\Cursor\Pos = CursorPos
+    
+    ;{ _____ Selection ______
+    If ListEx()\Selection\Flag = #TextSelected
+      
+      If ListEx()\Selection\Pos1 >  ListEx()\Selection\Pos2
+        startX   = TextWidth(Left(Text, ListEx()\Selection\Pos2))
+        strgPart = StringSegment_(Text, ListEx()\Selection\Pos2 + 1, ListEx()\Selection\Pos1)
+      Else
+        startX   = TextWidth(Left(Text, ListEx()\Selection\Pos1))
+        strgPart = StringSegment_(Text, ListEx()\Selection\Pos1 + 1, ListEx()\Selection\Pos2)
+      EndIf
+      
+      ;ListEx()\Cursor\Pos = ListEx()\Selection\Pos2
+      
+      DrawingMode(#PB_2DDrawing_Default)
+      DrawText(PosX + startX, PosY, strgPart, ListEx()\Color\FocusText, ListEx()\Color\Focus)
 
-    Line(CursorX, PosY, 1, txtHeight, $000000)
+    EndIf 
+    ;}
+    
+    ;Line(CursorX, PosY, PosY, txtHeight, $000000)
    
     CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
       UnclipOutput()
@@ -4203,6 +4284,12 @@ Module ListEx
             
             BindTabulator_(#False)
             
+            If ListEx()\Cols()\Flags & #StartSelected Or ListEx()\Rows()\Column(Key$)\Flags & #StartSelected
+              ListEx()\Selection\Pos1 = 0
+              ListEx()\Selection\Pos2 = Len(ListEx()\String\Text)
+              ListEx()\Selection\Flag = #TextSelected
+            EndIf
+          
             DrawString_()
 
           EndIf
@@ -4228,6 +4315,12 @@ Module ListEx
             ListEx()\ComboBox\Label   = ListEx()\Cols()\Key
             ListEx()\ComboBox\Text    = ListEx()\Rows()\Column(Key$)\Value
             ListEx()\ComboBox\Flag    = #True
+            
+            If ListEx()\Cols()\Flags & #StartSelected Or ListEx()\Rows()\Column(Key$)\Flags & #StartSelected
+              ListEx()\Selection\Pos1 = 0
+              ListEx()\Selection\Pos2 = Len(ListEx()\String\Text)
+              ListEx()\Selection\Flag = #TextSelected
+            EndIf
             
             ;{ Load Items
             ClearList(ListEx()\ListView\Item())
@@ -4727,10 +4820,12 @@ Module ListEx
             If ListEx()\String\CursorPos > 0
               ListEx()\String\CursorPos - 1
             EndIf
+            RemoveSelection_()
           ElseIf ListEx()\ComboBox\Flag
             If ListEx()\ComboBox\CursorPos > 0
               ListEx()\ComboBox\CursorPos - 1
-            EndIf  
+            EndIf 
+            RemoveSelection_()
           Else  
             ListEx()\Col\OffsetX - 20
             SetHScrollPosition_()
@@ -4741,10 +4836,12 @@ Module ListEx
             If ListEx()\String\CursorPos < Len(ListEx()\String\Text)
               ListEx()\String\CursorPos + 1
             EndIf
+            RemoveSelection_()
           ElseIf ListEx()\ComboBox\Flag 
             If ListEx()\ComboBox\CursorPos < Len(ListEx()\ComboBox\Text)
               ListEx()\ComboBox\CursorPos + 1
             EndIf  
+            RemoveSelection_()
           Else 
             ListEx()\Col\OffsetX + 20
             SetHScrollPosition_()
@@ -4809,8 +4906,10 @@ Module ListEx
         Case #PB_Shortcut_Home     ;{ Home
           If ListEx()\String\Flag
             ListEx()\String\CursorPos = 0
+            RemoveSelection_()
           ElseIf ListEx()\ComboBox\Flag
             ListEx()\ComboBox\CursorPos = 0
+            RemoveSelection_()
           Else
             If Modifier & #PB_Canvas_Control
               If FirstElement(ListEx()\Rows())
@@ -4824,8 +4923,10 @@ Module ListEx
         Case #PB_Shortcut_End      ;{ End
           If ListEx()\String\Flag
             ListEx()\String\CursorPos = Len(ListEx()\String\Text)
+            RemoveSelection_()
           ElseIf ListEx()\ComboBox\Flag
             ListEx()\ComboBox\CursorPos = Len(ListEx()\ComboBox\Text)
+            RemoveSelection_()
           Else          
             If Modifier & #PB_Canvas_Control
               If LastElement(ListEx()\Rows())
@@ -4839,24 +4940,40 @@ Module ListEx
         Case #PB_Shortcut_Back     ;{ Delete Back
           If ListEx()\String\Flag
             If ListEx()\String\CursorPos > 0
-              ListEx()\String\Text = DeleteStringPart_(ListEx()\String\Text, ListEx()\String\CursorPos)
-              ListEx()\String\CursorPos - 1
+              If ListEx()\Selection\Flag = #TextSelected
+                DeleteSelection_()
+              Else  
+                ListEx()\String\Text = DeleteStringPart_(ListEx()\String\Text, ListEx()\String\CursorPos)
+                ListEx()\String\CursorPos - 1
+              EndIf  
             EndIf
           ElseIf ListEx()\ComboBox\Flag
             If ListEx()\ComboBox\CursorPos > 0
-              ListEx()\ComboBox\Text = DeleteStringPart_(ListEx()\ComboBox\Text, ListEx()\ComboBox\CursorPos)
-              ListEx()\ComboBox\CursorPos - 1
+              If ListEx()\Selection\Flag = #TextSelected
+                DeleteSelection_()
+              Else
+                ListEx()\ComboBox\Text = DeleteStringPart_(ListEx()\ComboBox\Text, ListEx()\ComboBox\CursorPos)
+                ListEx()\ComboBox\CursorPos - 1
+              EndIf  
             EndIf
           EndIf   
           ;}
         Case #PB_Shortcut_Delete   ;{ Delete
           If ListEx()\String\Flag
             If ListEx()\String\CursorPos < Len(ListEx()\String\Text)
-              ListEx()\String\Text = DeleteStringPart_(ListEx()\String\Text, ListEx()\String\CursorPos + 1)
+              If ListEx()\Selection\Flag = #TextSelected
+                DeleteSelection_()
+              Else 
+                ListEx()\String\Text = DeleteStringPart_(ListEx()\String\Text, ListEx()\String\CursorPos + 1)
+              EndIf  
             EndIf
           ElseIf ListEx()\ComboBox\Flag  
             If ListEx()\ComboBox\CursorPos < Len(ListEx()\ComboBox\Text)
-              ListEx()\ComboBox\Text = DeleteStringPart_(ListEx()\ComboBox\Text, ListEx()\ComboBox\CursorPos + 1)
+              If ListEx()\Selection\Flag = #TextSelected
+                DeleteSelection_()
+              Else 
+                ListEx()\ComboBox\Text = DeleteStringPart_(ListEx()\ComboBox\Text, ListEx()\ComboBox\CursorPos + 1)
+              EndIf  
             EndIf
           EndIf   
           ;} 
@@ -4864,9 +4981,11 @@ Module ListEx
           If Modifier & #PB_Canvas_Shift
             Text = GetClipboardText()
             If ListEx()\String\Flag
+              If ListEx()\Selection\Flag = #TextSelected : DeleteSelection_() : EndIf
               ListEx()\String\Text = InsertString(ListEx()\String\Text, Text, ListEx()\String\CursorPos + 1)
               ListEx()\String\CursorPos + Len(Text)
             ElseIf ListEx()\ComboBox\Flag
+              If ListEx()\Selection\Flag = #TextSelected : DeleteSelection_() : EndIf
               ListEx()\ComboBox\Text = InsertString(ListEx()\ComboBox\Text, Text, ListEx()\ComboBox\CursorPos + 1)
               ListEx()\ComboBox\CursorPos + Len(Text)
             EndIf
@@ -4875,9 +4994,11 @@ Module ListEx
         Case #PB_Shortcut_V        ;{ Paste (Ctrl-V) 
           Text = GetClipboardText()
           If ListEx()\String\Flag
+            If ListEx()\Selection\Flag = #TextSelected : DeleteSelection_() : EndIf
             ListEx()\String\Text = InsertString(ListEx()\String\Text, Text, ListEx()\String\CursorPos + 1)
             ListEx()\String\CursorPos + Len(Text)
           ElseIf ListEx()\ComboBox\Flag
+            If ListEx()\Selection\Flag = #TextSelected : DeleteSelection_() : EndIf
             ListEx()\ComboBox\Text = InsertString(ListEx()\ComboBox\Text, Text, ListEx()\ComboBox\CursorPos + 1)
             ListEx()\ComboBox\CursorPos + Len(Text)
           EndIf  
@@ -4996,6 +5117,8 @@ Module ListEx
         
         Char = GetGadgetAttribute(GNum, #PB_Canvas_Input)
         If Char >= 32
+          
+          If ListEx()\Selection\Flag = #TextSelected : DeleteSelection_() : EndIf
           
           Char$ = Chr(Char)
           ListEx()\String\CursorPos + 1  
@@ -6294,7 +6417,9 @@ Module ListEx
     EndIf
 
     PopListPosition(ListEx()\Rows())
-
+    
+    RemoveSelection_()
+    
     Draw_()
     
   EndProcedure
@@ -6387,6 +6512,8 @@ Module ListEx
     EndIf
 
     PopListPosition(ListEx()\Rows())
+    
+    RemoveSelection_()
     
     Draw_()
 
@@ -8852,7 +8979,7 @@ CompilerIf #PB_Compiler_IsMainFile
         
         ;{ ===== Add different types of columns =====
         ListEx::AddColumn(#List, 1, "Link", 75, "link",   ListEx::#Links)     ; |ListEx::#FitColumn
-        ListEx::AddColumn(#List, 2, "Edit", 85, "edit",   ListEx::#Editable)  ; |ListEx::#FitColumn                                                                      
+        ListEx::AddColumn(#List, 2, "Edit", 85, "edit",   ListEx::#Editable|ListEx::#StartSelected)  ; |ListEx::#FitColumn                                                                      
         ListEx::AddColumn(#List, ListEx::#LastItem, "Combo",   72, "combo",  ListEx::#ComboBoxes)
         ListEx::AddColumn(#List, ListEx::#LastItem, "Date",    76, "date",   ListEx::#DateGadget)
         ListEx::AddColumn(#List, ListEx::#LastItem, "Buttons", 60, "button", ListEx::#Buttons) ; ListEx::#Hide
@@ -9062,10 +9189,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 8448
-; FirstLine = 1400
-; Folding = gChAAAAAAEAAAEBCATAAgIgASAg9XthIKBJgCcEMcAAAACAAAABGAgBAAjAHgECGAAAAAAAAACAFB4
-; Markers = 4270,7166
+; CursorPosition = 157
+; FirstLine = 15
+; Folding = wlhAAAAAAIAQAARgAwEAAICIggAQWpyQElgEQBECEOAgAlIAAIgAAAwAAgRgDACBDAAAAAAAAAAgmg8
+; Markers = 4363,7293
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
