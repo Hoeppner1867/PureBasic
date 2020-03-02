@@ -9,9 +9,9 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 15.02.2020
+; Last Update: 02.03.2020
 ;
-; - Bugfix: Table of Contents
+; - Bugfix: WordWrap
 ;
 ; - Added: Notes for PDF & HTML
 ; - Added: Notes (info/question/error/caution)
@@ -91,7 +91,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20021500
+  #Version  = 20030200
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -6078,6 +6078,8 @@ Module MarkDown
       
       Next
       
+      MarkDown()\WrapPos = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(MarkDown()\Margin\Right)
+      
     EndIf
     
     ProcedureReturn Y
@@ -6112,7 +6114,7 @@ Module MarkDown
 		If Not MarkDown()\Scroll\Hide : Width - dpiX(#ScrollBarSize) : EndIf 
 		
 		MarkDown()\LeftBorder = X
-		MarkDown()\WrapPos    = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(MarkDown()\Margin\Right)
+		MarkDown()\WrapPos = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(MarkDown()\Margin\Right)
 		
 		If Not MarkDown()\Scroll\Hide : MarkDown()\WrapPos - dpiX(#ScrollBarSize) : EndIf 
 		
@@ -6278,7 +6280,6 @@ Module MarkDown
 			      Y = DrawTOC(X, Y)
 			      ;}
 			    Default                ;{ Text
-
 			      Y = DrawRow_(X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words())
 			      ;}
 			  EndSelect
@@ -8702,7 +8703,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
   
-  #Example = 30
+  #Example = 0
   
   ; === Gadget ===
   ;  1: Headings
@@ -8883,12 +8884,13 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "*Second requester line*" 
       ;}
     Default  ;{ Example text
-      Text$ = "## MarkDown ##" + #LF$ + #LF$
-      Text$ + "> The gadget can display text formatted with the [MarkDown Syntax](https://www.markdownguide.org/basic-syntax/).  "+ #LF$
-      Text$ + "> Markdown[^1] is a lightweight MarkUp language that you can use to add formatting elements to plaintext text documents."+ #LF$ + #LF$
-      Text$ + "- Markdown files can be read even if it isn’t rendered."  + #LF$
-      Text$ + "- Markdown is portable." + #LF$ + "- Markdown is platform independent." + #LF$
-      Text$ + "[^1]: Created by John Gruber in 2004."
+      ;Text$ = "## MarkDown ##" + #LF$ + #LF$
+      ;Text$ + "> The gadget can display text formatted with the [MarkDown Syntax](https://www.markdownguide.org/basic-syntax/).  "+ #LF$
+      ;Text$ + "> Markdown[^1] is a lightweight MarkUp language that you can use to add formatting elements to plaintext text documents."+ #LF$ + #LF$
+      ;Text$ + "- Markdown files can be read even if it isn’t rendered."  + #LF$
+      ;Text$ + "- Markdown is portable." + #LF$ + "- Markdown is platform independent." + #LF$
+      ;Text$ + "[^1]: Created by John Gruber in 2004."
+      Text$ = "## Überschrift 1" + #LF$ + "Lorem ipsum dolor sit amet, consectetuer adipiscing elit, sed diam nonummy nibh euismod tincidunt ut laoreet dolore magna aliquam erat volutpat. " + #LF$ + #LF$ + "## Tabelle" + #LF$ + "| S1 | S2 |" + #LF$ + "| :--- | :--- |" + #LF$ + "| A  |  B  |" + #LF$ + #LF$ + "## Überschrift 2" + #LF$ + "Lorem ipsum dolor sit amet, consectetuer adipiscing elit, sed diam nonummy nibh euismod tincidunt ut laoreet dolore magna aliquam erat volutpat."
       ;}
   EndSelect
 
@@ -9005,9 +9007,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 270
-; FirstLine = 99
-; Folding = 1AQZoAAAAAACAAAAAAoIAAAAQAAAAAAABAAAAAMgBIAAAAEEgBBwgBAQIAAAIAAAAggOAAFQAoAQQICGEADGwCwAAAGA9
+; CursorPosition = 93
+; FirstLine = 42
+; Folding = 1AQZoAAAAAACAAAAAAoIAAAAQgAAACAJBAAAAAMgBIAAAAEEgBBwgBAQIAAAIhFBIggOAAFQAoAQQICGEAAGwCQAAAHA9
 ; Markers = 2998,4883,5992
 ; EnableXP
 ; DPIAware
