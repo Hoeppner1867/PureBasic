@@ -9,7 +9,10 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 03.03.2020
+; Last Update: 05.03.2020
+;
+; - Added:   Attribute #ScrollBar [#ScrollBar_Default/#ScrollBar_Frame/#ScrollBar_DragPoint]
+; - Added:   SetColor() -> [#ScrollBar_FrontColor/#ScrollBar_BackColor/#ScrollBar_BorderColor/#ScrollBar_ButtonColor/#ScrollBar_ThumbColor]
 ;
 ; - Changed: ScrollBarGadget() replaced by drawing routine
 ;
@@ -91,7 +94,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20030300
+  #Version  = 20030500
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -119,11 +122,15 @@ DeclareModule MarkDown
 	  #ScrollBar_Left
 	  #ScrollBar_Right
 	EndEnumeration ;}
-  
+	
+	#ScrollBar_Default   = #False
+	#ScrollBar_Frame     = #ScrollBar_Border
+	#ScrollBar_DragPoint = #ScrollBar_ButtonBorder|#ScrollBar_ThumbBorder|#ScrollBar_DragLines|#ScrollBar_Border 
+	
   ;{ _____ Constants _____
   #Bullet$ = "•"
   
-	EnumerationBinary ;{ GadgetFlags
+	EnumerationBinary ;{ Gadget Flags
 		#AutoResize        ; Automatic resizing of the gadget
 		#Borderless        ; Draw no border
 		#UseExistingCanvas ; e.g. for dialogs
@@ -134,6 +141,9 @@ DeclareModule MarkDown
 	  #Question
 	  #Error 
 	  #Warning
+	  ; Window
+	  #Style_Frame
+	  #Style_DragPoint
 	EndEnumeration ;}
 	
 	Enumeration       ;{ Type
@@ -163,6 +173,7 @@ DeclareModule MarkDown
 	  #Margin_Bottom
 	  #Indent
 	  #LineSpacing
+	  #ScrollBar
 	EndEnumeration ;}
 	
 	Enumeration 1     ;{ Color
@@ -180,6 +191,11 @@ DeclareModule MarkDown
 		#Color_HighlightLink
 		#Color_LineColor
 		#Color_HeaderBack
+		#ScrollBar_FrontColor
+    #ScrollBar_BackColor 
+    #ScrollBar_BorderColor
+    #ScrollBar_ButtonColor
+    #ScrollBar_ThumbColor
 	EndEnumeration ;}
 	
 	EnumerationBinary ;{ Convert
@@ -6479,10 +6495,18 @@ Module MarkDown
 		
 		If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll")
 		  
-		  MarkDown()\ScrollBar\Item()\X          = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(#ScrollBarSize) - dpiX(1)
-      MarkDown()\ScrollBar\Item()\Y          = dpiY(1)
-      MarkDown()\ScrollBar\Item()\Width      = dpiX(#ScrollBarSize)
-      MarkDown()\ScrollBar\Item()\Height     = dpiY(GadgetHeight(MarkDown()\CanvasNum)) - dpiY(2)
+		  If MarkDown()\ScrollBar\Flags = #False
+  		  MarkDown()\ScrollBar\Item()\X          = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(#ScrollBarSize) - dpiX(1)
+        MarkDown()\ScrollBar\Item()\Y          = dpiY(1)
+        MarkDown()\ScrollBar\Item()\Width      = dpiX(#ScrollBarSize)
+        MarkDown()\ScrollBar\Item()\Height     = dpiY(GadgetHeight(MarkDown()\CanvasNum)) - dpiY(2)
+      Else
+        MarkDown()\ScrollBar\Item()\X          = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(#ScrollBarSize)
+        MarkDown()\ScrollBar\Item()\Y          = 0
+        MarkDown()\ScrollBar\Item()\Width      = dpiX(#ScrollBarSize)
+        MarkDown()\ScrollBar\Item()\Height     = dpiY(GadgetHeight(MarkDown()\CanvasNum))
+      EndIf  
+      
       MarkDown()\ScrollBar\Item()\Minimum    = 0
       MarkDown()\ScrollBar\Item()\Maximum    = MarkDown()\Required\Height
       MarkDown()\ScrollBar\Item()\PageLength = Height
@@ -7374,26 +7398,16 @@ Module MarkDown
       Delta = GetGadgetAttribute(MarkDown()\ScrollBar\Num, #PB_Canvas_WheelDelta)
 	  
   	  If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll")
-  	    
-  	    ;X = GetGadgetAttribute(GadgetNum, #PB_Canvas_MouseX)
-			  ;Y = GetGadgetAttribute(GadgetNum, #PB_Canvas_MouseY)
-  	    
+
   	    If MarkDown()\ScrollBar\Item()\Hide = #False
-  
-    	    ;If X >= MarkDown()\ScrollBar\Item()\X And X <= MarkDown()\ScrollBar\Item()\X + MarkDown()\ScrollBar\Item()\Width
-    	      ;If Y >= MarkDown()\ScrollBar\Item()\Y And Y <= MarkDown()\ScrollBar\Item()\Y + MarkDown()\ScrollBar\Item()\Height
-    	        
-    	        MarkDown()\ScrollBar\Item()\Pos - Delta
-    
-              If MarkDown()\ScrollBar\Item()\Pos > MarkDown()\ScrollBar\Item()\maxPos : MarkDown()\ScrollBar\Item()\Pos = MarkDown()\ScrollBar\Item()\maxPos : EndIf
-              If MarkDown()\ScrollBar\Item()\Pos < MarkDown()\ScrollBar\Item()\minPos : MarkDown()\ScrollBar\Item()\Pos = MarkDown()\ScrollBar\Item()\minPos : EndIf
-              
-              Draw_()
-              
-    	        ;ProcedureReturn #True
-    	      ;EndIf 
-    	    ;EndIf
-    	    
+
+	        MarkDown()\ScrollBar\Item()\Pos - (Delta * 2)
+
+          If MarkDown()\ScrollBar\Item()\Pos > MarkDown()\ScrollBar\Item()\maxPos : MarkDown()\ScrollBar\Item()\Pos = MarkDown()\ScrollBar\Item()\maxPos : EndIf
+          If MarkDown()\ScrollBar\Item()\Pos < MarkDown()\ScrollBar\Item()\minPos : MarkDown()\ScrollBar\Item()\Pos = MarkDown()\ScrollBar\Item()\minPos : EndIf
+          
+          Draw_()
+
     	  EndIf
     	  
   	  EndIf
@@ -7873,6 +7887,8 @@ Module MarkDown
             MarkDown()\Indent        = Value
           Case #LineSpacing
             MarkDown()\LineSpacing   = Value
+          Case #ScrollBar
+            MarkDown()\ScrollBar\Flags = Value    
         EndSelect
         
         Draw_()
@@ -7937,6 +7953,16 @@ Module MarkDown
             MarkDown()\Color\Keystroke     = Value  
           Case #Color_KeystrokeBack  
             MarkDown()\Color\KeyStrokeBack = Value  
+          Case #ScrollBar_FrontColor
+            MarkDown()\ScrollBar\Color\Front     = Value
+          Case #ScrollBar_BackColor 
+            MarkDown()\ScrollBar\Color\Back      = Value
+          Case #ScrollBar_BorderColor
+            MarkDown()\ScrollBar\Color\Border    = Value
+          Case #ScrollBar_ButtonColor
+            MarkDown()\ScrollBar\Color\Button    = Value
+          Case #ScrollBar_ThumbColor
+            MarkDown()\ScrollBar\Color\ScrollBar = Value    
         EndSelect
         
         Draw_()
@@ -8039,6 +8065,12 @@ Module MarkDown
   				InitScrollBar_(GNum)
           CreateScrollBar_("VScroll", Width - #ScrollBarSize - 1, 1, #ScrollBarSize, Height - 2, 0, Height, Height)
           
+          If Flags & #Style_Frame
+            MarkDown()\ScrollBar\Flags = #ScrollBar_Frame
+          ElseIf Flags & #Style_DragPoint
+            MarkDown()\ScrollBar\Flags = #ScrollBar_DragPoint
+	        EndIf
+	        
   				MarkDown()\Flags  = Flags
   
           InitDefault_()
@@ -8099,7 +8131,7 @@ Module MarkDown
   	    ;{ _____ Open Window _____
   	    SetWindowTitle(WindowNum, " " + Title)
   	    
-  	    GNum = CanvasGadget(#PB_Any, 0, 0, 0, 0, #PB_Canvas_Container)
+  	    GNum = CanvasGadget(#PB_Any, 0, 0, 0, 0) ; , #PB_Canvas_Container
   	    If GNum
   	      
   	      If AddMapElement(MarkDown(), Str(GNum))
@@ -8113,8 +8145,14 @@ Module MarkDown
 				    InitScrollBar_(GNum)
           
             CreateScrollBar_("VScroll", 0, 0, #ScrollBarSize, 0, 0, 0, 0)
-    				
-    				CloseGadgetList()
+            
+            If Flags & #Style_Frame
+              MarkDown()\ScrollBar\Flags = #ScrollBar_Frame
+            ElseIf Flags & #Style_DragPoint
+              MarkDown()\ScrollBar\Flags = #ScrollBar_DragPoint
+  	        EndIf
+            
+    				;CloseGadgetList()
     				
     				;{ _____ Buttons _____
         		If AddMapElement(MarkDown()\Requester\Button(), "OK")
@@ -8661,7 +8699,7 @@ Module MarkDown
   	    ;}
   	    
   	    ;{ _____ CanvasGadget _____
-  	    MarkdownNum = CanvasGadget(#PB_Any, 200, 10, 420, 500, #PB_Canvas_Container)
+  	    MarkdownNum = CanvasGadget(#PB_Any, 200, 10, 420, 500) ; , #PB_Canvas_Container
   	    If MarkdownNum
 
   	      If AddMapElement(MarkDown(), Str(MarkdownNum))
@@ -8680,8 +8718,14 @@ Module MarkDown
 				    InitScrollBar_(MarkdownNum)
           
             CreateScrollBar_("VScroll", 0, 0, #ScrollBarSize, 0, 0, 0, 0)
-    				
-    				CloseGadgetList()
+            
+            If Flags & #Style_Frame
+              MarkDown()\ScrollBar\Flags = #ScrollBar_Frame
+            ElseIf Flags & #Style_DragPoint
+              MarkDown()\ScrollBar\Flags = #ScrollBar_DragPoint
+  	        EndIf
+            
+    				;CloseGadgetList()
     				
 				    LoadFonts_("Arial", 11)
     				
@@ -9591,6 +9635,7 @@ CompilerIf #PB_Compiler_IsMainFile
       If MarkDown::Gadget(#MarkDown, 10, 10, 280, 275, MarkDown::#AutoResize)
         MarkDown::SetText(#MarkDown, Text$)
         MarkDown::SetFont(#MarkDown, "Arial", 10)
+        MarkDown::SetAttribute(#MarkDown, MarkDown::#ScrollBar, MarkDown::#ScrollBar_DragPoint)
       EndIf
   
       Repeat
@@ -9651,7 +9696,7 @@ CompilerIf #PB_Compiler_IsMainFile
     Select #Example
       Case 30 
         CompilerIf MarkDown::#Enable_HelpWindow
-          MarkDown::Help(" Help", "Help.mdh", "Module", MarkDown::#AutoResize)
+          MarkDown::Help(" Help", "Help.mdh", "Module", MarkDown::#AutoResize|MarkDown::#Style_DragPoint)
         CompilerEndIf   
       Case 31
         CompilerIf MarkDown::#Enable_CreateHelp
@@ -9670,9 +9715,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 9549
-; FirstLine = 857
-; Folding = wEABgCAAAAAAAAAAAAAAQRAAAAgAJAAAAAgAAAAAYADQAAAAIIADCgBDCwHAECAAACIQAKUwBAEAsSAAAAARTMEIAOHAYwAAAfA9
-; Markers = 3143,5030,6355
+; CursorPosition = 96
+; FirstLine = 24
+; Folding = wMCBgCAAAAAAAAAAAAAAQRAAAAgAIAAAAAAAAAAAYADQAAAAIIADCgBDCwHAECAAACAQAKQwBAEAgSABAIgxTAAIAOGAYwAAAag9
+; Markers = 3159,5046,6371
 ; EnableXP
 ; DPIAware

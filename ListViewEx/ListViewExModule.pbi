@@ -9,7 +9,10 @@
 ;/ © 2019  by Thorsten Hoeppner (11/2019)
 ;/
 
-; Last Update: 02.03.2020
+; Last Update: 05.03.2020
+;
+; Added:   Attribute #ScrollBar [#ScrollBar_Default/#ScrollBar_Frame/#ScrollBar_DragPoint]
+; Added:   SetColor() -> [#ScrollBar_FrontColor/#ScrollBar_BackColor/#ScrollBar_BorderColor/#ScrollBar_ButtonColor/#ScrollBar_ThumbColor]
 ;
 ; Changed: ScrollBarGadget() replaced by drawing routine
 ;
@@ -88,7 +91,7 @@
 
 DeclareModule ListView
   
-  #Version  = 20030200
+  #Version  = 20030500
   #ModuleEx = 19120100
 
 	;- ===========================================================================
@@ -98,6 +101,8 @@ DeclareModule ListView
   #Enable_SyntaxHighlight = #True
   
   ;{ _____ ScrollBar _____
+  #ScrollBar = 1
+  
 	Enumeration 1
 	  #ScrollBar_Up
 	  #ScrollBar_Down
@@ -111,6 +116,10 @@ DeclareModule ListView
 		#ScrollBar_ThumbBorder       ; Draw thumb border
 		#ScrollBar_DragLines         ; Draw drag lines
 	EndEnumeration
+	
+	#ScrollBar_Default   = #False
+	#ScrollBar_Frame     = #ScrollBar_Border
+	#ScrollBar_DragPoint = #ScrollBar_ButtonBorder|#ScrollBar_ThumbBorder|#ScrollBar_DragLines|#ScrollBar_Border 
 	;}
   
   ;{ _____ Constants _____
@@ -160,6 +169,11 @@ DeclareModule ListView
 		#BackColor
 		#BorderColor
 		#GridColor
+		#ScrollBar_FrontColor
+    #ScrollBar_BackColor 
+    #ScrollBar_BorderColor
+    #ScrollBar_ButtonColor
+    #ScrollBar_ThumbColor
 	EndEnumeration ;}
 
 	CompilerIf Defined(ModuleEx, #PB_Module)
@@ -198,6 +212,7 @@ DeclareModule ListView
   Declare.i GetState(GNum.i)
   Declare.s GetText(GNum.i, Text.s)
   Declare   Hide(GNum.i, State.i=#True)
+  Declare   SetAttribute(GNum.i, Attrib.i, Value.i)
   Declare   RemoveItem(GNum.i, Row.i)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetColor(GNum.i, ColorTyp.i, Value.i)
@@ -956,9 +971,18 @@ Module ListView
         
         If PageRows < ListSize(ListView()\Item())
           
-          ListView()\ScrollBar\Item()\X          = GadgetWidth(ListView()\CanvasNum) - #ScrollBarSize - 1
-          ListView()\ScrollBar\Item()\Y          = 1
-          ListView()\ScrollBar\Item()\Height     = GadgetHeight(ListView()\CanvasNum) - 2
+          If ListView()\ScrollBar\Flags = #False
+            ListView()\ScrollBar\Item()\X          = dpiX(GadgetWidth(ListView()\CanvasNum)) - dpiX(#ScrollBarSize) - dpiX(1)
+            ListView()\ScrollBar\Item()\Y          = dpiY(1)
+            ListView()\ScrollBar\Item()\Width      = dpiX(#ScrollBarSize)
+            ListView()\ScrollBar\Item()\Height     = dpiY(GadgetHeight(ListView()\CanvasNum)) - dpiY(2)
+          Else
+            ListView()\ScrollBar\Item()\X          = dpiX(GadgetWidth(ListView()\CanvasNum)) - dpiX(#ScrollBarSize)
+            ListView()\ScrollBar\Item()\Y          = 0
+            ListView()\ScrollBar\Item()\Width      = dpiX(#ScrollBarSize)
+            ListView()\ScrollBar\Item()\Height     = dpiY(GadgetHeight(ListView()\CanvasNum))
+          EndIf
+          
           ListView()\ScrollBar\Item()\Maximum    = ListSize(ListView()\Item())
           ListView()\ScrollBar\Item()\PageLength = PageRows
            
@@ -1656,33 +1680,23 @@ Module ListView
     Define.i GadgetNum = EventGadget()
     
     If FindMapElement(ListView(), Str(GadgetNum))
-      
-      X = GetGadgetAttribute(ListView()\CanvasNum, #PB_Canvas_MouseX)
-			Y = GetGadgetAttribute(ListView()\CanvasNum, #PB_Canvas_MouseY)
-      
-  	  Delta = GetGadgetAttribute(ListView()\ScrollBar\Num, #PB_Canvas_WheelDelta)
+
+  	  Delta = GetGadgetAttribute(ListView()\CanvasNum, #PB_Canvas_WheelDelta)
   	  
-  	  ForEach ListView()\ScrollBar\Item()
+  	  If FindMapElement(ListView()\ScrollBar\Item(), "VScroll")
         
-  	    If ListView()\ScrollBar\Item()\Hide : Continue : EndIf
-  
-  	    If X >= ListView()\ScrollBar\Item()\X And X <= ListView()\ScrollBar\Item()\X + ListView()\ScrollBar\Item()\Width
-  	      If Y >= ListView()\ScrollBar\Item()\Y And Y <= ListView()\ScrollBar\Item()\Y + ListView()\ScrollBar\Item()\Height
-  	        
-  	        ScrollBar = MapKey(ListView()\ScrollBar\Item())
-  	        
-  	        ListView()\ScrollBar\Item()\Pos - Delta
-  
-            If ListView()\ScrollBar\Item()\Pos > ListView()\ScrollBar\Item()\maxPos : ListView()\ScrollBar\Item()\Pos = ListView()\ScrollBar\Item()\maxPos : EndIf
-            If ListView()\ScrollBar\Item()\Pos < ListView()\ScrollBar\Item()\minPos : ListView()\ScrollBar\Item()\Pos = ListView()\ScrollBar\Item()\minPos : EndIf
-            
-            Draw_()
-            
-  	        ProcedureReturn #True
-  	      EndIf 
-  	    EndIf
-  	    
-  	  Next
+  	    If ListView()\ScrollBar\Item()\Hide = #False
+
+	        ListView()\ScrollBar\Item()\Pos - Delta
+
+          If ListView()\ScrollBar\Item()\Pos > ListView()\ScrollBar\Item()\maxPos : ListView()\ScrollBar\Item()\Pos = ListView()\ScrollBar\Item()\maxPos : EndIf
+          If ListView()\ScrollBar\Item()\Pos < ListView()\ScrollBar\Item()\minPos : ListView()\ScrollBar\Item()\Pos = ListView()\ScrollBar\Item()\minPos : EndIf
+          
+          Draw_()
+    	    
+    	  EndIf
+    	  
+  	  EndIf
       
     EndIf
     
@@ -2093,7 +2107,7 @@ Module ListView
 					CompilerCase #PB_OS_Windows
 						ListView()\Color\Front     = GetSysColor_(#COLOR_WINDOWTEXT)
 						ListView()\Color\Back      = GetSysColor_(#COLOR_WINDOW)
-						ListView()\Color\Border    = GetSysColor_(#COLOR_WINDOWFRAME)
+						ListView()\Color\Border    = GetSysColor_(#COLOR_3DSHADOW) 
 						ListView()\Color\Gadget    = GetSysColor_(#COLOR_MENU)
 						ListView()\Color\Grid      = GetSysColor_(#COLOR_3DLIGHT)
 						ListView()\Color\FocusBack = GetSysColor_(#COLOR_MENUHILIGHT)
@@ -2276,6 +2290,19 @@ Module ListView
 	EndProcedure
 	
 	
+	Procedure SetAttribute(GNum.i, Attrib.i, Value.i)
+
+    If FindMapElement(ListView(), Str(GNum))
+
+      Select Attrib
+        Case #ScrollBar
+          ListView()\ScrollBar\Flags = Value
+      EndSelect
+
+    EndIf  
+
+  EndProcedure
+	
 	Procedure   SetAutoResizeFlags(GNum.i, Flags.i)
     
     If FindMapElement(ListView(), Str(GNum))
@@ -2300,6 +2327,16 @@ Module ListView
           ListView()\Color\Border = Value
         Case #GridColor 
           ListView()\Color\Grid   = Value
+        Case #ScrollBar_FrontColor
+          ListView()\ScrollBar\Color\Front     = Value
+        Case #ScrollBar_BackColor 
+          ListView()\ScrollBar\Color\Back      = Value
+        Case #ScrollBar_BorderColor
+          ListView()\ScrollBar\Color\Border    = Value
+        Case #ScrollBar_ButtonColor
+          ListView()\ScrollBar\Color\Button    = Value
+        Case #ScrollBar_ThumbColor
+          ListView()\ScrollBar\Color\ScrollBar = Value    
       EndSelect
       
       If ListView()\ReDraw : Draw_() : EndIf
@@ -2531,9 +2568,22 @@ CompilerIf #PB_Compiler_IsMainFile
     EndIf
     
     If ListView::Gadget(#ListView, 10, 10, 120, 180, ListView::#CheckBoxes, #Window) ; ListView::#GridLines|ListView::#ClickSelect|ListView::#MultiSelect
-      ;|ListView::#GridLines
+      
+      ListView::SetAttribute(#ListView, ListView::#ScrollBar, ListView::#ScrollBar_DragPoint)
+      
       ListView::AttachPopupMenu(#ListView, #PopUpMenu)
       ListView::UpdatePopupText(#ListView, #MenuItem1,  "Remove row " + ListView::#Row$)
+      
+      ListView::AddItem(#ListView, ListView::#LastItem, "Row 1")
+      ListView::AddItem(#ListView, ListView::#LastItem, "Row 2")
+      ListView::AddItem(#ListView, ListView::#LastItem, "Row 3")
+      ListView::AddItem(#ListView, ListView::#LastItem, "Row 4")
+      ListView::AddItem(#ListView, ListView::#LastItem, "Row 5")
+      ListView::AddItem(#ListView, ListView::#LastItem, "Row 6")
+      ListView::AddItem(#ListView, ListView::#LastItem, "Row 7")
+      ListView::AddItem(#ListView, ListView::#LastItem, "Row 8")
+      ListView::AddItem(#ListView, ListView::#LastItem, "Row 9")
+      ListView::AddItem(#ListView, ListView::#LastItem, "Row 10")
       
       ListView::AddItem(#ListView, ListView::#LastItem, "Row 1")
       ListView::AddItem(#ListView, ListView::#LastItem, "Row 2")
@@ -2597,9 +2647,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 2532
-; FirstLine = 527
-; Folding = 5TGAAABE0gQijQwAwAAIAAhAAAAw-
-; Markers = 1105
+; CursorPosition = 93
+; Folding = YDGAAABMpgQkjQgAAAAIAAxAABAg-
+; Markers = 1129
 ; EnableXP
 ; DPIAware

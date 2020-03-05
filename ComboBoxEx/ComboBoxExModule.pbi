@@ -7,7 +7,10 @@
 ;/ © 2019 Thorsten1867 (12/2019)
 ;/
 
-; Last Update: 02.03.2020
+; Last Update: 05.03.2020
+;
+; Added:   Attribute #ScrollBar [#ScrollBar_Default/#ScrollBar_Frame/#ScrollBar_DragPoint]
+; Added:   SetColor() -> [#ScrollBar_FrontColor/#ScrollBar_BackColor/#ScrollBar_BorderColor/#ScrollBar_ButtonColor/#ScrollBar_ThumbColor]
 ;
 ; Changed: ScrollBarGadget() replaced by drawing routine
 ;
@@ -88,7 +91,7 @@
 
 DeclareModule ComboBoxEx
   
-  #Version  = 20030200
+  #Version  = 20030500
   #ModuleEx = 19112600
   
   ;- ===========================================================================
@@ -108,7 +111,11 @@ DeclareModule ComboBoxEx
 	  #ScrollBar_Left
 	  #ScrollBar_Right
 	EndEnumeration ;}
-  
+	
+	#ScrollBar_Default   = #False
+	#ScrollBar_Frame     = #ScrollBar_Border
+	#ScrollBar_DragPoint = #ScrollBar_ButtonBorder|#ScrollBar_ThumbBorder|#ScrollBar_DragLines|#ScrollBar_Border 
+	
   ;{ _____ Constants _____
   #FirstItem = 0
   #LastItem  = -1
@@ -131,6 +138,7 @@ DeclareModule ComboBoxEx
     #MaximumLength = #PB_String_MaximumLength
     #Padding
     #Corner
+    #ScrollBar
   EndEnumeration ;}
   
   Enumeration 1     ;{ Color
@@ -142,6 +150,11 @@ DeclareModule ComboBoxEx
     #CursorColor
     #HighlightColor
     #HighlightTextColor
+    #ScrollBar_FrontColor
+    #ScrollBar_BackColor 
+    #ScrollBar_BorderColor
+    #ScrollBar_ButtonColor
+    #ScrollBar_ThumbColor
   EndEnumeration ;}
   
   EnumerationBinary 
@@ -1281,10 +1294,18 @@ Module ComboBoxEx
           
           ComboEx()\ListView\Offset = ComboEx()\ListView\ScrollBar\Item()\Pos
           
-          ComboEx()\ListView\ScrollBar\Item()\X          = Width - dpiX(#ScrollBarSize) - dpiX(1)
-          ComboEx()\ListView\ScrollBar\Item()\Y          = dpiY(1)
-          ComboEx()\ListView\ScrollBar\Item()\Width      = dpiX(#ScrollBarSize)
-          ComboEx()\ListView\ScrollBar\Item()\Height     = Height - dpiX(2)
+          If ComboEx()\ListView\ScrollBar\Flags = #False
+            ComboEx()\ListView\ScrollBar\Item()\X          = Width - dpiX(#ScrollBarSize) - dpiX(1)
+            ComboEx()\ListView\ScrollBar\Item()\Y          = dpiY(1)
+            ComboEx()\ListView\ScrollBar\Item()\Width      = dpiX(#ScrollBarSize)
+            ComboEx()\ListView\ScrollBar\Item()\Height     = Height - dpiX(2)
+          Else
+            ComboEx()\ListView\ScrollBar\Item()\X          = Width - dpiX(#ScrollBarSize)
+            ComboEx()\ListView\ScrollBar\Item()\Y          = 0
+            ComboEx()\ListView\ScrollBar\Item()\Width      = dpiX(#ScrollBarSize)
+            ComboEx()\ListView\ScrollBar\Item()\Height     = Height
+          EndIf
+          
           ComboEx()\ListView\ScrollBar\Item()\Maximum    = ListSize(ComboEx()\ListView\Item())
           ComboEx()\ListView\ScrollBar\Item()\PageLength = PageRows
           
@@ -3262,6 +3283,8 @@ Module ComboBoxEx
           ComboEx()\Padding = Value
         Case #Corner
           ComboEx()\Radius  = Value
+        Case #ScrollBar
+          ComboEx()\ListView\ScrollBar\Flags = Value  
       EndSelect
       
       Draw_()
@@ -3290,6 +3313,16 @@ Module ComboBoxEx
           ComboEx()\Color\Highlight     = Color
         Case #HighlightTextColor
           ComboEx()\Color\HighlightText = Color
+        Case #ScrollBar_FrontColor
+          ComboEx()\ListView\ScrollBar\Color\Front     = Color
+        Case #ScrollBar_BackColor 
+          ComboEx()\ListView\ScrollBar\Color\Back      = Color
+        Case #ScrollBar_BorderColor
+          ComboEx()\ListView\ScrollBar\Color\Border    = Color
+        Case #ScrollBar_ButtonColor
+          ComboEx()\ListView\ScrollBar\Color\Button    = Color
+        Case #ScrollBar_ThumbColor
+          ComboEx()\ListView\ScrollBar\Color\ScrollBar = Color  
       EndSelect
       
       Draw_()
@@ -3518,6 +3551,8 @@ CompilerIf #PB_Compiler_IsMainFile
         If ComboBoxEx::Gadget(#ComboEx, 120, 19, 90, 20, 80, "", ComboBoxEx::#Editable, #Window)
           ; ComboBoxEx::#LowerCase / ComboBoxEx::#UpperCase / ComboBoxEx::#Editable / ComboBoxEx::#BorderLess
           
+          ComboBoxEx::SetAttribute(#ComboEx, ComboBoxEx::#ScrollBar, ComboBoxEx::#ScrollBar_DragPoint)
+          
           ;ComboBoxEx::SetAttribute(#ComboEx, ComboBoxEx::#Corner, 4)
           ;ComboBoxEx::SetImage(#ComboEx, #Image)
           
@@ -3576,8 +3611,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 90
-; Folding = IgBAAAABAAAJBCAAAQAEGMAAAAA5CAQAAAAAA-
+; CursorPosition = 1306
+; FirstLine = 289
+; Folding = IkBAAAAAAAAJBSAAEAAEGMAAAAAwCAAAAAAAg-
 ; EnableThread
 ; EnableXP
 ; DPIAware
