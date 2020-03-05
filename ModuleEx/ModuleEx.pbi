@@ -11,7 +11,7 @@
 ; - Creates cursor events for gadgets of a window (#CursorEvent)
 ; - Provides event types for PostEvent() for other modules
 
-; Last Update: 06.12.2019
+; Last Update: 03.03.2020
 ;
 ; Added: GUI theme for all supportet gadgets
 ;
@@ -65,7 +65,7 @@
 
 DeclareModule ModuleEx
   
-  #Version = 20022800
+  #Version = 20030400
   
   #Enable_Tabulator_Management = #True
   
@@ -117,6 +117,7 @@ DeclareModule ModuleEx
     #EventType_Select
     #EventType_SpinBox
     #EventType_String
+    #EventType_ScrollBar
     #EventType_TextButton
     #EventType_TrackBar
     #EventType_Year
@@ -220,6 +221,7 @@ DeclareModule ModuleEx
     GadgetColor.i
     WindowColor.i
     Font.Theme_Font_Structure
+    ScrollBar.i ; Flags
   EndStructure ;}
   Global ThemeGUI.Theme_Structure
   
@@ -1031,7 +1033,15 @@ Module ModuleEx
   EndProcedure  
   
   ; _____ GUI Theme _____
-
+  
+  Procedure   SetScrollBar(Flags.i)
+    
+    ThemeGUI\ScrollBar = Flags
+    
+    PostEvent(#Event_Theme)
+    
+  EndProcedure
+  
   Procedure   SetTheme(Theme.i=#PB_Default)
     ; On request and with the sponsorship of Cyllceaux
     
@@ -1329,7 +1339,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 67
-; FirstLine = 3
-; Folding = kBABAAAACwBAA+
+; FirstLine = 11
+; Folding = kBABAAAACwBAA9
 ; EnableXP
 ; DPIAware
