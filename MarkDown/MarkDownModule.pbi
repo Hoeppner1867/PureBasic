@@ -9,9 +9,9 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 02.03.2020
+; Last Update: 03.03.2020
 ;
-; - Bugfix: WordWrap
+; - Changed: ScrollBarGadget() replaced by drawing routine
 ;
 ; - Added: Notes for PDF & HTML
 ; - Added: Notes (info/question/error/caution)
@@ -91,7 +91,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20030200
+  #Version  = 20030300
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -105,6 +105,20 @@ DeclareModule MarkDown
   
   #Enable_Emoji      = #True
   #Enable_ExportHTML = #True
+  
+  EnumerationBinary ;{ ScrollBar
+		#ScrollBar_Border            ; Draw gadget border
+		#ScrollBar_ButtonBorder      ; Draw button borders
+		#ScrollBar_ThumbBorder       ; Draw thumb border
+		#ScrollBar_DragLines         ; Draw drag lines
+	EndEnumeration ;}
+	
+	Enumeration 1     ;{ ScrollBar Buttons
+	  #ScrollBar_Up
+	  #ScrollBar_Down
+	  #ScrollBar_Left
+	  #ScrollBar_Right
+	EndEnumeration ;}
   
   ;{ _____ Constants _____
   #Bullet$ = "•"
@@ -198,13 +212,15 @@ DeclareModule MarkDown
 
 		#Event_Gadget   = ModuleEx::#Event_Gadget
 		#Event_Theme    = ModuleEx::#Event_Theme
+		#Event_Timer    = ModuleEx::#Event_Timer
 		
 		#EventType_Link = ModuleEx::#EventType_Link
 		
 	CompilerElse
 
 		Enumeration #PB_Event_FirstCustomValue
-			#Event_Gadget
+		  #Event_Gadget
+		  #Event_Timer
 		EndEnumeration
 		
 		Enumeration #PB_EventType_FirstCustomValue
@@ -336,6 +352,19 @@ Module MarkDown
       #ScrollBarSize  = 18
   CompilerEndSelect ;}
   
+  #ScrollBar_ButtonSize = 18
+
+  #ScrollBar_Timer      = 100
+	#ScrollBar_TimerDelay = 3
+	
+	Enumeration 1                              ;{ ScrollBar Buttons
+	  #ScrollBar_Forwards
+	  #ScrollBar_Backwards
+	  #ScrollBar_Focus
+	  #ScrollBar_Click
+	EndEnumeration ;}
+  
+  
   #Caution$ = Chr($26A0)
   #Circle$  = Chr($26AA)
   
@@ -406,7 +435,101 @@ Module MarkDown
 	;- ============================================================================
 	;-   Module - Structures
 	;- ============================================================================	
+  
+  Structure ScrollBar_Timer_Thread_Structure ;{ Thread\...
+    Num.i
+    Active.i
+    Exit.i
+  EndStructure ;}
+  Global TimerThread.ScrollBar_Timer_Thread_Structure  
+  
+  Structure ScrollBar_Button_Structure       ;{ ...\ScrollBar\Item()\Buttons\Forwards\...
+	  X.i
+	  Y.i
+	  Width.i
+	  Height.i
+	  State.i
+	EndStructure ;}
+	
+	Structure ScrollBar_Buttons_Structure      ;{ ...\ScrollBar\Item()\Buttons\...
+	  Backwards.ScrollBar_Button_Structure
+	  Forwards.ScrollBar_Button_Structure
+	EndStructure ;}
+	
+	Structure ScrollBar_Thumb_Structure        ;{ ...\ScrollBar\Item()\Thumb\...
+	  X.i
+	  Y.i
+	  Width.i
+	  Height.i
+	  Factor.f
+	  Size.i
+	  State.i
+	EndStructure ;}
+	
+  Structure ScrollBar_Area_Structure         ;{ ...\ScrollBar\Item()\Area\...
+	  X.i
+	  Y.i
+	  Width.i
+	  Height.i
+	EndStructure ;}
+  
+	Structure ScrollBar_Item_Structure         ;{ ...\ScrollBar\Item()\...
+    Type.i
+    
+    Pos.i
+	  minPos.i
+	  maxPos.i
+	  Ratio.f
+	  
+		Minimum.i
+		Maximum.i
+		PageLength.i
+		
+		X.i
+		Y.i
+		Width.i
+		Height.i
+		
+		Timer.i
+	  TimerDelay.i
+	  
+	  Cursor.i
+	  
+	  Disable.i
+		Hide.i
 
+		Thumb.ScrollBar_Thumb_Structure
+		Buttons.ScrollBar_Buttons_Structure
+		Area.ScrollBar_Area_Structure
+
+	EndStructure ;}  
+	
+	Structure ScrollBar_Color_Structure        ;{ ...\ScrollBar\Color\...
+		Front.i
+		Back.i
+		Border.i
+		Button.i
+		Focus.i
+		Gadget.i
+		ScrollBar.i
+		DisableFront.i
+		DisableBack.i
+	EndStructure  ;}
+	
+	Structure ScrollBar_Structure              ;{ ...\ScrollBar\...
+	  Num.i
+	  
+	  Adjust.i
+	  Radius.i
+
+	  Flags.i
+	  
+	  Color.ScrollBar_Color_Structure
+
+    Map Item.ScrollBar_Item_Structure()
+  EndStructure ;}
+  
+  
   CompilerIf #Enable_HelpWindow
     
 
@@ -448,6 +571,7 @@ Module MarkDown
   
   CompilerEndIf
   
+  
   Structure List_Structure               ;{ Lists\...
     Marker.s ; ul: - or + or * / ol: . or ) 
     Indent.i
@@ -463,7 +587,8 @@ Module MarkDown
     String.s
   EndStructure ;}
   Global NewList Document.Document_Structure()
-   
+  
+  
   Structure Note_Rows_Structure          ;{ MarkDown()\Note()\Words()\...
     Width.i
     Height.i
@@ -587,7 +712,7 @@ Module MarkDown
     Map Column.Table_Column_Structure()
     List Row.Table_Row_Structure()
   EndStructure ;}
-    
+  
   Structure MarkDown_Items_Structure     ;{ MarkDown()\Items()\...
     ID.s
     Type.i
@@ -604,7 +729,7 @@ Module MarkDown
     *Buffer
     Size.i
   EndStructure ;}
-    
+  
   Structure MarkDown_Required_Structure  ;{ MarkDown()\Required\...
     Width.i
     Height.i
@@ -652,7 +777,7 @@ Module MarkDown
 		Line.i
 	EndStructure  ;}
 	
-	Structure MarkDown_Scroll_Structure    ;{ MarkDown()\Scroll\...
+	Structure MarkDown_Scroll_Structure    ;{ MarkDown()\ScrollBar\Item()\...
 	  Num.i
 	  MinPos.i
     MaxPos.i
@@ -705,13 +830,15 @@ Module MarkDown
 		EventValue.s
 		EventLabel.s
 		
+		ScrollOffset.i
+		
 		Flags.i
 
 		Color.MarkDown_Color_Structure
 		Font.MarkDown_Font_Structure
 		Margin.Margin_Structure
 		Required.MarkDown_Required_Structure
-		Scroll.MarkDown_Scroll_Structure
+		ScrollBar.ScrollBar_Structure
 		Size.MarkDown_Size_Structure
 		Window.MarkDown_Window_Structure
 		
@@ -962,58 +1089,76 @@ Module MarkDown
     
 	CompilerEndIf
 	
+  Procedure.i CalcScrollBarThumb_()
+	  Define.i Size, Range, HRange
+	  
+	  If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll")
+	    
+  	  MarkDown()\ScrollBar\Item()\minPos   = MarkDown()\ScrollBar\Item()\Minimum
+  	  MarkDown()\ScrollBar\Item()\maxPos   = MarkDown()\ScrollBar\Item()\Maximum - MarkDown()\ScrollBar\Item()\PageLength + 1
+  	  MarkDown()\ScrollBar\Item()\Ratio    = MarkDown()\ScrollBar\Item()\PageLength / MarkDown()\ScrollBar\Item()\Maximum
+  	  MarkDown()\ScrollBar\Item()\Pos      = MarkDown()\ScrollBar\Item()\Minimum
+  	  
+  	  MarkDown()\ScrollBar\Item()\Area\X       = dpiX(MarkDown()\ScrollBar\Item()\X)
+  	  MarkDown()\ScrollBar\Item()\Area\Y       = dpiY(MarkDown()\ScrollBar\Item()\Y) + dpiY(#ScrollBar_ButtonSize) + dpiY(1)
+  	  MarkDown()\ScrollBar\Item()\Area\Width   = dpiX(MarkDown()\ScrollBar\Item()\Width)
+  	  MarkDown()\ScrollBar\Item()\Area\Height  = dpiY(MarkDown()\ScrollBar\Item()\Height) - dpiY(MarkDown()\ScrollBar\Adjust) - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(2)
+  	  
+  	  Range = MarkDown()\ScrollBar\Item()\maxPos - MarkDown()\ScrollBar\Item()\minPos
+  	  
+  	  MarkDown()\ScrollBar\Item()\Thumb\Y      = MarkDown()\ScrollBar\Item()\Area\Y
+  	  MarkDown()\ScrollBar\Item()\Thumb\Size   = Round(MarkDown()\ScrollBar\Item()\Area\Height * MarkDown()\ScrollBar\Item()\Ratio, #PB_Round_Down)
+  	  MarkDown()\ScrollBar\Item()\Thumb\Factor = (MarkDown()\ScrollBar\Item()\Area\Height - MarkDown()\ScrollBar\Item()\Thumb\Size) / Range
+  	  
+	  EndIf   
+
+	EndProcedure
+	
+	Procedure.i GetSteps_(Cursor.i)
+	  Define.i Steps
+	  
+	  Steps = (Cursor - MarkDown()\ScrollBar\Item()\Cursor) / MarkDown()\ScrollBar\Item()\Thumb\Factor
+	  
+	  If Steps = 0
+	    If Cursor < MarkDown()\ScrollBar\Item()\Cursor
+	      Steps = -1
+	    Else
+	      Steps = 1
+	    EndIf
+	  EndIf
+	  
+	  ProcedureReturn Steps
+	EndProcedure
+	
 	Procedure.i AdjustScrollBars_()
 	  Define.i Height
 	  
-	  If IsGadget(MarkDown()\Scroll\Num)
-	    
-	    Height = GadgetHeight(MarkDown()\CanvasNum) 
-	    
-	    If MarkDown()\Required\Height > Height
-	      
-	      If MarkDown()\Scroll\Hide
-	        
-	        ResizeGadget(MarkDown()\Scroll\Num, GadgetWidth(MarkDown()\CanvasNum) - #ScrollBarSize - 1, 1, #ScrollBarSize, GadgetHeight(MarkDown()\CanvasNum) - 2)
-	        
-	        SetGadgetAttribute(MarkDown()\Scroll\Num, #PB_ScrollBar_Minimum,    0)
-          SetGadgetAttribute(MarkDown()\Scroll\Num, #PB_ScrollBar_Maximum,    MarkDown()\Required\Height)
-          SetGadgetAttribute(MarkDown()\Scroll\Num, #PB_ScrollBar_PageLength, Height)
-          
-          MarkDown()\Scroll\MinPos = 0
-          MarkDown()\Scroll\MaxPos = MarkDown()\Required\Height - Height + 1
-          
-          HideGadget(MarkDown()\Scroll\Num, #False)
-          
-          MarkDown()\Scroll\Hide = #False
-          
-          ProcedureReturn #True
-        Else 
-          
-          ResizeGadget(MarkDown()\Scroll\Num, GadgetWidth(MarkDown()\CanvasNum) - #ScrollBarSize - 1, 1, #ScrollBarSize, GadgetHeight(MarkDown()\CanvasNum) - 2)
-          
-          SetGadgetAttribute(MarkDown()\Scroll\Num, #PB_ScrollBar_Maximum,    MarkDown()\Required\Height)
-          SetGadgetAttribute(MarkDown()\Scroll\Num, #PB_ScrollBar_PageLength, Height)
-          
-          MarkDown()\Scroll\MaxPos = MarkDown()\Required\Height - Height + 1
-          
-          ProcedureReturn #True
-	      EndIf   
-	      
-	    Else
-	      
-	      If MarkDown()\Scroll\Hide = #False
-	        HideGadget(MarkDown()\Scroll\Num, #True)
-	        MarkDown()\Scroll\Hide = #True
-	      EndIf  
-	      
-	      ProcedureReturn #True
-	    EndIf
-	    
-	  EndIf
-	  
-	  ProcedureReturn #False
-	EndProcedure  
+    Height = GadgetHeight(MarkDown()\CanvasNum) 
+    
+    If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll")
+      
+      If MarkDown()\Required\Height > Height
 
+        If MarkDown()\ScrollBar\Item()\Hide
+          CalcScrollBarThumb_()
+          MarkDown()\ScrollBar\Item()\Hide = #False
+        EndIf  
+        
+        ProcedureReturn #True
+      Else
+        
+        If MarkDown()\ScrollBar\Item()\Hide = #False
+          MarkDown()\ScrollBar\Item()\Hide = #True
+        EndIf  
+        
+        ProcedureReturn #True
+      EndIf
+      
+    EndIf
+    
+	  ProcedureReturn #False
+	EndProcedure
+	
 	Procedure   Clear_()
 	  
 		ClearMap(MarkDown()\ImageNum())
@@ -2380,57 +2525,57 @@ Module MarkDown
     
     Procedure.i EmojiPDF_(PDF.i, Emoji.s, X.i, Y.i, ImgSize.i)
   
-        Select Emoji
-          Case ":check0:"
-            PDF::ImageMemory(PDF, "CheckBox0.png", ?Check0,    145, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
-          Case ":check1:"
-            PDF::ImageMemory(PDF, "CheckBox1.png", ?Check1,    276, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
-          CompilerIf #Enable_Emoji  
-    	    Case ":date:", ":calendar:"
-    	      PDF::ImageMemory(PDF, "Date.png",      ?Calendar,  485, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
-          Case ":mail:", ":envelope:"
-            PDF::ImageMemory(PDF, "Mail.png",      ?Mail,      437, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
-    	    Case ":bookmark:"
-            PDF::ImageMemory(PDF, "BookMark.png",  ?BookMark,  334, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
-    	    Case ":memo:"
-            PDF::ImageMemory(PDF, "Memo.png",      ?Memo,      408, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
-    	    Case ":pencil:", ":pencil2:"
-            PDF::ImageMemory(PDF, "Pencil.png",    ?Pencil,    480, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
-    	    Case ":phone:", ":telephone_receiver:"
-            PDF::ImageMemory(PDF, "Phone.png",     ?Phone,     383, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
-          Case  ":warning:"
-            PDF::ImageMemory(PDF, "Warning.png",   ?Attention, 565, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
-          Case ":bulb:"  
-            PDF::ImageMemory(PDF, "Bulb.png",      ?Bulb,      396, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
-          Case ":paperclip:", ":clip:" 
-            PDF::ImageMemory(PDF, "Clip.png",      ?Clip,      474, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
-          Case ":mag:", ":magnifier:"
-            PDF::ImageMemory(PDF, "Mag.png",       ?Magnifier, 520, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
-          Case ":laugh:", ":smiley:"
-            PDF::ImageMemory(PDF, "Laugh.png",     ?Laugh,     568, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
-          Case ":smile:", ":simple_smile:"
-            PDF::ImageMemory(PDF, "Smile.png",     ?Smile,     512, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
-          Case ":sad:"
-            PDF::ImageMemory(PDF, "Sad.png",       ?Sad,       521, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
-          Case ":angry:"
-            PDF::ImageMemory(PDF, "Angry.png",     ?Angry,     540, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
-          Case ":cool:", ":sunglasses:"
-            PDF::ImageMemory(PDF, "Cool.png",      ?Cool,     629, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
-          Case ":smirk:"
-            PDF::ImageMemory(PDF, "Smirk.png",     ?Smirk,    532, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
-          Case ":eyes:", ":flushed:"
-            PDF::ImageMemory(PDF, "Eyes.png",      ?Eyes,      583, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
-          Case ":rolf:"
-            PDF::ImageMemory(PDF, "Rofl.png",      ?Rofl,      636, PDF::#Image_PNG, X, Y, ImgSize, ImgSize) 
-          Case ":wink:"
-            PDF::ImageMemory(PDF, "Wink.png",      ?Wink,      553, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
-          Case ":worry:", ":worried:"
-            PDF::ImageMemory(PDF, "Worry.png",     ?Worry,     554, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
-          CompilerEndIf  
-        EndSelect
+      Select Emoji
+        Case ":check0:"
+          PDF::ImageMemory(PDF, "CheckBox0.png", ?Check0,    145, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+        Case ":check1:"
+          PDF::ImageMemory(PDF, "CheckBox1.png", ?Check1,    276, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+        CompilerIf #Enable_Emoji  
+  	    Case ":date:", ":calendar:"
+  	      PDF::ImageMemory(PDF, "Date.png",      ?Calendar,  485, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+        Case ":mail:", ":envelope:"
+          PDF::ImageMemory(PDF, "Mail.png",      ?Mail,      437, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+  	    Case ":bookmark:"
+          PDF::ImageMemory(PDF, "BookMark.png",  ?BookMark,  334, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+  	    Case ":memo:"
+          PDF::ImageMemory(PDF, "Memo.png",      ?Memo,      408, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+  	    Case ":pencil:", ":pencil2:"
+          PDF::ImageMemory(PDF, "Pencil.png",    ?Pencil,    480, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+  	    Case ":phone:", ":telephone_receiver:"
+          PDF::ImageMemory(PDF, "Phone.png",     ?Phone,     383, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+        Case  ":warning:"
+          PDF::ImageMemory(PDF, "Warning.png",   ?Attention, 565, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+        Case ":bulb:"  
+          PDF::ImageMemory(PDF, "Bulb.png",      ?Bulb,      396, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+        Case ":paperclip:", ":clip:" 
+          PDF::ImageMemory(PDF, "Clip.png",      ?Clip,      474, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+        Case ":mag:", ":magnifier:"
+          PDF::ImageMemory(PDF, "Mag.png",       ?Magnifier, 520, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+        Case ":laugh:", ":smiley:"
+          PDF::ImageMemory(PDF, "Laugh.png",     ?Laugh,     568, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+        Case ":smile:", ":simple_smile:"
+          PDF::ImageMemory(PDF, "Smile.png",     ?Smile,     512, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+        Case ":sad:"
+          PDF::ImageMemory(PDF, "Sad.png",       ?Sad,       521, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+        Case ":angry:"
+          PDF::ImageMemory(PDF, "Angry.png",     ?Angry,     540, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+        Case ":cool:", ":sunglasses:"
+          PDF::ImageMemory(PDF, "Cool.png",      ?Cool,     629, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+        Case ":smirk:"
+          PDF::ImageMemory(PDF, "Smirk.png",     ?Smirk,    532, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+        Case ":eyes:", ":flushed:"
+          PDF::ImageMemory(PDF, "Eyes.png",      ?Eyes,      583, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+        Case ":rolf:"
+          PDF::ImageMemory(PDF, "Rofl.png",      ?Rofl,      636, PDF::#Image_PNG, X, Y, ImgSize, ImgSize) 
+        Case ":wink:"
+          PDF::ImageMemory(PDF, "Wink.png",      ?Wink,      553, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+        Case ":worry:", ":worried:"
+          PDF::ImageMemory(PDF, "Worry.png",     ?Worry,     554, PDF::#Image_PNG, X, Y, ImgSize, ImgSize)
+        CompilerEndIf  
+      EndSelect
         
-    	EndProcedure    
-  	
+    EndProcedure    
+
   	Procedure.i AlignOffsetPDF_(PDF.i, WordIdx.i, Width.i, Align.s, List Words.Words_Structure())
       Define.i TextWidth, OffsetX
       
@@ -3099,11 +3244,15 @@ Module MarkDown
                       
                     Next
                     
+                    MarkDown()\WrapPos = PageWidth - PDF::GetMargin(PDF, PDF::#RightMargin)
+                    
                     PDF::SetPosY(PDF, RowY)
     			          ;}
     			        EndIf
 
     			      Next
+    			      
+    			      MarkDown()\WrapPos = PageWidth - PDF::GetMargin(PDF, PDF::#RightMargin)
     			      
   			      EndIf
               ;}
@@ -3289,8 +3438,6 @@ Module MarkDown
     
     ProcedureReturn Span
   EndProcedure
-  
-  ; Table Description
   
   ; ------------------------------------------------
 
@@ -5275,7 +5422,7 @@ Module MarkDown
     EndIf
     
   EndProcedure
-  
+  	
 	;- __________ Drawing __________
 
 	CompilerIf #Enable_Requester
@@ -5428,6 +5575,222 @@ Module MarkDown
     ProcedureReturn OffsetX
   EndProcedure
   
+  ;{ _____ ScrollBar _____
+	Procedure   DrawScrollArrow_(X.i, Y.i, Width.i, Height.i, Color.i, Flag.i)
+	  Define.i aWidth, aHeight, aColor
+
+	  If StartVectorDrawing(CanvasVectorOutput(MarkDown()\ScrollBar\Num))
+
+      aColor  = RGBA(Red(Color), Green(Color), Blue(Color), 255)
+      
+      If Flag = #ScrollBar_Up Or Flag = #ScrollBar_Down
+  	    aWidth  = dpiX(8)
+  	    aHeight = dpiX(4)
+  	  Else
+        aWidth  = dpiX(4)
+        aHeight = dpiX(8)  
+  	  EndIf  
+
+      X + ((Width  - aWidth) / 2)
+      Y + ((Height - aHeight) / 2)
+      
+      Select Flag
+        Case #ScrollBar_Up
+          MovePathCursor(X, Y + aHeight)
+          AddPathLine(X + aWidth / 2, Y)
+          AddPathLine(X + aWidth, Y + aHeight)
+        Case #ScrollBar_Down 
+          MovePathCursor(X, Y)
+          AddPathLine(X + aWidth / 2, Y + aHeight)
+          AddPathLine(X + aWidth, Y)
+        Case #ScrollBar_Left
+          MovePathCursor(X + aWidth, Y)
+          AddPathLine(X, Y + aHeight / 2)
+          AddPathLine(X + aWidth, Y + aHeight)
+        Case #ScrollBar_Right
+          MovePathCursor(X, Y)
+          AddPathLine(X + aWidth, Y + aHeight / 2)
+          AddPathLine(X, Y + aHeight)
+      EndSelect
+      
+      VectorSourceColor(aColor)
+      StrokePath(2, #PB_Path_RoundCorner)
+
+	    StopVectorDrawing()
+	  EndIf
+	  
+	EndProcedure
+	
+	Procedure   DrawScrollButton_(X.i, Y.i, Width.i, Height.i, ScrollBar.s, Type.i, State.i=#False)
+	  Define.i Color, Border
+	  
+	  If StartDrawing(CanvasOutput(MarkDown()\ScrollBar\Num))
+	    
+	    DrawingMode(#PB_2DDrawing_Default)
+	    
+	    Select State
+	      Case #ScrollBar_Focus
+	        Color  = BlendColor_(MarkDown()\ScrollBar\Color\Focus, MarkDown()\ScrollBar\Color\Button, 10)
+	        Border = BlendColor_(MarkDown()\ScrollBar\Color\Focus, MarkDown()\ScrollBar\Color\Border, 10)
+	      Case #ScrollBar_Click
+	        Color  = BlendColor_(MarkDown()\ScrollBar\Color\Focus, MarkDown()\ScrollBar\Color\Button, 20)
+	        Border = BlendColor_(MarkDown()\ScrollBar\Color\Focus, MarkDown()\ScrollBar\Color\Border, 20)
+	      Default
+	        Color  = MarkDown()\ScrollBar\Color\Button
+	        Border = MarkDown()\ScrollBar\Color\Border
+	    EndSelect    
+	    
+	    If FindMapElement(MarkDown()\ScrollBar\Item(), ScrollBar)
+	      
+	      If MarkDown()\ScrollBar\Item()\Hide : ProcedureReturn #False : EndIf 
+	      
+	      Select Type
+  	      Case #ScrollBar_Forwards
+  	        Box_(MarkDown()\ScrollBar\Item()\Buttons\Forwards\X,  MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y,  MarkDown()\ScrollBar\Item()\Buttons\Forwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Height,  Color)
+  	      Case #ScrollBar_Backwards
+  	        Box_(MarkDown()\ScrollBar\Item()\Buttons\Backwards\X, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Height, Color)
+   	    EndSelect    
+	      
+	      If MarkDown()\ScrollBar\Flags & #ScrollBar_ButtonBorder
+	      
+  	      DrawingMode(#PB_2DDrawing_Outlined)
+  	      
+  	      Select Type
+  	        Case #ScrollBar_Forwards
+  	          Box_(MarkDown()\ScrollBar\Item()\Buttons\Forwards\X - dpiX(1), MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Width + dpiX(2), MarkDown()\ScrollBar\Item()\Buttons\Forwards\Height + dpiY(1), Border)
+     	      Case #ScrollBar_Backwards
+    	        Box_(MarkDown()\ScrollBar\Item()\Buttons\Backwards\X - dpiX(1), MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y - dpiY(1), MarkDown()\ScrollBar\Item()\Buttons\Backwards\Width + dpiX(2), MarkDown()\ScrollBar\Item()\Buttons\Backwards\Height + dpiY(1), Border)
+     	    EndSelect 
+    	    
+  	    EndIf 
+	    
+	    EndIf
+
+	    StopDrawing()
+	  EndIf
+	  
+	  ;{ ----- Draw Arrows -----
+	  If FindMapElement(MarkDown()\ScrollBar\Item(), ScrollBar)
+	    
+  	  Select Type
+        Case #ScrollBar_Forwards
+          DrawScrollArrow_(MarkDown()\ScrollBar\Item()\Buttons\Forwards\X, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Height, MarkDown()\ScrollBar\Color\Front, #ScrollBar_Down)
+        Case #ScrollBar_Backwards
+          DrawScrollArrow_(MarkDown()\ScrollBar\Item()\Buttons\Backwards\X, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Height, MarkDown()\ScrollBar\Color\Front, #ScrollBar_Up)
+      EndSelect
+    
+    EndIf ;}
+
+	EndProcedure
+	
+	Procedure   DrawScrollBar_()
+		Define.i X, Y, Width, Height, Offset, OffsetX, OffsetY
+		Define.i FrontColor, BackColor, BorderColor, ScrollBorderColor
+		
+		If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll")
+		  
+      If MarkDown()\ScrollBar\Item()\Hide : ProcedureReturn #False : EndIf 
+  	 
+      ;{ ----- Size -----
+		  X      = dpiX(MarkDown()\ScrollBar\Item()\X)
+		  Y      = dpiY(MarkDown()\ScrollBar\Item()\Y)
+		  Width  = dpiX(MarkDown()\ScrollBar\Item()\Width) 
+		  Height = dpiY(MarkDown()\ScrollBar\Item()\Height)
+		  ;}
+
+		  Offset = (MarkDown()\ScrollBar\Item()\Pos - MarkDown()\ScrollBar\Item()\minPos) * MarkDown()\ScrollBar\Item()\Thumb\Factor
+		  
+      ;{ ----- Buttons -----
+		  MarkDown()\ScrollBar\Item()\Buttons\Forwards\X       = X + dpiX(1)
+  		MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y       = Y + Height - dpiY(#ScrollBar_ButtonSize) - dpiY(MarkDown()\ScrollBar\Adjust) - dpiY(1)
+  		MarkDown()\ScrollBar\Item()\Buttons\Forwards\Width   = Width - dpiX(2)
+  		MarkDown()\ScrollBar\Item()\Buttons\Forwards\Height  = dpiY(#ScrollBar_ButtonSize)	
+  		MarkDown()\ScrollBar\Item()\Buttons\Backwards\X      = X + dpiX(1)
+  		MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y      = Y + dpiY(1)
+  		MarkDown()\ScrollBar\Item()\Buttons\Backwards\Width  = Width - dpiX(2)
+  		MarkDown()\ScrollBar\Item()\Buttons\Backwards\Height = dpiY(#ScrollBar_ButtonSize)
+  		;}
+      ;{ ----- ScrollArea -----
+  		MarkDown()\ScrollBar\Item()\Area\X = X
+  	  MarkDown()\ScrollBar\Item()\Area\Y = Y + dpiY(#ScrollBar_ButtonSize) + dpiY(1)
+  	  MarkDown()\ScrollBar\Item()\Area\Width  = Width
+  	  MarkDown()\ScrollBar\Item()\Area\Height = Height - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(2)
+  	  ;}
+      ;{ ----- Thumb -----
+  	  MarkDown()\ScrollBar\Item()\Thumb\X      = X
+  	  MarkDown()\ScrollBar\Item()\Thumb\Y      = MarkDown()\ScrollBar\Item()\Area\Y + Offset
+  	  MarkDown()\ScrollBar\Item()\Thumb\Width  = Width
+  	  MarkDown()\ScrollBar\Item()\Thumb\Height = MarkDown()\ScrollBar\Item()\Thumb\Size
+  	  If MarkDown()\ScrollBar\Flags & #ScrollBar_ButtonBorder
+  	    MarkDown()\ScrollBar\Item()\Thumb\Y + dpiY(1)
+  	    MarkDown()\ScrollBar\Item()\Thumb\Height - dpiY(2)
+  	  EndIf ;}
+
+  		If StartDrawing(CanvasOutput(MarkDown()\ScrollBar\Num))
+  		  
+  		  ;{ _____ Color _____
+  		  FrontColor  = MarkDown()\ScrollBar\Color\Front
+  		  BackColor   = MarkDown()\ScrollBar\Color\Back
+  		  BorderColor = MarkDown()\ScrollBar\Color\Border
+  		  
+  		  If MarkDown()\ScrollBar\Item()\Disable
+  		    FrontColor  = MarkDown()\ScrollBar\Color\DisableFront
+  		    BackColor   = MarkDown()\ScrollBar\Color\DisableBack
+  		    BorderColor = MarkDown()\ScrollBar\Color\DisableFront
+  		  EndIf
+  		  ;}
+  		  
+  		  DrawingMode(#PB_2DDrawing_Default)
+  		  
+  		  ;{ _____ Background _____
+  		  Box(X, Y, Width, Height, MarkDown()\ScrollBar\Color\Gadget) ; needed for rounded corners
+  		  Box(MarkDown()\ScrollBar\Item()\Area\X, MarkDown()\ScrollBar\Item()\Area\Y, MarkDown()\ScrollBar\Item()\Area\Width, MarkDown()\ScrollBar\Item()\Area\Height, MarkDown()\ScrollBar\Color\Back)
+  			;}
+  			
+  		  ;{ _____ Draw Thumb _____
+  		  Select MarkDown()\ScrollBar\Item()\Thumb\State
+  			  Case #ScrollBar_Focus
+  			    Box_(MarkDown()\ScrollBar\Item()\Thumb\X, MarkDown()\ScrollBar\Item()\Thumb\Y, MarkDown()\ScrollBar\Item()\Thumb\Width, MarkDown()\ScrollBar\Item()\Thumb\Height, BlendColor_(MarkDown()\ScrollBar\Color\Focus, MarkDown()\ScrollBar\Color\ScrollBar, 10))
+  			  Case #ScrollBar_Click
+  			    Box_(MarkDown()\ScrollBar\Item()\Thumb\X, MarkDown()\ScrollBar\Item()\Thumb\Y, MarkDown()\ScrollBar\Item()\Thumb\Width, MarkDown()\ScrollBar\Item()\Thumb\Height, BlendColor_(MarkDown()\ScrollBar\Color\Focus, MarkDown()\ScrollBar\Color\ScrollBar, 20))
+  			  Default
+  			    Box_(MarkDown()\ScrollBar\Item()\Thumb\X, MarkDown()\ScrollBar\Item()\Thumb\Y, MarkDown()\ScrollBar\Item()\Thumb\Width, MarkDown()\ScrollBar\Item()\Thumb\Height, MarkDown()\ScrollBar\Color\ScrollBar)
+  			EndSelect
+  			
+  		  If MarkDown()\ScrollBar\Flags & #ScrollBar_DragLines   ;{ Drag Lines
+
+  			  If MarkDown()\ScrollBar\Item()\Thumb\Size > dpiY(10)
+  		      OffsetY = (MarkDown()\ScrollBar\Item()\Thumb\Size - dpiY(7)) / 2			      
+  		      Line(MarkDown()\ScrollBar\Item()\Thumb\X + dpiX(4), MarkDown()\ScrollBar\Item()\Thumb\Y + OffsetY, MarkDown()\ScrollBar\Item()\Thumb\Width - dpiX(8), dpiY(1), MarkDown()\ScrollBar\Color\Front)
+  		      Line(MarkDown()\ScrollBar\Item()\Thumb\X + dpiX(4), MarkDown()\ScrollBar\Item()\Thumb\Y + OffsetY + dpiY(3), MarkDown()\ScrollBar\Item()\Thumb\Width - dpiX(8), dpiY(1), MarkDown()\ScrollBar\Color\Front)
+  		      Line(MarkDown()\ScrollBar\Item()\Thumb\X + dpiX(4), MarkDown()\ScrollBar\Item()\Thumb\Y + OffsetY + dpiY(6), MarkDown()\ScrollBar\Item()\Thumb\Width - dpiX(8), dpiY(1), MarkDown()\ScrollBar\Color\Front)
+  		    EndIf
+  			  ;}
+  			EndIf
+  			
+  			If MarkDown()\ScrollBar\Flags & #ScrollBar_ThumbBorder ;{ Thumb Border
+  			  DrawingMode(#PB_2DDrawing_Outlined)
+  			  Box_(MarkDown()\ScrollBar\Item()\Thumb\X, MarkDown()\ScrollBar\Item()\Thumb\Y, MarkDown()\ScrollBar\Item()\Thumb\Width, MarkDown()\ScrollBar\Item()\Thumb\Height, MarkDown()\ScrollBar\Color\Border)
+  			  ;}
+  			EndIf
+  			;}
+  			
+  			;{ _____ Border ____
+  			If MarkDown()\ScrollBar\Flags & #ScrollBar_Border
+  				DrawingMode(#PB_2DDrawing_Outlined)
+  				Box_(X, Y, Width, Height, BorderColor)
+  			EndIf ;}
+  
+  			StopDrawing()
+  		EndIf
+  		
+    	DrawScrollButton_(MarkDown()\ScrollBar\Item()\Buttons\Forwards\X,  MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y,  MarkDown()\ScrollBar\Item()\Buttons\Forwards\Width,  MarkDown()\ScrollBar\Item()\Buttons\Forwards\Height,  "VScroll", #ScrollBar_Forwards,  MarkDown()\ScrollBar\Item()\Buttons\Forwards\State)
+    	DrawScrollButton_(MarkDown()\ScrollBar\Item()\Buttons\Backwards\X, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Height, "VScroll", #ScrollBar_Backwards, MarkDown()\ScrollBar\Item()\Buttons\Backwards\State)
+
+    EndIf
+    
+	EndProcedure  
+	;}
   
   Procedure.i DrawRow_(X.i, Y.i, Width.i, Height.i, BlockQuote.i, List Words.Words_Structure(), ColWidth.i=#False, Align.s="L")
     Define.i Font, TextWidth, ImgSize, Image, WordIdx
@@ -6111,16 +6474,38 @@ Module MarkDown
   		
   	CompilerEndIf
   	
-		If Not MarkDown()\Scroll\Hide : Width - dpiX(#ScrollBarSize) : EndIf 
-		
 		MarkDown()\LeftBorder = X
 		MarkDown()\WrapPos = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(MarkDown()\Margin\Right)
 		
-		If Not MarkDown()\Scroll\Hide : MarkDown()\WrapPos - dpiX(#ScrollBarSize) : EndIf 
-		
+		If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll")
+		  
+		  MarkDown()\ScrollBar\Item()\X          = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(#ScrollBarSize) - dpiX(1)
+      MarkDown()\ScrollBar\Item()\Y          = dpiY(1)
+      MarkDown()\ScrollBar\Item()\Width      = dpiX(#ScrollBarSize)
+      MarkDown()\ScrollBar\Item()\Height     = dpiY(GadgetHeight(MarkDown()\CanvasNum)) - dpiY(2)
+      MarkDown()\ScrollBar\Item()\Minimum    = 0
+      MarkDown()\ScrollBar\Item()\Maximum    = MarkDown()\Required\Height
+      MarkDown()\ScrollBar\Item()\PageLength = Height
+		  
+  		If Not MarkDown()\ScrollBar\Item()\Hide
+  		  
+  		  Width - dpiX(#ScrollBarSize) - dpiX(1)
+  		  
+  		  MarkDown()\ScrollOffset = MarkDown()\ScrollBar\Item()\Pos
+  		  
+        Width - dpiX(#ScrollBarSize)
+        
+  		  MarkDown()\WrapPos - dpiX(#ScrollBarSize)
+
+  		Else
+  		  MarkDown()\ScrollOffset = 0
+  		EndIf 
+  		
+  	EndIf
+  	
 		If StartDrawing(CanvasOutput(MarkDown()\CanvasNum))
 		  
-		  Y - MarkDown()\Scroll\Offset
+		  Y - MarkDown()\ScrollOffset
 		  
 		  ;{ _____ Colors _____
 		  FrontColor  = MarkDown()\Color\Front
@@ -6150,7 +6535,6 @@ Module MarkDown
 			  
 			  DrawingFont(FontID(MarkDown()\Font\Normal))
 			  TextHeight = TextHeight("X")
-			  MarkDown()\Scroll\Height = TextHeight
 			  
 			  Select MarkDown()\Items()\Type
 			    Case #Code             ;{ Code block
@@ -6273,7 +6657,6 @@ Module MarkDown
 			       Y + (TextHeight / 2)
 			      ;}
 			    Case #Table            ;{ Table
-			      
 			      Y = DrawTable_(MarkDown()\Items()\Index, X, Y, MarkDown()\Items()\BlockQuote) 
 			      ;}
 			    Case #InsertTOC        ;{ Table of Contents
@@ -6318,10 +6701,10 @@ Module MarkDown
             Y = DrawRow_(X, Y, MarkDown()\FootLabel()\Width, MarkDown()\FootLabel()\Height, #False, MarkDown()\FootLabel()\Words())
           EndIf
         
-			  Next
+        Next
 			  ;}
 			EndIf  
-
+      
 			MarkDown()\Required\Width + dpiX(MarkDown()\Margin\Left + MarkDown()\Margin\Right)
 			MarkDown()\Required\Height = Y + dpiY(MarkDown()\Margin\Bottom)
      
@@ -6372,17 +6755,19 @@ Module MarkDown
 			StopDrawing()
 		EndIf
 
+		DrawScrollBar_()
+		
 	EndProcedure
 	
 	Procedure   ReDraw()
-	  
+
 	  Draw_()
 	  
 	  If AdjustScrollBars_()
 	    Draw_()
 	    AdjustScrollBars_()
 	  EndIf 
-	  
+
 	EndProcedure  
 	
 	;- __________ Tools _____
@@ -6391,11 +6776,11 @@ Module MarkDown
     
 	  If FindMapElement(MarkDown()\HeadingID(), ID)
 	    
-	    MarkDown()\Scroll\Offset = MarkDown()\HeadingID()
+	    MarkDown()\ScrollOffset = MarkDown()\HeadingID()
 	    
-      If MarkDown()\Scroll\Offset > MarkDown()\Scroll\MaxPos : MarkDown()\Scroll\Offset = MarkDown()\Scroll\MaxPos : EndIf
+      If MarkDown()\ScrollOffset > MarkDown()\ScrollBar\Item()\MaxPos : MarkDown()\ScrollOffset = MarkDown()\ScrollBar\Item()\MaxPos : EndIf
 
-      SetGadgetState(MarkDown()\Scroll\Num, MarkDown()\Scroll\Offset)
+      SetGadgetState(MarkDown()\ScrollBar\Num, MarkDown()\ScrollOffset)
       
       Draw_()
     EndIf
@@ -6408,29 +6793,90 @@ Module MarkDown
 	CompilerIf Defined(ModuleEx, #PB_Module)
     
     Procedure _ThemeHandler()
-      ; TODO: Themes 
+      
       ForEach MarkDown()
         
         If IsFont(ModuleEx::ThemeGUI\Font\Num)
           MarkDown()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
         EndIf
 
-        MarkDown()\Color\Front        = ModuleEx::ThemeGUI\FrontColor
-				MarkDown()\Color\Back         = ModuleEx::ThemeGUI\BackColor
-				MarkDown()\Color\Border       = ModuleEx::ThemeGUI\BorderColor
-				MarkDown()\Color\Gadget       = ModuleEx::ThemeGUI\GadgetColor
-				MarkDown()\Color\Button       = ModuleEx::ThemeGUI\Button\BackColor
-			  MarkDown()\Color\Focus        = ModuleEx::ThemeGUI\Focus\BackColor
-				MarkDown()\Color\DisableFront = ModuleEx::ThemeGUI\Disable\FrontColor
-		    MarkDown()\Color\DisableBack  = ModuleEx::ThemeGUI\Disable\BackColor
-				
+        MarkDown()\Color\Front               = ModuleEx::ThemeGUI\FrontColor
+				MarkDown()\Color\Back                = ModuleEx::ThemeGUI\BackColor
+				MarkDown()\Color\Border              = ModuleEx::ThemeGUI\BorderColor
+				MarkDown()\Color\Gadget              = ModuleEx::ThemeGUI\GadgetColor
+				MarkDown()\Color\Button              = ModuleEx::ThemeGUI\Button\BackColor
+			  MarkDown()\Color\Focus               = ModuleEx::ThemeGUI\Focus\BackColor
+				MarkDown()\Color\DisableFront        = ModuleEx::ThemeGUI\Disable\FrontColor
+		    MarkDown()\Color\DisableBack         = ModuleEx::ThemeGUI\Disable\BackColor
+		    
+		    MarkDown()\ScrollBar\Color\Front     = ModuleEx::ThemeGUI\FrontColor
+  			MarkDown()\ScrollBar\Color\Back      = ModuleEx::ThemeGUI\BackColor
+  			MarkDown()\ScrollBar\Color\Border    = ModuleEx::ThemeGUI\BorderColor
+  			MarkDown()\ScrollBar\Color\Gadget    = ModuleEx::ThemeGUI\GadgetColor
+  			MarkDown()\ScrollBar\Color\Focus     = ModuleEx::ThemeGUI\FocusBack
+        MarkDown()\ScrollBar\Color\Button    = ModuleEx::ThemeGUI\Button\BackColor
+        MarkDown()\ScrollBar\Color\ScrollBar = ModuleEx::ThemeGUI\ScrollbarColor
+		    
         Draw_()
       Next
       
     EndProcedure
     
   CompilerEndIf 
-	
+  
+  
+  Procedure _TimerThread(Frequency.i)
+    Define.i ElapsedTime
+    
+    Repeat
+      
+      If ElapsedTime >= Frequency
+        PostEvent(#Event_Timer)
+        ElapsedTime = 0
+      EndIf
+      
+      Delay(100)
+      
+      ElapsedTime + 100
+      
+    Until TimerThread\Exit
+    
+  EndProcedure  
+  
+  Procedure _AutoScroll()
+    Define.i X, Y
+    
+    ForEach MarkDown()
+      
+      ForEach MarkDown()\ScrollBar\Item()
+        
+        If MarkDown()\ScrollBar\Item()\Timer
+          
+          If MarkDown()\ScrollBar\Item()\TimerDelay
+            MarkDown()\ScrollBar\Item()\TimerDelay - 1
+            Continue
+          EndIf  
+          
+          Select MarkDown()\ScrollBar\Item()\Timer
+            Case #ScrollBar_Up, #ScrollBar_Left
+              MarkDown()\ScrollBar\Item()\Pos - 1
+              If MarkDown()\ScrollBar\Item()\Pos < MarkDown()\ScrollBar\Item()\minPos : MarkDown()\ScrollBar\Item()\Pos = MarkDown()\ScrollBar\Item()\minPos : EndIf
+            Case #ScrollBar_Down, #ScrollBar_Right
+              MarkDown()\ScrollBar\Item()\Pos + 1
+              If MarkDown()\ScrollBar\Item()\Pos > MarkDown()\ScrollBar\Item()\maxPos : MarkDown()\ScrollBar\Item()\Pos = MarkDown()\ScrollBar\Item()\maxPos : EndIf
+          EndSelect
+          
+          Draw_()
+          
+    		EndIf 
+    		
+      Next
+      
+    Next
+    
+  EndProcedure  
+  
+  
 	Procedure _RightClickHandler()
 		Define.i GNum = EventGadget()
 
@@ -6452,6 +6898,46 @@ Module MarkDown
 
 			X = GetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_MouseX)
 			Y = GetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_MouseY)
+
+			If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll")
+			 
+        If MarkDown()\ScrollBar\Item()\Hide = #False
+        
+          MarkDown()\ScrollBar\Item()\Cursor = #PB_Default
+          
+  			  If X >= MarkDown()\ScrollBar\Item()\X And X <= MarkDown()\ScrollBar\Item()\X + MarkDown()\ScrollBar\Item()\Width
+  			    
+    			  If Y >= MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y And Y <= MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y + MarkDown()\ScrollBar\Item()\Buttons\Backwards\Height
+    			    ;{ Backwards Button
+    			    If MarkDown()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Click
+    			      DrawScrollButton_(MarkDown()\ScrollBar\Item()\Buttons\Backwards\X, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Height, "VScroll", #ScrollBar_Backwards, #ScrollBar_Click)
+    			      MarkDown()\ScrollBar\Item()\TimerDelay = #ScrollBar_TimerDelay
+    			      MarkDown()\ScrollBar\Item()\Timer      = #ScrollBar_Up
+    			      MarkDown()\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Click 
+    			    EndIf ;}
+    			  ElseIf Y >= MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y And Y <= MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y + MarkDown()\ScrollBar\Item()\Buttons\Forwards\Height
+    			    ;{ Forwards Button
+    			    If MarkDown()\ScrollBar\Item()\Buttons\Forwards\State <> #ScrollBar_Click
+    			      DrawScrollButton_(MarkDown()\ScrollBar\Item()\Buttons\Forwards\X, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Height, "VScroll", #ScrollBar_Forwards, #ScrollBar_Click)
+    			      MarkDown()\ScrollBar\Item()\TimerDelay = #ScrollBar_TimerDelay
+    			      MarkDown()\ScrollBar\Item()\Timer      = #ScrollBar_Down
+    			      MarkDown()\ScrollBar\Item()\Buttons\Forwards\State = #ScrollBar_Click
+    			    EndIf ;}
+    			  ElseIf Y >= MarkDown()\ScrollBar\Item()\Thumb\Y And Y <= MarkDown()\ScrollBar\Item()\Thumb\Y + MarkDown()\ScrollBar\Item()\Thumb\Height
+    			    ;{ Thumb Button
+    			    If MarkDown()\ScrollBar\Item()\Thumb\State <> #ScrollBar_Click
+    			      MarkDown()\ScrollBar\Item()\Thumb\State = #ScrollBar_Click
+    			      MarkDown()\ScrollBar\Item()\Cursor = Y
+    			      DrawScrollBar_()
+    			    EndIf ;} 
+    			  EndIf
+    			  
+    			  ProcedureReturn #True
+    			EndIf
+    			
+  			EndIf
+  			
+      EndIf 			
 			
 			ForEach MarkDown()\Link() ;{ Click link
 			  If Y >= MarkDown()\Link()\Y And Y <= MarkDown()\Link()\Y + MarkDown()\Link()\Height 
@@ -6495,6 +6981,42 @@ Module MarkDown
 
 			X = GetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_MouseX)
 			Y = GetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_MouseY)
+			
+			
+      If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll")
+        
+  		  If MarkDown()\ScrollBar\Item()\Hide = #False
+  		  
+    			MarkDown()\ScrollBar\Item()\Cursor = #PB_Default
+    			MarkDown()\ScrollBar\Item()\Timer  = #False
+ 
+  			  If X >= MarkDown()\ScrollBar\Item()\X And X <= MarkDown()\ScrollBar\Item()\X + MarkDown()\ScrollBar\Item()\Width
+  			    
+    			  If Y >= MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y And Y <= MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y + MarkDown()\ScrollBar\Item()\Buttons\Backwards\Height
+    			    MarkDown()\ScrollBar\Item()\Pos - 1
+    			    If MarkDown()\ScrollBar\Item()\Pos < MarkDown()\ScrollBar\Item()\minPos : MarkDown()\ScrollBar\Item()\Pos = MarkDown()\ScrollBar\Item()\minPos : EndIf
+    			    Draw_()
+    			  ElseIf Y >= MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y And Y <= MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y + MarkDown()\ScrollBar\Item()\Buttons\Forwards\Height
+    			    MarkDown()\ScrollBar\Item()\Pos + 1
+    			    If MarkDown()\ScrollBar\Item()\Pos > MarkDown()\ScrollBar\Item()\maxPos : MarkDown()\ScrollBar\Item()\Pos = MarkDown()\ScrollBar\Item()\maxPos : EndIf
+    			    Draw_()
+    			  ElseIf Y < MarkDown()\ScrollBar\Item()\Thumb\Y
+    			    MarkDown()\ScrollBar\Item()\Pos - MarkDown()\ScrollBar\Item()\PageLength
+    			    If MarkDown()\ScrollBar\Item()\Pos < MarkDown()\ScrollBar\Item()\minPos : MarkDown()\ScrollBar\Item()\Pos = MarkDown()\ScrollBar\Item()\minPos : EndIf
+    			    Draw_()
+    			  ElseIf Y > MarkDown()\ScrollBar\Item()\Thumb\Y + MarkDown()\ScrollBar\Item()\Thumb\Height
+    			    MarkDown()\ScrollBar\Item()\Pos + MarkDown()\ScrollBar\Item()\PageLength
+    			    If MarkDown()\ScrollBar\Item()\Pos > MarkDown()\ScrollBar\Item()\maxPos : MarkDown()\ScrollBar\Item()\Pos = MarkDown()\ScrollBar\Item()\maxPos : EndIf
+    			    Draw_()
+    			  EndIf
+    			  
+    			  ProcedureReturn #True
+    			EndIf  
+			    
+  			EndIf
+  			
+  		EndIf	
+			
 			
 			ForEach MarkDown()\TOC()  ;{ Table of Contents
 			  If Y >= MarkDown()\TOC()\Y And Y <= MarkDown()\TOC()\Y + MarkDown()\TOC()\Height 
@@ -6590,6 +7112,107 @@ Module MarkDown
 			X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
 			Y = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
 
+			If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll")
+      
+  	    If MarkDown()\ScrollBar\Item()\Hide = #False
+  	    
+  	      If X >= MarkDown()\ScrollBar\Item()\X And X <= MarkDown()\ScrollBar\Item()\X + MarkDown()\ScrollBar\Item()\Width
+  	      
+    	      If Y <= MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y + MarkDown()\ScrollBar\Item()\Buttons\Backwards\Height
+    			    ;{ Backwards Button
+    			    If MarkDown()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Focus
+    			      
+    			      MarkDown()\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Focus
+    			      
+    			      If MarkDown()\ScrollBar\Item()\Thumb\State <> #False
+    			        MarkDown()\ScrollBar\Item()\Thumb\State = #False
+    			        DrawScrollBar_()
+    			      Else 
+    			        DrawScrollButton_(MarkDown()\ScrollBar\Item()\Buttons\Backwards\X, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Height, "VScroll", #ScrollBar_Backwards, #ScrollBar_Focus)
+    			      EndIf 
+    			      
+    			    EndIf
+  			      ;}
+    			    ProcedureReturn #True
+    			  ElseIf Y >= MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y
+    			    ;{ Forwards Button
+    			    If MarkDown()\ScrollBar\Item()\Buttons\Forwards\State <> #ScrollBar_Focus
+    			      
+    			      MarkDown()\ScrollBar\Item()\Buttons\Forwards\State = #ScrollBar_Focus
+    			      
+    			      If MarkDown()\ScrollBar\Item()\Thumb\State <> #False
+    			        MarkDown()\ScrollBar\Item()\Thumb\State = #False
+    			        DrawScrollBar_()
+    			      Else 
+    			        DrawScrollButton_(MarkDown()\ScrollBar\Item()\Buttons\Forwards\X, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Height, "VScroll", #ScrollBar_Forwards, #ScrollBar_Focus)
+    			      EndIf
+    			      
+    			    EndIf ;}
+    			    ProcedureReturn #True
+    			  EndIf
+  
+    			  MarkDown()\ScrollBar\Item()\Timer = #False
+    			  
+    			  If MarkDown()\ScrollBar\Item()\Buttons\Backwards\State <> #False ;{ Backwards Button
+    			    MarkDown()\ScrollBar\Item()\Buttons\Backwards\State = #False
+    			    DrawScrollButton_(MarkDown()\ScrollBar\Item()\Buttons\Backwards\X, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Height, "VScroll", #ScrollBar_Backwards)
+      			  ;}
+      			EndIf
+      			
+      			If MarkDown()\ScrollBar\Item()\Buttons\Forwards\State <> #False  ;{ Forwards Button
+      			  MarkDown()\ScrollBar\Item()\Buttons\Forwards\State = #False
+      			  DrawScrollButton_(MarkDown()\ScrollBar\Item()\Buttons\Forwards\X, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Height, "VScroll", #ScrollBar_Forwards)
+      			  ;}
+      			EndIf
+    
+    			  If Y >= MarkDown()\ScrollBar\Item()\Thumb\Y And Y <= MarkDown()\ScrollBar\Item()\Thumb\Y + MarkDown()\ScrollBar\Item()\Thumb\Height
+    			    ;{ Move Thumb
+    			    If MarkDown()\ScrollBar\Item()\Cursor <> #PB_Default
+    			      
+    			      MarkDown()\ScrollBar\Item()\Pos + GetSteps_(Y)
+    			      
+    			      If MarkDown()\ScrollBar\Item()\Pos > MarkDown()\ScrollBar\Item()\maxPos : MarkDown()\ScrollBar\Item()\Pos = MarkDown()\ScrollBar\Item()\maxPos : EndIf
+    			      If MarkDown()\ScrollBar\Item()\Pos < MarkDown()\ScrollBar\Item()\minPos : MarkDown()\ScrollBar\Item()\Pos = MarkDown()\ScrollBar\Item()\minPos : EndIf
+    			      
+    			      MarkDown()\ScrollBar\Item()\Cursor = Y
+    		        
+    		        Draw_()
+    		        ProcedureReturn #True
+    		      EndIf ;}
+    			    ;{ Thumb Focus
+    			    If MarkDown()\ScrollBar\Item()\Thumb\State <> #ScrollBar_Focus
+    			      MarkDown()\ScrollBar\Item()\Thumb\State = #ScrollBar_Focus
+    			      DrawScrollBar_()
+    			    EndIf ;} 
+    			    ProcedureReturn #True
+    			  EndIf
+    			  
+    			  ProcedureReturn #True
+    			EndIf  
+    			
+    			If MarkDown()\ScrollBar\Item()\Buttons\Backwards\State <> #False ;{ Backwards Button
+    			  DrawScrollButton_(MarkDown()\ScrollBar\Item()\Buttons\Backwards\X, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Height, "VScroll", #ScrollBar_Backwards)
+    			  MarkDown()\ScrollBar\Item()\Buttons\Backwards\State = #False
+    			  ;}
+    			EndIf
+    			
+    			If MarkDown()\ScrollBar\Item()\Buttons\Forwards\State <> #False  ;{ Forwards Button
+    			  DrawScrollButton_(MarkDown()\ScrollBar\Item()\Buttons\Forwards\X, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Height, "VScroll", #ScrollBar_Forwards)
+    			  MarkDown()\ScrollBar\Item()\Buttons\Forwards\State = #False
+    			  ;}
+    			EndIf
+    			
+    			If MarkDown()\ScrollBar\Item()\Thumb\State <> #False             ;{ Thumb Button
+    			  MarkDown()\ScrollBar\Item()\Thumb\State = #False
+    			  DrawScrollBar_()
+    			  ;}
+    			EndIf
+    			
+    		EndIf
+    		
+  		EndIf
+			
+			
 			ForEach MarkDown()\Link()         ;{ Links
 			  
 			  If Y >= MarkDown()\Link()\Y And Y <= MarkDown()\Link()\Y + MarkDown()\Link()\Height 
@@ -6744,64 +7367,55 @@ Module MarkDown
 	
 	Procedure _MouseWheelHandler()
     Define.i GadgetNum = EventGadget()
-    Define.i Delta, ScrollPos
+    Define.i X, Y, Delta
     
     If FindMapElement(MarkDown(), Str(GadgetNum))
       
-      Delta = GetGadgetAttribute(GadgetNum, #PB_Canvas_WheelDelta)
-      
-      If IsGadget(MarkDown()\Scroll\Num) And MarkDown()\Scroll\Hide = #False
-        
-        ScrollPos = GetGadgetState(MarkDown()\Scroll\Num) - (MarkDown()\Scroll\Height * Delta)
-
-        If ScrollPos > MarkDown()\Scroll\MaxPos : ScrollPos = MarkDown()\Scroll\MaxPos : EndIf
-        If ScrollPos < MarkDown()\Scroll\MinPos : ScrollPos = MarkDown()\Scroll\MinPos : EndIf
-
-        MarkDown()\Scroll\Offset = ScrollPos
-        
-        SetGadgetState(MarkDown()\Scroll\Num, ScrollPos)
-
-        Draw_()
-      EndIf
-
+      Delta = GetGadgetAttribute(MarkDown()\ScrollBar\Num, #PB_Canvas_WheelDelta)
+	  
+  	  If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll")
+  	    
+  	    ;X = GetGadgetAttribute(GadgetNum, #PB_Canvas_MouseX)
+			  ;Y = GetGadgetAttribute(GadgetNum, #PB_Canvas_MouseY)
+  	    
+  	    If MarkDown()\ScrollBar\Item()\Hide = #False
+  
+    	    ;If X >= MarkDown()\ScrollBar\Item()\X And X <= MarkDown()\ScrollBar\Item()\X + MarkDown()\ScrollBar\Item()\Width
+    	      ;If Y >= MarkDown()\ScrollBar\Item()\Y And Y <= MarkDown()\ScrollBar\Item()\Y + MarkDown()\ScrollBar\Item()\Height
+    	        
+    	        MarkDown()\ScrollBar\Item()\Pos - Delta
+    
+              If MarkDown()\ScrollBar\Item()\Pos > MarkDown()\ScrollBar\Item()\maxPos : MarkDown()\ScrollBar\Item()\Pos = MarkDown()\ScrollBar\Item()\maxPos : EndIf
+              If MarkDown()\ScrollBar\Item()\Pos < MarkDown()\ScrollBar\Item()\minPos : MarkDown()\ScrollBar\Item()\Pos = MarkDown()\ScrollBar\Item()\minPos : EndIf
+              
+              Draw_()
+              
+    	        ;ProcedureReturn #True
+    	      ;EndIf 
+    	    ;EndIf
+    	    
+    	  EndIf
+    	  
+  	  EndIf
+  	  
     EndIf
     
   EndProcedure
 	
-	Procedure _SynchronizeScrollBar()
-    Define.i ScrollNum = EventGadget()
-    Define.i GadgetNum = GetGadgetData(ScrollNum)
-    Define.i X, Y, ScrollPos
-    
-    If FindMapElement(MarkDown(), Str(GadgetNum))
-
-      ScrollPos = GetGadgetState(ScrollNum)
-      If ScrollPos <> MarkDown()\Scroll\Offset
-        
-        If ScrollPos < MarkDown()\Scroll\Offset
-          ScrollPos - MarkDown()\Scroll\Height
-        ElseIf ScrollPos > MarkDown()\Scroll\Offset
-          ScrollPos + MarkDown()\Scroll\Height
-        EndIf
-      
-        If ScrollPos > MarkDown()\Scroll\MaxPos : ScrollPos = MarkDown()\Scroll\MaxPos : EndIf
-        If ScrollPos < MarkDown()\Scroll\MinPos : ScrollPos = MarkDown()\Scroll\MinPos : EndIf
-        
-        MarkDown()\Scroll\Offset = ScrollPos
-        
-        SetGadgetState(MarkDown()\Scroll\Num, ScrollPos)
-
-        Draw_()
-      EndIf
-      
-    EndIf
-    
-  EndProcedure 
 
 	Procedure _ResizeHandler()
 		Define.i GadgetID = EventGadget()
 
 		If FindMapElement(MarkDown(), Str(GadgetID))
+		  
+		  
+		  If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll")
+		    
+		    If MarkDown()\ScrollBar\Item()\Hide = #False
+		      CalcScrollBarThumb_()
+    		EndIf
+  		
+  	  EndIf
 		  
 		  ReDraw()
 		  
@@ -6925,6 +7539,79 @@ Module MarkDown
 	  MarkDown()\LineSpacing = 1.06
 
 	EndProcedure  
+	
+
+	Procedure InitScrollBar_(CanvasNum.i, Flags.i=#False)
+	  
+	  MarkDown()\ScrollBar\Num = CanvasNum
+	  
+	  MarkDown()\ScrollBar\Flags = Flags
+	  
+	  If TimerThread\Active = #False 
+      TimerThread\Exit   = #False
+      TimerThread\Num    = CreateThread(@_TimerThread(), #ScrollBar_Timer)
+      TimerThread\Active = #True
+    EndIf
+	  
+		MarkDown()\ScrollBar\Color\Back         = $F0F0F0
+		MarkDown()\ScrollBar\Color\Border       = $A0A0A0
+		MarkDown()\ScrollBar\Color\Button       = $F0F0F0
+		MarkDown()\ScrollBar\Color\Focus        = $D77800
+		MarkDown()\ScrollBar\Color\Front        = $646464
+		MarkDown()\ScrollBar\Color\Gadget       = $F0F0F0
+		MarkDown()\ScrollBar\Color\ScrollBar    = $C8C8C8
+		MarkDown()\ScrollBar\Color\DisableFront = $72727D
+		MarkDown()\ScrollBar\Color\DisableBack  = $CCCCCA
+		
+		CompilerSelect #PB_Compiler_OS ;{ Color
+			CompilerCase #PB_OS_Windows
+				MarkDown()\ScrollBar\Color\Front     = GetSysColor_(#COLOR_GRAYTEXT)
+				MarkDown()\ScrollBar\Color\Back      = GetSysColor_(#COLOR_MENU)
+				MarkDown()\ScrollBar\Color\Border    = GetSysColor_(#COLOR_3DSHADOW)
+				MarkDown()\ScrollBar\Color\Gadget    = GetSysColor_(#COLOR_MENU)
+				MarkDown()\ScrollBar\Color\Focus     = GetSysColor_(#COLOR_MENUHILIGHT)
+				MarkDown()\ScrollBar\Color\ScrollBar = GetSysColor_(#COLOR_SCROLLBAR)
+			CompilerCase #PB_OS_MacOS
+				MarkDown()\ScrollBar\Color\Front  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+				MarkDown()\ScrollBar\Color\Back   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
+				MarkDown()\ScrollBar\Color\Border = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+				MarkDown()\ScrollBar\Color\Gadget = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
+				MarkDown()\ScrollBar\Color\Focus  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedControlColor"))
+				; MarkDown()\ScrollBar\Color\ScrollBar = 
+			CompilerCase #PB_OS_Linux
+
+		CompilerEndSelect ;}
+    
+		BindEvent(#Event_Timer, @_AutoScroll())
+		
+	EndProcedure
+	
+  Procedure CreateScrollBar_(Label.s, X.i, Y.i, Width.i, Height.i, Minimum.i, Maximum.i, PageLength.i, Type.i=#False)
+    
+    If AddMapElement(MarkDown()\ScrollBar\Item(), Label)
+    
+      MarkDown()\ScrollBar\Item()\X = X
+      MarkDown()\ScrollBar\Item()\Y = Y
+      MarkDown()\ScrollBar\Item()\Width      = Width
+      MarkDown()\ScrollBar\Item()\Height     = Height
+      MarkDown()\ScrollBar\Item()\Minimum    = Minimum
+      MarkDown()\ScrollBar\Item()\Maximum    = Maximum
+      MarkDown()\ScrollBar\Item()\PageLength = PageLength
+      MarkDown()\ScrollBar\Item()\Hide       = #True
+      MarkDown()\ScrollBar\Item()\Type       = Type
+      
+      MarkDown()\ScrollBar\Item()\Cursor = #PB_Default
+		
+			MarkDown()\ScrollBar\Item()\Buttons\Forwards\State  = #PB_Default
+			MarkDown()\ScrollBar\Item()\Buttons\Backwards\State = #PB_Default
+			
+			CalcScrollBarThumb_()
+		  DrawScrollBar_()
+			
+    EndIf
+    
+  EndProcedure 
+  
 	
 	;- ==========================================================================
 	;-   Module - Declared Procedures
@@ -7325,7 +8012,7 @@ Module MarkDown
         EndIf
         ;}
       Else
-        Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Container)
+        Result = CanvasGadget(GNum, X, Y, Width, Height)
       EndIf
   		
   		If Result
@@ -7343,21 +8030,15 @@ Module MarkDown
           Else
             MarkDown()\Window\Num = WindowNum
           EndIf
-  
-  				MarkDown()\Scroll\Num = ScrollBarGadget(#PB_Any, 0, 0, 0, Height, 0, Height, Height, #PB_ScrollBar_Vertical)
-  				If MarkDown()\Scroll\Num
-  				  SetGadgetData(MarkDown()\Scroll\Num, MarkDown()\CanvasNum)
-  				  HideGadget(MarkDown()\Scroll\Num, #True)
-  				  MarkDown()\Scroll\Hide = #True
-  				EndIf
-  				
-  				CloseGadgetList()
 
   				MarkDown()\Size\X = X
   				MarkDown()\Size\Y = Y
   				MarkDown()\Size\Width  = Width
   				MarkDown()\Size\Height = Height
-  
+  				
+  				InitScrollBar_(GNum)
+          CreateScrollBar_("VScroll", Width - #ScrollBarSize - 1, 1, #ScrollBarSize, Height - 2, 0, Height, Height)
+          
   				MarkDown()\Flags  = Flags
   
           InitDefault_()
@@ -7368,9 +8049,7 @@ Module MarkDown
   				BindGadgetEvent(MarkDown()\CanvasNum,  @_LeftButtonDownHandler(), #PB_EventType_LeftButtonDown)
   				BindGadgetEvent(MarkDown()\CanvasNum,  @_LeftButtonUpHandler(),   #PB_EventType_LeftButtonUp)
   				BindGadgetEvent(MarkDown()\CanvasNum,  @_MouseWheelHandler(),     #PB_EventType_MouseWheel)
-  				
-  				BindGadgetEvent(MarkDown()\Scroll\Num, @_SynchronizeScrollBar(),  #PB_All) 
-  				
+
   				CompilerIf Defined(ModuleEx, #PB_Module)
             BindEvent(#Event_Theme, @_ThemeHandler())
           CompilerEndIf
@@ -7386,7 +8065,7 @@ Module MarkDown
   				LoadFonts_("Arial", 11)
   				
   				Draw_()
-  
+
   				ProcedureReturn GNum
   			EndIf
   
@@ -7431,13 +8110,9 @@ Module MarkDown
   	        MarkDown()\Type  = #Requester
 				    MarkDown()\Flags = Flags
 				    
-				    ;{ _____ Scrollbar _____
-    				MarkDown()\Scroll\Num = ScrollBarGadget(#PB_Any, 0, 0, 0, 0, 0, 0, 0, #PB_ScrollBar_Vertical)
-    				If MarkDown()\Scroll\Num
-    				  SetGadgetData(MarkDown()\Scroll\Num, MarkDown()\CanvasNum)
-    				  HideGadget(MarkDown()\Scroll\Num, #True)
-    				  MarkDown()\Scroll\Hide = #True
-    				EndIf ;}
+				    InitScrollBar_(GNum)
+          
+            CreateScrollBar_("VScroll", 0, 0, #ScrollBarSize, 0, 0, 0, 0)
     				
     				CloseGadgetList()
     				
@@ -7512,8 +8187,6 @@ Module MarkDown
     				BindGadgetEvent(MarkDown()\CanvasNum,  @_LeftButtonUpHandler(),   #PB_EventType_LeftButtonUp)
     				BindGadgetEvent(MarkDown()\CanvasNum,  @_MouseWheelHandler(),     #PB_EventType_MouseWheel)
     				
-    				BindGadgetEvent(MarkDown()\Scroll\Num, @_SynchronizeScrollBar(),  #PB_All) 
-    				
     				CompilerIf Defined(ModuleEx, #PB_Module)
               BindEvent(#Event_Theme, @_ThemeHandler())
             CompilerEndIf
@@ -7572,9 +8245,7 @@ Module MarkDown
 				UnbindGadgetEvent(MarkDown()\CanvasNum,  @_LeftButtonDownHandler(), #PB_EventType_LeftButtonDown)
 				UnbindGadgetEvent(MarkDown()\CanvasNum,  @_LeftButtonUpHandler(),   #PB_EventType_LeftButtonUp)
 				UnbindGadgetEvent(MarkDown()\CanvasNum,  @_MouseWheelHandler(),     #PB_EventType_MouseWheel)
-				
-				UnbindGadgetEvent(MarkDown()\Scroll\Num, @_SynchronizeScrollBar(),  #PB_All)
-				
+
         CloseWindow(MarkDown()\Window\Num)
         
         DeleteMapElement(MarkDown(), Str(MarkDown()\CanvasNum))
@@ -7950,7 +8621,6 @@ Module MarkDown
   	
 	CompilerEndIf
 	
-	
 	CompilerIf #Enable_HelpWindow
 	 
 	  Procedure.s Help(Title.s, File.s, Label.s="", Flags.i=#False, Parent.i=#PB_Default)
@@ -8006,14 +8676,10 @@ Module MarkDown
   				  MarkDown()\Size\Width  = 420
   				  MarkDown()\Size\Height = 500
 				    MarkDown()\Flags       = Flags
-  	      
-				    ;{ _____ Scrollbar _____
-    				MarkDown()\Scroll\Num = ScrollBarGadget(#PB_Any, 0, 0, 0, 0, 0, 0, 0, #PB_ScrollBar_Vertical)
-    				If MarkDown()\Scroll\Num
-    				  SetGadgetData(MarkDown()\Scroll\Num, MarkDown()\CanvasNum)
-    				  HideGadget(MarkDown()\Scroll\Num, #True)
-    				  MarkDown()\Scroll\Hide = #True
-    				EndIf ;}
+				    
+				    InitScrollBar_(MarkdownNum)
+          
+            CreateScrollBar_("VScroll", 0, 0, #ScrollBarSize, 0, 0, 0, 0)
     				
     				CloseGadgetList()
     				
@@ -8026,9 +8692,7 @@ Module MarkDown
     				BindGadgetEvent(MarkDown()\CanvasNum,  @_LeftButtonUpHandler(),   #PB_EventType_LeftButtonUp)
     				BindGadgetEvent(MarkDown()\CanvasNum,  @_MouseWheelHandler(),     #PB_EventType_MouseWheel)
     				BindGadgetEvent(MarkDown()\CanvasNum,  @_ResizeHandler(),         #PB_EventType_Resize)
-    				
-    				BindGadgetEvent(MarkDown()\Scroll\Num, @_SynchronizeScrollBar(),  #PB_All) 
-				    
+
 				    CompilerIf Defined(ModuleEx, #PB_Module)
               BindEvent(#Event_Theme, @_ThemeHandler())
             CompilerEndIf
@@ -8097,7 +8761,7 @@ Module MarkDown
   	        AddGadgetItem(Help\TreeNum, -1, Help\Item()\Titel, #False, Help\Item()\Level)
   	      CompilerEndIf
 
-  	    Next ;}
+  	    Next
 
   	    If FindMapElement(MarkDown(), Str(MarkdownNum))
   	      
@@ -8176,9 +8840,8 @@ Module MarkDown
                     If FindMapElement(MarkDown(), Str(MarkdownNum))
                       
                       Result = #False
-                      MarkDown()\Scroll\Offset = 0
-                      _SynchronizeScrollBar()
-                      
+                      MarkDown()\ScrollOffset = 0
+
                       CompilerIf Defined(TreeEx, #PB_Module) 
                         If EventType() = TreeEx::#EventType_Row
                           Selected = EventData()
@@ -8215,8 +8878,8 @@ Module MarkDown
       EndIf
       
       ProcedureReturn Label
-	  EndProcedure
-
+    EndProcedure
+    
 	CompilerEndIf
 	
 	; ===========================
@@ -8703,7 +9366,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
   
-  #Example = 0
+  #Example = 30
   
   ; === Gadget ===
   ;  1: Headings
@@ -8884,13 +9547,13 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "*Second requester line*" 
       ;}
     Default  ;{ Example text
-      ;Text$ = "## MarkDown ##" + #LF$ + #LF$
-      ;Text$ + "> The gadget can display text formatted with the [MarkDown Syntax](https://www.markdownguide.org/basic-syntax/).  "+ #LF$
-      ;Text$ + "> Markdown[^1] is a lightweight MarkUp language that you can use to add formatting elements to plaintext text documents."+ #LF$ + #LF$
-      ;Text$ + "- Markdown files can be read even if it isn’t rendered."  + #LF$
-      ;Text$ + "- Markdown is portable." + #LF$ + "- Markdown is platform independent." + #LF$
-      ;Text$ + "[^1]: Created by John Gruber in 2004."
-      Text$ = "## Überschrift 1" + #LF$ + "Lorem ipsum dolor sit amet, consectetuer adipiscing elit, sed diam nonummy nibh euismod tincidunt ut laoreet dolore magna aliquam erat volutpat. " + #LF$ + #LF$ + "## Tabelle" + #LF$ + "| S1 | S2 |" + #LF$ + "| :--- | :--- |" + #LF$ + "| A  |  B  |" + #LF$ + #LF$ + "## Überschrift 2" + #LF$ + "Lorem ipsum dolor sit amet, consectetuer adipiscing elit, sed diam nonummy nibh euismod tincidunt ut laoreet dolore magna aliquam erat volutpat."
+      Text$ = "## MarkDown ##" + #LF$ + #LF$
+      Text$ + "> The gadget can display text formatted with the [MarkDown Syntax](https://www.markdownguide.org/basic-syntax/).  "+ #LF$
+      Text$ + "> Markdown[^1] is a lightweight MarkUp language that you can use to add formatting elements to plaintext text documents."+ #LF$ + #LF$
+      Text$ + "- Markdown files can be read even if it isn’t rendered."  + #LF$
+      Text$ + "- Markdown is portable." + #LF$ + "- Markdown is platform independent." + #LF$
+      Text$ + "[^1]: Created by John Gruber in 2004."
+      ;Text$ = "## Überschrift 1" + #LF$ + "Lorem ipsum dolor sit amet, consectetuer adipiscing elit, sed diam nonummy nibh euismod tincidunt ut laoreet dolore magna aliquam erat volutpat. " + #LF$ + #LF$ + "## Tabelle" + #LF$ + "| S1 | S2 |" + #LF$ + "| :--- | :--- |" + #LF$ + "| A  |  B  |" + #LF$ + #LF$ + "## Überschrift 2" + #LF$ + "Lorem ipsum dolor sit amet, consectetuer adipiscing elit, sed diam nonummy nibh euismod tincidunt ut laoreet dolore magna aliquam erat volutpat."
       ;}
   EndSelect
 
@@ -9007,9 +9670,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 93
-; FirstLine = 42
-; Folding = 1AQZoAAAAAACAAAAAAoIAAAAQgAAACAJBAAAAAMgBIAAAAEEgBBwgBAQIAAAIhFBIggOAAFQAoAQQICGEAAGwCQAAAHA9
-; Markers = 2998,4883,5992
+; CursorPosition = 9549
+; FirstLine = 857
+; Folding = wEABgCAAAAAAAAAAAAAAQRAAAAgAJAAAAAgAAAAAYADQAAAAIIADCgBDCwHAECAAACIQAKUwBAEAsSAAAAARTMEIAOHAYwAAAfA9
+; Markers = 3143,5030,6355
 ; EnableXP
 ; DPIAware
