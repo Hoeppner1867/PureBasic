@@ -9,11 +9,12 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 01.03.2020
+; Last Update: 05.03.2020
+;
+; Changed: ScrollBarGadget() replaced by drawing routine
 ;
 ; Added:   Attribute #FirstVisibleRow / #VisibleRows
 ; Added:   Flag #StartSelected for columns
-;
 ; Added:   Color for ComboBox items -> AddComboBoxItem()
 ; Bugfix:  Move window
 ; Added:   Use DateEx, if available.
@@ -156,8 +157,8 @@
 
 DeclareModule ListEx
   
-  #Version  = 20030100
-  #ModuleEx = 19112100
+  #Version  = 20030500
+  #ModuleEx = 20030400
   
   #Enable_CSV_Support   = #True
   #Enable_DragAndDrop   = #True
@@ -182,10 +183,11 @@ DeclareModule ListEx
   #Header   = -1
   #NotValid = -2 
 
-  
+  ;{ Sorting
   #Sort_Ascending  = #PB_Sort_Ascending
   #Sort_Descending = #PB_Sort_Descending
   #Sort_NoCase     = #PB_Sort_NoCase
+  ;}
   
   #ColumnCount = #PB_ListIcon_ColumnCount
 
@@ -237,6 +239,11 @@ DeclareModule ListEx
     #ComboBackColor
     #StringFrontColor
     #StringBackColor
+    #ScrollBar_FrontColor
+    #ScrollBar_BackColor 
+    #ScrollBar_BorderColor
+    #ScrollBar_ButtonColor
+    #ScrollBar_ThumbColor
   EndEnumeration ;}
   
   EnumerationBinary ;{ State 
@@ -249,9 +256,9 @@ DeclareModule ListEx
     #NoCheckBoxes
   EndEnumeration ;}
   
-  EnumerationBinary ; ProgressBars
+  EnumerationBinary ;{ ProgressBars
     #ShowPercent
-  EndEnumeration
+  EndEnumeration ;}
   
   EnumerationBinary ;{ Sort Header
     #Left   = 1
@@ -285,6 +292,7 @@ DeclareModule ListEx
     #GadgetFont
     #FirstVisibleRow
     #VisibleRows
+    #ScrollBar
   EndEnumeration ;}
   
   EnumerationBinary ;{ Column Flags
@@ -319,49 +327,71 @@ DeclareModule ListEx
   EndEnumeration ;}
   #Editable = #Strings
   
-  EnumerationBinary
+  EnumerationBinary ;{ AutoResize
     #MoveX
     #MoveY
     #Width
     #Height  
-  EndEnumeration 
+  EndEnumeration ;}
   
-  Enumeration 1
+  Enumeration 1     ;{ Money / Time / Date
     #Currency
     #Clock
     #TimeSeperator
     #DateSeperator
     #DecimalSeperator
-  EndEnumeration
+  EndEnumeration ;}
   
-  Enumeration
+  Enumeration       ;{ Themes
     #Theme_Default
     #Theme_Custom
     #Theme_Blue  
     #Theme_Green
-  EndEnumeration
+  EndEnumeration ;}
   
+	EnumerationBinary ;{ ScrollBar
+		#ScrollBar_Border            ; Draw gadget border
+		#ScrollBar_ButtonBorder      ; Draw button borders
+		#ScrollBar_ThumbBorder       ; Draw thumb border
+		#ScrollBar_DragLines         ; Draw drag lines
+	EndEnumeration ;}
+	
+	Enumeration 1     ;{ ScrollBar Buttons
+	  #ScrollBar_Up
+	  #ScrollBar_Down
+	  #ScrollBar_Left
+	  #ScrollBar_Right
+	EndEnumeration ;}  
+	
+	;{ ScrollBar Style
+	#ScrollBar_Default   = #False
+	#ScrollBar_Frame     = #ScrollBar_Border
+	#ScrollBar_DragPoint = #ScrollBar_ButtonBorder|#ScrollBar_ThumbBorder|#ScrollBar_DragLines|#ScrollBar_Border
+	;}  
+	
   CompilerIf Defined(ModuleEx, #PB_Module)
     
-    #Event_Cursor       = ModuleEx::#Event_Cursor
-    #Event_Gadget       = ModuleEx::#Event_Gadget
-    #Event_Theme        = ModuleEx::#Event_Theme
+    #Event_Cursor        = ModuleEx::#Event_Cursor
+    #Event_Gadget        = ModuleEx::#Event_Gadget
+    #Event_Theme         = ModuleEx::#Event_Theme
+    #Event_Timer         = ModuleEx::#Event_Timer
     
-    #EventType_Button   = ModuleEx::#EventType_Button
-    #EventType_Change   = ModuleEx::#EventType_Change
-    #EventType_CheckBox = ModuleEx::#EventType_CheckBox
-    #EventType_ComboBox = ModuleEx::#EventType_ComboBox 
-    #EventType_Date     = ModuleEx::#EventType_Date
-    #EventType_Header   = ModuleEx::#EventType_Header
-    #EventType_Link     = ModuleEx::#EventType_Link
-    #EventType_Row      = ModuleEx::#EventType_Row
-    #EventType_String   = ModuleEx::#EventType_String
-    
+    #EventType_Button    = ModuleEx::#EventType_Button
+    #EventType_Change    = ModuleEx::#EventType_Change
+    #EventType_CheckBox  = ModuleEx::#EventType_CheckBox
+    #EventType_ComboBox  = ModuleEx::#EventType_ComboBox 
+    #EventType_Date      = ModuleEx::#EventType_Date
+    #EventType_Header    = ModuleEx::#EventType_Header
+    #EventType_Link      = ModuleEx::#EventType_Link
+    #EventType_Row       = ModuleEx::#EventType_Row
+    #EventType_String    = ModuleEx::#EventType_String
+    #EventType_ScrollBar = ModuleEx::#EventType_ScrollBar
   CompilerElse
     
     Enumeration #PB_Event_FirstCustomValue
       #Event_Cursor
       #Event_Gadget
+      #Event_Timer
     EndEnumeration
     
     Enumeration #PB_EventType_FirstCustomValue
@@ -374,6 +404,7 @@ DeclareModule ListEx
       #EventType_Link
       #EventType_Row
       #EventType_String
+      #EventType_ScrollBar
     EndEnumeration
     
   CompilerEndIf
@@ -501,17 +532,18 @@ Module ListEx
   ;{ OS specific contants
   CompilerSelect #PB_Compiler_OS
     CompilerCase #PB_OS_Windows
-      #ScrollBar_Width  = 18
+      #ScrollBarSize  = 18
     CompilerCase #PB_OS_MacOS
-      #ScrollBar_Width  = 18
+      #ScrollBarSize  = 18
     CompilerCase #PB_OS_Linux
-      #ScrollBar_Width  = 18
+      #ScrollBarSize  = 18
   CompilerEndSelect ;}
   
   ;- ===========================================================================
   ;-   Module - Constants
   ;- ===========================================================================  
   
+  ;{ Defaults
   #DefaultCountry          = "DE"
   #DefaultDateMask         = "%dd.%mm.%yyyy"
   #DefaultTimeMask         = "%hh:%ii:%ss"
@@ -520,6 +552,7 @@ Module ListEx
   #DefaultTimeSeparator    = ":"
   #DefaultDateSeparator    = "."
   #DefaultDecimalSeperator = ","
+  ;}
   
   #ButtonWidth     = 18
   #CursorFrequency = 600
@@ -529,23 +562,25 @@ Module ListEx
   
   #TextSelected = #True
   
+  ;{ Cursor
   #Cursor_Default = #PB_Cursor_Default
   #Cursor_Edit    = #PB_Cursor_Hand
   #Cursor_Sort    = #PB_Cursor_Hand
   #Cursor_Click   = #PB_Cursor_Hand
   #Cursor_Button  = #PB_Cursor_Default
   #Cursor_Text    = #PB_Cursor_IBeam
+  ;}
   
-  Enumeration ColorFlag 1
+  Enumeration 1 ; { Mouse
     #Focus
     #Click
-  EndEnumeration
+  EndEnumeration ;}
   
-  Enumeration Grades 1
+  Enumeration 1 ;{ Grades
     #Grades_Number
     #Grades_Character
     #Grades_Points
-  EndEnumeration
+  EndEnumeration ;}
   
   Enumeration 1
     #Key_Return
@@ -557,16 +592,126 @@ Module ListEx
   #Condition1 = 1
   #Condition2 = 2
   
+  #ScrollBar_ButtonSize = 18
+  
+  #ScrollBar_Horizontal = 0
+  #ScrollBar_Vertical   = #PB_ScrollBar_Vertical
+
+  #ScrollBar_Timer      = 100
+	#ScrollBar_TimerDelay = 3
+	
+	Enumeration 1                              ;{ ScrollBar Buttons
+	  #ScrollBar_Forwards
+	  #ScrollBar_Backwards
+	  #ScrollBar_Focus
+	  #ScrollBar_Click
+	EndEnumeration ;}  
+  
   ;- ============================================================================
   ;-   Module - Structures
   ;- ============================================================================  
   
-  Structure ListView_Structure
+  Structure ListView_Structure          ;{ ListView\...
     Window.i
     Gadget.i
     ScrollBar.i
-  EndStructure
+  EndStructure ;}
   Global ListView.ListView_Structure
+  
+  Structure ScrollBar_Timer_Thread_Structure ;{ Thread\...
+    Num.i
+    Active.i
+    Exit.i
+  EndStructure ;}
+  Global TimerThread.ScrollBar_Timer_Thread_Structure
+  
+  Structure ScrollBar_Button_Structure  ;{ ...\ScrollBar\Item()\Buttons\Forwards\...
+	  X.i
+	  Y.i
+	  Width.i
+	  Height.i
+	  State.i
+	EndStructure ;}
+	
+	Structure ScrollBar_Buttons_Structure ;{ ...\ScrollBar\Item()\Buttons\...
+	  Backwards.ScrollBar_Button_Structure
+	  Forwards.ScrollBar_Button_Structure
+	EndStructure ;}
+	
+	Structure ScrollBar_Thumb_Structure   ;{ ...\ScrollBar\Item()\Thumb\...
+	  X.i
+	  Y.i
+	  Width.i
+	  Height.i
+	  Factor.f
+	  Size.i
+	  State.i
+	EndStructure ;}
+	
+  Structure ScrollBar_Area_Structure    ;{ ...\ScrollBar\Item()\Area\...
+	  X.i
+	  Y.i
+	  Width.i
+	  Height.i
+	EndStructure ;}
+  
+	Structure ScrollBar_Item_Structure    ;{ ...\ScrollBar\Item()\...
+	  
+	  Num.i
+	  
+	  Type.i
+    
+    Pos.i
+	  minPos.i
+	  maxPos.i
+	  Ratio.f
+	  
+		Minimum.i
+		Maximum.i
+		PageLength.i
+		
+		X.i
+		Y.i
+		Width.i
+		Height.i
+		
+		Timer.i
+	  TimerDelay.i
+	  
+	  Cursor.i
+	  
+	  Disable.i
+		Hide.i
+
+		Thumb.ScrollBar_Thumb_Structure
+		Buttons.ScrollBar_Buttons_Structure
+		Area.ScrollBar_Area_Structure
+
+	EndStructure ;}  
+	
+	Structure ScrollBar_Color_Structure   ;{ ...\ScrollBar\Color\...
+		Front.i
+		Back.i
+		Border.i
+		Button.i
+		Focus.i
+		Gadget.i
+		ScrollBar.i
+		DisableFront.i
+		DisableBack.i
+	EndStructure  ;}
+	
+	Structure ScrollBar_Structure         ;{ ...\ScrollBar\...
+
+	  Adjust.i
+	  Radius.i
+
+	  Flags.i
+	  
+	  Color.ScrollBar_Color_Structure
+
+    Map Item.ScrollBar_Item_Structure()
+  EndStructure ;}
   
   ; ===== Structures =====
   
@@ -667,7 +812,7 @@ Module ListEx
     Flags.i
   EndStructure ;}
   
-  Structure Selection_Structure  ;{ ListEx()\String\Selection\
+  Structure Selection_Structure         ;{ ListEx()\String\Selection\
     Pos1.i
     Pos2.i
     Flag.i
@@ -737,13 +882,7 @@ Module ListEx
   EndStructure ;}
   
   ; ----- ComboBox -----
-  
-  Structure ListView_Scroll_Structure   ;{ ListEx()\ListView\ScrollBar\...
-    Num.i
-    Pos.i
-    Hide.i
-  EndStructure ;}
-  
+
   Structure ListView_Item_Structure     ;{ ListEx()\ListView\Item()\...
     ;ID.s
     ;Quad.q
@@ -765,12 +904,11 @@ Module ListEx
     Focus.i
     State.i
     Hide.i
-    ScrollBar.ListView_Scroll_Structure
     Map  Index.i() 
     List Item.ListView_Item_Structure()
   EndStructure ;}
   
-  Structure ComboBox_Item_Structure    ;{ ListEx()\ComboBox\Column('num')\Items()\...
+  Structure ComboBox_Item_Structure     ;{ ListEx()\ComboBox\Column('num')\Items()\...
     String.s
     Color.i
   EndStructure ;}
@@ -977,8 +1115,6 @@ Module ListEx
     
     Size.ListEx_Size_Structure
     
-    VScroll.ListEx_Scroll_Structure
-    HScroll.ListEx_Scroll_Structure
     AutoResize.ListEx_AutoResize_Structure
     Window.ListEx_Window_Structure
     
@@ -1001,6 +1137,7 @@ Module ListEx
     Link.ListEx_Link_Structure
     String.ListEx_String_Structure
     Selection.Selection_Structure
+    ScrollBar.ScrollBar_Structure
     
     Map Mark.ListEx_Mark_Structure()
     
@@ -1336,6 +1473,58 @@ Module ListEx
     ProcedureReturn ListIndex(ListEx()\Rows())
   EndProcedure 
   
+  ;- __________ ScrollBar __________
+  
+  Procedure.i CalcScrollBarThumb_(ScrollBar.s, Reset.i=#True)
+	  Define.i Size, Range, HRange
+	  
+	  If FindMapElement(ListEx()\ScrollBar\Item(), ScrollBar)
+	    
+  	  ListEx()\ScrollBar\Item()\minPos   = ListEx()\ScrollBar\Item()\Minimum
+  	  ListEx()\ScrollBar\Item()\maxPos   = ListEx()\ScrollBar\Item()\Maximum - ListEx()\ScrollBar\Item()\PageLength + 1
+  	  ListEx()\ScrollBar\Item()\Ratio    = ListEx()\ScrollBar\Item()\PageLength / ListEx()\ScrollBar\Item()\Maximum
+  	  If Reset : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\Minimum : EndIf
+  	  
+  	  Range = ListEx()\ScrollBar\Item()\maxPos - ListEx()\ScrollBar\Item()\minPos
+  	  
+  	  If ListEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical
+  	    ListEx()\ScrollBar\Item()\Area\X       = dpiX(ListEx()\ScrollBar\Item()\X)
+    	  ListEx()\ScrollBar\Item()\Area\Y       = dpiY(ListEx()\ScrollBar\Item()\Y) + dpiY(#ScrollBar_ButtonSize) + dpiY(1)
+    	  ListEx()\ScrollBar\Item()\Area\Width   = dpiX(ListEx()\ScrollBar\Item()\Width)
+    	  ListEx()\ScrollBar\Item()\Area\Height  = dpiY(ListEx()\ScrollBar\Item()\Height) - dpiY(ListEx()\ScrollBar\Adjust) - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(2)
+    	  ListEx()\ScrollBar\Item()\Thumb\Y      = ListEx()\ScrollBar\Item()\Area\Y
+    	  ListEx()\ScrollBar\Item()\Thumb\Size   = Round(ListEx()\ScrollBar\Item()\Area\Height * ListEx()\ScrollBar\Item()\Ratio, #PB_Round_Down)
+    	  ListEx()\ScrollBar\Item()\Thumb\Factor = (ListEx()\ScrollBar\Item()\Area\Height - ListEx()\ScrollBar\Item()\Thumb\Size) / Range
+  	  Else
+  	    ListEx()\ScrollBar\Item()\Area\X       = dpiX(ListEx()\ScrollBar\Item()\X) + dpiX(#ScrollBar_ButtonSize) + dpiX(1)
+    	  ListEx()\ScrollBar\Item()\Area\Y       = dpiY(ListEx()\ScrollBar\Item()\Y)
+    	  ListEx()\ScrollBar\Item()\Area\Width   = dpiX(ListEx()\ScrollBar\Item()\Width) - dpiX(ListEx()\ScrollBar\Adjust) - dpiX(#ScrollBar_ButtonSize * 2) - dpiX(2)
+    	  ListEx()\ScrollBar\Item()\Area\Height  = dpiY(ListEx()\ScrollBar\Item()\Height)
+    	  ListEx()\ScrollBar\Item()\Thumb\X      = ListEx()\ScrollBar\Item()\Area\X
+    	  ListEx()\ScrollBar\Item()\Thumb\Size   = Round(ListEx()\ScrollBar\Item()\Area\Width * ListEx()\ScrollBar\Item()\Ratio, #PB_Round_Down)
+    	  ListEx()\ScrollBar\Item()\Thumb\Factor = (ListEx()\ScrollBar\Item()\Area\Width - ListEx()\ScrollBar\Item()\Thumb\Size) / Range
+  	  EndIf  
+  	  
+	  EndIf   
+
+	EndProcedure
+	
+	Procedure.i GetSteps_(Cursor.i)
+	  Define.i Steps
+	  
+	  Steps = (Cursor - ListEx()\ScrollBar\Item()\Cursor) / ListEx()\ScrollBar\Item()\Thumb\Factor
+	  
+	  If Steps = 0
+	    If Cursor < ListEx()\ScrollBar\Item()\Cursor
+	      Steps = -1
+	    Else
+	      Steps = 1
+	    EndIf
+	  EndIf
+	  
+	  ProcedureReturn Steps
+	EndProcedure
+	  
   ;- _____ CSV - Support _____
   
   CompilerIf #Enable_CSV_Support
@@ -2365,7 +2554,7 @@ Module ListEx
           EndIf
         EndIf 
       Case #ButtonColor  
-        ListEx()\Color\ButtonBack   = Value
+        ListEx()\Color\ButtonBack       = Value
       Case #ProgressBarColor
         ListEx()\Color\ProgressBar  = Value
       Case #GradientColor
@@ -2373,7 +2562,8 @@ Module ListEx
       Case #LineColor
         ListEx()\Color\Line         = Value
       Case #FocusColor
-        ListEx()\Color\Focus        = Value
+        ListEx()\Color\Focus           = Value
+        ListEx()\ScrollBar\Color\Focus = Value
       Case #FocusTextColor
         ListEx()\Color\FocusText    = Value  
       Case #EditFrontColor
@@ -2400,6 +2590,16 @@ Module ListEx
         ListEx()\Color\StringFront  = Value
       Case #StringBackColor
         ListEx()\Color\StringBack   = Value
+      Case #ScrollBar_FrontColor
+        ListEx()\ScrollBar\Color\Front     = Value
+      Case #ScrollBar_BackColor 
+        ListEx()\ScrollBar\Color\Back      = Value
+      Case #ScrollBar_BorderColor
+        ListEx()\ScrollBar\Color\Border    = Value
+      Case #ScrollBar_ButtonColor
+        ListEx()\ScrollBar\Color\Button    = Value
+      Case #ScrollBar_ThumbColor
+        ListEx()\ScrollBar\Color\ScrollBar = Value  
     EndSelect
 
   EndProcedure
@@ -2885,6 +3085,305 @@ Module ListEx
     ProcedureReturn CursorX
   EndProcedure  
   
+
+	Procedure   DrawScrollArrow_(X.i, Y.i, Width.i, Height.i, Color.i, Flag.i)
+	  Define.i aWidth, aHeight, aColor
+
+	  If StartVectorDrawing(CanvasVectorOutput(ListEx()\ScrollBar\Item()\Num))
+
+      aColor  = RGBA(Red(Color), Green(Color), Blue(Color), 255)
+      
+      If Flag = #ScrollBar_Up Or Flag = #ScrollBar_Down
+  	    aWidth  = dpiX(8)
+  	    aHeight = dpiX(4)
+  	  Else
+        aWidth  = dpiX(4)
+        aHeight = dpiX(8)  
+  	  EndIf  
+
+      X + ((Width  - aWidth) / 2)
+      Y + ((Height - aHeight) / 2)
+      
+      Select Flag
+        Case #ScrollBar_Up
+          MovePathCursor(X, Y + aHeight)
+          AddPathLine(X + aWidth / 2, Y)
+          AddPathLine(X + aWidth, Y + aHeight)
+        Case #ScrollBar_Down 
+          MovePathCursor(X, Y)
+          AddPathLine(X + aWidth / 2, Y + aHeight)
+          AddPathLine(X + aWidth, Y)
+        Case #ScrollBar_Left
+          MovePathCursor(X + aWidth, Y)
+          AddPathLine(X, Y + aHeight / 2)
+          AddPathLine(X + aWidth, Y + aHeight)
+        Case #ScrollBar_Right
+          MovePathCursor(X, Y)
+          AddPathLine(X + aWidth, Y + aHeight / 2)
+          AddPathLine(X, Y + aHeight)
+      EndSelect
+      
+      VectorSourceColor(aColor)
+      StrokePath(2, #PB_Path_RoundCorner)
+
+	    StopVectorDrawing()
+	  EndIf
+	  
+	EndProcedure
+	
+	Procedure   DrawScrollButton_(X.i, Y.i, Width.i, Height.i, ScrollBar.s, Type.i, State.i=#False)
+	  Define.i Color, Border
+	  
+	  If FindMapElement(ListEx()\ScrollBar\Item(), ScrollBar)
+	    
+  	  If StartDrawing(CanvasOutput(ListEx()\ScrollBar\Item()\Num))
+  	    
+  	    DrawingMode(#PB_2DDrawing_Default)
+  	    
+  	    Select State
+  	      Case #ScrollBar_Focus
+  	        Color  = BlendColor_(ListEx()\ScrollBar\Color\Focus, ListEx()\ScrollBar\Color\Button, 10)
+  	        Border = BlendColor_(ListEx()\ScrollBar\Color\Focus, ListEx()\ScrollBar\Color\Border, 10)
+  	      Case #ScrollBar_Click
+  	        Color  = BlendColor_(ListEx()\ScrollBar\Color\Focus, ListEx()\ScrollBar\Color\Button, 20)
+  	        Border = BlendColor_(ListEx()\ScrollBar\Color\Focus, ListEx()\ScrollBar\Color\Border, 20)
+  	      Default
+  	        Color  = ListEx()\ScrollBar\Color\Button
+  	        Border = ListEx()\ScrollBar\Color\Border
+  	    EndSelect    
+
+	      If ListEx()\ScrollBar\Item()\Hide : ProcedureReturn #False : EndIf 
+	      
+	      Select Type
+  	      Case #ScrollBar_Forwards
+  	        If ListEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical
+  	          Box(ListEx()\ScrollBar\Item()\Buttons\Forwards\X,  ListEx()\ScrollBar\Item()\Buttons\Forwards\Y,  ListEx()\ScrollBar\Item()\Buttons\Forwards\Width, ListEx()\ScrollBar\Item()\Buttons\Forwards\Height,  Color)
+  	        Else
+  	          Box(ListEx()\ScrollBar\Item()\Buttons\Forwards\X,  ListEx()\ScrollBar\Item()\Buttons\Forwards\Y,  ListEx()\ScrollBar\Item()\Buttons\Forwards\Width,  ListEx()\ScrollBar\Item()\Buttons\Forwards\Height,  Color)
+  	        EndIf  
+  	      Case #ScrollBar_Backwards
+  	        If ListEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical
+  	          Box(ListEx()\ScrollBar\Item()\Buttons\Backwards\X, ListEx()\ScrollBar\Item()\Buttons\Backwards\Y, ListEx()\ScrollBar\Item()\Buttons\Backwards\Width, ListEx()\ScrollBar\Item()\Buttons\Backwards\Height, Color)
+  	        Else
+  	          Box(ListEx()\ScrollBar\Item()\Buttons\Backwards\X, ListEx()\ScrollBar\Item()\Buttons\Backwards\Y, ListEx()\ScrollBar\Item()\Buttons\Backwards\Width, ListEx()\ScrollBar\Item()\Buttons\Backwards\Height, Color)
+  	        EndIf   
+  	    EndSelect    
+	      
+	      If ListEx()\ScrollBar\Flags & #ScrollBar_ButtonBorder
+	      
+  	      DrawingMode(#PB_2DDrawing_Outlined)
+  	      
+  	      Select Type
+  	        Case #ScrollBar_Forwards
+  	          If ListEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical
+  	            Box(ListEx()\ScrollBar\Item()\Buttons\Forwards\X - dpiX(1), ListEx()\ScrollBar\Item()\Buttons\Forwards\Y, ListEx()\ScrollBar\Item()\Buttons\Forwards\Width + dpiX(2), ListEx()\ScrollBar\Item()\Buttons\Forwards\Height + dpiY(2), Border)
+  	          Else
+  	            Box(ListEx()\ScrollBar\Item()\Buttons\Forwards\X, ListEx()\ScrollBar\Item()\Buttons\Forwards\Y - dpiY(1), ListEx()\ScrollBar\Item()\Buttons\Forwards\Width + dpiX(2), ListEx()\ScrollBar\Item()\Buttons\Forwards\Height + dpiY(2), Border)
+  	          EndIf  
+    	      Case #ScrollBar_Backwards
+    	        If ListEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical
+    	          Box(ListEx()\ScrollBar\Item()\Buttons\Backwards\X - dpiX(1), ListEx()\ScrollBar\Item()\Buttons\Backwards\Y - dpiY(1), ListEx()\ScrollBar\Item()\Buttons\Backwards\Width + dpiX(2), ListEx()\ScrollBar\Item()\Buttons\Backwards\Height + dpiY(1), Border)
+    	        Else
+  	            Box(ListEx()\ScrollBar\Item()\Buttons\Backwards\X - dpiX(1), ListEx()\ScrollBar\Item()\Buttons\Backwards\Y - dpiY(1), ListEx()\ScrollBar\Item()\Buttons\Backwards\Width + dpiX(1), ListEx()\ScrollBar\Item()\Buttons\Backwards\Height + dpiY(1), Border)
+  	          EndIf   
+    	    EndSelect 
+    	    
+    	  EndIf 
+    	  
+	      StopDrawing()
+	    EndIf
+
+	  EndIf
+	  
+	  ;{ ----- Draw Arrows -----
+	  If FindMapElement(ListEx()\ScrollBar\Item(), ScrollBar)
+	    
+  	  Select Type
+        Case #ScrollBar_Forwards
+          If ListEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical
+            If ListEx()\ScrollBar\Flags = #False
+              DrawScrollArrow_(ListEx()\ScrollBar\Item()\Buttons\Forwards\X, ListEx()\ScrollBar\Item()\Buttons\Forwards\Y, ListEx()\ScrollBar\Item()\Buttons\Forwards\Width, ListEx()\ScrollBar\Item()\Buttons\Forwards\Height, ListEx()\ScrollBar\Color\Front, #ScrollBar_Down)
+            Else  
+              DrawScrollArrow_(ListEx()\ScrollBar\Item()\Buttons\Forwards\X, ListEx()\ScrollBar\Item()\Buttons\Forwards\Y + dpiY(1), ListEx()\ScrollBar\Item()\Buttons\Forwards\Width, ListEx()\ScrollBar\Item()\Buttons\Forwards\Height, ListEx()\ScrollBar\Color\Front, #ScrollBar_Down)
+            EndIf
+          Else
+            If ListEx()\ScrollBar\Flags = #False
+              DrawScrollArrow_(ListEx()\ScrollBar\Item()\Buttons\Forwards\X, ListEx()\ScrollBar\Item()\Buttons\Forwards\Y, ListEx()\ScrollBar\Item()\Buttons\Forwards\Width, ListEx()\ScrollBar\Item()\Buttons\Forwards\Height, ListEx()\ScrollBar\Color\Front, #ScrollBar_Right)
+            Else  
+              DrawScrollArrow_(ListEx()\ScrollBar\Item()\Buttons\Forwards\X + dpiX(1), ListEx()\ScrollBar\Item()\Buttons\Forwards\Y, ListEx()\ScrollBar\Item()\Buttons\Forwards\Width, ListEx()\ScrollBar\Item()\Buttons\Forwards\Height, ListEx()\ScrollBar\Color\Front, #ScrollBar_Right)
+            EndIf
+          EndIf  
+        Case #ScrollBar_Backwards
+          If ListEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical
+        		DrawScrollArrow_(ListEx()\ScrollBar\Item()\Buttons\Backwards\X, ListEx()\ScrollBar\Item()\Buttons\Backwards\Y, ListEx()\ScrollBar\Item()\Buttons\Backwards\Width, ListEx()\ScrollBar\Item()\Buttons\Backwards\Height, ListEx()\ScrollBar\Color\Front, #ScrollBar_Up)
+        	Else
+        	  DrawScrollArrow_(ListEx()\ScrollBar\Item()\Buttons\Backwards\X, ListEx()\ScrollBar\Item()\Buttons\Backwards\Y, ListEx()\ScrollBar\Item()\Buttons\Backwards\Width, ListEx()\ScrollBar\Item()\Buttons\Backwards\Height, ListEx()\ScrollBar\Color\Front, #ScrollBar_Left)
+        	EndIf  
+      EndSelect
+    
+    EndIf ;}
+
+	EndProcedure
+	
+	Procedure   DrawScrollBar_(ScrollBar.s)
+		Define.i X, Y, Width, Height, Offset, OffsetX, OffsetY
+		Define.i FrontColor, BackColor, BorderColor, ScrollBorderColor
+		
+		If FindMapElement(ListEx()\ScrollBar\Item(), ScrollBar)
+		  
+      If ListEx()\ScrollBar\Item()\Hide : ProcedureReturn #False : EndIf 
+  	 
+      ;{ ----- Size -----
+		  X      = dpiX(ListEx()\ScrollBar\Item()\X)
+		  Y      = dpiY(ListEx()\ScrollBar\Item()\Y)
+		  Width  = dpiX(ListEx()\ScrollBar\Item()\Width) 
+		  Height = dpiY(ListEx()\ScrollBar\Item()\Height)
+		  ;}
+
+		  Offset = (ListEx()\ScrollBar\Item()\Pos - ListEx()\ScrollBar\Item()\minPos) * ListEx()\ScrollBar\Item()\Thumb\Factor
+		  
+		  If ListEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical
+		    
+        ;{ ----- Buttons -----
+  		  ListEx()\ScrollBar\Item()\Buttons\Forwards\X       = X + dpiX(1)
+    		ListEx()\ScrollBar\Item()\Buttons\Forwards\Y       = Y + Height - dpiY(#ScrollBar_ButtonSize) - dpiY(ListEx()\ScrollBar\Adjust) - dpiY(1)
+    		ListEx()\ScrollBar\Item()\Buttons\Forwards\Width   = Width - dpiX(2)
+    		ListEx()\ScrollBar\Item()\Buttons\Forwards\Height  = dpiY(#ScrollBar_ButtonSize)	
+    		ListEx()\ScrollBar\Item()\Buttons\Backwards\X      = X + dpiX(1)
+    		ListEx()\ScrollBar\Item()\Buttons\Backwards\Y      = Y + dpiY(1)
+    		ListEx()\ScrollBar\Item()\Buttons\Backwards\Width  = Width - dpiX(2)
+    		ListEx()\ScrollBar\Item()\Buttons\Backwards\Height = dpiY(#ScrollBar_ButtonSize)
+    		;}
+        ;{ ----- ScrollArea -----
+    		ListEx()\ScrollBar\Item()\Area\X = X
+    	  ListEx()\ScrollBar\Item()\Area\Y = Y + dpiY(#ScrollBar_ButtonSize) + dpiY(1)
+    	  ListEx()\ScrollBar\Item()\Area\Width  = Width
+    	  ListEx()\ScrollBar\Item()\Area\Height = Height - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(2)
+    	  ;}
+        ;{ ----- Thumb -----
+    	  ListEx()\ScrollBar\Item()\Thumb\X      = X
+    	  ListEx()\ScrollBar\Item()\Thumb\Y      = ListEx()\ScrollBar\Item()\Area\Y + Offset
+    	  ListEx()\ScrollBar\Item()\Thumb\Width  = Width
+    	  ListEx()\ScrollBar\Item()\Thumb\Height = ListEx()\ScrollBar\Item()\Thumb\Size
+    	  If ListEx()\ScrollBar\Flags & #ScrollBar_ButtonBorder
+    	    ListEx()\ScrollBar\Item()\Thumb\Y + dpiY(1)
+    	    ListEx()\ScrollBar\Item()\Thumb\Height - dpiY(2)
+    	  EndIf ;}
+    	  
+    	Else
+    	  
+  		  ;{ ----- Buttons -----
+  		  ListEx()\ScrollBar\Item()\Buttons\Forwards\X       = X + Width - dpiX(#ScrollBar_ButtonSize) - dpiX(ListEx()\ScrollBar\Adjust) - dpiY(1)
+    		ListEx()\ScrollBar\Item()\Buttons\Forwards\Y       = Y + dpiY(1)
+    		ListEx()\ScrollBar\Item()\Buttons\Forwards\Width   = dpiX(#ScrollBar_ButtonSize)
+    		ListEx()\ScrollBar\Item()\Buttons\Forwards\Height  = Height - dpiY(2)
+    		ListEx()\ScrollBar\Item()\Buttons\Backwards\X      = X + dpiX(1)
+    		ListEx()\ScrollBar\Item()\Buttons\Backwards\Y      = Y + dpiY(1)
+    		ListEx()\ScrollBar\Item()\Buttons\Backwards\Width  = dpiX(#ScrollBar_ButtonSize)
+    		ListEx()\ScrollBar\Item()\Buttons\Backwards\Height = Height - dpiY(2)
+    		;}
+    		;{ ----- ScrollArea -----
+    		ListEx()\ScrollBar\Item()\Area\X = X + dpiX(#ScrollBar_ButtonSize) + dpiX(1)
+    	  ListEx()\ScrollBar\Item()\Area\Y = Y
+    	  ListEx()\ScrollBar\Item()\Area\Width  = Width - dpiX(#ScrollBar_ButtonSize * 2) - dpiX(2)
+    	  ListEx()\ScrollBar\Item()\Area\Height = Height
+    	  ;}
+    	  ;{ ----- Thumb -----
+    	  ListEx()\ScrollBar\Item()\Thumb\X      = ListEx()\ScrollBar\Item()\Area\X + Offset
+    	  ListEx()\ScrollBar\Item()\Thumb\Y      = Y
+    	  ListEx()\ScrollBar\Item()\Thumb\Width  = ListEx()\ScrollBar\Item()\Thumb\Size
+    	  ListEx()\ScrollBar\Item()\Thumb\Height = Height
+    	  If ListEx()\ScrollBar\Flags & #ScrollBar_ButtonBorder
+    	    ListEx()\ScrollBar\Item()\Thumb\X + dpiX(1)
+    	    ListEx()\ScrollBar\Item()\Thumb\Width - dpiX(2)
+    	  EndIf ;}	
+
+		  EndIf
+
+  		If StartDrawing(CanvasOutput(ListEx()\ScrollBar\Item()\Num))
+  		  
+  		  ;{ _____ Color _____
+  		  FrontColor  = ListEx()\ScrollBar\Color\Front
+  		  BackColor   = ListEx()\ScrollBar\Color\Back
+  		  BorderColor = ListEx()\ScrollBar\Color\Border
+  		  
+  		  If ListEx()\ScrollBar\Item()\Disable
+  		    FrontColor  = ListEx()\ScrollBar\Color\DisableFront
+  		    BackColor   = ListEx()\ScrollBar\Color\DisableBack
+  		    BorderColor = ListEx()\ScrollBar\Color\DisableFront
+  		  EndIf
+  		  ;}
+  		  
+  		  DrawingMode(#PB_2DDrawing_Default)
+  		  
+  		  ;{ _____ Background _____
+  		  Box(X, Y, Width, Height, ListEx()\ScrollBar\Color\Gadget) ; needed for rounded corners
+  		  Box(ListEx()\ScrollBar\Item()\Area\X, ListEx()\ScrollBar\Item()\Area\Y, ListEx()\ScrollBar\Item()\Area\Width, ListEx()\ScrollBar\Item()\Area\Height, ListEx()\ScrollBar\Color\Back)
+  			;}
+  			
+  		  ;{ _____ Draw Thumb _____
+  		  Select ListEx()\ScrollBar\Item()\Thumb\State
+  			  Case #ScrollBar_Focus
+  			    Box(ListEx()\ScrollBar\Item()\Thumb\X, ListEx()\ScrollBar\Item()\Thumb\Y, ListEx()\ScrollBar\Item()\Thumb\Width, ListEx()\ScrollBar\Item()\Thumb\Height, BlendColor_(ListEx()\ScrollBar\Color\Focus, ListEx()\ScrollBar\Color\ScrollBar, 10))
+  			  Case #ScrollBar_Click
+  			    Box(ListEx()\ScrollBar\Item()\Thumb\X, ListEx()\ScrollBar\Item()\Thumb\Y, ListEx()\ScrollBar\Item()\Thumb\Width, ListEx()\ScrollBar\Item()\Thumb\Height, BlendColor_(ListEx()\ScrollBar\Color\Focus, ListEx()\ScrollBar\Color\ScrollBar, 20))
+  			  Default
+  			    Box(ListEx()\ScrollBar\Item()\Thumb\X, ListEx()\ScrollBar\Item()\Thumb\Y, ListEx()\ScrollBar\Item()\Thumb\Width, ListEx()\ScrollBar\Item()\Thumb\Height, ListEx()\ScrollBar\Color\ScrollBar)
+  			EndSelect
+  			
+  		  If ListEx()\ScrollBar\Flags & #ScrollBar_DragLines   ;{ Drag Lines
+  		    
+  		    If ListEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical
+  		      
+    			  If ListEx()\ScrollBar\Item()\Thumb\Size > dpiY(10)
+    		      OffsetY = (ListEx()\ScrollBar\Item()\Thumb\Size - dpiY(7)) / 2			      
+    		      Line(ListEx()\ScrollBar\Item()\Thumb\X + dpiX(4), ListEx()\ScrollBar\Item()\Thumb\Y + OffsetY, ListEx()\ScrollBar\Item()\Thumb\Width - dpiX(8), dpiY(1), ListEx()\ScrollBar\Color\Front)
+    		      Line(ListEx()\ScrollBar\Item()\Thumb\X + dpiX(4), ListEx()\ScrollBar\Item()\Thumb\Y + OffsetY + dpiY(3), ListEx()\ScrollBar\Item()\Thumb\Width - dpiX(8), dpiY(1), ListEx()\ScrollBar\Color\Front)
+    		      Line(ListEx()\ScrollBar\Item()\Thumb\X + dpiX(4), ListEx()\ScrollBar\Item()\Thumb\Y + OffsetY + dpiY(6), ListEx()\ScrollBar\Item()\Thumb\Width - dpiX(8), dpiY(1), ListEx()\ScrollBar\Color\Front)
+    		    EndIf
+    		    
+    		  Else
+  
+    			  If ListEx()\ScrollBar\Item()\Thumb\Size > dpiX(10)
+      		    OffsetX = (ListEx()\ScrollBar\Item()\Thumb\Size - dpiX(7)) / 2
+      		    Line(ListEx()\ScrollBar\Item()\Thumb\X + OffsetX, ListEx()\ScrollBar\Item()\Thumb\Y + dpiX(4), dpiX(1), ListEx()\ScrollBar\Item()\Thumb\Height - dpiY(8), ListEx()\ScrollBar\Color\Front)
+  			      Line(ListEx()\ScrollBar\Item()\Thumb\X + OffsetX + dpiX(3), ListEx()\ScrollBar\Item()\Thumb\Y + dpiX(4), dpiX(1), ListEx()\ScrollBar\Item()\Thumb\Height - dpiY(8), ListEx()\ScrollBar\Color\Front)
+  			      Line(ListEx()\ScrollBar\Item()\Thumb\X + OffsetX + dpiX(6), ListEx()\ScrollBar\Item()\Thumb\Y + dpiX(4), dpiX(1), ListEx()\ScrollBar\Item()\Thumb\Height - dpiY(8), ListEx()\ScrollBar\Color\Front)
+  			    EndIf
+  			    
+  			  EndIf
+  			  ;}
+  			EndIf
+  			
+  			If ListEx()\ScrollBar\Flags & #ScrollBar_ThumbBorder ;{ Thumb Border
+  			  DrawingMode(#PB_2DDrawing_Outlined)
+  			  Box(ListEx()\ScrollBar\Item()\Thumb\X, ListEx()\ScrollBar\Item()\Thumb\Y, ListEx()\ScrollBar\Item()\Thumb\Width, ListEx()\ScrollBar\Item()\Thumb\Height, ListEx()\ScrollBar\Color\Border)
+  			  ;}
+  			EndIf
+  			;}
+  			
+  			;{ _____ Border ____
+  			If ListEx()\ScrollBar\Flags & #ScrollBar_Border
+  			  DrawingMode(#PB_2DDrawing_Outlined)
+  			  Box(X, Y, Width, Height, BorderColor)
+  			  If ListEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical
+  			    Line(X, Height - dpiY(ListEx()\ScrollBar\Adjust), Width, 1, BorderColor)
+  			  Else
+  			    Line(Width - dpiX(ListEx()\ScrollBar\Adjust), Y, 1, Height, BorderColor)
+  			  EndIf   
+  			EndIf ;}
+  
+  			StopDrawing()
+  		EndIf
+  		
+    	DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Forwards\X,  ListEx()\ScrollBar\Item()\Buttons\Forwards\Y,  ListEx()\ScrollBar\Item()\Buttons\Forwards\Width,  ListEx()\ScrollBar\Item()\Buttons\Forwards\Height,  ScrollBar, #ScrollBar_Forwards,  ListEx()\ScrollBar\Item()\Buttons\Forwards\State)
+    	DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Backwards\X, ListEx()\ScrollBar\Item()\Buttons\Backwards\Y, ListEx()\ScrollBar\Item()\Buttons\Backwards\Width, ListEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards, ListEx()\ScrollBar\Item()\Buttons\Backwards\State)
+
+    EndIf
+    
+	EndProcedure  
+	
+  
   CompilerIf #Enable_ProgressBar
     
     Procedure   DrawProgressBar_(X.f, Y.f, Width.f, Height.f, State.i, Text.s, TextColor.i, Align.i, FontID.i)
@@ -2987,24 +3486,24 @@ Module ListEx
       OffsetY    = dpiY(1) 
       
       ;{ _____ ScrollBar _____
-      PageRows  = Height / RowHeight
-
+      PageRows = Height / RowHeight
+     
       If PageRows < ListSize(ListEx()\ListView\Item())
-        
-        If ListEx()\ListView\ScrollBar\Hide = #False
+
+        If FindMapElement(ListEx()\ScrollBar\Item(), "LScroll")
           
-          If IsGadget(ListEx()\ListView\ScrollBar\Num)
-            scrollX = Width - #ScrollBar_Width - 1
-            SetGadgetAttribute(ListEx()\ListView\ScrollBar\Num, #PB_ScrollBar_PageLength, PageRows)
-            SetGadgetAttribute(ListEx()\ListView\ScrollBar\Num, #PB_ScrollBar_Minimum, 1)
-            SetGadgetAttribute(ListEx()\ListView\ScrollBar\Num, #PB_ScrollBar_Maximum, ListSize(ListEx()\ListView\Item()))
-            ResizeGadget(ListEx()\ListView\ScrollBar\Num, scrollX, 1, #PB_Ignore, GadgetHeight(ListEx()\ListView\Num) - 2)
-            HideGadget(ListEx()\ListView\ScrollBar\Num, #False)
-            ListEx()\ListView\ScrollBar\Hide = #False
-          EndIf
+          ListEx()\ListView\Offset = ListEx()\ScrollBar\Item()\Pos
           
-        EndIf  
+          ListEx()\ScrollBar\Item()\Minimum    = 1
+          ListEx()\ScrollBar\Item()\Maximum    = ListSize(ListEx()\ListView\Item())
+          ListEx()\ScrollBar\Item()\PageLength = PageRows
         
+          CalcScrollBarThumb_("LScroll", #False)
+        
+        EndIf 
+        
+      Else
+        ListEx()\ListView\Offset = 0
       EndIf ;}
       
       ;{ _____ Rows _____
@@ -3055,6 +3554,8 @@ Module ListEx
       
       StopDrawing()
     EndIf
+    
+    If ListEx()\ScrollBar\Item("LScroll")\Hide = #False : DrawScrollBar_("LScroll") : EndIf
     
   EndProcedure
   
@@ -3312,21 +3813,63 @@ Module ListEx
     Define.s Key$, Text$
     
     If ListEx()\Hide : ProcedureReturn #False : EndIf
-    
-    AdjustScrollBars_()
-    
+
     PageRows = GetPageRows_()
     
-    If ListEx()\HScroll\Hide
-      Height = dpiY(GadgetWidth(ListEx()\CanvasNum))
-    Else  
-      Height = dpiY(GadgetWidth(ListEx()\CanvasNum)) - dpiY(#ScrollBar_Width)
+    If ListEx()\ScrollBar\Item("HScroll")\Hide = #False And ListEx()\ScrollBar\Item("VScroll")\Hide = #False
+      ListEx()\ScrollBar\Adjust = #ScrollBarSize
+    Else
+      ListEx()\ScrollBar\Adjust = 0
+    EndIf
+    
+    If ListEx()\ScrollBar\Item("HScroll")\Hide = #False
+      If ListEx()\ScrollBar\Flags = #False
+        ListEx()\ScrollBar\Item("HScroll")\X      = dpiX(1)
+        ListEx()\ScrollBar\Item("HScroll")\Y      = dpiY(GadgetHeight(ListEx()\CanvasNum)) - dpiY(#ScrollBarSize) - dpiY(1)
+        ListEx()\ScrollBar\Item("HScroll")\Width  = dpiX(GadgetWidth(ListEx()\CanvasNum))  - dpiX(2)
+        ListEx()\ScrollBar\Item("HScroll")\Height = dpiY(#ScrollBarSize)
+      Else
+        ListEx()\ScrollBar\Item("HScroll")\X      = 0
+        ListEx()\ScrollBar\Item("HScroll")\Y      = dpiY(GadgetHeight(ListEx()\CanvasNum)) - dpiY(#ScrollBarSize)
+        ListEx()\ScrollBar\Item("HScroll")\Width  = dpiX(GadgetWidth(ListEx()\CanvasNum))
+        ListEx()\ScrollBar\Item("HScroll")\Height = dpiY(#ScrollBarSize)
+      EndIf   
+      CalcScrollBarThumb_("HScroll", #False)
+      Height = dpiY(GadgetHeight(ListEx()\CanvasNum)) - dpiY(#ScrollBarSize) - dpiY(1)
+      ListEx()\Col\OffsetX = ListEx()\ScrollBar\Item("HScroll")\Pos
+    Else
+      Height = dpiY(GadgetHeight(ListEx()\CanvasNum))
+      ListEx()\Col\OffsetX = 0
+    EndIf
+
+    If ListEx()\ScrollBar\Item("VScroll")\Hide = #False
+      If ListEx()\ScrollBar\Flags = #False
+        ListEx()\ScrollBar\Item("VScroll")\X      = dpiX(GadgetWidth(ListEx()\CanvasNum)) - dpiX(#ScrollBarSize) - dpiX(1)
+        ListEx()\ScrollBar\Item("VScroll")\Y      = dpiY(1)
+        ListEx()\ScrollBar\Item("VScroll")\Width  = dpiX(#ScrollBarSize)
+        ListEx()\ScrollBar\Item("VScroll")\Height = dpiY(GadgetHeight(ListEx()\CanvasNum)) - dpiY(2)
+      Else
+        ListEx()\ScrollBar\Item("VScroll")\X      = dpiX(GadgetWidth(ListEx()\CanvasNum)) - dpiX(#ScrollBarSize)
+        ListEx()\ScrollBar\Item("VScroll")\Y      = 0
+        ListEx()\ScrollBar\Item("VScroll")\Width  = dpiX(#ScrollBarSize)
+        ListEx()\ScrollBar\Item("VScroll")\Height = dpiY(GadgetHeight(ListEx()\CanvasNum))
+      EndIf       
+      CalcScrollBarThumb_("VScroll", #False)
+      Width = dpiX(GadgetWidth(ListEx()\CanvasNum)) - dpiX(#ScrollBarSize) - dpiX(1)
+      ListEx()\Row\Offset = ListEx()\ScrollBar\Item("VScroll")\Pos
+    Else
+      Width = dpiX(GadgetWidth(ListEx()\CanvasNum))
+      ListEx()\Row\Offset = 0
     EndIf
     
     If StartDrawing(CanvasOutput(ListEx()\CanvasNum))
       
       PushListPosition(ListEx()\Rows())
       PushListPosition(ListEx()\Cols())
+      
+      CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+        ClipOutput(0, 0, Width, Height)
+      CompilerEndIf
       
       colX = 0
       rowY = 0
@@ -3416,20 +3959,12 @@ Module ListEx
             FrontColor = ListEx()\Cols()\Header\FrontColor
           EndIf
           
-          CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
-            ClipOutput(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Header\Height)) 
-          CompilerEndIf
-          
           If ListEx()\Cols()\Header\Title
             textX = GetAlignOffset_(ListEx()\Cols()\Header\Title, dpiX(ListEx()\Cols()\Width), Align)
             textY = (dpiY(ListEx()\Header\Height) - TextHeight("Abc")) / 2 + 0.5
             DrawingMode(#PB_2DDrawing_Transparent)
             DrawText(colX + textX, rowY + textY, ListEx()\Cols()\Header\Title, FrontColor)
           EndIf
-          
-          CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
-            UnclipOutput()
-          CompilerEndIf
           
           DrawingMode(#PB_2DDrawing_Outlined)
           Box(colX - 1, rowY, dpiX(ListEx()\Cols()\Width) + 1, dpiY(ListEx()\Header\Height) + 1, ListEx()\Color\HeaderLine)
@@ -3447,7 +3982,7 @@ Module ListEx
       ListEx()\Row\OffSetY = 0
 
       ForEach ListEx()\Rows()
-        Debug ListEx()\Row\Offset
+        
         If ListIndex(ListEx()\Rows()) < ListEx()\Row\Offset
           ListEx()\Row\OffSetY + ListEx()\Rows()\Height
           Continue
@@ -3574,10 +4109,6 @@ Module ListEx
               Text$ = ListEx()\Rows()\Column(Key$)\Value
               If Text$ <> ""
                 
-                CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
-                  ClipOutput(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height)) 
-                CompilerEndIf
-                
                 If Flags & #CellFont : FontID = ListEx()\Rows()\Column(Key$)\FontID : EndIf
                 
                 DrawingFont(FontID)
@@ -3613,17 +4144,9 @@ Module ListEx
                 
                 If Flags & #CellFont : DrawingFont(RowFontID) : EndIf
                 
-                CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
-                  UnclipOutput()
-                CompilerEndIf
-                
               EndIf
               ;}
             ElseIf ListEx()\Cols()\Flags & #Buttons                            ;{ Button
-              
-              CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
-                ClipOutput(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height))
-              CompilerEndIf
               
               If Flags & #CellFont : FontID = ListEx()\Rows()\Column(Key$)\FontID : EndIf
 
@@ -3674,10 +4197,6 @@ Module ListEx
               EndIf
 
               If Flags & #CellFont : FontID = RowFontID : EndIf
-              
-              CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
-                UnclipOutput()
-              CompilerEndIf  
               ;}
             ElseIf ListEx()\Cols()\Flags & #ProgressBar                   ;  ProgressBar
               CompilerIf #Enable_ProgressBar
@@ -3690,10 +4209,6 @@ Module ListEx
                 
               CompilerEndIf 
             ElseIf Flags & #Image Or ListEx()\Cols()\Flags & #Image       ;{ Image
-              
-              CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
-                ClipOutput(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height))
-              CompilerEndIf
 
               If Flags & #Image
                 
@@ -3795,20 +4310,12 @@ Module ListEx
                 If Flags & #CellFont : DrawingFont(RowFontID) : EndIf
                 ;}
               EndIf
-              
-              CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
-                UnclipOutput()
-              CompilerEndIf
               ;}
             Else                                                          ;{ Text
               
               Text$ = ListEx()\Rows()\Column(Key$)\Value
               If Text$ <> ""
-                
-                CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
-                  ClipOutput(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height)) 
-                CompilerEndIf
-                
+
                 If Flags & #CellFont : FontID = ListEx()\Rows()\Column(Key$)\FontID : EndIf
                 
                 DrawingFont(FontID)
@@ -3857,11 +4364,7 @@ Module ListEx
                 EndIf
                 
                 If Flags & #CellFont : DrawingFont(RowFontID) : EndIf
-                
-                CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
-                  UnclipOutput()
-                CompilerEndIf
-                
+
               EndIf
               ;}  
             EndIf
@@ -3881,7 +4384,11 @@ Module ListEx
         rowY + dpiY(ListEx()\Row\Height)
 
       Next
-
+      
+      CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+        UnclipOutput()
+      CompilerEndIf
+      
       colX = dpiX(ListEx()\Size\X) - dpiX(ListEx()\Col\OffsetX)
       rowY = dpiY(ListEx()\Size\Y)
       
@@ -3889,15 +4396,6 @@ Module ListEx
       Box(0, 0, colWidth, dpiY(ListEx()\Header\Height) + 1, ListEx()\Color\HeaderLine)
       
       DrawingMode(#PB_2DDrawing_Default)
-      
-      ;{ _____ ScrollBars ______
-      If ListEx()\VScroll\Hide = #False
-        Box(dpiX(GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width), 0, dpiX(#ScrollBar_Width), dpiY(GadgetHeight(ListEx()\CanvasNum)), ListEx()\Color\ScrollBar)
-      EndIf
-      
-      If  ListEx()\HScroll\Hide = #False
-        Box(0, dpiY(GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width), dpiX(GadgetWidth(ListEx()\CanvasNum)), dpiY(#ScrollBar_Width), ListEx()\Color\ScrollBar)
-      EndIf ;}
       
       ;{ _____ Border _____
       If ListEx()\Flags & #NumberedColumn
@@ -3908,6 +4406,8 @@ Module ListEx
       Box(0, 0, dpiX(GadgetWidth(ListEx()\CanvasNum)), dpiY(GadgetHeight(ListEx()\CanvasNum)), ListEx()\Color\HeaderLine)
       ;}
       
+      
+      
       PopListPosition(ListEx()\Cols())
       PopListPosition(ListEx()\Rows())
 
@@ -3917,24 +4417,21 @@ Module ListEx
     If ListEx()\String\Flag   : DrawString_()   : EndIf
     If ListEx()\ComboBox\Flag : DrawComboBox_() : EndIf
     
+    If ListEx()\ScrollBar\Item("HScroll")\Hide = #False : DrawScrollBar_("HScroll") : EndIf
+    If ListEx()\ScrollBar\Item("VScroll")\Hide = #False : DrawScrollBar_("VScroll") : EndIf
+    
+  EndProcedure
+  
+  Procedure   Redraw_()
+
+    Draw_()
+    
+    If AdjustScrollBars_() : Draw_() : EndIf
+    
   EndProcedure
   
   ;- __________ ComboBox _________
-  
-  Procedure   ListViewWindow_()
-    
-    ListView\Window = OpenWindow(#PB_Any, 0, 0, 0, 0, "", #PB_Window_BorderLess|#PB_Window_Invisible) 
-    If ListView\Window
-      ListView\Gadget = CanvasGadget(#PB_Any, 0, 0, 0, 0, #PB_Canvas_Container)
-      If ListView\Gadget
-        ListView\ScrollBar = ScrollBarGadget(#PB_Any, 0, 0, #ScrollBar_Width, 0, 1, 100, 0, #PB_ScrollBar_Vertical)
-        CloseGadgetList()
-      EndIf
-      StickyWindow(ListView\Window, #True)
-    EndIf  
-
-  EndProcedure
-  
+ 
   Procedure   CalcListViewRowHeight()
     
     If StartDrawing(CanvasOutput(ListEx()\ListView\Num))
@@ -3946,7 +4443,7 @@ Module ListEx
   EndProcedure 
   
   Procedure   OpenListView_()
-    Define.i X, Y, RowsHeight, Width, Height, SubItems
+    Define.i X, Y, RowHeight, RowsHeight, Width, Height, SubItems
     
     ListEx()\Cursor\Pause = #True
     
@@ -3955,15 +4452,20 @@ Module ListEx
     Width  = DesktopUnscaledX(ListEx()\ComboBox\Width)
     Height = ListEx()\ListView\Height
     
+    ForEach ListEx()\ListView\Item()
+      If ListEx()\ListView\Item()\String = ListEx()\ComboBox\Text
+        ListEx()\ListView\State = ListIndex(ListEx()\ListView\Item())
+        Break
+      EndIf   
+    Next
+    
     CalcListViewRowHeight()
 
     RowsHeight = ListSize(ListEx()\ListView\Item()) * DesktopUnscaledY(ListEx()\ListView\RowHeight) 
     If RowsHeight = 0 : RowsHeight = DesktopUnscaledY(ListEx()\ListView\RowHeight) : EndIf
-      
+    
     If RowsHeight < Height : Height = RowsHeight : EndIf
-    
-    If RowsHeight > Height : ListEx()\ListView\ScrollBar\Hide = #False : EndIf  
-    
+
     SetGadgetData(ListEx()\ListView\Num, ListEx()\CanvasNum)
     
     If IsWindow(ListEx()\ListView\Window)
@@ -3979,12 +4481,27 @@ Module ListEx
     ListEx()\ListView\Hide  = #False
     
     ListEx()\ListView\State = #PB_Default
-    ForEach ListEx()\ListView\Item()
-      If ListEx()\ListView\Item()\String = ListEx()\ComboBox\Text
-        ListEx()\ListView\State = ListIndex(ListEx()\ListView\Item())
-        Break
-      EndIf   
-    Next
+    
+    If RowsHeight > Height
+      
+      ListEx()\ScrollBar\Item("LScroll")\Hide = #False
+      
+      If ListEx()\ScrollBar\Flags = #False
+        ListEx()\ScrollBar\Item()\X      = ListEx()\ComboBox\Width - dpiX(#ScrollBarSize) - dpiX(1)
+        ListEx()\ScrollBar\Item()\Y      = dpiY(1)
+        ListEx()\ScrollBar\Item()\Width  = dpiX(#ScrollBarSize)
+        ListEx()\ScrollBar\Item()\Height = dpiY(Height) - dpiY(2)
+      Else
+        ListEx()\ScrollBar\Item()\X      = ListEx()\ComboBox\Width - dpiX(#ScrollBarSize)
+        ListEx()\ScrollBar\Item()\Y      = 0
+        ListEx()\ScrollBar\Item()\Width  = dpiX(#ScrollBarSize)
+        ListEx()\ScrollBar\Item()\Height = dpiY(Height)
+      EndIf
+      
+      ListEx()\ScrollBar\Item()\Pos    = 0
+
+    EndIf  
+    
     DrawListView_()
     
   EndProcedure
@@ -4003,75 +4520,41 @@ Module ListEx
   
   ;- __________ ScrollBars _________
 
-  Procedure   AdjustScrollBars_(Force.i=#False)
-    Define.f WidthOffset
-    Define.i Width
-    Define.i PageRows
+  Procedure.i AdjustScrollBars_(Force.i=#False)
+    Define.i WidthOffset, Width, PageRows, Result
     
-    If IsGadget(ListEx()\VScrollNum) ;{ Vertical ScrollBar
+   
+    ;{ Vertical ScrollBar
+    If ListEx()\Size\Rows > (GadgetHeight(ListEx()\CanvasNum) - ListEx()\Header\Height)
+    
+      PageRows = GetPageRows_()
       
-      If ListEx()\Size\Rows > (GadgetHeight(ListEx()\CanvasNum) - ListEx()\Header\Height)
+      ListEx()\ScrollBar\Item("VScroll")\Maximum    = ListEx()\Row\Number - 1
+      ListEx()\ScrollBar\Item("VScroll")\PageLength = PageRows
       
-        PageRows = GetPageRows_()
-        
-        If ListEx()\VScroll\Hide Or Force
-          If ListEx()\HScroll\Hide
-            ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width - 1, 1, #ScrollBar_Width, GadgetHeight(ListEx()\CanvasNum) - 2)
-          Else
-            ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width - 1, 1, #ScrollBar_Width, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width - 2)
-          EndIf
-          HideGadget(ListEx()\VScrollNum, #False)
-          ListEx()\VScroll\Hide = #False
-        EndIf
-        
-        SetGadgetAttribute(ListEx()\VScrollNum, #PB_ScrollBar_Minimum,    0)
-        SetGadgetAttribute(ListEx()\VScrollNum, #PB_ScrollBar_Maximum,    ListEx()\Row\Number - 1)
-        SetGadgetAttribute(ListEx()\VScrollNum, #PB_ScrollBar_PageLength, PageRows)
-        
-        ListEx()\VScroll\MinPos = 0
-        ListEx()\VScroll\MaxPos = ListEx()\Row\Number - PageRows + 2
-        
-        If ListEx()\VScroll\Hide = #False
-          If GadgetHeight(ListEx()\VScrollNum) < GadgetHeight(ListEx()\CanvasNum) - 2
-            
-            If ListEx()\HScroll\Hide
-              ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width - 1, 1, #ScrollBar_Width, GadgetHeight(ListEx()\CanvasNum) - 2)
-            Else
-              ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width - 1, 1, #ScrollBar_Width, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width - 2)
-            EndIf
-            
-          ElseIf GadgetHeight(ListEx()\VScrollNum) > GadgetHeight(ListEx()\CanvasNum)
-            
-            If ListEx()\HScroll\Hide
-              ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width, GadgetHeight(ListEx()\CanvasNum) - 2)
-            Else
-              ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width - 2)
-            EndIf
-            
-          EndIf
-          
-        EndIf
-        
-      ElseIf Not ListEx()\VScroll\Hide And ListEx()\Size\Rows < (GadgetHeight(ListEx()\CanvasNum) - ListEx()\Header\Height)
-        
-        ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - 2, #ScrollBar_Width)
-        HideGadget(ListEx()\VScrollNum, #True)
-        ListEx()\Row\Offset   = 0
-        ListEx()\VScroll\Hide = #True
-        
-        If ListSize(ListEx()\Rows()) = 0
-          SetGadgetAttribute(ListEx()\VScrollNum, #PB_ScrollBar_Maximum,    0)
-          SetGadgetAttribute(ListEx()\VScrollNum, #PB_ScrollBar_PageLength, 0)
-        EndIf 
-        
+      If ListEx()\ScrollBar\Item("VScroll")\Hide Or Force
+        ListEx()\ScrollBar\Item("VScroll")\Hide = #False
+        CalcScrollBarThumb_("VScroll")
+        Result = #True
       EndIf
-      ;}
-    EndIf
+      
+    ElseIf ListEx()\ScrollBar\Item("VScroll")\Hide = #False And ListEx()\Size\Rows < (GadgetHeight(ListEx()\CanvasNum) - ListEx()\Header\Height)
+
+      ListEx()\Row\Offset = 0
+      ListEx()\ScrollBar\Item("VScroll")\Hide = #True
+
+      If ListSize(ListEx()\Rows()) = 0
+        ListEx()\ScrollBar\Item("VScroll")\Maximum    = 0
+        ListEx()\ScrollBar\Item("VScroll")\PageLength = 0
+      EndIf 
+      
+      Result = #True
+    EndIf ;}
     
-    If ListEx()\VScroll\Hide
+    If ListEx()\ScrollBar\Item("VScroll")\Hide 
       Width = GadgetWidth(ListEx()\CanvasNum)
     Else
-      Width = GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width 
+      Width = GadgetWidth(ListEx()\CanvasNum) - #ScrollBarSize 
     EndIf
     
     If ListEx()\AutoResize\Column <> #PB_Ignore ;{ Resize column
@@ -4085,10 +4568,8 @@ Module ListEx
           If ListEx()\Cols()\Width - WidthOffset >= ListEx()\AutoResize\MinWidth
             ListEx()\Cols()\Width  - WidthOffset
             ListEx()\Size\Cols     - WidthOffset
-            ListEx()\HScroll\Hide  = #True
+            ListEx()\ScrollBar\Item("HScroll")\Hide = #True
             UpdateColumnX_()
-            HideGadget(ListEx()\HScrollNum, #True) 
-            ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width - 1, 1, #ScrollBar_Width, GadgetHeight(ListEx()\CanvasNum) - 2)
           Else 
             WidthOffset = ListEx()\AutoResize\Width - ListEx()\Cols()\Width
             ListEx()\Size\Cols - WidthOffset
@@ -4118,94 +4599,62 @@ Module ListEx
       ;}
     EndIf    
     
-    If IsGadget(ListEx()\HScrollNum)            ;{ Horizontal Scrollbar
+    ;{ Horizontal Scrollbar
+    If ListEx()\Size\Cols > Width
       
-      If ListEx()\Size\Cols > Width
-        
-        If ListEx()\HScroll\Hide
-          If ListEx()\VScroll\Hide
-            ResizeGadget(ListEx()\HScrollNum, 0, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum), #ScrollBar_Width)
-          Else
-            ResizeGadget(ListEx()\HScrollNum, 0, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, #ScrollBar_Width)
-          EndIf
-          HideGadget(ListEx()\HScrollNum, #False)
-          ListEx()\HScroll\Hide = #False
-        EndIf
-        
-        SetGadgetAttribute(ListEx()\HScrollNum, #PB_ScrollBar_Minimum,    0)
-        SetGadgetAttribute(ListEx()\HScrollNum, #PB_ScrollBar_Maximum,    ListEx()\Size\Cols)
-        SetGadgetAttribute(ListEx()\HScrollNum, #PB_ScrollBar_PageLength, Width)
-        
-        ListEx()\HScroll\MinPos = 0
-        ListEx()\HScroll\MaxPos = ListEx()\Size\Cols - Width + 1
-        
-        If ListEx()\HScroll\Hide = #False
-          If GadgetWidth(ListEx()\HScrollNum) < Width - 2
-            If ListEx()\VScroll\Hide
-              ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - 1, #ScrollBar_Width - 1)
-            Else  
-              ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width - 1, #ScrollBar_Width - 1)
-            EndIf  
-          ElseIf GadgetWidth(ListEx()\HScrollNum) > Width - 1
-            If ListEx()\VScroll\Hide
-              ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - 1, #ScrollBar_Width - 1)
-            Else  
-              ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width - 1, #ScrollBar_Width - 1)
-            EndIf 
-          EndIf
-          
-        EndIf
-        
-      ElseIf ListEx()\Size\Cols < Width
-        
-        If ListEx()\HScroll\Hide = #False
-          ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width - 1, GadgetHeight(ListEx()\CanvasNum) - 2)
-          HideGadget(ListEx()\HScrollNum, #True)
-          ListEx()\Col\OffsetX  = 0
-          ListEx()\HScroll\Hide = #True
-        EndIf
-        
-      EndIf 
+      ListEx()\ScrollBar\Item("HScroll")\Maximum    = ListEx()\Size\Cols
+      ListEx()\ScrollBar\Item("HScroll")\PageLength = Width
       
-      If Not ListEx()\HScroll\Hide
-        ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width - 1, 1, #ScrollBar_Width, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width - 2)
-      EndIf  
-      ;}
-    EndIf
+      If ListEx()\ScrollBar\Item("HScroll")\Hide
+        ListEx()\ScrollBar\Item("HScroll")\Hide = #False
+        CalcScrollBarThumb_("HScroll")
+        Result = #True
+      EndIf
+      
+    ElseIf ListEx()\Size\Cols < Width
+
+      If ListEx()\ScrollBar\Item("HScroll")\Hide = #False
+        ListEx()\Col\OffsetX = 0
+        ListEx()\ScrollBar\Item("HScroll")\Hide = #True
+        Result = #True
+      EndIf
+      
+    EndIf 
+    ;}
     
+    ProcedureReturn Result
   EndProcedure
   
   Procedure   SetHScrollPosition_()
-    Define.f ScrollPos
+    Define.i ScrollPos
     
-    If IsGadget(ListEx()\HScrollNum)
-      
+    If FindMapElement(ListEx()\ScrollBar\Item(), "HScroll")
+    
       ScrollPos = ListEx()\Col\OffsetX
       
-      If ScrollPos < ListEx()\HScroll\MinPos : ScrollPos = ListEx()\HScroll\MinPos : EndIf
-      If ScrollPos > ListEx()\HScroll\MaxPos : ScrollPos = ListEx()\HScroll\MaxPos : EndIf
+      If ScrollPos < ListEx()\ScrollBar\Item()\minPos : ScrollPos = ListEx()\ScrollBar\Item()\minPos : EndIf
+      If ScrollPos > ListEx()\ScrollBar\Item()\maxPos : ScrollPos = ListEx()\ScrollBar\Item()\maxPos : EndIf
       
-      ListEx()\Col\OffsetX      = ScrollPos
-      ListEx()\HScroll\Position = ScrollPos
-      
-      SetGadgetState(ListEx()\HScrollNum, ScrollPos)
-      
+      ListEx()\ScrollBar\Item()\Pos = ScrollPos
+      ListEx()\Col\OffsetX          = ScrollPos
+
     EndIf
     
   EndProcedure 
   
   Procedure   SetVScrollPosition_()
-    Define.f ScrollPos
+    Define.i ScrollPos
     
-    If IsGadget(ListEx()\VScrollNum)
+    If FindMapElement(ListEx()\ScrollBar\Item(), "HScroll")
       
       ScrollPos = ListEx()\Row\Offset
-      If ScrollPos > ListEx()\VScroll\MaxPos : ScrollPos = ListEx()\VScroll\MaxPos : EndIf
       
-      ListEx()\VScroll\Position = ScrollPos
+      If ScrollPos < ListEx()\ScrollBar\Item()\minPos : ScrollPos = ListEx()\ScrollBar\Item()\minPos : EndIf
+      If ScrollPos > ListEx()\ScrollBar\Item()\maxPos : ScrollPos = ListEx()\ScrollBar\Item()\maxPos : EndIf
       
-      SetGadgetState(ListEx()\VScrollNum, ScrollPos)
-      
+      ListEx()\ScrollBar\Item()\Pos = ScrollPos
+      ListEx()\Row\Offset           = ScrollPos
+
       If ListEx()\Focus And ListEx()\Row\Focus >= 0 : SelectElement(ListEx()\Rows(), ListEx()\Row\Focus) : EndIf
       
     EndIf
@@ -4569,12 +5018,73 @@ Module ListEx
         ListEx()\Color\EditFront    = ModuleEx::ThemeGUI\FrontColor
         ListEx()\Color\EditBack     = ModuleEx::ThemeGUI\BackColor
         
+        ListEx()\ScrollBar\Color\Front        = ModuleEx::ThemeGUI\FrontColor
+  			ListEx()\ScrollBar\Color\Back         = ModuleEx::ThemeGUI\BackColor
+  			ListEx()\ScrollBar\Color\Border       = ModuleEx::ThemeGUI\BorderColor
+  			ListEx()\ScrollBar\Color\Gadget       = ModuleEx::ThemeGUI\GadgetColor
+  			ListEx()\ScrollBar\Color\Focus        = ModuleEx::ThemeGUI\FocusBack
+        ListEx()\ScrollBar\Color\Button       = ModuleEx::ThemeGUI\Button\BackColor
+        ListEx()\ScrollBar\Color\ScrollBar    = ModuleEx::ThemeGUI\ScrollbarColor
+        
         Draw_()
       Next
       
     EndProcedure
     
   CompilerEndIf  
+  
+  
+  Procedure _TimerThread(Frequency.i)
+    Define.i ElapsedTime
+    
+    Repeat
+      
+      If ElapsedTime >= Frequency
+        PostEvent(#Event_Timer)
+        ElapsedTime = 0
+      EndIf
+      
+      Delay(100)
+      
+      ElapsedTime + 100
+      
+    Until TimerThread\Exit
+    
+  EndProcedure
+  
+  Procedure _AutoScroll()
+    Define.i X, Y
+    
+    ForEach ListEx()
+      
+      ForEach ListEx()\ScrollBar\Item()
+        
+        If ListEx()\ScrollBar\Item()\Timer
+          
+          If ListEx()\ScrollBar\Item()\TimerDelay
+            ListEx()\ScrollBar\Item()\TimerDelay - 1
+            Continue
+          EndIf  
+          
+          Select ListEx()\ScrollBar\Item()\Timer
+            Case #ScrollBar_Up, #ScrollBar_Left
+              ListEx()\ScrollBar\Item()\Pos - 1
+              If ListEx()\ScrollBar\Item()\Pos < ListEx()\ScrollBar\Item()\minPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\minPos : EndIf
+            Case #ScrollBar_Down, #ScrollBar_Right
+              ListEx()\ScrollBar\Item()\Pos + 1
+              If ListEx()\ScrollBar\Item()\Pos > ListEx()\ScrollBar\Item()\maxPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\maxPos : EndIf
+          EndSelect
+          
+          Draw_()
+          
+    		EndIf 
+    		
+      Next
+      
+    Next
+    
+  EndProcedure 
+  
   
   Procedure _CursorThread(Frequency.i)
     Define.i ElapsedTime
@@ -4634,8 +5144,9 @@ Module ListEx
     
   EndProcedure  
   
+  
   Procedure _ListViewHandler()
-    Define.i GNum, X, Y
+    Define.i GNum, X, Y, Delta
     Define.i ComboExNum = EventGadget()
     
     GNum = GetGadgetData(ComboExNum)
@@ -4649,6 +5160,82 @@ Module ListEx
         Select EventType()
           Case #PB_EventType_LeftButtonDown ;{ Left Button Down
             
+            If FindMapElement(ListEx()\ScrollBar\Item(), "LScroll")
+              
+              If ListEx()\ScrollBar\Item()\Hide = #False
+      
+                ListEx()\ScrollBar\Item()\Cursor = #PB_Default
+                
+          			If ListEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical
+          			  
+          			  If X >= ListEx()\ScrollBar\Item()\X And X <= ListEx()\ScrollBar\Item()\X + ListEx()\ScrollBar\Item()\Width
+          			    
+            			  If Y >= ListEx()\ScrollBar\Item()\Buttons\Backwards\Y And Y <= ListEx()\ScrollBar\Item()\Buttons\Backwards\Y + ListEx()\ScrollBar\Item()\Buttons\Backwards\Height
+            			    ;{ Backwards Button
+            			    If ListEx()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Click
+            			      DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Backwards\X, ListEx()\ScrollBar\Item()\Buttons\Backwards\Y, ListEx()\ScrollBar\Item()\Buttons\Backwards\Width, ListEx()\ScrollBar\Item()\Buttons\Backwards\Height, "LScroll", #ScrollBar_Backwards, #ScrollBar_Click)
+            			      ListEx()\ScrollBar\Item()\TimerDelay = #ScrollBar_TimerDelay
+            			      ListEx()\ScrollBar\Item()\Timer      = #ScrollBar_Up
+            			      ListEx()\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Click 
+            			    EndIf ;}
+            			  ElseIf Y >= ListEx()\ScrollBar\Item()\Buttons\Forwards\Y And Y <= ListEx()\ScrollBar\Item()\Buttons\Forwards\Y + ListEx()\ScrollBar\Item()\Buttons\Forwards\Height
+            			    ;{ Forwards Button
+            			    If ListEx()\ScrollBar\Item()\Buttons\Forwards\State <> #ScrollBar_Click
+            			      DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Forwards\X, ListEx()\ScrollBar\Item()\Buttons\Forwards\Y, ListEx()\ScrollBar\Item()\Buttons\Forwards\Width, ListEx()\ScrollBar\Item()\Buttons\Forwards\Height, "LScroll", #ScrollBar_Forwards, #ScrollBar_Click)
+            			      ListEx()\ScrollBar\Item()\TimerDelay = #ScrollBar_TimerDelay
+            			      ListEx()\ScrollBar\Item()\Timer      = #ScrollBar_Down
+            			      ListEx()\ScrollBar\Item()\Buttons\Forwards\State = #ScrollBar_Click
+            			    EndIf ;}
+            			  ElseIf Y >= ListEx()\ScrollBar\Item()\Thumb\Y And Y <= ListEx()\ScrollBar\Item()\Thumb\Y + ListEx()\ScrollBar\Item()\Thumb\Height
+            			    ;{ Thumb Button
+            			    If ListEx()\ScrollBar\Item()\Thumb\State <> #ScrollBar_Click
+            			      ListEx()\ScrollBar\Item()\Thumb\State = #ScrollBar_Click
+            			      ListEx()\ScrollBar\Item()\Cursor = Y
+            			      DrawScrollBar_("LScroll")
+            			    EndIf ;} 
+            			  EndIf
+            			  
+            			  ProcedureReturn #True
+          			  EndIf
+          			  
+          			Else
+          			  
+          			  If Y >= ListEx()\ScrollBar\Item()\Y And Y <= ListEx()\ScrollBar\Item()\Y + ListEx()\ScrollBar\Item()\Height
+          			    
+            			  If X >= ListEx()\ScrollBar\Item()\Buttons\Backwards\X And X <= ListEx()\ScrollBar\Item()\Buttons\Backwards\X + ListEx()\ScrollBar\Item()\Buttons\Backwards\Width
+            			    ;{ Backwards Button
+            			    If ListEx()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Click
+            			      DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Backwards\X, ListEx()\ScrollBar\Item()\Buttons\Backwards\Y, ListEx()\ScrollBar\Item()\Buttons\Backwards\Width, ListEx()\ScrollBar\Item()\Buttons\Backwards\Height, "LScroll", #ScrollBar_Backwards, #ScrollBar_Click)
+            			      ListEx()\ScrollBar\Item()\TimerDelay = #ScrollBar_TimerDelay
+            			      ListEx()\ScrollBar\Item()\Timer      = #ScrollBar_Left
+            			      ListEx()\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Click
+            			    EndIf ;}
+            			  ElseIf X >= ListEx()\ScrollBar\Item()\Buttons\Forwards\X And X <= ListEx()\ScrollBar\Item()\Buttons\Forwards\X + ListEx()\ScrollBar\Item()\Buttons\Forwards\Height
+            			    ;{ Forwards Button
+            			    If ListEx()\ScrollBar\Item()\Buttons\Forwards\State <> #ScrollBar_Click
+            			      DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Forwards\X, ListEx()\ScrollBar\Item()\Buttons\Forwards\Y, ListEx()\ScrollBar\Item()\Buttons\Forwards\Width, ListEx()\ScrollBar\Item()\Buttons\Forwards\Height, "LScroll", #ScrollBar_Forwards, #ScrollBar_Click)
+            			      ListEx()\ScrollBar\Item()\TimerDelay = #ScrollBar_TimerDelay
+            			      ListEx()\ScrollBar\Item()\Timer      = #ScrollBar_Right
+            			      ListEx()\ScrollBar\Item()\Buttons\Forwards\State = #ScrollBar_Click
+            			    EndIf ;}
+            			  ElseIf X >= ListEx()\ScrollBar\Item()\Thumb\X And X <= ListEx()\ScrollBar\Item()\Thumb\X + ListEx()\ScrollBar\Item()\Thumb\Width
+            			    ;{ Thumb Button
+            			    If ListEx()\ScrollBar\Item()\Thumb\State <> #ScrollBar_Click
+            			      ListEx()\ScrollBar\Item()\Thumb\State = #ScrollBar_Click
+            			      ListEx()\ScrollBar\Item()\Cursor = X
+            			      DrawScrollBar_("LScroll")
+            			    EndIf ;} 
+            			  EndIf
+            			  
+            			  ProcedureReturn #True
+            			EndIf
+            			
+            		EndIf
+            		
+          		EndIf
+          		
+          	EndIf	
+            
             ForEach ListEx()\ListView\Item()
 
               If Y >= ListEx()\ListView\Item()\Y And Y <= ListEx()\ListView\Item()\Y + ListEx()\ListView\RowHeight
@@ -4661,6 +5248,68 @@ Module ListEx
             ;}
           Case #PB_EventType_LeftButtonUp   ;{ Left Button Up
             
+            If FindMapElement(ListEx()\ScrollBar\Item(), "LScroll")
+              
+              If ListEx()\ScrollBar\Item()\Hide = #False
+		  
+          			ListEx()\ScrollBar\Item()\Cursor = #PB_Default
+          			ListEx()\ScrollBar\Item()\Timer  = #False
+
+          			If ListEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical ;{ Vertical Scrollbar
+          			  
+          			  If X >= ListEx()\ScrollBar\Item()\X And X <= ListEx()\ScrollBar\Item()\X + ListEx()\ScrollBar\Item()\Width
+          			    
+            			  If Y >= ListEx()\ScrollBar\Item()\Buttons\Backwards\Y And Y <= ListEx()\ScrollBar\Item()\Buttons\Backwards\Y + ListEx()\ScrollBar\Item()\Buttons\Backwards\Height
+            			    ListEx()\ScrollBar\Item()\Pos - 1
+            			    If ListEx()\ScrollBar\Item()\Pos < ListEx()\ScrollBar\Item()\minPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\minPos : EndIf
+            			    DrawListView_()
+            			  ElseIf Y >= ListEx()\ScrollBar\Item()\Buttons\Forwards\Y And Y <= ListEx()\ScrollBar\Item()\Buttons\Forwards\Y + ListEx()\ScrollBar\Item()\Buttons\Forwards\Height
+            			    ListEx()\ScrollBar\Item()\Pos + 1
+            			    If ListEx()\ScrollBar\Item()\Pos > ListEx()\ScrollBar\Item()\maxPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\maxPos : EndIf
+            			    DrawListView_()
+            			  ElseIf Y < ListEx()\ScrollBar\Item()\Thumb\Y
+            			    ListEx()\ScrollBar\Item()\Pos - ListEx()\ScrollBar\Item()\PageLength
+            			    If ListEx()\ScrollBar\Item()\Pos < ListEx()\ScrollBar\Item()\minPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\minPos : EndIf
+            			    DrawListView_()
+            			  ElseIf Y > ListEx()\ScrollBar\Item()\Thumb\Y + ListEx()\ScrollBar\Item()\Thumb\Height
+            			    ListEx()\ScrollBar\Item()\Pos + ListEx()\ScrollBar\Item()\PageLength
+            			    If ListEx()\ScrollBar\Item()\Pos > ListEx()\ScrollBar\Item()\maxPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\maxPos : EndIf
+            			    DrawListView_()
+            			  EndIf
+            			  
+            			  ProcedureReturn #True
+            			EndIf  
+          			  ;}
+          			Else                                                    ;{ Horizontal Scrollbar
+          			  
+          			  If Y >= ListEx()\ScrollBar\Item()\Y And Y <= ListEx()\ScrollBar\Item()\Y + ListEx()\ScrollBar\Item()\Height
+          			    
+            			  If X <= ListEx()\ScrollBar\Item()\Buttons\Backwards\X + ListEx()\ScrollBar\Item()\Buttons\Backwards\Width
+            			    ListEx()\ScrollBar\Item()\Pos - 1
+            			    If ListEx()\ScrollBar\Item()\Pos < ListEx()\ScrollBar\Item()\minPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\minPos : EndIf
+            			    DrawListView_()
+            			  ElseIf X >= ListEx()\ScrollBar\Item()\Buttons\Forwards\X
+            			    ListEx()\ScrollBar\Item()\Pos + 1
+            			    If ListEx()\ScrollBar\Item()\Pos > ListEx()\ScrollBar\Item()\maxPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\maxPos : EndIf
+            			    DrawListView_()
+            			  ElseIf X < ListEx()\ScrollBar\Item()\Thumb\X
+            			    ListEx()\ScrollBar\Item()\Pos - ListEx()\ScrollBar\Item()\PageLength
+            			    If ListEx()\ScrollBar\Item()\Pos < ListEx()\ScrollBar\Item()\minPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\minPos : EndIf
+            			    DrawListView_()
+            			  ElseIf X > ListEx()\ScrollBar\Item()\Thumb\X + ListEx()\ScrollBar\Item()\Thumb\Width
+            			    ListEx()\ScrollBar\Item()\Pos + ListEx()\ScrollBar\Item()\PageLength
+            			    If ListEx()\ScrollBar\Item()\Pos > ListEx()\ScrollBar\Item()\maxPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\maxPos : EndIf
+            			    DrawListView_()
+            			  EndIf
+            			  
+            			  ProcedureReturn #True
+            			EndIf  
+          			  ;}
+          			EndIf
+          			
+          		EndIf
+          	EndIf
+          	
             ForEach ListEx()\ListView\Item()
               If Y >= ListEx()\ListView\Item()\Y And Y <= ListEx()\ListView\Item()\Y + ListEx()\ListView\RowHeight
                 If ListEx()\ListView\State <> ListIndex(ListEx()\ListView\Item())
@@ -4679,7 +5328,170 @@ Module ListEx
             Next 
             ;}
           Case #PB_EventType_MouseMove      ;{ Mouse Move
+            
+            If FindMapElement(ListEx()\ScrollBar\Item(), "LScroll")
+              
+              If ListEx()\ScrollBar\Item()\Hide = #False
+              
+          	    If ListEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical       ;{ Vertical Scrollbar
+    
+          	      If X >= ListEx()\ScrollBar\Item()\X And X <= ListEx()\ScrollBar\Item()\X + ListEx()\ScrollBar\Item()\Width
+          	      
+            	      If Y <= ListEx()\ScrollBar\Item()\Buttons\Backwards\Y + ListEx()\ScrollBar\Item()\Buttons\Backwards\Height
+            			    ;{ Backwards Button
+            			    If ListEx()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Focus
+            			      
+            			      ListEx()\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Focus
+            			      
+            			      If ListEx()\ScrollBar\Item()\Thumb\State <> #False
+            			        ListEx()\ScrollBar\Item()\Thumb\State = #False
+            			        DrawScrollBar_("LScroll")
+            			      Else 
+            			        DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Backwards\X, ListEx()\ScrollBar\Item()\Buttons\Backwards\Y, ListEx()\ScrollBar\Item()\Buttons\Backwards\Width, ListEx()\ScrollBar\Item()\Buttons\Backwards\Height, "LScroll", #ScrollBar_Backwards, #ScrollBar_Focus)
+            			      EndIf 
+            			      
+            			    EndIf
+          			      ;}
+            			    ProcedureReturn #True
+            			  ElseIf Y >= ListEx()\ScrollBar\Item()\Buttons\Forwards\Y
+            			    ;{ Forwards Button
+            			    If ListEx()\ScrollBar\Item()\Buttons\Forwards\State <> #ScrollBar_Focus
+            			      
+            			      ListEx()\ScrollBar\Item()\Buttons\Forwards\State = #ScrollBar_Focus
+            			      
+            			      If ListEx()\ScrollBar\Item()\Thumb\State <> #False
+            			        ListEx()\ScrollBar\Item()\Thumb\State = #False
+            			        DrawScrollBar_("LScroll")
+            			      Else 
+            			        DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Forwards\X, ListEx()\ScrollBar\Item()\Buttons\Forwards\Y, ListEx()\ScrollBar\Item()\Buttons\Forwards\Width, ListEx()\ScrollBar\Item()\Buttons\Forwards\Height, "LScroll", #ScrollBar_Forwards, #ScrollBar_Focus)
+            			      EndIf
+            			      
+            			    EndIf ;}
+            			    ProcedureReturn #True
+            			  EndIf
+          
+            			  ListEx()\ScrollBar\Item()\Timer = #False
+            			  
+            			  If ListEx()\ScrollBar\Item()\Buttons\Backwards\State <> #False ;{ Backwards Button
+            			    ListEx()\ScrollBar\Item()\Buttons\Backwards\State = #False
+            			    DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Backwards\X, ListEx()\ScrollBar\Item()\Buttons\Backwards\Y, ListEx()\ScrollBar\Item()\Buttons\Backwards\Width, ListEx()\ScrollBar\Item()\Buttons\Backwards\Height, "LScroll", #ScrollBar_Backwards)
+              			  ;}
+              			EndIf
+              			
+              			If ListEx()\ScrollBar\Item()\Buttons\Forwards\State <> #False  ;{ Forwards Button
+              			  ListEx()\ScrollBar\Item()\Buttons\Forwards\State = #False
+              			  DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Forwards\X, ListEx()\ScrollBar\Item()\Buttons\Forwards\Y, ListEx()\ScrollBar\Item()\Buttons\Forwards\Width, ListEx()\ScrollBar\Item()\Buttons\Forwards\Height, "LScroll", #ScrollBar_Forwards)
+              			  ;}
+              			EndIf
+            
+            			  If Y >= ListEx()\ScrollBar\Item()\Thumb\Y And Y <= ListEx()\ScrollBar\Item()\Thumb\Y + ListEx()\ScrollBar\Item()\Thumb\Height
+            			    ;{ Move Thumb
+            			    If ListEx()\ScrollBar\Item()\Cursor <> #PB_Default
+            			      
+            			      ListEx()\ScrollBar\Item()\Pos + GetSteps_(Y)
+            			      
+            			      If ListEx()\ScrollBar\Item()\Pos > ListEx()\ScrollBar\Item()\maxPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\maxPos : EndIf
+            			      If ListEx()\ScrollBar\Item()\Pos < ListEx()\ScrollBar\Item()\minPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\minPos : EndIf
+            			      
+            			      ListEx()\ScrollBar\Item()\Cursor = Y
+            		        
+            		        DrawListView_()
+            		        ProcedureReturn #True
+            		      EndIf ;}
+            			    ;{ Thumb Focus
+            			    If ListEx()\ScrollBar\Item()\Thumb\State <> #ScrollBar_Focus
+            			      ListEx()\ScrollBar\Item()\Thumb\State = #ScrollBar_Focus
+            			      DrawScrollBar_("LScroll")
+            			    EndIf ;} 
+            			    ProcedureReturn #True
+            			  EndIf
+            			  
+            			  ProcedureReturn #True
+            			EndIf  
+          			  ;}
+          	    Else                                                          ;{ Horizontal Scrollbar
+          	      
+          	      If Y >= ListEx()\ScrollBar\Item()\Y And Y <= ListEx()\ScrollBar\Item()\Y + ListEx()\ScrollBar\Item()\Height
+          	      
+            	      If X <= ListEx()\ScrollBar\Item()\Buttons\Backwards\X + ListEx()\ScrollBar\Item()\Buttons\Backwards\Width
+            			    ;{ Backwards Button
+            			    If ListEx()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Focus
+            			      DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Backwards\X, ListEx()\ScrollBar\Item()\Buttons\Backwards\Y, ListEx()\ScrollBar\Item()\Buttons\Backwards\Width, ListEx()\ScrollBar\Item()\Buttons\Backwards\Height, "LScroll", #ScrollBar_Backwards, #ScrollBar_Focus)
+            			      ListEx()\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Focus
+            			    EndIf ;}
+            			    ProcedureReturn #True
+            			  ElseIf X >= ListEx()\ScrollBar\Item()\Buttons\Forwards\X
+            			    ;{ Forwards Button
+            			    If ListEx()\ScrollBar\Item()\Buttons\Forwards\State <> #ScrollBar_Focus
+            			      DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Forwards\X, ListEx()\ScrollBar\Item()\Buttons\Forwards\Y, ListEx()\ScrollBar\Item()\Buttons\Forwards\Width, ListEx()\ScrollBar\Item()\Buttons\Forwards\Height, "LScroll", #ScrollBar_Forwards, #ScrollBar_Focus)
+            			      ListEx()\ScrollBar\Item()\Buttons\Forwards\State = #ScrollBar_Focus
+            			    EndIf ;}
+            			    ProcedureReturn #True
+            			  EndIf
 
+            			  ListEx()\ScrollBar\Item()\Timer = #False
+            			  
+              			If ListEx()\ScrollBar\Item()\Buttons\Backwards\State <> #False ;{ Backwards Button
+              			  DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Backwards\X, ListEx()\ScrollBar\Item()\Buttons\Backwards\Y, ListEx()\ScrollBar\Item()\Buttons\Backwards\Width, ListEx()\ScrollBar\Item()\Buttons\Backwards\Height, "LScroll", #ScrollBar_Backwards)
+              			  ListEx()\ScrollBar\Item()\Buttons\Backwards\State = #False
+              			  ;}
+              			EndIf
+              			
+              			If ListEx()\ScrollBar\Item()\Buttons\Forwards\State <> #False  ;{ Forwards Button
+              			  DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Forwards\X, ListEx()\ScrollBar\Item()\Buttons\Forwards\Y, ListEx()\ScrollBar\Item()\Buttons\Forwards\Width, ListEx()\ScrollBar\Item()\Buttons\Forwards\Height, "LScroll", #ScrollBar_Forwards)
+              			  ListEx()\ScrollBar\Item()\Buttons\Forwards\State = #False
+              			  ;}
+              			EndIf
+            			  
+            			  If X >= ListEx()\ScrollBar\Item()\Thumb\X And X <= ListEx()\ScrollBar\Item()\Thumb\X + ListEx()\ScrollBar\Item()\Thumb\Width
+            			    ;{ Thumb Button
+            			    If ListEx()\ScrollBar\Item()\Cursor <> #PB_Default
+            
+            		        ListEx()\ScrollBar\Item()\Pos + GetSteps_(X)
+            		        
+            		        If ListEx()\ScrollBar\Item()\Pos > ListEx()\ScrollBar\Item()\maxPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\maxPos : EndIf
+            		        If ListEx()\ScrollBar\Item()\Pos < ListEx()\ScrollBar\Item()\minPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\minPos : EndIf
+            		        
+            		        ListEx()\ScrollBar\Item()\Cursor = X
+            		        
+            		        DrawListView_()
+            		        ProcedureReturn #True
+            		      EndIf ;}
+            			    ;{ Thumb Focus
+            			    If ListEx()\ScrollBar\Item()\Thumb\State <> #ScrollBar_Focus
+            			      ListEx()\ScrollBar\Item()\Thumb\State = #ScrollBar_Focus
+            			      DrawScrollBar_("LScroll")
+            			    EndIf ;} 
+            			    ProcedureReturn #True
+            			  EndIf
+            			  
+            			  ProcedureReturn #True
+          			  EndIf
+          			  ;}
+          			EndIf
+          			
+          			If ListEx()\ScrollBar\Item()\Buttons\Backwards\State <> #False ;{ Backwards Button
+          			  DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Backwards\X, ListEx()\ScrollBar\Item()\Buttons\Backwards\Y, ListEx()\ScrollBar\Item()\Buttons\Backwards\Width, ListEx()\ScrollBar\Item()\Buttons\Backwards\Height, "LScroll", #ScrollBar_Backwards)
+          			  ListEx()\ScrollBar\Item()\Buttons\Backwards\State = #False
+          			  ;}
+          			EndIf
+          			
+          			If ListEx()\ScrollBar\Item()\Buttons\Forwards\State <> #False  ;{ Forwards Button
+          			  DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Forwards\X, ListEx()\ScrollBar\Item()\Buttons\Forwards\Y, ListEx()\ScrollBar\Item()\Buttons\Forwards\Width, ListEx()\ScrollBar\Item()\Buttons\Forwards\Height, "LScroll", #ScrollBar_Forwards)
+          			  ListEx()\ScrollBar\Item()\Buttons\Forwards\State = #False
+          			  ;}
+          			EndIf
+          			
+          			If ListEx()\ScrollBar\Item()\Thumb\State <> #False            ;{ Thumb Button
+          			  ListEx()\ScrollBar\Item()\Thumb\State = #False
+          			  DrawScrollBar_("LScroll")
+          			  ;}
+          			EndIf
+          			
+          		EndIf
+          		
+            EndIf 
+            
             ForEach ListEx()\ListView\Item()
               If Y >= ListEx()\ListView\Item()\Y And Y <= ListEx()\ListView\Item()\Y + ListEx()\ListView\RowHeight
                 ListEx()\ListView\Focus = ListIndex(ListEx()\ListView\Item())
@@ -4689,9 +5501,61 @@ Module ListEx
             Next 
             ;}
           Case #PB_EventType_MouseLeave     ;{ Mouse Leave
+            
+            If FindMapElement(ListEx()\ScrollBar\Item(), "LScroll")
+              
+              If ListEx()\ScrollBar\Item()\Hide = #False
+	    
+          	    If ListEx()\ScrollBar\Item()\Buttons\Backwards\State <> #False
+          			  DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Backwards\X, ListEx()\ScrollBar\Item()\Buttons\Backwards\Y, ListEx()\ScrollBar\Item()\Buttons\Backwards\Width, ListEx()\ScrollBar\Item()\Buttons\Backwards\Height, "LScroll", #ScrollBar_Backwards)
+          			  ListEx()\ScrollBar\Item()\Buttons\Backwards\State = #False
+          			EndIf
+          			
+          			If ListEx()\ScrollBar\Item()\Buttons\Forwards\State <> #False
+          			  DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Forwards\X, ListEx()\ScrollBar\Item()\Buttons\Forwards\Y, ListEx()\ScrollBar\Item()\Buttons\Forwards\Width, ListEx()\ScrollBar\Item()\Buttons\Forwards\Height, "LScroll", #ScrollBar_Forwards)
+          			  ListEx()\ScrollBar\Item()\Buttons\Forwards\State = #False
+          			EndIf
+          			
+          	    If ListEx()\ScrollBar\Item()\Thumb\State <> #False
+          	      ListEx()\ScrollBar\Item()\Thumb\State = #False
+          	      DrawScrollBar_("LScroll")
+          	    EndIf  
+          	    
+          	  EndIf
+          	  
+            EndIf 
+            
             ListEx()\ListView\Focus = #PB_Default
+            
             DrawListView_()
+            
             ProcedureReturn #True
+            ;}
+          Case #PB_EventType_MouseWheel     ;{ Mouse 
+            
+            Delta = GetGadgetAttribute(ComboExNum, #PB_Canvas_WheelDelta)
+            
+            If FindMapElement(ListEx()\ScrollBar\Item(), "LScroll")
+              
+              If ListEx()\ScrollBar\Item()\Hide = #False
+
+          	    If X >= ListEx()\ScrollBar\Item()\X And X <= ListEx()\ScrollBar\Item()\X + ListEx()\ScrollBar\Item()\Width
+          	      If Y >= ListEx()\ScrollBar\Item()\Y And Y <= ListEx()\ScrollBar\Item()\Y + ListEx()\ScrollBar\Item()\Height
+          
+          	        ListEx()\ScrollBar\Item()\Pos - Delta
+          
+                    If ListEx()\ScrollBar\Item()\Pos > ListEx()\ScrollBar\Item()\maxPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\maxPos : EndIf
+                    If ListEx()\ScrollBar\Item()\Pos < ListEx()\ScrollBar\Item()\minPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\minPos : EndIf
+                    
+                    DrawListView_()
+                    
+          	        ProcedureReturn #True
+          	      EndIf 
+          	    EndIf
+          	    
+          	  EndIf
+          	  
+            EndIf 
             ;}
         EndSelect 
         
@@ -5244,7 +6108,7 @@ Module ListEx
   Procedure _LeftButtonDownHandler()
     Define.i X, Y, ColX, Width, Height
     Define.i Flags, FontID, Row, StartRow, EndRow, FrontColor
-    Define.s Key$, Value$
+    Define.s Key$, Value$, ScrollBar
     Define   Image.Image_Structure
     Define   GNum.i = EventGadget()
     
@@ -5282,6 +6146,82 @@ Module ListEx
         Draw_()
       EndIf ;}
       
+      ForEach ListEx()\ScrollBar\Item()
+        
+        If ListEx()\ScrollBar\Item()\Hide : Continue : EndIf 
+        
+        ListEx()\ScrollBar\Item()\Cursor = #PB_Default
+        
+        ScrollBar = MapKey(ListEx()\ScrollBar\Item())
+  
+  			If ListEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical
+  			  
+  			  If X >= ListEx()\ScrollBar\Item()\X And X <= ListEx()\ScrollBar\Item()\X + ListEx()\ScrollBar\Item()\Width
+  			    
+    			  If Y >= ListEx()\ScrollBar\Item()\Buttons\Backwards\Y And Y <= ListEx()\ScrollBar\Item()\Buttons\Backwards\Y + ListEx()\ScrollBar\Item()\Buttons\Backwards\Height
+    			    ;{ Backwards Button
+    			    If ListEx()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Click
+    			      DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Backwards\X, ListEx()\ScrollBar\Item()\Buttons\Backwards\Y, ListEx()\ScrollBar\Item()\Buttons\Backwards\Width, ListEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards, #ScrollBar_Click)
+    			      ListEx()\ScrollBar\Item()\TimerDelay = #ScrollBar_TimerDelay
+    			      ListEx()\ScrollBar\Item()\Timer      = #ScrollBar_Up
+    			      ListEx()\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Click 
+    			    EndIf ;}
+    			  ElseIf Y >= ListEx()\ScrollBar\Item()\Buttons\Forwards\Y And Y <= ListEx()\ScrollBar\Item()\Buttons\Forwards\Y + ListEx()\ScrollBar\Item()\Buttons\Forwards\Height
+    			    ;{ Forwards Button
+    			    If ListEx()\ScrollBar\Item()\Buttons\Forwards\State <> #ScrollBar_Click
+    			      DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Forwards\X, ListEx()\ScrollBar\Item()\Buttons\Forwards\Y, ListEx()\ScrollBar\Item()\Buttons\Forwards\Width, ListEx()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards, #ScrollBar_Click)
+    			      ListEx()\ScrollBar\Item()\TimerDelay = #ScrollBar_TimerDelay
+    			      ListEx()\ScrollBar\Item()\Timer      = #ScrollBar_Down
+    			      ListEx()\ScrollBar\Item()\Buttons\Forwards\State = #ScrollBar_Click
+    			    EndIf ;}
+    			  ElseIf Y >= ListEx()\ScrollBar\Item()\Thumb\Y And Y <= ListEx()\ScrollBar\Item()\Thumb\Y + ListEx()\ScrollBar\Item()\Thumb\Height
+    			    ;{ Thumb Button
+    			    If ListEx()\ScrollBar\Item()\Thumb\State <> #ScrollBar_Click
+    			      ListEx()\ScrollBar\Item()\Thumb\State = #ScrollBar_Click
+    			      ListEx()\ScrollBar\Item()\Cursor = Y
+    			      DrawScrollBar_(ScrollBar)
+    			    EndIf ;} 
+    			  EndIf
+    			  
+    			  ProcedureReturn #True
+  			  EndIf
+  			  
+  			Else
+  			  
+  			  If Y >= ListEx()\ScrollBar\Item()\Y And Y <= ListEx()\ScrollBar\Item()\Y + ListEx()\ScrollBar\Item()\Height
+  			    
+    			  If X >= ListEx()\ScrollBar\Item()\Buttons\Backwards\X And X <= ListEx()\ScrollBar\Item()\Buttons\Backwards\X + ListEx()\ScrollBar\Item()\Buttons\Backwards\Width
+    			    ;{ Backwards Button
+    			    If ListEx()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Click
+    			      DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Backwards\X, ListEx()\ScrollBar\Item()\Buttons\Backwards\Y, ListEx()\ScrollBar\Item()\Buttons\Backwards\Width, ListEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards, #ScrollBar_Click)
+    			      ListEx()\ScrollBar\Item()\TimerDelay = #ScrollBar_TimerDelay
+    			      ListEx()\ScrollBar\Item()\Timer      = #ScrollBar_Left
+    			      ListEx()\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Click
+    			    EndIf ;}
+    			  ElseIf X >= ListEx()\ScrollBar\Item()\Buttons\Forwards\X And X <= ListEx()\ScrollBar\Item()\Buttons\Forwards\X + ListEx()\ScrollBar\Item()\Buttons\Forwards\Height
+    			    ;{ Forwards Button
+    			    If ListEx()\ScrollBar\Item()\Buttons\Forwards\State <> #ScrollBar_Click
+    			      DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Forwards\X, ListEx()\ScrollBar\Item()\Buttons\Forwards\Y, ListEx()\ScrollBar\Item()\Buttons\Forwards\Width, ListEx()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards, #ScrollBar_Click)
+    			      ListEx()\ScrollBar\Item()\TimerDelay = #ScrollBar_TimerDelay
+    			      ListEx()\ScrollBar\Item()\Timer      = #ScrollBar_Right
+    			      ListEx()\ScrollBar\Item()\Buttons\Forwards\State = #ScrollBar_Click
+    			    EndIf ;}
+    			  ElseIf X >= ListEx()\ScrollBar\Item()\Thumb\X And X <= ListEx()\ScrollBar\Item()\Thumb\X + ListEx()\ScrollBar\Item()\Thumb\Width
+    			    ;{ Thumb Button
+    			    If ListEx()\ScrollBar\Item()\Thumb\State <> #ScrollBar_Click
+    			      ListEx()\ScrollBar\Item()\Thumb\State = #ScrollBar_Click
+    			      ListEx()\ScrollBar\Item()\Cursor = X
+    			      DrawScrollBar_(ScrollBar)
+    			    EndIf ;} 
+    			  EndIf
+    			  
+    			  ProcedureReturn #True
+    			EndIf
+    			
+  			EndIf
+        
+      Next      
+      
       ;{ Resize column with mouse
       If ListEx()\Row\Current = #Header
         
@@ -5299,7 +6239,7 @@ Module ListEx
         Next
 
       EndIf ;}
-
+      
       If ListEx()\Row\Current = #Header ;{ Header clicked
         
         If ListEx()\Col\Current < 0 : ProcedureReturn #False : EndIf
@@ -5667,6 +6607,7 @@ Module ListEx
   EndProcedure
   
   Procedure _LeftButtonUpHandler()
+    Define.s ScrollBar
     Define.i X, Y
     Define GNum.i = EventGadget()
     
@@ -5684,6 +6625,77 @@ Module ListEx
         ListEx()\Col\MouseX   = 0
         AdjustScrollBars_()
       EndIf
+      
+      ForEach ListEx()\ScrollBar\Item()
+      
+  		  If ListEx()\ScrollBar\Item()\Hide : Continue : EndIf 
+  		  
+  			ListEx()\ScrollBar\Item()\Cursor = #PB_Default
+  			ListEx()\ScrollBar\Item()\Timer  = #False
+  			
+  			ScrollBar = MapKey(ListEx()\ScrollBar\Item())
+  			
+  			If ListEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical ;{ Vertical Scrollbar
+  			  
+  			  If X >= ListEx()\ScrollBar\Item()\X And X <= ListEx()\ScrollBar\Item()\X + ListEx()\ScrollBar\Item()\Width
+  			    
+    			  If Y >= ListEx()\ScrollBar\Item()\Buttons\Backwards\Y And Y <= ListEx()\ScrollBar\Item()\Buttons\Backwards\Y + ListEx()\ScrollBar\Item()\Buttons\Backwards\Height
+    			    ListEx()\ScrollBar\Item()\Pos - 1
+    			    If ListEx()\ScrollBar\Item()\Pos < ListEx()\ScrollBar\Item()\minPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\minPos : EndIf
+    			    Draw_()
+    			    PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_ScrollBar, #ScrollBar_Up)
+    			  ElseIf Y >= ListEx()\ScrollBar\Item()\Buttons\Forwards\Y And Y <= ListEx()\ScrollBar\Item()\Buttons\Forwards\Y + ListEx()\ScrollBar\Item()\Buttons\Forwards\Height
+    			    ListEx()\ScrollBar\Item()\Pos + 1
+    			    If ListEx()\ScrollBar\Item()\Pos > ListEx()\ScrollBar\Item()\maxPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\maxPos : EndIf
+    			    Draw_()
+    			    PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_ScrollBar, #ScrollBar_Down)
+    			  ElseIf Y < ListEx()\ScrollBar\Item()\Thumb\Y
+    			    ListEx()\ScrollBar\Item()\Pos - ListEx()\ScrollBar\Item()\PageLength
+    			    If ListEx()\ScrollBar\Item()\Pos < ListEx()\ScrollBar\Item()\minPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\minPos : EndIf
+    			    Draw_()
+    			    PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_ScrollBar, #ScrollBar_Up)
+    			  ElseIf Y > ListEx()\ScrollBar\Item()\Thumb\Y + ListEx()\ScrollBar\Item()\Thumb\Height
+    			    ListEx()\ScrollBar\Item()\Pos + ListEx()\ScrollBar\Item()\PageLength
+    			    If ListEx()\ScrollBar\Item()\Pos > ListEx()\ScrollBar\Item()\maxPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\maxPos : EndIf
+    			    Draw_()
+    			    PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_ScrollBar, #ScrollBar_Down)
+    			  EndIf
+    			  
+    			  ProcedureReturn #True
+    			EndIf  
+  			  ;}
+  			Else                                                    ;{ Horizontal Scrollbar
+  			  
+  			  If Y >= ListEx()\ScrollBar\Item()\Y And Y <= ListEx()\ScrollBar\Item()\Y + ListEx()\ScrollBar\Item()\Height
+  			    
+    			  If X <= ListEx()\ScrollBar\Item()\Buttons\Backwards\X + ListEx()\ScrollBar\Item()\Buttons\Backwards\Width
+    			    ListEx()\ScrollBar\Item()\Pos - 1
+    			    If ListEx()\ScrollBar\Item()\Pos < ListEx()\ScrollBar\Item()\minPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\minPos : EndIf
+    			    Draw_()
+    			    PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_ScrollBar, #ScrollBar_Left)
+    			  ElseIf X >= ListEx()\ScrollBar\Item()\Buttons\Forwards\X
+    			    ListEx()\ScrollBar\Item()\Pos + 1
+    			    If ListEx()\ScrollBar\Item()\Pos > ListEx()\ScrollBar\Item()\maxPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\maxPos : EndIf
+    			    Draw_()
+    			    PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_ScrollBar, #ScrollBar_Right)
+    			  ElseIf X < ListEx()\ScrollBar\Item()\Thumb\X
+    			    ListEx()\ScrollBar\Item()\Pos - ListEx()\ScrollBar\Item()\PageLength
+    			    If ListEx()\ScrollBar\Item()\Pos < ListEx()\ScrollBar\Item()\minPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\minPos : EndIf
+    			    Draw_()
+    			    PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_ScrollBar, #ScrollBar_Left)
+    			  ElseIf X > ListEx()\ScrollBar\Item()\Thumb\X + ListEx()\ScrollBar\Item()\Thumb\Width
+    			    ListEx()\ScrollBar\Item()\Pos + ListEx()\ScrollBar\Item()\PageLength
+    			    If ListEx()\ScrollBar\Item()\Pos > ListEx()\ScrollBar\Item()\maxPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\maxPos : EndIf
+    			    Draw_()
+    			    PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_ScrollBar, #ScrollBar_Right)
+    			  EndIf
+    			  
+    			  ProcedureReturn #True
+    			EndIf  
+  			  ;}
+  			EndIf
+  			
+  		Next
       
       If ListEx()\Row\Current < 0 Or ListEx()\Col\Current < 0 : ProcedureReturn #False : EndIf
       
@@ -5792,7 +6804,7 @@ Module ListEx
   Procedure _MouseMoveHandler()
     Define.i Row, Column, Flags
     Define.f X, Y, ColX, ColWidth, RowY
-    Define.s Key$, Value$, Focus$
+    Define.s Key$, Value$, Focus$, ScrollBar
     Define   Image.Image_Structure
     Define.i GNum = EventGadget()
 
@@ -5804,6 +6816,184 @@ Module ListEx
       Row    = GetRow_(Y)
       Column = GetColumn_(X)
       
+  	  ForEach ListEx()\ScrollBar\Item()
+        
+  	    If ListEx()\ScrollBar\Item()\Hide : Continue : EndIf
+
+  	    ScrollBar = MapKey(ListEx()\ScrollBar\Item())
+
+  	    If ListEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical       ;{ Vertical Scrollbar
+  	      
+  	      If X >= ListEx()\ScrollBar\Item()\X And X <= ListEx()\ScrollBar\Item()\X + ListEx()\ScrollBar\Item()\Width
+  	      
+    	      If Y <= ListEx()\ScrollBar\Item()\Buttons\Backwards\Y + ListEx()\ScrollBar\Item()\Buttons\Backwards\Height
+    			    ;{ Backwards Button
+    			    If ListEx()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Focus
+    			      
+    			      ListEx()\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Focus
+    			      
+    			      If ListEx()\ScrollBar\Item()\Thumb\State <> #False
+    			        ListEx()\ScrollBar\Item()\Thumb\State = #False
+    			        DrawScrollBar_(ScrollBar)
+    			      Else 
+    			        DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Backwards\X, ListEx()\ScrollBar\Item()\Buttons\Backwards\Y, ListEx()\ScrollBar\Item()\Buttons\Backwards\Width, ListEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards, #ScrollBar_Focus)
+    			      EndIf 
+    			      
+    			    EndIf
+    			    
+    			    
+  			    ;}
+    			    ProcedureReturn #True
+    			  ElseIf Y >= ListEx()\ScrollBar\Item()\Buttons\Forwards\Y
+    			    ;{ Forwards Button
+    			    If ListEx()\ScrollBar\Item()\Buttons\Forwards\State <> #ScrollBar_Focus
+    			      
+    			      ListEx()\ScrollBar\Item()\Buttons\Forwards\State = #ScrollBar_Focus
+    			      
+    			      If ListEx()\ScrollBar\Item()\Thumb\State <> #False
+    			        ListEx()\ScrollBar\Item()\Thumb\State = #False
+    			        DrawScrollBar_(ScrollBar)
+    			      Else 
+    			        DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Forwards\X, ListEx()\ScrollBar\Item()\Buttons\Forwards\Y, ListEx()\ScrollBar\Item()\Buttons\Forwards\Width, ListEx()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards, #ScrollBar_Focus)
+    			      EndIf
+    			      
+    			    EndIf ;}
+    			    ProcedureReturn #True
+    			  EndIf
+  
+    			  ListEx()\ScrollBar\Item()\Timer = #False
+    			  
+    			  If ListEx()\ScrollBar\Item()\Buttons\Backwards\State <> #False ;{ Backwards Button
+    			    ListEx()\ScrollBar\Item()\Buttons\Backwards\State = #False
+    			    DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Backwards\X, ListEx()\ScrollBar\Item()\Buttons\Backwards\Y, ListEx()\ScrollBar\Item()\Buttons\Backwards\Width, ListEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards)
+      			  ;}
+      			EndIf
+      			
+      			If ListEx()\ScrollBar\Item()\Buttons\Forwards\State <> #False  ;{ Forwards Button
+      			  ListEx()\ScrollBar\Item()\Buttons\Forwards\State = #False
+      			  DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Forwards\X, ListEx()\ScrollBar\Item()\Buttons\Forwards\Y, ListEx()\ScrollBar\Item()\Buttons\Forwards\Width, ListEx()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards)
+      			  ;}
+      			EndIf
+    
+    			  If Y >= ListEx()\ScrollBar\Item()\Thumb\Y And Y <= ListEx()\ScrollBar\Item()\Thumb\Y + ListEx()\ScrollBar\Item()\Thumb\Height
+    			    ;{ Move Thumb
+    			    If ListEx()\ScrollBar\Item()\Cursor <> #PB_Default
+    			      
+    			      ListEx()\ScrollBar\Item()\Pos + GetSteps_(Y)
+    			      
+    			      If ListEx()\ScrollBar\Item()\Pos > ListEx()\ScrollBar\Item()\maxPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\maxPos : EndIf
+    			      If ListEx()\ScrollBar\Item()\Pos < ListEx()\ScrollBar\Item()\minPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\minPos : EndIf
+    			      
+    			      ListEx()\ScrollBar\Item()\Cursor = Y
+    		        
+    			      Draw_()
+    			      
+    			      PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_ScrollBar, #False)
+    			      
+    		        ProcedureReturn #True
+    		      EndIf ;}
+    			    ;{ Thumb Focus
+    			    If ListEx()\ScrollBar\Item()\Thumb\State <> #ScrollBar_Focus
+    			      ListEx()\ScrollBar\Item()\Thumb\State = #ScrollBar_Focus
+    			      If ListEx()\ScrollBar\Item("HScroll")\Hide = #False And ListEx()\ScrollBar\Item("VScroll")\Hide = #False
+                  ListEx()\ScrollBar\Adjust = #ScrollBarSize
+                Else
+                  ListEx()\ScrollBar\Adjust = 0
+                EndIf
+    			      DrawScrollBar_(ScrollBar)
+    			    EndIf ;} 
+    			    ProcedureReturn #True
+    			  EndIf
+    			  
+    			  ProcedureReturn #True
+    			EndIf  
+  			  ;}
+  	    Else                                                          ;{ Horizontal Scrollbar
+  	      
+  	      If Y >= ListEx()\ScrollBar\Item()\Y And Y <= ListEx()\ScrollBar\Item()\Y + ListEx()\ScrollBar\Item()\Height
+  	      
+    	      If X <= ListEx()\ScrollBar\Item()\Buttons\Backwards\X + ListEx()\ScrollBar\Item()\Buttons\Backwards\Width
+    			    ;{ Backwards Button
+    			    If ListEx()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Focus
+    			      DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Backwards\X, ListEx()\ScrollBar\Item()\Buttons\Backwards\Y, ListEx()\ScrollBar\Item()\Buttons\Backwards\Width, ListEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards, #ScrollBar_Focus)
+    			      ListEx()\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Focus
+    			    EndIf ;}
+    			    ProcedureReturn #True
+    			  ElseIf X >= ListEx()\ScrollBar\Item()\Buttons\Forwards\X
+    			    ;{ Forwards Button
+    			    If ListEx()\ScrollBar\Item()\Buttons\Forwards\State <> #ScrollBar_Focus
+    			      DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Forwards\X, ListEx()\ScrollBar\Item()\Buttons\Forwards\Y, ListEx()\ScrollBar\Item()\Buttons\Forwards\Width, ListEx()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards, #ScrollBar_Focus)
+    			      ListEx()\ScrollBar\Item()\Buttons\Forwards\State = #ScrollBar_Focus
+    			    EndIf ;}
+    			    ProcedureReturn #True
+    			  EndIf
+  
+    			  ListEx()\ScrollBar\Item()\Timer = #False
+    			  
+      			If ListEx()\ScrollBar\Item()\Buttons\Backwards\State <> #False ;{ Backwards Button
+      			  DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Backwards\X, ListEx()\ScrollBar\Item()\Buttons\Backwards\Y, ListEx()\ScrollBar\Item()\Buttons\Backwards\Width, ListEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards)
+      			  ListEx()\ScrollBar\Item()\Buttons\Backwards\State = #False
+      			  ;}
+      			EndIf
+      			
+      			If ListEx()\ScrollBar\Item()\Buttons\Forwards\State <> #False  ;{ Forwards Button
+      			  DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Forwards\X, ListEx()\ScrollBar\Item()\Buttons\Forwards\Y, ListEx()\ScrollBar\Item()\Buttons\Forwards\Width, ListEx()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards)
+      			  ListEx()\ScrollBar\Item()\Buttons\Forwards\State = #False
+      			  ;}
+      			EndIf
+    			  
+    			  If X >= ListEx()\ScrollBar\Item()\Thumb\X And X <= ListEx()\ScrollBar\Item()\Thumb\X + ListEx()\ScrollBar\Item()\Thumb\Width
+    			    ;{ Thumb Button
+    			    If ListEx()\ScrollBar\Item()\Cursor <> #PB_Default
+    
+    		        ListEx()\ScrollBar\Item()\Pos + GetSteps_(X)
+    		        
+    		        If ListEx()\ScrollBar\Item()\Pos > ListEx()\ScrollBar\Item()\maxPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\maxPos : EndIf
+    		        If ListEx()\ScrollBar\Item()\Pos < ListEx()\ScrollBar\Item()\minPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\minPos : EndIf
+    		        
+    		        ListEx()\ScrollBar\Item()\Cursor = X
+    		        
+    		        Draw_()
+    		        
+    		        PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_ScrollBar, #False)
+    		        
+    		        ProcedureReturn #True
+    		      EndIf ;}
+    			    ;{ Thumb Focus
+    			    If ListEx()\ScrollBar\Item()\Thumb\State <> #ScrollBar_Focus
+    			      ListEx()\ScrollBar\Item()\Thumb\State = #ScrollBar_Focus
+    			      DrawScrollBar_(ScrollBar)
+    			    EndIf ;} 
+    			    ProcedureReturn #True
+    			  EndIf
+
+    			  ProcedureReturn #True
+  			  EndIf
+  			  ;}
+  			EndIf
+
+  			If ListEx()\ScrollBar\Item()\Thumb\State <> #False              ;{ Thumb Button
+  			  ListEx()\ScrollBar\Item()\Thumb\State = #False
+  			  DrawScrollBar_(ScrollBar)
+  			  ;}
+  			Else
+  			  
+  			  If ListEx()\ScrollBar\Item()\Buttons\Backwards\State <> #False ;{ Backwards Button
+    			  DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Backwards\X, ListEx()\ScrollBar\Item()\Buttons\Backwards\Y, ListEx()\ScrollBar\Item()\Buttons\Backwards\Width, ListEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards)
+    			  ListEx()\ScrollBar\Item()\Buttons\Backwards\State = #False
+    			  ;}
+    			EndIf
+
+  			  If ListEx()\ScrollBar\Item()\Buttons\Forwards\State <> #False  ;{ Forwards Button
+    			  DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Forwards\X, ListEx()\ScrollBar\Item()\Buttons\Forwards\Y, ListEx()\ScrollBar\Item()\Buttons\Forwards\Width, ListEx()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards)
+    			  ListEx()\ScrollBar\Item()\Buttons\Forwards\State = #False
+    			  ;}
+    			EndIf
+
+  			EndIf
+        
+  		Next
+
       If Row = #Header
         
         If ListEx()\Flags & #ResizeColumn Or ListEx()\Flags & #AdjustColumns ;{ Resize column with mouse
@@ -6051,10 +7241,34 @@ Module ListEx
   EndProcedure
   
   Procedure _MouseLeaveHandler()
+    Define.s ScrollBar
     Define.i GadgetNum = EventGadget()
     
     If FindMapElement(ListEx(), Str(GadgetNum))
-    
+      
+      ForEach ListEx()\ScrollBar\Item()
+      
+  	    If ListEx()\ScrollBar\Item()\Hide : Continue : EndIf
+  	    
+  	    ScrollBar = MapKey(ListEx()\ScrollBar\Item())
+  	    
+  	    If ListEx()\ScrollBar\Item()\Buttons\Backwards\State <> #False
+  			  DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Backwards\X, ListEx()\ScrollBar\Item()\Buttons\Backwards\Y, ListEx()\ScrollBar\Item()\Buttons\Backwards\Width, ListEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards)
+  			  ListEx()\ScrollBar\Item()\Buttons\Backwards\State = #False
+  			EndIf
+  			
+  			If ListEx()\ScrollBar\Item()\Buttons\Forwards\State <> #False
+  			  DrawScrollButton_(ListEx()\ScrollBar\Item()\Buttons\Forwards\X, ListEx()\ScrollBar\Item()\Buttons\Forwards\Y, ListEx()\ScrollBar\Item()\Buttons\Forwards\Width, ListEx()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards)
+  			  ListEx()\ScrollBar\Item()\Buttons\Forwards\State = #False
+  			EndIf
+  			
+  	    If ListEx()\ScrollBar\Item()\Thumb\State <> #False
+  	      ListEx()\ScrollBar\Item()\Thumb\State = #False
+  	      DrawScrollBar_(ScrollBar)
+  	    EndIf  
+  	    
+      Next
+      
       UpdateColumnX_()
       
       Draw_()
@@ -6070,31 +7284,21 @@ Module ListEx
     
     If FindMapElement(ListEx(), Str(GadgetNum))
       
-      Delta = GetGadgetAttribute(GadgetNum, #PB_Canvas_WheelDelta)
-      
-      If IsGadget(ListEx()\VScrollNum) And ListEx()\VScroll\Hide = #False
+      Delta = GetGadgetAttribute(ListEx()\CanvasNum, #PB_Canvas_WheelDelta)
+	  
+  	  ForEach ListEx()\ScrollBar\Item()
         
-        ScrollPos = GetGadgetState(ListEx()\VScrollNum) - Delta
-        
-        If ScrollPos > ListEx()\VScroll\MaxPos : ScrollPos = ListEx()\VScroll\MaxPos : EndIf
-        If ScrollPos < ListEx()\VScroll\MinPos : ScrollPos = ListEx()\VScroll\MinPos : EndIf
-        
-        If ScrollPos <> ListEx()\VScroll\Position
-          
-          ListEx()\Row\Offset = ScrollPos
-          SetVScrollPosition_()
-          
-          UpdateRowY_()
-          
-          ScrollEditGadgets_() 
-          
-          If ListEx()\Focus : SelectElement(ListEx()\Rows(), ListEx()\Row\Focus) : EndIf
+  	    If ListEx()\ScrollBar\Item()\Hide : Continue : EndIf
+  	    
+  	    If ListEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical
+          ListEx()\ScrollBar\Item()\Pos - Delta
+  
+          If ListEx()\ScrollBar\Item()\Pos > ListEx()\ScrollBar\Item()\maxPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\maxPos : EndIf
+          If ListEx()\ScrollBar\Item()\Pos < ListEx()\ScrollBar\Item()\minPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\minPos : EndIf
           
           Draw_()
-          
-        EndIf
-
-      EndIf
+        EndIf 
+  	  Next
 
     EndIf
     
@@ -6140,31 +7344,26 @@ Module ListEx
   CompilerEndIf
   
   Procedure _ResizeHandler()
+    Define.s ScrollBar
     Define.i OffsetX, OffSetY
     Define.i GadgetNum = EventGadget()
     
     If FindMapElement(ListEx(), Str(GadgetNum))
+      
+      ForEach ListEx()\ScrollBar\Item()
+      
+  	    If ListEx()\ScrollBar\Item()\Hide : Continue : EndIf
+  	    
+  	    ScrollBar = MapKey(ListEx()\ScrollBar\Item())
+  	    
+  		  CalcScrollBarThumb_(ScrollBar)
 
-      If ListEx()\VScroll\Hide = #False Or ListEx()\HScroll\Hide = #False
-        
-        If ListEx()\VScroll\Hide
-          ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width - 1, GadgetWidth(ListEx()\CanvasNum) - 2, #ScrollBar_Width)
-        Else
-          ResizeGadget(ListEx()\HScrollNum, 1, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width - 1, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width - 2, #ScrollBar_Width)
-        EndIf
-        
-        If ListEx()\HScroll\Hide
-          ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width, GadgetHeight(ListEx()\CanvasNum) - 2)
-        Else  
-          ResizeGadget(ListEx()\VScrollNum, GadgetWidth(ListEx()\CanvasNum) - #ScrollBar_Width, 1, #ScrollBar_Width, GadgetHeight(ListEx()\CanvasNum) - #ScrollBar_Width - 2)
-        EndIf
-        
-      EndIf
+  	  Next
       
       UpdateColumnX_()
       UpdateRowY_()
       
-      Draw_()
+      Redraw_()
       
     EndIf
     
@@ -6232,14 +7431,21 @@ Module ListEx
     
       If ListEx()\Window\Num = Window
         
-        CompilerIf Defined(ModuleEx, #PB_Module) = #False
-          If MapSize(ListEx()) = 1
+        If MapSize(ListEx()) = 1
+          
+          CompilerIf Defined(ModuleEx, #PB_Module) = #False
             Thread\Exit = #True
             Delay(100)
             If IsThread(Thread\Num) : KillThread(Thread\Num) : EndIf
             Thread\Active = #False
-          EndIf
-        CompilerEndIf
+          CompilerEndIf
+          
+          TimerThread\Exit = #True
+          Delay(100)
+          If IsThread(TimerThread\Num) : KillThread(TimerThread\Num) : EndIf
+          TimerThread\Active = #False
+          
+        EndIf
         
         DeleteMapElement(ListEx())
         
@@ -6248,91 +7454,7 @@ Module ListEx
     Next
     
   EndProcedure
-  
-  Procedure _SynchronizeScrollCols()
-    Define.i ScrollNum = EventGadget()
-    Define.i GadgetNum = GetGadgetData(ScrollNum)
-    Define.f ScrollPos
-    
-    If FindMapElement(ListEx(), Str(GadgetNum))
-      
-      ScrollPos = GetGadgetState(ScrollNum)
-      If ScrollPos <> ListEx()\HScroll\Position
-        
-        If ScrollPos < ListEx()\Col\OffsetX
-          ListEx()\Col\OffsetX = ScrollPos ; - dpiX(20)
-        ElseIf ScrollPos > ListEx()\Col\OffsetX
-          ListEx()\Col\OffsetX = ScrollPos ;+ dpiX(20)
-        EndIf
-        
-        If ListEx()\Col\OffsetX < ListEx()\HScroll\MinPos : ListEx()\Col\OffsetX = ListEx()\HScroll\MinPos : EndIf
-        If ListEx()\Col\OffsetX > ListEx()\HScroll\MaxPos : ListEx()\Col\OffsetX = ListEx()\HScroll\MaxPos : EndIf
-        
-        SetGadgetState(ScrollNum, ListEx()\Col\OffsetX)
-        SetHScrollPosition_()
 
-        ScrollEditGadgets_() 
-        
-        UpdateColumnX_()
-        
-        Draw_()
-        
-      EndIf
-      
-    EndIf
-    
-  EndProcedure
-  
-  Procedure _SynchronizeScrollRows()
-    Define.i ScrollNum = EventGadget()
-    Define.i GadgetNum = GetGadgetData(ScrollNum)
-    Define.f X, Y, ScrollPos
-    
-    If FindMapElement(ListEx(), Str(GadgetNum))
-      
-      ScrollPos = GetGadgetState(ScrollNum)
-      If ScrollPos <> ListEx()\VScroll\Position
-        
-        ListEx()\Row\Offset = ScrollPos
-
-        SetVScrollPosition_()
-        
-        UpdateRowY_()
-        
-        ScrollEditGadgets_()
-
-        Draw_()
-        
-      EndIf
-      
-    EndIf
-    
-  EndProcedure 
-  
-  Procedure _SynchronizeComboList()
-    Define.i ScrollNum = EventGadget()
-    Define.i GadgetNum = GetGadgetData(ScrollNum)
-    Define.i ScrollPos
-    
-    If FindMapElement(ListEx(), Str(GadgetNum))
-      
-      If Not ListEx()\ListView\Hide
-        
-        ScrollPos = GetGadgetState(ScrollNum)
-        If ScrollPos <> ListEx()\ListView\ScrollBar\Pos
-          
-          ListEx()\ListView\ScrollBar\Pos = ScrollPos
-          ListEx()\ListView\Offset        = ScrollPos
-          
-          DrawListView_()      
-        EndIf
-        
-      EndIf 
-      
-    EndIf
-    
-  EndProcedure ;}
-  
   ;- __________ Editing Cells __________
   
   Procedure  BindShortcuts_(Flag.i=#True)
@@ -6522,8 +7644,79 @@ Module ListEx
 
   EndProcedure
   
-  ; _________ Internal _________
+  ;- _________ Internal _________
   
+	Procedure   InitScrollBar_(Flags.i=#False)
+
+	  ListEx()\ScrollBar\Flags = Flags
+	  
+	  If TimerThread\Active = #False 
+      TimerThread\Exit   = #False
+      TimerThread\Num    = CreateThread(@_TimerThread(), #ScrollBar_Timer)
+      TimerThread\Active = #True
+    EndIf
+	  
+		ListEx()\ScrollBar\Color\Back         = $F0F0F0
+		ListEx()\ScrollBar\Color\Border       = $A0A0A0
+		ListEx()\ScrollBar\Color\Button       = $F0F0F0
+		ListEx()\ScrollBar\Color\Focus        = $D77800
+		ListEx()\ScrollBar\Color\Front        = $646464
+		ListEx()\ScrollBar\Color\Gadget       = $F0F0F0
+		ListEx()\ScrollBar\Color\ScrollBar    = $C8C8C8
+		ListEx()\ScrollBar\Color\DisableFront = $72727D
+		ListEx()\ScrollBar\Color\DisableBack  = $CCCCCA
+		
+		CompilerSelect #PB_Compiler_OS ;{ Color
+			CompilerCase #PB_OS_Windows
+				ListEx()\ScrollBar\Color\Front     = GetSysColor_(#COLOR_GRAYTEXT)
+				ListEx()\ScrollBar\Color\Back      = GetSysColor_(#COLOR_MENU)
+				ListEx()\ScrollBar\Color\Border    = GetSysColor_(#COLOR_3DSHADOW)
+				ListEx()\ScrollBar\Color\Gadget    = GetSysColor_(#COLOR_MENU)
+				ListEx()\ScrollBar\Color\Focus     = GetSysColor_(#COLOR_MENUHILIGHT)
+				ListEx()\ScrollBar\Color\ScrollBar = GetSysColor_(#COLOR_SCROLLBAR)
+			CompilerCase #PB_OS_MacOS
+				ListEx()\ScrollBar\Color\Front  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+				ListEx()\ScrollBar\Color\Back   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
+				ListEx()\ScrollBar\Color\Border = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+				ListEx()\ScrollBar\Color\Gadget = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
+				ListEx()\ScrollBar\Color\Focus  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedControlColor"))
+				; ListEx()\ScrollBar\Color\ScrollBar = 
+			CompilerCase #PB_OS_Linux
+
+		CompilerEndSelect ;}
+    
+		BindEvent(#Event_Timer, @_AutoScroll())
+		
+	EndProcedure
+	
+  Procedure   CreateScrollBar_(Label.s, CanvasNum.i, X.i, Y.i, Width.i, Height.i, Minimum.i, Maximum.i, PageLength.i, Type.i=#False)
+    
+    If AddMapElement(ListEx()\ScrollBar\Item(), Label)
+      
+      ListEx()\ScrollBar\Item()\Num        = CanvasNum
+      ListEx()\ScrollBar\Item()\X          = X
+      ListEx()\ScrollBar\Item()\Y          = Y
+      ListEx()\ScrollBar\Item()\Width      = Width
+      ListEx()\ScrollBar\Item()\Height     = Height
+      ListEx()\ScrollBar\Item()\Minimum    = Minimum
+      ListEx()\ScrollBar\Item()\Maximum    = Maximum
+      ListEx()\ScrollBar\Item()\PageLength = PageLength
+      ListEx()\ScrollBar\Item()\Hide       = #True
+      ListEx()\ScrollBar\Item()\Type       = Type
+      
+      ListEx()\ScrollBar\Item()\Cursor = #PB_Default
+		
+			ListEx()\ScrollBar\Item()\Buttons\Forwards\State  = #PB_Default
+			ListEx()\ScrollBar\Item()\Buttons\Backwards\State = #PB_Default
+			
+			CalcScrollBarThumb_(Label)
+		  DrawScrollBar_(Label)
+			
+    EndIf
+    
+  EndProcedure 
+  
+ 
   Procedure   InitList_()
 
     ListEx()\ListView\Window = ListView\Window
@@ -6534,15 +7727,9 @@ Module ListEx
       
       If IsGadget(ListEx()\ListView\Num)
         
-        ListEx()\ListView\ScrollBar\Num = ListView\ScrollBar
-        
-        If IsGadget(ListEx()\ListView\ScrollBar\Num)
-          SetGadgetData(ListEx()\ListView\ScrollBar\Num, ListEx()\CanvasNum)
-          HideGadget(ListEx()\ListView\ScrollBar\Num, #True)
-        EndIf
+        CreateScrollBar_("LScroll", ListEx()\ListView\Num, 0, 0, #ScrollBarSize, 0, 1, 100, 0, #ScrollBar_Vertical)
         
         BindGadgetEvent(ListEx()\ListView\Num, @_ListViewHandler())
-        BindGadgetEvent(ListEx()\ListView\ScrollBar\Num, @_SynchronizeComboList(), #PB_All) 
         
       EndIf 
       
@@ -6552,6 +7739,16 @@ Module ListEx
     EndIf
   
   EndProcedure 
+  
+  Procedure   ListViewWindow_()
+    
+    ListView\Window = OpenWindow(#PB_Any, 0, 0, 0, 0, "", #PB_Window_BorderLess|#PB_Window_Invisible) 
+    If ListView\Window
+      ListView\Gadget = CanvasGadget(#PB_Any, 0, 0, 0, 0)
+      StickyWindow(ListView\Window, #True)
+    EndIf  
+
+  EndProcedure
   
   ;- ==========================================================================
   ;-   Module - Declared Procedures
@@ -6741,7 +7938,7 @@ Module ListEx
         If ListEx()\ReDraw
           If ListEx()\FitCols : FitColumns_() : EndIf
           UpdateRowY_()
-          Draw_()
+          Redraw_()
         EndIf
         
       EndIf
@@ -6759,7 +7956,7 @@ Module ListEx
         If SelectElement(ListEx()\Cols(), Column)
           MarkContent_(Term, Color1, Color2, FontID)
           If ListEx()\FitCols : FitColumns_() : EndIf
-          Draw_()
+          Redraw_()
         EndIf
         
       EndIf  
@@ -6854,7 +8051,7 @@ Module ListEx
         
         If ListEx()\ReDraw
           UpdateColumnX_()
-          Draw_()
+          Redraw_()
         EndIf
         
       EndIf
@@ -6970,7 +8167,7 @@ Module ListEx
       If ListEx()\ReDraw
         If ListEx()\FitCols : FitColumns_() : EndIf
         UpdateRowY_()
-        Draw_()
+        Redraw_()
       EndIf
 
     EndIf
@@ -6988,7 +8185,7 @@ Module ListEx
       If ListEx()\ReDraw
         If ListEx()\FitCols : FitColumns_() : EndIf
         UpdateRowY_()
-        Draw_()
+        Redraw_()
       EndIf
 
     EndIf
@@ -7044,7 +8241,7 @@ Module ListEx
       ListEx()\RowIdx     = 0
       UpdateRowY_()
       
-      Draw_()
+      Redraw_()
     EndIf
     
   EndProcedure    
@@ -7065,7 +8262,7 @@ Module ListEx
         CloseDate_()
       EndIf ;}
       
-      Draw_()
+      Redraw_()
       
     EndIf
       
@@ -7127,7 +8324,7 @@ Module ListEx
         ListEx()\ReDraw = #True
         UpdateRowY_()
         UpdateColumnX_()
-        Draw_()
+        Redraw_()
       EndIf
       
     EndIf
@@ -7307,19 +8504,10 @@ Module ListEx
         CompilerEndIf
         ListEx()\Date\Mask = ListEx()\Country\DateMask
         
-        ListEx()\HScrollNum = ScrollBarGadget(#PB_Any, 0, 0, 0, 0, 0, 0, 0)
-        If IsGadget(ListEx()\HScrollNum)
-          SetGadgetData(ListEx()\HScrollNum, ListEx()\CanvasNum)
-          ListEx()\HScroll\Hide = #True
-          HideGadget(ListEx()\HScrollNum, #True)
-        EndIf
+        InitScrollBar_()
         
-        ListEx()\VScrollNum = ScrollBarGadget(#PB_Any, 0, 0, 0, 0, 0, 0, 0, #PB_ScrollBar_Vertical)
-        If IsGadget(ListEx()\VScrollNum)
-          SetGadgetData(ListEx()\VScrollNum, ListEx()\CanvasNum)
-          ListEx()\VScroll\Hide = #True
-          HideGadget(ListEx()\VScrollNum, #True)
-        EndIf ;}
+        CreateScrollBar_("HScroll", GNum, 1, Y + Height - #ScrollBarSize - 1, Width - 2, #ScrollBarSize, 0, 0, 0)
+        CreateScrollBar_("VScroll", GNum, X + Width - #ScrollBarSize - 1, 1, #ScrollBarSize, Height - 2, 0, 0, 0, #ScrollBar_Vertical)
         
         ;{ Shortcuts
         If IsWindow(ListEx()\Window\Num)
@@ -7388,9 +8576,6 @@ Module ListEx
         BindGadgetEvent(ListEx()\CanvasNum,  @_MouseLeaveHandler(),      #PB_EventType_MouseLeave)
         BindGadgetEvent(ListEx()\CanvasNum,  @_KeyDownHandler(),         #PB_EventType_KeyDown)  
         BindGadgetEvent(ListEx()\CanvasNum,  @_InputHandler(),           #PB_EventType_Input)
-        BindGadgetEvent(ListEx()\HScrollNum, @_SynchronizeScrollCols(),  #PB_All)
-        BindGadgetEvent(ListEx()\VScrollNum, @_SynchronizeScrollRows(),  #PB_All) 
-        
         BindEvent(#Event_Cursor, @_CursorDrawing())
 
         CompilerIf #Enable_DragAndDrop
@@ -7402,7 +8587,7 @@ Module ListEx
           BindEvent(#Event_Theme, @_ThemeHandler())
         CompilerEndIf
         
-        Draw_()
+        Redraw_()
         
       EndIf 
       
@@ -7656,7 +8841,7 @@ Module ListEx
       Else
         ListEx()\Hide = #False
         HideGadget(GNum, #False)
-        Draw_()
+        Redraw_()
       EndIf   
 
     EndIf
@@ -7677,7 +8862,7 @@ Module ListEx
       
       If ListEx()\ReDraw
         UpdateColumnX_()
-        Draw_()
+        Redraw_()
       EndIf
       
     EndIf
@@ -7694,7 +8879,7 @@ Module ListEx
       If JSON
         ExtractJSONStructure(JSONValue(JSON), @ListEx()\Color, ListEx_Color_Structure)
         FreeJSON(JSON)
-        If ListEx()\ReDraw : Draw_() : EndIf
+        If ListEx()\ReDraw : Redraw_() : EndIf
       EndIf
       
     EndIf  
@@ -7709,7 +8894,7 @@ Module ListEx
       UpdateRowY_()
       UpdateColumnX_()
       If ListEx()\FitCols : FitColumns_() : EndIf
-      Draw_()
+      Redraw_()
       
     EndIf  
    
@@ -7726,7 +8911,7 @@ Module ListEx
           
           If ListEx()\ReDraw
             If ListEx()\FitCols : FitColumns_() : EndIf
-            Draw_()
+            Redraw_()
           EndIf
           
         EndIf
@@ -7742,7 +8927,7 @@ Module ListEx
       
       ListEx()\Flags & ~Flag
       
-      If ListEx()\ReDraw : Draw_() : EndIf
+      If ListEx()\ReDraw : Redraw_() : EndIf
     EndIf  
     
   EndProcedure  
@@ -7753,7 +8938,7 @@ Module ListEx
       
       If SelectElement(ListEx()\Cols(), Column)
         ListEx()\Cols()\Flags & ~Flag
-        If ListEx()\ReDraw : Draw_() : EndIf
+        If ListEx()\ReDraw : Redraw_() : EndIf
       EndIf
       
     EndIf
@@ -7781,7 +8966,7 @@ Module ListEx
         
         UpdateColumnX_()
         
-        If ListEx()\ReDraw : Draw_() : EndIf
+        If ListEx()\ReDraw : Redraw_() : EndIf
       EndIf
       
     EndIf  
@@ -7795,7 +8980,7 @@ Module ListEx
       If SelectElement(ListEx()\Rows(), Row)
         DeleteElement(ListEx()\Rows())
         UpdateRowY_()
-        If ListEx()\ReDraw : Draw_() : EndIf
+        If ListEx()\ReDraw : Redraw_() : EndIf
       EndIf
       
     EndIf  
@@ -7817,7 +9002,7 @@ Module ListEx
             
             If ListEx()\Flags & #CheckBoxes And Column = 0
               ListEx()\Rows()\State & ~State
-              If ListEx()\ReDraw : Draw_() : EndIf 
+              If ListEx()\ReDraw : Redraw_() : EndIf 
             Else  
               If SelectElement(ListEx()\Cols(), Column)
                 ListEx()\Rows()\Column(ListEx()\Cols()\Key)\State & ~State
@@ -7826,7 +9011,7 @@ Module ListEx
             
           EndIf
           
-          If ListEx()\ReDraw : Draw_() : EndIf
+          If ListEx()\ReDraw : Redraw_() : EndIf
         EndIf
         
       EndIf
@@ -7857,7 +9042,7 @@ Module ListEx
         SetRowFocus_(ListEx()\Row\Focus)
       EndIf
       
-      If ListEx()\ReDraw : Draw_() : EndIf
+      If ListEx()\ReDraw : Redraw_() : EndIf
       
     EndIf
     
@@ -7906,7 +9091,7 @@ Module ListEx
         ProcedureReturn #False
       EndIf
       
-      If ListEx()\ReDraw : Draw_() : EndIf
+      If ListEx()\ReDraw : Redraw_() : EndIf
       
     EndIf  
       
@@ -7924,9 +9109,11 @@ Module ListEx
         Case #MaxChars
           ListEx()\String\MaxChars   = Value
           ListEx()\ComboBox\MaxChars = Value
+        Case #ScrollBar
+          ListEx()\ScrollBar\Flags   = Value
       EndSelect
       
-      If ListEx()\ReDraw : Draw_() : EndIf
+      If ListEx()\ReDraw : Redraw_() : EndIf
       
     EndIf
     
@@ -7945,7 +9132,7 @@ Module ListEx
       ListEx()\AutoResize\maxWidth = maxWidth
       If SelectElement(ListEx()\Cols(), Column) : ListEx()\AutoResize\Width = ListEx()\Cols()\Width : EndIf
       
-      If ListEx()\ReDraw : Draw_() : EndIf
+      If ListEx()\ReDraw : Redraw_() : EndIf
     EndIf  
  
   EndProcedure  
@@ -7971,7 +9158,7 @@ Module ListEx
           
           If ListEx()\ReDraw
             If ListEx()\FitCols : FitColumns_() : EndIf
-            Draw_()
+            Redraw_()
           EndIf
           
         EndIf
@@ -7993,7 +9180,7 @@ Module ListEx
           
           If ListEx()\ReDraw
             If ListEx()\FitCols : FitColumns_() : EndIf
-            Draw_()
+            Redraw_()
           EndIf
           
         EndIf
@@ -8010,7 +9197,7 @@ Module ListEx
       
       If SelectElement(ListEx()\Rows(), Row)
         ListEx()\Rows()\Column(Label)\State = State
-        If ListEx()\ReDraw : Draw_() : EndIf
+        If ListEx()\ReDraw : Redraw_() : EndIf
       EndIf
       
     EndIf
@@ -8032,14 +9219,14 @@ Module ListEx
         
         SetColor_(ColorTyp, Value)
         
-        If ListEx()\ReDraw : Draw_() : EndIf
+        If ListEx()\ReDraw : Redraw_() : EndIf
       Next
       
     ElseIf FindMapElement(ListEx(), Str(GNum))
       
       SetColor_(ColorTyp, Value, Column)
 
-      If ListEx()\ReDraw : Draw_() : EndIf
+      If ListEx()\ReDraw : Redraw_() : EndIf
     EndIf
     
   EndProcedure
@@ -8061,7 +9248,7 @@ Module ListEx
           ColorTheme_(Theme)
         EndIf
         
-        Draw_()
+        Redraw_()
       Next
       
       If Theme = #Theme_Custom
@@ -8080,7 +9267,7 @@ Module ListEx
         ColorTheme_(Theme)
       EndIf
     
-      Draw_()
+      Redraw_()
     EndIf  
     
   EndProcedure  
@@ -8107,7 +9294,7 @@ Module ListEx
             ListEx()\Cols()\FontID   = FontID(Value)
         EndSelect
         
-        If ListEx()\ReDraw : Draw_() : EndIf
+        If ListEx()\ReDraw : Redraw_() : EndIf
       EndIf 
       
     EndIf
@@ -8120,7 +9307,7 @@ Module ListEx
       
       If SelectElement(ListEx()\Cols(), Column)
         ListEx()\Cols()\Flags | Flags
-        If ListEx()\ReDraw : Draw_() : EndIf
+        If ListEx()\ReDraw : Redraw_() : EndIf
       EndIf
       
     EndIf
@@ -8149,7 +9336,7 @@ Module ListEx
         EndIf
         
         If ListEx()\FitCols : FitColumns_() : EndIf
-        If ListEx()\ReDraw  : Draw_()       : EndIf
+        If ListEx()\ReDraw  : Redraw_()       : EndIf
         
       EndIf
       
@@ -8163,7 +9350,7 @@ Module ListEx
       
       If SelectElement(ListEx()\Cols(), Column)
         ListEx()\Cols()\Format = Mask
-        If ListEx()\ReDraw : Draw_() : EndIf
+        If ListEx()\ReDraw : Redraw_() : EndIf
       EndIf
       
     EndIf
@@ -8177,7 +9364,7 @@ Module ListEx
       If SelectElement(ListEx()\Rows(), Row)
         If SelectElement(ListEx()\Cols(), Column)
           ListEx()\Rows()\Column(ListEx()\Cols()\Key)\State = State
-          If ListEx()\ReDraw : Draw_() : EndIf
+          If ListEx()\ReDraw : Redraw_() : EndIf
         EndIf  
       EndIf
       
@@ -8260,14 +9447,14 @@ Module ListEx
         
         ListEx()\Flags | Flags
         
-        If ListEx()\ReDraw : Draw_() : EndIf
+        If ListEx()\ReDraw : Redraw_() : EndIf
       Next
       
     ElseIf FindMapElement(ListEx(), Str(GNum))
       
       ListEx()\Flags | Flags
       
-      If ListEx()\ReDraw : Draw_() : EndIf
+      If ListEx()\ReDraw : Redraw_() : EndIf
     EndIf  
     
   EndProcedure
@@ -8287,7 +9474,7 @@ Module ListEx
         
         If ListEx()\ReDraw
           If ListEx()\FitCols : FitColumns_() : EndIf
-          Draw_()
+          Redraw_()
         EndIf
 
       Next  
@@ -8316,7 +9503,7 @@ Module ListEx
       
       If ListEx()\ReDraw
         If ListEx()\FitCols : FitColumns_() : EndIf
-        Draw_()
+        Redraw_()
       EndIf
       
     EndIf
@@ -8347,7 +9534,7 @@ Module ListEx
         
         If ListEx()\ReDraw
           If ListEx()\FitCols : FitColumns_() : EndIf
-          Draw_()
+          Redraw_()
         EndIf
 
       Next  
@@ -8386,7 +9573,7 @@ Module ListEx
 
       If ListEx()\ReDraw
         If ListEx()\FitCols : FitColumns_() : EndIf
-        Draw_()
+        Redraw_()
       EndIf
       
     EndIf
@@ -8402,7 +9589,7 @@ Module ListEx
         ListEx()\Header\Height = Height
         UpdateRowY_()
         
-        If ListEx()\ReDraw : Draw_() : EndIf
+        If ListEx()\ReDraw : Redraw_() : EndIf
       Next
 
     ElseIf FindMapElement(ListEx(), Str(GNum))
@@ -8410,7 +9597,7 @@ Module ListEx
       ListEx()\Header\Height = Height
       UpdateRowY_()
 
-      If ListEx()\ReDraw : Draw_() : EndIf
+      If ListEx()\ReDraw : Redraw_() : EndIf
     EndIf
     
   EndProcedure
@@ -8515,7 +9702,7 @@ Module ListEx
           ListEx()\Color\HeaderLine = Value  
       EndSelect
       
-      If ListEx()\ReDraw : Draw_() : EndIf
+      If ListEx()\ReDraw : Redraw_() : EndIf
     EndIf
     
   EndProcedure
@@ -8561,7 +9748,7 @@ Module ListEx
 
       If ListEx()\ReDraw
         If ListEx()\FitCols : FitColumns_() : EndIf
-        Draw_()
+        Redraw_()
       EndIf
       
     EndIf
@@ -8602,7 +9789,7 @@ Module ListEx
             ListEx()\Cols()\Header\Flags & ~#Image
           EndIf
           If ListEx()\FitCols : FitColumns_() : EndIf
-          If ListEx()\ReDraw  : Draw_()       : EndIf
+          If ListEx()\ReDraw  : Redraw_()       : EndIf
         EndIf
         
       Else
@@ -8630,7 +9817,7 @@ Module ListEx
 
             If ListEx()\ReDraw
               If ListEx()\FitCols : FitColumns_() : EndIf
-              Draw_()
+              Redraw_()
             EndIf
             
           EndIf
@@ -8659,7 +9846,7 @@ Module ListEx
             ListEx()\Cols()\Header\Flags & ~#Image
           EndIf
           If ListEx()\FitCols : FitColumns_() : EndIf
-          If ListEx()\ReDraw  : Draw_()       : EndIf
+          If ListEx()\ReDraw  : Redraw_()       : EndIf
         EndIf
         
       Else
@@ -8679,7 +9866,7 @@ Module ListEx
 
             If ListEx()\ReDraw
               If ListEx()\FitCols : FitColumns_() : EndIf
-              Draw_()
+              Redraw_()
             EndIf
             
           EndIf
@@ -8700,15 +9887,15 @@ Module ListEx
         If SelectElement(ListEx()\Rows(), Row)
           If Column = #PB_Ignore
             ListEx()\Rows()\State = State
-            If ListEx()\ReDraw : Draw_() : EndIf
+            If ListEx()\ReDraw : Redraw_() : EndIf
           Else
             If ListEx()\Flags & #CheckBoxes And Column = 0
               ListEx()\Rows()\State = State
-              If ListEx()\ReDraw : Draw_() : EndIf 
+              If ListEx()\ReDraw : Redraw_() : EndIf 
             Else  
               If SelectElement(ListEx()\Cols(), Column)
                 ListEx()\Rows()\Column(ListEx()\Cols()\Key)\State = State
-                If ListEx()\ReDraw : Draw_() : EndIf
+                If ListEx()\ReDraw : Redraw_() : EndIf
               EndIf 
             EndIf
           EndIf
@@ -8732,7 +9919,7 @@ Module ListEx
             ListEx()\Cols()\Header\Title = Text
             If ListEx()\ReDraw
               If ListEx()\Cols()\Flags & #FitColumn : FitColumns_() : EndIf
-              Draw_()
+              Redraw_()
             EndIf
           EndIf
           
@@ -8745,7 +9932,7 @@ Module ListEx
               ListEx()\Rows()\Column(ListEx()\Cols()\Key)\Value = Text
               If ListEx()\ReDraw
                 If ListEx()\Cols()\Flags & #FitColumn : FitColumns_() : EndIf
-                Draw_()
+                Redraw_()
               EndIf
             EndIf
             
@@ -8799,7 +9986,7 @@ Module ListEx
       
       UpdateRowY_()
 
-      If ListEx()\ReDraw : Draw_() : EndIf
+      If ListEx()\ReDraw : Redraw_() : EndIf
     EndIf
     
   EndProcedure  
@@ -8840,7 +10027,7 @@ Module ListEx
         
       EndIf
       
-      Draw_()
+      Redraw_()
       
     EndIf
     
@@ -8894,7 +10081,7 @@ Module ListEx
         ;ListEx()\Focus = #False
         ;ListEx()\Row\Focus = #NotValid
         
-        If ListEx()\ReDraw : Draw_() : EndIf
+        If ListEx()\ReDraw : Redraw_() : EndIf
       EndIf
       
     EndIf
@@ -8967,6 +10154,8 @@ CompilerIf #PB_Compiler_IsMainFile
       ; ListEx::#NoRowHeader|ListEx::#ThreeState|ListEx::#NumberedColumn|ListEx::#SingleClickEdit|ListEx::#AdjustColumns
       ListEx::DisableReDraw(#List, #True) 
       
+      ListEx::SetAttribute(#List, ListEx::#ScrollBar, ListEx::#ScrollBar_DragPoint)
+      
       CompilerIf #Example = 1
         
         ; If the text contains #LF$, the text is output in multiple lines, if the line height is sufficient.
@@ -9030,6 +10219,14 @@ CompilerIf #PB_Compiler_IsMainFile
         
         ;{ --- ComboBox in column 3 ---
         ;ListEx::AddComboBoxItems(#List, 3, "male" + #LF$ + "female")
+        ListEx::AddComboBoxItem(#List, 3, "male",   $8B0000)
+        ListEx::AddComboBoxItem(#List, 3, "female", $9314FF)
+        ListEx::AddComboBoxItem(#List, 3, "male",   $8B0000)
+        ListEx::AddComboBoxItem(#List, 3, "female", $9314FF)
+        ListEx::AddComboBoxItem(#List, 3, "male",   $8B0000)
+        ListEx::AddComboBoxItem(#List, 3, "female", $9314FF)
+        ListEx::AddComboBoxItem(#List, 3, "male",   $8B0000)
+        ListEx::AddComboBoxItem(#List, 3, "female", $9314FF)
         ListEx::AddComboBoxItem(#List, 3, "male",   $8B0000)
         ListEx::AddComboBoxItem(#List, 3, "female", $9314FF)
         ;}
@@ -9196,10 +10393,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 13
-; FirstLine = 3
-; Folding = wwhAAAAAAIAAAARgAwEAAICIgAAQWpiQElgEQBECEOAAAlIAAIgAAAwAAgRgDACBHBAAAAAAAAAgmg8
-; Markers = 4366,7296
+; CursorPosition = 159
+; FirstLine = 21
+; Folding = wAgCGAAAAABAoAAAAQEIAMBABiECIAA+bGiK2PZLBSBECCAAAAAADAQJAAAAICFACAAATAypBgDwABDAg-XXAivQAgGo8
+; Markers = 4815,8493
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
