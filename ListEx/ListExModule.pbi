@@ -153,7 +153,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20030601
+  #Version  = 20030602
   #ModuleEx = 20030400
   
   #Enable_CSV_Support   = #True
@@ -4694,6 +4694,9 @@ Module ListEx
     
     If SelectElement(ListEx()\Rows(), Row)
       If SelectElement(ListEx()\Cols(), Column)
+        
+        ListEx()\Row\Current = Row
+        ListEx()\Col\Current = Column
         
         Y = ListEx()\Rows()\Y - ListEx()\Row\OffsetY
         X = ListEx()\Cols()\X - ListEx()\Col\OffsetX
@@ -10064,6 +10067,7 @@ Module ListEx
           
           If Column <> #PB_Ignore And Column >= 0
             ManageEditGadgets_(Row, Column)
+            SetActiveGadget(ListEx()\CanvasNum)
           EndIf 
           
         EndIf
@@ -10339,8 +10343,6 @@ CompilerIf #PB_Compiler_IsMainFile
       
       ListEx::SetState(#List, 4, 2)
       
-      ListEx::SelectItems(#List, ListEx::#None)
-      
       ;ListEx::ExportCSV(#List, "Export.csv", ListEx::#NoButtons|ListEx::#NoCheckBoxes|ListEx::#HeaderRow)
       
       ;ListEx::SetColor(#List, ListEx::#ComboBackColor, $FFFFF0)
@@ -10440,9 +10442,8 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 155
-; FirstLine = 12
-; Folding = wAhACAAAAAAAoAAAAQEIBsAAAiCCIAA+bGiK0oZLBQFFCCAAAAAALAQJAAAYICFCCAAQTAQhBwDQABDAAAAAAAQAAPE1Ad-
-; Markers = 4808,8495
+; Folding = wAhACAAAAAAAoAAAAQEIBsAAAiCCIAA+bGiK0oZLBQlECCAAAAAAKAQJAAEAACFCCAAATAQhBgDQABDAAAAAAAQAAPE1Ad-
+; Markers = 4811,8498
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
