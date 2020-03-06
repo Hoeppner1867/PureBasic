@@ -11,18 +11,11 @@
  
 ; Last Update: 06.03.2020
 ;
+; Bugfixes
+;
 ; Changed: ScrollBarGadget() replaced by drawing routine
 ; Added:   Attribute #ScrollBar [#ScrollBar_Default/#ScrollBar_Frame/#ScrollBar_DragPoint]
 ; Added:   SetColor() -> [#ScrollBar_FrontColor/#ScrollBar_BackColor/#ScrollBar_BorderColor/#ScrollBar_ButtonColor/#ScrollBar_ThumbColor]
-;
-;
-; Added:   Attribute #FirstVisibleRow / #VisibleRows
-; Added:   Flag #StartSelected for columns
-; Added:   Color for ComboBox items -> AddComboBoxItem()
-; Bugfix:  Move window
-; Added:   Use DateEx, if available.
-; Added:   Scrollbars for ComboBox
-; Changed: SetState() - Set the focus on an (editable) cell when the 'Column' parameter is used.
 ;
 
 ;{ ===== MIT License =====
@@ -160,7 +153,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20030600
+  #Version  = 20030601
   #ModuleEx = 20030400
   
   #Enable_CSV_Support   = #True
@@ -2092,9 +2085,11 @@ Module ListEx
       ProcedureReturn #True
     EndProcedure
   
-    Procedure.i IsContentValid_(Value.s)
+    Procedure.i IsContentValid_(Value.s, Flag.i=#False)
       
       If Value = "" : ProcedureReturn #True : EndIf
+      
+      If Flag = #Strings : SelectElement(ListEx()\Cols(), ListEx()\String\Col) : EndIf  
       
       If ListEx()\Cols()\Flags & #Number      ;{ Number
         If ListEx()\Cols()\Term
@@ -2436,6 +2431,65 @@ Module ListEx
   
   Procedure   ColorTheme_(Theme.i)
 
+    ListEx()\Color\Front        = $000000
+    ListEx()\Color\Back         = $FFFFFF
+    ListEx()\Color\Canvas       = $FFFFFF
+    ListEx()\Color\ScrollBar    = $F0F0F0
+    ListEx()\Color\Focus        = $D77800
+    ListEx()\Color\FocusText    = $FFFFFF
+    ListEx()\Color\HeaderFront  = $000000
+    ListEx()\Color\HeaderBack   = $FAFAFA
+    ListEx()\Color\HeaderLine   = $A0A0A0
+    ListEx()\Color\Line         = $E3E3E3
+    ListEx()\Color\ButtonFront  = $000000
+    ListEx()\Color\ButtonBack   = $E3E3E3
+    ListEx()\Color\ButtonBorder = $A0A0A0
+    ListEx()\Color\ProgressBar  = $32CD32
+    ListEx()\Color\Gradient     = $00FC7C
+    ListEx()\Color\EditFront    = $000000
+    ListEx()\Color\EditBack     = $FFFFFF
+    ListEx()\Color\Link         = $8B0000
+    ListEx()\Color\ActiveLink   = $FF0000
+    ListEx()\Color\WrongFront   = $0000FF
+    ListEx()\Color\WrongBack    = $FFFFFF
+    ListEx()\Color\Mark1        = $008B45
+    ListEx()\Color\Mark2        = $0000FF
+    ListEx()\Color\StringFront  = #PB_Default
+    ListEx()\Color\StringBack   = #PB_Default
+    ListEx()\Color\ComboFront   = #PB_Default
+    ListEx()\Color\ComboBack    = #PB_Default
+    
+    CompilerSelect  #PB_Compiler_OS
+      CompilerCase #PB_OS_Windows
+        ListEx()\Color\HeaderFront  = GetSysColor_(#COLOR_WINDOWTEXT)
+        ;ListEx()\Color\HeaderBack   = GetSysColor_(#COLOR_3DLIGHT)
+        ListEx()\Color\HeaderLine   = GetSysColor_(#COLOR_3DSHADOW)
+        ListEx()\Color\Front        = GetSysColor_(#COLOR_WINDOWTEXT)
+        ListEx()\Color\Back         = GetSysColor_(#COLOR_WINDOW)
+        ListEx()\Color\Line         = GetSysColor_(#COLOR_3DLIGHT)
+        ListEx()\Color\Canvas       = GetSysColor_(#COLOR_WINDOW)
+        ListEx()\Color\ScrollBar    = GetSysColor_(#COLOR_MENU)
+        ListEx()\Color\Focus        = GetSysColor_(#COLOR_MENUHILIGHT)
+        ListEx()\Color\ButtonBack   = GetSysColor_(#COLOR_3DLIGHT)
+        ListEx()\Color\ButtonBorder = GetSysColor_(#COLOR_3DSHADOW) 
+      CompilerCase #PB_OS_MacOS
+        ListEx()\Color\HeaderFront  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
+        ;ListEx()\Color\HeaderBack   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
+        ListEx()\Color\HeaderLine   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+        ListEx()\Color\Front        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
+        ListEx()\Color\Back         = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
+        ListEx()\Color\Canvas       = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
+        ListEx()\Color\Line         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+        ListEx()\Color\ScrollBar    = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
+        ListEx()\Color\Focus        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedControlColor"))
+        ListEx()\Color\ButtonBack   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
+        ListEx()\Color\ButtonBorder = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+      CompilerCase #PB_OS_Linux
+      
+    CompilerEndSelect
+    
+    ListEx()\Color\AlternateRow = #PB_Default
+    
     Select Theme
       Case #Theme_Blue
         
@@ -2467,70 +2521,8 @@ Module ListEx
         ListEx()\Color\ButtonBack   = $E3E3E3
         ListEx()\Color\ButtonBorder = $A0A0A0
         
-      Default
-        
-        ListEx()\Color\Front        = $000000
-        ListEx()\Color\Back         = $FFFFFF
-        ListEx()\Color\Canvas       = $FFFFFF
-        ListEx()\Color\ScrollBar    = $F0F0F0
-        ListEx()\Color\Focus        = $D77800
-        ListEx()\Color\FocusText    = $FFFFFF
-        ListEx()\Color\HeaderFront  = $000000
-        ListEx()\Color\HeaderBack   = $FAFAFA
-        ListEx()\Color\HeaderLine   = $A0A0A0
-        ListEx()\Color\Line         = $E3E3E3
-        ListEx()\Color\ButtonFront  = $000000
-        ListEx()\Color\ButtonBack   = $E3E3E3
-        ListEx()\Color\ButtonBorder = $A0A0A0
-        ListEx()\Color\ProgressBar  = $32CD32
-        ListEx()\Color\Gradient     = $00FC7C
-        ListEx()\Color\EditFront    = $000000
-        ListEx()\Color\EditBack     = $FFFFFF
-        ListEx()\Color\Link         = $8B0000
-        ListEx()\Color\ActiveLink   = $FF0000
-        ListEx()\Color\WrongFront   = $0000FF
-        ListEx()\Color\WrongBack    = $FFFFFF
-        ListEx()\Color\Mark1        = $008B45
-        ListEx()\Color\Mark2        = $0000FF
-        ListEx()\Color\StringFront  = #PB_Default
-        ListEx()\Color\StringBack   = #PB_Default
-        ListEx()\Color\ComboFront   = #PB_Default
-        ListEx()\Color\ComboBack    = #PB_Default
-        
-        
-        CompilerSelect  #PB_Compiler_OS
-          CompilerCase #PB_OS_Windows
-            ListEx()\Color\HeaderFront  = GetSysColor_(#COLOR_WINDOWTEXT)
-            ;ListEx()\Color\HeaderBack   = GetSysColor_(#COLOR_3DLIGHT)
-            ListEx()\Color\HeaderLine   = GetSysColor_(#COLOR_3DSHADOW)
-            ListEx()\Color\Front        = GetSysColor_(#COLOR_WINDOWTEXT)
-            ListEx()\Color\Back         = GetSysColor_(#COLOR_WINDOW)
-            ListEx()\Color\Line         = GetSysColor_(#COLOR_3DLIGHT)
-            ListEx()\Color\Canvas       = GetSysColor_(#COLOR_WINDOW)
-            ListEx()\Color\ScrollBar    = GetSysColor_(#COLOR_MENU)
-            ListEx()\Color\Focus        = GetSysColor_(#COLOR_MENUHILIGHT)
-            ListEx()\Color\ButtonBack   = GetSysColor_(#COLOR_3DLIGHT)
-            ListEx()\Color\ButtonBorder = GetSysColor_(#COLOR_3DSHADOW) 
-          CompilerCase #PB_OS_MacOS
-            ListEx()\Color\HeaderFront  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
-            ;ListEx()\Color\HeaderBack   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
-            ListEx()\Color\HeaderLine   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
-            ListEx()\Color\Front        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
-            ListEx()\Color\Back         = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
-            ListEx()\Color\Canvas       = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
-            ListEx()\Color\Line         = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
-            ListEx()\Color\ScrollBar    = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
-            ListEx()\Color\Focus        = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedControlColor"))
-            ListEx()\Color\ButtonBack   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
-            ListEx()\Color\ButtonBorder = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
-          CompilerCase #PB_OS_Linux
-            
-        CompilerEndSelect
-        
-        ListEx()\Color\AlternateRow = #PB_Default
-        
     EndSelect
-    
+
   EndProcedure  
   
   Procedure   SetColor_(ColorTyp.i, Value.i, Column.i=#PB_Ignore)
@@ -3761,7 +3753,7 @@ Module ListEx
     If Y < 0 Or Y < dpiY(ListEx()\Header\Height) : ProcedureReturn #False : EndIf
     
     ;{ --- Color ---
-    If IsContentValid_(ListEx()\String\Text) = #False
+    If IsContentValid_(ListEx()\String\Text, #Strings) = #False
       
       TextColor = ListEx()\Color\WrongFront
       BackColor = ListEx()\Color\WrongBack
@@ -4408,9 +4400,7 @@ Module ListEx
       DrawingMode(#PB_2DDrawing_Outlined)
       Box(0, 0, dpiX(GadgetWidth(ListEx()\CanvasNum)), dpiY(GadgetHeight(ListEx()\CanvasNum)), ListEx()\Color\HeaderLine)
       ;}
-      
-      
-      
+
       PopListPosition(ListEx()\Cols())
       PopListPosition(ListEx()\Rows())
 
@@ -7512,16 +7502,16 @@ Module ListEx
   EndProcedure
   
   Procedure  CloseString_(Escape.i=#False)
-    
-    ListEx()\Cursor\Pause = #True
-    
+
     PushListPosition(ListEx()\Rows())
     
     If SelectElement(ListEx()\Rows(), ListEx()\String\Row)
       If SelectElement(ListEx()\Cols(), ListEx()\String\Col)
         
         If IsContentValid_(ListEx()\String\Text) Or Escape
-
+          
+          ListEx()\Cursor\Pause = #True
+          
           ListEx()\String\Wrong = #False   
           
           If Escape
@@ -7536,7 +7526,7 @@ Module ListEx
             
             If IsWindow(ListEx()\Window\Num)
               PostEvent(#PB_Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_String)
-              PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_String)
+              PostEvent(#Event_Gadget,    ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_String)
             EndIf 
             
             ListEx()\Changed = #True
@@ -7547,9 +7537,7 @@ Module ListEx
           ListEx()\String\Flag  = #False
 
         Else
-
           ListEx()\String\Wrong = #True
-          
         EndIf
 
       EndIf
@@ -9089,6 +9077,18 @@ Module ListEx
       
       If ListEx()\Flags & #MultiSelect
         
+        If ListEx()\String\Flag   ;{ Close String
+          CloseString_(#True)
+        EndIf ;}
+        
+        If ListEx()\ComboBox\Flag ;{ Close ComboBox
+          CloseComboBox_(#True)
+        EndIf ;}
+        
+        If ListEx()\Date\Flag     ;{ Close DateGadget
+          CloseDate_(#True)
+        EndIf ;}
+        
         PushListPosition(ListEx()\Rows())
         
         ForEach ListEx()\Rows()
@@ -9102,6 +9102,9 @@ Module ListEx
         PopListPosition(ListEx()\Rows())
         
         ListEx()\MultiSelect = Flag
+        
+        ListEx()\Focus     = #PB_Default
+        ListEx()\Row\Focus = #PB_Default
         
       Else
         ProcedureReturn #False
@@ -9900,6 +9903,18 @@ Module ListEx
 
       If Row >= 0
         
+        If ListEx()\String\Flag   ;{ Close String
+          CloseString_(#True)
+        EndIf ;}
+        
+        If ListEx()\ComboBox\Flag ;{ Close ComboBox
+          CloseComboBox_(#True)
+        EndIf ;}
+        
+        If ListEx()\Date\Flag     ;{ Close DateGadget
+          CloseDate_(#True)
+        EndIf ;}
+      
         If SelectElement(ListEx()\Rows(), Row)
           If Column = #PB_Ignore
             ListEx()\Rows()\State = State
@@ -10010,6 +10025,18 @@ Module ListEx
   Procedure   SetState(GNum.i, Row.i=#PB_Default, Column.i=#PB_Ignore)
     
     If FindMapElement(ListEx(), Str(GNum))
+      
+      If ListEx()\String\Flag   ;{ Close String
+        CloseString_(#True)
+      EndIf ;}
+      
+      If ListEx()\ComboBox\Flag ;{ Close ComboBox
+        CloseComboBox_(#True)
+      EndIf ;}
+      
+      If ListEx()\Date\Flag     ;{ Close DateGadget
+        CloseDate_(#True)
+      EndIf ;}
       
       If Row = #PB_Default
         
@@ -10191,7 +10218,7 @@ CompilerIf #PB_Compiler_IsMainFile
         
         ;{ ===== Add different types of columns =====
         ListEx::AddColumn(#List, 1, "Link", 75, "link",   ListEx::#Links)     ; |ListEx::#FitColumn
-        ListEx::AddColumn(#List, 2, "Edit", 85, "edit",   ListEx::#Editable|ListEx::#StartSelected)  ; |ListEx::#FitColumn                                                                      
+        ListEx::AddColumn(#List, 2, "Edit", 85, "edit",   ListEx::#Editable|ListEx::#Number|ListEx::#StartSelected)  ; |ListEx::#FitColumn                                                                      
         ListEx::AddColumn(#List, ListEx::#LastItem, "Combo",   72, "combo",  ListEx::#ComboBoxes)
         ListEx::AddColumn(#List, ListEx::#LastItem, "Date",    76, "date",   ListEx::#DateGadget)
         ListEx::AddColumn(#List, ListEx::#LastItem, "Buttons", 60, "button", ListEx::#Buttons) ; ListEx::#Hide
@@ -10310,13 +10337,16 @@ CompilerIf #PB_Compiler_IsMainFile
 
       ListEx::DisableReDraw(#List, #False) 
       
-      ;ListEx::SetState(#List, 4, 2)
-
+      ListEx::SetState(#List, 4, 2)
+      
+      ListEx::SelectItems(#List, ListEx::#None)
+      
       ;ListEx::ExportCSV(#List, "Export.csv", ListEx::#NoButtons|ListEx::#NoCheckBoxes|ListEx::#HeaderRow)
       
       ;ListEx::SetColor(#List, ListEx::#ComboBackColor, $FFFFF0)
       
     EndIf
+    
     
     Repeat
       Event = WaitWindowEvent()
@@ -10409,10 +10439,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 6688
-; FirstLine = 1533
-; Folding = wAhACAAAAABAoAAAAQEIAMBABiGCIAA+bGiK2PZLBSBECCAAAAAADAQJBAAcIDFCCAAATAypBgDQABDAAAAAAACAAgGo8
-; Markers = 4818,8507
+; CursorPosition = 155
+; FirstLine = 12
+; Folding = wAhACAAAAAAAoAAAAQEIBsAAAiCCIAA+bGiK0oZLBQFFCCAAAAAALAQJAAAYICFCCAAQTAQhBwDQABDAAAAAAAQAAPE1Ad-
+; Markers = 4808,8495
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
