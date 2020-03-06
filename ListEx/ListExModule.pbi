@@ -9,9 +9,12 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 05.03.2020
+; Last Update: 06.03.2020
 ;
 ; Changed: ScrollBarGadget() replaced by drawing routine
+; Added:   Attribute #ScrollBar [#ScrollBar_Default/#ScrollBar_Frame/#ScrollBar_DragPoint]
+; Added:   SetColor() -> [#ScrollBar_FrontColor/#ScrollBar_BackColor/#ScrollBar_BorderColor/#ScrollBar_ButtonColor/#ScrollBar_ThumbColor]
+;
 ;
 ; Added:   Attribute #FirstVisibleRow / #VisibleRows
 ; Added:   Flag #StartSelected for columns
@@ -157,7 +160,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20030500
+  #Version  = 20030600
   #ModuleEx = 20030400
   
   #Enable_CSV_Support   = #True
@@ -6802,7 +6805,7 @@ Module ListEx
   EndProcedure
   
   Procedure _MouseMoveHandler()
-    Define.i Row, Column, Flags
+    Define.i Row, Column, Flags, Steps
     Define.f X, Y, ColX, ColWidth, RowY
     Define.s Key$, Value$, Focus$, ScrollBar
     Define   Image.Image_Structure
@@ -6879,7 +6882,9 @@ Module ListEx
     			    ;{ Move Thumb
     			    If ListEx()\ScrollBar\Item()\Cursor <> #PB_Default
     			      
-    			      ListEx()\ScrollBar\Item()\Pos + GetSteps_(Y)
+    			      Steps = GetSteps_(Y)
+    			      
+    			      ListEx()\ScrollBar\Item()\Pos + Steps
     			      
     			      If ListEx()\ScrollBar\Item()\Pos > ListEx()\ScrollBar\Item()\maxPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\maxPos : EndIf
     			      If ListEx()\ScrollBar\Item()\Pos < ListEx()\ScrollBar\Item()\minPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\minPos : EndIf
@@ -6888,8 +6893,12 @@ Module ListEx
     		        
     			      Draw_()
     			      
-    			      PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_ScrollBar, #False)
-    			      
+    			      If Steps < 0
+    			        PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_ScrollBar, #ScrollBar_Up)
+    			      Else  
+    			        PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_ScrollBar, #ScrollBar_Down)
+                EndIf
+    			    
     		        ProcedureReturn #True
     		      EndIf ;}
     			    ;{ Thumb Focus
@@ -6945,8 +6954,9 @@ Module ListEx
     			  If X >= ListEx()\ScrollBar\Item()\Thumb\X And X <= ListEx()\ScrollBar\Item()\Thumb\X + ListEx()\ScrollBar\Item()\Thumb\Width
     			    ;{ Thumb Button
     			    If ListEx()\ScrollBar\Item()\Cursor <> #PB_Default
-    
-    		        ListEx()\ScrollBar\Item()\Pos + GetSteps_(X)
+    			      
+    			      Steps = GetSteps_(Y)
+    		        ListEx()\ScrollBar\Item()\Pos + Steps
     		        
     		        If ListEx()\ScrollBar\Item()\Pos > ListEx()\ScrollBar\Item()\maxPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\maxPos : EndIf
     		        If ListEx()\ScrollBar\Item()\Pos < ListEx()\ScrollBar\Item()\minPos : ListEx()\ScrollBar\Item()\Pos = ListEx()\ScrollBar\Item()\minPos : EndIf
@@ -6955,8 +6965,12 @@ Module ListEx
     		        
     		        Draw_()
     		        
-    		        PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_ScrollBar, #False)
-    		        
+    		        If Steps < 0
+      		        PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_ScrollBar, #ScrollBar_Left)
+      		      Else
+      		        PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_ScrollBar, #ScrollBar_Right)
+      		      EndIf
+    		      
     		        ProcedureReturn #True
     		      EndIf ;}
     			    ;{ Thumb Focus
@@ -8805,6 +8819,8 @@ Module ListEx
     
     If FindMapElement(ListEx(), Str(GNum))
       
+      If Column < 0 : ProcedureReturn "" : EndIf 
+      
       If Row = #Header
         If SelectElement(ListEx()\Cols(), Column)
           ProcedureReturn ListEx()\Cols()\Header\Title
@@ -10393,10 +10409,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 159
-; FirstLine = 21
-; Folding = wAgCGAAAAABAoAAAAQEIAMBABiECIAA+bGiK2PZLBSBECCAAAAAADAQJAAAAICFACAAATAypBgDwABDAg-XXAivQAgGo8
-; Markers = 4815,8493
+; CursorPosition = 6688
+; FirstLine = 1533
+; Folding = wAhACAAAAABAoAAAAQEIAMBABiGCIAA+bGiK2PZLBSBECCAAAAAADAQJBAAcIDFCCAAATAypBgDQABDAAAAAAACAAgGo8
+; Markers = 4818,8507
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
