@@ -7,7 +7,7 @@
 ;/ © 2019 Thorsten1867 (12/2019)
 ;/
 
-; Last Update: 05.03.2020
+; Last Update: 07.03.2020
 ;
 ; Added:   Attribute #ScrollBar [#ScrollBar_Default/#ScrollBar_Frame/#ScrollBar_DragPoint]
 ; Added:   SetColor() -> [#ScrollBar_FrontColor/#ScrollBar_BackColor/#ScrollBar_BorderColor/#ScrollBar_ButtonColor/#ScrollBar_ThumbColor]
@@ -91,7 +91,7 @@
 
 DeclareModule ComboBoxEx
   
-  #Version  = 20030500
+  #Version  = 20030700
   #ModuleEx = 19112600
   
   ;- ===========================================================================
@@ -1669,6 +1669,8 @@ Module ComboBoxEx
         If IsFont(ModuleEx::ThemeGUI\Font\Num)
           ComboEx()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
         EndIf
+        
+        If ModuleEx::ThemeGUI\ScrollBar : ComboEx()\ScrollBar\Flags = ModuleEx::ThemeGUI\ScrollBar : EndIf 
         
         ComboEx()\Color\Front         = ModuleEx::ThemeGUI\FrontColor
         ComboEx()\Color\Back          = ModuleEx::ThemeGUI\BackColor
@@ -3611,9 +3613,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1306
-; FirstLine = 289
-; Folding = IkBAAAAAAAAJBSAAEAAEGMAAAAAwCAAAAAAAg-
+; CursorPosition = 93
+; Folding = IkBAAAAAAAAJBSAA1AAEGMAAAAAwCAAAAAAAg-
 ; EnableThread
 ; EnableXP
 ; DPIAware

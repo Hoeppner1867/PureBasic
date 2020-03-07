@@ -9,7 +9,7 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 05.03.2020
+; Last Update: 07.03.2020
 ;
 ; - Added:   Attribute #ScrollBar [#ScrollBar_Default/#ScrollBar_Frame/#ScrollBar_DragPoint]
 ; - Added:   SetColor() -> [#ScrollBar_FrontColor/#ScrollBar_BackColor/#ScrollBar_BorderColor/#ScrollBar_ButtonColor/#ScrollBar_ThumbColor]
@@ -94,7 +94,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20030500
+  #Version  = 20030700
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -6823,7 +6823,9 @@ Module MarkDown
         If IsFont(ModuleEx::ThemeGUI\Font\Num)
           MarkDown()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
         EndIf
-
+        
+        If ModuleEx::ThemeGUI\ScrollBar : MarkDown()\ScrollBar\Flags = ModuleEx::ThemeGUI\ScrollBar : EndIf 
+        
         MarkDown()\Color\Front               = ModuleEx::ThemeGUI\FrontColor
 				MarkDown()\Color\Back                = ModuleEx::ThemeGUI\BackColor
 				MarkDown()\Color\Border              = ModuleEx::ThemeGUI\BorderColor
@@ -9716,8 +9718,8 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 96
-; FirstLine = 24
-; Folding = wMCBgCAAAAAAAAAAAAAAQRAAAAgAIAAAAAAAAAAAYADQAAAAIIADCgBDCwHAECAAACAQAKQwBAEAgSABAIgxTAAIAOGAYwAAAag9
+; FirstLine = 15
+; Folding = wMCBgCAAAAAAAAAAAAAAQRAAAAgAIAAAAAAAAAAAYADQAAAAIIADCgBDCwHAECAAACAQAKwwBAEAgSABAIgxTAAIAOGAYwAAAag9
 ; Markers = 3159,5046,6371
 ; EnableXP
 ; DPIAware

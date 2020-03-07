@@ -9,7 +9,7 @@
 ;/ © 2019  by Thorsten Hoeppner (11/2019)
 ;/
 
-; Last Update: 05.03.2020
+; Last Update: 07.03.2020
 ;
 ; Added:   Attribute #ScrollBar [#ScrollBar_Default/#ScrollBar_Frame/#ScrollBar_DragPoint]
 ; Added:   SetColor() -> [#ScrollBar_FrontColor/#ScrollBar_BackColor/#ScrollBar_BorderColor/#ScrollBar_ButtonColor/#ScrollBar_ThumbColor]
@@ -91,7 +91,7 @@
 
 DeclareModule ListView
   
-  #Version  = 20030500
+  #Version  = 20030700
   #ModuleEx = 19120100
 
 	;- ===========================================================================
@@ -1185,6 +1185,8 @@ Module ListView
         If IsFont(ModuleEx::ThemeGUI\Font\Num)
           ListView()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
         EndIf
+        
+        If ModuleEx::ThemeGUI\ScrollBar : ListView()\ScrollBar\Flags = ModuleEx::ThemeGUI\ScrollBar : EndIf 
         
         ListView()\Color\Front        = ModuleEx::ThemeGUI\FrontColor
 				ListView()\Color\Back         = ModuleEx::ThemeGUI\BackColor
@@ -2648,7 +2650,7 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 93
-; Folding = YDGAAABMpgQkjQgAAAAIAAxAABAg-
+; Folding = YDGAAABMpgQkjwgAAAAIAAxAABAg-
 ; Markers = 1129
 ; EnableXP
 ; DPIAware
