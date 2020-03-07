@@ -10,7 +10,7 @@
 ;/
 
 
-; Last Update: 11.12.19
+; Last Update: 07.03.2020
 ;
 ; Added: Flags #Left / #Right for legend
 ;
@@ -119,7 +119,7 @@
 
 DeclareModule Chart
   
-  #Version  = 19121100
+  #Version  = 20030700
   #ModuleEx = 19111702
   
   #Enable_PieChart       = #True
@@ -175,6 +175,8 @@ DeclareModule Chart
     #ModifyByCursor  ; move data points up and down to change the value [#LineChart]
     #Right
     #Left
+    #AxisX
+    #AxisY
     #UseExistingCanvas
   EndEnumeration
   
@@ -200,8 +202,6 @@ DeclareModule Chart
     #LineColor     ; (LineChart)
     #FontSize      ; Value/Percent in Chart (LineChart/PieChart)
     #Decimals      ; decimal places for scatter plot data
-    #AxisX
-    #AxisY
   EndEnumeration
 
   #ScaleLinesY   = #ScaleLines
@@ -958,12 +958,12 @@ Module Chart
   
   Procedure.i CalcScaleLines_(ScaleLines.i, Range.i) 
     Define.i n
+   
+    If Range >= 10 And Mod(Range, 10) = 0 And Range / 10 <= ScaleLines And Range / 10 > ScaleLines / 2
     
-    If Range >= 10 And Mod(Range, 10) = 0 And Range / 10 <= ScaleLines
-      
       ScaleLines = Range / 10
       
-    ElseIf Range >= 5 And Mod(Range, 5) = 0 And Range / 5 <= ScaleLines
+    ElseIf Range >= 5 And Mod(Range, 5) = 0 And Range / 5 <= ScaleLines And Range / 10 > ScaleLines / 2
       
       ScaleLines = Range / 5
       
@@ -1823,7 +1823,7 @@ Module Chart
         
         ; ----- Draw Y - Axis -----
         If Chart()\AxisY\Flags & #Labels ;{ defined labels
-          
+          Debug "#Labels"
           Factor = Height / Chart()\Scatter\RangeY
           
           DrawingMode(#PB_2DDrawing_Transparent)
@@ -1840,7 +1840,6 @@ Module Chart
           Next
           ;}
         Else                             ;{ calculated scalelines & labels
-          
           If Chart()\Scatter\ScaleLinesY = #PB_Default
             If Chart()\Scatter\ScaleSpacingY = 0 : Chart()\Scatter\ScaleSpacingY = 1 : EndIf
             ScaleLines = Height / (txtHeight * Chart()\Scatter\ScaleSpacingY)
@@ -6380,6 +6379,7 @@ Module Chart
           Chart()\AxisX\Flags | Flags
         Case #AxisY
           Chart()\AxisY\Flags | Flags
+          Debug Chart()\AxisY\Flags
       EndSelect
       
       If Chart()\ReDraw : Draw_() : EndIf
@@ -6589,7 +6589,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   ; ----- Select Example -----
   
-  #Example = 10
+  #Example = 17
   
   ; --- Bar Chart ---
   ;  1: automatically adjust maximum value (#PB_Default)
@@ -6743,18 +6743,18 @@ CompilerIf #PB_Compiler_IsMainFile
         Chart::AttachPopupMenu(#Chart, #PopUp)
         Chart::UpdatePopupText(#Chart, #Menu_Display, "Display '" + Chart::#Serie$ + "'")
         Chart::UpdatePopupText(#Chart, #Menu_Hide,    "Hide '"    + Chart::#Serie$ + "'")
-      CompilerCase 17  
+      CompilerCase 17 
         Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#ScatterPlot|Chart::#Border|Chart::#ToolTips|Chart::#AutoResize, #Window) ; |Chart::#ShowLines|Chart::#ShowValue
         Chart::SetFlags(#Chart, Chart::#Legend, Chart::#PostEvents|Chart::#PopUpMenu)
         Chart::SetAttribute(#Chart, Chart::#MaximumY, 80)
         Chart::SetAttribute(#Chart, Chart::#MaximumX, 80)
-        ;Chart::SetAttribute(#Chart, Chart::#Decimals, 1)
+        Chart::SetAttribute(#Chart, Chart::#Decimals, 1)
         Chart::ToolTipText(#Chart, Chart::#Scatter$ + ": " + Chart::#Value$)
         ; Popup Menu
         Chart::AttachPopupMenu(#Chart, #PopUp)
         Chart::UpdatePopupText(#Chart, #Menu_Display, "Display '" + Chart::#Serie$ + "'")
         Chart::UpdatePopupText(#Chart, #Menu_Hide,    "Hide '"    + Chart::#Serie$ + "'")
-        ;Chart::SetFont(#Chart, FontID(#Font), Chart::#ScatterPlot)
+        Chart::SetFont(#Chart, FontID(#Font), Chart::#ScatterPlot)
       CompilerCase 18  
         Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#ScatterPlot|Chart::#Border|Chart::#ShowLines|Chart::#ToolTips|Chart::#AutoResize, #Window) ; |Chart::#ShowLines|Chart::#ShowValue
         Chart::SetFlags(#Chart, Chart::#Legend, Chart::#PostEvents|Chart::#PopUpMenu)
@@ -6771,6 +6771,7 @@ CompilerIf #PB_Compiler_IsMainFile
         Chart::SetFlags(#Chart, Chart::#AxisX, Chart::#Time|Chart::#Labels)
         
         Chart::ToolTipText(#Chart, Chart::#Scatter$ + ": " + Chart::#Time$ + " - " + Chart::#DataY$) 
+        
       CompilerDefault
         Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#Border|Chart::#ShowLines|Chart::#ShowValue|Chart::#ChangeCursor|Chart::#AutoResize, #Window)
         Chart::SetFlags(#Chart, Chart::#BarChart, Chart::#Colored)
@@ -6857,7 +6858,7 @@ CompilerIf #PB_Compiler_IsMainFile
           
         CompilerEndIf
         
-      CompilerCase 16
+      CompilerCase 17
      
         If Chart::AddScatterPlot(#Chart, "Scatter 1", $FF901E)
           Chart::AddScatterItem(#Chart, "Scatter 1", "Data 1", 20, 45)
@@ -6880,7 +6881,7 @@ CompilerIf #PB_Compiler_IsMainFile
         EndIf
         Chart::DisplayScatterPlot(#Chart, "Scatter 3", #True)
         
-      CompilerCase 17
+      CompilerCase 18
         
         If Chart::AddScatterPlot(#Chart, "Scatter 1", $FF901E)
           Chart::AddScatterItem(#Chart, "Scatter 1", "08:30",  Date(2019, 1, 1,  8, 30, 0), 45)
@@ -7026,8 +7027,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 14
-; Folding = 5EAAhz---huREEAgDAAAFS5-DgH+v5----f-eiDApKAgyEA4vqQ+-H06aY+p0
-; Markers = 2567
+; CursorPosition = 965
+; FirstLine = 528
+; Folding = 5EAAhj---huREMQADAAAFS5-DgH+v5----f-eiDApKAgwEA4vqQ--H06aI-p0
+; Markers = 2566
 ; EnableXP
 ; DPIAware
