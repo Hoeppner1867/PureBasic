@@ -10,9 +10,9 @@
 ;/
 
 
-; Last Update: 07.03.2020
+; Last Update: 08.03.2020
 ;
-; Added: Flags #Left / #Right for legend
+; Floats for Scatterplot data
 ;
 
 ;{ ===== MIT License =====
@@ -120,7 +120,7 @@
 DeclareModule Chart
   
   #Version  = 20030700
-  #ModuleEx = 19111702
+  #ModuleEx = 19111802
   
   #Enable_PieChart       = #True
   #Enable_DataSeries     = #True
@@ -271,7 +271,7 @@ DeclareModule Chart
   CompilerIf #Enable_ScatterPlot
 
     Declare.i AddScatterPlot(GNum.i, Label.s, Color.i=#PB_Default, GradientColor.i=#PB_Default, BorderColor.i=#PB_Default)
-    Declare.i AddScatterItem(GNum.i, Scatter.s, Label.s, DataX.q, DataY.q)
+    Declare.i AddScatterItem(GNum.i, Scatter.s, Label.s, DataX.d, DataY.d)
     Declare.i DisplayScatterPlot(GNum.i, Scatter.s, State.i=#True)
     Declare.s EventScatterPlot(GNum.i) 
     Declare.f EventDataX(GNum.i) 
@@ -448,8 +448,8 @@ Module Chart
     Height.i
     sAngle.f
     eAngle.f
-    DataX.q
-    DataY.q
+    DataX.d
+    DataY.d
     Value.i
     Text.s
     Color.i
@@ -4954,7 +4954,7 @@ Module Chart
       
     EndProcedure
     
-    Procedure.i AddScatterItem(GNum.i, Scatter.s, Label.s, DataX.q, DataY.q) 
+    Procedure.i AddScatterItem(GNum.i, Scatter.s, Label.s, DataX.d, DataY.d) 
       
       If FindMapElement(Chart(), Str(GNum))
       
@@ -7026,10 +7026,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 965
-; FirstLine = 528
-; Folding = 5EAAhj---huREMQADAAAFS5-DgH+v5----f-eiDApKAgwEA4vqQ--H06aI-p0
+; IDE Options = PureBasic 5.72 LTS Beta 2 (Windows - x64)
+; CursorPosition = 14
+; Folding = oGcAgj---huREMQADAAAFS5-DgH-v5----f-eyHCpKAgwEA4vqQ--H06aI-p0
 ; Markers = 2566
 ; EnableXP
 ; DPIAware
