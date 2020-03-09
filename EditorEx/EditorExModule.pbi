@@ -1121,18 +1121,18 @@ Module EditEx
   	  Range = EditEx()\ScrollBar\Item()\maxPos - EditEx()\ScrollBar\Item()\minPos
   	  
   	  If EditEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical
-  	    EditEx()\ScrollBar\Item()\Area\X       = dpiX(EditEx()\ScrollBar\Item()\X)
-    	  EditEx()\ScrollBar\Item()\Area\Y       = dpiY(EditEx()\ScrollBar\Item()\Y) + dpiY(#ScrollBar_ButtonSize) + dpiY(1)
-    	  EditEx()\ScrollBar\Item()\Area\Width   = dpiX(EditEx()\ScrollBar\Item()\Width)
-    	  EditEx()\ScrollBar\Item()\Area\Height  = dpiY(EditEx()\ScrollBar\Item()\Height) - dpiY(EditEx()\ScrollBar\Adjust) - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(2)
+  	    EditEx()\ScrollBar\Item()\Area\X       = EditEx()\ScrollBar\Item()\X
+    	  EditEx()\ScrollBar\Item()\Area\Y       = EditEx()\ScrollBar\Item()\Y + dpiY(#ScrollBar_ButtonSize) + dpiY(1)
+    	  EditEx()\ScrollBar\Item()\Area\Width   = EditEx()\ScrollBar\Item()\Width
+    	  EditEx()\ScrollBar\Item()\Area\Height  = EditEx()\ScrollBar\Item()\Height - dpiY(EditEx()\ScrollBar\Adjust) - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(2)
     	  EditEx()\ScrollBar\Item()\Thumb\Y      = EditEx()\ScrollBar\Item()\Area\Y
     	  EditEx()\ScrollBar\Item()\Thumb\Size   = Round(EditEx()\ScrollBar\Item()\Area\Height * EditEx()\ScrollBar\Item()\Ratio, #PB_Round_Down)
     	  EditEx()\ScrollBar\Item()\Thumb\Factor = (EditEx()\ScrollBar\Item()\Area\Height - EditEx()\ScrollBar\Item()\Thumb\Size) / Range
   	  Else
-  	    EditEx()\ScrollBar\Item()\Area\X       = dpiX(EditEx()\ScrollBar\Item()\X) + dpiX(#ScrollBar_ButtonSize) + dpiX(1)
-    	  EditEx()\ScrollBar\Item()\Area\Y       = dpiY(EditEx()\ScrollBar\Item()\Y)
-    	  EditEx()\ScrollBar\Item()\Area\Width   = dpiX(EditEx()\ScrollBar\Item()\Width) - dpiX(EditEx()\ScrollBar\Adjust) - dpiX(#ScrollBar_ButtonSize * 2) - dpiX(2)
-    	  EditEx()\ScrollBar\Item()\Area\Height  = dpiY(EditEx()\ScrollBar\Item()\Height)
+  	    EditEx()\ScrollBar\Item()\Area\X       = EditEx()\ScrollBar\Item()\X + dpiX(#ScrollBar_ButtonSize) + dpiX(1)
+    	  EditEx()\ScrollBar\Item()\Area\Y       = EditEx()\ScrollBar\Item()\Y
+    	  EditEx()\ScrollBar\Item()\Area\Width   = EditEx()\ScrollBar\Item()\Width - dpiX(EditEx()\ScrollBar\Adjust) - dpiX(#ScrollBar_ButtonSize * 2) - dpiX(2)
+    	  EditEx()\ScrollBar\Item()\Area\Height  = EditEx()\ScrollBar\Item()\Height
     	  EditEx()\ScrollBar\Item()\Thumb\X      = EditEx()\ScrollBar\Item()\Area\X
     	  EditEx()\ScrollBar\Item()\Thumb\Size   = Round(EditEx()\ScrollBar\Item()\Area\Width * EditEx()\ScrollBar\Item()\Ratio, #PB_Round_Down)
     	  EditEx()\ScrollBar\Item()\Thumb\Factor = (EditEx()\ScrollBar\Item()\Area\Width - EditEx()\ScrollBar\Item()\Thumb\Size) / Range
@@ -2435,10 +2435,10 @@ Module EditEx
       If EditEx()\ScrollBar\Item()\Hide : ProcedureReturn #False : EndIf 
   	 
       ;{ ----- Size -----
-		  X      = dpiX(EditEx()\ScrollBar\Item()\X)
-		  Y      = dpiY(EditEx()\ScrollBar\Item()\Y)
-		  Width  = dpiX(EditEx()\ScrollBar\Item()\Width) 
-		  Height = dpiY(EditEx()\ScrollBar\Item()\Height)
+		  X      = EditEx()\ScrollBar\Item()\X
+		  Y      = EditEx()\ScrollBar\Item()\Y
+		  Width  = EditEx()\ScrollBar\Item()\Width 
+		  Height = EditEx()\ScrollBar\Item()\Height
 		  ;}
 		  
 		  Offset = (EditEx()\ScrollBar\Item()\Pos - EditEx()\ScrollBar\Item()\minPos) * EditEx()\ScrollBar\Item()\Thumb\Factor
@@ -4711,10 +4711,10 @@ Module EditEx
     If AddMapElement(EditEx()\ScrollBar\Item(), Label)
       
       EditEx()\ScrollBar\Item()\Num = CanvasNum
-      EditEx()\ScrollBar\Item()\X = X
-      EditEx()\ScrollBar\Item()\Y = Y
-      EditEx()\ScrollBar\Item()\Width      = Width
-      EditEx()\ScrollBar\Item()\Height     = Height
+      EditEx()\ScrollBar\Item()\X          = dpiX(X)
+      EditEx()\ScrollBar\Item()\Y          = dpiY(Y)
+      EditEx()\ScrollBar\Item()\Width      = dpiX(Width)
+      EditEx()\ScrollBar\Item()\Height     = dpiY(Height)
       EditEx()\ScrollBar\Item()\Minimum    = Minimum
       EditEx()\ScrollBar\Item()\Maximum    = Maximum
       EditEx()\ScrollBar\Item()\PageLength = PageLength
@@ -6340,9 +6340,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 3138
-; FirstLine = 626
-; Folding = wBCMAgQAwAAAAIAAYACAfAAD9TA69AHAABOAwACA+JOA-wjvEAAAAEBBAFkwhDCj--
+; CursorPosition = 4720
+; FirstLine = 927
+; Folding = wBCMAgQAwAAgAIAAYACAfAAD9TA69AHAABOAwACA+JOA-wjvEAAAAEBBAFkwhDCj--
 ; Markers = 1104,2931,3040,5552
 ; EnableXP
 ; DPIAware

@@ -1115,10 +1115,10 @@ Module MarkDown
   	  MarkDown()\ScrollBar\Item()\Ratio    = MarkDown()\ScrollBar\Item()\PageLength / MarkDown()\ScrollBar\Item()\Maximum
   	  MarkDown()\ScrollBar\Item()\Pos      = MarkDown()\ScrollBar\Item()\Minimum
   	  
-  	  MarkDown()\ScrollBar\Item()\Area\X       = dpiX(MarkDown()\ScrollBar\Item()\X)
-  	  MarkDown()\ScrollBar\Item()\Area\Y       = dpiY(MarkDown()\ScrollBar\Item()\Y) + dpiY(#ScrollBar_ButtonSize) + dpiY(1)
-  	  MarkDown()\ScrollBar\Item()\Area\Width   = dpiX(MarkDown()\ScrollBar\Item()\Width)
-  	  MarkDown()\ScrollBar\Item()\Area\Height  = dpiY(MarkDown()\ScrollBar\Item()\Height) - dpiY(MarkDown()\ScrollBar\Adjust) - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(2)
+  	  MarkDown()\ScrollBar\Item()\Area\X       = MarkDown()\ScrollBar\Item()\X
+  	  MarkDown()\ScrollBar\Item()\Area\Y       = MarkDown()\ScrollBar\Item()\Y + dpiY(#ScrollBar_ButtonSize) + dpiY(1)
+  	  MarkDown()\ScrollBar\Item()\Area\Width   = MarkDown()\ScrollBar\Item()\Width
+  	  MarkDown()\ScrollBar\Item()\Area\Height  = MarkDown()\ScrollBar\Item()\Height - dpiY(MarkDown()\ScrollBar\Adjust) - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(2)
   	  
   	  Range = MarkDown()\ScrollBar\Item()\maxPos - MarkDown()\ScrollBar\Item()\minPos
   	  
@@ -5708,10 +5708,10 @@ Module MarkDown
       If MarkDown()\ScrollBar\Item()\Hide : ProcedureReturn #False : EndIf 
   	 
       ;{ ----- Size -----
-		  X      = dpiX(MarkDown()\ScrollBar\Item()\X)
-		  Y      = dpiY(MarkDown()\ScrollBar\Item()\Y)
-		  Width  = dpiX(MarkDown()\ScrollBar\Item()\Width) 
-		  Height = dpiY(MarkDown()\ScrollBar\Item()\Height)
+		  X      = MarkDown()\ScrollBar\Item()\X
+		  Y      = MarkDown()\ScrollBar\Item()\Y
+		  Width  = MarkDown()\ScrollBar\Item()\Width 
+		  Height = MarkDown()\ScrollBar\Item()\Height
 		  ;}
 
 		  Offset = (MarkDown()\ScrollBar\Item()\Pos - MarkDown()\ScrollBar\Item()\minPos) * MarkDown()\ScrollBar\Item()\Thumb\Factor
@@ -7606,10 +7606,10 @@ Module MarkDown
     
     If AddMapElement(MarkDown()\ScrollBar\Item(), Label)
     
-      MarkDown()\ScrollBar\Item()\X = X
-      MarkDown()\ScrollBar\Item()\Y = Y
-      MarkDown()\ScrollBar\Item()\Width      = Width
-      MarkDown()\ScrollBar\Item()\Height     = Height
+      MarkDown()\ScrollBar\Item()\X = dpiX(X)
+      MarkDown()\ScrollBar\Item()\Y = dpiY(Y)
+      MarkDown()\ScrollBar\Item()\Width      = dpiX(Width)
+      MarkDown()\ScrollBar\Item()\Height     = dpiY(Height)
       MarkDown()\ScrollBar\Item()\Minimum    = Minimum
       MarkDown()\ScrollBar\Item()\Maximum    = Maximum
       MarkDown()\ScrollBar\Item()\PageLength = PageLength
@@ -9717,9 +9717,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 96
-; FirstLine = 15
-; Folding = wMCBgCAAAAAAAAAAAAAAQRAAAAgAIAAAAAAAAAAAYADQAAAAIIADCgBDCwHAECAAACAQAKwwBAEAgSABAIgxTAAIAOGAYwAAAag9
+; CursorPosition = 7619
+; FirstLine = 565
+; Folding = wMCBgCAAAAAAAAAABAAAQRAAAAgAIAAAAAAAAAAAYADQAAAAIIADCgBDixHAECAAACAQAKwwBAEAgSABAIgxTAAIAOGAYwAAAag9
 ; Markers = 3159,5046,6371
 ; EnableXP
 ; DPIAware

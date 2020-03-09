@@ -1484,18 +1484,18 @@ Module ListEx
   	  Range = ListEx()\ScrollBar\Item()\maxPos - ListEx()\ScrollBar\Item()\minPos
   	  
   	  If ListEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical
-  	    ListEx()\ScrollBar\Item()\Area\X       = dpiX(ListEx()\ScrollBar\Item()\X)
-    	  ListEx()\ScrollBar\Item()\Area\Y       = dpiY(ListEx()\ScrollBar\Item()\Y) + dpiY(#ScrollBar_ButtonSize) + dpiY(1)
-    	  ListEx()\ScrollBar\Item()\Area\Width   = dpiX(ListEx()\ScrollBar\Item()\Width)
-    	  ListEx()\ScrollBar\Item()\Area\Height  = dpiY(ListEx()\ScrollBar\Item()\Height) - dpiY(ListEx()\ScrollBar\Adjust) - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(2)
+  	    ListEx()\ScrollBar\Item()\Area\X       = ListEx()\ScrollBar\Item()\X
+    	  ListEx()\ScrollBar\Item()\Area\Y       = ListEx()\ScrollBar\Item()\Y + dpiY(#ScrollBar_ButtonSize) + dpiY(1)
+    	  ListEx()\ScrollBar\Item()\Area\Width   = ListEx()\ScrollBar\Item()\Width
+    	  ListEx()\ScrollBar\Item()\Area\Height  = ListEx()\ScrollBar\Item()\Height - dpiY(ListEx()\ScrollBar\Adjust) - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(2)
     	  ListEx()\ScrollBar\Item()\Thumb\Y      = ListEx()\ScrollBar\Item()\Area\Y
     	  ListEx()\ScrollBar\Item()\Thumb\Size   = Round(ListEx()\ScrollBar\Item()\Area\Height * ListEx()\ScrollBar\Item()\Ratio, #PB_Round_Down)
     	  ListEx()\ScrollBar\Item()\Thumb\Factor = (ListEx()\ScrollBar\Item()\Area\Height - ListEx()\ScrollBar\Item()\Thumb\Size) / Range
   	  Else
-  	    ListEx()\ScrollBar\Item()\Area\X       = dpiX(ListEx()\ScrollBar\Item()\X) + dpiX(#ScrollBar_ButtonSize) + dpiX(1)
-    	  ListEx()\ScrollBar\Item()\Area\Y       = dpiY(ListEx()\ScrollBar\Item()\Y)
-    	  ListEx()\ScrollBar\Item()\Area\Width   = dpiX(ListEx()\ScrollBar\Item()\Width) - dpiX(ListEx()\ScrollBar\Adjust) - dpiX(#ScrollBar_ButtonSize * 2) - dpiX(2)
-    	  ListEx()\ScrollBar\Item()\Area\Height  = dpiY(ListEx()\ScrollBar\Item()\Height)
+  	    ListEx()\ScrollBar\Item()\Area\X       = ListEx()\ScrollBar\Item()\X + dpiX(#ScrollBar_ButtonSize) + dpiX(1)
+    	  ListEx()\ScrollBar\Item()\Area\Y       = ListEx()\ScrollBar\Item()\Y
+    	  ListEx()\ScrollBar\Item()\Area\Width   = ListEx()\ScrollBar\Item()\Width - dpiX(ListEx()\ScrollBar\Adjust) - dpiX(#ScrollBar_ButtonSize * 2) - dpiX(2)
+    	  ListEx()\ScrollBar\Item()\Area\Height  = ListEx()\ScrollBar\Item()\Height
     	  ListEx()\ScrollBar\Item()\Thumb\X      = ListEx()\ScrollBar\Item()\Area\X
     	  ListEx()\ScrollBar\Item()\Thumb\Size   = Round(ListEx()\ScrollBar\Item()\Area\Width * ListEx()\ScrollBar\Item()\Ratio, #PB_Round_Down)
     	  ListEx()\ScrollBar\Item()\Thumb\Factor = (ListEx()\ScrollBar\Item()\Area\Width - ListEx()\ScrollBar\Item()\Thumb\Size) / Range
@@ -3229,10 +3229,10 @@ Module ListEx
       If ListEx()\ScrollBar\Item()\Hide : ProcedureReturn #False : EndIf 
   	 
       ;{ ----- Size -----
-		  X      = dpiX(ListEx()\ScrollBar\Item()\X)
-		  Y      = dpiY(ListEx()\ScrollBar\Item()\Y)
-		  Width  = dpiX(ListEx()\ScrollBar\Item()\Width) 
-		  Height = dpiY(ListEx()\ScrollBar\Item()\Height)
+		  X      = ListEx()\ScrollBar\Item()\X
+		  Y      = ListEx()\ScrollBar\Item()\Y
+		  Width  = ListEx()\ScrollBar\Item()\Width 
+		  Height = ListEx()\ScrollBar\Item()\Height
 		  ;}
 
 		  Offset = (ListEx()\ScrollBar\Item()\Pos - ListEx()\ScrollBar\Item()\minPos) * ListEx()\ScrollBar\Item()\Thumb\Factor
@@ -7699,10 +7699,10 @@ Module ListEx
     If AddMapElement(ListEx()\ScrollBar\Item(), Label)
       
       ListEx()\ScrollBar\Item()\Num        = CanvasNum
-      ListEx()\ScrollBar\Item()\X          = X
-      ListEx()\ScrollBar\Item()\Y          = Y
-      ListEx()\ScrollBar\Item()\Width      = Width
-      ListEx()\ScrollBar\Item()\Height     = Height
+      ListEx()\ScrollBar\Item()\X          = dpiX(X)
+      ListEx()\ScrollBar\Item()\Y          = dpiY(Y)
+      ListEx()\ScrollBar\Item()\Width      = dpiX(Width)
+      ListEx()\ScrollBar\Item()\Height     = dpiY(Height)
       ListEx()\ScrollBar\Item()\Minimum    = Minimum
       ListEx()\ScrollBar\Item()\Maximum    = Maximum
       ListEx()\ScrollBar\Item()\PageLength = PageLength
@@ -10441,8 +10441,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 155
-; Folding = wAhACAAAAAAAoAAAAQEIBsAAAiCCIAA+bGiK0oZLBQlECCAAAAAAKAQJAAEAACFCCAAATAQhBgDQABDAAAAAAAQAAPE1Ad-
+; CursorPosition = 7704
+; FirstLine = 1468
+; Folding = wAhACAAAAAAAoAAACQEIBsAAAiCCIAA-bGiK0oZLBQlECCAAAAAAKAQJAAEAACFCCAAAzAQhBgDQABDAAAAAAAQAAPE1Ad-
 ; Markers = 4811,8498
 ; EnableXP
 ; DPIAware

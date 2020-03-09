@@ -836,10 +836,10 @@ Module ComboBoxEx
   	  
   	  Range = ComboEx()\ListView\ScrollBar\Item()\maxPos - ComboEx()\ListView\ScrollBar\Item()\minPos
   	  
-	    ComboEx()\ListView\ScrollBar\Item()\Area\X       = dpiX(ComboEx()\ListView\ScrollBar\Item()\X)
-  	  ComboEx()\ListView\ScrollBar\Item()\Area\Y       = dpiY(ComboEx()\ListView\ScrollBar\Item()\Y) + dpiY(#ScrollBar_ButtonSize) + dpiY(1)
-  	  ComboEx()\ListView\ScrollBar\Item()\Area\Width   = dpiX(ComboEx()\ListView\ScrollBar\Item()\Width)
-  	  ComboEx()\ListView\ScrollBar\Item()\Area\Height  = dpiY(ComboEx()\ListView\ScrollBar\Item()\Height) - dpiY(ComboEx()\ListView\ScrollBar\Adjust) - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(2)
+	    ComboEx()\ListView\ScrollBar\Item()\Area\X       = ComboEx()\ListView\ScrollBar\Item()\X
+  	  ComboEx()\ListView\ScrollBar\Item()\Area\Y       = ComboEx()\ListView\ScrollBar\Item()\Y + dpiY(#ScrollBar_ButtonSize) + dpiY(1)
+  	  ComboEx()\ListView\ScrollBar\Item()\Area\Width   = ComboEx()\ListView\ScrollBar\Item()\Width
+  	  ComboEx()\ListView\ScrollBar\Item()\Area\Height  = ComboEx()\ListView\ScrollBar\Item()\Height - dpiY(ComboEx()\ListView\ScrollBar\Adjust) - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(2)
   	  ComboEx()\ListView\ScrollBar\Item()\Thumb\Y      = ComboEx()\ListView\ScrollBar\Item()\Area\Y
   	  ComboEx()\ListView\ScrollBar\Item()\Thumb\Size   = Round(ComboEx()\ListView\ScrollBar\Item()\Area\Height * ComboEx()\ListView\ScrollBar\Item()\Ratio, #PB_Round_Down)
   	  ComboEx()\ListView\ScrollBar\Item()\Thumb\Factor = (ComboEx()\ListView\ScrollBar\Item()\Area\Height - ComboEx()\ListView\ScrollBar\Item()\Thumb\Size) / Range
@@ -1156,10 +1156,10 @@ Module ComboBoxEx
       If ComboEx()\ListView\ScrollBar\Item()\Hide : ProcedureReturn #False : EndIf 
   	 
       ;{ ----- Size -----
-		  X      = dpiX(ComboEx()\ListView\ScrollBar\Item()\X)
-		  Y      = dpiY(ComboEx()\ListView\ScrollBar\Item()\Y)
-		  Width  = dpiX(ComboEx()\ListView\ScrollBar\Item()\Width) 
-		  Height = dpiY(ComboEx()\ListView\ScrollBar\Item()\Height)
+		  X      = ComboEx()\ListView\ScrollBar\Item()\X
+		  Y      = ComboEx()\ListView\ScrollBar\Item()\Y
+		  Width  = ComboEx()\ListView\ScrollBar\Item()\Width 
+		  Height = ComboEx()\ListView\ScrollBar\Item()\Height
 		  ;}
 		  
 		  Offset = (ComboEx()\ListView\ScrollBar\Item()\Pos - ComboEx()\ListView\ScrollBar\Item()\minPos) * ComboEx()\ListView\ScrollBar\Item()\Thumb\Factor
@@ -2703,10 +2703,10 @@ Module ComboBoxEx
     
     If AddMapElement(ComboEx()\ListView\ScrollBar\Item(), Label)
     
-      ComboEx()\ListView\ScrollBar\Item()\X = X
-      ComboEx()\ListView\ScrollBar\Item()\Y = Y
-      ComboEx()\ListView\ScrollBar\Item()\Width      = Width
-      ComboEx()\ListView\ScrollBar\Item()\Height     = Height
+      ComboEx()\ListView\ScrollBar\Item()\X          = dpiX(X)
+      ComboEx()\ListView\ScrollBar\Item()\Y          = dpiY(Y)
+      ComboEx()\ListView\ScrollBar\Item()\Width      = dpiX(Width)
+      ComboEx()\ListView\ScrollBar\Item()\Height     = dpiY(Height)
       ComboEx()\ListView\ScrollBar\Item()\Minimum    = Minimum
       ComboEx()\ListView\ScrollBar\Item()\Maximum    = Maximum
       ComboEx()\ListView\ScrollBar\Item()\PageLength = PageLength
@@ -3613,8 +3613,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 93
-; Folding = IkBAAAAAAAAJBSAA1AAEGMAAAAAwCAAAAAAAg-
+; CursorPosition = 2706
+; FirstLine = 388
+; Folding = IkBAAAAAAEApBQAAQQAEGMAAAAAwCAAAAAAAg-
 ; EnableThread
 ; EnableXP
 ; DPIAware

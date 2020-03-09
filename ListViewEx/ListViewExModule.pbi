@@ -597,10 +597,10 @@ Module ListView
   	  
   	  Range = ListView()\ScrollBar\Item()\maxPos - ListView()\ScrollBar\Item()\minPos
   	  
-	    ListView()\ScrollBar\Item()\Area\X       = dpiX(ListView()\ScrollBar\Item()\X)
-  	  ListView()\ScrollBar\Item()\Area\Y       = dpiY(ListView()\ScrollBar\Item()\Y) + dpiY(#ScrollBar_ButtonSize) + dpiY(1)
-  	  ListView()\ScrollBar\Item()\Area\Width   = dpiX(ListView()\ScrollBar\Item()\Width)
-  	  ListView()\ScrollBar\Item()\Area\Height  = dpiY(ListView()\ScrollBar\Item()\Height) - dpiY(ListView()\ScrollBar\Adjust) - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(2)
+	    ListView()\ScrollBar\Item()\Area\X       = ListView()\ScrollBar\Item()\X
+  	  ListView()\ScrollBar\Item()\Area\Y       = ListView()\ScrollBar\Item()\Y + dpiY(#ScrollBar_ButtonSize) + dpiY(1)
+  	  ListView()\ScrollBar\Item()\Area\Width   = ListView()\ScrollBar\Item()\Width
+  	  ListView()\ScrollBar\Item()\Area\Height  = ListView()\ScrollBar\Item()\Height - dpiY(ListView()\ScrollBar\Adjust) - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(2)
   	  ListView()\ScrollBar\Item()\Thumb\Y      = ListView()\ScrollBar\Item()\Area\Y
   	  ListView()\ScrollBar\Item()\Thumb\Size   = Round(ListView()\ScrollBar\Item()\Area\Height * ListView()\ScrollBar\Item()\Ratio, #PB_Round_Down)
   	  ListView()\ScrollBar\Item()\Thumb\Factor = (ListView()\ScrollBar\Item()\Area\Height - ListView()\ScrollBar\Item()\Thumb\Size) / Range  
@@ -755,10 +755,10 @@ Module ListView
       If ListView()\ScrollBar\Item()\Hide : ProcedureReturn #False : EndIf 
   	 
       ;{ ----- Size -----
-		  X      = dpiX(ListView()\ScrollBar\Item()\X)
-		  Y      = dpiY(ListView()\ScrollBar\Item()\Y)
-		  Width  = dpiX(ListView()\ScrollBar\Item()\Width) 
-		  Height = dpiY(ListView()\ScrollBar\Item()\Height)
+		  X      = ListView()\ScrollBar\Item()\X
+		  Y      = ListView()\ScrollBar\Item()\Y
+		  Width  = ListView()\ScrollBar\Item()\Width 
+		  Height = ListView()\ScrollBar\Item()\Height
 		  ;}
 		  
 		  Offset = (ListView()\ScrollBar\Item()\Pos - ListView()\ScrollBar\Item()\minPos) * ListView()\ScrollBar\Item()\Thumb\Factor
@@ -929,7 +929,6 @@ Module ListView
       
       Width  = dpiX(GadgetWidth(ListView()\CanvasNum)) 
       Height = dpiY(GadgetHeight(ListView()\CanvasNum))
-      
       
 		  If Not ListView()\ScrollBar\Item("VScroll")\Hide : Width - dpiX(#ScrollBarSize) : EndIf
 		  
@@ -1877,10 +1876,10 @@ Module ListView
     
     If AddMapElement(ListView()\ScrollBar\Item(), Label)
     
-      ListView()\ScrollBar\Item()\X = X
-      ListView()\ScrollBar\Item()\Y = Y
-      ListView()\ScrollBar\Item()\Width      = Width
-      ListView()\ScrollBar\Item()\Height     = Height
+      ListView()\ScrollBar\Item()\X = dpiX(X)
+      ListView()\ScrollBar\Item()\Y = dpiY(Y)
+      ListView()\ScrollBar\Item()\Width      = dpiX(Width)
+      ListView()\ScrollBar\Item()\Height     = dpiY(Height)
       ListView()\ScrollBar\Item()\Minimum    = Minimum
       ListView()\ScrollBar\Item()\Maximum    = Maximum
       ListView()\ScrollBar\Item()\PageLength = PageLength
@@ -2649,8 +2648,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 93
-; Folding = YDGAAABMpgQkjwgAAAAIAAxAABAg-
-; Markers = 1129
+; CursorPosition = 1883
+; FirstLine = 350
+; Folding = YDGAAABM6gAkjwgAAAAIBAxAABAg-
+; Markers = 1128
 ; EnableXP
 ; DPIAware
