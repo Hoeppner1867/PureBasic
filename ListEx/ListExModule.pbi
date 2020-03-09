@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 06.03.2020
+; Last Update: 09.03.2020
 ;
 ; Bugfixes
 ;
@@ -153,7 +153,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20030602
+  #Version  = 20030900
   #ModuleEx = 20030400
   
   #Enable_CSV_Support   = #True
@@ -1490,6 +1490,7 @@ Module ListEx
     	  ListEx()\ScrollBar\Item()\Area\Height  = ListEx()\ScrollBar\Item()\Height - dpiY(ListEx()\ScrollBar\Adjust) - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(2)
     	  ListEx()\ScrollBar\Item()\Thumb\Y      = ListEx()\ScrollBar\Item()\Area\Y
     	  ListEx()\ScrollBar\Item()\Thumb\Size   = Round(ListEx()\ScrollBar\Item()\Area\Height * ListEx()\ScrollBar\Item()\Ratio, #PB_Round_Down)
+    	  If ListEx()\ScrollBar\Item()\Thumb\Size < dpiY(6) : ListEx()\ScrollBar\Item()\Thumb\Size = dpiY(6) : EndIf
     	  ListEx()\ScrollBar\Item()\Thumb\Factor = (ListEx()\ScrollBar\Item()\Area\Height - ListEx()\ScrollBar\Item()\Thumb\Size) / Range
   	  Else
   	    ListEx()\ScrollBar\Item()\Area\X       = ListEx()\ScrollBar\Item()\X + dpiX(#ScrollBar_ButtonSize) + dpiX(1)
@@ -1498,6 +1499,7 @@ Module ListEx
     	  ListEx()\ScrollBar\Item()\Area\Height  = ListEx()\ScrollBar\Item()\Height
     	  ListEx()\ScrollBar\Item()\Thumb\X      = ListEx()\ScrollBar\Item()\Area\X
     	  ListEx()\ScrollBar\Item()\Thumb\Size   = Round(ListEx()\ScrollBar\Item()\Area\Width * ListEx()\ScrollBar\Item()\Ratio, #PB_Round_Down)
+    	  If ListEx()\ScrollBar\Item()\Thumb\Size < dpiX(6) : ListEx()\ScrollBar\Item()\Thumb\Size = dpiX(6) : EndIf
     	  ListEx()\ScrollBar\Item()\Thumb\Factor = (ListEx()\ScrollBar\Item()\Area\Width - ListEx()\ScrollBar\Item()\Thumb\Size) / Range
   	  EndIf  
   	  
@@ -10441,10 +10443,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 7704
-; FirstLine = 1468
-; Folding = wAhACAAAAAAAoAAACQEIBsAAAiCCIAA-bGiK0oZLBQlECCAAAAAAKAQJAAEAACFCCAAAzAQhBgDQABDAAAAAAAQAAPE1Ad-
-; Markers = 4811,8498
+; CursorPosition = 155
+; FirstLine = 9
+; Folding = wAhACAAAAAAAoAAACQEIBsAAAiCCIAA-bGiK0oZLBQlECCAAAAAAKAQJAAEAACFCCAAATAQhBgDQABDAAAAAAAQAAPE1Ad-
+; Markers = 4813,8500
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
