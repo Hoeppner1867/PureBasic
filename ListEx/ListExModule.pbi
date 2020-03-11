@@ -153,7 +153,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20030901
+  #Version  = 20031100
   #ModuleEx = 20030400
   
   #Enable_CSV_Support   = #True
@@ -10282,10 +10282,8 @@ CompilerIf #PB_Compiler_IsMainFile
         ListEx::AddColumn(#List, 1, "Link", 75, "link",   ListEx::#Links)     ; |ListEx::#FitColumn
         ListEx::AddColumn(#List, 2, "Edit", 85, "edit",   ListEx::#Editable|ListEx::#Number|ListEx::#StartSelected)  ; |ListEx::#FitColumn                                                                      
         ListEx::AddColumn(#List, ListEx::#LastItem, "Combo",   72, "combo",  ListEx::#ComboBoxes)
-        ListEx::AddColumn(#List, ListEx::#LastItem, "LIBELLE", 100, "Libelle", ListEx::#Text|ListEx::#Editable) 
         ListEx::AddColumn(#List, ListEx::#LastItem, "Date",    76, "date",   ListEx::#DateGadget)
         ListEx::AddColumn(#List, ListEx::#LastItem, "Buttons", 60, "button", ListEx::#Buttons) ; ListEx::#Hide
-        ListEx::SetColumnAttribute(#List, 4, ListEx::#MaxChars, 140)
         
         ; --- Test ProgressBar ---
         CompilerIf ListEx::#Enable_ProgressBar
@@ -10494,8 +10492,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 13
-; Folding = wAhACAAAAAAAoAAACQEIBsAAAiCCIgA+bGiKlYDASgC5EEAAAAAAUAgSAAIAAEAAQAAAYCAKMAcAAIYAAAAAAAACA5AA3g8
+; CursorPosition = 10285
+; FirstLine = 1362
+; Folding = wAhACAAAAAAAoAAACQEIBsAAAiCCIgA+bGiKlYDASgC5EEAAAAAAUAgSAAIAAEAAQAAAYCAKMAcAAIYAAAAAAAACA5AgGg8
 ; Markers = 4868,8556
 ; EnableXP
 ; DPIAware
