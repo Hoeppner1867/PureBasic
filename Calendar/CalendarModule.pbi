@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (11/2019)
 ;/
 
-; Last Update: 25.02.2020
+; Last Update: 12.03.2020
 ;
 ; Added: #Minimum / #Maximum
 ;
@@ -80,7 +80,7 @@ CompilerIf Not Defined(Date64, #PB_Module)  : XIncludeFile "Date64Module.pbi" : 
 
 DeclareModule Calendar
   
-  #Version  = 20022500
+  #Version  = 20031200
   #ModuleEx = 19120600
 
   ;- ===========================================================================
@@ -1258,9 +1258,9 @@ Module Calendar
       Box(0, 0, Width, Height, GridColor)
       If Not Calendar()\Flags & #BorderLess
         If Calendar()\Disable
-          Box(0, 0, dpiX(GadgetWidth(Calendar()\CanvasNum)), dpiY(GadgetHeight(Calendar()\CanvasNum)), BorderColor)
+          Box(0, 0, Width, dpiY(GadgetHeight(Calendar()\CanvasNum)), BorderColor)
         Else
-          Box(0, 0, dpiX(GadgetWidth(Calendar()\CanvasNum)), dpiY(GadgetHeight(Calendar()\CanvasNum)), Calendar()\Color\Border)
+          Box(0, 0, Width, dpiY(GadgetHeight(Calendar()\CanvasNum)), Calendar()\Color\Border)
         EndIf  
       EndIf ;}
       
@@ -2479,8 +2479,8 @@ CompilerIf #PB_Compiler_IsMainFile
     Maximum.q = Calendar::GetDate(1, 4, 2020)
     
     Calendar::Gadget(#Calendar, 10, 10, #PB_Default, #PB_Default, #PB_Default, #Window)
-    ;Calendar::SetAttribute(#Calendar, Calendar::#Minimum, Minimum)
-    ;Calendar::SetAttribute(#Calendar, Calendar::#Maximum, Maximum)
+    Calendar::SetAttribute(#Calendar, Calendar::#Minimum, Minimum)
+    Calendar::SetAttribute(#Calendar, Calendar::#Maximum, Maximum)
     ;ModuleEx::SetTheme(ModuleEx::#Theme_Blue)
     
     Repeat
@@ -2503,9 +2503,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 2482
-; FirstLine = 233
-; Folding = YABAAAgAAAQYBKMAAAAAiBAAg-
+; CursorPosition = 82
+; Folding = YABAAAgAAAQYhKMAAAAAjBAAA-
 ; Markers = 971,2397
 ; EnableXP
 ; DPIAware
