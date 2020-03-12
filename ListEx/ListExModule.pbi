@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 11.03.2020
+; Last Update: 12.03.2020
 ;
 ; Bugfix:  Cutting off oversized text
 ;
@@ -153,7 +153,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20031100
+  #Version  = 20031200
   #ModuleEx = 20030400
   
   #Enable_CSV_Support   = #True
@@ -4012,17 +4012,6 @@ Module ListEx
           BackColor = ListEx()\Color\Back
         EndIf ;}
         
-        ;{ Focus row
-        If ListEx()\Flags & #MultiSelect And ListEx()\MultiSelect = #True
-          If ListEx()\Rows()\State & #Selected
-            BackColor = BlendColor_(ListEx()\Color\Focus, ListEx()\Color\Back, 10)
-            Box(colX, rowY, dpiX(ListEx()\Size\Cols), dpiY(ListEx()\Rows()\Height), BackColor)
-          EndIf
-        ElseIf ListEx()\Focus And ListIndex(ListEx()\Rows()) = ListEx()\Row\Focus
-          BackColor = BlendColor_(ListEx()\Color\Focus, ListEx()\Color\Back, 10)
-          Box(colX, rowY, dpiX(ListEx()\Size\Cols), dpiY(ListEx()\Rows()\Height), BackColor)
-        EndIf ;}
-        
         ;{ Columns of current row
         ForEach ListEx()\Cols() 
           
@@ -4073,22 +4062,23 @@ Module ListEx
               FrontColor = ListEx()\Color\Front
             EndIf
             
-            ;{ Colored cell background
-            If ListIndex(ListEx()\Rows()) <> ListEx()\Row\Current
-              
-              DrawingMode(#PB_2DDrawing_Default)
-              
-              If Flags & #CellBack
-                Box(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), ListEx()\Rows()\Column(Key$)\Color\Back)
-              ElseIf ListEx()\Rows()\Color\Back <> #PB_Default
-                Box(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), ListEx()\Rows()\Color\Back)
-              ElseIf ListEx()\Cols()\BackColor <> #PB_Default
-                Box(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), ListEx()\Cols()\BackColor)
-              Else 
-                Box(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), BackColor)
-              EndIf
-              
-            EndIf ;}
+            ;{ Cell background
+            DrawingMode(#PB_2DDrawing_Default)
+            
+            If ListEx()\Flags & #MultiSelect And ListEx()\MultiSelect = #True
+              If ListEx()\Rows()\State & #Selected : BackColor = BlendColor_(ListEx()\Color\Focus, ListEx()\Color\Back, 10) : EndIf
+            ElseIf ListEx()\Focus And ListIndex(ListEx()\Rows()) = ListEx()\Row\Focus
+              BackColor = BlendColor_(ListEx()\Color\Focus, ListEx()\Color\Back, 10)
+            ElseIf Flags & #CellBack
+              BackColor = ListEx()\Rows()\Column(Key$)\Color\Back
+            ElseIf ListEx()\Rows()\Color\Back <> #PB_Default
+              BackColor = ListEx()\Rows()\Color\Back
+            ElseIf ListEx()\Cols()\BackColor <> #PB_Default
+              BackColor = ListEx()\Cols()\BackColor
+            EndIf
+            
+            Box(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), BackColor) ; 
+            ;}
             
             If ListEx()\Cols()\Flags & #CheckBoxes                             ;{ CheckBox
               
@@ -5861,16 +5851,18 @@ Module ListEx
           EndIf
           ;}  
         Case #PB_Shortcut_V        ;{ Paste (Ctrl-V) 
-          Text = GetClipboardText()
-          If ListEx()\String\Flag
-            If ListEx()\Selection\Flag = #TextSelected : DeleteSelection_() : EndIf
-            ListEx()\String\Text = InsertString(ListEx()\String\Text, Text, ListEx()\String\CursorPos + 1)
-            ListEx()\String\CursorPos + Len(Text)
-          ElseIf ListEx()\ComboBox\Flag
-            If ListEx()\Selection\Flag = #TextSelected : DeleteSelection_() : EndIf
-            ListEx()\ComboBox\Text = InsertString(ListEx()\ComboBox\Text, Text, ListEx()\ComboBox\CursorPos + 1)
-            ListEx()\ComboBox\CursorPos + Len(Text)
-          EndIf  
+          If Modifier & #PB_Canvas_Control
+            Text = GetClipboardText()
+            If ListEx()\String\Flag
+              If ListEx()\Selection\Flag = #TextSelected : DeleteSelection_() : EndIf
+              ListEx()\String\Text = InsertString(ListEx()\String\Text, Text, ListEx()\String\CursorPos + 1)
+              ListEx()\String\CursorPos + Len(Text)
+            ElseIf ListEx()\ComboBox\Flag
+              If ListEx()\Selection\Flag = #TextSelected : DeleteSelection_() : EndIf
+              ListEx()\ComboBox\Text = InsertString(ListEx()\ComboBox\Text, Text, ListEx()\ComboBox\CursorPos + 1)
+              ListEx()\ComboBox\CursorPos + Len(Text)
+            EndIf 
+          EndIf
           ;} 
         Case #PB_Shortcut_Return   ;{ Return
 
@@ -5997,7 +5989,7 @@ Module ListEx
           Else
             
             ListEx()\String\Text = InsertString(ListEx()\String\Text, Char$, ListEx()\String\CursorPos)
-            
+
             If SelectElement(ListEx()\Cols(), ListEx()\String\Col)
               If ListEx()\Cols()\MaxChars
                 ListEx()\String\Text = Left(ListEx()\String\Text, ListEx()\Cols()\MaxChars)
@@ -10280,7 +10272,7 @@ CompilerIf #PB_Compiler_IsMainFile
         
         ;{ ===== Add different types of columns =====
         ListEx::AddColumn(#List, 1, "Link", 75, "link",   ListEx::#Links)     ; |ListEx::#FitColumn
-        ListEx::AddColumn(#List, 2, "Edit", 85, "edit",   ListEx::#Editable|ListEx::#Number|ListEx::#StartSelected)  ; |ListEx::#FitColumn                                                                      
+        ListEx::AddColumn(#List, 2, "Edit", 85, "edit",   ListEx::#Editable|ListEx::#StartSelected)  ; |ListEx::#FitColumn                                                                      
         ListEx::AddColumn(#List, ListEx::#LastItem, "Combo",   72, "combo",  ListEx::#ComboBoxes)
         ListEx::AddColumn(#List, ListEx::#LastItem, "Date",    76, "date",   ListEx::#DateGadget)
         ListEx::AddColumn(#List, ListEx::#LastItem, "Buttons", 60, "button", ListEx::#Buttons) ; ListEx::#Hide
@@ -10344,7 +10336,7 @@ CompilerIf #PB_Compiler_IsMainFile
         ListEx::SetColor(#List, ListEx::#FrontColor, $82004B, 2) ; front color for column 2
         ;ListEx::SetItemColor(#List, 5, ListEx::#FrontColor, $228B22, 2)
         ;ListEx::SetItemColor(#List, 5, ListEx::#BackColor, $FAFFF5)
-        ;ListEx::SetColor(#List, ListEx::#AlternateRowColor, $F0FFF0)
+        ListEx::SetColor(#List, ListEx::#AlternateRowColor, $F0FFF0)
         
         ; --- Define AutoResize ---
         ListEx::SetAutoResizeColumn(#List, 2, 50)
@@ -10492,10 +10484,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 10285
-; FirstLine = 1362
-; Folding = wAhACAAAAAAAoAAACQEIBsAAAiCCIgA+bGiKlYDASgC5EEAAAAAAUAgSAAIAAEAAQAAAYCAKMAcAAIYAAAAAAAACA5AgGg8
-; Markers = 4868,8556
+; CursorPosition = 155
+; FirstLine = 9
+; Folding = w------------------------------------wn3+-----------BAwL+--88+---------------------------------
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
