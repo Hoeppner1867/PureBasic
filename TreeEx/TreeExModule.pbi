@@ -8,10 +8,10 @@
 ;/
 ;/ On request and with the sponsorship of Cyllceaux
 ;/
-;/ © 2019  by Thorsten Hoeppner (11/2019)
+;/ © 2020  by Thorsten Hoeppner (11/2019)
 ;/
 
-; Last Update: 09.03.2020
+; Last Update: 13.03.2020
 ;
 ; Changed: ScrollBarGadget() replaced by drawing routine
 ; Added:   Attribute #ScrollBar [#ScrollBar_Default/#ScrollBar_Frame/#ScrollBar_DragPoint]
@@ -83,7 +83,7 @@
 
 DeclareModule TreeEx
   
-  #Version  = 20030900
+  #Version  = 20031300
   #ModuleEx = 19112002
   
   #Enable_ProgressBar = #True
@@ -1005,7 +1005,7 @@ Module TreeEx
     If TreeEx()\ScrollBar\Item("VScroll")\Hide
       Width = GadgetWidth(TreeEx()\CanvasNum)
     Else
-      Width = GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize
+      Width = GadgetWidth(TreeEx()\CanvasNum) - #ScrollBarSize - 2
     EndIf
     
     If TreeEx()\AutoResize\Column <> #PB_Ignore ;{ Resize column
@@ -1342,7 +1342,7 @@ Module TreeEx
 
 	EndProcedure
 	
-	Procedure   DrawScrollBar_(ScrollBar.s)
+	Procedure   DrawScrollBar_(ScrollBar.s, ThumbOnly.i=#False)
 		Define.i X, Y, Width, Height, Offset, OffsetX, OffsetY
 		Define.i FrontColor, BackColor, BorderColor, ScrollBorderColor
 		
@@ -1362,24 +1362,24 @@ Module TreeEx
 		  If TreeEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical
 		    
         ;{ ----- Buttons -----
-  		  TreeEx()\ScrollBar\Item()\Buttons\Forwards\X       = X + dpiX(1)
-    		TreeEx()\ScrollBar\Item()\Buttons\Forwards\Y       = Y + Height - dpiY(#ScrollBar_ButtonSize) - dpiY(TreeEx()\ScrollBar\Adjust) - dpiY(1)
-    		TreeEx()\ScrollBar\Item()\Buttons\Forwards\Width   = Width - dpiX(2)
+  		  TreeEx()\ScrollBar\Item()\Buttons\Forwards\X       = X
+    		TreeEx()\ScrollBar\Item()\Buttons\Forwards\Y       = Y + Height - dpiY(#ScrollBar_ButtonSize) - dpiY(TreeEx()\ScrollBar\Adjust)
+    		TreeEx()\ScrollBar\Item()\Buttons\Forwards\Width   = Width
     		TreeEx()\ScrollBar\Item()\Buttons\Forwards\Height  = dpiY(#ScrollBar_ButtonSize)	
-    		TreeEx()\ScrollBar\Item()\Buttons\Backwards\X      = X + dpiX(1)
-    		TreeEx()\ScrollBar\Item()\Buttons\Backwards\Y      = Y + dpiY(1)
-    		TreeEx()\ScrollBar\Item()\Buttons\Backwards\Width  = Width - dpiX(2)
+    		TreeEx()\ScrollBar\Item()\Buttons\Backwards\X      = X
+    		TreeEx()\ScrollBar\Item()\Buttons\Backwards\Y      = Y
+    		TreeEx()\ScrollBar\Item()\Buttons\Backwards\Width  = Width
     		TreeEx()\ScrollBar\Item()\Buttons\Backwards\Height = dpiY(#ScrollBar_ButtonSize)
     		;}
         ;{ ----- ScrollArea -----
-    		TreeEx()\ScrollBar\Item()\Area\X = X
-    	  TreeEx()\ScrollBar\Item()\Area\Y = Y + dpiY(#ScrollBar_ButtonSize) + dpiY(1)
+    		TreeEx()\ScrollBar\Item()\Area\X      = X
+    	  TreeEx()\ScrollBar\Item()\Area\Y      = Y + dpiY(#ScrollBar_ButtonSize)
     	  TreeEx()\ScrollBar\Item()\Area\Width  = Width
-    	  TreeEx()\ScrollBar\Item()\Area\Height = Height - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(2)
+    	  TreeEx()\ScrollBar\Item()\Area\Height = Height - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(TreeEx()\ScrollBar\Adjust)
     	  ;}
         ;{ ----- Thumb -----
     	  TreeEx()\ScrollBar\Item()\Thumb\X      = X
-    	  TreeEx()\ScrollBar\Item()\Thumb\Y      = TreeEx()\ScrollBar\Item()\Area\Y + Offset
+    	  TreeEx()\ScrollBar\Item()\Thumb\Y      = TreeEx()\ScrollBar\Item()\Area\Y + Offset + dpiY(1)
     	  TreeEx()\ScrollBar\Item()\Thumb\Width  = Width
     	  TreeEx()\ScrollBar\Item()\Thumb\Height = TreeEx()\ScrollBar\Item()\Thumb\Size
     	  If TreeEx()\ScrollBar\Flags & #ScrollBar_ButtonBorder
@@ -1390,23 +1390,23 @@ Module TreeEx
     	Else
     	  
   		  ;{ ----- Buttons -----
-  		  TreeEx()\ScrollBar\Item()\Buttons\Forwards\X       = X + Width - dpiX(#ScrollBar_ButtonSize) - dpiX(TreeEx()\ScrollBar\Adjust) - dpiY(1)
-    		TreeEx()\ScrollBar\Item()\Buttons\Forwards\Y       = Y + dpiY(1)
+  		  TreeEx()\ScrollBar\Item()\Buttons\Forwards\X       = X + Width - dpiX(#ScrollBar_ButtonSize) - dpiX(TreeEx()\ScrollBar\Adjust)
+    		TreeEx()\ScrollBar\Item()\Buttons\Forwards\Y       = Y
     		TreeEx()\ScrollBar\Item()\Buttons\Forwards\Width   = dpiX(#ScrollBar_ButtonSize)
-    		TreeEx()\ScrollBar\Item()\Buttons\Forwards\Height  = Height - dpiY(2)
-    		TreeEx()\ScrollBar\Item()\Buttons\Backwards\X      = X + dpiX(1)
-    		TreeEx()\ScrollBar\Item()\Buttons\Backwards\Y      = Y + dpiY(1)
+    		TreeEx()\ScrollBar\Item()\Buttons\Forwards\Height  = Height
+    		TreeEx()\ScrollBar\Item()\Buttons\Backwards\X      = X
+    		TreeEx()\ScrollBar\Item()\Buttons\Backwards\Y      = Y
     		TreeEx()\ScrollBar\Item()\Buttons\Backwards\Width  = dpiX(#ScrollBar_ButtonSize)
-    		TreeEx()\ScrollBar\Item()\Buttons\Backwards\Height = Height - dpiY(2)
+    		TreeEx()\ScrollBar\Item()\Buttons\Backwards\Height = Height
     		;}
     		;{ ----- ScrollArea -----
-    		TreeEx()\ScrollBar\Item()\Area\X = X + dpiX(#ScrollBar_ButtonSize) + dpiX(1)
+    		TreeEx()\ScrollBar\Item()\Area\X = X + dpiX(#ScrollBar_ButtonSize)
     	  TreeEx()\ScrollBar\Item()\Area\Y = Y
-    	  TreeEx()\ScrollBar\Item()\Area\Width  = Width - dpiX(#ScrollBar_ButtonSize * 2) - dpiX(2)
+    	  TreeEx()\ScrollBar\Item()\Area\Width  = Width - dpiX(#ScrollBar_ButtonSize * 2) - dpiY(TreeEx()\ScrollBar\Adjust)
     	  TreeEx()\ScrollBar\Item()\Area\Height = Height
     	  ;}
     	  ;{ ----- Thumb -----
-    	  TreeEx()\ScrollBar\Item()\Thumb\X      = TreeEx()\ScrollBar\Item()\Area\X + Offset
+    	  TreeEx()\ScrollBar\Item()\Thumb\X      = TreeEx()\ScrollBar\Item()\Area\X + Offset + dpiX(1)
     	  TreeEx()\ScrollBar\Item()\Thumb\Y      = Y
     	  TreeEx()\ScrollBar\Item()\Thumb\Width  = TreeEx()\ScrollBar\Item()\Thumb\Size
     	  TreeEx()\ScrollBar\Item()\Thumb\Height = Height
@@ -1434,7 +1434,6 @@ Module TreeEx
   		  DrawingMode(#PB_2DDrawing_Default)
   		  
   		  ;{ _____ Background _____
-  		  Box(X, Y, Width, Height, TreeEx()\ScrollBar\Color\Gadget) ; needed for rounded corners
   		  Box(TreeEx()\ScrollBar\Item()\Area\X, TreeEx()\ScrollBar\Item()\Area\Y, TreeEx()\ScrollBar\Item()\Area\Width, TreeEx()\ScrollBar\Item()\Area\Height, TreeEx()\ScrollBar\Color\Back)
   			;}
   			
@@ -1479,6 +1478,10 @@ Module TreeEx
   			EndIf
   			;}
   			
+  			If TreeEx()\ScrollBar\Adjust
+  			  Box(GadgetWidth(TreeEx()\CanvasNum) - dpiX(#ScrollBar_ButtonSize) - dpiX(1), GadgetHeight(TreeEx()\CanvasNum) - dpiY(#ScrollBar_ButtonSize) - dpiY(1), dpiX(#ScrollBar_ButtonSize), dpiY(#ScrollBar_ButtonSize), TreeEx()\ScrollBar\Color\Gadget)
+  			EndIf 
+  			
   			;{ _____ Border ____
   			If TreeEx()\ScrollBar\Flags & #ScrollBar_Border
   			  DrawingMode(#PB_2DDrawing_Outlined)
@@ -1493,9 +1496,11 @@ Module TreeEx
   			StopDrawing()
   		EndIf
   		
-    	DrawScrollButton_(TreeEx()\ScrollBar\Item()\Buttons\Forwards\X,  TreeEx()\ScrollBar\Item()\Buttons\Forwards\Y,  TreeEx()\ScrollBar\Item()\Buttons\Forwards\Width,  TreeEx()\ScrollBar\Item()\Buttons\Forwards\Height,  ScrollBar, #ScrollBar_Forwards,  TreeEx()\ScrollBar\Item()\Buttons\Forwards\State)
-    	DrawScrollButton_(TreeEx()\ScrollBar\Item()\Buttons\Backwards\X, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Y, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Width, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards, TreeEx()\ScrollBar\Item()\Buttons\Backwards\State)
-
+  		If ThumbOnly = #False
+      	DrawScrollButton_(TreeEx()\ScrollBar\Item()\Buttons\Forwards\X,  TreeEx()\ScrollBar\Item()\Buttons\Forwards\Y,  TreeEx()\ScrollBar\Item()\Buttons\Forwards\Width,  TreeEx()\ScrollBar\Item()\Buttons\Forwards\Height,  ScrollBar, #ScrollBar_Forwards,  TreeEx()\ScrollBar\Item()\Buttons\Forwards\State)
+      	DrawScrollButton_(TreeEx()\ScrollBar\Item()\Buttons\Backwards\X, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Y, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Width, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards, TreeEx()\ScrollBar\Item()\Buttons\Backwards\State)
+      EndIf
+    
     EndIf
     
 	EndProcedure  
@@ -1660,7 +1665,7 @@ Module TreeEx
 
 	EndProcedure  
 
-	Procedure   Draw_()
+	Procedure   Draw_(ThumbOnly.i=#False)
 	  Define.f X, Y, Width, Height, TreeWidth, ColumnWidth, txtHeight, RowHeight, ImageWidth, ImageHeight
 	  Define.f btY, txtX, txtY, OffsetX, OffsetY, LastX, LastY, LineY, LineHeight, LineWidth
 	  Define.i Row, PageRows, FrontColor, BackColor, CheckBoxSize, FontID, Visible, Button
@@ -1685,6 +1690,7 @@ Module TreeEx
 		  
 		  PageRows = GetPageRows_()
 		  
+		  ;{ ScrollBar
 		  If TreeEx()\ScrollBar\Item("HScroll")\Hide = #False
 		    
 		    TreeEx()\Col\OffsetX = TreeEx()\ScrollBar\Item("HScroll")\Pos
@@ -1721,13 +1727,13 @@ Module TreeEx
 		    EndIf
 		    
 		    CalcScrollBarThumb_("VScroll", #False)
-		  EndIf
+		  EndIf ;}
 		  
 		  If TreeEx()\ScrollBar\Item("VScroll")\Hide = #False : Width  - dpiX(#ScrollBarSize) : EndIf 
 		  If TreeEx()\ScrollBar\Item("HScroll")\Hide = #False : Height - dpiY(#ScrollBarSize) : EndIf 
 		  
 		  CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
-        ClipOutput(0, 0, Width, Height) 
+		    ClipOutput(0, 0, Width, Height) 
       CompilerEndIf
 		  
 			;{ _____ Background _____
@@ -2101,8 +2107,16 @@ Module TreeEx
 			  LineY = RowHeight
 			  LineHeight - RowHeight
 			  
+			  CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+			    ClipOutput(0, 0, Width, Height) 
+        CompilerEndIf
+			  
 			  DrawingMode(#PB_2DDrawing_Default)
 			  Box(0, 0, dpiX(Width), RowHeight, TreeEx()\Color\HeaderBack)
+			  
+			  CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+          UnclipOutput()
+        CompilerEndIf
 			  
 			  ForEach TreeEx()\Cols()
 			    
@@ -2125,6 +2139,12 @@ Module TreeEx
 			      EndIf  
 			    EndIf
 			    
+		      CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+			      If X + ColumnWidth > Width  : ColumnWidth = Width  - X : EndIf
+			      If Y + RowHeight   > Height : RowHeight   = Height - Y : EndIf
+            ClipOutput(X, Y, ColumnWidth, RowHeight) 
+          CompilerEndIf
+			    
 			    ;{ ----- Column BackColor -----
 			    If TreeEx()\Cols()\Header\Color\Back <> #PB_Default 
 			      DrawingMode(#PB_2DDrawing_Default)
@@ -2132,8 +2152,12 @@ Module TreeEx
 			    EndIf ;}
 			    
 			    ;{ ----- Cell Border -----
-			    DrawingMode(#PB_2DDrawing_Outlined)                
-			    Box(X, 0, ColumnWidth + 1, RowHeight, TreeEx()\Color\HeaderBorder)
+			    DrawingMode(#PB_2DDrawing_Outlined) 
+			    If ListIndex(TreeEx()\Cols()) < ListSize(TreeEx()\Cols()) - 1
+			      Box(X, 0, ColumnWidth + 1, RowHeight, TreeEx()\Color\HeaderBorder)
+			    Else
+			      Box(X, 0, ColumnWidth, RowHeight, TreeEx()\Color\HeaderBorder)
+			    EndIf   
 			    TreeEx()\Cols()\X = X
           ;}
 			    
@@ -2173,11 +2197,7 @@ Module TreeEx
   			    Else
   			      txtX = dpiX(5)
   			    EndIf ;}
-  			    
-  			    CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
-              ClipOutput(X, Y, ColumnWidth, RowHeight) 
-            CompilerEndIf
-            
+
   			    ;{ ----- Draw Text -----
   			    txtY = (RowHeight - TextHeight(TreeEx()\Cols()\Header\Title)) / 2
 
@@ -2187,33 +2207,33 @@ Module TreeEx
   			    Else
   			      DrawText(X + txtX, Y + txtY, TreeEx()\Cols()\Header\Title, TreeEx()\Color\HeaderFront)
   			    EndIf ;}
-  			    
-  			    CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
-              UnclipOutput()
-            CompilerEndIf
-  			    
+
   			  EndIf
-			  
+  			  
+			    CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+            UnclipOutput()
+          CompilerEndIf
+            
 			    X + ColumnWidth
 			  Next
 			  
   	  EndIf ;}
-  	  
+
 			;{ _____ Border ____
 			If Not TreeEx()\Flags & #Borderless
 				DrawingMode(#PB_2DDrawing_Outlined)
 				Box(0, 0, dpiX(GadgetWidth(TreeEx()\CanvasNum)), dpiY(GadgetHeight(TreeEx()\CanvasNum)), TreeEx()\Color\Border)
 			EndIf ;}
-
+			
 			StopDrawing()
 		EndIf
 		
-		If TreeEx()\ScrollBar\Item("HScroll")\Hide = #False : DrawScrollBar_("HScroll") : EndIf 
-		If TreeEx()\ScrollBar\Item("VScroll")\Hide = #False : DrawScrollBar_("VScroll") : EndIf 
+		If TreeEx()\ScrollBar\Item("HScroll")\Hide = #False : DrawScrollBar_("HScroll", ThumbOnly) : EndIf ; 
+		If TreeEx()\ScrollBar\Item("VScroll")\Hide = #False : DrawScrollBar_("VScroll", ThumbOnly) : EndIf ; 
 		
 	EndProcedure
 	
-	Procedure   ReDraw_()
+	Procedure   ReDraw_(ThumbOnly.i=#False)
 	  
 	  CalcRows() ; Height of all visible rows
 	  CalcCols() ; Width  of all columns
@@ -2223,7 +2243,7 @@ Module TreeEx
 	    CalcCols() ; Width  of all columns
 	  EndIf
 
-	  Draw_()
+	  Draw_(ThumbOnly)
 
 	EndProcedure
 	
@@ -2558,170 +2578,194 @@ Module TreeEx
 			Y = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
 
       ForEach TreeEx()\ScrollBar\Item()
-      
-	    If TreeEx()\ScrollBar\Item()\Hide : Continue : EndIf
-	    
-	    ScrollBar = MapKey(TreeEx()\ScrollBar\Item())
-	    
-	    If TreeEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical       ;{ Vertical Scrollbar
-	      
-	      If X >= TreeEx()\ScrollBar\Item()\X And X <= TreeEx()\ScrollBar\Item()\X + TreeEx()\ScrollBar\Item()\Width
-	      
-  	      If Y <= TreeEx()\ScrollBar\Item()\Buttons\Backwards\Y + TreeEx()\ScrollBar\Item()\Buttons\Backwards\Height
-  			    ;{ Backwards Button
-  			    If TreeEx()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Focus
-  			      
-  			      TreeEx()\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Focus
-  			      
-  			      If TreeEx()\ScrollBar\Item()\Thumb\State <> #False
-  			        TreeEx()\ScrollBar\Item()\Thumb\State = #False
-  			        DrawScrollBar_(ScrollBar)
-  			      Else 
-  			        DrawScrollButton_(TreeEx()\ScrollBar\Item()\Buttons\Backwards\X, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Y, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Width, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards, #ScrollBar_Focus)
-  			      EndIf 
-  			      
-  			    EndIf
-			      ;}
-  			    ProcedureReturn #True
-  			  ElseIf Y >= TreeEx()\ScrollBar\Item()\Buttons\Forwards\Y
-  			    ;{ Forwards Button
-  			    If TreeEx()\ScrollBar\Item()\Buttons\Forwards\State <> #ScrollBar_Focus
-  			      
-  			      TreeEx()\ScrollBar\Item()\Buttons\Forwards\State = #ScrollBar_Focus
-  			      
-  			      If TreeEx()\ScrollBar\Item()\Thumb\State <> #False
-  			        TreeEx()\ScrollBar\Item()\Thumb\State = #False
-  			        DrawScrollBar_(ScrollBar)
-  			      Else 
-  			        DrawScrollButton_(TreeEx()\ScrollBar\Item()\Buttons\Forwards\X, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Y, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Width, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards, #ScrollBar_Focus)
-  			      EndIf
-  			      
-  			    EndIf ;}
-  			    ProcedureReturn #True
-  			  EndIf
 
-  			  TreeEx()\ScrollBar\Item()\Timer = #False
-  			  
-  			  If TreeEx()\ScrollBar\Item()\Buttons\Backwards\State <> #False ;{ Backwards Button
-  			    TreeEx()\ScrollBar\Item()\Buttons\Backwards\State = #False
-  			    DrawScrollButton_(TreeEx()\ScrollBar\Item()\Buttons\Backwards\X, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Y, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Width, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards)
-    			  ;}
-    			EndIf
-    			
-    			If TreeEx()\ScrollBar\Item()\Buttons\Forwards\State <> #False  ;{ Forwards Button
-    			  TreeEx()\ScrollBar\Item()\Buttons\Forwards\State = #False
-    			  DrawScrollButton_(TreeEx()\ScrollBar\Item()\Buttons\Forwards\X, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Y, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Width, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards)
-    			  ;}
-    			EndIf
+  	    If TreeEx()\ScrollBar\Item()\Hide : Continue : EndIf
+  	    
+  	    ScrollBar = MapKey(TreeEx()\ScrollBar\Item())
+        
+  	    If TreeEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical       ;{ Vertical Scrollbar
+  	      
+  	      If X >= TreeEx()\ScrollBar\Item()\X And X <= TreeEx()\ScrollBar\Item()\X + TreeEx()\ScrollBar\Item()\Width
+  	      
+    	      If Y <= TreeEx()\ScrollBar\Item()\Buttons\Backwards\Y + TreeEx()\ScrollBar\Item()\Buttons\Backwards\Height
+    	        ;{ Backwards Button
+    	        
+    			    If TreeEx()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Focus
+    			      
+    			      TreeEx()\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Focus
+ 
+    			      DrawScrollButton_(TreeEx()\ScrollBar\Item()\Buttons\Backwards\X, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Y, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Width, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards, #ScrollBar_Focus)
+    			      
+    			    EndIf
+  			      ;}
+    			    ProcedureReturn #True
+    			  ElseIf Y >= TreeEx()\ScrollBar\Item()\Buttons\Forwards\Y
+    			    ;{ Forwards Button
+    			    If TreeEx()\ScrollBar\Item()\Buttons\Forwards\State <> #ScrollBar_Focus
+    			      
+    			      TreeEx()\ScrollBar\Item()\Buttons\Forwards\State = #ScrollBar_Focus
+    			      
+    			      If TreeEx()\ScrollBar\Item()\Thumb\State <> #False
+    			        TreeEx()\ScrollBar\Item()\Thumb\State = #False
+    			        DrawScrollBar_(ScrollBar)
+    			      Else 
+    			        DrawScrollButton_(TreeEx()\ScrollBar\Item()\Buttons\Forwards\X, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Y, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Width, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards, #ScrollBar_Focus)
+    			      EndIf
+    			      
+    			    EndIf ;}
+    			    ProcedureReturn #True
+    			  EndIf
   
-  			  If Y >= TreeEx()\ScrollBar\Item()\Thumb\Y And Y <= TreeEx()\ScrollBar\Item()\Thumb\Y + TreeEx()\ScrollBar\Item()\Thumb\Height
-  			    ;{ Move Thumb
-  			    If TreeEx()\ScrollBar\Item()\Cursor <> #PB_Default
-  			      
-  			      TreeEx()\ScrollBar\Item()\Pos + GetSteps_(Y)
-  			      
-  			      If TreeEx()\ScrollBar\Item()\Pos > TreeEx()\ScrollBar\Item()\maxPos : TreeEx()\ScrollBar\Item()\Pos = TreeEx()\ScrollBar\Item()\maxPos : EndIf
-  			      If TreeEx()\ScrollBar\Item()\Pos < TreeEx()\ScrollBar\Item()\minPos : TreeEx()\ScrollBar\Item()\Pos = TreeEx()\ScrollBar\Item()\minPos : EndIf
-  			      
-  			      TreeEx()\ScrollBar\Item()\Cursor = Y
-  		        
-  		        Redraw_()
-  		        ProcedureReturn #True
-  		      EndIf ;}
-  			    ;{ Thumb Focus
-  			    If TreeEx()\ScrollBar\Item()\Thumb\State <> #ScrollBar_Focus
-  			      TreeEx()\ScrollBar\Item()\Thumb\State = #ScrollBar_Focus
-  			      DrawScrollBar_(ScrollBar)
-  			    EndIf ;} 
-  			    ProcedureReturn #True
-  			  EndIf
-  			  
-  			  ProcedureReturn #True
-  			EndIf  
-			  ;}
-	    Else                                                          ;{ Horizontal Scrollbar
-	      
-	      If Y >= TreeEx()\ScrollBar\Item()\Y And Y <= TreeEx()\ScrollBar\Item()\Y + TreeEx()\ScrollBar\Item()\Height
-	      
-  	      If X <= TreeEx()\ScrollBar\Item()\Buttons\Backwards\X + TreeEx()\ScrollBar\Item()\Buttons\Backwards\Width
-  			    ;{ Backwards Button
-  			    If TreeEx()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Focus
-  			      DrawScrollButton_(TreeEx()\ScrollBar\Item()\Buttons\Backwards\X, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Y, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Width, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards, #ScrollBar_Focus)
-  			      TreeEx()\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Focus
-  			    EndIf ;}
-  			    ProcedureReturn #True
-  			  ElseIf X >= TreeEx()\ScrollBar\Item()\Buttons\Forwards\X
-  			    ;{ Forwards Button
-  			    If TreeEx()\ScrollBar\Item()\Buttons\Forwards\State <> #ScrollBar_Focus
-  			      DrawScrollButton_(TreeEx()\ScrollBar\Item()\Buttons\Forwards\X, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Y, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Width, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards, #ScrollBar_Focus)
-  			      TreeEx()\ScrollBar\Item()\Buttons\Forwards\State = #ScrollBar_Focus
-  			    EndIf ;}
-  			    ProcedureReturn #True
-  			  EndIf
-			  
-			  
-			  
-  			  TreeEx()\ScrollBar\Item()\Timer = #False
-  			  
-    			If TreeEx()\ScrollBar\Item()\Buttons\Backwards\State <> #False ;{ Backwards Button
-    			  DrawScrollButton_(TreeEx()\ScrollBar\Item()\Buttons\Backwards\X, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Y, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Width, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards)
-    			  TreeEx()\ScrollBar\Item()\Buttons\Backwards\State = #False
-    			  ;}
-    			EndIf
-    			
-    			If TreeEx()\ScrollBar\Item()\Buttons\Forwards\State <> #False  ;{ Forwards Button
-    			  DrawScrollButton_(TreeEx()\ScrollBar\Item()\Buttons\Forwards\X, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Y, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Width, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards)
-    			  TreeEx()\ScrollBar\Item()\Buttons\Forwards\State = #False
-    			  ;}
-    			EndIf
-  			  
-  			  If X >= TreeEx()\ScrollBar\Item()\Thumb\X And X <= TreeEx()\ScrollBar\Item()\Thumb\X + TreeEx()\ScrollBar\Item()\Thumb\Width
-  			    ;{ Thumb Button
-  			    If TreeEx()\ScrollBar\Item()\Cursor <> #PB_Default
+    			  TreeEx()\ScrollBar\Item()\Timer = #False
+    			  
+    			  If TreeEx()\ScrollBar\Item()\Buttons\Backwards\State <> #False ;{ Backwards Button
+    			    TreeEx()\ScrollBar\Item()\Buttons\Backwards\State = #False
+    			    DrawScrollButton_(TreeEx()\ScrollBar\Item()\Buttons\Backwards\X, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Y, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Width, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards)
+      			  ;}
+      			EndIf
+      			
+      			If TreeEx()\ScrollBar\Item()\Buttons\Forwards\State <> #False  ;{ Forwards Button
+      			  TreeEx()\ScrollBar\Item()\Buttons\Forwards\State = #False
+      			  DrawScrollButton_(TreeEx()\ScrollBar\Item()\Buttons\Forwards\X, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Y, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Width, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards)
+      			  ;}
+      			EndIf
+    
+    			  If Y >= TreeEx()\ScrollBar\Item()\Thumb\Y And Y <= TreeEx()\ScrollBar\Item()\Thumb\Y + TreeEx()\ScrollBar\Item()\Thumb\Height
+    			    ;{ Move Thumb
+    			    If TreeEx()\ScrollBar\Item()\Cursor <> #PB_Default
+    			      
+    			      TreeEx()\ScrollBar\Item()\Pos + GetSteps_(Y)
+    			      
+    			      If TreeEx()\ScrollBar\Item()\Pos > TreeEx()\ScrollBar\Item()\maxPos : TreeEx()\ScrollBar\Item()\Pos = TreeEx()\ScrollBar\Item()\maxPos : EndIf
+    			      If TreeEx()\ScrollBar\Item()\Pos < TreeEx()\ScrollBar\Item()\minPos : TreeEx()\ScrollBar\Item()\Pos = TreeEx()\ScrollBar\Item()\minPos : EndIf
+    			      
+    			      TreeEx()\ScrollBar\Item()\Cursor = Y
+    		        
+    			      Redraw_(#True)
+    			      
+    		        ProcedureReturn #True
+    		      EndIf ;}
+    			    ;{ Thumb Focus
+    			    If TreeEx()\ScrollBar\Item()\Thumb\State <> #ScrollBar_Focus
+    			      TreeEx()\ScrollBar\Item()\Thumb\State = #ScrollBar_Focus
+    			      DrawScrollBar_(ScrollBar, #True)
+    			    EndIf ;} 
+    			    ProcedureReturn #True
+    			  EndIf
+    			  
+    			  ProcedureReturn #True
+    			EndIf  
+  			  ;}
+  	    Else                                                          ;{ Horizontal Scrollbar
+  	      
+  	      If Y >= TreeEx()\ScrollBar\Item()\Y And Y <= TreeEx()\ScrollBar\Item()\Y + TreeEx()\ScrollBar\Item()\Height
+
+    	      If X <= TreeEx()\ScrollBar\Item()\Buttons\Backwards\X + TreeEx()\ScrollBar\Item()\Buttons\Backwards\Width
+    			    ;{ Backwards Button
+    			    If TreeEx()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Focus
+    			      DrawScrollButton_(TreeEx()\ScrollBar\Item()\Buttons\Backwards\X, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Y, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Width, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards, #ScrollBar_Focus)
+    			      TreeEx()\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Focus
+    			    EndIf ;}
+    			    ProcedureReturn #True
+    			  ElseIf X >= TreeEx()\ScrollBar\Item()\Buttons\Forwards\X
+    			    ;{ Forwards Button
+    			    If TreeEx()\ScrollBar\Item()\Buttons\Forwards\State <> #ScrollBar_Focus
+    			      DrawScrollButton_(TreeEx()\ScrollBar\Item()\Buttons\Forwards\X, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Y, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Width, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards, #ScrollBar_Focus)
+    			      TreeEx()\ScrollBar\Item()\Buttons\Forwards\State = #ScrollBar_Focus
+    			    EndIf ;}
+    			    ProcedureReturn #True
+    			  EndIf
   
-  		        TreeEx()\ScrollBar\Item()\Pos + GetSteps_(X)
-  		        
-  		        If TreeEx()\ScrollBar\Item()\Pos > TreeEx()\ScrollBar\Item()\maxPos : TreeEx()\ScrollBar\Item()\Pos = TreeEx()\ScrollBar\Item()\maxPos : EndIf
-  		        If TreeEx()\ScrollBar\Item()\Pos < TreeEx()\ScrollBar\Item()\minPos : TreeEx()\ScrollBar\Item()\Pos = TreeEx()\ScrollBar\Item()\minPos : EndIf
-  		        
-  		        TreeEx()\ScrollBar\Item()\Cursor = X
-  		        
-  		        Redraw_()
-  		        ProcedureReturn #True
-  		      EndIf ;}
-  			    ;{ Thumb Focus
-  			    If TreeEx()\ScrollBar\Item()\Thumb\State <> #ScrollBar_Focus
-  			      TreeEx()\ScrollBar\Item()\Thumb\State = #ScrollBar_Focus
-  			      DrawScrollBar_(ScrollBar)
-  			    EndIf ;} 
-  			    ProcedureReturn #True
+    			  TreeEx()\ScrollBar\Item()\Timer = #False
+    			  
+      			If TreeEx()\ScrollBar\Item()\Buttons\Backwards\State <> #False ;{ Backwards Button
+      			  DrawScrollButton_(TreeEx()\ScrollBar\Item()\Buttons\Backwards\X, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Y, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Width, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards)
+      			  TreeEx()\ScrollBar\Item()\Buttons\Backwards\State = #False
+      			  ;}
+      			EndIf
+      			
+      			If TreeEx()\ScrollBar\Item()\Buttons\Forwards\State <> #False  ;{ Forwards Button
+      			  DrawScrollButton_(TreeEx()\ScrollBar\Item()\Buttons\Forwards\X, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Y, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Width, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards)
+      			  TreeEx()\ScrollBar\Item()\Buttons\Forwards\State = #False
+      			  ;}
+      			EndIf
+    			  
+    			  If X >= TreeEx()\ScrollBar\Item()\Thumb\X And X <= TreeEx()\ScrollBar\Item()\Thumb\X + TreeEx()\ScrollBar\Item()\Thumb\Width
+    			    ;{ Thumb Button
+    			    If TreeEx()\ScrollBar\Item()\Cursor <> #PB_Default
+    
+    		        TreeEx()\ScrollBar\Item()\Pos + GetSteps_(X)
+    		        
+    		        If TreeEx()\ScrollBar\Item()\Pos > TreeEx()\ScrollBar\Item()\maxPos : TreeEx()\ScrollBar\Item()\Pos = TreeEx()\ScrollBar\Item()\maxPos : EndIf
+    		        If TreeEx()\ScrollBar\Item()\Pos < TreeEx()\ScrollBar\Item()\minPos : TreeEx()\ScrollBar\Item()\Pos = TreeEx()\ScrollBar\Item()\minPos : EndIf
+    		        
+    		        TreeEx()\ScrollBar\Item()\Cursor = X
+    		        
+    		        Redraw_(#True)
+    		        
+    		        ProcedureReturn #True
+    		      EndIf ;}
+    			    ;{ Thumb Focus
+    			    If TreeEx()\ScrollBar\Item()\Thumb\State <> #ScrollBar_Focus
+    			      TreeEx()\ScrollBar\Item()\Thumb\State = #ScrollBar_Focus
+    			      DrawScrollBar_(ScrollBar, #True)
+    			    EndIf ;} 
+    			    ProcedureReturn #True
+    			  EndIf
+    			  
+    			  ProcedureReturn #True
   			  EndIf
-  			  
-  			  ProcedureReturn #True
-			  EndIf
-			  ;}
-			EndIf
-			
-			If TreeEx()\ScrollBar\Item()\Buttons\Backwards\State <> #False ;{ Backwards Button
-			  DrawScrollButton_(TreeEx()\ScrollBar\Item()\Buttons\Backwards\X, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Y, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Width, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards)
-			  TreeEx()\ScrollBar\Item()\Buttons\Backwards\State = #False
-			  ;}
-			EndIf
-			
-			If TreeEx()\ScrollBar\Item()\Buttons\Forwards\State <> #False  ;{ Forwards Button
-			  DrawScrollButton_(TreeEx()\ScrollBar\Item()\Buttons\Forwards\X, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Y, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Width, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards)
-			  TreeEx()\ScrollBar\Item()\Buttons\Forwards\State = #False
-			  ;}
-			EndIf
-			
-			If TreeEx()\ScrollBar\Item()\Thumb\State <> #False            ;{ Thumb Button
-			  TreeEx()\ScrollBar\Item()\Thumb\State = #False
-			  DrawScrollBar_(ScrollBar)
-			  ;}
-			EndIf
+  			  ;}
+  			EndIf
 
-		Next
+  			If TreeEx()\ScrollBar\Item()\Buttons\Backwards\State <> #False ;{ Backwards Button
+  			  DrawScrollButton_(TreeEx()\ScrollBar\Item()\Buttons\Backwards\X, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Y, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Width, TreeEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards)
+  			  TreeEx()\ScrollBar\Item()\Buttons\Backwards\State = #False
+  			  ;}
+  			EndIf
+  			
+  			If TreeEx()\ScrollBar\Item()\Buttons\Forwards\State <> #False  ;{ Forwards Button
+  			  DrawScrollButton_(TreeEx()\ScrollBar\Item()\Buttons\Forwards\X, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Y, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Width, TreeEx()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards)
+  			  TreeEx()\ScrollBar\Item()\Buttons\Forwards\State = #False
+  			  ;}
+  			EndIf
+  			
+  			If TreeEx()\ScrollBar\Item()\Thumb\State <> #False             ;{ Thumb Button
+  			  TreeEx()\ScrollBar\Item()\Thumb\State = #False
+  			  DrawScrollBar_(ScrollBar, #True)
+  			  ;}
+  			EndIf
+  
+  		Next
+  		
+  		;{ Thumb Focus vertical/horizontal
+			If TreeEx()\ScrollBar\Item("HScroll")\Cursor <> #PB_Default
+  
+        TreeEx()\ScrollBar\Item("HScroll")\Pos + GetSteps_(X)
+        
+        If TreeEx()\ScrollBar\Item("HScroll")\Pos > TreeEx()\ScrollBar\Item("HScroll")\maxPos : TreeEx()\ScrollBar\Item("HScroll")\Pos = TreeEx()\ScrollBar\Item("HScroll")\maxPos : EndIf
+        If TreeEx()\ScrollBar\Item("HScroll")\Pos < TreeEx()\ScrollBar\Item("HScroll")\minPos : TreeEx()\ScrollBar\Item("HScroll")\Pos = TreeEx()\ScrollBar\Item("HScroll")\minPos : EndIf
+        
+        TreeEx()\ScrollBar\Item("HScroll")\Cursor = X
+        
+        Redraw_(#True)
+        
+        ProcedureReturn #True
+      EndIf
+			
+			If TreeEx()\ScrollBar\Item("VScroll")\Cursor <> #PB_Default
 
+	      TreeEx()\ScrollBar\Item("VScroll")\Pos + GetSteps_(Y)
+	      
+	      If TreeEx()\ScrollBar\Item("VScroll")\Pos > TreeEx()\ScrollBar\Item("VScroll")\maxPos : TreeEx()\ScrollBar\Item("VScroll")\Pos = TreeEx()\ScrollBar\Item("VScroll")\maxPos : EndIf
+	      If TreeEx()\ScrollBar\Item("VScroll")\Pos < TreeEx()\ScrollBar\Item("VScroll")\minPos : TreeEx()\ScrollBar\Item("VScroll")\Pos = TreeEx()\ScrollBar\Item("VScroll")\minPos : EndIf
+	      
+	      TreeEx()\ScrollBar\Item("VScroll")\Cursor = Y
+        
+	      Redraw_(#True)
+	      
+        ProcedureReturn #True
+      EndIf ;}
 
 		EndIf
 
@@ -2782,7 +2826,7 @@ Module TreeEx
           If TreeEx()\ScrollBar\Item()\Pos > TreeEx()\ScrollBar\Item()\maxPos : TreeEx()\ScrollBar\Item()\Pos = TreeEx()\ScrollBar\Item()\maxPos : EndIf
           If TreeEx()\ScrollBar\Item()\Pos < TreeEx()\ScrollBar\Item()\minPos : TreeEx()\ScrollBar\Item()\Pos = TreeEx()\ScrollBar\Item()\minPos : EndIf
           
-          ReDraw_()
+          ReDraw_(#True)
         EndIf
         
 	    EndIf
@@ -4024,8 +4068,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 946
-; FirstLine = 216
-; Folding = MADAAEAAAkCo-fkAQAAkAAg0--BhAEQAAAYAM9
+; CursorPosition = 85
+; FirstLine = 12
+; Folding = MADAAAAAgEBIACkRhAAAAACMRmBQICBEAAAGAD-
 ; EnableXP
 ; DPIAware
