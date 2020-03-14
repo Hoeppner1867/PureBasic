@@ -63,7 +63,7 @@
 
 DeclareModule Draw
   
-  #Version = 20031401
+  #Version = 20031402
   
   EnumerationBinary
     #Text_Default  = #PB_VectorText_Default 
@@ -95,6 +95,7 @@ DeclareModule Draw
   Declare   EllipseArc_(X.i, Y.i, RadiusX.i, RadiusY.i, startAngle.i, endAngle.i, Color.q, Flags.i=#False)
   Declare   Font_(FontID.i, Size.i=#PB_Default, Flags.i=#False)
   Declare   Line_(X.i, Y.i, Width.i, Height.i, Color.q, Flags.i=#False)
+  Declare   LinesArc_(X1.d, Y1.d, X2.d, Y2.d, X3.d, Y3.d, Angle.i, Color.q, Flags.i=#False)
   Declare   HLine_(X.i, Y.i, Width.i, Color.q, Flags.i=#False)
   Declare   VLine_(X.i, Y.i, Height.i, Color.q, Flags.i=#False)
   Declare   LineXY_(X1.i, Y1.i, X2.i, Y2.i, Color.q, Flags.i=#False)
@@ -124,11 +125,11 @@ Module Draw
   ;-   Module - Internal
   ;- ============================================================================ 
   
-  Procedure.f dpiX(Num.i)
+  Procedure.f dpiX(Num.d)
     ProcedureReturn DesktopScaledX(Num)
   EndProcedure
   
-  Procedure.f dpiY(Num.i)
+  Procedure.f dpiY(Num.d)
     ProcedureReturn DesktopScaledY(Num)
   EndProcedure
   
@@ -497,6 +498,26 @@ Module Draw
 
   EndProcedure
   
+  Procedure LinesArc_(X1.d, Y1.d, X2.d, Y2.d, X3.d, Y3.d, Angle.i, Color.q, Flags.i=#False)
+    
+    If Flags & #DPI
+      X1 = dpiX(X1)
+      Y1 = dpiY(Y1)
+      X2 = dpiX(X2)
+      Y2 = dpiY(Y2)
+      X3 = dpiX(X3)
+      Y3 = dpiY(Y3)
+    EndIf
+    
+    MovePathCursor(X1, Y1)
+    AddPathArc(X2, Y2, X3, Y3, Angle)
+    AddPathLine(X3, Y3)
+    
+    VectorSourceColor(Color)
+    StrokePath(Stroke)
+
+  EndProcedure
+  
   Procedure TangentsArc_(X1.i, Y1.i, X2.i, Y2.i, X3.i, Y3.i, X4.i, Y4.i, Color.q, Flags.i=#False)
     Define.i Angle
     Define   isP.XY_Structure
@@ -630,6 +651,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 65
-; Folding = MAAAA-
+; FirstLine = 7
+; Folding = MAAgA+
 ; EnableXP
 ; DPIAware
