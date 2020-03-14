@@ -6,10 +6,10 @@
 ;/
 ;/ Simplified use of the VectorDrawing library 
 ;/
-;/ © 2019 Thorsten1867 (06/2019)
+;/ © 2020 Thorsten1867 (06/2019)
 ;/
 
-; Last Update: 
+; Last Update: 14.03.2020
 
 
 ;{ ===== MIT License =====
@@ -63,7 +63,7 @@
 
 DeclareModule Draw
   
-  #Version = 19112300
+  #Version = 20031400
   
   EnumerationBinary
     #Text_Default  = #PB_VectorText_Default 
@@ -101,6 +101,7 @@ DeclareModule Draw
   Declare.i StartVector_(PB_Num.i, Type.i=#Canvas, Unit.i=#PB_Unit_Pixel)
   Declare   StopVector_() 
   Declare   SetStroke_(Width.i=1)
+  Declare   TangentsArc_(X1.i, Y1.i, X2.i, Y2.i, X3.i, Y3.i, X4.i, Y4.i, Color.q, Flags.i=#False)
   Declare   Text_(X.i, Y.i, Text$, Color.q, Angle.i=0, Flags.i=#False)
   Declare.f TextHeight_(Text.s, Flags.i=#PB_VectorText_Default) ; [ #Text_Default / #Text_Visible / #Text_Offset / #Text_Baseline ]
   Declare.f TextWidth_(Text.s,  Flags.i=#PB_VectorText_Default) ; [ #Text_Default / #Text_Visible / #Text_Offset ]
@@ -113,6 +114,11 @@ Module Draw
   EnableExplicit
   
   Global Stroke.i
+  
+  Structure XY_Structure
+    X.f
+    Y.f
+  EndStructure  
   
   ;- ============================================================================
   ;-   Module - Internal
@@ -149,6 +155,63 @@ Module Draw
   EndProcedure
   
   
+  Procedure.i FindIntersection(X1.i, Y1.i, X2.i, Y2.i, X3.i, Y3.i, X4.i, Y4.i, *isP.XY_Structure, *cP1.XY_Structure, *cP2.XY_Structure)
+    Define.f dX12, dY12, dX34, dY34, Denominator, T1, T2
+    
+    dX12 = X2 - X1
+    dY12 = Y2 - Y1
+    dX34 = X4 - X3
+    dY34 = Y4 - Y3
+  
+    Denominator = (dY12 * dX34 - dX12 * dY34)
+    T1 = ((X1 - X3) * dY34 + (Y3 - Y1) * dX34) / Denominator
+  
+    If IsInfinity(T1) : ProcedureReturn #False : EndIf
+  
+    T2 = ((X3 - X1) * dY12 + (Y1 - Y3) * dX12) / Denominator
+    
+    *isP\X = X1 + dX12 * T1
+    *isP\Y = Y1 + dY12 * T1
+    
+    If T1 < 0 : T1 = 0 : EndIf
+    If T1 > 1 : T1 = 1 : EndIf
+    If T2 < 0 : T2 = 0 : EndIf
+    If T2 > 1 : T2 = 1 : EndIf
+    
+    *cP1\X = X1 + dX12 * T1
+    *cP1\Y = Y1 + dY12 * T1
+    
+    *cP2\X = X3 + dX34 * T2
+    *cP2\Y = Y3 + dY34 * T2
+    
+    ProcedureReturn #True
+  EndProcedure
+  
+  Procedure.i FindArcFromTangents(X1.i, Y1.i, X2.i, Y2.i, X3.i, Y3.i, X4.i, Y4.i, *isPoint.XY_Structure)
+    Define.f dX, dY, sAngle, eAngle, Angle
+    Define.XY_Structure sPoint, cPoint1, cPoint2, pPoint1, pPoint2
+   
+    FindIntersection(X1, Y1, X2, Y2, X3, Y3, X4, Y4, *isPoint, @cPoint1, @cPoint2)
+    
+    dX = X2 - sPoint\X
+    dY = Y2 - sPoint\Y
+    
+    sAngle =  ATan2(dX, dY) * 180 / #PI
+  
+    dX = X3 - sPoint\X
+    dY = Y3 - sPoint\Y
+    
+    eAngle =  ATan2(dX, dY) * 180 / #PI
+  
+    Angle = eAngle - sAngle
+    If Angle >  180 : Angle = Angle - 360 : EndIf 
+    If Angle < -180 : Angle = 360 + Angle : EndIf
+    
+    If Angle < 0 : Angle = 180 + Angle : EndIf
+  
+    ProcedureReturn Angle
+  EndProcedure  
+
   ;- ==========================================================================
   ;-   Module - Declared Procedures
   ;- ========================================================================== 
@@ -434,6 +497,33 @@ Module Draw
 
   EndProcedure
   
+  Procedure TangentsArc_(X1.i, Y1.i, X2.i, Y2.i, X3.i, Y3.i, X4.i, Y4.i, Color.q, Flags.i=#False)
+    Define.i Angle
+    Define   isP.XY_Structure
+    
+    If Flags & #DPI
+      X1 = dpiX(X1)
+      Y1 = dpiY(Y1)
+      X2 = dpiX(X2)
+      Y2 = dpiY(Y2)
+      X3 = dpiX(X3)
+      Y3 = dpiY(Y3)
+      X4 = dpiX(X4)
+      Y4 = dpiY(Y4)
+    EndIf
+    
+    Angle = FindArcFromTangents(X1, Y1, X2, Y2, X3, Y3, X4, Y4, @isP)
+    
+    MovePathCursor(X1, Y1)
+    
+    AddPathArc(isP\X, isP\Y, X3, Y3, Angle)
+    AddPathLine(X4, Y4)
+
+    VectorSourceColor(Color)
+    StrokePath(Stroke)
+    
+  EndProcedure
+  
   Procedure Text_(X.i, Y.i, Text$, Color.q, Rotate.i=0, Flags.i=#False)
     
     If Flags & #DPI
@@ -540,7 +630,6 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 65
-; FirstLine = 28
-; Folding = OEAC5
+; Folding = MAAAA-
 ; EnableXP
 ; DPIAware
