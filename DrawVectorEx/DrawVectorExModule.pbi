@@ -63,7 +63,7 @@
 
 DeclareModule Draw
   
-  #Version = 20031403
+  #Version = 20031404
   
   EnumerationBinary
     #Text_Default  = #PB_VectorText_Default 
@@ -156,7 +156,7 @@ Module Draw
   EndProcedure
   
   
-  Procedure.i FindIntersection(X1.i, Y1.i, X2.i, Y2.i, X3.i, Y3.i, X4.i, Y4.i, *isP.XY_Structure, *cP1.XY_Structure, *cP2.XY_Structure)
+  Procedure.i FindIntersection(X1.i, Y1.i, X2.i, Y2.i, X3.i, Y3.i, X4.i, Y4.i, *isP.XY_Structure)
     Define.f dX12, dY12, dX34, dY34, Denominator, T1, T2
     
     dX12 = X2 - X1
@@ -173,44 +173,40 @@ Module Draw
     
     *isP\X = X1 + dX12 * T1
     *isP\Y = Y1 + dY12 * T1
-    
-    If T1 < 0 : T1 = 0 : EndIf
-    If T1 > 1 : T1 = 1 : EndIf
-    If T2 < 0 : T2 = 0 : EndIf
-    If T2 > 1 : T2 = 1 : EndIf
-    
-    *cP1\X = X1 + dX12 * T1
-    *cP1\Y = Y1 + dY12 * T1
-    
-    *cP2\X = X3 + dX34 * T2
-    *cP2\Y = Y3 + dY34 * T2
-    
+  
     ProcedureReturn #True
   EndProcedure
   
   Procedure.i FindArcFromTangents(X1.i, Y1.i, X2.i, Y2.i, X3.i, Y3.i, X4.i, Y4.i, *isPoint.XY_Structure)
-    Define.f dX, dY, sAngle, eAngle, Angle
-    Define.XY_Structure sPoint, cPoint1, cPoint2, pPoint1, pPoint2
+    Define.f dX, dY, dX1, dY1, dX2, dY2, Radius
+    Define.XY_Structure sPoint, pPoint1, pPoint2, isCircle
    
-    FindIntersection(X1, Y1, X2, Y2, X3, Y3, X4, Y4, *isPoint, @cPoint1, @cPoint2)
+    If FindIntersection(X1, Y1, X2, Y2, X3, Y3, X4, Y4, *isPoint)
     
-    dX = X2 - sPoint\X
-    dY = Y2 - sPoint\Y
-    
-    sAngle =  ATan2(dX, dY) * 180 / #PI
+      dX1 = X2 - X1
+      dY1 = Y2 - Y1
   
-    dX = X3 - sPoint\X
-    dY = Y3 - sPoint\Y
+      pPoint1\X = X2 - dY1
+      pPoint1\Y = X2 + dX1
+      
+      dX2 = X3 - X4
+      dY2 = Y3 - Y4
+      
+      pPoint2\X = X3 - dY2
+      pPoint2\Y = Y3 + dX2
+      
+      If FindIntersection(X2, Y2, pPoint1\X, pPoint1\Y, X3, Y3, pPoint2\X, pPoint2\Y, @isCircle)
     
-    eAngle =  ATan2(dX, dY) * 180 / #PI
-  
-    Angle = eAngle - sAngle
-    If Angle >  180 : Angle = Angle - 360 : EndIf 
-    If Angle < -180 : Angle = 360 + Angle : EndIf
+        dX = X2 - isCircle\X
+        dY = Y2 - isCircle\Y
+      
+        Radius = Sqr(dX * dX + dY * dY)
+        
+        ProcedureReturn Radius
+      EndIf
     
-    If Angle < 0 : Angle = 180 + Angle : EndIf
+    EndIf
   
-    ProcedureReturn Angle
   EndProcedure  
 
   ;- ==========================================================================
@@ -651,6 +647,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 65
-; Folding = MAAgA+
+; FirstLine = 3
+; Folding = MIAgA+
 ; EnableXP
 ; DPIAware
