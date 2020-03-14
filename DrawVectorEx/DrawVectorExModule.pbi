@@ -63,7 +63,7 @@
 
 DeclareModule Draw
   
-  #Version = 20031400
+  #Version = 20031401
   
   EnumerationBinary
     #Text_Default  = #PB_VectorText_Default 
@@ -515,7 +515,7 @@ Module Draw
     Angle = FindArcFromTangents(X1, Y1, X2, Y2, X3, Y3, X4, Y4, @isP)
     
     MovePathCursor(X1, Y1)
-    
+    AddPathLine(X2, Y2)
     AddPathArc(isP\X, isP\Y, X3, Y3, Angle)
     AddPathLine(X4, Y4)
 
