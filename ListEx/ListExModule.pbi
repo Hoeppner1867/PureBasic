@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 12.03.2020
+; Last Update: 13.03.2020
 ;
 ; Bugfix:  Cutting off oversized text
 ;
@@ -153,7 +153,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20031200
+  #Version  = 20031300
   #ModuleEx = 20030400
   
   #Enable_CSV_Support   = #True
@@ -1320,7 +1320,11 @@ Module ListEx
   Procedure.i GetRow_(Y.f)
     
     Y = Y + dpiY(ListEx()\Row\OffSetY)
- 
+    
+    If ListEx()\ScrollBar\Item("HScroll")\Hide = #False And Y >= ListEx()\ScrollBar\Item("HScroll")\Y
+      ProcedureReturn #NotValid
+    EndIf  
+    
     If Y > dpiY(ListEx()\Size\Y) And Y < dpiY(ListEx()\Size\Rows + ListEx()\Header\Height)
       
       If Y < dpiY(ListEx()\Header\Height)
@@ -1342,6 +1346,10 @@ Module ListEx
   EndProcedure
 
   Procedure.i GetColumn_(X.i)
+
+    If ListEx()\ScrollBar\Item("VScroll")\Hide = #False And X >= ListEx()\ScrollBar\Item("VScroll")\X
+      ProcedureReturn #NotValid
+    EndIf
     
     X = DesktopUnscaledX(X)
     
@@ -10336,7 +10344,7 @@ CompilerIf #PB_Compiler_IsMainFile
         ListEx::SetColor(#List, ListEx::#FrontColor, $82004B, 2) ; front color for column 2
         ;ListEx::SetItemColor(#List, 5, ListEx::#FrontColor, $228B22, 2)
         ;ListEx::SetItemColor(#List, 5, ListEx::#BackColor, $FAFFF5)
-        ListEx::SetColor(#List, ListEx::#AlternateRowColor, $F0FFF0)
+        ;ListEx::SetColor(#List, ListEx::#AlternateRowColor, $F0FFF0)
         
         ; --- Define AutoResize ---
         ListEx::SetAutoResizeColumn(#List, 2, 50)
@@ -10483,10 +10491,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 155
-; FirstLine = 9
-; Folding = w------------------------------------wn3+-----------BAwL+--88+---------------------------------
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 15
+; Folding = w------------------------------------wn3+-----------BAwL+--8H+---------------------------------
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
