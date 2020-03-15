@@ -9,7 +9,7 @@
 ;/ © 2020 Thorsten1867 (06/2019)
 ;/
 
-; Last Update: 14.03.2020
+; Last Update: 15.03.2020
 
 
 ;{ ===== MIT License =====
@@ -63,7 +63,7 @@
 
 DeclareModule Draw
   
-  #Version = 20031404
+  #Version = 20031500
   
   EnumerationBinary
     #Text_Default  = #PB_VectorText_Default 
@@ -424,6 +424,8 @@ Module Draw
       Height = dpiY(Height)
     EndIf
     
+    If Alpha(Color) = #False : Color = RGBA(Red(Color), Green(Color), Blue(Color), 255) : EndIf
+    
     If Width And Height
       
       If Width > 1
@@ -447,6 +449,8 @@ Module Draw
       Height = dpiY(Height)
     EndIf
     
+    If Alpha(Color) = #False : Color = RGBA(Red(Color), Green(Color), Blue(Color), 255) : EndIf
+    
     If Height
       _LineXY(X, Y, X, Y + Height, Color)
     EndIf
@@ -460,6 +464,8 @@ Module Draw
       Y = dpiY(Y)
       Width  = dpiX(Width)
     EndIf
+    
+    If Alpha(Color) = #False : Color = RGBA(Red(Color), Green(Color), Blue(Color), 255) : EndIf
     
     If Width 
       _LineXY(X, Y, X + Width, Y, Color)
@@ -475,6 +481,8 @@ Module Draw
       X2 = dpiX(X2)
       Y2 = dpiY(Y2)
     EndIf
+    
+    If Alpha(Color) = #False : Color = RGBA(Red(Color), Green(Color), Blue(Color), 255) : EndIf
     
     _LineXY(X1, Y1, X2, Y2, Color)
     
@@ -505,6 +513,8 @@ Module Draw
       Y3 = dpiY(Y3)
     EndIf
     
+    If Alpha(Color) = #False : Color = RGBA(Red(Color), Green(Color), Blue(Color), 255) : EndIf
+    
     MovePathCursor(X1, Y1)
     AddPathArc(X2, Y2, X3, Y3, Radius)
     AddPathLine(X3, Y3)
@@ -528,6 +538,8 @@ Module Draw
       X4 = dpiX(X4)
       Y4 = dpiY(Y4)
     EndIf
+    
+    If Alpha(Color) = #False : Color = RGBA(Red(Color), Green(Color), Blue(Color), 255) : EndIf
     
     Angle = FindArcFromTangents(X1, Y1, X2, Y2, X3, Y3, X4, Y4, @isP)
     
@@ -647,7 +659,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 65
-; FirstLine = 3
-; Folding = MIAgA+
+; FirstLine = 15
+; Folding = MAAgD+
 ; EnableXP
 ; DPIAware
