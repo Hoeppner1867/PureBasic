@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 13.03.2020
+; Last Update: 16.03.2020
 ;
 ; Bugfix:  Cutting off oversized text
 ;
@@ -148,12 +148,12 @@
 ;}
 
 
-; XIncludeFile "ModuleEx.pbi"
+ XIncludeFile "ModuleEx.pbi"
 ; XIncludeFile "DateExModule.pbi"
 
 DeclareModule ListEx
   
-  #Version  = 20031300
+  #Version  = 20031600
   #ModuleEx = 20030400
   
   #Enable_CSV_Support   = #True
@@ -5022,7 +5022,7 @@ Module ListEx
   			ListEx()\ScrollBar\Color\Back         = ModuleEx::ThemeGUI\BackColor
   			ListEx()\ScrollBar\Color\Border       = ModuleEx::ThemeGUI\BorderColor
   			ListEx()\ScrollBar\Color\Gadget       = ModuleEx::ThemeGUI\GadgetColor
-  			ListEx()\ScrollBar\Color\Focus        = ModuleEx::ThemeGUI\FocusBack
+  			ListEx()\ScrollBar\Color\Focus        = ModuleEx::ThemeGUI\Focus\BackColor
         ListEx()\ScrollBar\Color\Button       = ModuleEx::ThemeGUI\Button\BackColor
         ListEx()\ScrollBar\Color\ScrollBar    = ModuleEx::ThemeGUI\ScrollbarColor
         
@@ -10491,9 +10491,10 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 15
-; Folding = w------------------------------------wn3+-----------BAwL+--8H+---------------------------------
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 155
+; FirstLine = 12
+; Folding = w------------------------------------wn3+-----------BAwL+--8D+----B+---------------------------
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
