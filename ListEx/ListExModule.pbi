@@ -148,12 +148,12 @@
 ;}
 
 
- XIncludeFile "ModuleEx.pbi"
+; XIncludeFile "ModuleEx.pbi"
 ; XIncludeFile "DateExModule.pbi"
 
 DeclareModule ListEx
   
-  #Version  = 20031600
+  #Version  = 20031601
   #ModuleEx = 20030400
   
   #Enable_CSV_Support   = #True
