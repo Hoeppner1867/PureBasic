@@ -9,8 +9,11 @@
 ;/ © 2020 Thorsten1867 (06/2019)
 ;/
 
-; Last Update: 15.03.2020
-
+; Last Update: 18.03.2020
+;
+; Added: SetDotPattern(LineWidth.d, Array Pattern.d(1), Flags.i=#False, StartOffset.d=0)
+; Added: DisableDotPattern(State.i=#True)
+;
 
 ;{ ===== MIT License =====
 ;
@@ -63,7 +66,7 @@
 
 DeclareModule Draw
   
-  #Version = 20031500
+  #Version = 20031800
   
   EnumerationBinary
     #Text_Default  = #PB_VectorText_Default 
@@ -80,6 +83,11 @@ DeclareModule Draw
     #DPI
   EndEnumeration
   
+  #RoundEnd       = #PB_Path_RoundEnd
+  #SquareEnd      = #PB_Path_SquareEnd
+  #RoundCorner    = #PB_Path_RoundCorner
+  #DiagonalCorner = #PB_Path_DiagonalCorner
+  
   ;- ===========================================================================
   ;-   DeclareModule
   ;- ===========================================================================  
@@ -91,6 +99,7 @@ DeclareModule Draw
   Declare   Circle_(X.i, Y.i, Radius.i, Color.q, FillColor.q=#PB_Default, GradientColor.q=#PB_Default, Flags.i=#False)
   Declare   CircleArc_(X.i, Y.i, Radius.i, startAngle.i, endAngle.i, Color.q, Flags.i=#False)
   Declare   CircleSector_(X.i, Y.i, Radius.i, startAngle.i, endAngle.i, Color.q, FillColor.q=#PB_Default, GradientColor.q=#PB_Default, Flags.i=#False)
+  Declare   DisableDotPattern(State.i=#True)
   Declare   Ellipse_(X.i, Y.i, RadiusX.i, RadiusY.i, Color.q, FillColor.q=#PB_Default, GradientColor.q=#PB_Default, Rotate.i=0, Flags.i=#False)
   Declare   EllipseArc_(X.i, Y.i, RadiusX.i, RadiusY.i, startAngle.i, endAngle.i, Color.q, Flags.i=#False)
   Declare   Font_(FontID.i, Size.i=#PB_Default, Flags.i=#False)
@@ -101,7 +110,8 @@ DeclareModule Draw
   Declare   LineXY_(X1.i, Y1.i, X2.i, Y2.i, Color.q, Flags.i=#False)
   Declare.i StartVector_(PB_Num.i, Type.i=#Canvas, Unit.i=#PB_Unit_Pixel)
   Declare   StopVector_() 
-  Declare   SetStroke_(Width.i=1)
+  Declare   SetDotPattern(LineWidth.d, Array Pattern.d(1), Flags.i=#False, StartOffset.d=0)
+  Declare   SetStroke_(LineWidth.d=1)
   Declare   TangentsArc_(X1.i, Y1.i, X2.i, Y2.i, X3.i, Y3.i, X4.i, Y4.i, Color.q, Flags.i=#False)
   Declare   Text_(X.i, Y.i, Text$, Color.q, Angle.i=0, Flags.i=#False)
   Declare.f TextHeight_(Text.s, Flags.i=#PB_VectorText_Default) ; [ #Text_Default / #Text_Visible / #Text_Offset / #Text_Baseline ]
@@ -113,13 +123,21 @@ EndDeclareModule
 Module Draw
   
   EnableExplicit
-  
-  Global Stroke.i
+
+  Structure Line_Structure
+    Width.d
+    State.i
+    Flags.i
+    Offset.i
+    Array Pattern.d(1)
+  EndStructure  
   
   Structure XY_Structure
     X.f
     Y.f
   EndStructure  
+  
+  Global Stroke.i, Line.Line_Structure
   
   ;- ============================================================================
   ;-   Module - Internal
@@ -151,7 +169,12 @@ Module Draw
     MovePathCursor(X1, Y1)
     AddPathLine(X2, Y2)
     VectorSourceColor(Color)
-    StrokePath(Stroke)
+    
+    If Line\State And Line\Width > 0
+      CustomDashPath(Line\Width, Line\Pattern(), Line\Flags, Line\Offset)
+    Else
+      StrokePath(Stroke)
+    EndIf  
     
   EndProcedure
   
@@ -263,7 +286,12 @@ Module Draw
     EndIf
     
     VectorSourceColor(Color)
-    StrokePath(Stroke)
+    
+    If Line\State And Line\Width > 0
+      CustomDashPath(Line\Width, Line\Pattern(), Line\Flags, Line\Offset)
+    Else
+      StrokePath(Stroke)
+    EndIf  
     
     If Rotate : RotateCoordinates(X, Y, -Rotate) : EndIf
     
@@ -299,7 +327,12 @@ Module Draw
     EndIf
     
     VectorSourceColor(Color)
-    StrokePath(Stroke)
+    
+    If Line\State And Line\Width > 0
+      CustomDashPath(Line\Width, Line\Pattern(), Line\Flags, Line\Offset)
+    Else
+      StrokePath(Stroke)
+    EndIf  
   
   EndProcedure
   
@@ -314,8 +347,14 @@ Module Draw
     If Alpha(Color) = #False : Color = RGBA(Red(Color), Green(Color), Blue(Color), 255) : EndIf
     
     AddPathCircle(X, Y, Radius, startAngle, endAngle)
+    
     VectorSourceColor(Color)
-    StrokePath(Stroke)
+    
+    If Line\State And Line\Width > 0
+      CustomDashPath(Line\Width, Line\Pattern(), Line\Flags, Line\Offset)
+    Else
+      StrokePath(Stroke)
+    EndIf  
     
   EndProcedure
   
@@ -351,9 +390,24 @@ Module Draw
     EndIf
     
     VectorSourceColor(Color)
-    StrokePath(Stroke)
+    
+    If Line\State And Line\Width > 0
+      CustomDashPath(Line\Width, Line\Pattern(), Line\Flags, Line\Offset)
+    Else
+      StrokePath(Stroke)
+    EndIf  
     
   EndProcedure
+  
+  Procedure DisableDotPattern(State.i=#True)
+    
+    If State
+      Line\State = #False
+    Else  
+      Line\State = #True
+    EndIf
+    
+  EndProcedure  
   
   Procedure Ellipse_(X.i, Y.i, RadiusX.i, RadiusY.i, Color.q, FillColor.q=#PB_Default, GradientColor.q=#PB_Default, Rotate.i=0, Flags.i=#False)
     
@@ -392,7 +446,12 @@ Module Draw
     EndIf
     
     VectorSourceColor(Color)
-    StrokePath(Stroke)
+    
+    If Line\State And Line\Width > 0
+      CustomDashPath(Line\Width, Line\Pattern(), Line\Flags, Line\Offset)
+    Else
+      StrokePath(Stroke)
+    EndIf  
     
     If Rotate : RotateCoordinates(X, Y, -Rotate) : EndIf
     
@@ -411,7 +470,12 @@ Module Draw
     
     AddPathEllipse(X, Y, RadiusX, RadiusY, startAngle, endAngle)
     VectorSourceColor(Color)
-    StrokePath(Stroke)
+    
+    If Line\State And Line\Width > 0
+      CustomDashPath(Line\Width, Line\Pattern(), Line\Flags, Line\Offset)
+    Else
+      StrokePath(Stroke)
+    EndIf  
     
   EndProcedure
 
@@ -483,7 +547,7 @@ Module Draw
     EndIf
     
     If Alpha(Color) = #False : Color = RGBA(Red(Color), Green(Color), Blue(Color), 255) : EndIf
-    
+
     _LineXY(X1, Y1, X2, Y2, Color)
     
   EndProcedure
@@ -520,7 +584,12 @@ Module Draw
     AddPathLine(X3, Y3)
     
     VectorSourceColor(Color)
-    StrokePath(Stroke)
+    
+    If Line\State And Line\Width > 0
+      CustomDashPath(Line\Width, Line\Pattern(), Line\Flags, Line\Offset)
+    Else
+      StrokePath(Stroke)
+    EndIf  
 
   EndProcedure
   
@@ -549,7 +618,12 @@ Module Draw
     AddPathLine(X4, Y4)
 
     VectorSourceColor(Color)
-    StrokePath(Stroke)
+    
+    If Line\State And Line\Width > 0
+      CustomDashPath(Line\Width, Line\Pattern(), Line\Flags, Line\Offset)
+    Else
+      StrokePath(Stroke)
+    EndIf  
     
   EndProcedure
   
@@ -584,8 +658,30 @@ Module Draw
     
   EndProcedure
   
-  Procedure   SetStroke_(Width.i=1)
-    Stroke = Width
+  Procedure   SetDotPattern(LineWidth.d, Array Pattern.d(1), Flags.i=#False, StartOffset.d=0)
+    
+    If Flags & #DPI
+      Line\Width = dpiX(LineWidth)
+      Flags & ~#DPI
+    Else
+      Line\Width = LineWidth
+    EndIf 
+    
+    CopyArray(Pattern(), Line\Pattern())
+    
+    Line\Flags     = Flags
+    Line\Offset    = StartOffset
+    
+    If LineWidth
+      Line\State = #True
+    Else
+      Line\State = #False
+    EndIf
+    
+  EndProcedure
+  
+  Procedure   SetStroke_(LineWidth.d=1)
+    Stroke = LineWidth
   EndProcedure
   
   Procedure.i StartVector_(PB_Num.i, Type.i=#Canvas, Unit.i=#PB_Unit_Pixel) 
@@ -624,7 +720,14 @@ CompilerIf #PB_Compiler_IsMainFile
   #Font   = 2
   
   LoadFont(#Font, "Arial", 16, #PB_Font_Bold)
-
+  
+  Dim Pattern.d(3)
+  
+  Pattern(0) = 0
+  Pattern(1) = 5
+  Pattern(2) = 6
+  Pattern(3) = 5
+  
   If OpenWindow(#Window, 0, 0, 200, 200, "VectorDrawing Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered)
     
     CanvasGadget(#Gadget, 10, 10, 180, 180)
@@ -635,6 +738,9 @@ CompilerIf #PB_Compiler_IsMainFile
       
       Draw::Box_(2, 2, 176, 176, $CD0000, $FACE87, $FFF8F0, 0, Draw::#DPI) ; Draw::#Horizontal / Draw::#Diagonal
       Draw::Text_(65, 65, "Text", $701919, #False, Draw::#DPI)
+      
+      ;Draw::SetDotPattern(2, Pattern())
+      
       Draw::CircleSector_(90, 90, 70, 40, 90, $800000, $00D7FF, $008CFF, Draw::#DPI)
       Draw::SetStroke_(2)
       Draw::LineXY_(90, 90, 90 + 80 * Cos(Radian(150)), 90 + 80 * Sin(Radian(150)), $228B22, Draw::#DPI)
@@ -644,6 +750,9 @@ CompilerIf #PB_Compiler_IsMainFile
       Draw::EllipseArc_(90, 90, 70, 45, 160, 240, $CC3299, Draw::#DPI)
       Draw::SetStroke_(1)
       Draw::CircleArc_(90, 90, 70, 250, 340, $008CFF, Draw::#DPI)
+      
+      ;Draw::DisableDotPattern(#True)
+      
       Draw::Line_(10, 90, 160, 1, $8515C7, Draw::#DPI)
       
       Draw::StopVector_()
@@ -658,8 +767,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 65
-; FirstLine = 15
-; Folding = MAAgD+
+; CursorPosition = 13
+; FirstLine = 3
+; Folding = MC-BD5
 ; EnableXP
 ; DPIAware
