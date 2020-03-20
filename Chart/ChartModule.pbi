@@ -10,7 +10,7 @@
 ;/
 
 
-; Last Update: 08.03.2020
+; Last Update: 20.03.2020
 ;
 ; Floats for Scatterplot data
 ;
@@ -119,7 +119,7 @@
 
 DeclareModule Chart
   
-  #Version  = 20030700
+  #Version  = 20032000
   #ModuleEx = 19111802
   
   #Enable_PieChart       = #True
@@ -678,7 +678,7 @@ Module Chart
     Define.f Percent
     Define.s Text$ = ""
     
-    If Chart()\Flags & #DataSeries
+    If Chart()\Flags & #DataSeries      ;{ Data Series
       
       If Text
         
@@ -702,8 +702,8 @@ Module Chart
         Text$ = ReplaceString(Text$, #Label$, Chart()\Series()\Item()\Label)
         Text$ = ReplaceString(Text$, #Serie$, Chart()\Series()\Label)
       EndIf
-      
-    ElseIf Chart()\Flags & #PieChart
+      ;}
+    ElseIf Chart()\Flags & #PieChart    ;{ Pie Chart
 
       If Text
         If Chart()\Pie\Sum <> 0
@@ -716,21 +716,23 @@ Module Chart
         Text$ = ReplaceString(Text$, #Label$, Chart()\Series()\Item()\Label)
         Text$ = ReplaceString(Text$, #Serie$, Chart()\Series()\Label)
       EndIf
-      
-    ElseIf Chart()\Flags & #ScatterPlot
+      ;}
+    ElseIf Chart()\Flags & #ScatterPlot ;{ Scatter Plot
       
       If Text
-        Text$ = ReplaceString(Text,  #Value$,   Str(Chart()\Series()\Item()\DataX) + "/" + Str(Chart()\Series()\Item()\DataY))
+
+        Text$ = ReplaceString(Text,  #Value$,   StrF(Chart()\Series()\Item()\DataX, Chart()\Decimals) + "/" + StrF(Chart()\Series()\Item()\DataY, Chart()\Decimals))
         Text$ = ReplaceString(Text$, #Label$,   Chart()\Series()\Item()\Label)
         Text$ = ReplaceString(Text$, #Serie$,   Chart()\Series()\Label)
         Text$ = ReplaceString(Text$, #Scatter$, Chart()\Series()\Label)
-        Text$ = ReplaceString(Text$, #DataX$,   StrF(Chart()\Series()\Item()\DataX), Chart()\Decimals)
-        Text$ = ReplaceString(Text$, #DataY$,   StrF(Chart()\Series()\Item()\DataY), Chart()\Decimals)
+        Text$ = ReplaceString(Text$, #DataX$,   StrF(Chart()\Series()\Item()\DataX, Chart()\Decimals))
+        Text$ = ReplaceString(Text$, #DataY$,   StrF(Chart()\Series()\Item()\DataY, Chart()\Decimals))
         Text$ = ReplaceString(Text$, #TimeX$,   FormatDate(Chart()\AxisX\DateMask, Int(Chart()\Series()\Item()\DataX)))
         Text$ = ReplaceString(Text$, #TimeY$,   FormatDate(Chart()\AxisY\DateMask, Int(Chart()\Series()\Item()\DataY)))
+        
       EndIf
-      
-    ElseIf Chart()\Flags & #LineChart 
+      ;}
+    ElseIf Chart()\Flags & #LineChart   ;{ Line Chart
       
       Percent = (Chart()\Item()\Value - Chart()\Current\MinimumY) * 100
       If Percent <> 0
@@ -757,7 +759,7 @@ Module Chart
         Text$ = ReplaceString(Text$, #Value$, Str(Chart()\Item()\Value))
         Text$ = ReplaceString(Text$, #Label$, Chart()\Item()\Label)
       EndIf
-      
+      ;}
     EndIf
     
     ProcedureReturn Text$
@@ -7026,9 +7028,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 
-; IDE Options = PureBasic 5.72 LTS Beta 2 (Windows - x64)
-; CursorPosition = 14
-; Folding = oGcAgj---huREMQADAAAFS5-DgH-v5----f-eyHCpKAgwEA4vqQ--H06aI-p0
-; Markers = 2566
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 121
+; Folding = oGcAgTCuzfobEBDEwAAAQhE+-A5x-L+----D9n9hQqCAIMBw0rK1--Rfumyfa-
+; Markers = 2568
 ; EnableXP
 ; DPIAware
