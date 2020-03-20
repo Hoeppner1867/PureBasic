@@ -6,10 +6,10 @@
 ;/
 ;/ Encryption based on code of Werner Albus - www.nachtoptik.de
 ;/ 
-;/ © 2019 Thorsten1867 (08/2019)
+;/ © 2020 Thorsten1867 (08/2019)
 ;/
 
-; Last Update: 23.11.2019
+; Last Update: 19.03.2020
 
 
 ;{ ===== MIT License =====
@@ -62,7 +62,7 @@
 
 DeclareModule ResourceEx
   
-  #Version = 19112300
+  #Version = 20031900
   
   ;- ==================================
 	;-   DeclareModule
@@ -84,6 +84,7 @@ Module ResourceEx
   
   EnableExplicit
   
+  UseLZMAPacker()
   UseSHA3Fingerprint()
   
   ;- ==================================
@@ -746,8 +747,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 45
-; FirstLine = 12
+; CursorPosition = 8
+; FirstLine = 3
 ; Folding = YhPAA0
 ; EnableXP
 ; DPIAware

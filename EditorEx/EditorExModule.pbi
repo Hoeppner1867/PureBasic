@@ -4,10 +4,10 @@
 ;/
 ;/ [ PB V5.7x / 64Bit / all OS / DPI ]
 ;/
-;/ © 2019 Thorsten1867 (03/2019)
+;/ © 2020 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 07.03.2020
+; Last Update: 18.03.2020
 ;
 ; Changed: ScrollBarGadget() replaced by drawing routine
 ; Added:   Attribute #ScrollBar [#ScrollBar_Default/#ScrollBar_Frame/#ScrollBar_DragPoint]
@@ -140,7 +140,7 @@
 
 DeclareModule EditEx
   
-  #Version  = 20030700
+  #Version  = 20031800
   #ModuleEx = 20010800
   
   ;- ============================================================================
@@ -5610,15 +5610,15 @@ Module EditEx
         Case #SelectionColor
           EditEx()\Color\Highlight = Color
         Case #ScrollBar_FrontColor
-          EditEx()\ScrollBar\Color\Front     = Value
+          EditEx()\ScrollBar\Color\Front     = Color
         Case #ScrollBar_BackColor 
-          EditEx()\ScrollBar\Color\Back      = Value
+          EditEx()\ScrollBar\Color\Back      = Color
         Case #ScrollBar_BorderColor
-          EditEx()\ScrollBar\Color\Border    = Value
+          EditEx()\ScrollBar\Color\Border    = Color
         Case #ScrollBar_ButtonColor
-          EditEx()\ScrollBar\Color\Button    = Value
+          EditEx()\ScrollBar\Color\Button    = Color
         Case #ScrollBar_ThumbColor
-          EditEx()\ScrollBar\Color\ScrollBar = Value  
+          EditEx()\ScrollBar\Color\ScrollBar = Color  
       EndSelect
     EndIf
     
@@ -6340,8 +6340,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 4720
-; FirstLine = 927
+; CursorPosition = 142
+; FirstLine = 15
 ; Folding = wBCMAgQAwAAgAIAAYACAfAAD9TA69AHAABOAwACA+JOA-wjvEAAAAEBBAFkwhDCj--
 ; Markers = 1104,2931,3040,5552
 ; EnableXP
