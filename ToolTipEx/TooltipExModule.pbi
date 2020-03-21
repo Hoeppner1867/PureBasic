@@ -6,10 +6,10 @@
 ;/
 ;/ Extended ToolTips for all Gadgets
 ;/
-;/ © 2019 by Thorsten Hoeppner (07/2019)
+;/ © 2020 by Thorsten Hoeppner (07/2019)
 ;/
 
-; Last Update: 23.12.2019
+; Last Update: 21.03.2020
 
 
 ;{ ===== MIT License =====
@@ -60,7 +60,7 @@
 
 DeclareModule ToolTip
   
-  #Version  = 19122300
+  #Version  = 20032100
   #ModuleEx = 19111702
   
 	;- ===========================================================================
@@ -325,7 +325,6 @@ Module ToolTip
 	  Canvas\Window = OpenWindow(#PB_Any, 0, 0, 0, 0, "ToolTip", #PB_Window_BorderLess|#PB_Window_Invisible)
 	  If Canvas\Window
 	    Canvas\Gadget = CanvasGadget(#PB_Any, 10, 10, 200, 100)
-	    StickyWindow(Canvas\Window, #True)
 	  EndIf
 	  
 	EndProcedure
@@ -599,14 +598,16 @@ Module ToolTip
 	  If FindMapElement(ToolTip(), Str(GadgetNum))
 	    
 	    If ToolTip()\State = #True
+	      SetGadgetData(ToolTip()\CanvasNum, GadgetNum)
 	      ResizeWindow(ToolTip()\Number, DesktopUnscaledX(ToolTip()\Size\X), DesktopUnscaledY(ToolTip()\Size\Y), DesktopUnscaledX(ToolTip()\Size\Width), DesktopUnscaledY(ToolTip()\Size\Height))
         ResizeGadget(ToolTip()\CanvasNum, 0, 0, DesktopUnscaledX(ToolTip()\Size\Width), DesktopUnscaledY(ToolTip()\Size\Height))
         Draw_()
         ToolTip()\Visible = #True
-        HideWindow(ToolTip()\Number, #False)
+        HideWindow(ToolTip()\Number,  #False)
+        StickyWindow(ToolTip()\Number, #True)
         SetActiveWindow(ToolTip()\WindowNum)
       EndIf
-      
+
 	  EndIf
 	  
 	EndProcedure
@@ -616,7 +617,7 @@ Module ToolTip
     
     Window = GetActiveWindow()
     If FindMapElement(MouseEvent(), Str(Window))
-    
+
       X = WindowMouseX(Window)
       Y = WindowMouseY(Window)
       
@@ -731,22 +732,20 @@ Module ToolTip
   Procedure _MouseEnterHandler()
 	  Define.i GadgetNum = EventGadget()
 	  Define.i X, Y, aX, aY, aWidth, aHeight, gX, gY, gWidth, gHeight
-	  
+
 	  If FindMapElement(ToolTip(), Str(GadgetNum))
-      Debug "Gadget: " + Str(GadgetNum)
 	    LockMutex(Mutex)
 	    Timer(Str(GadgetNum))\Focus = #True
 	    Timer(Str(GadgetNum))\Value  = 0
 	    Timer(Str(GadgetNum))\State = #False
 	    UnlockMutex(Mutex)
-	    
 	  EndIf
 	  
 	EndProcedure
 	
 	Procedure _MouseLeaveHandler()
 	  Define.i GadgetNum = EventGadget()
-	  
+
 	  If FindMapElement(ToolTip(), Str(GadgetNum))
 	    
 	    LockMutex(Mutex)
@@ -756,8 +755,13 @@ Module ToolTip
 	    Timer(Str(GadgetNum))\State  = #False
 	    UnlockMutex(Mutex)
 	    
-	    HideWindow(ToolTip()\Number, #True)
+	    ToolTip()\MouseX  = #PB_Default
+	    ToolTip()\MouseY  = #PB_Default
+	    ToolTip()\Visible = #False
 	    
+	    StickyWindow(ToolTip()\Number, #False)
+	    HideWindow(ToolTip()\Number, #True)
+
 	    SetActiveWindow(ToolTip()\WindowNum)
 	  EndIf
 	  
@@ -766,7 +770,7 @@ Module ToolTip
 	Procedure _MouseMoveHandler()
     Define.i X, Y, aX, aY, aWidth, aHeight, gWidth, gHeight
     Define.i GadgetNum = EventGadget()
-    
+
     If FindMapElement(ToolTip(), Str(GadgetNum))
       
       If GadgetType(GadgetNum) = #PB_GadgetType_Canvas
@@ -776,11 +780,9 @@ Module ToolTip
         X = GetMouseEventAttribute_(ToolTip()\WindowNum, #MouseX, GadgetNum)
         Y = GetMouseEventAttribute_(ToolTip()\WindowNum, #MouseY, GadgetNum)
       EndIf
-      
-      
-      
-      If X <> ToolTip()\MouseX Or Y <> ToolTip()\MouseY
 
+      If X <> ToolTip()\MouseX Or Y <> ToolTip()\MouseY
+        
         ToolTip()\MouseX = X
         ToolTip()\MouseY = Y
         
@@ -791,8 +793,21 @@ Module ToolTip
         UnlockMutex(Mutex)
 
         If ToolTip()\Visible
-          ToolTip()\Visible = #False
+          
+          LockMutex(Mutex)
+    	    Timer(Str(GadgetNum))\Focus  = #False
+    	    Timer(Str(GadgetNum))\Active = #True
+    	    Timer(Str(GadgetNum))\Value  = 0
+    	    Timer(Str(GadgetNum))\State  = #False
+    	    UnlockMutex(Mutex)
+	    
+    	    ToolTip()\MouseX  = #PB_Default
+    	    ToolTip()\MouseY  = #PB_Default
+    	    ToolTip()\Visible = #False
+    	    
+          StickyWindow(ToolTip()\Number, #False)
           HideWindow(ToolTip()\Number, #True)
+          
           SetActiveWindow(ToolTip()\WindowNum)
         EndIf
         ;}
@@ -805,6 +820,7 @@ Module ToolTip
             LockMutex(Mutex)
             Timer(Str(GadgetNum))\State = #True
             UnlockMutex(Mutex)
+            
             ProcedureReturn #True
           EndIf 
         EndIf  
@@ -816,6 +832,66 @@ Module ToolTip
     EndIf
     
   EndProcedure 
+  
+  Procedure _MouseLeftClickHandler()
+    Define.i GadgetNum
+    Define.i TooltipNum = EventGadget()
+    
+    GadgetNum = GetGadgetData(TooltipNum)
+    
+    If FindMapElement(ToolTip(), Str(GadgetNum))
+      
+      LockMutex(Mutex)
+	    Timer(Str(GadgetNum))\Focus  = #False
+	    Timer(Str(GadgetNum))\Active = #True
+	    Timer(Str(GadgetNum))\Value  = 0
+	    Timer(Str(GadgetNum))\State  = #False
+	    UnlockMutex(Mutex)
+	    
+	    ToolTip()\MouseX  = #PB_Default
+	    ToolTip()\MouseY  = #PB_Default
+	    ToolTip()\Visible = #False
+	    
+	    StickyWindow(ToolTip()\Number, #False)
+	    HideWindow(ToolTip()\Number, #True)
+	    
+	    SetActiveWindow(ToolTip()\WindowNum)
+      
+	    PostEvent(#PB_Event_Gadget, ToolTip()\WindowNum, ToolTip()\GadgetNum, #PB_EventType_LeftClick)
+	    
+    EndIf  
+    
+  EndProcedure
+  
+  Procedure _MouseRightClickHandler()
+    Define.i GadgetNum
+    Define.i TooltipNum = EventGadget()
+    
+    GadgetNum = GetGadgetData(TooltipNum)
+    
+    If FindMapElement(ToolTip(), Str(GadgetNum))
+      
+      LockMutex(Mutex)
+	    Timer(Str(GadgetNum))\Focus  = #False
+	    Timer(Str(GadgetNum))\Active = #True
+	    Timer(Str(GadgetNum))\Value  = 0
+	    Timer(Str(GadgetNum))\State  = #False
+	    UnlockMutex(Mutex)
+	    
+	    ToolTip()\MouseX  = #PB_Default
+	    ToolTip()\MouseY  = #PB_Default
+	    ToolTip()\Visible = #False
+	    
+	    StickyWindow(ToolTip()\Number, #False)
+	    HideWindow(ToolTip()\Number, #True)
+	    
+	    SetActiveWindow(ToolTip()\WindowNum)
+      
+	    PostEvent(#PB_Event_Gadget, ToolTip()\WindowNum, ToolTip()\GadgetNum, #PB_EventType_RightClick)
+	    
+    EndIf  
+    
+  EndProcedure
   
   Procedure _CloseWindowHandler()
     Define.i WindowNum = EventWindow()
@@ -931,7 +1007,7 @@ Module ToolTip
 		CompilerIf Defined(ModuleEx, #PB_Module)
       If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
     CompilerEndIf
-		
+    
     If IsWindow(Canvas\Window)
       If IsGadget(Canvas\Gadget)
       
@@ -989,6 +1065,11 @@ Module ToolTip
     			  BindGadgetEvent(ToolTip()\GadgetNum, @_MouseLeaveHandler(), #PB_EventType_MouseLeave)
     			  BindGadgetEvent(ToolTip()\GadgetNum, @_MouseMoveHandler(),  #PB_EventType_MouseMove)
     			EndIf
+    			
+    			If IsGadget(ToolTip()\CanvasNum)
+    			  BindGadgetEvent(ToolTip()\CanvasNum, @_MouseLeftClickHandler(),  #PB_EventType_LeftClick)
+    			  BindGadgetEvent(ToolTip()\CanvasNum, @_MouseRightClickHandler(), #PB_EventType_RightClick)
+    			EndIf  
     			
     			BindEvent(#Event_ToolTip, @_ToolTipHandler())
     			
@@ -1152,7 +1233,6 @@ Module ToolTip
     
   EndProcedure
   
-  
   CanvasWindow_()
   
 EndModule
@@ -1178,7 +1258,6 @@ CompilerIf #PB_Compiler_IsMainFile
   
   If OpenWindow(#Window, 0, 0, 210, 100, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
     
-    
     If CanvasGadget(#Canvas, 10, 10, 80, 80, #PB_Canvas_Border)
       If StartDrawing(CanvasOutput(#Canvas))
         DrawingMode(#PB_2DDrawing_Outlined)
@@ -1191,6 +1270,7 @@ CompilerIf #PB_Compiler_IsMainFile
     
     If ContainerGadget(#Container, 100, 35, 100, 50, #PB_Container_Flat)
       ButtonGadget(#Button, 10, 10, 80, 30, "Button")
+      ;ButtonImageGadget(#Button, 10, 10, 80, 30, #False)
       CloseGadgetList()
     EndIf 
     
@@ -1214,7 +1294,6 @@ CompilerIf #PB_Compiler_IsMainFile
       ToolTip::SetColor(#Button, ToolTip::#TitleColor,       $0B2851)
     EndIf
     
-    
     Repeat
       Event = WaitWindowEvent()    
     Until Event = #PB_Event_CloseWindow
@@ -1224,7 +1303,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 62
-; Folding = 5PREA1gpgE5
+; CursorPosition = 1234
+; FirstLine = 381
+; Folding = 5PRAAUgHAQg-
+; Markers = 795
 ; EnableXP
 ; DPIAware
