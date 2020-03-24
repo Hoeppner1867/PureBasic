@@ -10,7 +10,7 @@
 ;/
 
 
-; Last Update: 20.03.2020
+; Last Update: 23.03.2020
 ;
 ; Floats for Scatterplot data
 ;
@@ -119,7 +119,7 @@
 
 DeclareModule Chart
   
-  #Version  = 20032000
+  #Version  = 20032300
   #ModuleEx = 19111802
   
   #Enable_PieChart       = #True
@@ -2389,31 +2389,35 @@ Module Chart
                 If Gradient = #PB_Default : Gradient = BlendColor_(Color, Chart()\Color\Gadget, 60) : EndIf
                 
                 If (Chart()\Series()\Item()\Value >= Chart()\Current\MinimumY And Chart()\Series()\Item()\Value <= Chart()\Current\MaximumY) Or Chart()\Bar\Flags & #OutOfRange
-                
-                  If Color <> Gradient ;{ Gradient color
-          
-                    DrawingMode(#PB_2DDrawing_Gradient)
-                    FrontColor(Color)
-                    BackColor(Gradient)
-                    LinearGradient(PosX, PosY - bHeight, PosX, PosY)
-                    Box(PosX, PosY - bHeight, bWidth, bHeight)
-                    ;}
-                  Else                 ;{ Solid color
+                  
+                  If bHeight > 0
                     
-                    DrawingMode(#PB_2DDrawing_Default)
-                    Box(PosX, PosY - bHeight, bWidth, bHeight, Color)
-                    ;}
-                  EndIf
-                
-                  ;{ --- Draw Bar Border ---
-                  If Chart()\Bar\Flags & #NoBorder = #False
-                    DrawingMode(#PB_2DDrawing_Outlined)
-                    If Chart()\Series()\Border = #PB_Default
-                      Box(PosX, PosY, bWidth, -bHeight, BlendColor_(Color, Chart()\Color\Border, 60))
-                    Else
-                      Box(PosX, PosY, bWidth, -bHeight, Chart()\Series()\Item()\Border)
+                    If Color <> Gradient ;{ Gradient color
+            
+                      DrawingMode(#PB_2DDrawing_Gradient)
+                      FrontColor(Color)
+                      BackColor(Gradient)
+                      LinearGradient(PosX, PosY - bHeight, PosX, PosY)
+                      Box(PosX, PosY - bHeight, bWidth, bHeight)
+                      ;}
+                    Else                 ;{ Solid color
+                      
+                      DrawingMode(#PB_2DDrawing_Default)
+                      Box(PosX, PosY - bHeight, bWidth, bHeight, Color)
+                      ;}
                     EndIf
-                  EndIf ;}
+                  
+                    ;{ --- Draw Bar Border ---
+                    If Chart()\Bar\Flags & #NoBorder = #False
+                      DrawingMode(#PB_2DDrawing_Outlined)
+                      If Chart()\Series()\Border = #PB_Default
+                        Box(PosX, PosY, bWidth, -bHeight, BlendColor_(Color, Chart()\Color\Border, 60))
+                      Else
+                        Box(PosX, PosY, bWidth, -bHeight, Chart()\Series()\Item()\Border)
+                      EndIf
+                    EndIf ;}
+                    
+                  EndIf
                   
                 Else
                   bHeight = 0
@@ -3567,30 +3571,34 @@ Module Chart
           
           If Chart()\Bar\Flags & #OutOfRange : ClipOutput(X, Y, Width, Height) : EndIf 
           
-          If Color <> Gradient ;{ Gradient color
-  
-            DrawingMode(#PB_2DDrawing_Gradient)
-            FrontColor(Color)
-            BackColor(Gradient)
-            LinearGradient(PosX, PosY - bHeight, PosX, PosY)
-            Box(PosX, PosY - bHeight, bWidth, bHeight)
-            ;}
-          Else                 ;{ Solid color
+          If bHeight > 0
             
-            DrawingMode(#PB_2DDrawing_Default)
-            Box(PosX, PosY - bHeight, bWidth, bHeight, Color)
-            ;}
-          EndIf
-        
-          ;{ --- Draw Bar Border ---
-          If Chart()\Bar\Flags & #NoBorder = #False
-            DrawingMode(#PB_2DDrawing_Outlined)
-            If Chart()\Item()\Border = #PB_Default
-              Box(PosX, PosY, bWidth, -bHeight, BlendColor_(Color, Chart()\Color\Border, 60))
-            Else
-              Box(PosX, PosY, bWidth, -bHeight, Chart()\Item()\Border)
+            If Color <> Gradient ;{ Gradient color
+    
+              DrawingMode(#PB_2DDrawing_Gradient)
+              FrontColor(Color)
+              BackColor(Gradient)
+              LinearGradient(PosX, PosY - bHeight, PosX, PosY)
+              Box(PosX, PosY - bHeight, bWidth, bHeight)
+              ;}
+            Else                 ;{ Solid color
+              
+              DrawingMode(#PB_2DDrawing_Default)
+              Box(PosX, PosY - bHeight, bWidth, bHeight, Color)
+              ;}
             EndIf
-          EndIf ;}
+
+            ;{ --- Draw Bar Border ---
+            If Chart()\Bar\Flags & #NoBorder = #False
+              DrawingMode(#PB_2DDrawing_Outlined)
+              If Chart()\Item()\Border = #PB_Default
+                Box(PosX, PosY, bWidth, -bHeight, BlendColor_(Color, Chart()\Color\Border, 60))
+              Else
+                Box(PosX, PosY, bWidth, -bHeight, Chart()\Item()\Border)
+              EndIf
+            EndIf ;}
+            
+          EndIf 
           
           If Chart()\Bar\Flags & #OutOfRange ;{
             If Chart()\Item()\Value < Chart()\Current\MinimumY Or Chart()\Item()\Value > Chart()\Current\MaximumY
@@ -6591,7 +6599,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   ; ----- Select Example -----
   
-  #Example = 17
+  #Example = 1
   
   ; --- Bar Chart ---
   ;  1: automatically adjust maximum value (#PB_Default)
@@ -7030,7 +7038,7 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
 ; CursorPosition = 121
-; Folding = oGcAgTCuzfobEBDEwAAAQhE+-A5x-L+----D9n9hQqCAIMBw0rK1--Rfumyfa-
-; Markers = 2568
+; Folding = oGEAgTCuzfobEBDEwBEAQhE+-BAw-L+----D9n9hQqCAIMBw0rK1--Rfumyfa-
+; Markers = 2572
 ; EnableXP
 ; DPIAware

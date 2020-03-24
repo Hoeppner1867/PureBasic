@@ -6,11 +6,11 @@
 ;/
 ;/ MessageEx - Gadget
 ;/
-;/ © 2019 by Thorsten Hoeppner (12/2019)
+;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
 
-; Last Update: 14.12.2019
+; Last Update: 23.03.2020
 
 
 ;{ ===== MIT License =====
@@ -61,17 +61,19 @@
 
 ; XIncludeFile "ModuleEx.pbi"
 
+UseZipPacker()
+
 DeclareModule MessageEx
   
-  #Version  = 19121400
+  #Version  = 20032300
   #ModuleEx = 19112100
+  
+  #Include_DefaultImages = #True
   
 	;- ===========================================================================
 	;-   DeclareModule - Constants
 	;- ===========================================================================
-  
-  #Include_DefaultImages = #True
-  
+
 	;{ _____ Constants _____
 	Enumeration 1     ;{ Buttons
 	  #Click
@@ -123,9 +125,7 @@ DeclareModule MessageEx
 
 	CompilerEndIf
 	;}
-	
-	Global NewMap Image.i()
-	
+
 	;- ===========================================================================
 	;-   DeclareModule
 	;- ===========================================================================
@@ -239,6 +239,8 @@ Module MessageEx
 	  List Row.Row_Structure()
 	EndStructure ;}
 	Global Requester.Requester_Structure
+	
+  Global NewMap Image.i()
 	
 	;- ============================================================================
 	;-   Module - Internal
@@ -367,10 +369,10 @@ Module MessageEx
 		;{ _____ Images _____
 		CompilerIf #Include_DefaultImages
 		  
-  		If AddMapElement(Image(), "Info")
+		  If AddMapElement(Image(), "Info")
     		*Buffer = AllocateMemory(2221)
     		If *Buffer
-          UncompressMemory(?Info, 2197, *Buffer, 2221)
+          UncompressMemory(?Info, 2197, *Buffer, 2221, #PB_PackerPlugin_Zip)
           Image() = CatchImage(#PB_Any, *Buffer, 2221)
           FreeMemory(*Buffer)
         EndIf
@@ -379,7 +381,7 @@ Module MessageEx
       If AddMapElement(Image(), "Question")
         *Buffer = AllocateMemory(2372)
         If *Buffer
-          UncompressMemory(?Question, 2352, *Buffer, 2372)
+          UncompressMemory(?Question, 2352, *Buffer, 2372, #PB_PackerPlugin_Zip)
           Image() = CatchImage(#PB_Any, *Buffer, 2372)
           FreeMemory(*Buffer)
         EndIf  
@@ -388,7 +390,7 @@ Module MessageEx
       If AddMapElement(Image(), "Error")
         *Buffer = AllocateMemory(1949)
         If *Buffer
-          UncompressMemory(?Error, 1929, *Buffer, 1949)
+          UncompressMemory(?Error, 1929, *Buffer, 1949, #PB_PackerPlugin_Zip)
           Image() = CatchImage(#PB_Any, *Buffer, 1949)
           FreeMemory(*Buffer)
         EndIf 
@@ -397,7 +399,7 @@ Module MessageEx
       If AddMapElement(Image(), "Warning")
         *Buffer = AllocateMemory(1984)
         If *Buffer
-          UncompressMemory(?Warning, 1965, *Buffer, 1984)
+          UncompressMemory(?Warning, 1965, *Buffer, 1984, #PB_PackerPlugin_Zip)
           Image() = CatchImage(#PB_Any, *Buffer, 1984)
           FreeMemory(*Buffer)
         EndIf 
@@ -547,7 +549,6 @@ Module MessageEx
   			  OffsetX = (Width - TextWidth(Requester\Row()\String) - X - dpiX(Requester\Margin\Right)) / 2
   			  DrawText(X + OffsetX, Y + OffsetY, Requester\Row()\String, Requester\Row()\Color)
   			ElseIf Requester\Row()\Flags & #Right
-  			  Debug "#Right"
   			  OffsetX = Width - TextWidth(Requester\Row()\String) - dpiX(Requester\Margin\Right)
   			  DrawText(OffsetX, Y + OffsetY, Requester\Row()\String, Requester\Row()\Color)
   			Else
@@ -1003,7 +1004,7 @@ Module MessageEx
     
     ; License: http://creativecommons.org/licenses/GPL/2.0/
     ; Source:  www.inkscape.org / GNOME-Colors
-    
+ 
     DataSection
       Info:
       Data.q $5A143C7996559C78,$42ED724758CFC71B,$1964D631BB2446DC,$631A1443592C614C,$36F4C4D6B1832667,$5C4496495B95B5EA,
@@ -1214,7 +1215,7 @@ CompilerIf #PB_Compiler_IsMainFile
     MessageEx::SetItemFlags("User", 1, MessageEx::#Center)
   EndIf
   
-  Result = MessageEx::Requester("Message Requester", "Message requester text." + #LF$ + "Second message row.", "User", MessageEx::#OK|MessageEx::#Question)
+  Result = MessageEx::Requester("Message Requester", "Message requester text." + #LF$ + "Second message row.", "User", MessageEx::#OK|MessageEx::#Info)
   Select Result
     Case #True
       Debug "OK"
@@ -1231,7 +1232,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 65
-; Folding = YDBQQ3hMgUAw
+; CursorPosition = 8
+; Folding = YABAQsgOgZA5
 ; EnableXP
 ; DPIAware
