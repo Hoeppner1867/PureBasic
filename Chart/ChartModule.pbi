@@ -9,8 +9,7 @@
 ;/ © 2019 Thorsten1867 (06/2019)
 ;/
 
-
-; Last Update: 23.03.2020
+; Last Update: 25.03.2020
 ;
 ; Floats for Scatterplot data
 ;
@@ -119,7 +118,7 @@
 
 DeclareModule Chart
   
-  #Version  = 20032300
+  #Version  = 20032500
   #ModuleEx = 19111802
   
   #Enable_PieChart       = #True
@@ -1465,7 +1464,7 @@ Module Chart
             txtX = PosX + ((cWidth - VectorTextWidth(Text$)) / 2)
             
             If Chart()\Item()\Value < 0
-              txtY = PosY - VectorTextHeight(Text$) - dpiY(2)
+              txtY = PosY - cHeight - VectorTextHeight(Text$) - dpiY(2)
             Else
               txtY = PosY - cHeight - VectorTextHeight(Text$) - dpiY(2)
             EndIf
@@ -1825,7 +1824,7 @@ Module Chart
         
         ; ----- Draw Y - Axis -----
         If Chart()\AxisY\Flags & #Labels ;{ defined labels
-          Debug "#Labels"
+
           Factor = Height / Chart()\Scatter\RangeY
           
           DrawingMode(#PB_2DDrawing_Transparent)
@@ -2983,7 +2982,7 @@ Module Chart
                 txtX = PosX + ((cWidth - VectorTextWidth(Text$)) / 2)
                 
                 If Chart()\Series()\Item()\Value < 0
-                  txtY = PosY - VectorTextHeight(Text$) - dpiY(2)
+                  txtY = PosY - cHeight - VectorTextHeight(Text$) - dpiY(2)
                 Else
                   txtY = PosY - cHeight - VectorTextHeight(Text$) - dpiY(2)
                 EndIf
@@ -4820,7 +4819,7 @@ Module Chart
                 
                 If X >= Chart()\Item()\X - Radius And X <= Chart()\Item()\X + Chart()\Item()\Width
                   If Y >= Chart()\Item()\Y - Radius And Y <= Chart()\Item()\Y + Chart()\Item()\Height
-                    
+ 
                     If Chart()\Flags & #ToolTips And Chart()\ToolTip = #False
                       GadgetToolTip(GadgetNum, GetText_(Chart()\ToolTipText))
                       Chart()\ToolTip = #True
@@ -6389,7 +6388,6 @@ Module Chart
           Chart()\AxisX\Flags | Flags
         Case #AxisY
           Chart()\AxisY\Flags | Flags
-          Debug Chart()\AxisY\Flags
       EndSelect
       
       If Chart()\ReDraw : Draw_() : EndIf
@@ -6599,7 +6597,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   ; ----- Select Example -----
   
-  #Example = 1
+  #Example = 14
   
   ; --- Bar Chart ---
   ;  1: automatically adjust maximum value (#PB_Default)
@@ -6720,13 +6718,14 @@ CompilerIf #PB_Compiler_IsMainFile
         ;Chart::SetAttribute(#Chart, Chart::#Maximum, 100)
         ;Chart::SetFlags(#Chart, Chart::#BarChart, Chart::#NoAutoAdjust|Chart::#OutOfRange)
       CompilerCase 12 ; Line Chart
-        Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#LineChart|Chart::#Border|Chart::#ShowLines|Chart::#ShowValue|Chart::#ChangeCursor|Chart::#AutoResize, #Window)
+        Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#LineChart|Chart::#ToolTips|Chart::#Border|Chart::#ShowLines|Chart::#ShowValue|Chart::#AutoResize, #Window) ; |Chart::#ChangeCursor
         Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#Colored) ; |Chart::#Descending
         ;Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#NoAutoAdjust)
         ;Chart::SetAttribute(#Chart, Chart::#LineColor, $AACD66)
         Chart::SetAttribute(#Chart, Chart::#FontSize, 9)
         Chart::SetFont(#Chart, FontID(#Font), Chart::#LineChart)
         Chart::SetMargins(#Chart, 15, 15)
+        Chart::ToolTipText(#Chart, "ToolTip: " + Chart::#Value$)
       CompilerCase 13 ; Line Chart (#BezierCurve)
         Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#LineChart|Chart::#Border|Chart::#ShowLines|Chart::#ShowValue|Chart::#ChangeCursor|Chart::#AutoResize, #Window)
         Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#Colored|Chart::#BezierCurve) ; |Chart::#Descending|Chart::#NoAutoAdjust
@@ -6735,7 +6734,7 @@ CompilerIf #PB_Compiler_IsMainFile
         Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#NoAutoAdjust|Chart::#OutOfRange)
         Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#ModifyByCursor)
       CompilerCase 14 ; Line Chart (negative values)
-        Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#LineChart|Chart::#Border|Chart::#ShowLines|Chart::#ChangeCursor|Chart::#AutoResize, #Window)
+        Chart::Gadget(#Chart, 10, 10, 295, 180, Chart::#LineChart|Chart::#Border|Chart::#ShowLines|Chart::#ShowValue|Chart::#ChangeCursor|Chart::#AutoResize, #Window)
         Chart::SetFlags(#Chart, Chart::#LineChart, Chart::#Colored|Chart::#BezierCurve)
         Chart::SetAttribute(#Chart, Chart::#Minimum, -50)
         Chart::SetAttribute(#Chart, Chart::#Maximum, 50)
@@ -7037,8 +7036,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 121
-; Folding = oGEAgTCuzfobEBDEwBEAQhE+-BAw-L+----D9n9hQqCAIMBw0rK1--Rfumyfa-
-; Markers = 2572
+; CursorPosition = 120
+; FirstLine = 12
+; Folding = oGEAgTCuzf5TQBDE5AEABwF+-AAg-L+----DUi9hQqCAIMBz0rK1--Rfumyfa-
+; Markers = 2571
 ; EnableXP
 ; DPIAware
