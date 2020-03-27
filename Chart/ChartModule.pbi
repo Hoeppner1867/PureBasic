@@ -6,10 +6,12 @@
 ;/
 ;/ Chart - Gadget 
 ;/
-;/ © 2019 Thorsten1867 (06/2019)
+;/ © 2020 Thorsten1867 (06/2019)
 ;/
 
-; Last Update: 25.03.2020
+; Last Update: 27.03.2020
+;
+; Bugfix: Dataseries LineChart
 ;
 ; Floats for Scatterplot data
 ;
@@ -118,7 +120,7 @@
 
 DeclareModule Chart
   
-  #Version  = 20032500
+  #Version  = 20032700
   #ModuleEx = 19111802
   
   #Enable_PieChart       = #True
@@ -2929,11 +2931,8 @@ Module Chart
                 Color = Chart()\Series()\Color
                 If Color = #PB_Default : Color = Chart()\Color\Bar : EndIf
                 
-                ;Gradient = Chart()\Series()\Gradient
-                ;If Gradient = #PB_Default : Gradient = BlendColor_(Color, Chart()\Color\Gadget, 60) : EndIf
-                
                 Circle_(PosX + Radius, PosY - cHeight, Radius, BlendColor_(Color, Chart()\Color\Border, 50), Color)
-              
+                
                 ;{ --- Set Data ----
                 If Chart()\Series()\Item()\Value < 0
                   Chart()\Series()\Item()\X      = PosX
@@ -2948,12 +2947,12 @@ Module Chart
                 EndIf ;}
                 If Chart()\Series()\Item()\Value < 0
                   Chart()\Series()\Item()\X      = PosX
-                  Chart()\Series()\Item()\Y      = PosY + Radius
+                  Chart()\Series()\Item()\Y      = PosY - cHeight + Radius
                   Chart()\Series()\Item()\Width  = cWidth
                   Chart()\Series()\Item()\Height = cWidth
                 Else
                   Chart()\Series()\Item()\X      = PosX
-                  Chart()\Series()\Item()\Y      = PosY - Radius
+                  Chart()\Series()\Item()\Y      = PosY - cHeight - Radius
                   Chart()\Series()\Item()\Width  = cWidth
                   Chart()\Series()\Item()\Height = cWidth
                 EndIf  
@@ -6597,7 +6596,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   ; ----- Select Example -----
   
-  #Example = 14
+  #Example = 12
   
   ; --- Bar Chart ---
   ;  1: automatically adjust maximum value (#PB_Default)
@@ -7036,9 +7035,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf  
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 120
-; FirstLine = 12
-; Folding = oGEAgTCuzf5TQBDE5AEABwF+-AAg-L+----DUi9hQqCAIMBz0rK1--Rfumyfa-
-; Markers = 2571
+; CursorPosition = 13
+; FirstLine = 6
+; Folding = IEAAAAAAAAYIMAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAyDA9
+; Markers = 2573
 ; EnableXP
 ; DPIAware
