@@ -9,7 +9,7 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 07.03.2020
+; Last Update: 29.03.2020
 ;
 ; - Added:   Attribute #ScrollBar [#ScrollBar_Default/#ScrollBar_Frame/#ScrollBar_DragPoint]
 ; - Added:   SetColor() -> [#ScrollBar_FrontColor/#ScrollBar_BackColor/#ScrollBar_BorderColor/#ScrollBar_ButtonColor/#ScrollBar_ThumbColor]
@@ -94,7 +94,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20030700
+  #Version  = 20032900
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -287,9 +287,11 @@ DeclareModule MarkDown
 	
 	Declare.i UsedImages(Markdown.s, Map Images.s())
 	Declare   Convert(MarkDown.s, Type.i, File.s="", Title.s="")
+	Declare   InsertAsPDF(PDF.i, MarkDown.s)
+	Declare.s InsertAsHTML(MarkDown.s)
 	Declare   SetImagePath(GNum.i, Path.s)
 	Declare   SetText(GNum.i, Text.s)
-		
+
 	CompilerIf #Enable_Gadget
     Declare   AttachPopupMenu(GNum.i, PopUpNum.i)
     Declare   Clear(GNum.i)    
@@ -7632,6 +7634,38 @@ Module MarkDown
 	;- ==========================================================================
 	;-   Module - Declared Procedures
 	;- ==========================================================================
+  
+  Procedure   InsertAsPDF(PDF.i, MarkDown.s)
+	  
+	  If AddMapElement(MarkDown(), "Parse")
+	    
+	    Parse_(MarkDown)
+	    
+	    DetermineTextSize_()
+	    
+	    ConvertPDF_(PDF)
+    	
+	    DeleteMapElement(MarkDown())
+	  EndIf  
+	 
+	EndProcedure 
+	
+	Procedure.s InsertAsHTML(MarkDown.s)
+	  Define.s HTML$
+	  
+	  If AddMapElement(MarkDown(), "Parse")
+	    
+	    Parse_(MarkDown)
+	    
+	    DetermineTextSize_()
+	    
+	    HTML$ = ConvertHTML_()
+    	
+	    DeleteMapElement(MarkDown())
+	  EndIf  
+	  
+	  ProcedureReturn HTML$
+	EndProcedure 
 	
 	Procedure   Convert(MarkDown.s, Type.i, File.s="", Title.s="")
 	  Define.i FileID
@@ -9717,9 +9751,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 7619
-; FirstLine = 565
-; Folding = wMCBgCAAAAAAAAAABAAAQRAAAAgAIAAAAAAAAAAAYADQAAAAIIADCgBDixHAECAAACAQAKwwBAEAgSABAIgxTAAIAOGAYwAAAag9
-; Markers = 3159,5046,6371
+; CursorPosition = 96
+; FirstLine = 9
+; Folding = wAABgCAAAAAAAAAABAAAQJAAAAgAJAAAAAAAAAAAYADQAAAAIIADCgBDCgHAECAAACAQAKQwBAEAgSbEAgAGPBAgA5YAgBDAA5By
+; Markers = 3161,5048,6373
 ; EnableXP
 ; DPIAware
