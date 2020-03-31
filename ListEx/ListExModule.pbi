@@ -150,7 +150,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20033100
+  #Version  = 20033101
   #ModuleEx = 20030400
   
   #Enable_CSV_Support   = #True
@@ -10402,7 +10402,7 @@ CompilerIf #PB_Compiler_IsMainFile
       ;ListEx::ExportCSV(#List, "Export.csv", ListEx::#NoButtons|ListEx::#NoCheckBoxes|ListEx::#HeaderRow)
       ;
       
-      ListEx::SetItemColor(#List, 5, ListEx::#BackColor, $008CFF, 3)
+      ;ListEx::SetItemColor(#List, 5, ListEx::#BackColor, $008CFF, 3)
       
     EndIf
     
@@ -10499,8 +10499,7 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
 ; CursorPosition = 152
-; FirstLine = 18
-; Folding = w-------------f5-------------4H+-j-C1Ql3m-----------BAwLgfQEAwvfw-Hgw1---X5Q9-------DAg-----d--
+; Folding = w-------------f5-------------4H+-j-C1Ql3m-----------BAwLhfSEAwvfw-Hgw1---X5w9-------DAg-----d--
 ; EnableThread
 ; EnableXP
 ; DPIAware
