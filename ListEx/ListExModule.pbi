@@ -9,13 +9,10 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 16.03.2020
+; Last Update: 31.03.2020
 ;
-; Bugfix:  Cutting off oversized text
-;
-; Changed: ScrollBarGadget() replaced by drawing routine
-; Added:   Attribute #ScrollBar [#ScrollBar_Default/#ScrollBar_Frame/#ScrollBar_DragPoint]
-; Added:   SetColor() -> [#ScrollBar_FrontColor/#ScrollBar_BackColor/#ScrollBar_BorderColor/#ScrollBar_ButtonColor/#ScrollBar_ThumbColor]
+; Bugfix: Header click
+; BugFix: SetItemColor()
 ;
 
 ;{ ===== MIT License =====
@@ -153,7 +150,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20031601
+  #Version  = 20033100
   #ModuleEx = 20030400
   
   #Enable_CSV_Support   = #True
@@ -1319,26 +1316,25 @@ Module ListEx
  
   Procedure.i GetRow_(Y.f)
     
+    If Y <= dpiY(ListEx()\Header\Height)
+      ProcedureReturn #Header 
+    EndIf 
+    
     Y = Y + dpiY(ListEx()\Row\OffSetY)
     
     If ListEx()\ScrollBar\Item("HScroll")\Hide = #False And Y >= ListEx()\ScrollBar\Item("HScroll")\Y
       ProcedureReturn #NotValid
     EndIf  
     
+    
     If Y > dpiY(ListEx()\Size\Y) And Y < dpiY(ListEx()\Size\Rows + ListEx()\Header\Height)
-      
-      If Y < dpiY(ListEx()\Header\Height)
-        ProcedureReturn #Header 
-      Else
 
-        ForEach ListEx()\Rows()
-          If Y >= dpiY(ListEx()\Rows()\Y) And Y <= dpiY(ListEx()\Rows()\Y + ListEx()\Row\Height)
-            ProcedureReturn ListIndex(ListEx()\Rows())
-          EndIf
-        Next
+      ForEach ListEx()\Rows()
+        If Y >= dpiY(ListEx()\Rows()\Y) And Y <= dpiY(ListEx()\Rows()\Y + ListEx()\Row\Height)
+          ProcedureReturn ListIndex(ListEx()\Rows())
+        EndIf
+      Next
 
-      EndIf
-      
     Else
       ProcedureReturn #NotValid
     EndIf
@@ -4023,7 +4019,7 @@ Module ListEx
         ;{ Columns of current row
         ForEach ListEx()\Cols() 
           
-          If ListEx()\Cols()\Flags & #Hide : Continue : EndIf
+          If ListEx()\Cols()\Flags & #Hide Or ListEx()\Cols()\Width = 0 : Continue : EndIf
 
           Key$ = ListEx()\Cols()\Key
           If Key$ = "" : Key$ = Str(ListIndex(ListEx()\Cols())) : EndIf
@@ -4083,6 +4079,8 @@ Module ListEx
               BackColor = ListEx()\Rows()\Color\Back
             ElseIf ListEx()\Cols()\BackColor <> #PB_Default
               BackColor = ListEx()\Cols()\BackColor
+            Else
+              BackColor = ListEx()\Color\Back
             EndIf
             
             Box(colX, rowY, dpiX(ListEx()\Cols()\Width), dpiY(ListEx()\Rows()\Height), BackColor) ; 
@@ -6148,6 +6146,7 @@ Module ListEx
         Draw_()
       EndIf ;}
       
+      ;{ ____ Scrollbar _____
       ForEach ListEx()\ScrollBar\Item()
         
         If ListEx()\ScrollBar\Item()\Hide : Continue : EndIf 
@@ -6222,7 +6221,7 @@ Module ListEx
     			
   			EndIf
         
-      Next      
+      Next ;}     
       
       ;{ Resize column with mouse
       If ListEx()\Row\Current = #Header
@@ -6277,6 +6276,7 @@ Module ListEx
             PostEvent(#PB_Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_Header, ListEx()\Col\Current)
             PostEvent(#Event_Gadget, ListEx()\Window\Num, ListEx()\CanvasNum, #EventType_Header, ListEx()\Col\Current)
           EndIf
+          
         EndIf 
         ;}
       Else                              ;{ Row clicked
@@ -6628,6 +6628,7 @@ Module ListEx
         AdjustScrollBars_()
       EndIf
       
+      ;{ _____ Scrollbar _____
       ForEach ListEx()\ScrollBar\Item()
         
         ListEx()\ScrollBar\Item()\Cursor = #PB_Default
@@ -6705,7 +6706,7 @@ Module ListEx
   			  ;}
   			EndIf
   			
-  		Next
+  		Next ;}
       
       If ListEx()\Row\Current < 0 Or ListEx()\Col\Current < 0 : ProcedureReturn #False : EndIf
       
@@ -7058,7 +7059,7 @@ Module ListEx
 	      ProcedureReturn #True
 	      ;}
   		EndIf  
-  		  
+  
       If Row = #Header
         
         If ListEx()\Flags & #ResizeColumn Or ListEx()\Flags & #AdjustColumns ;{ Resize column with mouse
@@ -7414,6 +7415,11 @@ Module ListEx
     Define.i GadgetNum = EventGadget()
     
     If FindMapElement(ListEx(), Str(GadgetNum))
+      
+      If ListEx()\String\Flag   : CloseString_()   : EndIf
+      If ListEx()\ComboBox\Flag : CloseComboBox_() : EndIf
+      If ListEx()\Date\Flag     : CloseDate_()     : EndIf
+      
       
       ForEach ListEx()\ScrollBar\Item()
       
@@ -10393,10 +10399,10 @@ CompilerIf #PB_Compiler_IsMainFile
       ListEx::DisableReDraw(#List, #False) 
       
       ;ListEx::SetState(#List, 4, 2)
-      
       ;ListEx::ExportCSV(#List, "Export.csv", ListEx::#NoButtons|ListEx::#NoCheckBoxes|ListEx::#HeaderRow)
+      ;
       
-      ;ListEx::SetColor(#List, ListEx::#ComboBackColor, $FFFFF0)
+      ListEx::SetItemColor(#List, 5, ListEx::#BackColor, $008CFF, 3)
       
     EndIf
     
@@ -10491,10 +10497,11 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 155
-; FirstLine = 12
-; Folding = w------------------------------------wn3+-----------BAwL+--8D+----B+---------------------------
+; IDE Options = PureBasic 5.72 (Windows - x64)
+; CursorPosition = 152
+; FirstLine = 18
+; Folding = w-------------f5-------------4H+-j-C1Ql3m-----------BAwLgfQEAwvfw-Hgw1---X5Q9-------DAg-----d--
+; EnableThread
 ; EnableXP
 ; DPIAware
 ; EnableUnicode
