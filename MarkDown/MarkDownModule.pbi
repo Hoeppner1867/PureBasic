@@ -9,7 +9,7 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 30.03.2020
+; Last Update: 31.03.2020
 ;
 ; - Added: InsertAsPD()
 ; - Added: InsertAsHTML()
@@ -88,7 +88,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20033000
+  #Version  = 20033100
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -7754,12 +7754,8 @@ Module MarkDown
 	    ForEach MarkDown()\Image()
 	      
 	      Image$ = GetFilePart(MarkDown()\Image()\Source)
-	      
-        If MarkDown()\Path
-          Images(Image$) = MarkDown()\Path + Image$
-        Else  
-          Images(Image$) = MarkDown()\Image()\Source
-        EndIf
+	        
+        Images(Image$) = MarkDown()\Image()\Source
         
 	    Next
 	    
@@ -9762,10 +9758,10 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 283
-; FirstLine = 71
-; Folding = wAABhCAAAAAAAAAABBAAQIAAAAgAJUC1fafAAAAAYADQAAAAIIADCgBDCgHAECAAACAQAKQwBAEAgSZEAgAGPBAgA5YAgBDAA5By
+; IDE Options = PureBasic 5.72 (Windows - x64)
+; CursorPosition = 90
+; FirstLine = 12
+; Folding = wAABhCAAAAAAAAAABBAAQIAAAAgAJUC1fafAAAAAYADQAAAAIIADCgBDCgHAECAAACAQAKQwBAEAgSZGAgAGPRKwA5YAgBDAA5By
 ; Markers = 3175,5060,6385
 ; EnableXP
 ; DPIAware
