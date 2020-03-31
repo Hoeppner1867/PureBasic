@@ -9,19 +9,13 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 29.03.2020
+; Last Update: 30.03.2020
+;
+; - Added: InsertAsPD()
+; - Added: InsertAsHTML()
 ;
 ; - Added:   Attribute #ScrollBar [#ScrollBar_Default/#ScrollBar_Frame/#ScrollBar_DragPoint]
 ; - Added:   SetColor() -> [#ScrollBar_FrontColor/#ScrollBar_BackColor/#ScrollBar_BorderColor/#ScrollBar_ButtonColor/#ScrollBar_ThumbColor]
-;
-; - Changed: ScrollBarGadget() replaced by drawing routine
-;
-; - Added: Notes for PDF & HTML
-; - Added: Notes (info/question/error/caution)
-; - Added: External CSS for HTML help
-; - Added: Glossary - "[?Word]" / "{{Glossary}}"
-; - Added: Markdown::Help()
-; - Added: Markdown::Requester()
 ;
 
 ;{ ===== MIT License =====
@@ -94,7 +88,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20032900
+  #Version  = 20033000
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -287,7 +281,7 @@ DeclareModule MarkDown
 	
 	Declare.i UsedImages(Markdown.s, Map Images.s())
 	Declare   Convert(MarkDown.s, Type.i, File.s="", Title.s="")
-	Declare   InsertAsPDF(PDF.i, MarkDown.s)
+	Declare   InsertAsPDF(PDF.i, MarkDown.s, LeftMargin.i=10, RightMargin.i=10, FontSize.i=12)
 	Declare.s InsertAsHTML(MarkDown.s)
 	Declare   SetImagePath(GNum.i, Path.s)
 	Declare   SetText(GNum.i, Text.s)
@@ -1250,8 +1244,8 @@ Module MarkDown
     ProcedureReturn Font
   EndProcedure
  
-  Procedure.i DetermineTextSize_()
-    Define.i Font, TextHeight, Image
+  Procedure.i DetermineTextSize_(NoGadget.i=#False)
+    Define.i Font, TextHeight, Image, Output, OutputNum
     Define.i Key$, Image$
     
     Font = #PB_Default
@@ -1259,7 +1253,20 @@ Module MarkDown
     MarkDown()\Required\Width  = 0
     MarkDown()\Required\Height = 0
     
-    If StartDrawing(CanvasOutput(MarkDown()\CanvasNum))
+    If NoGadget
+      OutputNum = CreateImage(#PB_Any, 0, 0)
+      If OutputNum
+        Output = ImageOutput(OutputNum)
+      Else
+        ProcedureReturn #False
+      EndIf  
+    ElseIf IsGadget(MarkDown()\CanvasNum)
+      Output = CanvasOutput(MarkDown()\CanvasNum)
+    Else
+      ProcedureReturn #False
+    EndIf  
+    
+    If StartDrawing(Output)
       
       ;{ _____ Items _____
       ForEach MarkDown()\Items()
@@ -1655,6 +1662,10 @@ Module MarkDown
       
       StopDrawing()
 		EndIf
+		
+		If NoGadget
+		  FreeImage(OutputNum)
+		EndIf   
 		
   EndProcedure	
   
@@ -2466,76 +2477,76 @@ Module MarkDown
   
   CompilerIf Defined(PDF, #PB_Module)
     
-    Procedure.i FontPDF_(PDF.i, Font.i, Underline.i=#False)
+    Procedure.i FontPDF_(PDF.i, Font.i, Underline.i=#False, FontSize.i=12)
 
       Select Font
         Case #FontNote
-          PDF::SetFont(PDF, "Arial", "B", 16)
+          PDF::SetFont(PDF, "Arial", "B", FontSize + 4)
         Case #Font_Bold
           If Underline
-            PDF::SetFont(PDF, "Arial", "BU", 12)
+            PDF::SetFont(PDF, "Arial", "BU", FontSize)
           Else  
-            PDF::SetFont(PDF, "Arial", "B", 12)
+            PDF::SetFont(PDF, "Arial", "B", FontSize)
           EndIf  
         Case #Font_Italic
           If Underline
-            PDF::SetFont(PDF, "Arial", "IU", 12)
+            PDF::SetFont(PDF, "Arial", "IU", FontSize)
           Else
-            PDF::SetFont(PDF, "Arial", "I", 12)
+            PDF::SetFont(PDF, "Arial", "I", FontSize)
           EndIf
         Case #Font_BoldItalic 
           If Underline
-            PDF::SetFont(PDF, "Arial", "BIU", 12)
+            PDF::SetFont(PDF, "Arial", "BIU", FontSize)
           Else
-            PDF::SetFont(PDF, "Arial", "BI", 12)
+            PDF::SetFont(PDF, "Arial", "BI", FontSize)
           EndIf  
         Case #Font_FootText
           If Underline
-            PDF::SetFont(PDF, "Arial", "U", 9)
+            PDF::SetFont(PDF, "Arial", "U", FontSize - 3)
           Else
-            PDF::SetFont(PDF, "Arial", "", 9)
+            PDF::SetFont(PDF, "Arial", "", FontSize - 3)
           EndIf  
         Case #Font_FootBold
           If Underline
-            PDF::SetFont(PDF, "Arial", "BU", 9)
+            PDF::SetFont(PDF, "Arial", "BU", FontSize - 3)
           Else
-            PDF::SetFont(PDF, "Arial", "B", 9)
+            PDF::SetFont(PDF, "Arial", "B", FontSize - 3)
           EndIf  
         Case #Font_FootItalic
           If Underline
-            PDF::SetFont(PDF, "Arial", "IU", 9) 
+            PDF::SetFont(PDF, "Arial", "IU", FontSize - 3) 
           Else
-            PDF::SetFont(PDF, "Arial", "I", 9) 
+            PDF::SetFont(PDF, "Arial", "I", FontSize - 3) 
           EndIf  
         Case #Font_FootBoldItalic
           If Underline
-            PDF::SetFont(PDF, "Arial", "BIU", 9)
+            PDF::SetFont(PDF, "Arial", "BIU", FontSize - 3)
           Else
-            PDF::SetFont(PDF, "Arial", "BI", 9)
+            PDF::SetFont(PDF, "Arial", "BI", FontSize -3)
           EndIf  
         Case #Font_Code
           If Underline
-            PDF::SetFont(PDF, "Courier New", "U", 12)
+            PDF::SetFont(PDF, "Courier New", "U", FontSize)
           Else
-            PDF::SetFont(PDF, "Courier New", "", 12)
+            PDF::SetFont(PDF, "Courier New", "", FontSize)
           EndIf  
         Case #Font_H6
-          PDF::SetFont(PDF, "Arial", "B",  8)
+          PDF::SetFont(PDF, "Arial", "B", FontSize - 4)
         Case #Font_H5
-          PDF::SetFont(PDF, "Arial", "B", 10)
+          PDF::SetFont(PDF, "Arial", "B", FontSize - 2)
         Case #Font_H4
-          PDF::SetFont(PDF, "Arial", "B", 12)
+          PDF::SetFont(PDF, "Arial", "B", FontSize)
         Case #Font_H3
-          PDF::SetFont(PDF, "Arial", "B", 14)
+          PDF::SetFont(PDF, "Arial", "B", FontSize + 2)
         Case #Font_H2
-          PDF::SetFont(PDF, "Arial", "B", 18)
+          PDF::SetFont(PDF, "Arial", "B", FontSize + 6)
         Case #Font_H1 
-          PDF::SetFont(PDF, "Arial", "B", 24)
+          PDF::SetFont(PDF, "Arial", "B", FontSize + 12)
         Default
           If Underline
-            PDF::SetFont(PDF, "Arial", "U", 12)
+            PDF::SetFont(PDF, "Arial", "U", FontSize)
           Else
-            PDF::SetFont(PDF, "Arial", "", 12)
+            PDF::SetFont(PDF, "Arial", "", FontSize)
           EndIf   
       EndSelect
       ProcedureReturn Font
@@ -2627,7 +2638,7 @@ Module MarkDown
       ProcedureReturn OffsetX
     EndProcedure
   
-    Procedure.i RowPDF_(PDF.i, X.i, BlockQuote.i, List Words.Words_Structure(), ColWidth.i=#False, Align.s="L", ID.s="")
+    Procedure.i RowPDF_(PDF.i, X.i, BlockQuote.i, List Words.Words_Structure(), ColWidth.i=#False, Align.s="L", ID.s="", FontSize.i=12)
       Define.i PosX, PosY, Width, Height, Font, TextWidth, ImgSize, Image, WordIdx, bqY, bqHeight 
       Define.i OffSetX, OffSetY, OffSetBQ, LinkPDF
       Define.s Link$, ID$, File$
@@ -2647,10 +2658,10 @@ Module MarkDown
       
       ForEach Words()
         
-        If Font <> Words()\Font : Font = FontPDF_(PDF, Words()\Font) : EndIf
+        If Font <> Words()\Font : Font = FontPDF_(PDF, Words()\Font, #False, FontSize) : EndIf
         
         If Words()\Flag = #Underline
-          FontPDF_(PDF, Words()\Font, #True)
+          FontPDF_(PDF, Words()\Font, #True, FontSize)
           Font = #PB_Default
         EndIf
         
@@ -2705,7 +2716,7 @@ Module MarkDown
               EndIf
 
               PDF::SetColorRGB(PDF, PDF::#TextColor, 0)
-              FontPDF_(PDF, Words()\Font)
+              FontPDF_(PDF, Words()\Font, #False, FontSize)
               
             EndIf
             ;}             
@@ -2715,7 +2726,7 @@ Module MarkDown
             PDF::SetPosX(PDF, X + 4)
             ;}  
           Case #FootNote       ;{ Footnote
-            FontPDF_(PDF, #Font_FootBold)
+            FontPDF_(PDF, #Font_FootBold, #False, FontSize)
             PDF::SubWrite(PDF, Words()\String, 4.5, 7, 5)
             ;}
           Case #Highlight      ;{ Highlighted text
@@ -2769,7 +2780,7 @@ Module MarkDown
               EndIf
 
               PDF::SetColorRGB(PDF, PDF::#TextColor, 0)
-              FontPDF_(PDF, Words()\Font)
+              FontPDF_(PDF, Words()\Font, #False, FontSize)
               
             EndIf
             ;}
@@ -2847,13 +2858,13 @@ Module MarkDown
       ProcedureReturn X + (cWidth * 2)
     EndProcedure
     
-    Procedure.i NotePDF(PDF.i, Index.i, X.i, Y.i, Width) 
+    Procedure.i NotePDF(PDF.i, Index.i, X.i, Y.i, Width, FontSize.i) 
       Define.i PosX, Height, HeaderHeight, OffsetX, OffsetY, BackColor
       Define.s Symbol$, Char$
       
       If SelectElement(MarkDown()\Note(), Index)
         
-        FontPDF_(PDF, #Font_Bold)
+        FontPDF_(PDF, #Font_Bold, #False, FontSize)
         
         Height = (ListSize(MarkDown()\Note()\Row()) + 1) * PDF::GetStringHeight(PDF) + 8
         HeaderHeight = PDF::GetStringHeight(PDF) + 4
@@ -2902,12 +2913,12 @@ Module MarkDown
         
         PDF::SetPosY(PDF, Y + 2)
         
-        RowPDF_(PDF, PosX + 1, #False, MarkDown()\Items()\Words(), Width)
+        RowPDF_(PDF, PosX + 1, #False, MarkDown()\Items()\Words(), Width, "L", "", FontSize)
         
         PDF::Ln(PDF, 3)
         
         ForEach MarkDown()\Note()\Row()
-          RowPDF_(PDF, 13, #False, MarkDown()\Note()\Row()\Words(), Width)
+          RowPDF_(PDF, 13, #False, MarkDown()\Note()\Row()\Words(), Width, "L", "", FontSize)
         Next
         
         PDF::SetColorRGB(PDF, PDF::#DrawColor, 0, 0, 0)
@@ -2917,7 +2928,7 @@ Module MarkDown
       
     EndProcedure
     
-    Procedure   ConvertPDF_(PDF.i)
+    Procedure   ConvertPDF_(PDF.i, LeftMargin.i=10, RightMargin.i=10, FontSize.i=12)
       Define.i PosX, PosY, X, Y, Width, Height, LastX, LastWidth, RowY, TextWidth, Link
       Define.i c, Cols, ColWidth, OffSetX, Width, Height, PageWidth
       Define.s Bullet$, Align$, Text$, Level$, Image$, File$, Num$
@@ -2926,6 +2937,9 @@ Module MarkDown
       NewMap ColX.i()
       
       If PDF
+        
+        PDF::SetMargin(PDF, PDF::#TopMargin,  LeftMargin)
+        PDF::SetMargin(PDF, PDF::#LeftMargin, RightMargin)
         
         PageWidth = PDF::GetPageWidth(PDF)
         
@@ -2961,7 +2975,7 @@ Module MarkDown
           
           MarkDown()\WrapPos = PageWidth - PDF::GetMargin(PDF, PDF::#RightMargin)
           
-          FontPDF_(PDF, #Font_Normal)
+          FontPDF_(PDF, #Font_Normal, #False, FontSize)
           
           Select MarkDown()\Items()\Type
             Case #Heading          ;{ Heading
@@ -2971,9 +2985,9 @@ Module MarkDown
               EndIf
             
               If MarkDown()\Items()\ID
-                RowPDF_(PDF, 10, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words(), #False, "L", MarkDown()\Items()\ID)
+                RowPDF_(PDF, LeftMargin, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words(), #False, "L", MarkDown()\Items()\ID, FontSize)
               Else
-                RowPDF_(PDF, 10, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words())
+                RowPDF_(PDF, LeftMargin, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words(), #False, "L", "", FontSize)
               EndIf  
 
               PDF::Ln(PDF, 3)
@@ -3005,7 +3019,7 @@ Module MarkDown
 
                 If ListSize(MarkDown()\Items()\Words())
                   PDF::SetPosY(PDF, PosY + Height + 1)
-                  RowPDF_(PDF, 0, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words(), PageWidth, "C")
+                  RowPDF_(PDF, LeftMargin, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words(), PageWidth, "C", "", FontSize)
                 Else  
                   PDF::SetPosY(PDF, PosY + Height)
     	          EndIf
@@ -3022,7 +3036,7 @@ Module MarkDown
               
                 ForEach MarkDown()\Lists()\Row()
                   
-                  FontPDF_(PDF, #Font_Normal)
+                  FontPDF_(PDF, #Font_Normal, #False, FontSize)
                   
                   Level$ = Str(MarkDown()\Lists()\Row()\Level)
                   
@@ -3031,15 +3045,15 @@ Module MarkDown
                   TextWidth = PDF::GetStringWidth(PDF, Str(ListNum(Level$)) + ". ")
                   
                   If MarkDown()\Lists()\Row()\Level
-                    PDF::SetPosX(PDF, 15 + (TextWidth * MarkDown()\Lists()\Row()\Level))
+                    PDF::SetPosX(PDF, LeftMargin + 5 + (TextWidth * MarkDown()\Lists()\Row()\Level))
                   Else  
-                    PDF::SetPosX(PDF, 15)
+                    PDF::SetPosX(PDF, LeftMargin + 5)
                   EndIf 
 
                   PDF::Cell(PDF, Str(ListNum(Level$)) + ". ", TextWidth)
                   
                   X = PDF::GetPosX(PDF)
-                  RowPDF_(PDF, X, #False, MarkDown()\Lists()\Row()\Words())
+                  RowPDF_(PDF, X, #False, MarkDown()\Lists()\Row()\Words(), #False, "L", "", FontSize)
                   
                 Next 
                 
@@ -3051,22 +3065,22 @@ Module MarkDown
               
                 ForEach MarkDown()\Lists()\Row()
                   
-                  FontPDF_(PDF, #Font_Normal)
+                  FontPDF_(PDF, #Font_Normal, #False, FontSize)
                   
                   Bullet$ = #Bullet$
                   
                   TextWidth = PDF::GetStringWidth(PDF, Bullet$ + " ")
                   
                   If MarkDown()\Lists()\Row()\Level
-                    PDF::SetPosX(PDF, 15 + (TextWidth * MarkDown()\Lists()\Row()\Level))
+                    PDF::SetPosX(PDF, LeftMargin + 5 + (TextWidth * MarkDown()\Lists()\Row()\Level))
                   Else  
-                    PDF::SetPosX(PDF, 15)
+                    PDF::SetPosX(PDF, LeftMargin + 5)
                   EndIf 
 
                   PDF::Cell(PDF, Bullet$ + " ", TextWidth)
                   
                   X = PDF::GetPosX(PDF)
-                  RowPDF_(PDF, X, #False, MarkDown()\Lists()\Row()\Words())
+                  RowPDF_(PDF, X, #False, MarkDown()\Lists()\Row()\Words(), #False, "L", "", FontSize)
                   
                 Next 
                 
@@ -3082,10 +3096,10 @@ Module MarkDown
               
                 ForEach MarkDown()\Lists()\Row()
                   
-                  FontPDF_(PDF, #Font_Normal)
+                  FontPDF_(PDF, #Font_Normal, #False, FontSize)
                   
                   X = PDF::GetPosX(PDF)
-                  PDF::SetPosX(PDF, 15)
+                  PDF::SetPosX(PDF, LeftMargin + 5)
                   
                   If MarkDown()\Lists()\Row()\State
                     EmojiPDF_(PDF, ":check1:", X, #PB_Default, 4)
@@ -3095,7 +3109,7 @@ Module MarkDown
 
                   X = PDF::GetPosX(PDF) + PDF::GetStringWidth(PDF, " ")
                   
-                  RowPDF_(PDF, X, MarkDown()\Items()\BlockQuote, MarkDown()\Lists()\Row()\Words())
+                  RowPDF_(PDF, X, MarkDown()\Items()\BlockQuote, MarkDown()\Lists()\Row()\Words(), #False, "L", "", FontSize)
                   
                   PDF::Ln(PDF, 0.5)
                 Next
@@ -3111,13 +3125,13 @@ Module MarkDown
               
               If SelectElement(MarkDown()\Lists(), MarkDown()\Items()\Index)
                 
-                RowPDF_(PDF, 10, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words())
+                RowPDF_(PDF, LeftMargin, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words(), #False, "L", "", FontSize)
                 
                 PDF::Ln(PDF, 1)
                 
                 ForEach MarkDown()\Lists()\Row()
-                  FontPDF_(PDF, #Font_Normal)
-                  RowPDF_(PDF, 15, MarkDown()\Items()\BlockQuote, MarkDown()\Lists()\Row()\Words())
+                  FontPDF_(PDF, #Font_Normal, #False, FontSize)
+                  RowPDF_(PDF, LeftMargin + 5, MarkDown()\Items()\BlockQuote, MarkDown()\Lists()\Row()\Words(), #False, "L", "", FontSize)
                 Next
                 
                 PDF::Ln(PDF, 2)
@@ -3135,13 +3149,13 @@ Module MarkDown
                 ForEach MarkDown()\Lists()\Row()
                   
                   PDF::SetPosX(PDF, 10)
-                  FontPDF_(PDF, #Font_Bold)
+                  FontPDF_(PDF, #Font_Bold, #False, FontSize)
                   PDF::Cell(PDF, MarkDown()\Lists()\Row()\String, PDF::GetStringWidth(PDF, MarkDown()\Lists()\Row()\String), #PB_Default, #False, PDF::#NextLine) 
                   
                   PDF::Ln(PDF, 1.5)
                   
-                  FontPDF_(PDF, #Font_Normal)
-                  RowPDF_(PDF, 15, MarkDown()\Items()\BlockQuote, MarkDown()\Lists()\Row()\Words())
+                  FontPDF_(PDF, #Font_Normal, #False, FontSize)
+                  RowPDF_(PDF, LeftMargin + 5, MarkDown()\Items()\BlockQuote, MarkDown()\Lists()\Row()\Words(), #False, "L", "", FontSize)
                   
                 Next
                 
@@ -3166,7 +3180,7 @@ Module MarkDown
                 ClearMap(ColX())
                 
                 ;{ ___ Columns ___
-                X = 10
+                X = LeftMargin
                 For c=1 To MarkDown()\Table()\Cols
                   
                   Num$ = Str(c)
@@ -3187,7 +3201,7 @@ Module MarkDown
 
   			          If MarkDown()\Table()\Row()\Type = #Table|#Header ;{ Header
   			            
-  			            FontPDF_(PDF, #Font_Bold)
+  			            FontPDF_(PDF, #Font_Bold, #False, FontSize)
   			            
   			            PDF::SetColorRGB(PDF, PDF::#FillColor, 245, 245, 245)
                     For c=1 To Cols
@@ -3203,7 +3217,7 @@ Module MarkDown
                       PDF::SetPosY(PDF, Y + 1)
                       
                       If FindMapElement(MarkDown()\Table()\Row()\Col(), Str(c))
-                        RowPDF_(PDF, X, #False, MarkDown()\Table()\Row()\Col()\Words(), ColWidth, MarkDown()\Table()\Column(Str(c))\Align)
+                        RowPDF_(PDF, X, #False, MarkDown()\Table()\Row()\Col()\Words(), ColWidth, MarkDown()\Table()\Column(Str(c))\Align, "", FontSize)
                       EndIf
                       
                       If PDF::GetPosY(PDF)> RowY : RowY = PDF::GetPosY(PDF) : EndIf 
@@ -3216,7 +3230,7 @@ Module MarkDown
                     ;}
     			        Else                                              ;{ Content
     			          
-    			          FontPDF_(PDF, #Font_Normal)
+    			          FontPDF_(PDF, #Font_Normal, #False, FontSize)
                     
                     For c=1 To Cols
                       
@@ -3255,7 +3269,7 @@ Module MarkDown
                       PDF::SetPosY(PDF, Y + 1)
                       
                       If FindMapElement(MarkDown()\Table()\Row()\Col(), Str(c))
-                        RowPDF_(PDF, X, #False, MarkDown()\Table()\Row()\Col()\Words(), ColWidth, MarkDown()\Table()\Column(Num$)\Align)
+                        RowPDF_(PDF, X, #False, MarkDown()\Table()\Row()\Col()\Words(), ColWidth, MarkDown()\Table()\Column(Num$)\Align, "", FontSize)
                       EndIf
                       
                       If PDF::GetPosY(PDF) > RowY : RowY = PDF::GetPosY(PDF) : EndIf 
@@ -3280,7 +3294,7 @@ Module MarkDown
               
               If SelectElement(MarkDown()\Block(), MarkDown()\Items()\Index)
                 
-                FontPDF_(PDF, #Font_Code)
+                FontPDF_(PDF, #Font_Code, #False, FontSize)
                 PDF::SetColorRGB(PDF, PDF::#TextColor, 0, 100, 0)
                 ForEach MarkDown()\Block()\Row()
                   PDF::Cell(PDF, MarkDown()\Block()\Row(), #PB_Default, #PB_Default, #False, PDF::#NextLine)  
@@ -3293,13 +3307,13 @@ Module MarkDown
             Case #Note             ;{ Note
               
               Y = PDF::GetPosY(PDF)
-              NotePDF(PDF, MarkDown()\Items()\Index, 10, Y, PageWidth - 30) 
+              NotePDF(PDF, MarkDown()\Items()\Index, LeftMargin, Y, PageWidth - 30, FontSize) 
             ;}  
             Case #InsertTOC        ;{ Table of Contents
               PDF::InsertTOC(PDF, #False, "")
               ;}
             Default                ;{ Text
-              RowPDF_(PDF, 10, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words())
+              RowPDF_(PDF, LeftMargin, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words(), #False, "L", "", FontSize)
               ;}  
           EndSelect
           
@@ -3312,12 +3326,12 @@ Module MarkDown
           PDF::Ln(PDF, 2)
           
           ForEach MarkDown()\Footnote()
-            FontPDF_(PDF, #Font_FootBold)
+            FontPDF_(PDF, #Font_FootBold, #False, FontSize)
             PDF::SubWrite(PDF, MarkDown()\FootNote()\Label + " ", 4.5, 7, 5)
-            FontPDF_(PDF, #Font_FootNote)
+            FontPDF_(PDF, #Font_FootNote, #False, FontSize)
             X = PDF::GetPosX(PDF)
             If FindMapElement(MarkDown()\FootLabel(), MarkDown()\FootNote()\Label)
-              RowPDF_(PDF, X, #False, MarkDown()\FootLabel()\Words())
+              RowPDF_(PDF, X, #False, MarkDown()\FootLabel()\Words(), #False, "L", "", FontSize)
             EndIf
           Next
     		  ;}
@@ -3327,21 +3341,19 @@ Module MarkDown
       
     EndProcedure
     
-    Procedure   ExportPDF_(File.s, Title.s="")
+    Procedure   ExportPDF_(File.s, Title.s="", LeftMargin.i=10, RightMargin.i=10)
       Define.i PDF
 
       PDF = PDF::Create(#PB_Any)
       If PDF
         
         If Title : PDF::SetInfo(PDF, PDF::#Title, Title) : EndIf
-        
-        PDF::SetMargin(PDF, PDF::#TopMargin,  10)
-        PDF::SetMargin(PDF, PDF::#LeftMargin, 10)
+
         PDF::SetMargin(PDF, PDF::#CellMargin,  0)
         
         PDF::AddPage(PDF)
         
-        ConvertPDF_(PDF)
+        ConvertPDF_(PDF, 10, 10)
 
         PDF::Close(PDF, File)
       EndIf
@@ -7635,7 +7647,7 @@ Module MarkDown
 	;-   Module - Declared Procedures
 	;- ==========================================================================
   
-  Procedure   InsertAsPDF(PDF.i, MarkDown.s)
+  Procedure   InsertAsPDF(PDF.i, MarkDown.s, LeftMargin.i=10, RightMargin.i=10, FontSize.i=12)
 	  
 	  If AddMapElement(MarkDown(), "Parse")
 	    
@@ -7643,7 +7655,7 @@ Module MarkDown
 	    
 	    DetermineTextSize_()
 	    
-	    ConvertPDF_(PDF)
+	    ConvertPDF_(PDF, LeftMargin, RightMargin)
     	
 	    DeleteMapElement(MarkDown())
 	  EndIf  
@@ -9751,9 +9763,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 96
-; FirstLine = 9
-; Folding = wAABgCAAAAAAAAAABAAAQJAAAAgAJAAAAAAAAAAAYADQAAAAIIADCgBDCgHAECAAACAQAKQwBAEAgSbEAgAGPBAgA5YAgBDAA5By
-; Markers = 3161,5048,6373
+; CursorPosition = 283
+; FirstLine = 71
+; Folding = wAABhCAAAAAAAAAABBAAQIAAAAgAJUC1fafAAAAAYADQAAAAIIADCgBDCgHAECAAACAQAKQwBAEAgSZEAgAGPBAgA5YAgBDAA5By
+; Markers = 3175,5060,6385
 ; EnableXP
 ; DPIAware
