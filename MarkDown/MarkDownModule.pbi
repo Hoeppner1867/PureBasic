@@ -11,6 +11,7 @@
 
 ; Last Update: 01.04.2020
 ;
+; - Added: Relative paths for images
 ; - Added: InsertAsPD()
 ; - Added: InsertAsHTML()
 ;
@@ -88,7 +89,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20040100
+  #Version  = 20040101
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -1246,7 +1247,7 @@ Module MarkDown
  
   Procedure.i DetermineTextSize_(NoGadget.i=#False)
     Define.i Font, TextHeight, Image, Output, OutputNum
-    Define.i Key$, Image$
+    Define.i Key$, Image$, File$
     
     Font = #PB_Default
     
@@ -1290,15 +1291,17 @@ Module MarkDown
               If SelectElement(MarkDown()\Image(), MarkDown()\Items()\Words()\Index)
                 
                 Image$ = GetFilePart(MarkDown()\Image()\Source)
+                File$  = MarkDown()\Image()\Source
+                If Left(GetPathPart(File$), 3) = ".." + #PS$ : File$ = MarkDown()\Path + Mid(File$, 4) : EndIf
                 
                 If Not FindMapElement(MarkDown()\ImageNum(), Image$)
                   If AddMapElement(MarkDown()\ImageNum(), Image$)
-                    If GetPathPart(MarkDown()\Image()\Source)
-                      MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+                    If GetPathPart(File$)
+                      MarkDown()\ImageNum() = LoadImage(#PB_Any, File$) 
                     ElseIf MarkDown()\Path
                       MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Path + Image$)
                     Else  
-                      MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+                      MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
                     EndIf
                   EndIf
                 EndIf
@@ -1361,15 +1364,17 @@ Module MarkDown
                 If SelectElement(MarkDown()\Image(), MarkDown()\Lists()\Row()\Words()\Index)
                   
                   Image$ = GetFilePart(MarkDown()\Image()\Source)
+                  File$  = MarkDown()\Image()\Source
+                  If Left(GetPathPart(File$), 3) = ".." + #PS$ : File$ = MarkDown()\Path + Mid(File$, 4) : EndIf
                   
                   If Not FindMapElement(MarkDown()\ImageNum(), Image$)
                     If AddMapElement(MarkDown()\ImageNum(), Image$)
-                      If GetPathPart(MarkDown()\Image()\Source)
-                        MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+                      If GetPathPart(File$)
+                        MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
                       ElseIf MarkDown()\Path
                         MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Path + Image$)
                       Else  
-                        MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+                        MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
                       EndIf
                     EndIf
                   EndIf
@@ -1442,15 +1447,17 @@ Module MarkDown
                   If SelectElement(MarkDown()\Image(), MarkDown()\Table()\Row()\Col()\Words()\Index)
                     
                     Image$ = GetFilePart(MarkDown()\Image()\Source)
+                    File$  = MarkDown()\Image()\Source
+                    If Left(GetPathPart(File$), 3) = ".." + #PS$ : File$ = MarkDown()\Path + Mid(File$, 4) : EndIf
                     
                     If Not FindMapElement(MarkDown()\ImageNum(), Image$)
                       If AddMapElement(MarkDown()\ImageNum(), Image$)
-                        If GetPathPart(MarkDown()\Image()\Source)
-                          MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+                        If GetPathPart(File$)
+                          MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
                         ElseIf MarkDown()\Path
                           MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Path + Image$)
                         Else  
-                          MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+                          MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
                         EndIf
                       EndIf
                     EndIf
@@ -1527,15 +1534,17 @@ Module MarkDown
                 If SelectElement(MarkDown()\Image(), MarkDown()\Note()\Row()\Words()\Index)
                   
                   Image$ = GetFilePart(MarkDown()\Image()\Source)
+                  File$  = MarkDown()\Image()\Source
+                  If Left(GetPathPart(File$), 3) = ".." + #PS$ : File$ = MarkDown()\Path + Mid(File$, 4) : EndIf
                   
                   If Not FindMapElement(MarkDown()\ImageNum(), Image$)
                     If AddMapElement(MarkDown()\ImageNum(), Image$)
-                      If GetPathPart(MarkDown()\Image()\Source)
-                        MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+                      If GetPathPart(File$)
+                        MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
                       ElseIf MarkDown()\Path
                         MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Path + Image$)
                       Else  
-                        MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+                        MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
                       EndIf
                     EndIf
                   EndIf
@@ -1602,15 +1611,17 @@ Module MarkDown
               If SelectElement(MarkDown()\Image(), MarkDown()\FootLabel()\Words()\Index)
                 
                 Image$ = GetFilePart(MarkDown()\Image()\Source)
+                File$  = MarkDown()\Image()\Source
+                If Left(GetPathPart(File$), 3) = ".." + #PS$ : File$ = MarkDown()\Path + Mid(File$, 4) : EndIf
                 
   			        If Not FindMapElement(MarkDown()\ImageNum(), Image$)
   			          If AddMapElement(MarkDown()\ImageNum(), Image$)
-  			            If GetPathPart(MarkDown()\Image()\Source)
-                      MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+  			            If GetPathPart(File$)
+                      MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
                     ElseIf MarkDown()\Path
                       MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Path + Image$)
                     Else  
-                      MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+                      MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
                     EndIf
                   EndIf
                 EndIf
@@ -1982,6 +1993,7 @@ Module MarkDown
             Case #Image        ;{ Images
 
               If SelectElement(MarkDown()\Image(), Words()\Index)
+                
                 If MarkDown()\Image()\Title
                   HTML$ + "<img src=" + #DQUOTE$ + MarkDown()\Image()\Source + #DQUOTE$ + " alt=" + #DQUOTE$ + EscapeHTML_(Words()\String) + #DQUOTE$ + " title=" + #DQUOTE$ + EscapeHTML_(MarkDown()\Image()\Title) + #DQUOTE$ + " />"
                 Else  
@@ -5840,7 +5852,7 @@ Module MarkDown
   Procedure.i DrawRow_(X.i, Y.i, Width.i, Height.i, BlockQuote.i, List Words.Words_Structure(), ColWidth.i=#False, Align.s="L")
     Define.i Font, TextWidth, ImgSize, Image, WordIdx
     Define.i Pos, PosX, PosY, lX, lY, OffSetX, OffSetY, OffSetBQ
-    Define.s Word$, Image$
+    Define.s Word$, Image$, File$
     
     If BlockQuote : OffSetBQ = dpiX(10) * BlockQuote : EndIf 
     
@@ -5943,15 +5955,17 @@ Module MarkDown
               
               ;{ Load Image
               Image$ = GetFilePart(MarkDown()\Image()\Source)
+              File$  = MarkDown()\Image()\Source
+              If Left(GetPathPart(File$), 3) = ".." + #PS$ : File$ = MarkDown()\Path + Mid(File$, 4) : EndIf
               
               If Not FindMapElement(MarkDown()\ImageNum(), Image$)
                 If AddMapElement(MarkDown()\ImageNum(), Image$)
-                  If GetPathPart(MarkDown()\Image()\Source)
-                    MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+                  If GetPathPart(File$)
+                    MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
                   ElseIf MarkDown()\Path
                     MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Path + Image$)
                   Else  
-                    MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+                    MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
                   EndIf  
                   If IsImage(MarkDown()\ImageNum())
     			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
@@ -6106,15 +6120,17 @@ Module MarkDown
               
               ;{ Load Image
               Image$ = GetFilePart(MarkDown()\Image()\Source)
+              File$  = MarkDown()\Image()\Source
+              If Left(GetPathPart(File$), 3) = ".." + #PS$ : File$ = MarkDown()\Path + Mid(File$, 4) : EndIf
               
               If Not FindMapElement(MarkDown()\ImageNum(), Image$)
                 If AddMapElement(MarkDown()\ImageNum(), Image$)
-                  If GetPathPart(MarkDown()\Image()\Source)
-                    MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+                  If GetPathPart(File$)
+                    MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
                   ElseIf MarkDown()\Path
                     MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Path + Image$)
                   Else  
-                    MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+                    MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
                   EndIf  
                   If IsImage(MarkDown()\ImageNum())
     			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
@@ -6503,7 +6519,7 @@ Module MarkDown
 	  Define.i Indent, Level, Offset, OffSetX, OffSetY, maxCol, ImgSize
 	  Define.i c, OffsetList, NumWidth, ColWidth, TableWidth
 		Define.i FrontColor, BackColor, BorderColor, LinkColor
-		Define.s Text$, Num$, ColText$, Label$, Image$
+		Define.s Text$, Num$, ColText$, Label$, Image$, File$
 
 		If MarkDown()\Hide : ProcedureReturn #False : EndIf 
 		
@@ -6622,16 +6638,18 @@ Module MarkDown
 			        
 			        ;{ Load Image
 			        Image$ = GetFilePart(MarkDown()\Image()\Source)
+			        File$  = MarkDown()\Image()\Source
+			        If Left(GetPathPart(File$), 3) = ".." + #PS$ : File$ = MarkDown()\Path + Mid(File$, 4) : EndIf
 			        
               If Not FindMapElement(MarkDown()\ImageNum(), Image$)
                 If AddMapElement(MarkDown()\ImageNum(), Image$)
                   
-                  If GetPathPart(MarkDown()\Image()\Source)
-                    MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+                  If GetPathPart(File$)
+                    MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
                   ElseIf MarkDown()\Path
                     MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Path + Image$)
                   Else  
-                    MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+                    MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
                   EndIf 
                   
                   If IsImage(MarkDown()\ImageNum())
@@ -7770,7 +7788,7 @@ Module MarkDown
 	EndProcedure  
 	
 	Procedure.i UsedImages(Markdown.s, Map Images.s())
-	  Define.s Image$
+	  Define.s Image$, File$
 
     If AddMapElement(MarkDown(), "Parse")
       
@@ -7779,13 +7797,15 @@ Module MarkDown
 	    ForEach MarkDown()\Image()
 	      
 	      Image$ = GetFilePart(MarkDown()\Image()\Source)
+	      File$  = MarkDown()\Image()\Source
+	      If Left(GetPathPart(File$), 3) = ".." + #PS$ : File$ = MarkDown()\Path + Mid(File$, 4) : EndIf
 	      
-	      If GetPathPart(MarkDown()\Image()\Source)
-          MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+	      If GetPathPart(File$)
+          MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
         ElseIf MarkDown()\Path
           MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Path + Image$)
         Else  
-          MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Image()\Source)
+          MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
         EndIf  
 	      
         Images(Image$) = MarkDown()\Image()\Source
@@ -8353,17 +8373,20 @@ Module MarkDown
               EndSelect
           EndSelect
         Until quitWindow
-
-        Result = MarkDown()\Requester\Result
         
-        UnbindGadgetEvent(MarkDown()\CanvasNum,  @_MouseMoveHandler(),      #PB_EventType_MouseMove)
-				UnbindGadgetEvent(MarkDown()\CanvasNum,  @_LeftButtonDownHandler(), #PB_EventType_LeftButtonDown)
-				UnbindGadgetEvent(MarkDown()\CanvasNum,  @_LeftButtonUpHandler(),   #PB_EventType_LeftButtonUp)
-				UnbindGadgetEvent(MarkDown()\CanvasNum,  @_MouseWheelHandler(),     #PB_EventType_MouseWheel)
-
-        CloseWindow(MarkDown()\Window\Num)
+        If FindMapElement(MarkDown(), Str(GNum))
+          Result = MarkDown()\Requester\Result
+          
+          UnbindGadgetEvent(MarkDown()\CanvasNum,  @_MouseMoveHandler(),      #PB_EventType_MouseMove)
+  				UnbindGadgetEvent(MarkDown()\CanvasNum,  @_LeftButtonDownHandler(), #PB_EventType_LeftButtonDown)
+  				UnbindGadgetEvent(MarkDown()\CanvasNum,  @_LeftButtonUpHandler(),   #PB_EventType_LeftButtonUp)
+  				UnbindGadgetEvent(MarkDown()\CanvasNum,  @_MouseWheelHandler(),     #PB_EventType_MouseWheel)
+  
+          CloseWindow(MarkDown()\Window\Num)
+          
+          DeleteMapElement(MarkDown(), Str(MarkDown()\CanvasNum))
+        EndIf
         
-        DeleteMapElement(MarkDown(), Str(MarkDown()\CanvasNum))
   	  EndIf
   	  
       ProcedureReturn Result
@@ -8396,6 +8419,7 @@ Module MarkDown
 
 	  Procedure   SaveHelp() 
 	    Define.i Pack, JSON, Size
+	    Define.s File$
 	    Define   *Buffer
 	    
 	    If CreatePack(Pack, Help\File, #PB_PackerPlugin_Lzma)
@@ -8426,13 +8450,18 @@ Module MarkDown
 	          Parse_(Help\Item()\Text)
 	        
 	          ForEach MarkDown()\Image()
-	            If GetPathPart(MarkDown()\Image()\Source)
-	              AddPackFile(Pack, MarkDown()\Image()\Source, GetFilePart(MarkDown()\Image()\Source))
+	            
+	            File$  = MarkDown()\Image()\Source
+              If Left(GetPathPart(File$), 3) = ".." + #PS$ : File$ = MarkDown()\Path + Mid(File$, 4) : EndIf
+	            
+	            If GetPathPart(File$)
+	              AddPackFile(Pack, File$, GetFilePart(File$))
 	            ElseIf MarkDown()\Path
-	              AddPackFile(Pack, MarkDown()\Path + GetFilePart(MarkDown()\Image()\Source), GetFilePart(MarkDown()\Image()\Source))
+	              AddPackFile(Pack, MarkDown()\Path + GetFilePart(File$), GetFilePart(File$))
 	            Else
-	              AddPackFile(Pack, MarkDown()\Image()\Source, GetFilePart(MarkDown()\Image()\Source))
-	            EndIf 	            
+	              AddPackFile(Pack, File$, GetFilePart(File$))
+	            EndIf 
+	            
   	        Next 
   	        
   	        DeleteMapElement(MarkDown())
@@ -9489,7 +9518,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
   
-  #Example = 30
+  #Example = 0
   
   ; === Gadget ===
   ;  1: Headings
@@ -9794,9 +9823,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 8337
-; FirstLine = 2230
-; Folding = wAABhCAAAAAAAAAABj2VVICEYAiApUD1fafAAAEAaADQBAAAIIQDCgBDCgXAGCMAACIYAAQwBAEAoS6GAAAEPNKwAwYAgBDAA5By
-; Markers = 3190,5075,6404
+; CursorPosition = 6521
+; FirstLine = 540
+; Folding = wAABhCAAAAAAAAAABAAAAIAEQAiAIADwfafAAAAASADQAAAAIIQDCgBDCgXACCEAACIYAAQwBAEAoS6GAAAGFdIQA5YAgBDAA5By
+; Markers = 3202,5087,6420
 ; EnableXP
 ; DPIAware
