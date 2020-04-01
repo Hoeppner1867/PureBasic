@@ -11,12 +11,13 @@
 
 ; Last Update: 01.04.2020
 ;
+; - Added: Navigation for help window
 ; - Added: Relative paths for images
 ; - Added: InsertAsPD()
 ; - Added: InsertAsHTML()
 ;
-; - Added:   Attribute #ScrollBar [#ScrollBar_Default/#ScrollBar_Frame/#ScrollBar_DragPoint]
-; - Added:   SetColor() -> [#ScrollBar_FrontColor/#ScrollBar_BackColor/#ScrollBar_BorderColor/#ScrollBar_ButtonColor/#ScrollBar_ThumbColor]
+; - Added: Attribute #ScrollBar [#ScrollBar_Default/#ScrollBar_Frame/#ScrollBar_DragPoint]
+; - Added: SetColor() -> [#ScrollBar_FrontColor/#ScrollBar_BackColor/#ScrollBar_BorderColor/#ScrollBar_ButtonColor/#ScrollBar_ThumbColor]
 ;
 
 ;{ ===== MIT License =====
@@ -89,7 +90,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20040101
+  #Version  = 20040102
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -545,11 +546,20 @@ Module MarkDown
   
   CompilerIf #Enable_HelpWindow
     
-
+    Structure Help_Image_Structure
+      GoHome.i
+      GoNext.i
+      GoPrevious.i
+    EndStructure
     
     Structure Help_Structure
       TreeNum.i
+      HomeNum.i
+      NextNum.i
+      PrevNum.i
       File.s
+      List History.i()
+      Image.Help_Image_Structure
       Map  Label.i()
       List Item.Item_Structure()
     EndStructure  
@@ -1071,13 +1081,14 @@ Module MarkDown
 	  
 	EndProcedure
 	
-	CompilerIf #Enable_Emoji
+	Procedure   LoadEmojis_()
 	  
-	  Procedure   LoadEmojis_()
-	    CompilerIf Defined(PDF, #PB_Module)
-  	    Emoji(":check0:")    = CatchImage(#PB_Any, ?Check0, 145)
-  	    Emoji(":check1:")    = CatchImage(#PB_Any, ?Check1, 276)
-  	  CompilerEndIf
+    CompilerIf Defined(PDF, #PB_Module)
+	    Emoji(":check0:")    = CatchImage(#PB_Any, ?Check0, 145)
+	    Emoji(":check1:")    = CatchImage(#PB_Any, ?Check1, 276)
+	  CompilerEndIf
+
+	  CompilerIf #Enable_Emoji
   	  Emoji(":angry:")     = CatchImage(#PB_Any, ?Angry, 540)
   	  Emoji(":bookmark:")  = CatchImage(#PB_Any, ?BookMark, 334)
   	  Emoji(":cool:")      = CatchImage(#PB_Any, ?Cool, 629)
@@ -1098,10 +1109,10 @@ Module MarkDown
       Emoji(":bulb:")      = CatchImage(#PB_Any, ?Bulb, 396)
       Emoji(":paperclip:") = CatchImage(#PB_Any, ?Clip, 474)
       Emoji(":mag:")       = CatchImage(#PB_Any, ?Magnifier, 520)
-    EndProcedure
+    CompilerEndIf
     
-	CompilerEndIf
-	
+  EndProcedure
+
   Procedure.i CalcScrollBarThumb_()
 	  Define.i Size, Range, HRange
 	  
@@ -7527,7 +7538,7 @@ Module MarkDown
 						CompilerIf #Enable_HelpWindow
 						  
 						  If MarkDown()\Type = #Help
-						    ResizeGadget(Help\TreeNum, #PB_Ignore, #PB_Ignore, #PB_Ignore, GadgetHeight(MarkDown()\CanvasNum))
+						    ResizeGadget(Help\TreeNum, #PB_Ignore, #PB_Ignore, #PB_Ignore, GadgetHeight(MarkDown()\CanvasNum) - 30)
 						  EndIf
 						  
 						CompilerEndIf
@@ -8768,7 +8779,16 @@ Module MarkDown
 	CompilerEndIf
 	
 	CompilerIf #Enable_HelpWindow
-	 
+	  
+	  Procedure AddToHistory_(Index.i)
+	    
+	    LastElement(Help\History())
+      If AddElement(Help\History())
+        Help\History() = Index
+      EndIf   
+      
+	  EndProcedure  
+	  
 	  Procedure.s Help(Title.s, File.s, Label.s="", Flags.i=#False, Parent.i=#PB_Default)
 	    ; Flags: #AutoResize
 	    Define.i MarkdownNum, WindowNum, WindowFlags, quitWindow
@@ -8798,12 +8818,24 @@ Module MarkDown
   	    
   	    SetWindowTitle(WindowNum, " " + Title)
   	    
+  	    ;{ _____ Images _____
+  	    Help\Image\GoHome     = CatchImage(#PB_Any, ?Home, 460)
+        Help\Image\GoNext     = CatchImage(#PB_Any, ?Next, 433)
+        Help\Image\GoPrevious = CatchImage(#PB_Any, ?Previous, 461)
+  	    ;}
+  	    
   	    ;{ _____ TreeGadget _____
   	    CompilerIf Defined(TreeEx, #PB_Module)
-  	      Help\TreeNum = TreeEx::Gadget(#PB_Any, 10, 10, 185, 500, "", #False, WindowNum)
+  	      Help\TreeNum = TreeEx::Gadget(#PB_Any, 10, 40, 185, 470, "", #False, WindowNum)
   	    CompilerElse
-  	      Help\TreeNum = TreeGadget(#PB_Any, 10, 10, 185, 500)
+  	      Help\TreeNum = TreeGadget(#PB_Any, 10, 40, 185, 470)
   	    CompilerEndIf  
+  	    ;}
+  	    
+  	    ;{ _____ Buttons _____
+  	    Help\HomeNum = ButtonImageGadget(#PB_Any, 10,  10, 24, 24, ImageID(Help\Image\GoHome))
+  	    Help\PrevNum = ButtonImageGadget(#PB_Any, 141, 10, 24, 24, ImageID(Help\Image\GoPrevious))
+  	    Help\NextNum = ButtonImageGadget(#PB_Any, 171, 10, 24, 24, ImageID(Help\Image\GoNext))
   	    ;}
   	    
   	    ;{ _____ CanvasGadget _____
@@ -8861,7 +8893,7 @@ Module MarkDown
 				  
   	    EndIf
   	    ;}
-  	    
+
   	    ;{ _____ Load help file _____
   	    Pack = OpenPack(#PB_Any, File, #PB_PackerPlugin_Lzma)
   	    If Pack
@@ -8945,7 +8977,7 @@ Module MarkDown
                 EndIf ;}
               Case #PB_Event_Gadget                
                 Select EventGadget() 
-                  Case MarkdownNum       ;{ Links
+                  Case MarkdownNum  ;{ Links
                     If EventType() = #EventType_Link
                       
                       If FindMapElement(MarkDown(), Str(MarkdownNum))
@@ -8961,6 +8993,7 @@ Module MarkDown
                               SetText(MarkdownNum, Help\Item()\Text)
                               MarkDown()\PageLabel = MarkDown()\EventLabel
                               UpdateHelp(MarkdownNum, TOC(), Glossary())  
+                              AddToHistory_(Help\Label())
                             EndIf
                           EndIf
                           GotoHeading_(MarkDown()\EventValue)
@@ -8978,46 +9011,96 @@ Module MarkDown
                                 SetText(MarkdownNum, Help\Item()\Text)
                                 MarkDown()\PageLabel = Help\Item()\Label
                                 UpdateHelp(MarkdownNum, TOC(), Glossary()) 
+                                AddToHistory_(Help\Label())
                               EndIf
                             EndIf
                           Else
                             RunProgram(MarkDown()\EventValue)
                           EndIf ;}
                         EndIf
-                        
-                      EndIf  
-                    EndIf ;}
-                  Case Help\TreeNum      ;{ Show item text
-                    
-                    If FindMapElement(MarkDown(), Str(MarkdownNum))
+                      EndIf
                       
-                      Result = #False
-                      MarkDown()\ScrollOffset = 0
+                    EndIf ;}
+                  Case Help\TreeNum ;{ Show item text
+                    
+                    If EventType() = #PB_EventType_LeftClick
 
-                      CompilerIf Defined(TreeEx, #PB_Module) 
-                        If EventType() = TreeEx::#EventType_Row
-                          Selected = EventData()
+                      If FindMapElement(MarkDown(), Str(MarkdownNum))
+                        
+                        Result = #False
+                        MarkDown()\ScrollOffset = 0
+  
+                        CompilerIf Defined(TreeEx, #PB_Module) 
+                          If EventType() = TreeEx::#EventType_Row
+                            Selected = EventData()
+                            If Selected <> -1
+                              If SelectElement(Help\Item(), Selected)
+                                SetText(MarkdownNum, Help\Item()\Text)
+                                MarkDown()\PageLabel = Help\Item()\Label
+                                UpdateHelp(MarkdownNum, TOC(), Glossary()) 
+                                AddToHistory_(Selected)
+                              EndIf  
+                            EndIf  
+                          EndIf
+                        CompilerElse 
+                          Selected = GetGadgetState(Help\TreeNum)
                           If Selected <> -1
                             If SelectElement(Help\Item(), Selected)
                               SetText(MarkdownNum, Help\Item()\Text)
                               MarkDown()\PageLabel = Help\Item()\Label
                               UpdateHelp(MarkdownNum, TOC(), Glossary()) 
+                              AddToHistory_(Selected)
                             EndIf  
-                          EndIf  
-                        EndIf
-                      CompilerElse 
-                        Selected = GetGadgetState(Help\TreeNum)
-                        If Selected <> -1
-                          If SelectElement(Help\Item(), Selected)
-                            SetText(MarkdownNum, Help\Item()\Text)
-                            MarkDown()\PageLabel = Help\Item()\Label
-                            UpdateHelp(MarkdownNum, TOC(), Glossary()) 
-                          EndIf  
-                        EndIf
-                      CompilerEndIf 
+                          EndIf
+                        CompilerEndIf 
+                        
+                      EndIf
                       
-                    EndIf  
+                    EndIf   
                     ;}
+                  Case Help\HomeNum ;{ Button - Home
+
+                    If FindMapElement(MarkDown(), Str(MarkdownNum))
+                    
+                      Result = #False
+                      MarkDown()\ScrollOffset = 0
+                      
+                      If FirstElement(Help\Item())
+                        SetText(MarkdownNum, Help\Item()\Text)
+                        MarkDown()\PageLabel = Help\Item()\Label
+                        UpdateHelp(MarkdownNum, TOC(), Glossary()) 
+                        CompilerIf Defined(TreeEx, #PB_Module)
+                          TreeEx::SetState(Help\TreeNum, 0)
+                        CompilerElse
+                          SetGadgetState(Help\TreeNum, 0)
+                        CompilerEndIf 
+                      EndIf
+                      
+                    EndIf
+                    ;}
+                  Case Help\NextNum ;{ Button - Next
+                    If FindMapElement(MarkDown(), Str(MarkdownNum))
+                      If NextElement(Help\History())
+                        If SelectElement(Help\Item(), Help\History())
+                          SetText(MarkdownNum, Help\Item()\Text)
+                          MarkDown()\PageLabel = Help\Item()\Label
+                          UpdateHelp(MarkdownNum, TOC(), Glossary()) 
+                        EndIf
+                      EndIf
+                    EndIf
+                    ;}
+                  Case Help\PrevNum ;{ Button - Previous
+                 
+                    If FindMapElement(MarkDown(), Str(MarkdownNum))
+                      If PreviousElement(Help\History())
+                        If SelectElement(Help\Item(), Help\History())
+                          SetText(MarkdownNum, Help\Item()\Text)
+                          MarkDown()\PageLabel = Help\Item()\Label
+                          UpdateHelp(MarkdownNum, TOC(), Glossary())
+                        EndIf  
+                      EndIf  
+                    EndIf
+                    ;} 
                 EndSelect
             EndSelect
           Until quitWindow
@@ -9028,6 +9111,10 @@ Module MarkDown
         
         DeleteMapElement(MarkDown(), Str(MarkdownNum))
       EndIf
+      
+      If IsImage(Help\Image\GoHome)     : FreeImage(Help\Image\GoHome)     : EndIf 
+      If IsImage(Help\Image\GoNext)     : FreeImage(Help\Image\GoNext)     : EndIf
+      If IsImage(Help\Image\GoPrevious) : FreeImage(Help\Image\GoPrevious) : EndIf
       
       ProcedureReturn Label
     EndProcedure
@@ -9506,6 +9593,51 @@ Module MarkDown
     EndDataSection
     
   CompilerEndIf 
+  
+  CompilerIf #Enable_HelpWindow
+    
+    ; License: 	http://creativecommons.org/licenses/GPL/2.0/
+    ; Source:   http://art.gnome.org/
+
+    DataSection
+      Home:
+      Data.q $0A1A0A0D474E5089,$524448490D000000,$1000000010000000,$FFF31F0000000608,$5948700900000061,$2E0000232E000073,
+             $0000763FA5780123,$DA78544144497E01,$EF28CFF81DA06063,$E205C0DBE52456D5,$DA5130C20BB779C9,$FEBBFCD4FABB7C55,
+             $E0A219009F77FAAB,$883BEBAFD55FFED5,$34D72BBBD959A826,$8FFF6EBB39B7EA6E,$B4FBBFC543F75DA8,$FFEFFB85FFE76FB2,
+             $4EBF876F82806827,$EFFDAE9BC9B7FF68,$8177DDECFFFD7F5C,$00D048D201FFAC86,$AFAEFF557336AF05,$FD775CEFFC2FAB5D,
+             $5F162BFFF3FCD17F,$01BF01B0DD121B04,$1F9D7E2A2AEDEECA,$C6F9BFD7F89E16EA,$D17CB8E0E779C2FF,$60BFF9DE76B3FF85,
+             $6C0DA1DA01B03DDF,$FD9584DB03A59A28,$BDD3FEEFF5649EBA,$67FF2799ECFFEAFE,$9FFF4E73F9C540CD,$DFA582CF7FE6EDB6,
+             $31010DC2F7BAFD94,$F9AE55064EBBFC54,$4729D4FFCAFEB3D9,$CC1715823A4F27FF,$76FFE5ED7BBFF93E,$D827760302BEF319,
+             $81672025F6EF4510,$BD31FFD9D961B942,$0E9F651A9062F1FB,$0522D63ABC1457B0,$87FE27F9B2FFFB60,$06B06A418BC2EFB6,
+             $7EFFA1EA6B304824,$069C1A9062F0DB8D,$11BD5EEFFEECF7C4,$D3504069C1A9062F,$9062F06BA50EFF96,$0A25AC56B8069C1A,
+             $0007D30C148034E3,$947CE5A519883284,$444E454900000000
+      Data.b $AE,$42,$60,$82
+      Next:
+      Data.q $0A1A0A0D474E5089,$524448490D000000,$1000000010000000,$FFF31F0000000608,$5948700900000061,$2E0000232E000073,
+             $0000763FA5780123,$DA78544144496301,$AC2E033FFFFFF863,$19841E4F859ED5E0,$2663BBD145F01808,$71A6EF80D7226690,
+             $B36402D90D03BED3,$1DFF4394FE406593,$F3E403390C83E633,$FF8819F128003563,$4079FFCEBF5563A3,$B791EFFC1D27B203,
+             $6971407B90D017E4,$7FE0789ACF7C066C,$42053B9C7043E4CE,$E5BD5BEFFEEFB6C7,$CB253EFFBEDF5A7F,$D7AA06BC777828FF,
+             $EF7FFF7FAD2030C2,$9063B12B3DFFCDAA,$ABE501FF9ED7625C,$8B6C5C8074FA29FF,$858EFFCEC7424062,$286AF083E7DBFE6B,
+             $0B8800B8401DF086,$2DDFF5DF6F8FFF57,$0C58815F8BC8096F,$6966FFE6C344406E,$FD89C12EA49BFF4B,$5FFD5F2BF7FC372B,
+             $05C503D9A413B7C9,$466FD787FF1B35C1,$AD15BBFF9B7561C1,$B3DFFF58ADF66B01,$C5B0EDF3A87FC570,$37F9DBE2AC741FC2,
+             $FF75F2EF7FFD6AA0,$27E00603FC97725D,$62076058B609B8A0,$FFDAE957BBF82C0E,$03BF3502FE0B1976,$41B309894F4875F2,
+             $C4A4E42AD9025F9A,$B92CB4804FCD406F,$8DC928AA2810E179,$840AA80033B2843C,$0000004888D8CF25,$6042AE444E454900
+      Data.b $82
+      Previous:
+      Data.q $0A1A0A0D474E5089,$524448490D000000,$1000000010000000,$FFF31F0000000608,$5948700900000061,$2E0000232E000073,
+             $0000763FA5780123,$DA78544144497F01,$AC3E033FFFFFF863,$E4B8BCC4031ED5E0,$07FE6A00A8EE6809,$A8C0D400192402C4,
+             $57F26A30DD31DDE8,$54001924DF8E9F25,$FA7E3CD9BCD40ECC,$77F9ABFE87A9FCB7,$A07E42A000DA20FD,$4F67BFB3A9B6D3E6,
+             $BAFFE1EA6F3FF03C,$6071FFE2807FFD61,$9D77CD40D2CD6401,$3FFFDBEB4AFE17B3,$FF9DD688FFEB76A0,$1D053B9FFA1F27B3,
+             $C14B59A60CBB861F,$C93FD2C167B5E3BB,$EFF96F54FBFE7BDD,$E07098CE2719B959,$9F9000C4275FAABF,$097F9CEA6DA9F881,
+             $EFFDAD173BFEBBED,$7861F3ED8C06B050,$93A4076FF9AF1435,$7140EDF657FF76BA,$960A3D1F05D03181,$6D34DFF8DEAA0BFD,
+             $69BA38DC54937FC9,$030F40FCEC607FEB,$EBFE2F653ADE3790,$FFD2DA59BFE1B55F,$FA6DD687FEAB05CE,$80B61B8219BF5E1F,
+             $86A0034C16E36471,$FF3E9B61790D0128,$D74081FFFAC56FB7,$C1FF8A02FCF40468,$A00D8B001863FF82,$AFF2FF66922C8F21,
+             $93641DBBD15FF0DC,$51297C63A0731038,$FC67638CB7A51814,$69005E7240201A84,$333254E611721A02,$00DB25EF10373B53,
+             $0792E0B2FF2021A8,$45626DAC66459C00,$4E4549000000008D
+      Data.b $44,$AE,$42,$60,$82
+    EndDataSection
+
+  CompilerEndIf
   ;}
   
 EndModule
@@ -9518,7 +9650,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
   
-  #Example = 0
+  #Example = 30
   
   ; === Gadget ===
   ;  1: Headings
@@ -9823,9 +9955,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 6521
-; FirstLine = 540
-; Folding = wAABhCAAAAAAAAAABAAAAIAEQAiAIADwfafAAAAASADQAAAAIIQDCgBDCgXACCEAACIYAAQwBAEAoS6GAAAGFdIQA5YAgBDAA5By
-; Markers = 3202,5087,6420
+; CursorPosition = 8786
+; FirstLine = 448
+; Folding = wAABkCAAAAAAAAAAAAAAAAAEQAiAJAD5fafAAAAASADQAAAAIIQDCgBDCgHACCEAACAYAAQwBAEAgSYAAAAElQIAAIAACoQIAAgA5-
+; Markers = 3213,5098,6431
 ; EnableXP
 ; DPIAware
