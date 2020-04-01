@@ -9,16 +9,16 @@
 ;/ © 2020  by Thorsten Hoeppner (01/2020)
 ;/
 
-; Last Update: 08.01.2020
+; Last Update: 01.04.2020
 
 ; PDF-Icon: Icon erstellt von Dimitry Miroliubov (https://www.flaticon.com)
 
-XIncludeFile "Module\AppRegistryModule.pbi"
-XIncludeFile "Module\ResizeExModule.pbi"
-XIncludeFile "Module\ResourceExModule.pbi"
-XIncludeFile "Module\pbPDFModule.pbi"
-XIncludeFile "Module\MarkDownModule.pbi"
-XIncludeFile "Module\EditorExModule.pbi"
+XIncludeFile "Module"+#PS$+"AppRegistryModule.pbi"
+XIncludeFile "Module"+#PS$+"ResizeExModule.pbi"
+XIncludeFile "Module"+#PS$+"ResourceExModule.pbi"
+XIncludeFile "Module"+#PS$+"pbPDFModule.pbi"
+XIncludeFile "Module"+#PS$+"MarkDownModule.pbi"
+XIncludeFile "Module"+#PS$+"EditorExModule.pbi"
 
 EnableExplicit
 
@@ -482,7 +482,7 @@ Procedure.s Load_()
   Define.i BOM
   Define.s Text$, File$, Last$
   
-  Last$ = AppReg::GetValue(#AppReg, "Last", "Path", "C:\") 
+  Last$ = AppReg::GetValue(#AppReg, "Last", "Path", "C:"+#PS$) 
   
   File$ = OpenFileRequester(Lng("Msg_Load"), Last$, "Markdown (*.md)|*.md;*.txt", 0)
   If File$
@@ -516,7 +516,7 @@ Procedure.s Save_(FileName.s, SaveAs.i=#True)
   
   MarkDown::SetText(#Gadget_MarkDown_Viewer, Text$)
   
-  Last$ = AppReg::GetValue(#AppReg, "Last", "Path", "C:\")
+  Last$ = AppReg::GetValue(#AppReg, "Last", "Path", "C:"+#PS$)
   
   If SaveAs
     
@@ -993,10 +993,10 @@ EndIf
 AppReg::Close(#AppReg)
 
 End
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 409
-; FirstLine = 185
-; Folding = MAMgBkAAAAA-
+; IDE Options = PureBasic 5.72 (Windows - x64)
+; CursorPosition = 11
+; FirstLine = 3
+; Folding = IA9gBlBAAAA-
 ; EnableXP
 ; DPIAware
 ; UseIcon = Markdown.ico
