@@ -9,15 +9,15 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 01.04.2020
+; Last Update: 02.04.2020
+;
+; - Bugfixes
 ;
 ; - Added: Navigation for help window
 ; - Added: Relative paths for images
-; - Added: InsertAsPD()
-; - Added: InsertAsHTML()
 ;
-; - Added: Attribute #ScrollBar [#ScrollBar_Default/#ScrollBar_Frame/#ScrollBar_DragPoint]
-; - Added: SetColor() -> [#ScrollBar_FrontColor/#ScrollBar_BackColor/#ScrollBar_BorderColor/#ScrollBar_ButtonColor/#ScrollBar_ThumbColor]
+; - Added: InsertAsPDF()
+; - Added: InsertAsHTML()
 ;
 
 ;{ ===== MIT License =====
@@ -7780,9 +7780,10 @@ Module MarkDown
 	    
 	    DetermineTextSize_()
 	    
-	    CalcScrollBarThumb_()
-	    
 	    ReDraw()
+	    
+	    CalcScrollBarThumb_()
+
 	  EndIf
 	  
 	EndProcedure
@@ -7812,14 +7813,15 @@ Module MarkDown
 	      If Left(GetPathPart(File$), 3) = ".." + #PS$ : File$ = MarkDown()\Path + Mid(File$, 4) : EndIf
 	      
 	      If GetPathPart(File$)
-          MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
+          MarkDown()\ImageNum(Image$) = LoadImage(#PB_Any, File$)
         ElseIf MarkDown()\Path
-          MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Path + Image$)
+          File$ = MarkDown()\Path + Image$
+          MarkDown()\ImageNum(Image$) = LoadImage(#PB_Any, MarkDown()\Path + Image$)
         Else  
-          MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
+          MarkDown()\ImageNum(Image$) = LoadImage(#PB_Any, File$)
         EndIf  
 	      
-        Images(Image$) = MarkDown()\Image()\Source
+        Images(Image$) = File$
         
 	    Next
 	    
@@ -9955,9 +9957,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 8786
-; FirstLine = 448
-; Folding = wAABkCAAAAAAAAAAAAAAAAAEQAiAJAD5fafAAAAASADQAAAAIIQDCgBDCgHACCEAACAYAAQwBAEAgSYAAAAElQIAAIAACoQIAAgA5-
+; CursorPosition = 8793
+; FirstLine = 746
+; Folding = wAABkCAAAAAAABAAAAAAAAAEQAiAJAD5fafAAAAASADQAAAAIIQDCgBDCgHACCEAACAYAAQwBAEAgS5GAAAFnyIAA5AACoQAAAgA5-
 ; Markers = 3213,5098,6431
 ; EnableXP
 ; DPIAware
