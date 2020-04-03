@@ -4,14 +4,14 @@
 ;/
 ;/ [ PB V5.7x / 64Bit / all OS / DPI ]
 ;/
-;/ © 2019 Thorsten1867 (03/2019)
+;/ © 2020 Thorsten1867 (03/2019)
 ;/
 
 ; - Manage tabulator shortcut (#Tabulator) and gadgets can use the tab key if they have the focus (#UseTabulator).
 ; - Creates cursor events for gadgets of a window (#CursorEvent)
 ; - Provides event types for PostEvent() for other modules
 
-; Last Update: 03.03.2020
+; Last Update: 03.04.2020
 ;
 ; Added: GUI theme for all supportet gadgets
 ;
@@ -65,7 +65,7 @@
 
 DeclareModule ModuleEx
   
-  #Version = 20030400
+  #Version = 20040300
   
   #Enable_Tabulator_Management = #True
   
@@ -362,6 +362,19 @@ Module ModuleEx
         ProcedureReturn rgb
       EndIf
     EndProcedure
+    
+    Procedure OSX_GadgetColor()
+		  Define.i UserDefaults, NSString
+		  
+		  UserDefaults = CocoaMessage(0, 0, "NSUserDefaults standardUserDefaults")
+      NSString = CocoaMessage(0, UserDefaults, "stringForKey:$", @"AppleInterfaceStyle")
+      If NSString And PeekS(CocoaMessage(0, NSString, "UTF8String"), -1, #PB_UTF8) = "Dark"
+        ProcedureReturn BlendColor(NSColorByNameToRGB("controlBackgroundColor"), #White, 85)
+      Else
+        ProcedureReturn BlendColor(NSColorByNameToRGB("windowBackgroundColor"), #White, 85)
+      EndIf 
+      
+		EndProcedure  
     
   CompilerEndIf
   
@@ -1053,7 +1066,7 @@ Module ModuleEx
         ThemeGUI\GadgetColor    = GetSysColor_(#COLOR_MENU)
         ThemeGUI\ScrollbarColor = GetSysColor_(#COLOR_MENU)
       CompilerCase #PB_OS_MacOS
-        ThemeGUI\GadgetColor    = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
+        ThemeGUI\GadgetColor    = OSX_GadgetColor()
         ThemeGUI\ScrollbarColor = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
       CompilerCase #PB_OS_Linux
         ThemeGUI\GadgetColor    = $EDEDED
@@ -1337,9 +1350,9 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 67
-; FirstLine = 11
-; Folding = kBABAAAACwBAA9
+; IDE Options = PureBasic 5.72 (Windows - x64)
+; CursorPosition = 1068
+; FirstLine = 275
+; Folding = kBABaAAAEgDAB5
 ; EnableXP
 ; DPIAware

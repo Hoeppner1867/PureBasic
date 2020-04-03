@@ -210,7 +210,20 @@ Module LED
 				ProcedureReturn rgb
 			EndIf
 		EndProcedure
-
+		
+		Procedure OSX_GadgetColor()
+		  Define.i UserDefaults, NSString
+		  
+		  UserDefaults = CocoaMessage(0, 0, "NSUserDefaults standardUserDefaults")
+      NSString = CocoaMessage(0, UserDefaults, "stringForKey:$", @"AppleInterfaceStyle")
+      If NSString And PeekS(CocoaMessage(0, NSString, "UTF8String"), -1, #PB_UTF8) = "Dark"
+        ProcedureReturn BlendColor(NSColorByNameToRGB("controlBackgroundColor"), #White, 85)
+      Else
+        ProcedureReturn BlendColor(NSColorByNameToRGB("windowBackgroundColor"), #White, 85)
+      EndIf 
+      
+		EndProcedure  
+		
 	CompilerEndIf
 	
   Procedure.f dpiX(Num.i)
@@ -320,7 +333,6 @@ Module LED
       ForEach LED()
 
         LED()\Color\Front        = ModuleEx::ThemeGUI\FrontColor
-				LED()\Color\Back         = ModuleEx::ThemeGUI\BackColor
 				LED()\Color\Border       = ModuleEx::ThemeGUI\BorderColor
 				LED()\Color\Gadget       = ModuleEx::ThemeGUI\GadgetColor
 
@@ -484,7 +496,7 @@ Module LED
 					CompilerCase #PB_OS_MacOS
 						LED()\Color\Front  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
 						LED()\Color\Border = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
-						LED()\Color\Gadget = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
+						LED()\Color\Gadget = OSX_GadgetColor()
 					CompilerCase #PB_OS_Linux
 
 				CompilerEndSelect ;}
@@ -669,8 +681,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 56
-; FirstLine = 9
-; Folding = OaAIDxBw
+; CursorPosition = 215
+; FirstLine = 109
+; Folding = OYkwGiDi-
 ; EnableXP
 ; DPIAware
