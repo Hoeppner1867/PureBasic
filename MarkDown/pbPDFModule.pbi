@@ -504,7 +504,7 @@ DeclareModule PDF
   Declare   SetLineCorner(ID.i, Style.s)
   Declare   SetLineThickness(ID.i, Width.f)
   Declare   SetLocales(ID.i, Type.i, Value.s)
-  Declare   SetMargin(ID.i, Type.i, Value.i)
+  Declare   SetMargin(ID.i, Type.i, Value.f)
   Declare   SetOpenAction(ID.i, Zoom.s="", Page.i=1)
   Declare   SetPageMargins(ID.i, LeftMargin.f, TopMargin.f, RightMargin.f=#PB_Default)
   Declare   SetPageMode(ID.i, Mode.s=#None)
@@ -528,7 +528,7 @@ DeclareModule PDF
   CompilerEndIf
   
   CompilerIf #Enable_Annotations
-    Declare.i AddFileLink(ID.i, EmbedID.i, Title.s="", Description.s="", Icon.s=#PushPinIcon, IconW.f=6, IconH.f=8, X.f=#PB_Default)
+    Declare.i AddFileLink(ID.i, EmbedID.i, Title.s="", Description.s="", Icon.s=#PaperClipIcon, IconW.f=3, IconH.f=6, X.f=#PB_Default) 
     Declare.i AddGotoAction(ID.i, Page.i=#PB_Default, PosY.i=#PB_Default)
     Declare   AddGotoLabel(ID.i, Label.s)
     Declare.i AddLaunchAction(ID.i, FileName.s, Y.f=#PB_Default, Action.s=#OpenAction)
@@ -2117,9 +2117,14 @@ Module PDF
               ; PDF Reference Version 1.6 - Chapter 8.4 (Table 8.16)
               If SelectElement(PDF()\objFiles(), PDF()\Annots()\FileID)
                 objStrg = "/Type /Annot /Subtype /FileAttachment" + #LF$
-                objStrg + "/Rect [" + strF_(aX + ptWidth, 2) + " " + strF_(aY, 2) + " " + strF_(aX + ptWidth + aWidth, 2) + " " + strF_(aY - aHeight, 2) + "]" + #LF$
                 objStrg + "/FS " + PDF()\objFiles()\Object + #LF$
-                objStrg + "/Name /" + PDF()\Annots()\Icon  + #LF$
+                If PDF()\Annots()\Icon
+                  objStrg + "/Rect [" + strF_(aX + ptWidth, 2) + " " + strF_(aY, 2) + " " + strF_(aX + ptWidth + aWidth, 2) + " " + strF_(aY - aHeight, 2) + "]" + #LF$
+                  objStrg + "/Name /" + PDF()\Annots()\Icon  + #LF$ 
+                Else
+                  Debug ">>>>>"
+                  objStrg + "/Rect [" + strF_(aX, 2) + " " + strF_(aY, 2) + " " + strF_(aX + aWidth, 2) + " " + strF_(aY - aHeight, 2) + "]" + #LF$
+                EndIf
                 objOutDictionary_(objStrg, #LF$) 
                 objOutDictionary_(PDF()\Annots()\Titel, "/T (", ")" + #LF$, #objText)
                 objOutDictionary_(PDF()\Annots()\Content, "/Contents (", ")" + #LF$, #objText)
@@ -2139,7 +2144,7 @@ Module PDF
               ; PDF Reference Version 1.6 - Chapter 8.4 (Table 8.16)
               objStrg = "/Type /Annot /Subtype /Text" + #LF$
               objStrg + "/Rect [" + strF_(aX + ptWidth, 2) + " " + strF_(aY, 2) + " " + strF_(aX + ptWidth + aWidth, 2) + " " + strF_(aY - aHeight, 2) + "]" + #LF$
-              objStrg + "/Name /" + PDF()\Annots()\Icon  + #LF$
+              If PDF()\Annots()\Icon : objStrg + "/Name /" + PDF()\Annots()\Icon  + #LF$ : EndIf
               objOutDictionary_(objStrg, #LF$)
               objOutDictionary_(PDF()\Annots()\Titel, "/T (", ")" + #LF$, #objText)
               objOutDictionary_(PDF()\Annots()\Content, "/Contents (", ")" + #LF$, #objText)
@@ -2455,8 +2460,8 @@ Module PDF
         ;}
       EndIf
       
-      If Width  = 0 : Width  = Height * Header\Width  / Header\Height : EndIf
-      If Height = 0 : Height = Width  * Header\Height / Header\Width  : EndIf
+      If Width  = 0 : Width  = Height * (Header\Width  / Header\Height) : EndIf
+      If Height = 0 : Height = Width  * (Header\Height / Header\Width)  : EndIf
       
       PDF()\objImages()\Width  = Width
       PDF()\objImages()\Height = Height
@@ -3152,8 +3157,8 @@ Module PDF
   EndProcedure  
   
   Procedure   Cell_(Width.f, Height.f = #PB_Default, Text.s="", Border.i=#False, Ln.i=#Right, Align.s="", Fill.i=#False, Link.i=#NoLink, Label.s="")
-    Define.i txtLen, PageX, PageY, TextX
-    Define.f WordSpace, StrgWidth, maxWidth, wLink
+    Define.i txtLen
+    Define.f WordSpace, StrgWidth, maxWidth, wLink, PageX, PageY, TextX
     Define.s sStrg, eStrg, Stream$
     Define   Stream.Memory_Structure
     
@@ -4537,7 +4542,7 @@ Module PDF
     
   EndProcedure
   
-  Procedure SetMargin(ID.i, Type.i, Value.i)
+  Procedure SetMargin(ID.i, Type.i, Value.f)
     
     If FindMapElement(PDF(), Str(ID))
       
@@ -4728,7 +4733,6 @@ Module PDF
         objStrg + "/AS " + State$ + #LF$
         objOutDictionary_(objStrg, #LF$)
         objOutDictionary_(EscapeString_(Titel), "/T (", ")" + #LF$, #objText)
-        
         If AddElement(PDF()\PageAnnots(PDF()\objPage)\Annot())
           PDF()\PageAnnots(PDF()\objPage)\Annot() = strObj_(PDF()\objNum)
         EndIf
@@ -4880,7 +4884,7 @@ Module PDF
         If Border : objStrg + "/BC [0.24 0.24 0.24] " : EndIf 
         If Fill   : objStrg + "/BG [0.99 0.99 0.99] " : EndIf
         objStrg + ">>" + #LF$
-        objStrg + "/V ()" + #LF$
+        objStrg + "/V ("+EscapeString_(Text)+")" + #LF$
         objOutDictionary_(objStrg, #LF$)
         objOutDictionary_(EscapeString_(Titel), "/T (", ")" + #LF$, #objText)
         objOutDictionary_(EscapeString_(Text), "/TU (", ")" + #LF$, #objText)
@@ -4911,7 +4915,7 @@ Module PDF
   
   CompilerIf #Enable_Annotations
     
-    Procedure.i AddFileLink(ID.i, EmbedID.i, Title.s="", Description.s="", Icon.s=#PushPinIcon, IconW.f=6, IconH.f=8, X.f=#PB_Default)      
+    Procedure.i AddFileLink(ID.i, EmbedID.i, Title.s="", Description.s="", Icon.s=#PaperClipIcon, IconW.f=3, IconH.f=6, X.f=#PB_Default)      
       ; Icon: #GraphIcon / #PaperClipIcon / #PushPinIcon / #TagIcon
       
       If EmbedID < 0 : ProcedureReturn #False : EndIf 
@@ -5183,7 +5187,7 @@ Module PDF
       
     EndProcedure  
   
-    Procedure   DrawRoundedRectangle(ID.i, X.f, Y.f, Width.f, Height.f, Radius.f, Style.s=#DrawOnly)
+    Procedure   DrawRoundedRectangle(ID.i, X.f, Y.f, Width.f, Height.f, Radius.f, Style.s=#DrawOnly) ; [*]
       
       If FindMapElement(PDF(), Str(ID))
         
@@ -5201,7 +5205,7 @@ Module PDF
       
     EndProcedure   
   
-    Procedure   DrawSector(ID.i, X.f, Y.f, Radius.f, startAngle.f, endAngle.f, Style.s=#DrawAndFill, Clockwise.i=#True, originAngle.f=90)
+    Procedure   DrawSector(ID.i, X.f, Y.f, Radius.f, startAngle.f, endAngle.f, Style.s=#DrawAndFill, Clockwise.i=#True, originAngle.f=90) ; [*]
       Define.f radiusX, radiusY, sAngle, eAngle, ArcX, ArcY, Degree
       
       If FindMapElement(PDF(), Str(ID))
@@ -5270,7 +5274,7 @@ Module PDF
       
     EndProcedure
   
-    Procedure   DrawTriangle(ID.i, X1.f, Y1.f, X2.f, Y2.f, X3.f, Y3.f, Style.s=#DrawOnly)
+    Procedure   DrawTriangle(ID.i, X1.f, Y1.f, X2.f, Y2.f, X3.f, Y3.f, Style.s=#DrawOnly)            ; [*]
       
       If FindMapElement(PDF(), Str(ID))
         
@@ -5389,7 +5393,7 @@ Module PDF
  
   ;- ----------------------------------------
   
-  Procedure   AddPage(ID.i, Orientation.s="", Format.s="")
+  Procedure   AddPage(ID.i, Orientation.s="", Format.s="")             ; [*]
     
     If  FindMapElement(PDF(), Str(ID))
       
@@ -6038,7 +6042,7 @@ Module PDF
       EndSelect
     EndIf
     
-  	If Page : AddPage_() : EndIf
+  	AddPage_()
   	
   	StartTOC = PDF()\pageNum
   	
@@ -6972,10 +6976,10 @@ CompilerEndIf
 
 ;- ========================
 ; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 2489
-; FirstLine = 647
-; Folding = MAwiA5AegAQAAABAAhAgIECIAAgDAAAAAAHAAzgIAAnoAAAAAAAogCIJIAAghJghAwCEAA5
-; Markers = 584,1015,2364,2464,3770,3836
+; CursorPosition = 212
+; FirstLine = 170
+; Folding = 9BAAA6IegAQAACBAABAgAAAIYAkBAAAAgCkAAygAAAnoAAAAACw6SiJAAAAAhJAEA1DFAA9
+; Markers = 584,1015,2369,2469,3775,3841
 ; EnableXP
 ; DPIAware
 ; EnablePurifier

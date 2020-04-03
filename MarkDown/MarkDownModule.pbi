@@ -9,7 +9,7 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 02.04.2020
+; Last Update: 03.04.2020
 ;
 ; - Bugfixes
 ;
@@ -69,8 +69,8 @@
 ; MarkDown::SetData()            - similar to 'SetGadgetData()'
 ; MarkDown::SetFont()            - similar to 'SetGadgetFont()'
 ; MarkDown::SetID()              - similar to 'SetGadgetData()', but string
-; MarkDown::SetImagePath()
 ; MarkDown::SetMargins()         - defines the margins
+; MarkDown::SetPath()            - Set the path to the Markdown file, for relative path names
 ; MarkDown::SetText()            - similar to 'SetGadgetText()'
 
 ;}
@@ -90,7 +90,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20040102
+  #Version  = 20040300
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -130,6 +130,7 @@ DeclareModule MarkDown
 		#AutoResize        ; Automatic resizing of the gadget
 		#Borderless        ; Draw no border
 		#UseExistingCanvas ; e.g. for dialogs
+		#IgnorePath
 		; Requester
 		#YesNo
 	  #YesNoCancel
@@ -281,12 +282,12 @@ DeclareModule MarkDown
 	;-   DeclareModule
 	;- ===========================================================================
 	
-	Declare.i UsedImages(Markdown.s, Map Images.s())
-	Declare   Convert(MarkDown.s, Type.i, File.s="", Title.s="")
+	Declare.i UsedImages(Markdown.s, Path.s, Map Images.s())
+	Declare   Convert(MarkDown.s, Type.i, Path.s, File.s="", Title.s="")
 	Declare   InsertAsPDF(PDF.i, MarkDown.s, LeftMargin.i=10, RightMargin.i=10, FontSize.i=12)
 	Declare.s InsertAsHTML(MarkDown.s)
-	Declare   SetImagePath(GNum.i, Path.s)
-	Declare   SetText(GNum.i, Text.s)
+	Declare   SetPath(GNum.i, Path.s)
+	Declare   SetText(GNum.i, Text.s, Path.s="")
 
 	CompilerIf #Enable_Gadget
     Declare   AttachPopupMenu(GNum.i, PopUpNum.i)
@@ -997,6 +998,68 @@ Module MarkDown
 	  ProcedureReturn Round(Pixel * 25.4 / 96, #PB_Round_Nearest)
 	EndProcedure
 	
+	Procedure.s GetAbsolutePath_(Path.s, File.s)
+    Define.i i, PS
+    Define.s PathPart$, Path$
+    
+    If MarkDown()\Flags & #IgnorePath
+      ProcedureReturn GetFilePart(File)
+    EndIf  
+    
+    PathPart$ = GetPathPart(File)
+    
+    If PathPart$
+      
+      If CountString(PathPart$, ":" + #PS$) = 1 Or Left(PathPart$, 2) = #PS$ + #PS$ ;{ Absolute path name
+        
+        ProcedureReturn File
+        ;}
+      Else                                                                          ;{ Relative path name
+        
+        If Left(PathPart$, 3) = ".." + #PS$    ;{ A relative path to a file in a directory that is a peer of the current directory
+  
+          Path$ = ""
+          Path  = ReplaceString(Path, #PS$ + #PS$, "|" + #PS$)
+          
+          PS = CountString(Path, #PS$)
+          If PS > 1
+            For i=1 To PS - 1
+              Path$ + StringField(Path, i, #PS$) + #PS$
+            Next
+            ProcedureReturn ReplaceString(Path$, "|", #PS$) + Mid(File, 4)
+          Else
+            ProcedureReturn ReplaceString(Path,  "|", #PS$) + Mid(File, 4)
+          EndIf  
+          ;}
+        ElseIf Left(PathPart$, 2) = "." + #PS$ ;{ A relative path to a file in the current directory    
+          ProcedureReturn Path + Mid(File, 3)
+          ;}
+        ElseIf Left(PathPart$, 1) = #PS$       ;{ An absolute path from the root of the current drive
+  
+          Path  = ReplaceString(Path, #PS$ + #PS$, "|" + #PS$)
+          Path$ = StringField(Path, 1, #PS$) + #PS$
+          
+          ProcedureReturn ReplaceString(Path$, "|", #PS$) + Mid(File, 2)
+          ;}
+        ElseIf Mid(PathPart$, 2, 1) = ":"      ;{ A relative path from the current directory of the drive
+          
+          Path$ = Left(PathPart$, 2) + Mid(Path, 3)
+          
+          ProcedureReturn  Path$ + Mid(File, 3)
+          ;}  
+        Else                                   ;{ A relative path to a file in a subdirectory of the current directory
+          ProcedureReturn Path + File
+          ;}
+        EndIf
+        ;}
+      EndIf
+      
+    Else
+      ProcedureReturn Path + File
+    EndIf  
+    
+  EndProcedure  
+	
 	Procedure.s WordOnly_(Word.s)
     ; word with or without punctuation etc.
     Define.i i 
@@ -1034,7 +1097,7 @@ Module MarkDown
 
     ProcedureReturn Word
   EndProcedure
-		
+  
 	Procedure   FreeFonts_()
 	  
 	  If IsFont(MarkDown()\Font\Normal)         : FreeFont(MarkDown()\Font\Normal)         : EndIf
@@ -1185,7 +1248,9 @@ Module MarkDown
 	
 	Procedure   Clear_()
 	  
-		ClearMap(MarkDown()\ImageNum())
+	  If MarkDown()\Type <> #Help
+	    ClearMap(MarkDown()\ImageNum())
+	  EndIf  
 	  ClearMap(MarkDown()\Abbreviation())
 	  ClearMap(MarkDown()\FootLabel())
 	  ClearMap(MarkDown()\Label())
@@ -1302,18 +1367,13 @@ Module MarkDown
               If SelectElement(MarkDown()\Image(), MarkDown()\Items()\Words()\Index)
                 
                 Image$ = GetFilePart(MarkDown()\Image()\Source)
-                File$  = MarkDown()\Image()\Source
-                If Left(GetPathPart(File$), 3) = ".." + #PS$ : File$ = MarkDown()\Path + Mid(File$, 4) : EndIf
-                
-                If Not FindMapElement(MarkDown()\ImageNum(), Image$)
+                File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
+
+                If FindMapElement(MarkDown()\ImageNum(), Image$) = #False
                   If AddMapElement(MarkDown()\ImageNum(), Image$)
-                    If GetPathPart(File$)
-                      MarkDown()\ImageNum() = LoadImage(#PB_Any, File$) 
-                    ElseIf MarkDown()\Path
-                      MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Path + Image$)
-                    Else  
+                    If IsImage(MarkDown()\ImageNum())
                       MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
-                    EndIf
+                    EndIf   
                   EndIf
                 EndIf
                 
@@ -1375,18 +1435,11 @@ Module MarkDown
                 If SelectElement(MarkDown()\Image(), MarkDown()\Lists()\Row()\Words()\Index)
                   
                   Image$ = GetFilePart(MarkDown()\Image()\Source)
-                  File$  = MarkDown()\Image()\Source
-                  If Left(GetPathPart(File$), 3) = ".." + #PS$ : File$ = MarkDown()\Path + Mid(File$, 4) : EndIf
+                  File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
                   
-                  If Not FindMapElement(MarkDown()\ImageNum(), Image$)
+                  If FindMapElement(MarkDown()\ImageNum(), Image$) = #False
                     If AddMapElement(MarkDown()\ImageNum(), Image$)
-                      If GetPathPart(File$)
-                        MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
-                      ElseIf MarkDown()\Path
-                        MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Path + Image$)
-                      Else  
-                        MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
-                      EndIf
+                      MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
                     EndIf
                   EndIf
                   
@@ -1458,18 +1511,11 @@ Module MarkDown
                   If SelectElement(MarkDown()\Image(), MarkDown()\Table()\Row()\Col()\Words()\Index)
                     
                     Image$ = GetFilePart(MarkDown()\Image()\Source)
-                    File$  = MarkDown()\Image()\Source
-                    If Left(GetPathPart(File$), 3) = ".." + #PS$ : File$ = MarkDown()\Path + Mid(File$, 4) : EndIf
+                    File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
                     
-                    If Not FindMapElement(MarkDown()\ImageNum(), Image$)
-                      If AddMapElement(MarkDown()\ImageNum(), Image$)
-                        If GetPathPart(File$)
-                          MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
-                        ElseIf MarkDown()\Path
-                          MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Path + Image$)
-                        Else  
-                          MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
-                        EndIf
+                    If FindMapElement(MarkDown()\ImageNum(), Image$) = #False
+                      If AddMapElement(MarkDown()\ImageNum(), Image$) 
+                        MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
                       EndIf
                     EndIf
                     
@@ -1545,18 +1591,11 @@ Module MarkDown
                 If SelectElement(MarkDown()\Image(), MarkDown()\Note()\Row()\Words()\Index)
                   
                   Image$ = GetFilePart(MarkDown()\Image()\Source)
-                  File$  = MarkDown()\Image()\Source
-                  If Left(GetPathPart(File$), 3) = ".." + #PS$ : File$ = MarkDown()\Path + Mid(File$, 4) : EndIf
+                  File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
                   
-                  If Not FindMapElement(MarkDown()\ImageNum(), Image$)
+                  If FindMapElement(MarkDown()\ImageNum(), Image$) = #False
                     If AddMapElement(MarkDown()\ImageNum(), Image$)
-                      If GetPathPart(File$)
-                        MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
-                      ElseIf MarkDown()\Path
-                        MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Path + Image$)
-                      Else  
-                        MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
-                      EndIf
+                      MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
                     EndIf
                   EndIf
                   
@@ -1622,18 +1661,11 @@ Module MarkDown
               If SelectElement(MarkDown()\Image(), MarkDown()\FootLabel()\Words()\Index)
                 
                 Image$ = GetFilePart(MarkDown()\Image()\Source)
-                File$  = MarkDown()\Image()\Source
-                If Left(GetPathPart(File$), 3) = ".." + #PS$ : File$ = MarkDown()\Path + Mid(File$, 4) : EndIf
+                File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
                 
   			        If Not FindMapElement(MarkDown()\ImageNum(), Image$)
-  			          If AddMapElement(MarkDown()\ImageNum(), Image$)
-  			            If GetPathPart(File$)
-                      MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
-                    ElseIf MarkDown()\Path
-                      MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Path + Image$)
-                    Else  
-                      MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
-                    EndIf
+  			          If AddMapElement(MarkDown()\ImageNum(), Image$) 
+                    MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
                   EndIf
                 EndIf
                 
@@ -2107,20 +2139,11 @@ Module MarkDown
       ForEach MarkDown()\Image() ;{ Images
        
         Image$ = GetFilePart(MarkDown()\Image()\Source)
+        File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
         
-        If Not FindMapElement(MarkDown()\ImageNum(), Image$)
+        If FindMapElement(MarkDown()\ImageNum(), Image$) = #False
           If AddMapElement(MarkDown()\ImageNum(), Image$)
-            
-            If GetPathPart(MarkDown()\Image()\Source)
-              File$ = MarkDown()\Image()\Source
-            ElseIf MarkDown()\Path
-              File$ = MarkDown()\Path + Image$
-            Else
-              File$ = MarkDown()\Image()\Source
-            EndIf
-            
             MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
-            
           EndIf
         EndIf
         
@@ -2774,14 +2797,8 @@ Module MarkDown
               Width  = mm_(MarkDown()\Image()\Width)
               Height = mm_(MarkDown()\Image()\Height)
               
-              If GetPathPart(MarkDown()\Image()\Source)
-                File$ = MarkDown()\Image()\Source
-              ElseIf MarkDown()\Path
-                File$ = MarkDown()\Path + GetFilePart(MarkDown()\Image()\Source)
-              Else
-                File$ = MarkDown()\Image()\Source
-              EndIf  
-         
+              File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
+              
               If FindMapElement(MarkDown()\ImageMem(), GetFilePart(MarkDown()\Image()\Source))
                 PDF::ImageMemory(PDF, GetFilePart(MarkDown()\Image()\Source), MarkDown()\ImageMem()\Buffer, MarkDown()\ImageMem()\Size, MarkDown()\ImageMem()\Type, PosX, PosY, Width, Height)
               Else  
@@ -2979,18 +2996,11 @@ Module MarkDown
         ForEach MarkDown()\Image() ;{ Images
           
           Image$ = GetFilePart(MarkDown()\Image()\Source)
+          File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
           
           If Not FindMapElement(MarkDown()\ImageNum(), Image$)
             If AddMapElement(MarkDown()\ImageNum(), Image$)
-              
-              If GetPathPart(MarkDown()\Image()\Source)
-                File$ = MarkDown()\Image()\Source
-              ElseIf MarkDown()\Path
-                File$ = MarkDown()\Path + Image$
-              Else
-                File$ = MarkDown()\Image()\Source
-              EndIf
-              
+
               If FindMapElement(MarkDown()\ImageMem(), Image$)
                 MarkDown()\ImageNum() = CatchImage(#PB_Any, MarkDown()\ImageMem()\Buffer, MarkDown()\ImageMem()\Size)
               Else  
@@ -3039,13 +3049,7 @@ Module MarkDown
                 
                 PosX = (PageWidth - Width) / 2
                 
-                If GetPathPart(MarkDown()\Image()\Source)
-                  File$ = MarkDown()\Image()\Source
-                ElseIf MarkDown()\Path
-                  File$ = MarkDown()\Path + GetFilePart(MarkDown()\Image()\Source)
-                Else
-                  File$ = MarkDown()\Image()\Source
-                EndIf  
+                File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
                 
                 If FindMapElement(MarkDown()\ImageMem(), GetFilePart(MarkDown()\Image()\Source))
                   PDF::ImageMemory(PDF, GetFilePart(MarkDown()\Image()\Source), MarkDown()\ImageMem()\Buffer, MarkDown()\ImageMem()\Size, MarkDown()\ImageMem()\Type, PosX, PosY, Width, Height)
@@ -5966,22 +5970,18 @@ Module MarkDown
               
               ;{ Load Image
               Image$ = GetFilePart(MarkDown()\Image()\Source)
-              File$  = MarkDown()\Image()\Source
-              If Left(GetPathPart(File$), 3) = ".." + #PS$ : File$ = MarkDown()\Path + Mid(File$, 4) : EndIf
-              
-              If Not FindMapElement(MarkDown()\ImageNum(), Image$)
-                If AddMapElement(MarkDown()\ImageNum(), Image$)
-                  If GetPathPart(File$)
-                    MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
-                  ElseIf MarkDown()\Path
-                    MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Path + Image$)
-                  Else  
-                    MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
-                  EndIf  
+              File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
+
+              If FindMapElement(MarkDown()\ImageNum(), Image$) = #False
+                If AddMapElement(MarkDown()\ImageNum(), Image$) 
+                  
+                  MarkDown()\ImageNum() = LoadImage(#PB_Any, File$) 
+                  
                   If IsImage(MarkDown()\ImageNum())
     			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
     			          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
     			        EndIf
+    			        
                 EndIf
               EndIf ;}
     	        
@@ -6131,22 +6131,18 @@ Module MarkDown
               
               ;{ Load Image
               Image$ = GetFilePart(MarkDown()\Image()\Source)
-              File$  = MarkDown()\Image()\Source
-              If Left(GetPathPart(File$), 3) = ".." + #PS$ : File$ = MarkDown()\Path + Mid(File$, 4) : EndIf
+              File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
               
-              If Not FindMapElement(MarkDown()\ImageNum(), Image$)
+              If FindMapElement(MarkDown()\ImageNum(), Image$) = #False
                 If AddMapElement(MarkDown()\ImageNum(), Image$)
-                  If GetPathPart(File$)
-                    MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
-                  ElseIf MarkDown()\Path
-                    MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Path + Image$)
-                  Else  
-                    MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
-                  EndIf  
+                  
+                  MarkDown()\ImageNum() = LoadImage(#PB_Any, File$) 
+                  
                   If IsImage(MarkDown()\ImageNum())
     			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
     			          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
     			        EndIf
+    			        
                 EndIf
               EndIf ;}
     	        
@@ -6649,24 +6645,18 @@ Module MarkDown
 			        
 			        ;{ Load Image
 			        Image$ = GetFilePart(MarkDown()\Image()\Source)
-			        File$  = MarkDown()\Image()\Source
-			        If Left(GetPathPart(File$), 3) = ".." + #PS$ : File$ = MarkDown()\Path + Mid(File$, 4) : EndIf
+			        File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
 			        
-              If Not FindMapElement(MarkDown()\ImageNum(), Image$)
-                If AddMapElement(MarkDown()\ImageNum(), Image$)
-                  
-                  If GetPathPart(File$)
-                    MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
-                  ElseIf MarkDown()\Path
-                    MarkDown()\ImageNum() = LoadImage(#PB_Any, MarkDown()\Path + Image$)
-                  Else  
-                    MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
-                  EndIf 
+			        If FindMapElement(MarkDown()\ImageNum(), Image$) = #False
+			          If AddMapElement(MarkDown()\ImageNum(), Image$)
+			            
+                  MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
                   
                   If IsImage(MarkDown()\ImageNum())
     			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
     			          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
     			        EndIf
+    			        
                 EndIf
               EndIf ;}
 			        
@@ -7731,11 +7721,13 @@ Module MarkDown
 	  ProcedureReturn HTML$
 	EndProcedure 
 	
-	Procedure   Convert(MarkDown.s, Type.i, File.s="", Title.s="")
+	Procedure   Convert(MarkDown.s, Type.i, Path.s, File.s="", Title.s="")
 	  Define.i FileID
 	  Define.s String
 	  
 	  If AddMapElement(MarkDown(), "Parse")
+	    
+	    MarkDown()\Path = Path
 	    
 	    Parse_(MarkDown)
 	    
@@ -7768,10 +7760,12 @@ Module MarkDown
 	 
 	EndProcedure  	
 	
-	Procedure   SetText(GNum.i, Text.s)
+	Procedure   SetText(GNum.i, Text.s, Path.s="")
    
 	  If FindMapElement(MarkDown(), Str(GNum))
-
+	    
+	    If Path : SetPath(GNum, Path) : EndIf 
+	    
 	    Clear_()
 	    
 	    MarkDown()\Text = Text
@@ -7788,7 +7782,7 @@ Module MarkDown
 	  
 	EndProcedure
 	
-	Procedure   SetImagePath(GNum.i, Path.s)
+	Procedure   SetPath(GNum.i, Path.s)
 	  
 	  If FindMapElement(MarkDown(), Str(GNum))
 	    
@@ -7799,7 +7793,7 @@ Module MarkDown
 	  
 	EndProcedure  
 	
-	Procedure.i UsedImages(Markdown.s, Map Images.s())
+	Procedure.i UsedImages(Markdown.s, Path.s, Map Images.s())
 	  Define.s Image$, File$
 
     If AddMapElement(MarkDown(), "Parse")
@@ -7809,18 +7803,10 @@ Module MarkDown
 	    ForEach MarkDown()\Image()
 	      
 	      Image$ = GetFilePart(MarkDown()\Image()\Source)
-	      File$  = MarkDown()\Image()\Source
-	      If Left(GetPathPart(File$), 3) = ".." + #PS$ : File$ = MarkDown()\Path + Mid(File$, 4) : EndIf
+	      File$  = GetAbsolutePath_(Path, MarkDown()\Image()\Source)
 	      
-	      If GetPathPart(File$)
-          MarkDown()\ImageNum(Image$) = LoadImage(#PB_Any, File$)
-        ElseIf MarkDown()\Path
-          File$ = MarkDown()\Path + Image$
-          MarkDown()\ImageNum(Image$) = LoadImage(#PB_Any, MarkDown()\Path + Image$)
-        Else  
-          MarkDown()\ImageNum(Image$) = LoadImage(#PB_Any, File$)
-        EndIf  
-	      
+        MarkDown()\ImageNum(Image$) = LoadImage(#PB_Any, File$)
+
         Images(Image$) = File$
         
 	    Next
@@ -8463,18 +8449,8 @@ Module MarkDown
 	          Parse_(Help\Item()\Text)
 	        
 	          ForEach MarkDown()\Image()
-	            
-	            File$  = MarkDown()\Image()\Source
-              If Left(GetPathPart(File$), 3) = ".." + #PS$ : File$ = MarkDown()\Path + Mid(File$, 4) : EndIf
-	            
-	            If GetPathPart(File$)
-	              AddPackFile(Pack, File$, GetFilePart(File$))
-	            ElseIf MarkDown()\Path
-	              AddPackFile(Pack, MarkDown()\Path + GetFilePart(File$), GetFilePart(File$))
-	            Else
-	              AddPackFile(Pack, File$, GetFilePart(File$))
-	            EndIf 
-	            
+	            File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
+	            AddPackFile(Pack, File$, GetFilePart(File$))
   	        Next 
   	        
   	        DeleteMapElement(MarkDown())
@@ -8621,8 +8597,6 @@ Module MarkDown
         ;}  	    
         
   	    If AddMapElement(MarkDown(), "Parse")
-  	      
-  	      MarkDown()\Path = GetPathPart(File$)
   	      
   	      ;{ _____ Load Help File _____
     	    Pack = OpenPack(#PB_Any, File, #PB_PackerPlugin_Lzma)
@@ -8797,7 +8771,7 @@ Module MarkDown
 	    Define.i Pack, JSON, Size, Selected, Result
 	    Define.s FileName$, Link$
 	    Define   *Buffer
-	    
+
 	    NewList TOC.TOC_Structure()
 	    NewMap  Glossary.Glossary_Structure()
 	    
@@ -8828,7 +8802,7 @@ Module MarkDown
   	    
   	    ;{ _____ TreeGadget _____
   	    CompilerIf Defined(TreeEx, #PB_Module)
-  	      Help\TreeNum = TreeEx::Gadget(#PB_Any, 10, 40, 185, 470, "", #False, WindowNum)
+  	      Help\TreeNum = TreeEx::Gadget(#PB_Any, 10, 40, 185, 470, "", TreeEx::#AlwaysShowSelection, WindowNum)
   	    CompilerElse
   	      Help\TreeNum = TreeGadget(#PB_Any, 10, 40, 185, 470)
   	    CompilerEndIf  
@@ -8855,7 +8829,7 @@ Module MarkDown
   				  MarkDown()\Size\Y      = 10
   				  MarkDown()\Size\Width  = 420
   				  MarkDown()\Size\Height = 500
-				    MarkDown()\Flags       = Flags
+				    MarkDown()\Flags       = Flags | #IgnorePath
 				    
 				    InitScrollBar_(MarkdownNum)
           
@@ -9026,24 +9000,22 @@ Module MarkDown
                   Case Help\TreeNum ;{ Show item text
                     
                     If EventType() = #PB_EventType_LeftClick
-
+                      
                       If FindMapElement(MarkDown(), Str(MarkdownNum))
                         
                         Result = #False
                         MarkDown()\ScrollOffset = 0
   
                         CompilerIf Defined(TreeEx, #PB_Module) 
-                          If EventType() = TreeEx::#EventType_Row
-                            Selected = EventData()
-                            If Selected <> -1
-                              If SelectElement(Help\Item(), Selected)
-                                SetText(MarkdownNum, Help\Item()\Text)
-                                MarkDown()\PageLabel = Help\Item()\Label
-                                UpdateHelp(MarkdownNum, TOC(), Glossary()) 
-                                AddToHistory_(Selected)
-                              EndIf  
+                          Selected = TreeEx::GetState(Help\TreeNum)
+                          If Selected <> -1
+                            If SelectElement(Help\Item(), Selected)
+                              SetText(MarkdownNum, Help\Item()\Text)
+                              MarkDown()\PageLabel = Help\Item()\Label
+                              UpdateHelp(MarkdownNum, TOC(), Glossary()) 
+                              AddToHistory_(Selected)
                             EndIf  
-                          EndIf
+                          EndIf  
                         CompilerElse 
                           Selected = GetGadgetState(Help\TreeNum)
                           If Selected <> -1
@@ -9055,7 +9027,7 @@ Module MarkDown
                             EndIf  
                           EndIf
                         CompilerEndIf 
-                        
+
                       EndIf
                       
                     EndIf   
@@ -9087,6 +9059,11 @@ Module MarkDown
                           SetText(MarkdownNum, Help\Item()\Text)
                           MarkDown()\PageLabel = Help\Item()\Label
                           UpdateHelp(MarkdownNum, TOC(), Glossary()) 
+                          CompilerIf Defined(TreeEx, #PB_Module) 
+                            TreeEx::SetState(Help\TreeNum, Help\History())
+                          CompilerElse 
+                            SetGadgetState(Help\TreeNum, Help\History())
+                          CompilerEndIf
                         EndIf
                       EndIf
                     EndIf
@@ -9099,6 +9076,11 @@ Module MarkDown
                           SetText(MarkdownNum, Help\Item()\Text)
                           MarkDown()\PageLabel = Help\Item()\Label
                           UpdateHelp(MarkdownNum, TOC(), Glossary())
+                          CompilerIf Defined(TreeEx, #PB_Module) 
+                            TreeEx::SetState(Help\TreeNum, Help\History())
+                          CompilerElse 
+                            SetGadgetState(Help\TreeNum, Help\History())
+                          CompilerEndIf
                         EndIf  
                       EndIf  
                     EndIf
@@ -9957,9 +9939,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 8793
-; FirstLine = 746
-; Folding = wAABkCAAAAAAABAAAAAAAAAEQAiAJAD5fafAAAAASADQAAAAIIQDCgBDCgHACCEAACAYAAQwBAEAgS5GAAAFnyIAA5AACoQAAAgA5-
-; Markers = 3213,5098,6431
+; CursorPosition = 9082
+; FirstLine = 1628
+; Folding = wcABkCAAAAAAABg6DgEUWEhAQgBACkCMA-p0BAAAAIBMABAAAggANIAGMIAeBYIwAAIggBAABHAQAALxbBAAYcKhDBgGAIC+ECAA5B+
+; Markers = 3217,5102,6427
 ; EnableXP
 ; DPIAware
