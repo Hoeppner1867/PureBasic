@@ -7,7 +7,7 @@
 ;/ © 2020 Thorsten1867 (03/2020)
 ;/
 
-; Last Update: 07.03.2020
+; Last Update: 03.04.2020
 ;
 
 ;{ ===== MIT License =====
@@ -84,7 +84,7 @@
 
 DeclareModule SpinEx
   
-  #Version  = 20030700
+  #Version  = 20040300
   #ModuleEx = 19112600
   
   ;- ===========================================================================
@@ -800,7 +800,7 @@ Module SpinEx
         
         DrawingMode(#PB_2DDrawing_Transparent)
         
-        If SpinEx()\Item()\Color <> #PB_Default
+        If ListSize(SpinEx()\Item()) And SpinEx()\Item()\Color <> #PB_Default
           DrawText(X, Y, Text, SpinEx()\Item()\Color)
         Else
           DrawText(X, Y, Text, FrontColor)
@@ -2277,7 +2277,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
   
-  #Example = 1
+  #Example = 2
 
   Enumeration 1
     #SpinEx
@@ -2344,9 +2344,9 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1840
-; Folding = 5LDBAAAGKAAEAAAQAAAAAA9
+; IDE Options = PureBasic 5.72 (Windows - x64)
+; CursorPosition = 86
+; Folding = 5LDBAAAWKAAEAAAQAAAAAA9
 ; EnableThread
 ; EnableXP
 ; DPIAware
