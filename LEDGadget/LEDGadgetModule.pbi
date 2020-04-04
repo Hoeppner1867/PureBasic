@@ -9,7 +9,7 @@
 ;/ © 2020  by Thorsten Hoeppner (04/2020)
 ;/
 
-; Last Update:
+; Last Update: 04.04.2020
 
 ;{ ===== MIT License =====
 ;
@@ -54,7 +54,7 @@
 
 DeclareModule LED
   
-  #Version  = 20040201
+  #Version  = 20040400
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -178,7 +178,9 @@ Module LED
 	;- ============================================================================
 	;-   Module - Internal
 	;- ============================================================================
-
+	
+	Declare.i BlendColor_(Color1.i, Color2.i, Factor.i=50) 
+	
 	CompilerIf #PB_Compiler_OS = #PB_OS_MacOS
 	  
 		; Addition of mk-soft
@@ -211,15 +213,28 @@ Module LED
 			EndIf
 		EndProcedure
 		
+		Procedure OSX_NSColorByNameToRGB(NSColorName.s)
+      Protected.cgfloat red, green, blue
+      Protected nscolorspace, rgb
+      nscolorspace = CocoaMessage(0, CocoaMessage(0, 0, "NSColor " + NSColorName), "colorUsingColorSpaceName:$", @"NSCalibratedRGBColorSpace")
+      If nscolorspace
+        CocoaMessage(@red, nscolorspace, "redComponent")
+        CocoaMessage(@green, nscolorspace, "greenComponent")
+        CocoaMessage(@blue, nscolorspace, "blueComponent")
+        rgb = RGB(red * 255.0, green * 255.0, blue * 255.0)
+        ProcedureReturn rgb
+      EndIf
+    EndProcedure
+		
 		Procedure OSX_GadgetColor()
 		  Define.i UserDefaults, NSString
 		  
 		  UserDefaults = CocoaMessage(0, 0, "NSUserDefaults standardUserDefaults")
       NSString = CocoaMessage(0, UserDefaults, "stringForKey:$", @"AppleInterfaceStyle")
       If NSString And PeekS(CocoaMessage(0, NSString, "UTF8String"), -1, #PB_UTF8) = "Dark"
-        ProcedureReturn BlendColor(NSColorByNameToRGB("controlBackgroundColor"), #White, 85)
+        ProcedureReturn BlendColor_(OSX_NSColorByNameToRGB("controlBackgroundColor"), #White, 85)
       Else
-        ProcedureReturn BlendColor(NSColorByNameToRGB("windowBackgroundColor"), #White, 85)
+        ProcedureReturn BlendColor_(OSX_NSColorByNameToRGB("windowBackgroundColor"), #White, 85)
       EndIf 
       
 		EndProcedure  
@@ -679,10 +694,9 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf 
   
 CompilerEndIf
-
-; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 215
-; FirstLine = 109
-; Folding = OYkwGiDi-
+; IDE Options = PureBasic 5.71 LTS (MacOS X - x64)
+; CursorPosition = 236
+; FirstLine = 110
+; Folding = OYkhNEHE-
 ; EnableXP
 ; DPIAware
