@@ -11,7 +11,9 @@
 ;/ © 2020  by Thorsten Hoeppner (11/2019)
 ;/
 
-; Last Update: 03.04.2020
+; Last Update: 04.04.2020
+;
+; Added: Keys up/down/left/right/home/end
 ;
 ; Bugfixes
 ; 
@@ -81,7 +83,7 @@
 
 DeclareModule TreeEx
   
-  #Version  = 20040300
+  #Version  = 20040400
   #ModuleEx = 19112002
   
   #Enable_ProgressBar = #True
@@ -345,6 +347,7 @@ Module TreeEx
 	  Height.i
 	  Factor.f
 	  Size.i
+	  Offset.i
 	  State.i
 	EndStructure ;}
 	
@@ -847,7 +850,7 @@ Module TreeEx
 	;- __________ ScrollBars __________
 	
 	Procedure   CalcRows()
-    Define.i TreeWidth, maxWidth, LevelWidth, Level, NextLevel, FontID
+    Define.i TreeWidth, maxWidth, LevelWidth, Level, NextLevel, LastLevel, FontID
     Define.i X, Y, btX, txtX, OffsetX, OffsetY, ImageWidth, ImageHeight, RowHeight, CheckBoxSize
     Define.f Factor
     
@@ -889,19 +892,25 @@ Module TreeEx
       ForEach TreeEx()\Rows()
         
         TreeWidth = 0
-        
+ 
         If TreeEx()\Rows()\Level < Level : Level = TreeEx()\Rows()\Level : EndIf
-        
+
   		  If TreeEx()\Rows()\Level = Level And TreeEx()\Rows()\Button\State
   		    Level = TreeEx()\Rows()\Level + 1
   		  EndIf
   		  
-  		  If TreeEx()\Rows()\Level > Level
+  		  If TreeEx()\Rows()\Level - LastLevel > 1
+		      TreeEx()\Rows()\Level = LastLevel + 1
+		    EndIf
+  		  
+  		  LastLevel = TreeEx()\Rows()\Level
+  		  
+        If TreeEx()\Rows()\Level > Level
   		    TreeEx()\Rows()\Visible      = #False
-		      TreeEx()\Rows()\Button\State = #False
+  		    TreeEx()\Rows()\Button\State = #False
   		    Continue
   		  EndIf
-  		  
+
   		  TreeEx()\Rows()\Visible = #True
   		  
   		  If TreeEx()\Row\Focus = ListIndex(TreeEx()\Rows()) : TreeEx()\Row\vFocus = TreeEx()\Row\Visible  : EndIf
@@ -924,6 +933,7 @@ Module TreeEx
 			  Else
 			    NextLevel = -1
 			  EndIf  
+
 			  PopListPosition(TreeEx()\Rows())
 			  ;}
 			  
@@ -1148,23 +1158,11 @@ Module TreeEx
     
     ProcedureReturn Result
   EndProcedure
+		
+	Procedure GetScrollBarPos(XY.i)
+	  ProcedureReturn (XY / TreeEx()\ScrollBar\Item()\Thumb\Factor) + TreeEx()\ScrollBar\Item()\minPos 
+	EndProcedure  
 	
-	Procedure.i GetSteps_(Cursor.i)
-	  Define.i Steps
-	  
-	  Steps = (Cursor - TreeEx()\ScrollBar\Item()\Cursor) / TreeEx()\ScrollBar\Item()\Thumb\Factor
-	  
-	  If Steps = 0
-	    If Cursor < TreeEx()\ScrollBar\Item()\Cursor
-	      Steps = -1
-	    Else
-	      Steps = 1
-	    EndIf
-	  EndIf
-	  
-	  ProcedureReturn Steps
-	EndProcedure
-
 	;- __________ Drawing __________
 
 	Procedure.i BlendColor_(Color1.i, Color2.i, Factor.i=50)
@@ -2432,63 +2430,117 @@ Module TreeEx
     
     If FindMapElement(TreeEx(), Str(GNum))
       
-      Key       = GetGadgetAttribute(GNum, #PB_Canvas_Key)
-      Modifier  = GetGadgetAttribute(GNum, #PB_Canvas_Modifiers)
+      Key      = GetGadgetAttribute(GNum, #PB_Canvas_Key)
+      Modifier = GetGadgetAttribute(GNum, #PB_Canvas_Modifiers)
 
       Select Key
-        Case #PB_Shortcut_Up   ;{ Up
+        Case #PB_Shortcut_Up    ;{ Up
           
-          Focus = TreeEx()\Row\Focus - 1
-          If Focus < 0 : Focus = 0 : EndIf
-          
-          If Focus <> TreeEx()\Row\Focus
-            ExpandFocus_(Focus)
-            TreeEx()\Row\Focus = Focus
-            PostEvent(#PB_Event_Gadget, TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Row, TreeEx()\Row\Focus)
-            PostEvent(#Event_Gadget,    TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Row, TreeEx()\Row\Focus)
-            SetRowFocus_()
-            ReDraw_()
-          EndIf 
+          If Not Modifier
+            Focus = TreeEx()\Row\Focus - 1
+            If Focus < 0 : Focus = 0 : EndIf
+            
+            If SelectElement(TreeEx()\Rows(), Focus)
+              If Not TreeEx()\Rows()\Visible 
+                While PreviousElement(TreeEx()\Rows())
+                  If TreeEx()\Rows()\Visible 
+                    Focus = ListIndex(TreeEx()\Rows())
+                    Break
+                  EndIf  
+                Wend  
+              EndIf  
+            EndIf
+  
+            If Focus <> TreeEx()\Row\Focus
+              TreeEx()\Row\Focus = Focus
+              PostEvent(#PB_Event_Gadget, TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Row, TreeEx()\Row\Focus)
+              PostEvent(#Event_Gadget,    TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Row, TreeEx()\Row\Focus)
+              SetRowFocus_()
+              ReDraw_()
+            EndIf 
+          EndIf  
           ;}
-        Case #PB_Shortcut_Down ;{ Down
+        Case #PB_Shortcut_Down  ;{ Down
           
-          Focus = TreeEx()\Row\Focus + 1
-          If Focus >= ListSize(TreeEx()\Rows()) : Focus = ListSize(TreeEx()\Rows()) - 1 : EndIf
-          
-          If Focus <> TreeEx()\Row\Focus
-            ExpandFocus_(Focus)
-            TreeEx()\Row\Focus = Focus
-            PostEvent(#PB_Event_Gadget, TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Row, TreeEx()\Row\Focus)
-            PostEvent(#Event_Gadget,    TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Row, TreeEx()\Row\Focus)
-            SetRowFocus_()
-            ReDraw_()
-          EndIf 
+          If Not Modifier
+            Focus = TreeEx()\Row\Focus + 1
+            If Focus >= ListSize(TreeEx()\Rows()) : Focus = ListSize(TreeEx()\Rows()) - 1 : EndIf
+            
+            If SelectElement(TreeEx()\Rows(), Focus)
+              If Not TreeEx()\Rows()\Visible 
+                While NextElement(TreeEx()\Rows())
+                  If TreeEx()\Rows()\Visible 
+                    Focus = ListIndex(TreeEx()\Rows())
+                    Break
+                  EndIf  
+                Wend  
+              EndIf  
+            EndIf
+            
+            If Focus <> TreeEx()\Row\Focus
+              TreeEx()\Row\Focus = Focus
+              PostEvent(#PB_Event_Gadget, TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Row, TreeEx()\Row\Focus)
+              PostEvent(#Event_Gadget,    TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Row, TreeEx()\Row\Focus)
+              SetRowFocus_()
+              ReDraw_()
+            EndIf 
+          EndIf  
           ;}
-        Case #PB_Shortcut_Home ;{ Home / Pos1
+        Case #PB_Shortcut_Left  ;{ Left
           
-          Focus = 0
-          
-          If Focus <> TreeEx()\Row\Focus
-            ExpandFocus_(Focus)
-            TreeEx()\Row\Focus = Focus
-            PostEvent(#PB_Event_Gadget, TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Row, TreeEx()\Row\Focus)
-            PostEvent(#Event_Gadget,    TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Row, TreeEx()\Row\Focus)
-            SetRowFocus_()
-            ReDraw_()
-          EndIf 
+          If Not Modifier
+            If SelectElement(TreeEx()\Rows(), TreeEx()\Row\Focus)
+              If TreeEx()\Rows()\Button\X <> #PB_Default And TreeEx()\Rows()\Button\Y <> #PB_Default
+                TreeEx()\Rows()\Button\State = #False
+    	          TreeEx()\Rows()\State | #Collapsed
+    	          TreeEx()\Rows()\State & ~#Expanded
+                ReDraw_()
+              EndIf  
+            EndIf   
+          EndIf  
           ;}
-        Case #PB_Shortcut_End  ;{ End
+        Case #PB_Shortcut_Right ;{ Right
           
-          Focus = ListSize(TreeEx()\Rows()) - 1
+          If Not Modifier
+            If SelectElement(TreeEx()\Rows(), TreeEx()\Row\Focus)
+              If TreeEx()\Rows()\Button\X <> #PB_Default And TreeEx()\Rows()\Button\Y <> #PB_Default
+                TreeEx()\Rows()\Button\State = #True
+    	          TreeEx()\Rows()\State | #Expanded
+    	          TreeEx()\Rows()\State & ~#Collapsed
+    	          ReDraw_()
+              EndIf  
+            EndIf
+          EndIf   
+          ;}
+        Case #PB_Shortcut_Home  ;{ Home / Pos1
           
-          If Focus <> TreeEx()\Row\Focus
-            ExpandFocus_(Focus)
-            TreeEx()\Row\Focus = Focus
-            PostEvent(#PB_Event_Gadget, TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Row, TreeEx()\Row\Focus)
-            PostEvent(#Event_Gadget,    TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Row, TreeEx()\Row\Focus)
-            SetRowFocus_()
-            ReDraw_()
-          EndIf 
+          If Not Modifier
+            Focus = 0
+            
+            If Focus <> TreeEx()\Row\Focus
+              ExpandFocus_(Focus)
+              TreeEx()\Row\Focus = Focus
+              PostEvent(#PB_Event_Gadget, TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Row, TreeEx()\Row\Focus)
+              PostEvent(#Event_Gadget,    TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Row, TreeEx()\Row\Focus)
+              SetRowFocus_()
+              ReDraw_()
+            EndIf 
+          EndIf  
+          ;}
+        Case #PB_Shortcut_End   ;{ End
+          
+          If Not Modifier
+            Focus = ListSize(TreeEx()\Rows()) - 1
+            
+            If Focus <> TreeEx()\Row\Focus
+              ExpandFocus_(Focus)
+              TreeEx()\Row\Focus = Focus
+              PostEvent(#PB_Event_Gadget, TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Row, TreeEx()\Row\Focus)
+              PostEvent(#Event_Gadget,    TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Row, TreeEx()\Row\Focus)
+              SetRowFocus_()
+              ReDraw_()
+            EndIf 
+          EndIf  
           ;}
       EndSelect
       
@@ -2537,7 +2589,8 @@ Module TreeEx
     			  ElseIf Y >= TreeEx()\ScrollBar\Item()\Thumb\Y And Y <= TreeEx()\ScrollBar\Item()\Thumb\Y + TreeEx()\ScrollBar\Item()\Thumb\Height
     			    ;{ Thumb Button
     			    If TreeEx()\ScrollBar\Item()\Thumb\State <> #ScrollBar_Click
-    			      TreeEx()\ScrollBar\Item()\Thumb\State = #ScrollBar_Click
+    			      TreeEx()\ScrollBar\Item()\Thumb\State  = #ScrollBar_Click
+    			      TreeEx()\ScrollBar\Item()\Thumb\Offset = TreeEx()\ScrollBar\Item()\Thumb\Y - Y
     			      TreeEx()\ScrollBar\Item()\Cursor = Y
     			      DrawScrollBar_(ScrollBar)
     			    EndIf ;} 
@@ -2569,7 +2622,8 @@ Module TreeEx
     			  ElseIf X >= TreeEx()\ScrollBar\Item()\Thumb\X And X <= TreeEx()\ScrollBar\Item()\Thumb\X + TreeEx()\ScrollBar\Item()\Thumb\Width
     			    ;{ Thumb Button
     			    If TreeEx()\ScrollBar\Item()\Thumb\State <> #ScrollBar_Click
-    			      TreeEx()\ScrollBar\Item()\Thumb\State = #ScrollBar_Click
+    			      TreeEx()\ScrollBar\Item()\Thumb\State  = #ScrollBar_Click
+    			      TreeEx()\ScrollBar\Item()\Thumb\Offset = TreeEx()\ScrollBar\Item()\Thumb\X - X
     			      TreeEx()\ScrollBar\Item()\Cursor = X
     			      DrawScrollBar_(ScrollBar)
     			    EndIf ;} 
@@ -2651,7 +2705,7 @@ Module TreeEx
       
   		  If TreeEx()\ScrollBar\Item()\Hide : Continue : EndIf 
   		  
-  			TreeEx()\ScrollBar\Item()\Cursor = #PB_Default
+  		  TreeEx()\ScrollBar\Item()\Cursor = #PB_Default
   			TreeEx()\ScrollBar\Item()\Timer  = #False
   			
   			ScrollBar = MapKey(TreeEx()\ScrollBar\Item())
@@ -2736,7 +2790,6 @@ Module TreeEx
   	      
     	      If Y <= TreeEx()\ScrollBar\Item()\Buttons\Backwards\Y + TreeEx()\ScrollBar\Item()\Buttons\Backwards\Height
     	        ;{ Backwards Button
-    	        
     			    If TreeEx()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Focus
     			      
     			      TreeEx()\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Focus
@@ -2781,7 +2834,8 @@ Module TreeEx
     			    ;{ Move Thumb
     			    If TreeEx()\ScrollBar\Item()\Cursor <> #PB_Default
     			      
-    			      TreeEx()\ScrollBar\Item()\Pos + GetSteps_(Y)
+    			      ;TreeEx()\ScrollBar\Item()\Pos + GetSteps_(Y)
+    			      TreeEx()\ScrollBar\Item()\Pos = GetScrollBarPos(Y + TreeEx()\ScrollBar\Item()\Thumb\Offset)
     			      
     			      If TreeEx()\ScrollBar\Item()\Pos > TreeEx()\ScrollBar\Item()\maxPos : TreeEx()\ScrollBar\Item()\Pos = TreeEx()\ScrollBar\Item()\maxPos : EndIf
     			      If TreeEx()\ScrollBar\Item()\Pos < TreeEx()\ScrollBar\Item()\minPos : TreeEx()\ScrollBar\Item()\Pos = TreeEx()\ScrollBar\Item()\minPos : EndIf
@@ -2841,8 +2895,9 @@ Module TreeEx
     			    ;{ Thumb Button
     			    If TreeEx()\ScrollBar\Item()\Cursor <> #PB_Default
     
-    		        TreeEx()\ScrollBar\Item()\Pos + GetSteps_(X)
-    		        
+    		        ;TreeEx()\ScrollBar\Item()\Pos + GetSteps_(X)
+    			      TreeEx()\ScrollBar\Item()\Pos = GetScrollBarPos(X + TreeEx()\ScrollBar\Item()\Thumb\Offset)
+    			      
     		        If TreeEx()\ScrollBar\Item()\Pos > TreeEx()\ScrollBar\Item()\maxPos : TreeEx()\ScrollBar\Item()\Pos = TreeEx()\ScrollBar\Item()\maxPos : EndIf
     		        If TreeEx()\ScrollBar\Item()\Pos < TreeEx()\ScrollBar\Item()\minPos : TreeEx()\ScrollBar\Item()\Pos = TreeEx()\ScrollBar\Item()\minPos : EndIf
     		        
@@ -2888,7 +2943,7 @@ Module TreeEx
   		;{ Thumb Focus vertical/horizontal
 			If TreeEx()\ScrollBar\Item("HScroll")\Cursor <> #PB_Default
   
-        TreeEx()\ScrollBar\Item("HScroll")\Pos + GetSteps_(X)
+        TreeEx()\ScrollBar\Item()\Pos = GetScrollBarPos(X + TreeEx()\ScrollBar\Item()\Thumb\Offset)
         
         If TreeEx()\ScrollBar\Item("HScroll")\Pos > TreeEx()\ScrollBar\Item("HScroll")\maxPos : TreeEx()\ScrollBar\Item("HScroll")\Pos = TreeEx()\ScrollBar\Item("HScroll")\maxPos : EndIf
         If TreeEx()\ScrollBar\Item("HScroll")\Pos < TreeEx()\ScrollBar\Item("HScroll")\minPos : TreeEx()\ScrollBar\Item("HScroll")\Pos = TreeEx()\ScrollBar\Item("HScroll")\minPos : EndIf
@@ -2902,7 +2957,7 @@ Module TreeEx
 			
 			If TreeEx()\ScrollBar\Item("VScroll")\Cursor <> #PB_Default
 
-	      TreeEx()\ScrollBar\Item("VScroll")\Pos + GetSteps_(Y)
+	      TreeEx()\ScrollBar\Item()\Pos = GetScrollBarPos(Y + TreeEx()\ScrollBar\Item()\Thumb\Offset)
 	      
 	      If TreeEx()\ScrollBar\Item("VScroll")\Pos > TreeEx()\ScrollBar\Item("VScroll")\maxPos : TreeEx()\ScrollBar\Item("VScroll")\Pos = TreeEx()\ScrollBar\Item("VScroll")\maxPos : EndIf
 	      If TreeEx()\ScrollBar\Item("VScroll")\Pos < TreeEx()\ScrollBar\Item("VScroll")\minPos : TreeEx()\ScrollBar\Item("VScroll")\Pos = TreeEx()\ScrollBar\Item("VScroll")\minPos : EndIf
@@ -4166,13 +4221,13 @@ CompilerIf #PB_Compiler_IsMainFile
       
       ; _____ Add content _____
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "Item" + #LF$ + #LF$ + "1")
-      TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "Item" + #LF$ + #LF$ + "1")
+      TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "Item" + #LF$ + #LF$ + "1",   "", #False, 3)
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "1.1",   "", #False, 1)
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "1.1.1", "", #False, 2)
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "1.1.1", "", #False, 3)
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "1.1.1.1", "", #False, 4)
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "1.1.2", "", #False, 0)
-      TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "Item"    + #LF$ + #LF$ + "2", "", 1)
+      TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "Item"    + #LF$ + #LF$ + "2")
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "2.1",   "", #False, 1)
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "2.2",   "", #False, 1)
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "2.3",   "", #False, 1)
@@ -4224,7 +4279,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 2447
-; Folding = MADAAAAAAAAgAIQEFBAAgAAEaiMDgQACIAAAMAG+
+; CursorPosition = 2959
+; FirstLine = 696
+; Folding = MADMAAAAAIGhRKQEFBQAAAgZBGCICCBIgAAAwAAw
 ; EnableXP
 ; DPIAware
