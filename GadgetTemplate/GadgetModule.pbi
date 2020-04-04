@@ -37,6 +37,14 @@
 ; SOFTWARE.
 ;}
 
+;{ ===== Tea & Pizza Ware =====
+; <purebasic@thprogs.de> has created this code. 
+; If you find the code useful and you want to use it for your programs, 
+; you are welcome to support my work with a cup of tea or a pizza
+; (or the amount of money for it). 
+; [ https://www.paypal.me/Hoeppner1867 ]
+;}
+
 
 ;{ _____ {Gadget} - Commands _____
 
@@ -55,9 +63,9 @@ DeclareModule {Gadget}
 
 	;{ _____ Constants _____
 	EnumerationBinary ;{ GadgetFlags
-		#AutoResize ; Automatic resizing of the gadget
-		#Borderless ; Draw no border
-		#ToolTips   ; Show tooltips
+		#AutoResize        ; Automatic resizing of the gadget
+		#Borderless        ; Draw no border
+		#ToolTips          ; Show tooltips
 		#UseExistingCanvas ; e.g. for dialogs
 	EndEnumeration ;}
 
@@ -68,7 +76,7 @@ DeclareModule {Gadget}
 		#Height
 	EndEnumeration ;}
 	
-	Enumeration       ;{ Attribute
+	Enumeration 1     ;{ Attribute
 	  #Corner
 	EndEnumeration ;}
 	
@@ -95,20 +103,19 @@ DeclareModule {Gadget}
 	;- ===========================================================================
 	;-   DeclareModule
 	;- ===========================================================================
-	
-	Declare.q GetData(GNum.i)
-	Declare.s GetID(GNum.i)
-  Declare   SetData(GNum.i, Value.q)
-	Declare   SetID(GNum.i, String.s)
-	
+
   Declare   AttachPopupMenu(GNum.i, PopUpNum.i)
   Declare   DisableReDraw(GNum.i, State.i=#False)
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
-  Declare   Hide(GNum.i, State.i=#True)
+  Declare.q GetData(GNum.i)
+  Declare.s GetID(GNum.i)
+  Declare   Hide(GNum.i, State.i=#True) 
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetAttribute(GNum.i, Attribute.i, Value.i)
   Declare   SetColor(GNum.i, ColorTyp.i, Value.i)
+  Declare   SetData(GNum.i, Value.q)
   Declare   SetFont(GNum.i, FontID.i) 
+  Declare   SetID(GNum.i, String.s)
   
 EndDeclareModule
 
@@ -181,7 +188,9 @@ Module {Gadget}
 	;- ============================================================================
 	;-   Module - Internal
 	;- ============================================================================
-
+	
+	Declare.i BlendColor_(Color1.i, Color2.i, Factor.i=50)
+	
 	CompilerIf #PB_Compiler_OS = #PB_OS_MacOS
 	  
 		; Addition of mk-soft
@@ -213,9 +222,83 @@ Module {Gadget}
 				ProcedureReturn rgb
 			EndIf
 		EndProcedure
-
+		
+		Procedure OSX_NSColorByNameToRGB(NSColorName.s)
+      Protected.cgfloat red, green, blue
+      Protected nscolorspace, rgb
+      nscolorspace = CocoaMessage(0, CocoaMessage(0, 0, "NSColor " + NSColorName), "colorUsingColorSpaceName:$", @"NSCalibratedRGBColorSpace")
+      If nscolorspace
+        CocoaMessage(@red, nscolorspace, "redComponent")
+        CocoaMessage(@green, nscolorspace, "greenComponent")
+        CocoaMessage(@blue, nscolorspace, "blueComponent")
+        rgb = RGB(red * 255.0, green * 255.0, blue * 255.0)
+        ProcedureReturn rgb
+      EndIf
+    EndProcedure
+		
+		Procedure OSX_GadgetColor()
+		  Define.i UserDefaults, NSString
+		  
+		  UserDefaults = CocoaMessage(0, 0, "NSUserDefaults standardUserDefaults")
+      NSString = CocoaMessage(0, UserDefaults, "stringForKey:$", @"AppleInterfaceStyle")
+      If NSString And PeekS(CocoaMessage(0, NSString, "UTF8String"), -1, #PB_UTF8) = "Dark"
+        ProcedureReturn BlendColor(NSColorByNameToRGB("controlBackgroundColor"), #White, 85)
+      Else
+        ProcedureReturn BlendColor(NSColorByNameToRGB("windowBackgroundColor"), #White, 85)
+      EndIf 
+      
+		EndProcedure 
+		
 	CompilerEndIf
 	
+  CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure.i GetGadgetWindow()
+      ProcedureReturn ModuleEx::GetGadgetWindow()
+    EndProcedure
+    
+  CompilerElse  
+    
+    CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+      ; Thanks to mk-soft
+      Import ""
+        PB_Object_EnumerateStart(PB_Objects)
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerElse
+      ImportC ""
+        PB_Object_EnumerateStart( PB_Objects )
+        PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
+        PB_Object_EnumerateAbort( PB_Objects )
+        PB_Window_Objects.i
+      EndImport
+    CompilerEndIf
+    
+    Procedure.i GetGadgetWindow()
+      ; Thanks to mk-soft
+      Define.i WindowID, Window, Result = #PB_Default
+      
+      WindowID = UseGadgetList(0)
+      
+      PB_Object_EnumerateStart(PB_Window_Objects)
+      
+      While PB_Object_EnumerateNext(PB_Window_Objects, @Window)
+        If WindowID = WindowID(Window)
+          Result = Window
+          Break
+        EndIf
+      Wend
+      
+      PB_Object_EnumerateAbort(PB_Window_Objects)
+      
+      ProcedureReturn Result
+    EndProcedure
+    
+  CompilerEndIf	
+  
+  
   Procedure.f dpiX(Num.i)
 	  If Num > 0  
 	    ProcedureReturn DesktopScaledX(Num)
@@ -546,21 +629,13 @@ Module {Gadget}
 			If AddMapElement({Gadget}(), Str(GNum))
 
 				{Gadget}()\CanvasNum = GNum
-
-				CompilerIf Defined(ModuleEx, #PB_Module) ; WindowNum = #Default
-					If WindowNum = #PB_Default
-						{Gadget}()\Window\Num = ModuleEx::GetGadgetWindow()
-					Else
-						{Gadget}()\Window\Num = WindowNum
-					EndIf
-				CompilerElse
-					If WindowNum = #PB_Default
-						{Gadget}()\Window\Num = GetActiveWindow()
-					Else
-						{Gadget}()\Window\Num = WindowNum
-					EndIf
-				CompilerEndIf
-
+				
+				If WindowNum = #PB_Default
+          {Gadget}()\Window\Num = GetGadgetWindow()
+        Else
+          {Gadget}()\Window\Num = WindowNum
+        EndIf
+				
 				CompilerSelect #PB_Compiler_OS           ;{ Default Gadget Font
 					CompilerCase #PB_OS_Windows
 						{Gadget}()\FontID = GetGadgetFont(#PB_Default)
@@ -715,7 +790,7 @@ Module {Gadget}
   Procedure   SetData(GNum.i, Value.q)
 	  
 	  If FindMapElement({Gadget}(), Str(GNum))
-	    {Gadget}()\ID = Value
+	    {Gadget}()\Quad = Value
 	  EndIf  
 	  
 	EndProcedure
@@ -723,12 +798,11 @@ Module {Gadget}
 	Procedure   SetID(GNum.i, String.s)
 	  
 	  If FindMapElement({Gadget}(), Str(GNum))
-	    {Gadget}()\Quad = String
+	    {Gadget}()\ID = String
 	  EndIf
 	  
 	EndProcedure
 
-  
   Procedure   SetFont(GNum.i, FontID.i) 
     
     If FindMapElement({Gadget}(), Str(GNum))
@@ -739,6 +813,18 @@ Module {Gadget}
     EndIf
     
   EndProcedure  
+  
+  Procedure   UpdatePopupText(GNum.i, MenuItem.i, Text.s)
+    
+    If FindMapElement({Gadget}(), Str(GNum))
+      
+      If AddMapElement({Gadget}()\PopUpItem(), Str(MenuItem))
+        {Gadget}()\PopUpItem() = Text
+      EndIf 
+      
+    EndIf
+    
+  EndProcedure
   
 EndModule
 
@@ -753,7 +839,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   If OpenWindow(#Window, 0, 0, 300, 200, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
     
-    If {Gadget}::Gadget(#{Gadget}, 10, 10, 280, 180, {Gadget}::#Border)
+    If {Gadget}::Gadget(#{Gadget}, 10, 10, 280, 180)
       
     EndIf
     
@@ -783,9 +869,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 100
-; FirstLine = 52
-; Folding = cZAgOII3wC-
+; IDE Options = PureBasic 5.72 (Windows - x64)
+; CursorPosition = 236
+; FirstLine = 81
+; Folding = 5QIEAdQZ3AE+
 ; EnableXP
 ; DPIAware
