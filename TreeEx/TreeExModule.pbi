@@ -18,6 +18,8 @@
 ; Bugfixes
 ; 
 
+; TODO: Drag & Drop
+
 ;{ ===== MIT License =====
 ;
 ; Copyright (c) 2019 Thorsten Hoeppner
@@ -83,7 +85,7 @@
 
 DeclareModule TreeEx
   
-  #Version  = 20040400
+  #Version  = 20040401
   #ModuleEx = 19112002
   
   #Enable_ProgressBar = #True
@@ -1431,7 +1433,7 @@ Module TreeEx
 		    
         ;{ ----- Buttons -----
   		  TreeEx()\ScrollBar\Item()\Buttons\Forwards\X       = X
-    		TreeEx()\ScrollBar\Item()\Buttons\Forwards\Y       = Y + Height - dpiY(#ScrollBar_ButtonSize) - dpiY(TreeEx()\ScrollBar\Adjust)
+    		TreeEx()\ScrollBar\Item()\Buttons\Forwards\Y       = Y + Height - dpiY(#ScrollBar_ButtonSize) - dpiY(TreeEx()\ScrollBar\Adjust) + dpiY(1)
     		TreeEx()\ScrollBar\Item()\Buttons\Forwards\Width   = Width
     		TreeEx()\ScrollBar\Item()\Buttons\Forwards\Height  = dpiY(#ScrollBar_ButtonSize)	
     		TreeEx()\ScrollBar\Item()\Buttons\Backwards\X      = X
@@ -1443,7 +1445,7 @@ Module TreeEx
     		TreeEx()\ScrollBar\Item()\Area\X      = X
     	  TreeEx()\ScrollBar\Item()\Area\Y      = Y + dpiY(#ScrollBar_ButtonSize)
     	  TreeEx()\ScrollBar\Item()\Area\Width  = Width
-    	  TreeEx()\ScrollBar\Item()\Area\Height = Height - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(TreeEx()\ScrollBar\Adjust)
+    	  TreeEx()\ScrollBar\Item()\Area\Height = Height - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(TreeEx()\ScrollBar\Adjust) + dpiY(1)
     	  ;}
         ;{ ----- Thumb -----
     	  TreeEx()\ScrollBar\Item()\Thumb\X      = X
@@ -1547,7 +1549,7 @@ Module TreeEx
   			;}
   			
   			If TreeEx()\ScrollBar\Adjust
-  			  Box(GadgetWidth(TreeEx()\CanvasNum) - dpiX(#ScrollBar_ButtonSize) - dpiX(1), GadgetHeight(TreeEx()\CanvasNum) - dpiY(#ScrollBar_ButtonSize) - dpiY(1), dpiX(#ScrollBar_ButtonSize), dpiY(#ScrollBar_ButtonSize), TreeEx()\ScrollBar\Color\Gadget)
+  			  Box(dpiX(GadgetWidth(TreeEx()\CanvasNum)) - dpiX(#ScrollBar_ButtonSize) - dpiX(1), dpiY(GadgetHeight(TreeEx()\CanvasNum)) - dpiY(#ScrollBar_ButtonSize) - dpiY(1), dpiX(#ScrollBar_ButtonSize), dpiY(#ScrollBar_ButtonSize), TreeEx()\ScrollBar\Color\Gadget)
   			EndIf 
   			
   			;{ _____ Border ____
@@ -4279,8 +4281,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 2959
-; FirstLine = 696
-; Folding = MADMAAAAAIGhRKQEFBQAAAgZBGCICCBIgAAAwAAw
+; CursorPosition = 20
+; Folding = MADMAAAAAIGhPISEFBAAAAAYBECICCBIgAAAwAAw
 ; EnableXP
 ; DPIAware

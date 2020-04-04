@@ -2818,9 +2818,9 @@ Module MarkDown
               PDF::SetColorRGB(PDF, PDF::#TextColor, 0, 0, 255)
               
               If MarkDown()\Link()\Label
-                Link$ = MarkDown()\Label(MarkDown()\Link()\Label)\Destination
+                Link$ = Trim(MarkDown()\Label(MarkDown()\Link()\Label)\Destination)
               Else
-                Link$ = MarkDown()\Link()\URL
+                Link$ = Trim(MarkDown()\Link()\URL)
               EndIf 
 
               If Left(Link$, 1) = "#"
@@ -4094,7 +4094,7 @@ Module MarkDown
               If AddElement(MarkDown()\Link())
                 
                 If AddElement(Words())
-                  Words()\String = Mid(Row, Pos + 1, ePos - Pos - 1)
+                  Words()\String = Trim(Mid(Row, Pos + 1, ePos - Pos - 1))
                   Words()\Font   = #Font_Normal
                   Words()\Index  = ListIndex(MarkDown()\Link())
                   Words()\Flag   = #Link 
@@ -4104,7 +4104,7 @@ Module MarkDown
                 
                 ePos = FindString(Row, "]", nPos)
                 If ePos
-                  MarkDown()\Link()\Label = Mid(Row, nPos + 1, ePos - nPos - 1)
+                  MarkDown()\Link()\Label = Trim(Mid(Row, nPos + 1, ePos - nPos - 1))
                 EndIf
                 
               EndIf
@@ -4121,7 +4121,7 @@ Module MarkDown
                 If AddElement(MarkDown()\Link())
                   
                   If AddElement(Words())
-                    Words()\String = Mid(Row, Pos + 1, ePos - Pos - 1)
+                    Words()\String = Trim(Mid(Row, Pos + 1, ePos - Pos - 1))
                     Words()\Font   = #Font_Normal
                     Words()\Index  = ListIndex(MarkDown()\Link())
                     Words()\Flag   = #Link 
@@ -4137,11 +4137,11 @@ Module MarkDown
                     If Left(String$, 1) = "<"
                       nPos = FindString(String$, ">", 2)
                       If nPos
-                        MarkDown()\Link()\URL = Mid(String$, 2, nPos - 1)
+                        MarkDown()\Link()\URL = Trim(Mid(String$, 2, nPos - 1))
                         String$ = Trim(Mid(String$, nPos + 1))
                       EndIf 
                     Else
-                      MarkDown()\Link()\URL = StringField(String$, 1, " ")
+                      MarkDown()\Link()\URL = Trim(StringField(String$, 1, " "))
                       String$ = Trim(Mid(String$, Len(MarkDown()\Link()\URL) + 1))
                     EndIf ;}
                     
@@ -4154,7 +4154,7 @@ Module MarkDown
                           nPos = FindString(String$, "'", 2)
                       EndSelect
                       If nPos
-                        MarkDown()\Link()\Title = Mid(String$, 2, nPos - 2)
+                        MarkDown()\Link()\Title = Trim(Mid(String$, 2, nPos - 2))
                       EndIf 
                     EndIf ;}
                   
@@ -5311,13 +5311,13 @@ Module MarkDown
                   
                   String$ = Trim(Mid(tRow$, ePos + 1))
                   
-                  MarkDown()\Label()\Destination = StringField(String$, 1, " ")
+                  MarkDown()\Label()\Destination = Trim(StringField(String$, 1, " "))
                   
                   String$ = Trim(StringField(String$, 2, " "))
                   If CountString(String$, #DQUOTE$) = 2
-                    MarkDown()\Label()\Title = Trim(String$, #DQUOTE$)
+                    MarkDown()\Label()\Title = Trim(Trim(String$, #DQUOTE$))
                   ElseIf CountString(StringField(String$, 2, " "), "'") = 2
-                    MarkDown()\Label()\Title = Trim(String$, "'")
+                    MarkDown()\Label()\Title = Trim(Trim(String$, "'"))
                   EndIf
 
                   Continue
@@ -8531,8 +8531,6 @@ Module MarkDown
             ClosePack(Pack)
     	    EndIf ;}
     	    
-    	    Debug "Images: " + Str(MapSize(MarkDown()\ImageMem()))
-    	    
     	    MergeHelp(Item(), TOC(), Glossary())
 
     	    PDF = PDF::Create(#PB_Any, Orientation, "", Format)
@@ -8557,7 +8555,9 @@ Module MarkDown
               
               UpdateHelp(#PB_Default, TOC(), Glossary(), #True)
               
-              If Item()\Label : PDF::AddGotoLabel(PDF, "#Page:" + Item()\Label) : EndIf
+              If Item()\Label
+                PDF::AddGotoLabel(PDF, "#" + Item()\Label)
+              EndIf
               
               PDF::BookMark(PDF, Item()\Titel, Item()\Level)
 
@@ -8569,14 +8569,7 @@ Module MarkDown
             
             PDF::Close(PDF, FilePDF)
           EndIf
-          
-          ;{ FreeMemory()
-          ForEach MarkDown()\ImageMem()
-            If MarkDown()\ImageMem()\Buffer And MarkDown()\ImageMem()\Size
-              FreeMemory(MarkDown()\ImageMem()\Buffer)
-            EndIf  
-          Next ;}
-          
+
     	  EndIf
     	  
     	  ProcedureReturn FilePDF
@@ -9956,9 +9949,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 92
-; FirstLine = 15
-; Folding = wcABkDAIAAAAABg6DgEUWEBAQABACkAEwCgBAAAAAIBMABAAAggANIAAMIAeAQIwAAIAgBAABHAQAAKhBBAAYYKhjBg3BIH3ECAAYB+
+; CursorPosition = 4156
+; FirstLine = 665
+; Folding = wcABkDAIAAAAABg6DgEUWEBAQABACkCAAAgBAAcQAAFFAFAAAAgAMIGAMIAeAQIwAAIAgBAABHAQAAKhRAAAQUKhjAQ7AkDRCAAAoA-
 ; Markers = 3218,5103,6436
 ; EnableXP
 ; DPIAware

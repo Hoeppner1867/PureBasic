@@ -7,13 +7,12 @@
 ;/ © 2020 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 18.03.2020
+; Last Update: 04.04.2020
 ;
 ; Changed: ScrollBarGadget() replaced by drawing routine
 ; Added:   Attribute #ScrollBar [#ScrollBar_Default/#ScrollBar_Frame/#ScrollBar_DragPoint]
 ; Added:   SetColor() -> [#ScrollBar_FrontColor/#ScrollBar_BackColor/#ScrollBar_BorderColor/#ScrollBar_ButtonColor/#ScrollBar_ThumbColor]
 ;
-
 
 ;{ ===== MIT License =====
 ;
@@ -140,7 +139,7 @@
 
 DeclareModule EditEx
   
-  #Version  = 20031800
+  #Version  = 20040400
   #ModuleEx = 20010800
   
   ;- ============================================================================
@@ -1414,21 +1413,21 @@ Module EditEx
     ; Position of the first letter of the word
     Define.i p
     
-    For p = Position To 1 Step -1
+    For p = Position - 1 To 1 Step -1
       Select Mid(String, p, 1)
         Case " ", #CR$, #LF$, #LF$
-          ProcedureReturn p + 1
+          If p + 1 <> Position : ProcedureReturn p + 1 : EndIf 
         Case ".", ":", ",", ";", "!", "?"
           If Flags & #Punctation Or Flags & #WordOnly
-            ProcedureReturn p + 1
+            If p + 1 <> Position : ProcedureReturn p + 1 : EndIf 
           EndIf
         Case "{", "[", "(", "<"
           If Flags & #Brackets Or Flags & #WordOnly
-            ProcedureReturn p + 1
+           If p + 1 <> Position : ProcedureReturn p + 1 : EndIf 
           EndIf
         Case Chr(34), "'", "«", "»"
           If Flags & #QuotationMarks Or Flags & #WordOnly
-            ProcedureReturn p + 1
+            If p + 1 <> Position : ProcedureReturn p + 1 : EndIf 
           EndIf
       EndSelect
     Next
@@ -1440,21 +1439,21 @@ Module EditEx
     ; Position of the last letter of the word
     Define.i p
     
-    For p = Position To Len(String)
+    For p = Position + 1 To Len(String)
       Select Mid(String, p, 1)
         Case " ", #CR$, #LF$, #LF$
-          ProcedureReturn p
+          If p <> Position : ProcedureReturn p : EndIf
         Case ".", ":", ",", ";", "!", "?"
           If Flags & #Punctation Or Flags & #WordOnly
-            ProcedureReturn p
+            If p <> Position : ProcedureReturn p : EndIf
           EndIf
         Case ")", "]", "}", ">"
           If Flags & #Brackets Or Flags & #WordOnly
-            ProcedureReturn p
+            If p <> Position : ProcedureReturn p : EndIf
           EndIf
         Case Chr(34), "'", "»", "«"
           If Flags & #QuotationMarks Or Flags & #WordOnly
-            ProcedureReturn p
+            If p <> Position : ProcedureReturn p : EndIf
           EndIf  
       EndSelect
     Next
@@ -3901,7 +3900,10 @@ Module EditEx
         
         DeleteSelection_(#False)
         
+        If EditEx()\Cursor\Pos = 0 : EditEx()\Cursor\Pos = 1 : EndIf
+        
         EditEx()\Text$ = InsertString(EditEx()\Text$, Chr(Char), EditEx()\Cursor\Pos)
+        
         EditEx()\Cursor\Pos + 1
 
         RemoveSelection_()
@@ -6339,10 +6341,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 142
-; FirstLine = 15
-; Folding = wBCMAgQAwAAgAIAAYACAfAAD9TA69AHAABOAwACA+JOA-wjvEAAAAEBBAFkwhDCj--
-; Markers = 1104,2931,3040,5552
+; IDE Options = PureBasic 5.72 (Windows - x64)
+; CursorPosition = 15
+; Folding = wBCMAgQAwAAgAIEAYACAfAAD9TA69AHAlSOAwACC+JOA-wjvEAAAAEBBAFkwhDCj--
+; Markers = 1103,2930,3039,5554
 ; EnableXP
 ; DPIAware
