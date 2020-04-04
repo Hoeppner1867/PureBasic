@@ -9,7 +9,7 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 03.04.2020
+; Last Update: 04.04.2020
 ;
 ; - Bugfixes
 ;
@@ -90,7 +90,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20040300
+  #Version  = 20040400
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -555,6 +555,7 @@ Module MarkDown
     
     Structure Help_Structure
       TreeNum.i
+      CanvasNum.i
       HomeNum.i
       NextNum.i
       PrevNum.i
@@ -5393,12 +5394,14 @@ Module MarkDown
   Procedure   MergeHelp(List Items.Item_Structure(), List TOC.TOC_Structure(), Map Glossary.Glossary_Structure())
     Define.i Result, Counter
     Define.s GNum$  
-    
+
     ClearList(TOC())
     ClearMap(Glossary())
     
-    ForEach Items()
+    PushMapPosition(MarkDown())
     
+    ForEach Items()
+      
       If AddMapElement(MarkDown(), "Parse")
         
         Parse_(Items()\Text)
@@ -5431,16 +5434,20 @@ Module MarkDown
     	    EndIf
     	    ;}
         Next
-        
+
       EndIf
       
     Next
+    
+    PopMapPosition(MarkDown())
     
   EndProcedure
 
   Procedure   UpdateHelp(GNum.i, List TOC.TOC_Structure(), Map Glossary.Glossary_Structure(), Export.i=#False)
  
     NewList Sort.s() 
+    
+    PushMapPosition(MarkDown())
     
     If FindMapElement(MarkDown(), Str(GNum))
       
@@ -5492,6 +5499,8 @@ Module MarkDown
       EndIf
       
     EndIf
+    
+    PopMapPosition(MarkDown())
     
   EndProcedure
   	
@@ -8474,7 +8483,7 @@ Module MarkDown
   	    NewMap  Glossary.Glossary_Structure()
   	    NewList Item.Item_Structure()
   	    
-  	    If AddMapElement(MarkDown(), "Parse")
+  	    If AddMapElement(MarkDown(), "Help")
   
   	      ;{ _____ Load Help File _____
     	    Pack = OpenPack(#PB_Any, File, #PB_PackerPlugin_Lzma)
@@ -8522,8 +8531,10 @@ Module MarkDown
             ClosePack(Pack)
     	    EndIf ;}
     	    
-    	    MergeHelp(Item(), TOC(), Glossary())
+    	    Debug "Images: " + Str(MapSize(MarkDown()\ImageMem()))
     	    
+    	    MergeHelp(Item(), TOC(), Glossary())
+
     	    PDF = PDF::Create(#PB_Any, Orientation, "", Format)
           If PDF
             
@@ -8549,7 +8560,7 @@ Module MarkDown
               If Item()\Label : PDF::AddGotoLabel(PDF, "#Page:" + Item()\Label) : EndIf
               
               PDF::BookMark(PDF, Item()\Titel, Item()\Level)
-  
+
               ConvertPDF_(PDF)
               
             Next
@@ -8767,7 +8778,7 @@ Module MarkDown
 	  
 	  Procedure.s Help(Title.s, File.s, Label.s="", Flags.i=#False, Parent.i=#PB_Default)
 	    ; Flags: #AutoResize
-	    Define.i MarkdownNum, WindowNum, WindowFlags, quitWindow
+	    Define.i WindowNum, WindowFlags, quitWindow
 	    Define.i Pack, JSON, Size, Selected, Result
 	    Define.s FileName$, Link$
 	    Define   *Buffer
@@ -8804,7 +8815,7 @@ Module MarkDown
   	    CompilerIf Defined(TreeEx, #PB_Module)
   	      Help\TreeNum = TreeEx::Gadget(#PB_Any, 10, 40, 185, 470, "", TreeEx::#AlwaysShowSelection, WindowNum)
   	    CompilerElse
-  	      Help\TreeNum = TreeGadget(#PB_Any, 10, 40, 185, 470)
+  	      Help\TreeNum = TreeGadget(#PB_Any, 10, 40, 185, 470, #PB_Tree_AlwaysShowSelection)
   	    CompilerEndIf  
   	    ;}
   	    
@@ -8815,15 +8826,15 @@ Module MarkDown
   	    ;}
   	    
   	    ;{ _____ CanvasGadget _____
-  	    MarkdownNum = CanvasGadget(#PB_Any, 200, 10, 420, 500) ; , #PB_Canvas_Container
-  	    If MarkdownNum
+  	    Help\CanvasNum = CanvasGadget(#PB_Any, 200, 10, 420, 500) ; , #PB_Canvas_Container
+  	    If Help\CanvasNum
 
-  	      If AddMapElement(MarkDown(), Str(MarkdownNum))
+  	      If AddMapElement(MarkDown(), Str(Help\CanvasNum))
   	        
   	        MarkDown()\Type = #Help
   	        
   	        MarkDown()\Window\Num  = WindowNum
-  	        MarkDown()\CanvasNum   = MarkdownNum
+  	        MarkDown()\CanvasNum   = Help\CanvasNum
 
   	        MarkDown()\Size\X      = 200
   				  MarkDown()\Size\Y      = 10
@@ -8831,7 +8842,7 @@ Module MarkDown
   				  MarkDown()\Size\Height = 500
 				    MarkDown()\Flags       = Flags | #IgnorePath
 				    
-				    InitScrollBar_(MarkdownNum)
+				    InitScrollBar_(Help\CanvasNum)
           
             CreateScrollBar_("VScroll", 0, 0, #ScrollBarSize, 0, 0, 0, 0)
             
@@ -8923,7 +8934,7 @@ Module MarkDown
 
   	    Next
 
-  	    If FindMapElement(MarkDown(), Str(MarkdownNum))
+  	    If FindMapElement(MarkDown(), Str(Help\CanvasNum))
   	      
   	      If Label ;{ Select start item
   	        If FindMapElement(Help\Label(), Label)
@@ -8934,9 +8945,9 @@ Module MarkDown
                 CompilerElse 
                   SetGadgetState(Help\TreeNum, Help\Label())
                 CompilerEndIf
-                SetText(MarkdownNum, Help\Item()\Text)
+                SetText(Help\CanvasNum, Help\Item()\Text)
                 MarkDown()\PageLabel = Help\Item()\Label
-                UpdateHelp(MarkdownNum, TOC(), Glossary()) 
+                UpdateHelp(Help\CanvasNum, TOC(), Glossary()) 
               EndIf
             EndIf
   	      EndIf ;}
@@ -8953,10 +8964,10 @@ Module MarkDown
                 EndIf ;}
               Case #PB_Event_Gadget                
                 Select EventGadget() 
-                  Case MarkdownNum  ;{ Links
+                  Case Help\CanvasNum ;{ Links
                     If EventType() = #EventType_Link
                       
-                      If FindMapElement(MarkDown(), Str(MarkdownNum))
+                      If FindMapElement(MarkDown(), Str(Help\CanvasNum))
                         Result = #False
                         If MarkDown()\EventLabel ;{ Table of Contents
                           If FindMapElement(Help\Label(), MarkDown()\EventLabel)
@@ -8966,9 +8977,9 @@ Module MarkDown
                               CompilerElse 
                                 SetGadgetState(Help\TreeNum, Help\Label())
                               CompilerEndIf
-                              SetText(MarkdownNum, Help\Item()\Text)
+                              SetText(Help\CanvasNum, Help\Item()\Text)
                               MarkDown()\PageLabel = MarkDown()\EventLabel
-                              UpdateHelp(MarkdownNum, TOC(), Glossary())  
+                              UpdateHelp(Help\CanvasNum, TOC(), Glossary())  
                               AddToHistory_(Help\Label())
                             EndIf
                           EndIf
@@ -8984,9 +8995,9 @@ Module MarkDown
                                 CompilerElse 
                                   SetGadgetState(Help\TreeNum, Help\Label())
                                 CompilerEndIf
-                                SetText(MarkdownNum, Help\Item()\Text)
+                                SetText(Help\CanvasNum, Help\Item()\Text)
                                 MarkDown()\PageLabel = Help\Item()\Label
-                                UpdateHelp(MarkdownNum, TOC(), Glossary()) 
+                                UpdateHelp(Help\CanvasNum, TOC(), Glossary()) 
                                 AddToHistory_(Help\Label())
                               EndIf
                             EndIf
@@ -8997,93 +9008,99 @@ Module MarkDown
                       EndIf
                       
                     EndIf ;}
-                  Case Help\TreeNum ;{ Show item text
-                    
-                    If EventType() = #PB_EventType_LeftClick
-                      
-                      If FindMapElement(MarkDown(), Str(MarkdownNum))
-                        
-                        Result = #False
-                        MarkDown()\ScrollOffset = 0
-  
-                        CompilerIf Defined(TreeEx, #PB_Module) 
+                  Case Help\TreeNum   ;{ Show item text
+                    Select EventType()
+                    CompilerIf Defined(TreeEx, #PB_Module)   
+                      Case TreeEx::#EventType_Row    
+                        If FindMapElement(MarkDown(), Str(Help\CanvasNum))
+                          Result = #False
+                          MarkDown()\ScrollOffset = 0
                           Selected = TreeEx::GetState(Help\TreeNum)
                           If Selected <> -1
                             If SelectElement(Help\Item(), Selected)
-                              SetText(MarkdownNum, Help\Item()\Text)
+                              SetText(Help\CanvasNum, Help\Item()\Text)
                               MarkDown()\PageLabel = Help\Item()\Label
-                              UpdateHelp(MarkdownNum, TOC(), Glossary()) 
-                              AddToHistory_(Selected)
-                            EndIf  
-                          EndIf  
-                        CompilerElse 
-                          Selected = GetGadgetState(Help\TreeNum)
-                          If Selected <> -1
-                            If SelectElement(Help\Item(), Selected)
-                              SetText(MarkdownNum, Help\Item()\Text)
-                              MarkDown()\PageLabel = Help\Item()\Label
-                              UpdateHelp(MarkdownNum, TOC(), Glossary()) 
+                              UpdateHelp(Help\CanvasNum, TOC(), Glossary()) 
                               AddToHistory_(Selected)
                             EndIf  
                           EndIf
-                        CompilerEndIf 
-
-                      EndIf
-                      
-                    EndIf   
+                        EndIf
+                    CompilerElse  
+                      Case #PB_EventType_Change
+                        If FindMapElement(MarkDown(), Str(Help\CanvasNum))
+                          Result = #False
+                          MarkDown()\ScrollOffset = 0
+                          Selected = GetGadgetState(Help\TreeNum)
+                          If Selected <> -1
+                            If SelectElement(Help\Item(), Selected)
+                              SetText(Help\CanvasNum, Help\Item()\Text)
+                              MarkDown()\PageLabel = Help\Item()\Label
+                              UpdateHelp(Help\CanvasNum, TOC(), Glossary()) 
+                              AddToHistory_(Selected)
+                            EndIf  
+                          EndIf
+                        EndIf  
+                      CompilerEndIf    
+                    EndSelect   
                     ;}
-                  Case Help\HomeNum ;{ Button - Home
-
-                    If FindMapElement(MarkDown(), Str(MarkdownNum))
+                  Case Help\HomeNum   ;{ Button - Home
                     
-                      Result = #False
-                      MarkDown()\ScrollOffset = 0
+                    If EventType() = #PB_EventType_LeftClick
+                      If FindMapElement(MarkDown(), Str(Help\CanvasNum))
                       
-                      If FirstElement(Help\Item())
-                        SetText(MarkdownNum, Help\Item()\Text)
-                        MarkDown()\PageLabel = Help\Item()\Label
-                        UpdateHelp(MarkdownNum, TOC(), Glossary()) 
-                        CompilerIf Defined(TreeEx, #PB_Module)
-                          TreeEx::SetState(Help\TreeNum, 0)
-                        CompilerElse
-                          SetGadgetState(Help\TreeNum, 0)
-                        CompilerEndIf 
-                      EndIf
-                      
-                    EndIf
-                    ;}
-                  Case Help\NextNum ;{ Button - Next
-                    If FindMapElement(MarkDown(), Str(MarkdownNum))
-                      If NextElement(Help\History())
-                        If SelectElement(Help\Item(), Help\History())
-                          SetText(MarkdownNum, Help\Item()\Text)
+                        Result = #False
+                        MarkDown()\ScrollOffset = 0
+                        
+                        If FirstElement(Help\Item())
+                          SetText(Help\CanvasNum, Help\Item()\Text)
                           MarkDown()\PageLabel = Help\Item()\Label
-                          UpdateHelp(MarkdownNum, TOC(), Glossary()) 
-                          CompilerIf Defined(TreeEx, #PB_Module) 
-                            TreeEx::SetState(Help\TreeNum, Help\History())
-                          CompilerElse 
-                            SetGadgetState(Help\TreeNum, Help\History())
-                          CompilerEndIf
+                          UpdateHelp(Help\CanvasNum, TOC(), Glossary()) 
+                          CompilerIf Defined(TreeEx, #PB_Module)
+                            TreeEx::SetState(Help\TreeNum, 0)
+                          CompilerElse
+                            SetGadgetState(Help\TreeNum, 0)
+                          CompilerEndIf 
+                        EndIf
+                        
+                      EndIf
+                    EndIf  
+                    ;}
+                  Case Help\NextNum   ;{ Button - Next
+                    
+                    If EventType() = #PB_EventType_LeftClick
+                      If FindMapElement(MarkDown(), Str(Help\CanvasNum))
+                        If NextElement(Help\History())
+                          If SelectElement(Help\Item(), Help\History())
+                            SetText(Help\CanvasNum, Help\Item()\Text)
+                            MarkDown()\PageLabel = Help\Item()\Label
+                            UpdateHelp(Help\CanvasNum, TOC(), Glossary()) 
+                            CompilerIf Defined(TreeEx, #PB_Module) 
+                              TreeEx::SetState(Help\TreeNum, Help\History())
+                            CompilerElse 
+                              SetGadgetState(Help\TreeNum, Help\History())
+                            CompilerEndIf
+                          EndIf
                         EndIf
                       EndIf
                     EndIf
                     ;}
-                  Case Help\PrevNum ;{ Button - Previous
-                 
-                    If FindMapElement(MarkDown(), Str(MarkdownNum))
-                      If PreviousElement(Help\History())
-                        If SelectElement(Help\Item(), Help\History())
-                          SetText(MarkdownNum, Help\Item()\Text)
-                          MarkDown()\PageLabel = Help\Item()\Label
-                          UpdateHelp(MarkdownNum, TOC(), Glossary())
-                          CompilerIf Defined(TreeEx, #PB_Module) 
-                            TreeEx::SetState(Help\TreeNum, Help\History())
-                          CompilerElse 
-                            SetGadgetState(Help\TreeNum, Help\History())
-                          CompilerEndIf
+                  Case Help\PrevNum   ;{ Button - Previous
+                    If EventType() = #PB_EventType_LeftClick
+                      If FindMapElement(MarkDown(), Str(Help\CanvasNum))
+                        If PreviousElement(Help\History())
+                          If SelectElement(Help\Item(), Help\History())
+                            SetText(Help\CanvasNum, Help\Item()\Text)
+                            MarkDown()\PageLabel = Help\Item()\Label
+                            UpdateHelp(Help\CanvasNum, TOC(), Glossary())
+                            CompilerIf Defined(TreeEx, #PB_Module) 
+                              TreeEx::SetState(Help\TreeNum, Help\History())
+                            CompilerElse 
+                              SetGadgetState(Help\TreeNum, Help\History())
+                            CompilerEndIf
+                          EndIf  
                         EndIf  
-                      EndIf  
-                    EndIf
+                      EndIf
+                    EndIf   
                     ;} 
                 EndSelect
             EndSelect
@@ -9093,7 +9110,7 @@ Module MarkDown
         
   	    CloseWindow(WindowNum)
         
-        DeleteMapElement(MarkDown(), Str(MarkdownNum))
+        DeleteMapElement(MarkDown(), Str(Help\CanvasNum))
       EndIf
       
       If IsImage(Help\Image\GoHome)     : FreeImage(Help\Image\GoHome)     : EndIf 
@@ -9634,7 +9651,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
   
-  #Example = 30
+  #Example = 31
   
   ; === Gadget ===
   ;  1: Headings
@@ -9939,9 +9956,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 9082
-; FirstLine = 1628
-; Folding = wcABkCAAAAAAABg6DgEUWEhAQgBACkCMA-p0BAAAAIBMABAAAggANIAGMIAeBYIwAAIggBAABHAQAALxbBAAYcKhDBgGAIC+ECAA5B+
-; Markers = 3217,5102,6427
+; CursorPosition = 92
+; FirstLine = 15
+; Folding = wcABkDAIAAAAABg6DgEUWEBAQABACkAEwCgBAAAAAIBMABAAAggANIAAMIAeAQIwAAIAgBAABHAQAAKhBBAAYYKhjBg3BIH3ECAAYB+
+; Markers = 3218,5103,6436
 ; EnableXP
 ; DPIAware
