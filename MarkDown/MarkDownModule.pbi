@@ -90,7 +90,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20040400
+  #Version  = 20040401
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -2759,7 +2759,7 @@ Module MarkDown
             
             If SelectElement(MarkDown()\Link(), Words()\Index)
               
-              PDF::SetFont(PDF, "Arial", "U", 11)
+              PDF::SetFont(PDF, "Arial", "U", FontSize)
               PDF::SetColorRGB(PDF, PDF::#TextColor, 0, 0, 255)
               
               If CountString(Words()\String, "@") = 1
@@ -2814,7 +2814,7 @@ Module MarkDown
             
             If SelectElement(MarkDown()\Link(), Words()\Index)
               
-              PDF::SetFont(PDF, "Arial", "U", 11)
+              PDF::SetFont(PDF, "Arial", "U", FontSize)
               PDF::SetColorRGB(PDF, PDF::#TextColor, 0, 0, 255)
               
               If MarkDown()\Link()\Label
@@ -2979,7 +2979,7 @@ Module MarkDown
       
     EndProcedure
     
-    Procedure   ConvertPDF_(PDF.i, LeftMargin.i=10, RightMargin.i=10, FontSize.i=12)
+    Procedure   ConvertPDF_(PDF.i, LeftMargin.i=10, RightMargin.i=10, FontSize.i=12, Level.i=#PB_Default)
       Define.i PosX, PosY, X, Y, Width, Height, LastX, LastWidth, RowY, TextWidth, Link
       Define.i c, Cols, ColWidth, OffSetX, Width, Height, PageWidth
       Define.s Bullet$, Align$, Text$, Level$, Image$, File$, Num$
@@ -2991,6 +2991,8 @@ Module MarkDown
         
         PDF::SetMargin(PDF, PDF::#TopMargin,  LeftMargin)
         PDF::SetMargin(PDF, PDF::#LeftMargin, RightMargin)
+        
+        PDF::SetMargin(PDF, PDF::#CellMargin, 0)
         
         PageWidth = PDF::GetPageWidth(PDF)
         
@@ -3027,7 +3029,9 @@ Module MarkDown
           Select MarkDown()\Items()\Type
             Case #Heading          ;{ Heading
               
-              If MarkDown()\Items()\Level <= 3
+              If Level <> #PB_Default
+                If Level <= 3 : PDF::AddEntryTOC(PDF, GetString_(MarkDown()\Items()\Words()), Level) : EndIf
+              ElseIf MarkDown()\Items()\Level <= 3
                 PDF::AddEntryTOC(PDF, GetString_(MarkDown()\Items()\Words()), MarkDown()\Items()\Level)
               EndIf
             
@@ -3049,7 +3053,7 @@ Module MarkDown
                 Height = mm_(MarkDown()\Image()\Height)
                 
                 PosX = (PageWidth - Width) / 2
-                
+               
                 File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
                 
                 If FindMapElement(MarkDown()\ImageMem(), GetFilePart(MarkDown()\Image()\Source))
@@ -3062,7 +3066,7 @@ Module MarkDown
 
                 If ListSize(MarkDown()\Items()\Words())
                   PDF::SetPosY(PDF, PosY + Height + 1)
-                  RowPDF_(PDF, LeftMargin, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words(), PageWidth, "C", "", FontSize)
+                  RowPDF_(PDF, 10, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words(), PageWidth - 20, "C", "", FontSize - 2)
                 Else  
                   PDF::SetPosY(PDF, PosY + Height)
     	          EndIf
@@ -3132,9 +3136,7 @@ Module MarkDown
             Case #List|#Task       ;{ Task List
 
               PDF::Ln(PDF, 3)
-              
-              PDF::SetMargin(PDF, PDF::#CellMargin, 0)
-              
+
               If SelectElement(MarkDown()\Lists(), MarkDown()\Items()\Index)
               
                 ForEach MarkDown()\Lists()\Row()
@@ -3160,9 +3162,6 @@ Module MarkDown
               EndIf
               
               PDF::Ln(PDF, 3)
-              
-              PDF::SetMargin(PDF, PDF::#CellMargin, 1)
-              
               ;}
             Case #List|#Definition ;{ Definition List
               
@@ -3379,7 +3378,9 @@ Module MarkDown
           Next
     		  ;}
     		EndIf
-        
+    		
+    		PDF::SetMargin(PDF, PDF::#CellMargin, 1)
+    		
       EndIf  
       
     EndProcedure
@@ -3392,8 +3393,6 @@ Module MarkDown
         
         If Title : PDF::SetInfo(PDF, PDF::#Title, Title) : EndIf
 
-        PDF::SetMargin(PDF, PDF::#CellMargin,  0)
-        
         PDF::AddPage(PDF)
         
         ConvertPDF_(PDF, 10, 10)
@@ -4925,7 +4924,7 @@ Module MarkDown
 
             If AddElement(MarkDown()\TOC())
               MarkDown()\TOC()\Level = MarkDown()\Items()\Level
-              MarkDown()\TOC()\ID = MarkDown()\Items()\ID
+              MarkDown()\TOC()\ID    = MarkDown()\Items()\ID
               CopyList(MarkDown()\Items()\Words(), MarkDown()\TOC()\Words())
               ForEach MarkDown()\TOC()\Words()
                 MarkDown()\TOC()\Words()\Flag = #InsertTOC
@@ -5293,7 +5292,6 @@ Module MarkDown
             MarkDown()\Items()\Type = #InsertGlossary
           EndIf
          ;}
-          
         Default
           Row$ = Document()\String
           ;{ _____ Link reference definitions _____ [4.7] 
@@ -5416,7 +5414,7 @@ Module MarkDown
           If AddElement(TOC())
     	      TOC()\ID     = MarkDown()\TOC()\ID
     	      TOC()\Label  = Items()\Label
-    	      TOC()\Level  = MarkDown()\TOC()\Level
+    	      TOC()\Level  = Items()\Level
     	      TOC()\X      = MarkDown()\TOC()\X
     	      TOC()\Y      = MarkDown()\TOC()\Y
     	      TOC()\Width  = MarkDown()\TOC()\Width
@@ -6338,14 +6336,14 @@ Module MarkDown
     Define.i OffsetX
     
     ForEach MarkDown()\TOC()
-      
-      OffsetX = MarkDown()\TOC()\Level * dpiX(15)
-      
+     
+      OffsetX = MarkDown()\TOC()\Level * dpiX(15)  
+    
       MarkDown()\TOC()\X = X + OffsetX
       MarkDown()\TOC()\Y = Y
       
-      Y = DrawRow_(X + OffsetX, Y, MarkDown()\TOC()\Width, MarkDown()\TOC()\Height, #False, MarkDown()\TOC()\Words())
-    
+      Y = DrawRow_(MarkDown()\TOC()\X, MarkDown()\TOC()\Y, MarkDown()\TOC()\Width, MarkDown()\TOC()\Height, #False, MarkDown()\TOC()\Words())
+
     Next
     
     ProcedureReturn Y
@@ -6558,7 +6556,7 @@ Module MarkDown
 		MarkDown()\LeftBorder = X
 		MarkDown()\WrapPos = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(MarkDown()\Margin\Right)
 		
-		If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll")
+		If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll") ;{ ScrollBar
 		  
 		  If MarkDown()\ScrollBar\Flags = #False
   		  MarkDown()\ScrollBar\Item()\X          = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(#ScrollBarSize) - dpiX(1)
@@ -6573,7 +6571,6 @@ Module MarkDown
       EndIf  
       
       MarkDown()\ScrollBar\Item()\Minimum    = 0
-      MarkDown()\ScrollBar\Item()\Maximum    = MarkDown()\Required\Height
       MarkDown()\ScrollBar\Item()\PageLength = Height
 		  
   		If Not MarkDown()\ScrollBar\Item()\Hide
@@ -6589,7 +6586,7 @@ Module MarkDown
   		Else
   		  MarkDown()\ScrollOffset = 0
   		EndIf 
-  		
+  		;}
   	EndIf
   	
 		If StartDrawing(CanvasOutput(MarkDown()\CanvasNum))
@@ -6796,7 +6793,9 @@ Module MarkDown
       
 			MarkDown()\Required\Width + dpiX(MarkDown()\Margin\Left + MarkDown()\Margin\Right)
 			MarkDown()\Required\Height = Y + dpiY(MarkDown()\Margin\Bottom)
-     
+			
+			MarkDown()\ScrollBar\Item()\Maximum = MarkDown()\Required\Height
+			
 			CompilerIf #Enable_Requester
 			  
 			  If MarkDown()\Type = #Requester
@@ -8476,7 +8475,7 @@ Module MarkDown
 	  
   	  Procedure.s Help2PDF(Title.s, File.s, FilePDF.s="", Orientation.s="P", Format.s="")
   	    Define.i PDF, Pack, JSON, Size, Counter
-  	    Define.s FileName$
+  	    Define.s FileName$, String$
   	    Define   *Buffer
   	    
   	    NewList TOC.TOC_Structure()
@@ -8484,7 +8483,9 @@ Module MarkDown
   	    NewList Item.Item_Structure()
   	    
   	    If AddMapElement(MarkDown(), "Help")
-  
+  	      
+  	      MarkDown()\Type = #Help
+  	      
   	      ;{ _____ Load Help File _____
     	    Pack = OpenPack(#PB_Any, File, #PB_PackerPlugin_Lzma)
     	    If Pack
@@ -8540,14 +8541,38 @@ Module MarkDown
             
             PDF::SetMargin(PDF, PDF::#TopMargin,  10)
             PDF::SetMargin(PDF, PDF::#LeftMargin, 10)
-            PDF::SetMargin(PDF, PDF::#CellMargin,  0)
             
-            PDF::SetPageNumbering(PDF, #True)
+            PDF::EnableTOCNums(PDF, #False)
+
+            If Title
+              PDF::AddPage(PDF)
+              PDF::SetPageNumbering(PDF, #False)
+              PDF::SetFont(PDF, "Arial", "B", 20)
+              PDF::Cell(PDF, Title, #PB_Default, #PB_Default, #False, PDF::#NextLine, PDF::#CenterAlign)
+              PDF::Ln(PDF, 10)
+              
+              PDF::SetFont(PDF, "Arial", "B", 10)
+              PDF::SetColorRGB(PDF, PDF::#TextColor, 70, 130, 180)
+              
+              ForEach TOC()
+                If TOC()\Level = 0
+                  String$ = GetString_(TOC()\Words())
+                  PDF::Cell(PDF, String$, #PB_Default, #PB_Default, #False, PDF::#NextLine, "", #False, "#" + TOC()\Label)
+                  PDF::Ln(PDF, 1)
+                EndIf
+              Next
+              
+              PDF::SetColorRGB(PDF, PDF::#TextColor, 0, 0, 0)
+              
+            EndIf
+            
             PDF::EnableTOCNums(PDF, #True)
             
             ForEach Item()
-              
+
               PDF::AddPage(PDF)
+
+              PDF::SetPageNumbering(PDF, #True)
               
               Clear_()
               
@@ -8555,13 +8580,13 @@ Module MarkDown
               
               UpdateHelp(#PB_Default, TOC(), Glossary(), #True)
               
+              PDF::BookMark(PDF, Item()\Titel, Item()\Level)
+              
               If Item()\Label
                 PDF::AddGotoLabel(PDF, "#" + Item()\Label)
               EndIf
-              
-              PDF::BookMark(PDF, Item()\Titel, Item()\Level)
 
-              ConvertPDF_(PDF)
+              ConvertPDF_(PDF, 10, 10, 12, Item()\Level)
               
             Next
             
@@ -8600,7 +8625,9 @@ Module MarkDown
         If FileSize(GetPathPart(File$)) <> -2 : CreateDirectory(GetPathPart(File$)) : EndIf
         ;}  	    
         
-  	    If AddMapElement(MarkDown(), "Parse")
+  	    If AddMapElement(MarkDown(), "Help")
+  	      
+  	      MarkDown()\Type = #Help
   	      
   	      ;{ _____ Load Help File _____
     	    Pack = OpenPack(#PB_Any, File, #PB_PackerPlugin_Lzma)
@@ -9644,7 +9671,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
   
-  #Example = 31
+  #Example = 0
   
   ; === Gadget ===
   ;  1: Headings
@@ -9705,7 +9732,7 @@ CompilerIf #PB_Compiler_IsMainFile
       ;}
     Case 4   ;{ URL and Links
       Text$ = "## Links & URLs ##" + #LF$  + #LF$ 
-      Text$ + "URL: <https://www.markdownguide.org> " + #LF$ + #LF$
+      Text$ + "URL: <https://www.markdownguide.org>" + #LF$ + #LF$
       Text$ + "EMail: <fake@example.com>  " + #LF$ + #LF$
       Text$ + "Link: [Duck Duck Go](https://duckduckgo.com "+#DQUOTE$+"My search engine!"+#DQUOTE$+") "+ #LF$
       ;}
@@ -9949,9 +9976,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 4156
-; FirstLine = 665
-; Folding = wcABkDAIAAAAABg6DgEUWEBAQABACkCAAAgBAAcQAAFFAFAAAAgAMIGAMIAeAQIwAAIAgBAABHAQAAKhRAAAQUKhjAQ7AkDRCAAAoA-
-; Markers = 3218,5103,6436
+; CursorPosition = 8760
+; FirstLine = 925
+; Folding = 5cABkDAIAAAAABg5DAAUWElAQABASkDAQAgRAAcAAABAAIAAAgiAMIAAMIAeAQIwAAIAACgCCOEgAAUCjAAAgoUCHDwGAIHiECAA5B+
+; Markers = 3217,5102,6434
 ; EnableXP
 ; DPIAware

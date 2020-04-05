@@ -4,11 +4,11 @@
 ;/
 ;/ [ PB V5.7x / All OS ]
 ;/
-;/  © 2019 Thorsten1867 (12/2018)
+;/  © 2020 Thorsten1867 (12/2018)
 ;/ ( based on 'PurePDF' by LuckyLuke / ABBKlaus / normeus )
 ;/
 
-; Last Update: 30.01.2020
+; Last Update: 05.04.2020
 ; 
 ; Added: PDF::GetStringHeight()
 ;
@@ -188,7 +188,7 @@
 
 DeclareModule PDF
   
-  #Version  = 20013000
+  #Version  = 20040500
   
   #Enable_AcroFormCommands  = #True
   #Enable_Annotations       = #True
@@ -952,12 +952,16 @@ Module PDF
     File.s
   EndStructure ;}
   
-  Structure PDF_Labels_Structure     ;{ PDF()\Labels(label)\...
-    Idx.i
+  Structure PDF_Labels_Item_Structure ;{ PDF()\Labels()\Item()\...
     objAnnot.s
     objPage.s
+  EndStructure ;}
+  
+  Structure PDF_Labels_Structure     ;{ PDF()\Labels(label)\...
+    Idx.i
     ptWidth.f
     ptHeight.f
+    List Item.PDF_Labels_Item_Structure()
   EndStructure ;}
   
   Structure PDF_Local_Structure       ;{ PDF()\Local\...
@@ -996,7 +1000,7 @@ Module PDF
     Flag.i
   EndStructure ;}
   
-  Structure PDF_PageAnnots_Structure ;{ PDF()\PageAnnots(objNum)\...
+  Structure PDF_PageAnnots_Structure  ;{ PDF()\PageAnnots(objNum)\...
     List Annot.s()
   EndStructure ;}
   
@@ -2192,8 +2196,10 @@ Module PDF
       ptHeight = Height * PDF()\ScaleFactor
       
       objNew_()
-      PDF()\Labels(Label)\objAnnot = strObj_(PDF()\objNum)
-      PDF()\Labels(Label)\objPage  = PDF()\objPage
+      If AddElement(PDF()\Labels(Label)\Item())
+        PDF()\Labels(Label)\Item()\objAnnot = strObj_(PDF()\objNum)
+        PDF()\Labels(Label)\Item()\objPage  = PDF()\objPage
+      EndIf
       objStrg = "/Type /Annot /Subtype /Link" + #LF$
       objStrg + "/Rect [" + strF_(ptX, 2) + " " + strF_(ptY, 2) + " " + strF_(ptX + ptWidth, 2) + " " + strF_(ptY - ptHeight, 2) + "]"+ #LF$
       objOutDictionary_(objStrg, #LF$)
@@ -3785,21 +3791,25 @@ Module PDF
         
         If SelectElement(PDF()\Annots(), PDF()\Labels()\Idx)
           
-          objPage = PDF()\Labels()\objPage
-          If AddElement(PDF()\PageAnnots(objPage)\Annot())
-            PDF()\PageAnnots(objPage)\Annot() = PDF()\Labels()\objAnnot
-          EndIf 
+          ForEach PDF()\Labels()\Item()
+            
+            objPage = PDF()\Labels()\Item()\objPage
+            If AddElement(PDF()\PageAnnots(objPage)\Annot())
+              PDF()\PageAnnots(objPage)\Annot() = PDF()\Labels()\Item()\objAnnot
+            EndIf 
+            
+            Select PDF()\Annots()\Type
+              Case #Annot_GoTo
+                If PDF()\Annots()\Y > 0
+                  ptY = PDF()\Labels()\ptHeight - (PDF()\Annots()\Y * PDF()\ScaleFactor)
+                  objOutDictionary_("/Dest [" + PDF()\Annots()\objDest + " /XYZ 0 " + Str(ptY) + " 0]", "", #LF$, #False, PDF()\Labels()\Item()\objAnnot)
+                Else
+                  objOutDictionary_("/Dest [" + PDF()\Annots()\objDest + "]", "", #LF$, #False, PDF()\Labels()\Item()\objAnnot)
+                EndIf
+            EndSelect
+            
+          Next
           
-          Select PDF()\Annots()\Type
-            Case #Annot_GoTo
-              If PDF()\Annots()\Y > 0
-                ptY = PDF()\Labels()\ptHeight - (PDF()\Annots()\Y * PDF()\ScaleFactor)
-                objOutDictionary_("/Dest [" + PDF()\Annots()\objDest + " /XYZ 0 " + Str(ptY) + " 0]", "", #LF$, #False, PDF()\Labels()\objAnnot)
-              Else
-                objOutDictionary_("/Dest [" + PDF()\Annots()\objDest + "]", "", #LF$, #False, PDF()\Labels()\objAnnot)
-              EndIf
-          EndSelect
-        
         EndIf
         
       Next
@@ -6975,11 +6985,11 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf 
 
 ;- ========================
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 212
-; FirstLine = 170
-; Folding = 9BAAA6IegAQAACBAABAgAAAIYAkBAAAAgCkAAygAAAnoAAAAACw6SiJAAAAAhJAEA1DFAA9
-; Markers = 584,1015,2369,2469,3775,3841
+; IDE Options = PureBasic 5.72 (Windows - x64)
+; CursorPosition = 3806
+; FirstLine = 876
+; Folding = 5BAAA6IegAQAwACAACAABAAQwCIDAAAAIFFCAmBxBAORBAAACEgzlkbAAAAACTAIAoHKAA5
+; Markers = 584,1019,2197,2375,2475,3270,3781,3851
 ; EnableXP
 ; DPIAware
 ; EnablePurifier

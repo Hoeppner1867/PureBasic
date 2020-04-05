@@ -11,14 +11,12 @@
 ;/ © 2020  by Thorsten Hoeppner (11/2019)
 ;/
 
-; Last Update: 04.04.2020
-;
-; Added: Keys up/down/left/right/home/end
+; Last Update: 05.04.2020
 ;
 ; Bugfixes
 ; 
-
-; TODO: Drag & Drop
+; Added: Keys up/down/left/right/home/end
+;
 
 ;{ ===== MIT License =====
 ;
@@ -85,7 +83,7 @@
 
 DeclareModule TreeEx
   
-  #Version  = 20040401
+  #Version  = 20040500
   #ModuleEx = 19112002
   
   #Enable_ProgressBar = #True
@@ -482,6 +480,7 @@ Module TreeEx
     vFocus.i
     Offset.i
     OffSetY.i
+    LastVisible.i
     Header.Row_Header_Structure
   EndStructure ;}  
   
@@ -786,16 +785,22 @@ Module TreeEx
   Procedure   SetRowFocus_()
     Define.i PageRows
     
-    ReDraw_()
+    If TreeEx()\ScrollBar\Item("VScroll")\Hide : ProcedureReturn #False :  EndIf 
+    
+    CalcRows()
     
     PageRows = GetPageRows_()
 
-    If TreeEx()\Row\vFocus >= PageRows 
-      TreeEx()\ScrollBar\Item("VScroll")\Pos = TreeEx()\Row\vFocus - PageRows + 2
-    ElseIf TreeEx()\Row\vFocus - 1 <= TreeEx()\Row\Offset
+    If TreeEx()\Row\vFocus + TreeEx()\Row\Offset >= PageRows 
+      If TreeEx()\Row\vFocus < PageRows
+        TreeEx()\ScrollBar\Item("VScroll")\Pos = 0
+      Else
+        TreeEx()\ScrollBar\Item("VScroll")\Pos = TreeEx()\Row\vFocus - PageRows + 1
+      EndIf  
+    ElseIf TreeEx()\Row\vFocus <= TreeEx()\Row\Offset
       TreeEx()\ScrollBar\Item("VScroll")\Pos = TreeEx()\Row\vFocus
     EndIf
-    
+
   EndProcedure
   
   Procedure   ExpandFocus_(State.i)
@@ -915,6 +920,7 @@ Module TreeEx
 
   		  TreeEx()\Rows()\Visible = #True
   		  
+  		  TreeEx()\Row\LastVisible = ListIndex(TreeEx()\Rows())
   		  If TreeEx()\Row\Focus = ListIndex(TreeEx()\Rows()) : TreeEx()\Row\vFocus = TreeEx()\Row\Visible  : EndIf
   		  
 		    TreeEx()\Row\Visible + 1
@@ -981,7 +987,7 @@ Module TreeEx
 			
     	StopDrawing()
     EndIf
-    
+     
   EndProcedure
   
   Procedure   CalcCols()
@@ -1055,7 +1061,7 @@ Module TreeEx
       If PageRows < TreeEx()\Row\Visible
 
         TreeEx()\ScrollBar\Item()\Minimum    = 0
-        TreeEx()\ScrollBar\Item()\Maximum    = TreeEx()\Row\Visible
+        TreeEx()\ScrollBar\Item()\Maximum    = TreeEx()\Row\Visible - 1
         TreeEx()\ScrollBar\Item()\PageLength = PageRows
         
         If TreeEx()\ScrollBar\Item()\Hide
@@ -1160,7 +1166,7 @@ Module TreeEx
     
     ProcedureReturn Result
   EndProcedure
-		
+
 	Procedure GetScrollBarPos(XY.i)
 	  ProcedureReturn (XY / TreeEx()\ScrollBar\Item()\Thumb\Factor) + TreeEx()\ScrollBar\Item()\minPos 
 	EndProcedure  
@@ -1762,9 +1768,7 @@ Module TreeEx
 		  
 		  ;{ ScrollBar
 		  If TreeEx()\ScrollBar\Item("HScroll")\Hide = #False
-		    
-		    ;TreeEx()\Col\OffsetX = TreeEx()\ScrollBar\Item("HScroll")\Pos
-		    
+
 		    If TreeEx()\ScrollBar\Flags = #False
   		    TreeEx()\ScrollBar\Item("HScroll")\X      = dpiX(1)
   		    TreeEx()\ScrollBar\Item("HScroll")\Y      = Height - dpiY(#ScrollBarSize) - dpiY(1)
@@ -1781,9 +1785,7 @@ Module TreeEx
 		  EndIf
 		  
 		  If TreeEx()\ScrollBar\Item("VScroll")\Hide = #False
-		    
-		    ;TreeEx()\Row\Offset = TreeEx()\ScrollBar\Item("VScroll")\Pos
-		    
+
 		    If TreeEx()\ScrollBar\Flags = #False
   		    TreeEx()\ScrollBar\Item("VScroll")\X      = Width - dpiX(#ScrollBarSize) - dpiX(1)
   		    TreeEx()\ScrollBar\Item("VScroll")\Y      = dpiY(1)
@@ -2452,7 +2454,6 @@ Module TreeEx
                 Wend  
               EndIf  
             EndIf
-  
             If Focus <> TreeEx()\Row\Focus
               TreeEx()\Row\Focus = Focus
               PostEvent(#PB_Event_Gadget, TreeEx()\Window\Num, TreeEx()\CanvasNum, #EventType_Row, TreeEx()\Row\Focus)
@@ -2460,13 +2461,16 @@ Module TreeEx
               SetRowFocus_()
               ReDraw_()
             EndIf 
+            
           EndIf  
           ;}
         Case #PB_Shortcut_Down  ;{ Down
           
           If Not Modifier
+            
             Focus = TreeEx()\Row\Focus + 1
-            If Focus >= ListSize(TreeEx()\Rows()) : Focus = ListSize(TreeEx()\Rows()) - 1 : EndIf
+            
+            If Focus > TreeEx()\Row\LastVisible : Focus = TreeEx()\Row\LastVisible : EndIf
             
             If SelectElement(TreeEx()\Rows(), Focus)
               If Not TreeEx()\Rows()\Visible 
@@ -4263,7 +4267,7 @@ CompilerIf #PB_Compiler_IsMainFile
             Case #TreeEx
               Select EventType()
                 Case TreeEx::#EventType_Row      ; Select row
-                  Debug "Row seleced: " + Str(EventData())
+                  ;Debug "Row seleced: " + Str(EventData())
                 Case TreeEx::#EventType_CheckBox ; Checkbox click
                   Debug "CheckBox clicked"
                 Case TreeEx::#EventType_Collapsed
@@ -4281,7 +4285,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 20
-; Folding = MADMAAAAAIGhPISEFBAAAAAYBECICCBIgAAAwAAw
+; CursorPosition = 2476
+; FirstLine = 367
+; Folding = MADAAAAAAIAhOISAFBAAAQBZhHKMCChIgAAAwAA5
 ; EnableXP
 ; DPIAware
