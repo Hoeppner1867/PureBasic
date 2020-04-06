@@ -11,7 +11,7 @@
 ;/ © 2020  by Thorsten Hoeppner (11/2019)
 ;/
 
-; Last Update: 05.04.2020
+; Last Update: 06.04.2020
 ;
 ; Bugfixes
 ; 
@@ -83,7 +83,7 @@
 
 DeclareModule TreeEx
   
-  #Version  = 20040500
+  #Version  = 20040600
   #ModuleEx = 19112002
   
   #Enable_ProgressBar = #True
@@ -1890,6 +1890,7 @@ Module TreeEx
 			    If ListIndex(TreeEx()\Cols()) = #TreeColumn ;{ Tree column
 			      
 			      txtX = dpiX(#ButtonSize + 5)
+			      txtY = (RowHeight - TextHeight("X")) / 2
 			      btY  = (RowHeight - dpiY(#ButtonSize)) / 2
 			      
 			      If TreeEx()\Cols()\Width = #PB_Default : ColumnWidth = dpiX(TreeWidth) : EndIf
@@ -4207,7 +4208,7 @@ CompilerIf #PB_Compiler_IsMainFile
     #Font
   EndEnumeration
   
-  LoadFont(#Font, "Arial", 8, #PB_Font_Bold)
+  LoadFont(#Font, "Arial", 7, #PB_Font_Bold)
   LoadImage(#Image, "test.png")
   
   If OpenWindow(#Window, 0, 0, 300, 200, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
@@ -4222,8 +4223,6 @@ CompilerIf #PB_Compiler_IsMainFile
       
       TreeEx::SetHeaderAttribute(#TreeEx, TreeEx::#Align, TreeEx::#Center, 2)
       TreeEx::SetHeaderFont(#TreeEx, FontID(#Font))
-      
-      ;TreeEx::SetFont(#TreeEx, FontID(#Font), 3)
       
       ; _____ Add content _____
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "Item" + #LF$ + #LF$ + "1")
@@ -4285,8 +4284,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 2476
-; FirstLine = 367
-; Folding = MADAAAAAAIAhOISAFBAAAQBZhHKMCChIgAAAwAA5
+; CursorPosition = 85
+; FirstLine = 9
+; Folding = MADAAAAAAIAhOISCNASAAABZhFKMCChIgAAAwAA5
 ; EnableXP
 ; DPIAware
