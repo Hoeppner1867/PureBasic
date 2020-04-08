@@ -9,7 +9,7 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 07.04.2020
+; Last Update: 08.04.2020
 ;
 ; - Added: dynamic column widths for tables
 ;
@@ -81,12 +81,13 @@
 
 ; XIncludeFile "ModuleEx.pbi"
 ; XIncludeFile "TreeExModule.pbi"
+; XIncludeFile "NamedPipeModule.pbi"
 
 CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : CompilerEndIf
 
 DeclareModule MarkDown
   
-  #Version  = 20040701
+  #Version  = 20040800
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -323,6 +324,7 @@ DeclareModule MarkDown
   CompilerEndIf
   
   CompilerIf #Enable_HelpWindow
+    Declare   ChangeHelpTopic(Label.s)
     Declare.s Help(Title.s, File.s, Label.s="", Flags.i=#False, Parent.i=#PB_Default)
   CompilerEndIf
   
@@ -8989,6 +8991,14 @@ Module MarkDown
 	
 	CompilerIf #Enable_HelpWindow
 	  
+	  Procedure ChangeHelpTopic(Label.s)
+	    
+  	  CompilerIf Defined(NamedPipe, #PB_Module)
+  	    NamedPipe::SendMessage("mdHelp", Label)
+  	  CompilerEndIf 
+  	  
+  	EndProcedure
+	
 	  Procedure AddToHistory_(Index.i)
 	    
 	    LastElement(Help\History())
@@ -9001,8 +9011,8 @@ Module MarkDown
 	  Procedure.s Help(Title.s, File.s, Label.s="", Flags.i=#False, Parent.i=#PB_Default)
 	    ; Flags: #AutoResize
 	    Define.i WindowNum, WindowFlags, quitWindow
-	    Define.i Pack, JSON, Size, Selected, Result
-	    Define.s FileName$, Link$
+	    Define.i Pack, JSON, Size, Selected
+	    Define.s FileName$, Link$, Label$
 	    Define   *Buffer
 
 	    NewList TOC.TOC_Structure()
@@ -9162,7 +9172,6 @@ Module MarkDown
   	      If Label ;{ Select start item
   	        If FindMapElement(Help\Label(), Label)
   	          If SelectElement(Help\Item(), Help\Label())
-  	            Result = #False
                 CompilerIf Defined(TreeEx, #PB_Module) 
                   TreeEx::SetState(Help\TreeNum, Help\Label())
                 CompilerElse 
@@ -9174,24 +9183,55 @@ Module MarkDown
               EndIf
             EndIf
   	      EndIf ;}
-  	      
+
   	      ReDraw()
   	      
   	      HideWindow(WindowNum, #False)
   	      
+  	      CompilerIf Defined(NamedPipe, #PB_Module)
+  	        NamedPipe::Create("mdHelp")
+  	      CompilerEndIf
+  	      
     	    Repeat
             Select WaitWindowEvent()
-              Case #PB_Event_CloseWindow ;{ Close window
+              Case #PB_Event_CloseWindow       ;{ Close window
                 If EventWindow() = WindowNum
                   quitWindow = #True
                 EndIf ;}
+              CompilerIf Defined(NamedPipe, #PB_Module)
+                Case NamedPipe::#Event_Message ;{ Change label
+
+                  If NamedPipe::EventPipe() = "mdHelp"
+                    
+                    Label$ = Trim(NamedPipe::GetEventMessage("mdHelp"))
+                    
+                    If FindMapElement(MarkDown(), Str(Help\CanvasNum))
+
+                      If FindMapElement(Help\Label(), Label$)
+                        If SelectElement(Help\Item(), Help\Label())
+                          CompilerIf Defined(TreeEx, #PB_Module)
+                            TreeEx::SetState(Help\TreeNum, Help\Label())
+                          CompilerElse  
+                            SetGadgetState(Help\TreeNum, Help\Label())
+                          CompilerEndIf
+                          SetText(Help\CanvasNum, Help\Item()\Text)
+                          MarkDown()\PageLabel = MarkDown()\EventLabel
+                          UpdateHelp(Help\CanvasNum, TOC(), Glossary())  
+                          AddToHistory_(Help\Label())
+                        EndIf
+                      EndIf
+                      
+                    EndIf
+                    
+                  EndIf
+                  ;}
+              CompilerEndIf 
               Case #PB_Event_Gadget                
                 Select EventGadget() 
                   Case Help\CanvasNum ;{ Links
                     If EventType() = #EventType_Link
                       
                       If FindMapElement(MarkDown(), Str(Help\CanvasNum))
-                        Result = #False
                         If MarkDown()\EventLabel ;{ Table of Contents
                           If FindMapElement(Help\Label(), MarkDown()\EventLabel)
                             If SelectElement(Help\Item(), Help\Label())
@@ -9236,7 +9276,6 @@ Module MarkDown
                     CompilerIf Defined(TreeEx, #PB_Module)   
                       Case TreeEx::#EventType_Row    
                         If FindMapElement(MarkDown(), Str(Help\CanvasNum))
-                          Result = #False
                           MarkDown()\ScrollOffset = 0
                           Selected = TreeEx::GetState(Help\TreeNum)
                           If Selected <> -1
@@ -9251,7 +9290,6 @@ Module MarkDown
                     CompilerElse  
                       Case #PB_EventType_Change
                         If FindMapElement(MarkDown(), Str(Help\CanvasNum))
-                          Result = #False
                           MarkDown()\ScrollOffset = 0
                           Selected = GetGadgetState(Help\TreeNum)
                           If Selected <> -1
@@ -9271,7 +9309,6 @@ Module MarkDown
                     If EventType() = #PB_EventType_LeftClick
                       If FindMapElement(MarkDown(), Str(Help\CanvasNum))
                       
-                        Result = #False
                         MarkDown()\ScrollOffset = 0
                         
                         If FirstElement(Help\Item())
@@ -9328,6 +9365,10 @@ Module MarkDown
                 EndSelect
             EndSelect
           Until quitWindow
+          
+          CompilerIf Defined(NamedPipe, #PB_Module)
+            NamedPipe::Close("mdHelp")
+          CompilerEndIf
           
         EndIf
         
@@ -10181,9 +10222,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 7770
-; FirstLine = 813
-; Folding = wEAAAEBAAAAAAAAAAAAAAAAiAAAAAgQAAAAAAAAAEAAJAAAAAAAAAAAAAAAAACACAIIAAAAAAAAAAAAABAEAAEGAAAAAAAAAAAAAAAAA+
-; Markers = 4154
+; CursorPosition = 9208
+; FirstLine = 622
+; Folding = wEQAIEBgCAAAAAAAAAAAAAACAAAAAgAAAAAAAAAAAAAJAAAAAAAAAAAAAAAAAAACAIIAAAAAAAAAAAAABAAAAAEAAAAAcBAgZAIAAAAAA9
+; Markers = 4156
 ; EnableXP
 ; DPIAware
