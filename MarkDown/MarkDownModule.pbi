@@ -9,11 +9,11 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 08.04.2020
+; Last Update: 09.04.2020
+;
+; - Bugfixes: Draw tables
 ;
 ; - Added: dynamic column widths for tables
-;
-; - Bugfixes
 ;
 
 ;{ ===== MIT License =====
@@ -87,7 +87,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20040800
+  #Version  = 20040900
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -391,7 +391,7 @@ Module MarkDown
   
   #Caution$ = Chr($26A0)
   #Circle$  = Chr($26AA)
-  
+  #Cut$     = Chr($2026)
   #CodeBlock = 2
   #Parse     = 0
   
@@ -6029,7 +6029,7 @@ Module MarkDown
 	;}
   
   Procedure.i DrawRow_(X.i, Y.i, Width.i, Height.i, BlockQuote.i, List Words.Words_Structure(), ColWidth.i=#False, Align.s="L")
-    Define.i Font, TextWidth, ImgSize, Image, WordIdx
+    Define.i c, Font, TextWidth, ImgSize, Image, WordIdx
     Define.i Pos, PosX, PosY, lX, lY, OffSetX, OffSetY, OffSetBQ
     Define.s Word$, WordOnly$, Image$, File$
     
@@ -6055,9 +6055,26 @@ Module MarkDown
         Word$ = Words()\String
         
         If Font <> Words()\Font : Font = DrawingFont_(Words()\Font) : EndIf
-       
-        If PosX + Words()\Width > MarkDown()\WrapPos ;{ New row
+        
+        If ColWidth And Words()\Width > ColWidth - dpiX(10)
+        
+          PosX - GetAlignOffset_(0, ColWidth, Align, Words())
+          
+          For c = Len(Word$) - 1 To 0 Step -1
+            If TextWidth(Left(Word$, c) + #Cut$) <= ColWidth - dpiX(10)
+              Word$ = Left(Word$, c) + #Cut$
+              Break
+            EndIf   
+          Next
+          
+          PosX + dpiX(5)
+          
+        EndIf
+          
+        If PosX + TextWidth(Word$) > MarkDown()\WrapPos ;{ New row
 
+          Word$ = LTrim(Word$)
+          
           PosX = X
           PosY + Height
           
@@ -6073,9 +6090,7 @@ Module MarkDown
             EndIf
             DrawingMode(#PB_2DDrawing_Transparent) ;}
           EndIf
-          
-          Word$ = LTrim(Word$)
-          
+
           lY = PosY
           ;}
         EndIf
@@ -6601,7 +6616,7 @@ Module MarkDown
   
   Procedure.i DrawTable_(Index.i, X.i, Y.i, BlockQuote.i) 
     Define.i c, PosX, PosY, ColY, OffSetY, OffSetBQ, colWidth, colHeight, LastX, LastWidth, SpanPos, Width
-    Define.i TableWidth, Count, Sum,cutWidth
+    Define.i TableWidth, RowY, RowHeight, Count, Sum, cutWidth
     Define.f Factor
     Define.s Num$
     
@@ -6660,9 +6675,13 @@ Module MarkDown
         LastX     = #PB_Default
         LastWidth = 0
         
+        DrawingMode(#PB_2DDrawing_Default)
+        
         For c=1 To MarkDown()\Table()\Cols
           
           Num$ = Str(c)
+          
+          CellBorder(Num$)\Border = #False
           
           PosX = ColX(Num$)
           
@@ -6691,7 +6710,11 @@ Module MarkDown
           Else
             colWidth = ColWidth(Num$)
           EndIf 
-
+          
+          CellBorder(Str(c))\Border = #True
+          CellBorder(Str(c))\X      = PosX
+          CellBorder(Str(c))\Width  = ColWidth + 1
+          
           colHeight = MarkDown()\Table()\Row()\Height + dpiX(6)
           
           MarkDown()\WrapPos = PosX + colWidth - dpiX(3)
@@ -6701,17 +6724,27 @@ Module MarkDown
             Box(PosX, PosY, colWidth, colHeight, MarkDown()\Color\HeaderBack)
           EndIf   
           
-          DrawingMode(#PB_2DDrawing_Outlined)
-          Box(PosX, PosY, colWidth + 1, colHeight + 1, MarkDown()\Color\Front)
+          ;DrawingMode(#PB_2DDrawing_Outlined)
+          ;Box(PosX, PosY, colWidth + 1, colHeight + 1, MarkDown()\Color\Front)
           
           DrawingMode(#PB_2DDrawing_Transparent)
           
           ColY = DrawRow_(PosX, PosY + dpiX(3), ColWidth(Num$), MarkDown()\Table()\Row()\Height, BlockQuote, MarkDown()\Table()\Row()\Col(Num$)\Words(), colWidth, MarkDown()\Table()\Column(Num$)\Align)
           
           ColY + dpiX(3)
+          
           If ColY > Y : Y = ColY : EndIf
         Next
-      
+        
+        RowHeight = Y - PosY + 1.3
+        
+        DrawingMode(#PB_2DDrawing_Outlined)
+        For c=1 To MarkDown()\Table()\Cols
+          If CellBorder(Str(c))\Border
+            Box(CellBorder(Str(c))\X, PosY, CellBorder(Str(c))\Width, RowHeight, MarkDown()\Color\Front)
+          EndIf
+        Next
+        
       Next
       
       MarkDown()\WrapPos = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(MarkDown()\Margin\Right)
@@ -9915,7 +9948,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
   
-  #Example = 0
+  #Example = 6
   
   ; === Gadget ===
   ;  1: Headings
@@ -10222,9 +10255,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 9208
-; FirstLine = 622
-; Folding = wEQAIEBgCAAAAAAAAAAAAAACAAAAAgAAAAAAAAAAAAAJAAAAAAAAAAAAAAAAAAACAIIAAAAAAAAAAAAABAAAAAEAAAAAcBAgZAIAAAAAA9
+; CursorPosition = 89
+; FirstLine = 9
+; Folding = wEQAIEBgCAAAAAAAAAAAAAACAAAAAgAAAAAAAAAAAAAJAAAAAAAAAAAAAAIAAMACAIIAAAAACAAAAAAABAAAAAEAAAAAcBAAYAAggAAAA9
 ; Markers = 4156
 ; EnableXP
 ; DPIAware

@@ -277,7 +277,7 @@ Module NamedPipe
     CompilerSelect #PB_Compiler_OS
       CompilerCase #PB_OS_MacOS
         Define.s nPipe$
-        nPipe$ = PeekS(CocoaMessage(0, pHandle, "UTF8String"), -1, #PB_UTF8)
+        nPipe$ = PeekS(CocoaMessage(0, Object, "UTF8String"), -1, #PB_UTF8)
         ProcedureReturn StringField(nPipe$, 2, ".")
       CompilerCase #PB_OS_Windows
         ProcedureReturn Thread(Str(pHandle))\Pipe
@@ -726,7 +726,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 279
+; CursorPosition = 280
 ; FirstLine = 118
 ; Folding = kuGAAwJ+
 ; EnableThread
