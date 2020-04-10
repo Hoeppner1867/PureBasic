@@ -9,7 +9,7 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 09.04.2020
+; Last Update: 10.04.2020
 ;
 ; - Bugfixes: Draw tables
 ;
@@ -87,7 +87,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20040901
+  #Version  = 20041001
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -136,7 +136,7 @@ DeclareModule MarkDown
 	  #Error 
 	  #Warning
 	  ; Window
-	  #FindKeywords
+	  #KeywordsOnly  ; Search: Only keywords, no topics 
 	  #Style_Frame
 	  #Style_DragPoint
 	EndEnumeration ;}
@@ -1279,11 +1279,10 @@ Module MarkDown
 	  ProcedureReturn #False
 	EndProcedure
 	
-	Procedure   Clear_()
+	Procedure   Clear_(Image.i=#False)
 	  
-	  If MarkDown()\Type <> #Help
-	    ClearMap(MarkDown()\ImageNum())
-	  EndIf  
+	  If Image : ClearMap(MarkDown()\ImageNum()) : EndIf  
+	  
 	  ClearMap(MarkDown()\Abbreviation())
 	  ClearMap(MarkDown()\FootLabel())
 	  ClearMap(MarkDown()\Label())
@@ -8052,8 +8051,10 @@ Module MarkDown
 	      Image$ = GetFilePart(MarkDown()\Image()\Source)
 	      File$  = GetAbsolutePath_(Path, MarkDown()\Image()\Source)
 	      
-        MarkDown()\ImageNum(Image$) = LoadImage(#PB_Any, File$)
-
+	      If IsImage(MarkDown()\ImageNum(Image$)) = #False
+          MarkDown()\ImageNum(Image$) = LoadImage(#PB_Any, File$)
+        EndIf
+      
         Images(Image$) = File$
         
 	    Next
@@ -8079,7 +8080,7 @@ Module MarkDown
   	  
   	  If FindMapElement(MarkDown(), Str(GNum))
   	    
-  	    Clear_()
+  	    Clear_(#True)
   	    
   	    ReDraw()
   	  EndIf
@@ -9072,6 +9073,70 @@ Module MarkDown
       
 	  EndProcedure
 	  
+	  Procedure.i Search_(String.s, Map Keywords.Keywords_Structure(), Flags.i=#False)
+	    Define.i Results, Index
+	    
+	    ClearGadgetItems(Help\ListNum)
+	    
+	    ;{ Search topics
+	    If Flags & #KeywordsOnly = #False
+	      
+	      ForEach Help\Item()
+         
+          If LCase(Left(Help\Item()\Titel, Len(String))) = LCase(String)
+            Index = ListIndex(Help\Item())
+            AddGadgetItem(Help\ListNum, Results, Help\Item()\Titel)
+            SetGadgetItemData(Help\ListNum, Results, Index)
+            Results + 1
+          EndIf
+          
+        Next
+        
+	    EndIf ;}
+	    
+	    ;{ Search  Keywords
+      ForEach Keywords()
+        
+        If LCase(MapKey(Keywords())) = LCase(String)
+          
+          ForEach Keywords()\Label()
+            
+            If FindMapElement(Help\Label(), Keywords()\Label()\Name)
+              If SelectElement(Help\Item(), Help\Label())
+                Index = ListIndex(Help\Item())
+                AddGadgetItem(Help\ListNum, Results, Help\Item()\Titel)
+                SetGadgetItemData(Help\ListNum, Results, Index)
+                Results + 1
+              EndIf
+            EndIf 
+            
+          Next
+          
+        EndIf  
+        
+      Next ;}
+      
+      If Results = 1 ;{ Only 1 result
+        
+        If SelectElement(Help\Item(), Index)
+          SetText(Help\CanvasNum, Help\Item()\Text)
+          MarkDown()\PageLabel = Help\Item()\Label
+          CompilerIf Defined(TreeEx, #PB_Module) 
+            TreeEx::SetState(Help\TreeNum, ListIndex(Help\Item()))
+          CompilerElse 
+            SetGadgetState(Help\TreeNum, ListIndex(Help\Item()))
+          CompilerEndIf
+        EndIf
+        ;}
+        ProcedureReturn #PB_Default
+      ElseIf Results > 1
+        EnableSearch_(#True)
+        Help\Search = #True
+        ProcedureReturn Results
+      EndIf  
+      
+	  EndProcedure  
+	  
 	  Procedure.s Help(Title.s, File.s, Label.s="", Flags.i=#False, Parent.i=#PB_Default)
 	    ; Flags: #AutoResize | #FindKeywords
 	    Define.i WindowNum, WindowFlags, quitWindow
@@ -9304,76 +9369,12 @@ Module MarkDown
                 If EventMenu() = #Return
                   
                   If FindMapElement(MarkDown(), Str(Help\CanvasNum))
-                   
-                    ClearGadgetItems(Help\ListNum)
                     
-                    Search$ = Trim(GetGadgetText(Help\InputNum))
-                    SearchResult = 0
-
-                    If Flags & #FindKeywords ;{ Search  Keywords
-                      
-                      If Help\Search = #False
-                        EnableSearch_(#True)
-                        Help\Search = #True
-                      EndIf
-                      
-                      ForEach Keywords()
-                        
-                        If LCase(MapKey(Keywords())) = LCase(Search$)
-                          
-                          ForEach Keywords()\Label()
-                            
-                            If FindMapElement(Help\Label(), Keywords()\Label()\Name)
-                              If SelectElement(Help\Item(), Help\Label())
-                                Index = ListIndex(Help\Item())
-                                AddGadgetItem(Help\ListNum, SearchResult, Help\Item()\Titel)
-                                SetGadgetItemData(Help\ListNum, SearchResult, Index)
-                                SearchResult + 1
-                              EndIf
-                            EndIf 
-                            
-                          Next
-                          
-                        EndIf  
-                        
-                      Next
-                      ;}
-                    Else                     ;{ Search topic(s)
-                      
-                      ForEach Help\Item()
-                        
-                        If LCase(Left(Help\Item()\Titel, Len(Search$))) = LCase(Search$)
-                          Index = ListIndex(Help\Item())
-                          AddGadgetItem(Help\ListNum, SearchResult, Help\Item()\Titel)
-                          SetGadgetItemData(Help\ListNum, SearchResult, Index)
-                          SearchResult + 1
-                        EndIf
-                        
-                      Next
-                      
-                      If SearchResult = 1 ;{ Only 1 result
-                        
-                        If SelectElement(Help\Item(), Index)
-                          SetText(Help\CanvasNum, Help\Item()\Text)
-                          MarkDown()\PageLabel = Help\Item()\Label
-                          UpdateHelp(Help\CanvasNum, TOC(), Glossary()) 
-                          CompilerIf Defined(TreeEx, #PB_Module) 
-                            TreeEx::SetState(Help\TreeNum, ListIndex(Help\Item()))
-                          CompilerElse 
-                            SetGadgetState(Help\TreeNum, ListIndex(Help\Item()))
-                          CompilerEndIf
-                        EndIf  
-                        ;}
-                      Else
-                        
-                        EnableSearch_(#True)
-                        Help\Search = #True
-                        
-                      EndIf  
-                      ;}
-                    EndIf
+                    If Search_(Trim(GetGadgetText(Help\InputNum)), Keywords(), Flags) = #PB_Default
+                      UpdateHelp(Help\CanvasNum, TOC(), Glossary())
+                    EndIf 
                     
-                  EndIf
+                  EndIf 
                   
                 EndIf   
                 ;}
@@ -9528,75 +9529,11 @@ Module MarkDown
                     
                     If FindMapElement(MarkDown(), Str(Help\CanvasNum))
                    
-                      ClearGadgetItems(Help\ListNum)
+                      If Search_(Trim(GetGadgetText(Help\InputNum)), Keywords(), Flags) = #PB_Default
+                        UpdateHelp(Help\CanvasNum, TOC(), Glossary())
+                      EndIf  
                       
-                      Search$ = Trim(GetGadgetText(Help\InputNum))
-                      SearchResult = 0
-  
-                      If Flags & #FindKeywords ;{ Search  Keywords
-                        
-                        If Help\Search = #False
-                          EnableSearch_(#True)
-                          Help\Search = #True
-                        EndIf
-                        
-                        ForEach Keywords()
-                          
-                          If LCase(MapKey(Keywords())) = LCase(Search$)
-                            
-                            ForEach Keywords()\Label()
-                              
-                              If FindMapElement(Help\Label(), Keywords()\Label()\Name)
-                                If SelectElement(Help\Item(), Help\Label())
-                                  Index = ListIndex(Help\Item())
-                                  AddGadgetItem(Help\ListNum, SearchResult, Help\Item()\Titel)
-                                  SetGadgetItemData(Help\ListNum, SearchResult, Index)
-                                  SearchResult + 1
-                                EndIf
-                              EndIf 
-                              
-                            Next
-                            
-                          EndIf  
-                          
-                        Next
-                        ;}
-                      Else                     ;{ Search topic(s)
-                        
-                        ForEach Help\Item()
-                          
-                          If LCase(Left(Help\Item()\Titel, Len(Search$))) = LCase(Search$)
-                            Index = ListIndex(Help\Item())
-                            AddGadgetItem(Help\ListNum, SearchResult, Help\Item()\Titel)
-                            SetGadgetItemData(Help\ListNum, SearchResult, Index)
-                            SearchResult + 1
-                          EndIf
-                          
-                        Next
-                        
-                        If SearchResult = 1 ;{ Only 1 result
-                          
-                          If SelectElement(Help\Item(), Index)
-                            SetText(Help\CanvasNum, Help\Item()\Text)
-                            MarkDown()\PageLabel = Help\Item()\Label
-                            UpdateHelp(Help\CanvasNum, TOC(), Glossary()) 
-                            CompilerIf Defined(TreeEx, #PB_Module) 
-                              TreeEx::SetState(Help\TreeNum, ListIndex(Help\Item()))
-                            CompilerElse 
-                              SetGadgetState(Help\TreeNum, ListIndex(Help\Item()))
-                            CompilerEndIf
-                          EndIf  
-                          ;}
-                        Else
-                          
-                          EnableSearch_(#True)
-                          Help\Search = #True
-                          
-                        EndIf  
-                        ;}
-                      EndIf
-                      
-                    EndIf 
+                    EndIf   
                     ;}  
                   Case Help\ListNum   ;{ Search List
                     
@@ -9638,6 +9575,8 @@ Module MarkDown
       If IsImage(Help\Image\GoHome)     : FreeImage(Help\Image\GoHome)     : EndIf 
       If IsImage(Help\Image\GoNext)     : FreeImage(Help\Image\GoNext)     : EndIf
       If IsImage(Help\Image\GoPrevious) : FreeImage(Help\Image\GoPrevious) : EndIf
+      If IsImage(Help\Image\Search)     : FreeImage(Help\Image\Search)     : EndIf
+      If IsImage(Help\Image\Close)      : FreeImage(Help\Image\Close)      : EndIf
       
       ProcedureReturn Label
     EndProcedure
@@ -10488,7 +10427,7 @@ CompilerIf #PB_Compiler_IsMainFile
     Select #Example
       Case 30 
         CompilerIf MarkDown::#Enable_HelpWindow
-          MarkDown::Help(" Help", "Help.mdh", "Module", MarkDown::#AutoResize|MarkDown::#Style_DragPoint|MarkDown::#FindKeywords)
+          MarkDown::Help(" Help", "Help.mdh", "Module", MarkDown::#AutoResize|MarkDown::#Style_DragPoint)
         CompilerEndIf   
       Case 31
         CompilerIf MarkDown::#Enable_CreateHelp
@@ -10507,9 +10446,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 89
-; FirstLine = 12
-; Folding = wEAAIEAAAAAAAAAAAAAAAAACAAAAAgAAAAAAAAAAAAAJAAAAAAAAAAAAAAAAAMACAIIAAAAACAAAAAAABAMAAAEAAQAAUAQBwbgBrIEAAQAk
-; Markers = 4165
+; CursorPosition = 8649
+; FirstLine = 677
+; Folding = wMAAIEAAAAAAAAAAAACAAAACAAAAAgAAAAAAAAAAAAAJAACAAAAAAAAAAAAAAMACAIIAAEQACAAAAAAABAEAAAEAQgQAWIBoB1ADFhAAACg9
+; Markers = 4164
 ; EnableXP
 ; DPIAware

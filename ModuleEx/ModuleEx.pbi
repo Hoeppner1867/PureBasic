@@ -11,7 +11,7 @@
 ; - Creates cursor events for gadgets of a window (#CursorEvent)
 ; - Provides event types for PostEvent() for other modules
 
-; Last Update: 03.04.2020
+; Last Update: 10.04.2020
 ;
 ; Added: GUI theme for all supportet gadgets
 ;
@@ -65,7 +65,7 @@
 
 DeclareModule ModuleEx
   
-  #Version = 20040300
+  #Version = 20041000
   
   #Enable_Tabulator_Management = #True
   
@@ -332,7 +332,15 @@ Module ModuleEx
   ;-   Module - Internal
   ;- ============================================================================
  
-  Declare.i BlendColor_(Color1.i, Color2.i, Factor.i=50)
+  Procedure.i BlendColor_(Color1.i, Color2.i, Scale.i=50)
+    Define.i R1, G1, B1, R2, G2, B2
+    Define.f Blend = Scale / 100
+    
+    R1 = Red(Color1): G1 = Green(Color1): B1 = Blue(Color1)
+    R2 = Red(Color2): G2 = Green(Color2): B2 = Blue(Color2)
+    
+    ProcedureReturn RGB((R1*Blend) + (R2 * (1-Blend)), (G1*Blend) + (G2 * (1-Blend)), (B1*Blend) + (B2 * (1-Blend)))
+  EndProcedure
   
   CompilerIf #PB_Compiler_OS = #PB_OS_MacOS
     ; Addition of mk-soft
@@ -384,9 +392,9 @@ Module ModuleEx
 		  UserDefaults = CocoaMessage(0, 0, "NSUserDefaults standardUserDefaults")
       NSString = CocoaMessage(0, UserDefaults, "stringForKey:$", @"AppleInterfaceStyle")
       If NSString And PeekS(CocoaMessage(0, NSString, "UTF8String"), -1, #PB_UTF8) = "Dark"
-        ProcedureReturn BlendColor_(NSColorByNameToRGB("controlBackgroundColor"), #White, 85)
+        ProcedureReturn BlendColor_(OSX_NSColorByNameToRGB("controlBackgroundColor"), #White, 85)
       Else
-        ProcedureReturn BlendColor_(NSColorByNameToRGB("windowBackgroundColor"), #White, 85)
+        ProcedureReturn BlendColor_(OSX_NSColorByNameToRGB("windowBackgroundColor"), #White, 85)
       EndIf 
       
 		EndProcedure  
@@ -1367,8 +1375,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 378
-; FirstLine = 160
-; Folding = kBABCAAAIAHACw
+; CursorPosition = 67
+; Folding = kBABCBAAQAOAEq
 ; EnableXP
 ; DPIAware
