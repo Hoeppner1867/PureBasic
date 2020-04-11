@@ -9,7 +9,7 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 10.04.2020
+; Last Update: 11.04.2020
 ;
 ; - Added: Invisible keywords '[<Invisble]'
 ;
@@ -109,15 +109,15 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20041001
+  #Version  = 20041100
   #ModuleEx = 19112100
   
   #Enable_Gadget     = #True
-  #Enable_Requester  = #True
-  #Enable_HelpWindow = #True  
+  #Enable_Requester  = #False ;#True
+  #Enable_HelpWindow = #False ;#True  
   #Enable_CreateHelp = #False
   #Enable_Emoji      = #True
-  #Enable_ExportHTML = #True  
+  #Enable_ExportHTML = #False ;#True  
   
 	;- ===========================================================================
 	;-   DeclareModule - Constants
@@ -8030,8 +8030,10 @@ Module MarkDown
 	    
 	    DetermineTextSize_()
 	    
-	    HTML$ = ConvertHTML_()
-    	
+	    CompilerIf #Enable_ExportHTML
+	      HTML$ = ConvertHTML_()
+	    CompilerEndIf
+	    
 	    DeleteMapElement(MarkDown())
 	  EndIf  
 	  
@@ -10532,9 +10534,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 9210
-; FirstLine = 1059
-; Folding = wgAA9FBQAAAAAEAIfAAAAAAEAAAAAABAAAAEIAAIQIHEAAAAAAAAAAAAAAAAAgBQAABRAgACQAAAOAAAIQABgAARAE18-lHAAANwQBAAAgAI-
+; CursorPosition = 11
+; Folding = wgAA9FAAQAAAAEAIfAAAAAAEAAAAAABAAAAEIACIQIHEAAw5FAAAAAAAAAAAAgBQAABRAgACQAAAOAAAIwBCABAiAIo4-LPAAAaghCAAAABQ+
 ; Markers = 4219
 ; EnableXP
 ; DPIAware
