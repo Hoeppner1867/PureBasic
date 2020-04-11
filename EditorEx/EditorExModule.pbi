@@ -7,11 +7,9 @@
 ;/ © 2020 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 04.04.2020
+; Last Update: 11.04.2020
 ;
-; Changed: ScrollBarGadget() replaced by drawing routine
-; Added:   Attribute #ScrollBar [#ScrollBar_Default/#ScrollBar_Frame/#ScrollBar_DragPoint]
-; Added:   SetColor() -> [#ScrollBar_FrontColor/#ScrollBar_BackColor/#ScrollBar_BorderColor/#ScrollBar_ButtonColor/#ScrollBar_ThumbColor]
+; Added: Shift + Mouseclick
 ;
 
 ;{ ===== MIT License =====
@@ -139,7 +137,7 @@
 
 DeclareModule EditEx
   
-  #Version  = 20040400
+  #Version  = 20041100
   #ModuleEx = 20010800
   
   ;- ============================================================================
@@ -689,6 +687,7 @@ Module EditEx
     FrontColor.i
     BackColor.i
     LastX.i
+    LastPos.i
     Pause.i
     State.i
   EndStructure ;}
@@ -3633,6 +3632,9 @@ Module EditEx
             
             If SelectElement(EditEx()\Row(), EditEx()\Cursor\Row)
               EditEx()\Cursor\Pos = EditEx()\Row()\Pos + EditEx()\Row()\Len
+              If Mid(EditEx()\Text$, EditEx()\Cursor\Pos - 1, 1) = #LF$
+                EditEx()\Cursor\Pos - 1
+              EndIf  
             EndIf
 
             RemoveSelection_()
@@ -3681,7 +3683,7 @@ Module EditEx
               ;}
             Else                           ;{ Delete text/character
 
-              If EditEx()\Selection\Flag = #Selected And (CursorPos >= Pos1 And CursorPos <= Pos2)
+              If EditEx()\Selection\Flag = #Selected ; And (CursorPos >= Pos1 And CursorPos <= Pos2)
                 DeleteSelection_(#False)
               Else 
                 EditEx()\Text$ = DeleteStringPart(EditEx()\Text$, EditEx()\Cursor\Pos)
@@ -3703,7 +3705,7 @@ Module EditEx
             
             If CursorPos > 1
               
-              If EditEx()\Selection\Flag = #Selected And (CursorPos > Pos1 And CursorPos <= Pos2)
+              If EditEx()\Selection\Flag = #Selected ;And (CursorPos > Pos1 And CursorPos <= Pos2)
                 
                 DeleteSelection_(#False)
                 
@@ -3747,7 +3749,7 @@ Module EditEx
               Text$ = ReplaceString(Text$, #CR$, #LF$)
               
               If EditEx()\Selection\Flag = #Selected
-                DeleteSelection_(#False)
+                DeleteSelection_()
               EndIf
               
               EditEx()\Text$ = InsertString(EditEx()\Text$, Text$, EditEx()\Cursor\Pos)
@@ -3803,7 +3805,7 @@ Module EditEx
               Text$ = ReplaceString(Text$, #CR$, #LF$)
               
               If EditEx()\Selection\Flag = #Selected
-                DeleteSelection_(#False)
+                DeleteSelection_()
               EndIf
               
               EditEx()\Text$ = InsertString(EditEx()\Text$, Text$, EditEx()\Cursor\Pos)
@@ -4024,7 +4026,7 @@ Module EditEx
       
       EditEx()\Mouse\LeftButton = #True
       
-      ForEach EditEx()\ScrollBar\Item()
+      ForEach EditEx()\ScrollBar\Item() ;{ ScrollBar
       
         If EditEx()\ScrollBar\Item()\Hide : Continue : EndIf 
         
@@ -4097,9 +4099,8 @@ Module EditEx
     			EndIf
     			
   			EndIf
-      
-      Next
-      
+        ;}
+      Next 
       
       CompilerIf #Enable_SpellChecking
         If EditEx()\Visible\WordList = #True
@@ -4111,10 +4112,23 @@ Module EditEx
       CursorPos = CursorPos_(X, Y)
       If CursorPos
         
-        EditEx()\Selection\Pos1 = #PB_Default
-        EditEx()\Cursor\LastX   = EditEx()\Cursor\X ; last cursor position for cursor up/down
+        If GetGadgetAttribute(GNum, #PB_Canvas_Modifiers)
+
+          If CursorPos <> EditEx()\Cursor\LastPos
+            EditEx()\Selection\Pos1 = EditEx()\Cursor\LastPos
+            EditEx()\Selection\Pos2 = CursorPos
+            EditEx()\Selection\Flag = #Selected
+          EndIf
+          
+        Else  
+          
+          EditEx()\Selection\Pos1 = #PB_Default
+          RemoveSelection_() 
+          
+        EndIf  
         
-        RemoveSelection_()
+        EditEx()\Cursor\LastPos = CursorPos
+        EditEx()\Cursor\LastX   = EditEx()\Cursor\X ; last cursor position for cursor up/down
 
         ReDraw_(#False)
 
@@ -4292,7 +4306,7 @@ Module EditEx
       X   = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
       Y   = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
       
-      ForEach EditEx()\ScrollBar\Item()
+      ForEach EditEx()\ScrollBar\Item() ;{ ScrollBars
       
   	    If EditEx()\ScrollBar\Item()\Hide : Continue : EndIf
   	    
@@ -4456,7 +4470,7 @@ Module EditEx
   			  DrawScrollBar_(ScrollBar)
   			  ;}
   			EndIf
-  
+        ;}
   		Next
       
       LastCursorPos = EditEx()\Cursor\Pos
@@ -6342,8 +6356,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 15
-; Folding = wBCMAgQAwAAgAIEAYACAfAAD9TA69AHAlSOAwACC+JOA-wjvEAAAAEBBAFkwhDCj--
-; Markers = 1103,2930,3039,5554
+; CursorPosition = 11
+; FirstLine = 3
+; Folding = wBCMAkQgwAAgAYEAYACAfAAD9TA69AfIhQOAwACABQcB9jD-TACAAZMEAUQCnOoM+-
+; Markers = 1102,2929,3038,5568
 ; EnableXP
 ; DPIAware
