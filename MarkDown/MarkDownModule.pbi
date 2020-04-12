@@ -9,11 +9,12 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 11.04.2020
+; Last Update: 12.04.2020
+;
+; - Added: Support of relative path for Help2HTML()
+; - Added: Wildcards for help window search
 ;
 ; - Added: Invisible keywords '[<Invisble]'
-;
-; - Bugfixes: Draw tables
 ; - Added: dynamic column widths for tables
 ;
 
@@ -109,15 +110,15 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20041100
+  #Version  = 20041200
   #ModuleEx = 19112100
   
   #Enable_Gadget     = #True
-  #Enable_Requester  = #False ;#True
-  #Enable_HelpWindow = #False ;#True  
+  #Enable_Requester  = #True
+  #Enable_HelpWindow = #True
   #Enable_CreateHelp = #False
   #Enable_Emoji      = #True
-  #Enable_ExportHTML = #False ;#True  
+  #Enable_ExportHTML = #True
   
 	;- ===========================================================================
 	;-   DeclareModule - Constants
@@ -1059,11 +1060,11 @@ Module MarkDown
 	  ProcedureReturn Round(Pixel * 25.4 / 96, #PB_Round_Nearest)
 	EndProcedure
 	
-	Procedure.s GetAbsolutePath_(Path.s, File.s)
+	Procedure.s GetAbsolutePath_(Path.s, File.s, Flags.i=#False)
     Define.i i, PS
     Define.s PathPart$, Path$
     
-    If MarkDown()\Flags & #IgnorePath
+    If Flags & #IgnorePath
       ProcedureReturn GetFilePart(File)
     EndIf  
     
@@ -1437,9 +1438,7 @@ Module MarkDown
 
                 If FindMapElement(MarkDown()\ImageNum(), Image$) = #False
                   If AddMapElement(MarkDown()\ImageNum(), Image$)
-                    If IsImage(MarkDown()\ImageNum())
-                      MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
-                    EndIf   
+                    MarkDown()\ImageNum() = LoadImage(#PB_Any, File$) 
                   EndIf
                 EndIf
                 
@@ -1729,7 +1728,7 @@ Module MarkDown
                 Image$ = GetFilePart(MarkDown()\Image()\Source)
                 File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
                 
-  			        If Not FindMapElement(MarkDown()\ImageNum(), Image$)
+  			        If FindMapElement(MarkDown()\ImageNum(), Image$) = #False
   			          If AddMapElement(MarkDown()\ImageNum(), Image$) 
                     MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
                   EndIf
@@ -6237,7 +6236,9 @@ Module MarkDown
               If FindMapElement(MarkDown()\ImageNum(), Image$) = #False
                 If AddMapElement(MarkDown()\ImageNum(), Image$) 
                   
-                  MarkDown()\ImageNum() = LoadImage(#PB_Any, File$) 
+                  If IsImage(MarkDown()\ImageNum()) = #False
+                    MarkDown()\ImageNum() = LoadImage(#PB_Any, File$) 
+                  EndIf
                   
                   If IsImage(MarkDown()\ImageNum())
     			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
@@ -6401,7 +6402,9 @@ Module MarkDown
               If FindMapElement(MarkDown()\ImageNum(), Image$) = #False
                 If AddMapElement(MarkDown()\ImageNum(), Image$)
                   
-                  MarkDown()\ImageNum() = LoadImage(#PB_Any, File$) 
+                  If IsImage(MarkDown()\ImageNum()) = #False
+                    MarkDown()\ImageNum() = LoadImage(#PB_Any, File$) 
+                  EndIf
                   
                   If IsImage(MarkDown()\ImageNum())
     			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
@@ -6956,14 +6959,16 @@ Module MarkDown
 			      If SelectElement(MarkDown()\Image(), MarkDown()\Items()\Index)
 			        
 			        ;{ Load Image
-			        Image$ = GetFilePart(MarkDown()\Image()\Source)
-			        File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
-			        
-			        If FindMapElement(MarkDown()\ImageNum(), Image$) = #False
-			          If AddMapElement(MarkDown()\ImageNum(), Image$)
-			            
-                  MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
+              Image$ = GetFilePart(MarkDown()\Image()\Source)
+              File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
+
+              If FindMapElement(MarkDown()\ImageNum(), Image$) = #False
+                If AddMapElement(MarkDown()\ImageNum(), Image$) 
                   
+                  If IsImage(MarkDown()\ImageNum()) = #False
+                    MarkDown()\ImageNum() = LoadImage(#PB_Any, File$) 
+                  EndIf
+                
                   If IsImage(MarkDown()\ImageNum())
     			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
     			          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
@@ -6971,7 +6976,7 @@ Module MarkDown
     			        
                 EndIf
               EndIf ;}
-			        
+
     	        If IsImage(MarkDown()\ImageNum())
     	          
     	          OffSet = (Width - ImageWidth(MarkDown()\ImageNum())) / 2
@@ -8087,7 +8092,7 @@ Module MarkDown
 	    
 	    If Path : SetPath(GNum, Path) : EndIf 
 	    
-	    Clear_()
+	    Clear_(#True)
 	    
 	    MarkDown()\Text = Text
 	    
@@ -8122,16 +8127,8 @@ Module MarkDown
 	    Parse_(MarkDown)
 	    
 	    ForEach MarkDown()\Image()
-	      
 	      Image$ = GetFilePart(MarkDown()\Image()\Source)
-	      File$  = GetAbsolutePath_(Path, MarkDown()\Image()\Source)
-	      
-	      If IsImage(MarkDown()\ImageNum(Image$)) = #False
-          MarkDown()\ImageNum(Image$) = LoadImage(#PB_Any, File$)
-        EndIf
-      
-        Images(Image$) = File$
-        
+        Images(Image$) = GetAbsolutePath_(Path, MarkDown()\Image()\Source)
 	    Next
 	    
 	    DeleteMapElement(MarkDown())
@@ -8931,9 +8928,10 @@ Module MarkDown
   	
   	  Procedure.s Help2HTML(Title.s, File.s, Folder.s="HTML", FileHTML.s="")
   	    Define.i PDF, FileID, Pack, JSON, Size, Counter, Level
-  	    Define.s File$, FileName$, HTML$, Style$, Label$, Start$
+  	    Define.s File$, FileName$, HTML$, Style$, Label$, Start$, Image$, ImagePath$, Path$
   	    Define   *Buffer
   	    
+  	    NewMap  Image.s()
   	    NewMap  Keywords.Keywords_Structure()
   	    NewMap  Glossary.Glossary_Structure()
   	    NewList TOC.TOC_Structure()
@@ -8948,6 +8946,12 @@ Module MarkDown
           File$ = FileHTML
         EndIf
 
+        If GetPathPart(File)
+          Path$ = GetPathPart(GetAbsolutePath_(GetPathPart(File), File$))
+        Else
+          Path$ = GetPathPart(GetAbsolutePath_(GetCurrentDirectory(), File$))
+        EndIf
+        
         If FileSize(GetPathPart(File$)) <> -2 : CreateDirectory(GetPathPart(File$)) : EndIf
         ;}  	    
         
@@ -8980,11 +8984,12 @@ Module MarkDown
                     ;}
                   Default          ;{ Image
                     UncompressPackFile(Pack, GetPathPart(File$) + FileName$)
+                    MarkDown()\ImageNum(FileName$) = LoadImage(#PB_Any, GetPathPart(File$) + FileName$)
                     ;}
                 EndSelect
               Wend 
             EndIf
-            
+
             ClosePack(Pack)
     	    EndIf ;}  
     	    
@@ -9098,9 +9103,25 @@ Module MarkDown
       	      WriteString(FileID, HTML$, #PB_UTF8)
       	      CloseFile(FileID)
       	    EndIf
-
+      	    
+      	    ForEach MarkDown()\Image()
+      	      Image$ = GetFilePart(MarkDown()\Image()\Source)
+              Image(Image$) = GetAbsolutePath_(Path$, MarkDown()\Image()\Source)
+      	    Next
+      	    
           Next
           ;}
+          
+          ForEach Image()
+            
+            Image$     = Image()
+            ImagePath$ = GetPathPart(Image$)
+            
+            If ImagePath$ <> Path$
+              If FileSize(ImagePath$) <> -2 : CreateDirectory(ImagePath$) : EndIf
+              RenameFile(Path$ + GetFilePart(Image$), Image$)
+            EndIf  
+          Next
           
     	  EndIf
     	  
@@ -9158,36 +9179,129 @@ Module MarkDown
 	    ;{ Search topics
 	    If Flags & #KeywordsOnly = #False
 	      
-	      ForEach Help\Item()
-	        If LCase(Left(Help\Item()\Titel, Len(String))) = LCase(String)
-	          Index = ListIndex(Help\Item())
-	          If AddElement(Sort())
-              Sort()\Index = Index
-              Sort()\Topic = Help\Item()\Titel
-            EndIf
-          EndIf
-        Next
-        
-	    EndIf ;}
-	    
-	    ;{ Search  Keywords
-      ForEach Keywords()
-        
-        If LCase(MapKey(Keywords())) = LCase(String)
-          ForEach Keywords()\Label()
-            If FindMapElement(Help\Label(), Keywords()\Label()\Name)
-              If SelectElement(Help\Item(), Help\Label())
-                Index = ListIndex(Help\Item())
-                If AddElement(Sort())
-                  Sort()\Index = Index
-                  Sort()\Topic = Help\Item()\Titel
-                EndIf
+	      String = LCase(Trim(String))
+	      
+	      If Left(String, 1) = "*" And Right(String, 1) = "*"
+	        
+	        String = Trim(String, "*")
+ 
+	        ForEach Help\Item() ;{ Search Topic
+	          If CountString(LCase(Help\Item()\Titel), String)
+	            Index = ListIndex(Help\Item())
+  	          If AddElement(Sort())
+                Sort()\Index = Index
+                Sort()\Topic = Help\Item()\Titel
               EndIf
             EndIf 
-          Next
-        EndIf  
+	        Next ;}
+	        
+	        ForEach Keywords()  ;{ Search  Keywords
+            If CountString(LCase(MapKey(Keywords())), String)
+              ForEach Keywords()\Label()
+                If FindMapElement(Help\Label(), Keywords()\Label()\Name)
+                  If SelectElement(Help\Item(), Help\Label())
+                    Index = ListIndex(Help\Item())
+                    If AddElement(Sort())
+                      Sort()\Index = Index
+                      Sort()\Topic = Help\Item()\Titel
+                    EndIf
+                  EndIf
+                EndIf 
+              Next  
+            EndIf  
+          Next ;}
+	        
+        ElseIf Left(String,  1) = "*"
+          
+          String = LTrim(String, "*")
+          
+          ForEach Help\Item() ;{ Search Topic
+            If Right(LCase(Help\Item()\Titel), Len(String)) = String
+              Index = ListIndex(Help\Item())
+  	          If AddElement(Sort())
+                Sort()\Index = Index
+                Sort()\Topic = Help\Item()\Titel
+              EndIf
+            EndIf
+          Next ;}
+          
+          ForEach Keywords()  ;{ Search  Keywords
+            If Right(LCase(MapKey(Keywords())), Len(String)) = String
+              ForEach Keywords()\Label()
+                If FindMapElement(Help\Label(), Keywords()\Label()\Name)
+                  If SelectElement(Help\Item(), Help\Label())
+                    Index = ListIndex(Help\Item())
+                    If AddElement(Sort())
+                      Sort()\Index = Index
+                      Sort()\Topic = Help\Item()\Titel
+                    EndIf
+                  EndIf
+                EndIf 
+              Next  
+            EndIf  
+          Next ;}
         
-      Next ;}
+        ElseIf Right(String, 1) = "*"
+          
+          String = RTrim(String, "*")
+          
+          ForEach Help\Item() ;{ Search Topic
+            If Left(LCase(Help\Item()\Titel), Len(String)) = String
+              Index = ListIndex(Help\Item())
+  	          If AddElement(Sort())
+                Sort()\Index = Index
+                Sort()\Topic = Help\Item()\Titel
+              EndIf
+            EndIf
+          Next ;}  
+          
+          ForEach Keywords()  ;{ Search  Keywords
+            If Left(LCase(MapKey(Keywords())), Len(String)) = String
+              ForEach Keywords()\Label()
+                If FindMapElement(Help\Label(), Keywords()\Label()\Name)
+                  If SelectElement(Help\Item(), Help\Label())
+                    Index = ListIndex(Help\Item())
+                    If AddElement(Sort())
+                      Sort()\Index = Index
+                      Sort()\Topic = Help\Item()\Titel
+                    EndIf
+                  EndIf
+                EndIf 
+              Next  
+            EndIf  
+          Next ;}
+          
+        Else
+          
+          ForEach Help\Item() ;{ Search Topic
+            If Left(LCase(Help\Item()\Titel), Len(String)) = String
+              Index = ListIndex(Help\Item())
+              If AddElement(Sort())
+                Sort()\Index = Index
+                Sort()\Topic = Help\Item()\Titel
+              EndIf
+            EndIf
+          Next ;}
+          
+          ForEach Keywords() ;{ Search  Keywords
+            If LCase(MapKey(Keywords())) = String
+              ForEach Keywords()\Label()
+                If FindMapElement(Help\Label(), Keywords()\Label()\Name)
+                  If SelectElement(Help\Item(), Help\Label())
+                    Index = ListIndex(Help\Item())
+                    If AddElement(Sort())
+                      Sort()\Index = Index
+                      Sort()\Topic = Help\Item()\Titel
+                    EndIf
+                  EndIf
+                EndIf 
+              Next  
+            EndIf  
+          Next ;}
+          
+        EndIf
+ 
+	    EndIf ;}
       
       If ListSize(Sort()) = 1 ;{ Only 1 result
         
@@ -9383,8 +9497,8 @@ Module MarkDown
   	        AddGadgetItem(Help\TreeNum, -1, Help\Item()\Titel, #False, Help\Item()\Level)
   	      CompilerEndIf
 
-  	    Next
-
+  	    Next 
+  	    
   	    If FindMapElement(MarkDown(), Str(Help\CanvasNum))
   	      
   	      If Label ;{ Select start item
@@ -10227,7 +10341,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
   
-  #Example = 30
+  #Example = 32
   
   ; === Gadget ===
   ;  1: Headings
@@ -10518,14 +10632,14 @@ CompilerIf #PB_Compiler_IsMainFile
           MarkDown::Help(" Help", "Help.mdh", "Module", MarkDown::#AutoResize|MarkDown::#Style_DragPoint)
         CompilerEndIf   
       Case 31
-        CompilerIf MarkDown::#Enable_CreateHelp
+        CompilerIf MarkDown::#Enable_HelpWindow
           MarkDown::Help2PDF("Markdown Module", "Help.mdh", "", "P", PDF::#Format_A5) 
           RunProgram("Help.pdf")
         CompilerEndIf  
       Case 32
-        CompilerIf MarkDown::#Enable_CreateHelp
+        CompilerIf MarkDown::#Enable_HelpWindow
           MarkDown::Help2HTML("Markdown Module", "Help.mdh", "HTML", "Index.html") 
-          RunProgram("Help.html")
+          RunProgram("Index.html")
         CompilerEndIf  
     EndSelect
     
@@ -10534,8 +10648,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 11
-; Folding = wgAA9FAAQAAAAEAIfAAAAAAEAAAAAABAAAAEIACIQIHEAAw5FAAAAAAAAAAAAgBQAABRAgACQAAAOAAAIwBCABAiAIo4-LPAAAaghCAAAABQ+
-; Markers = 4219
+; CursorPosition = 13
+; FirstLine = 9
+; Folding = wgAA9FAAQAAAAAAMfAkgyiIEAAIAAABAAYAEIACIQAHkAAg5FAAAAAAAAAAAAQBGAYAAAgADAAAAMAAAIwxDAAAjDIY5nIAACoAwADEgAAAWg-
+; Markers = 4218
 ; EnableXP
 ; DPIAware
