@@ -371,7 +371,7 @@ DeclareModule MarkDown
   
   ;{ Internal
   Declare MergeHelp(List Items.Item_Structure(), List TOC.TOC_Structure(), Map Glossary.Glossary_Structure(), Map Keywords.Keywords_Structure())
-  Declare UpdateHelp(GNum.i, List TOC.TOC_Structure(), Map Glossary.Glossary_Structure(), Export.i=#False)
+  Declare UpdateHelp(GNum.i, List TOC.TOC_Structure(), Map Glossary.Glossary_Structure(), List Found.s(), Export.i=#False)
   ;}
   
 EndDeclareModule
@@ -701,6 +701,7 @@ Module MarkDown
   EndStructure ;}
 
   Structure Keyword_Structure            ;{ MarkDown()\Keyword('keyword')\...
+    Found.i
     List HeadingID.s()
   EndStructure ;}
   
@@ -850,6 +851,8 @@ Module MarkDown
 		DisableFront.i
 		Focus.i
 		Front.i
+		Found.i
+		FoundBack.i
 		Gadget.i
 		HeaderBack.i
 		Highlight.i
@@ -2102,10 +2105,16 @@ Module MarkDown
 
               If SelectElement(MarkDown()\Image(), Words()\Index)
                 
+                If MarkDown()\Image()\Width And MarkDown()\Image()\Height
+                  Image$ = " width=" + #DQUOTE$ + Str(MarkDown()\Image()\Width) + #DQUOTE$ + " height=" + #DQUOTE$ + Str(MarkDown()\Image()\Height) + #DQUOTE$ 
+                Else
+                  Image$ = ""
+                EndIf
+                
                 If MarkDown()\Image()\Title
-                  HTML$ + "<img src=" + #DQUOTE$ + MarkDown()\Image()\Source + #DQUOTE$ + " alt=" + #DQUOTE$ + EscapeHTML_(Words()\String) + #DQUOTE$ + " title=" + #DQUOTE$ + EscapeHTML_(MarkDown()\Image()\Title) + #DQUOTE$ + " />"
+                  HTML$ + "<img src=" + #DQUOTE$ + MarkDown()\Image()\Source + #DQUOTE$ + " alt=" + #DQUOTE$ + EscapeHTML_(Words()\String) + #DQUOTE$ + Image$ + " title=" + #DQUOTE$ + EscapeHTML_(MarkDown()\Image()\Title) + #DQUOTE$ + " />"
                 Else  
-                  HTML$ + "<img src=" + #DQUOTE$ + MarkDown()\Image()\Source + #DQUOTE$ + " alt=" + #DQUOTE$ + EscapeHTML_(Words()\String) + #DQUOTE$ + " />"
+                  HTML$ + "<img src=" + #DQUOTE$ + MarkDown()\Image()\Source + #DQUOTE$ + " alt=" + #DQUOTE$ + EscapeHTML_(Words()\String) + #DQUOTE$ + Image$ + " />"
                 EndIf
               EndIf
               
@@ -2354,12 +2363,18 @@ Module MarkDown
                 String$ + MarkDown()\Items()\Words()\String
               Next   
               
+              If MarkDown()\Image()\Width And MarkDown()\Image()\Height
+                Image$ = " width=" + #DQUOTE$ + Str(MarkDown()\Image()\Width) + #DQUOTE$ + " height=" + #DQUOTE$ + Str(MarkDown()\Image()\Height) + #DQUOTE$ 
+              Else
+                Image$ = ""
+              EndIf
+              
               Class$ = " class="  + #DQUOTE$ + "center" + #DQUOTE$
               
               If MarkDown()\Image()\Title
-                HTML$ + "<img src=" + #DQUOTE$ + MarkDown()\Image()\Source + #DQUOTE$ + " alt=" + #DQUOTE$ + EscapeHTML_(String$) + #DQUOTE$ + " title=" + #DQUOTE$ + EscapeHTML_(MarkDown()\Image()\Title) + #DQUOTE$ + Class$ + " />"
+                HTML$ + "<img src=" + #DQUOTE$ + MarkDown()\Image()\Source + #DQUOTE$ + " alt=" + #DQUOTE$ + EscapeHTML_(String$) + #DQUOTE$ + Image$ + " title=" + #DQUOTE$ + EscapeHTML_(MarkDown()\Image()\Title) + #DQUOTE$ + Class$ + " />"
               Else  
-                HTML$ + "<img src=" + #DQUOTE$ + MarkDown()\Image()\Source + #DQUOTE$ + " alt=" + #DQUOTE$ + EscapeHTML_(String$) + #DQUOTE$ + Class$ + " />"
+                HTML$ + "<img src=" + #DQUOTE$ + MarkDown()\Image()\Source + #DQUOTE$ + " alt=" + #DQUOTE$ + EscapeHTML_(String$) + #DQUOTE$ + Image$ + Class$ + " />"
               EndIf
               HTML$ + "<center>" + EscapeHTML_(String$) + "</center> <br>"
               
@@ -5676,7 +5691,7 @@ Module MarkDown
     
   EndProcedure
 
-  Procedure   UpdateHelp(GNum.i, List TOC.TOC_Structure(), Map Glossary.Glossary_Structure(), Export.i=#False)
+  Procedure   UpdateHelp(GNum.i, List TOC.TOC_Structure(), Map Glossary.Glossary_Structure(), List Found.s(), Export.i=#False)
  
     NewList Sort.s() 
     
@@ -5723,6 +5738,10 @@ Module MarkDown
         Next
         
       EndIf  
+      
+      ForEach Found()
+        MarkDown()\Keyword(Found())\Found = #True
+      Next  
       
       If Export = #False
         If ListSize(MarkDown()\TOC()) Or MapSize(MarkDown()\Glossary())
@@ -6270,7 +6289,13 @@ Module MarkDown
     	      PosX = Keystroke_(PosX, PosY, Word$)
     	      ;}
     	    Case #Keyword         ;{ Draw keyword
-    	      PosX = DrawText(PosX, PosY, Word$, MarkDown()\Color\Keyword)
+    	      If MarkDown()\Keyword(Trim(Word$))\Found
+    	        DrawingMode(#PB_2DDrawing_Default)
+    	        PosX = DrawText(PosX, PosY, Word$, MarkDown()\Color\Found, MarkDown()\Color\FoundBack)
+    	        DrawingMode(#PB_2DDrawing_Transparent)
+    	      Else
+    	        PosX = DrawText(PosX, PosY, Word$, MarkDown()\Color\Keyword)
+    	      EndIf   
     	      ;}
     	    Case #Link, #AutoLink ;{ Draw link
             
@@ -6436,7 +6461,13 @@ Module MarkDown
     	      PosX = Keystroke_(PosX, PosY, Words()\String)
     	      ;}  
     	    Case #Keyword         ;{ Draw keyword
-    	      PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Keyword)
+    	      If MarkDown()\Keyword(Trim(Words()\String))\Found
+    	        DrawingMode(#PB_2DDrawing_Default)
+    	        PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Found, MarkDown()\Color\FoundBack)
+    	        DrawingMode(#PB_2DDrawing_Transparent)
+    	      Else
+    	        PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Keyword)
+    	      EndIf
     	      ;}
     	    Case #Link, #AutoLink ;{ Draw link
             
@@ -6962,11 +6993,11 @@ Module MarkDown
               Image$ = GetFilePart(MarkDown()\Image()\Source)
               File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
 
-              If FindMapElement(MarkDown()\ImageNum(), Image$) = #False
+              If FindMapElement(MarkDown()\ImageNum(),  Image$) = #False
                 If AddMapElement(MarkDown()\ImageNum(), Image$) 
                   
                   If IsImage(MarkDown()\ImageNum()) = #False
-                    MarkDown()\ImageNum() = LoadImage(#PB_Any, File$) 
+                    MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
                   EndIf
                 
                   If IsImage(MarkDown()\ImageNum())
@@ -7887,6 +7918,8 @@ Module MarkDown
     MarkDown()\Color\Button        = $E3E3E3
     MarkDown()\Color\Focus         = $D77800
     MarkDown()\Color\Keyword       = $82004B
+    MarkDown()\Color\Found         = $004B00
+    MarkDown()\Color\FoundBack     = $00F6FF
     
 		CompilerSelect #PB_Compiler_OS 
 			CompilerCase #PB_OS_Windows
@@ -8800,6 +8833,7 @@ Module MarkDown
   	    NewMap  Keywords.Keywords_Structure()
   	    NewMap  Glossary.Glossary_Structure()
   	    NewList Item.Item_Structure()
+  	    NewList Found.s()
   	    
   	    If AddMapElement(MarkDown(), "Help")
   	      
@@ -8900,7 +8934,7 @@ Module MarkDown
               Parse_(Item()\Text)
               DetermineTextSize_(#True)
               
-              UpdateHelp(#PB_Default, TOC(), Glossary(), #True)
+              UpdateHelp(#PB_Default, TOC(), Glossary(), Found(), #True)
               
               PDF::BookMark(PDF, Item()\Titel, Item()\Level)
               
@@ -8936,6 +8970,7 @@ Module MarkDown
   	    NewMap  Glossary.Glossary_Structure()
   	    NewList TOC.TOC_Structure()
   	    NewList Item.Item_Structure()
+  	    NewList Found.s()
   	    
 	      ;{ _____ Filename & Folder _____
 	      If FileHTML = "" : FileHTML = GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + ".html" : EndIf 
@@ -9085,7 +9120,7 @@ Module MarkDown
             
             Parse_(Item()\Text)
             
-            UpdateHelp(#PB_Default, TOC(), Glossary(), #True)
+            UpdateHelp(#PB_Default, TOC(), Glossary(), Found(), #True)
             
             HTML$  = ExportHTML_(Title, "Markdown.css")
             
@@ -9169,14 +9204,15 @@ Module MarkDown
       
 	  EndProcedure
 	  
-	  Procedure.i Search_(String.s, Map Keywords.Keywords_Structure(), Flags.i=#False)
+	  Procedure.i Search_(String.s, Map Keywords.Keywords_Structure(), List Found.s(),Flags.i=#False)
 	    Define.i Index
+	    
+	    ClearList(Found())
 	    
 	    NewList Sort.Help_Sort_Structure()
 	    
 	    ClearGadgetItems(Help\ListNum)
 
-	    ;{ Search topics
 	    If Flags & #KeywordsOnly = #False
 	      
 	      String = LCase(Trim(String))
@@ -9196,7 +9232,8 @@ Module MarkDown
 	        Next ;}
 	        
 	        ForEach Keywords()  ;{ Search  Keywords
-            If CountString(LCase(MapKey(Keywords())), String)
+	          If CountString(LCase(MapKey(Keywords())), String)
+	            If AddElement(Found()) : Found() = MapKey(Keywords()) : EndIf
               ForEach Keywords()\Label()
                 If FindMapElement(Help\Label(), Keywords()\Label()\Name)
                   If SelectElement(Help\Item(), Help\Label())
@@ -9227,6 +9264,7 @@ Module MarkDown
           
           ForEach Keywords()  ;{ Search  Keywords
             If Right(LCase(MapKey(Keywords())), Len(String)) = String
+              If AddElement(Found()) : Found() = MapKey(Keywords()) : EndIf
               ForEach Keywords()\Label()
                 If FindMapElement(Help\Label(), Keywords()\Label()\Name)
                   If SelectElement(Help\Item(), Help\Label())
@@ -9257,6 +9295,7 @@ Module MarkDown
           
           ForEach Keywords()  ;{ Search  Keywords
             If Left(LCase(MapKey(Keywords())), Len(String)) = String
+              If AddElement(Found()) : Found() = MapKey(Keywords()) : EndIf
               ForEach Keywords()\Label()
                 If FindMapElement(Help\Label(), Keywords()\Label()\Name)
                   If SelectElement(Help\Item(), Help\Label())
@@ -9285,6 +9324,7 @@ Module MarkDown
           
           ForEach Keywords() ;{ Search  Keywords
             If LCase(MapKey(Keywords())) = String
+              If AddElement(Found()) : Found() = MapKey(Keywords()) : EndIf
               ForEach Keywords()\Label()
                 If FindMapElement(Help\Label(), Keywords()\Label()\Name)
                   If SelectElement(Help\Item(), Help\Label())
@@ -9301,36 +9341,19 @@ Module MarkDown
           
         EndIf
  
-	    EndIf ;}
+	    EndIf
+
+      SortStructuredList(Sort(), #PB_Sort_Ascending|#PB_Sort_NoCase, OffsetOf(Help_Sort_Structure\Topic), TypeOf(Help_Sort_Structure\Topic))
       
-      If ListSize(Sort()) = 1 ;{ Only 1 result
-        
-        If SelectElement(Help\Item(), Index)
-          SetText(Help\CanvasNum, Help\Item()\Text)
-          MarkDown()\PageLabel = Help\Item()\Label
-          CompilerIf Defined(TreeEx, #PB_Module) 
-            TreeEx::SetState(Help\TreeNum, ListIndex(Help\Item()))
-          CompilerElse 
-            SetGadgetState(Help\TreeNum, ListIndex(Help\Item()))
-          CompilerEndIf
-        EndIf
-        ;}
-        ProcedureReturn #PB_Default
-      ElseIf ListSize(Sort()) > 1
-        
-        SortStructuredList(Sort(), #PB_Sort_Ascending|#PB_Sort_NoCase, OffsetOf(Help_Sort_Structure\Topic), TypeOf(Help_Sort_Structure\Topic))
-        
-        ForEach Sort()
-          AddGadgetItem(Help\ListNum, ListIndex(Sort()), Sort()\Topic)
-          SetGadgetItemData(Help\ListNum, ListIndex(Sort()), Sort()\Index)
-        Next
-        
-        EnableSearch_(#True)
-        Help\Search = #True
-        
-        ProcedureReturn ListSize(Sort())
-      EndIf  
+      ForEach Sort()
+        AddGadgetItem(Help\ListNum, ListIndex(Sort()), Sort()\Topic)
+        SetGadgetItemData(Help\ListNum, ListIndex(Sort()), Sort()\Index)
+      Next
       
+      EnableSearch_(#True)
+      Help\Search = #True
+      
+      ProcedureReturn ListSize(Sort())
 	  EndProcedure  
 	  
 	  Procedure.s Help(Title.s, File.s, Label.s="", Flags.i=#False, Parent.i=#PB_Default)
@@ -9339,7 +9362,8 @@ Module MarkDown
 	    Define.i Pack, JSON, Size, Selected, SearchResult, Index
 	    Define.s FileName$, Link$, Label$, Search$
 	    Define   *Buffer
-
+	    
+	    NewList Found.s()
 	    NewList TOC.TOC_Structure()
 	    NewMap  Glossary.Glossary_Structure()
 	    NewMap  Keywords.Keywords_Structure()
@@ -9374,13 +9398,16 @@ Module MarkDown
   	    ;{ _____ TreeGadget _____
   	    CompilerIf Defined(TreeEx, #PB_Module)
   	      Help\TreeNum = TreeEx::Gadget(#PB_Any, 10, 40, 205, 470, "", TreeEx::#AlwaysShowSelection, WindowNum)
+  	      TreeEx::SetColor(Help\TreeNum, TreeEx::#FrontColor, $701919)
   	    CompilerElse
   	      Help\TreeNum = TreeGadget(#PB_Any, 10, 40, 205, 470, #PB_Tree_AlwaysShowSelection)
+  	      SetGadgetColor(Help\TreeNum, #PB_Gadget_FrontColor, $701919)
   	    CompilerEndIf  
   	    ;}
   	    
   	    Help\InputNum = StringGadget(#PB_Any, 40, 12, 92, 21, "")
   	    Help\ListNum  = ListViewGadget(#PB_Any, 10, 40, 205, 470)
+  	    SetGadgetColor(Help\ListNum, #PB_Gadget_FrontColor, $004B00)
   	    HideGadget(Help\ListNum, #True)
   	    
   	    ;{ _____ Buttons _____
@@ -9400,7 +9427,9 @@ Module MarkDown
   	        
   	        MarkDown()\Window\Num  = WindowNum
   	        MarkDown()\CanvasNum   = Help\CanvasNum
-
+  	        
+  	        MarkDown()\Path = GetPathPart(File)
+  	        
   	        MarkDown()\Size\X      = 220
   				  MarkDown()\Size\Y      = 10
   				  MarkDown()\Size\Width  = 400
@@ -9511,7 +9540,7 @@ Module MarkDown
                 CompilerEndIf
                 SetText(Help\CanvasNum, Help\Item()\Text)
                 MarkDown()\PageLabel = Help\Item()\Label
-                UpdateHelp(Help\CanvasNum, TOC(), Glossary()) 
+                UpdateHelp(Help\CanvasNum, TOC(), Glossary(), Found()) 
               EndIf
             EndIf
   	      EndIf ;}
@@ -9550,7 +9579,7 @@ Module MarkDown
                           CompilerEndIf
                           SetText(Help\CanvasNum, Help\Item()\Text)
                           MarkDown()\PageLabel = MarkDown()\EventLabel
-                          UpdateHelp(Help\CanvasNum, TOC(), Glossary())  
+                          UpdateHelp(Help\CanvasNum, TOC(), Glossary(), Found())  
                           AddToHistory_(Help\Label())
                         EndIf
                       EndIf
@@ -9565,14 +9594,9 @@ Module MarkDown
                 If EventMenu() = #Return
                   
                   If FindMapElement(MarkDown(), Str(Help\CanvasNum))
-                    
-                    Search$ = Trim(GetGadgetText(Help\InputNum))
-                    If Search$
-                      If Search_(Search$, Keywords(), Flags) = #PB_Default
-                        UpdateHelp(Help\CanvasNum, TOC(), Glossary())
-                      EndIf  
-                    EndIf
-                    
+                    If Search_(GetGadgetText(Help\InputNum), Keywords(), Found(), Flags) = #PB_Default
+                      UpdateHelp(Help\CanvasNum, TOC(), Glossary(), Found())
+                    EndIf  
                   EndIf 
                   
                 EndIf   
@@ -9593,7 +9617,7 @@ Module MarkDown
                               CompilerEndIf
                               SetText(Help\CanvasNum, Help\Item()\Text)
                               MarkDown()\PageLabel = MarkDown()\EventLabel
-                              UpdateHelp(Help\CanvasNum, TOC(), Glossary())  
+                              UpdateHelp(Help\CanvasNum, TOC(), Glossary(), Found())  
                               AddToHistory_(Help\Label())
                             EndIf
                           EndIf
@@ -9611,7 +9635,7 @@ Module MarkDown
                                 CompilerEndIf
                                 SetText(Help\CanvasNum, Help\Item()\Text)
                                 MarkDown()\PageLabel = Help\Item()\Label
-                                UpdateHelp(Help\CanvasNum, TOC(), Glossary()) 
+                                UpdateHelp(Help\CanvasNum, TOC(), Glossary(), Found()) 
                                 AddToHistory_(Help\Label())
                               EndIf
                             EndIf
@@ -9633,7 +9657,7 @@ Module MarkDown
                             If SelectElement(Help\Item(), Selected)
                               SetText(Help\CanvasNum, Help\Item()\Text)
                               MarkDown()\PageLabel = Help\Item()\Label
-                              UpdateHelp(Help\CanvasNum, TOC(), Glossary()) 
+                              UpdateHelp(Help\CanvasNum, TOC(), Glossary(), Found()) 
                               AddToHistory_(Selected)
                             EndIf  
                           EndIf
@@ -9647,7 +9671,7 @@ Module MarkDown
                             If SelectElement(Help\Item(), Selected)
                               SetText(Help\CanvasNum, Help\Item()\Text)
                               MarkDown()\PageLabel = Help\Item()\Label
-                              UpdateHelp(Help\CanvasNum, TOC(), Glossary()) 
+                              UpdateHelp(Help\CanvasNum, TOC(), Glossary(), Found()) 
                               AddToHistory_(Selected)
                             EndIf  
                           EndIf
@@ -9665,6 +9689,7 @@ Module MarkDown
                           
                           EnableSearch_(#False)
                           Help\Search = #False
+                          ClearList(Found())
                           ;}
                         Else           ;{ Home Button
                           
@@ -9673,7 +9698,7 @@ Module MarkDown
                           If FirstElement(Help\Item())
                             SetText(Help\CanvasNum, Help\Item()\Text)
                             MarkDown()\PageLabel = Help\Item()\Label
-                            UpdateHelp(Help\CanvasNum, TOC(), Glossary()) 
+                            UpdateHelp(Help\CanvasNum, TOC(), Glossary(), Found()) 
                             CompilerIf Defined(TreeEx, #PB_Module)
                               TreeEx::SetState(Help\TreeNum, 0)
                             CompilerElse
@@ -9695,7 +9720,7 @@ Module MarkDown
                           If SelectElement(Help\Item(), Help\History())
                             SetText(Help\CanvasNum, Help\Item()\Text)
                             MarkDown()\PageLabel = Help\Item()\Label
-                            UpdateHelp(Help\CanvasNum, TOC(), Glossary()) 
+                            UpdateHelp(Help\CanvasNum, TOC(), Glossary(), Found()) 
                             CompilerIf Defined(TreeEx, #PB_Module) 
                               TreeEx::SetState(Help\TreeNum, Help\History())
                             CompilerElse 
@@ -9713,7 +9738,7 @@ Module MarkDown
                           If SelectElement(Help\Item(), Help\History())
                             SetText(Help\CanvasNum, Help\Item()\Text)
                             MarkDown()\PageLabel = Help\Item()\Label
-                            UpdateHelp(Help\CanvasNum, TOC(), Glossary())
+                            UpdateHelp(Help\CanvasNum, TOC(), Glossary(), Found())
                             CompilerIf Defined(TreeEx, #PB_Module) 
                               TreeEx::SetState(Help\TreeNum, Help\History())
                             CompilerElse 
@@ -9727,13 +9752,10 @@ Module MarkDown
                   Case Help\SearchNum ;{ Button - Search
                     
                     If FindMapElement(MarkDown(), Str(Help\CanvasNum))
-                     
-                      Search$ = Trim(GetGadgetText(Help\InputNum))
-                      If Search$
-                        If Search_(Search$, Keywords(), Flags) = #PB_Default
-                          UpdateHelp(Help\CanvasNum, TOC(), Glossary())
-                        EndIf  
-                      EndIf
+                      
+                      If Search_(GetGadgetText(Help\InputNum), Keywords(), Found(), Flags) = #PB_Default
+                        UpdateHelp(Help\CanvasNum, TOC(), Glossary(), Found())
+                      EndIf  
                     
                     EndIf   
                     ;}  
@@ -9747,7 +9769,7 @@ Module MarkDown
                         If SelectElement(Help\Item(), Index)
                           SetText(Help\CanvasNum, Help\Item()\Text)
                           MarkDown()\PageLabel = Help\Item()\Label
-                          UpdateHelp(Help\CanvasNum, TOC(), Glossary()) 
+                          UpdateHelp(Help\CanvasNum, TOC(), Glossary(), Found()) 
                           CompilerIf Defined(TreeEx, #PB_Module) 
                             TreeEx::SetState(Help\TreeNum, ListIndex(Help\Item()))
                           CompilerElse 
@@ -10548,7 +10570,7 @@ CompilerIf #PB_Compiler_IsMainFile
     
     LoadFont(#Font, "Arial", 10)
     
-    If OpenWindow(#Window, 0, 0, 300, 315, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
+    If OpenWindow(#Window, 0, 0, 300, 315, "Example", #PB_Window_SystemMenu|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
       
       EditorGadget(#Editor, 10, 10, 280, 275)
       SetGadgetFont(#Editor, FontID(#Font))
@@ -10648,9 +10670,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 13
-; FirstLine = 9
-; Folding = wgAA9FAAQAAAAAAMfAkgyiIEAAIAAABAAYAEIACIQAHkAAg5FAAAAAAAAAAAAQBGAYAAAgADAAAAMAAAIwxDAAAjDIY5nIAACoAwADEgAAAWg-
-; Markers = 4218
+; CursorPosition = 2366
+; FirstLine = 959
+; Folding = wsAA0HBAQQAAQEAMfAkx7qKEBCIACAlAAYAEIAgKQAHkAAw5FAAAAAAAACAAAQBSAQBAAgADAAAAMAAAYQhCAAAiCI5YnIBYDEEOZgAEAAwC9
+; Markers = 4233
 ; EnableXP
 ; DPIAware
