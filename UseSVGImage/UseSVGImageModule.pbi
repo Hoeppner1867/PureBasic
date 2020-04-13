@@ -4,17 +4,16 @@
 ;/
 ;/ [ PB V5.7x / 64Bit / All OS / DPI ]
 ;/ 
-;/ based on "VectorGraphic.pbi" of STARGÅTE 
+;/ based on "VectorGraphic.pbi" of STARGÅTE
+;/ (https://www.purebasic.fr/german/viewtopic.php?f=4&t=22593)
 ;/ 
-;/ © 2020 Thorsten1867 (04/2020)
+;/ © 2020 Thorsten Hoeppner (04/2020)
 ;/ 
-
-; https://my.pcloud.com/publink/show?code=kZfx8PkZtwdJunPnucpjyXAdCrpovFxYhJzX
-
 
 ;{ ===== MIT License =====
-;
-; Copyright (c) 2019 Thorsten Hoeppner
+
+; Copyright (c) 2019 Martin Guttmann (alias STARGÅTE)
+; Copyright (c) 2020 Thorsten Hoeppner
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -160,6 +159,19 @@ Module SVG
   ;-   Module - Internal
   ;- ============================================================================ 
   
+  Procedure.f dpiX(Num.i)
+	  If Num > 0  
+	    ProcedureReturn DesktopScaledX(Num)
+	  EndIf   
+	EndProcedure
+
+	Procedure.f dpiY(Num.i)
+	  If Num > 0  
+	    ProcedureReturn DesktopScaledY(Num)
+	  EndIf  
+	EndProcedure
+	
+	
   Declare Draw(*Node, Indent.i=0)
   
   
@@ -1405,8 +1417,8 @@ Module SVG
     
       If IsImage(Image)
         
-        SVG()\Image\Width  = Width
-        SVG()\Image\Height = Height
+        SVG()\Image\Width  = dpiX(Width)
+        SVG()\Image\Height = dpiY(Height)
         
         If Flags & #ForceSizeRatio = #False
           If SVG()\Flags & #Proportional Or Flags  & #Proportional
@@ -1498,6 +1510,9 @@ Module SVG
 
         If Flags & #Proportional : AdjustSizeRatio() : EndIf  
         
+        SVG()\Image\Width  = dpiX(SVG()\Image\Width)
+        SVG()\Image\Height = dpiY(SVG()\Image\Height)
+        
         If IsImage(Image) And Flags & #CreateNoImage = #False
         
           If SVG()\Image\Width And SVG()\Image\Height
@@ -1587,17 +1602,17 @@ CompilerIf #PB_Compiler_IsMainFile
   Define.s SVG$
   Define.i quitWindow = #False
   
-  #Example = 6
+  #Example = 10
   
   ;  0: Load a SVG to the image gadget
   ;  1: Load a SVG to the image gadget (transparent)
   ;  2: Load adjusted image
-  ;  3: Load & Resize
-  ;  4: Load & Resize (#PB_Any)
+  ;  3: Load & resize
+  ;  4: Load & resize (#PB_Any)
   ;  5: Adjust size ratio 
-  ;  6: SVG::Catch()
+  ;  6: Catch already loaded SVG (XML)
   ;  7: Load image form URL
-  ; 10: Draw image on a CanvasGadget
+  ; 10: Draw SVG directly on a CanvasGadget
  
   Enumeration
   	#Window
@@ -1606,6 +1621,7 @@ CompilerIf #PB_Compiler_IsMainFile
   	#Font
   	#Image
   	#Frame
+  	#SVG
   EndEnumeration
 
   LoadFont(#Font, "Arial", 8)
@@ -1673,11 +1689,11 @@ CompilerIf #PB_Compiler_IsMainFile
         
         CanvasGadget(#Canvas, 10, 10, 580, 580)
         
-        SVG::Load(#Image, "ReadingGirl.svg", SVG::#CreateNoImage)
+        SVG::Load(#SVG, "ReadingGirl.svg", SVG::#CreateNoImage)
         
         If StartVectorDrawing(CanvasVectorOutput(#Canvas))
           
-          SVG::DrawVector(#Image, 580, 580, SVG::#Proportional)
+          SVG::DrawVector(#SVG, 580, 580, SVG::#Proportional)
         
           StopVectorDrawing()
         EndIf
@@ -1703,7 +1719,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 50
-; Folding = AAAAAAAD-
+; CursorPosition = 1514
+; FirstLine = 165
+; Folding = KADAAAAN-
 ; EnableXP
 ; DPIAware
