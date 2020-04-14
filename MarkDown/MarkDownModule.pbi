@@ -9,7 +9,7 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 12.04.2020
+; Last Update: 14.04.2020
 ;
 ; - Added: Support of relative path for Help2HTML()
 ; - Added: Wildcards for help window search
@@ -110,7 +110,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20041200
+  #Version  = 20041400
   #ModuleEx = 19112100
   
   #Enable_Gadget     = #True
@@ -598,6 +598,13 @@ Module MarkDown
       Close.i
     EndStructure
     
+    Structure Help_Window_Structure
+      X.i
+      Y.i
+      Width.i
+      Height.i
+    EndStructure
+    
     Structure Help_Structure
       TreeNum.i
       CanvasNum.i
@@ -609,9 +616,11 @@ Module MarkDown
       ListNum.i
       Search.i
       File.s
-      List History.i()
+      DataDir.s
+      Window.Help_Window_Structure
       Image.Help_Image_Structure
       Map  Label.i()
+      List History.i()
       List Item.Item_Structure()
     EndStructure  
     Global Help.Help_Structure
@@ -6430,11 +6439,6 @@ Module MarkDown
                   If IsImage(MarkDown()\ImageNum()) = #False
                     MarkDown()\ImageNum() = LoadImage(#PB_Any, File$) 
                   EndIf
-                  
-                  If IsImage(MarkDown()\ImageNum())
-    			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
-    			          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
-    			        EndIf
     			        
                 EndIf
               EndIf ;}
@@ -6452,7 +6456,7 @@ Module MarkDown
     	          PosX + MarkDown()\Image()\Width
   
     	        EndIf 
-      	        
+      	     
     	        If MarkDown()\Image()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Image()\Width : EndIf 
     	        
     	      EndIf   
@@ -6999,17 +7003,12 @@ Module MarkDown
                   If IsImage(MarkDown()\ImageNum()) = #False
                     MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
                   EndIf
-                
-                  If IsImage(MarkDown()\ImageNum())
-    			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
-    			          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
-    			        EndIf
     			        
                 EndIf
               EndIf ;}
 
     	        If IsImage(MarkDown()\ImageNum())
-    	          
+   
     	          OffSet = (Width - ImageWidth(MarkDown()\ImageNum())) / 2
     	          
     	          Y + (TextHeight / 2)
@@ -8125,7 +8124,11 @@ Module MarkDown
 	    
 	    If Path : SetPath(GNum, Path) : EndIf 
 	    
-	    Clear_(#True)
+	    If MarkDown()\Type = #Help
+	      Clear_()
+	    Else
+	      Clear_(#True)
+	    EndIf  
 	    
 	    MarkDown()\Text = Text
 	    
@@ -9205,7 +9208,7 @@ Module MarkDown
 	  EndProcedure
 	  
 	  Procedure.i Search_(String.s, Map Keywords.Keywords_Structure(), List Found.s(),Flags.i=#False)
-	    Define.i Index
+	    Define.i Index, LastIndex
 	    
 	    ClearList(Found())
 	    
@@ -9342,7 +9345,16 @@ Module MarkDown
         EndIf
  
 	    EndIf
-
+	    
+	    SortStructuredList(Sort(), #PB_Sort_Ascending, OffsetOf(Help_Sort_Structure\Index), TypeOf(Help_Sort_Structure\Index))
+	    
+	    LastIndex = -1
+	    
+	    ForEach Sort()
+	      If Sort()\Index = LastIndex : DeleteElement(Sort()) : EndIf
+	      LastIndex = Sort()\Index
+	    Next  
+	    
       SortStructuredList(Sort(), #PB_Sort_Ascending|#PB_Sort_NoCase, OffsetOf(Help_Sort_Structure\Topic), TypeOf(Help_Sort_Structure\Topic))
       
       ForEach Sort()
@@ -9372,6 +9384,17 @@ Module MarkDown
         If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
       CompilerEndIf
       
+      Help\Window\X      = #PB_Ignore
+      Help\Window\Y      = #PB_Ignore
+      Help\Window\Width  = #PB_Ignore
+      Help\Window\Height = #PB_Ignore
+      
+      If Left(GetCurrentDirectory(), Len(GetUserDirectory(#PB_Directory_Programs))) = GetUserDirectory(#PB_Directory_Programs)
+        Help\DataDir = GetUserDirectory(#PB_Directory_ProgramData) + GetFilePart(ProgramFilename(), #PB_FileSystem_NoExtension) + #PS$
+      Else
+        Help\DataDir = GetCurrentDirectory()
+      EndIf 
+      
       WindowFlags = #PB_Window_Tool|#PB_Window_SystemMenu|#PB_Window_Invisible
       If Flags & #AutoResize : WindowFlags | #PB_Window_SizeGadget : EndIf
       
@@ -9382,9 +9405,9 @@ Module MarkDown
   	  EndIf
   	  
   	  If WindowNum
-  	    
-  	    WindowBounds(WindowNum, 445, 280, #PB_Default, #PB_Default)
-  	    
+
+  	    WindowBounds(WindowNum, 445, 280, #PB_Default, #PB_Default)  
+
   	    SetWindowTitle(WindowNum, " " + Title)
 
   	    ;{ _____ Images _____
@@ -9427,9 +9450,10 @@ Module MarkDown
   	        
   	        MarkDown()\Window\Num  = WindowNum
   	        MarkDown()\CanvasNum   = Help\CanvasNum
-  	        
+
   	        MarkDown()\Path = GetPathPart(File)
-  	        
+  	        If MarkDown()\Path = "" : MarkDown()\Path = GetPathPart(GetCurrentDirectory()) : EndIf
+
   	        MarkDown()\Size\X      = 220
   				  MarkDown()\Size\Y      = 10
   				  MarkDown()\Size\Width  = 400
@@ -9549,6 +9573,16 @@ Module MarkDown
   	      
   	      ReDraw()
   	      
+  	      JSON = LoadJSON(#PB_Any, Help\DataDir + "Help.win")
+          If JSON
+            ExtractJSONStructure(JSONValue(JSON), @Help\Window, Help_Window_Structure)
+            FreeJSON(JSON)
+          EndIf
+  	      
+  	      If Help\Window\Width >= 445 And Help\Window\Height >= 280
+    	      ResizeWindow(WindowNum, Help\Window\X, Help\Window\Y, Help\Window\Width, Help\Window\Height)
+    	    EndIf
+  	      
   	      HideWindow(WindowNum, #False)
   	      
   	      CompilerIf Defined(NamedPipe, #PB_Module)
@@ -9559,6 +9593,14 @@ Module MarkDown
             Select WaitWindowEvent()
               Case #PB_Event_CloseWindow ;{ Close window
                 If EventWindow() = WindowNum
+                  
+                  If GetWindowState(WindowNum) = #PB_Window_Normal
+                    Help\Window\X      = WindowX(WindowNum)
+                    Help\Window\Y      = WindowY(WindowNum)
+                    Help\Window\Width  = WindowWidth(WindowNum)
+                    Help\Window\Height = WindowHeight(WindowNum)
+                  EndIf
+                
                   quitWindow = #True
                 EndIf ;}
               CompilerIf Defined(NamedPipe, #PB_Module)
@@ -9581,6 +9623,7 @@ Module MarkDown
                           MarkDown()\PageLabel = MarkDown()\EventLabel
                           UpdateHelp(Help\CanvasNum, TOC(), Glossary(), Found())  
                           AddToHistory_(Help\Label())
+                          SetActiveWindow(WindowNum)
                         EndIf
                       EndIf
                       
@@ -9785,14 +9828,21 @@ Module MarkDown
             EndSelect
           Until quitWindow
           
+          JSON = CreateJSON(#PB_Any)
+          If JSON
+            InsertJSONStructure(JSONValue(JSON), @Help\Window, Help_Window_Structure)
+            SaveJSON(JSON, Help\DataDir + "Help.win")
+            FreeJSON(JSON)
+          EndIf
+          
           CompilerIf Defined(NamedPipe, #PB_Module)
             NamedPipe::Close("mdHelp")
           CompilerEndIf
           
         EndIf
-        
+
   	    CloseWindow(WindowNum)
-        
+
         DeleteMapElement(MarkDown(), Str(Help\CanvasNum))
       EndIf
       
@@ -10363,7 +10413,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
   
-  #Example = 32
+  #Example = 30
   
   ; === Gadget ===
   ;  1: Headings
@@ -10670,9 +10720,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 2366
-; FirstLine = 959
-; Folding = wsAA0HBAQQAAQEAMfAkx7qKEBCIACAlAAYAEIAgKQAHkAAw5FAAAAAAAACAAAQBSAQBAAgADAAAAMAAAYQhCAAAiCI5YnIBYDEEOZgAEAAwC9
-; Markers = 4233
+; CursorPosition = 9625
+; FirstLine = 1346
+; Folding = wsAA0HAQQQAAQEAMfAEAgiIEACAACABAAQAEIAAKAAHkAAg5FAAAAAAAAAAAAQBSAYAAAgACAAAAMAAAYQxCAAIjDAIAmIAYCEOOZgAEAAwD9
+; Markers = 4242
 ; EnableXP
 ; DPIAware

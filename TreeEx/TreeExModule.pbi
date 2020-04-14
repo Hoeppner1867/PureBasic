@@ -2004,7 +2004,7 @@ Module TreeEx
 		          CompilerEndIf
 			        ;}  
 		        ElseIf TreeEx()\Cols()\Flags & #Image   ;{ #Image
-		          
+		        
 		          ImageWidth  = TreeEx()\Rows()\Column(Key$)\Image\Width
 		          ImageHeight = TreeEx()\Rows()\Column(Key$)\Image\Height
 		          
@@ -2023,8 +2023,9 @@ Module TreeEx
 		          EndIf 
 		          
 		          OffsetY = (RowHeight - ImageHeight) / 2
-		          
+
 		          If IsImage(TreeEx()\Rows()\Column(Key$)\Image\Num)
+		            
 		            DrawingMode(#PB_2DDrawing_AlphaBlend)
 		            DrawImage(ImageID(TreeEx()\Rows()\Column(Key$)\Image\Num), X + OffsetX, Y + OffsetY, ImageWidth, ImageHeight)
 		          EndIf  
@@ -2200,7 +2201,7 @@ Module TreeEx
 			  
 			  ForEach TreeEx()\Cols()
 			    
-			    If TreeEx()\Cols()\Header\FontID
+			    If IsFont(TreeEx()\Cols()\Header\FontID)
 			      FontID = TreeEx()\Cols()\Header\FontID
 			    Else
 			     	FontID = TreeEx()\FontID
@@ -2268,9 +2269,10 @@ Module TreeEx
 	          EndIf  
 			      ;}
 			    Else  
-			    
+
   			    ;{ ----- Text Align -----
-  			    If TreeEx()\Cols()\Header\Flags & #Center
+			      If TreeEx()\Cols()\Header\Flags & #Center
+			        
   			      txtX = (ColumnWidth - TextWidth(TreeEx()\Cols()\Header\Title)) / 2
   			    ElseIf TreeEx()\Cols()\Header\Flags & #Right
   			      txtX = ColumnWidth - TextWidth(TreeEx()\Cols()\Header\Title) -dpiX(5)
@@ -3185,7 +3187,8 @@ Module TreeEx
 	;-   Module - Declared Procedures
 	;- ==========================================================================
 	
-	Procedure.i AddColumn(GNum.i, Column.i, Width.f, Title.s="", Label.s="", Flags.i=#False)
+  Procedure.i AddColumn(GNum.i, Column.i, Width.f, Title.s="", Label.s="", Flags.i=#False)
+    ; 
 	  Define.i Result
 	  
 	  If Column = 0 : ProcedureReturn #False : EndIf
@@ -3291,6 +3294,7 @@ Module TreeEx
 	    ClearList(TreeEx()\Rows())
 	    
 	    If TreeEx()\ReDraw : ReDraw_() : EndIf
+	    
 	  EndIf  
 	  
 	EndProcedure
@@ -3680,6 +3684,7 @@ Module TreeEx
   	      DeleteElement(TreeEx()\Rows())
   	      
   	      If TreeEx()\ReDraw : ReDraw_() : EndIf
+  	      
   	    EndIf 
   	    
   	  EndIf
@@ -3713,7 +3718,9 @@ Module TreeEx
         Case #ScrollBar
           TreeEx()\ScrollBar\Flags = Value
       EndSelect
-    
+      
+      If TreeEx()\ReDraw : ReDraw_() : EndIf
+      
     EndIf
     
   EndProcedure
@@ -3782,6 +3789,7 @@ Module TreeEx
       EndIf
       
       If TreeEx()\ReDraw : ReDraw_() : EndIf
+      
     EndIf
     
   EndProcedure
@@ -3861,7 +3869,6 @@ Module TreeEx
       Else                   ;{ Header column
         
         If SelectElement(TreeEx()\Cols(), Column)
-          
           Select Attribute
             Case #Align ;{ Align of header column
               Select Value
@@ -3880,7 +3887,9 @@ Module TreeEx
         EndIf
         ;}
       EndIf
-    
+      
+      If TreeEx()\ReDraw : ReDraw_() : EndIf
+      
     EndIf
     
   EndProcedure
@@ -3898,7 +3907,7 @@ Module TreeEx
         Next
         
       Else  
-        
+
         If Column = #PB_Ignore ;{ Header row
   
           ForEach TreeEx()\Cols()
@@ -3914,6 +3923,8 @@ Module TreeEx
         EndIf
         
       EndIf
+      
+      If TreeEx()\ReDraw : ReDraw_() : EndIf
       
     EndIf
     
@@ -3950,6 +3961,7 @@ Module TreeEx
       EndIf
       
       If TreeEx()\ReDraw : ReDraw_() : EndIf
+      
     EndIf
     
   EndProcedure  
@@ -4006,6 +4018,8 @@ Module TreeEx
   	    
   	  EndIf
   	  
+  	  If TreeEx()\ReDraw : ReDraw_() : EndIf
+  	  
 	  EndIf
 	  
 	EndProcedure  
@@ -4027,10 +4041,8 @@ Module TreeEx
 	  
 	EndProcedure  
 	
-	
-	
+		
 	Procedure   SetItemImage(GNum.i, Row.i, Image.i, Flags.i=#False, Column.i=#TreeColumn)
-	  Define.i ImageID
     Define.s Key$
     
     If FindMapElement(TreeEx(), Str(GNum))
@@ -4054,7 +4066,6 @@ Module TreeEx
           If SelectElement(TreeEx()\Cols(), Column)
             
             Key$ = TreeEx()\Cols()\Key
-            
             If IsImage(Image)
               TreeEx()\Rows()\Column(Key$)\Image\Num    = Image
               TreeEx()\Rows()\Column(Key$)\Image\Width  = ImageWidth(Image)
@@ -4113,7 +4124,8 @@ Module TreeEx
     	  
   	  EndIf  
 	    
-	    If TreeEx()\ReDraw : ReDraw_() : EndIf
+  	  If TreeEx()\ReDraw : ReDraw_() : EndIf
+  	  
 	  EndIf  
 	 
 	EndProcedure
@@ -4138,6 +4150,8 @@ Module TreeEx
   	    
   	  EndIf
   	  
+  	  If TreeEx()\ReDraw : ReDraw_() : EndIf
+  	  
 	  EndIf  
 	 
 	EndProcedure
@@ -4156,7 +4170,8 @@ Module TreeEx
     	  
   	  EndIf  
 	    
-	    If TreeEx()\ReDraw : ReDraw_() : EndIf
+  	  If TreeEx()\ReDraw : ReDraw_() : EndIf
+  	  
 	  EndIf  
 	 
 	EndProcedure	
@@ -4166,7 +4181,11 @@ Module TreeEx
 	  If FindMapElement(TreeEx(), Str(GNum))
 
 	    If SelectElement(TreeEx()\Rows(), Row)
-  	    TreeEx()\Rows()\Column(Label)\Value = Text
+	      
+	      TreeEx()\Rows()\Column(Label)\Value = Text
+	      
+	      If TreeEx()\ReDraw : ReDraw_() : EndIf
+	      
 	    EndIf
   	  
 	  EndIf  
@@ -4184,8 +4203,6 @@ Module TreeEx
 	    
 	    SetRowFocus_()
 	    
-	    SetActiveGadget(GNum)
-
 	    If TreeEx()\ReDraw : ReDraw_() : EndIf
 
 	  EndIf
@@ -4200,7 +4217,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
 
-  Enumeration 
+  Enumeration 1
     #Window
     #Button
     #TreeEx
@@ -4237,6 +4254,7 @@ CompilerIf #PB_Compiler_IsMainFile
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "2.2",   "", #False, 1)
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "2.3",   "", #False, 1)
       TreeEx::AddItem(#TreeEx, TreeEx::#LastRow, "SubItem" + #LF$ + #LF$ + "2.3",   "", #False, 1)
+      
       ; _____ Image _____
       TreeEx::SetItemImage(#TreeEx, TreeEx::#Header, #Image, TreeEx::#Center, 1)
       TreeEx::SetItemImage(#TreeEx, 4, #Image, TreeEx::#Center, 0)
@@ -4284,8 +4302,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 85
-; FirstLine = 9
-; Folding = MADAAAAAAIAhOISCNASAAABZhFKMCChIgAAAwAA5
+; CursorPosition = 3329
+; FirstLine = 1087
+; Folding = MDTAAAAAAIBlOIeCFCHBDABZhFKMCqzIgQX4+Gn-
+; Markers = 2028
 ; EnableXP
 ; DPIAware
