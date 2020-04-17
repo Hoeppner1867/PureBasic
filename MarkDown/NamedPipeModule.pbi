@@ -4,12 +4,12 @@
 ;/
 ;/ [ PB V5.7x / 64Bit / Windows ]
 ;/
-;/ NamedPipe - Module
+;/ NamedPipe - Module (needs Compileroption Threadsafe)
 ;/
 ;/ © 2020  by Thorsten Hoeppner (04/2020)
 ;/
 
-; Last Update: 07.04.2020
+; Last Update: 17.04.2020
 
 ;{ ===== MIT License =====
 ;
@@ -57,7 +57,7 @@
 
 DeclareModule NamedPipe
   
-  #Version = 20040700
+  #Version = 20041700
   
   #Enable_Send    = #True
   #Enable_Recieve = #True
@@ -103,7 +103,7 @@ DeclareModule NamedPipe
   	Declare.s EventPipe()
   	Declare.s GetEventMessage(pName.s)
   	
-  	Declare.i Create(pName.s)
+  	Declare.i Create(pName.s, Event.i=#Event_Message)
   	Declare.i Use(pName.s)
   	Declare   Close(pName.s)
 
@@ -129,16 +129,9 @@ Module NamedPipe
 	;- ============================================================================
 	;-   Module - Structures
 	;- ============================================================================
-	
-	Structure Thread_Structure    ;{ Thread('pHandle')\...
-	  Pipe.s
-	  Active.i
-	  StatusMsg.i
-    Exit.i
-  EndStructure ;}
-  Global NewMap Thread.Thread_Structure()
-  
-  Structure NamedPipe_Event_Structure
+	  
+	Structure NamedPipe_Event_Structure
+	  Num.i
     Pipe.s
     Message.s
 	  Reply.s
@@ -151,7 +144,20 @@ Module NamedPipe
 	EndStructure ;}
 	Global NewMap NamedPipe.NamedPipe_Structure()
 	
-	Global Mutex = CreateMutex()
+	Global EventPipe$
+	
+	CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+	  
+	  Structure Thread_Structure    ;{ Thread('pHandle')\...
+  	  Pipe.s
+  	  Active.i
+  	  StatusMsg.i
+      Exit.i
+    EndStructure ;}
+    Global NewMap Thread.Thread_Structure()
+	  
+	  Global Mutex.i = CreateMutex()
+	CompilerEndIf  
 
 	;- ============================================================================
 	;-   Module - Internal
@@ -220,10 +226,10 @@ Module NamedPipe
                     Thread(pHnd$)\StatusMsg = #Msg_ConnectionFailed
                   EndIf
                   
-                  Thread(pHnd$)\Pipe = NamedPipe()\Event\Pipe
+                  EventPipe$ = NamedPipe()\Event\Pipe
                   
-                  PostEvent(#Event_Message, 0, 0, 0, pHandle)
-                  
+                  PostEvent(NamedPipe()\Event\Num, 0, 0, 0, pHandle)
+
                   Break
                 EndIf
               
@@ -245,19 +251,24 @@ Module NamedPipe
           Define.s nPipe$
 
           nPipe$ = PeekS(CocoaMessage(0, Object, "UTF8String"), -1, #PB_UTF8)
-          
-          ForEach NamedPipe()
+          If nPipe$
             
-            If #PipePath + NamedPipe()\Event\Pipe = nPipe$
+            ForEach NamedPipe()
               
-              NamedPipe()\Event\Message = PeekS(CocoaMessage(0, Name, "UTF8String"), -1, #PB_UTF8)
-
-              PostEvent(#Event_Message, 0, 0, 0, Object)
+              If #PipePath + NamedPipe()\Event\Pipe = nPipe$
+                
+                NamedPipe()\Event\Message = PeekS(CocoaMessage(0, Name, "UTF8String"), -1, #PB_UTF8)
+                
+                EventPipe$ = StringField(nPipe$, 2, ".")
+                
+                PostEvent(NamedPipe()\Event\Num)
+                
+                Break
+              EndIf
               
-              Break
-            EndIf
+            Next
             
-          Next
+          EndIf
           
         EndProcedure
 
@@ -270,19 +281,14 @@ Module NamedPipe
 	;- ==========================================================================
   
   Procedure.s EventPipe()
-    Define.i pHandle
-   
-    pHandle = EventData()
+    Define.s Event$
     
-    CompilerSelect #PB_Compiler_OS
-      CompilerCase #PB_OS_MacOS
-        Define.s nPipe$
-        nPipe$ = PeekS(CocoaMessage(0, pHandle, "UTF8String"), -1, #PB_UTF8)
-        ProcedureReturn StringField(nPipe$, 2, ".")
-      CompilerCase #PB_OS_Windows
-        ProcedureReturn Thread(Str(pHandle))\Pipe
-    CompilerEndSelect 
-
+    If EventPipe$
+      Event$     = EventPipe$
+      EventPipe$ = ""
+    EndIf
+    
+    ProcedureReturn Event$
   EndProcedure
   
   Procedure.s GetFullName(pName.s)
@@ -290,11 +296,14 @@ Module NamedPipe
   EndProcedure 
   
   Procedure.s GetEventMessage(pName.s)
-  
-	  If FindMapElement(NamedPipe(), pName)
-	    ProcedureReturn NamedPipe()\Event\Message
+    Define.s Event$
+    
+    If FindMapElement(NamedPipe(), pName)
+      Event$ = NamedPipe()\Event\Message
+	    NamedPipe()\Event\Message = ""
 	  EndIf
 	  
+	  ProcedureReturn Event$
   EndProcedure
   
   
@@ -303,13 +312,9 @@ Module NamedPipe
     CompilerSelect  #PB_Compiler_OS
 	    CompilerCase #PB_OS_Windows
     
-        Procedure.i Create(pName.s)
+        Procedure.i Create(pName.s, Event.i=#Event_Message)
       		Define.s nPipe$
-      		
-      		CompilerIf #PB_Compiler_Thread = #False
-            CompilerError "Use Compileroption Threadsafe!"
-          CompilerEndIf	
-      		
+
       		If FindMapElement(NamedPipe(), pName)
       		  ProcedureReturn NamedPipe()\Handle
       		EndIf  
@@ -321,6 +326,7 @@ Module NamedPipe
         		NamedPipe()\Handle = CreateNamedPipe_(nPipe$, #PIPE_ACCESS_DUPLEX, #PIPE_TYPE_MESSAGE|#PIPE_READMODE_MESSAGE, #PIPE_UNLIMITED_INSTANCES, #BUFFERSIZE, #BUFFERSIZE, 0, #Null)
         		If NamedPipe()\Handle <> #INVALID_HANDLE_VALUE
         		  
+        		  NamedPipe()\Event\Num  = Event
         		  NamedPipe()\Event\Pipe = pName
         		  NamedPipe()\ThreadNum  = CreateThread(@Thread_NamedPipe(), NamedPipe()\Handle)
         		  
@@ -337,10 +343,6 @@ Module NamedPipe
       	
       	Procedure.i Use(pName.s)
       		Define.s nPipe$
-      		
-      		CompilerIf #PB_Compiler_Thread = #False
-            CompilerError "Use Compileroption Threadsafe!"
-          CompilerEndIf	
       		
       		If FindMapElement(NamedPipe(), pName)
       		  ProcedureReturn NamedPipe()\Handle
@@ -432,13 +434,9 @@ Module NamedPipe
 
       CompilerCase #PB_OS_MacOS
 
-        Procedure.i Create(pName.s)
+        Procedure.i Create(pName.s, Event.i=#Event_Message)
           Define.i dCenter, nObject
       		Define.s nPipe$
-      		
-      		CompilerIf #PB_Compiler_Thread = #False
-            CompilerError "Use Compileroption Threadsafe!"
-          CompilerEndIf	
       		
       		If FindMapElement(NamedPipe(), pName)
       		  ProcedureReturn #False
@@ -450,10 +448,11 @@ Module NamedPipe
 
         		nObject = CFStringCreateWithCString(0, nPipe$) ; Thanks to wilbert
         		If nObject
-        		  
+
         		  dCenter = CFNotificationCenterGetDistributedCenter()
         		  CFNotificationCenterAddObserver(dCenter, #Null, @Callback(), #Null, nObject, #CFNotificationSuspensionBehaviorDeliverImmediately)
         		  
+        		  NamedPipe()\Event\Num  = Event
         		  NamedPipe()\Event\Pipe = pName
         		  
         		  ProcedureReturn #True
@@ -466,11 +465,7 @@ Module NamedPipe
       	Procedure.i Use(pName.s)
           Define.i dCenter, nObject
       		Define.s nPipe$
-      		
-      		CompilerIf #PB_Compiler_Thread = #False
-            CompilerError "Use Compileroption Threadsafe!"
-          CompilerEndIf	
-      		
+
       		If FindMapElement(NamedPipe(), pName)
       		  ProcedureReturn #False
       		EndIf  
@@ -576,10 +571,14 @@ Module NamedPipe
           dCenter = CFNotificationCenterGetDistributedCenter()
           Object  = CFStringCreateWithCString(0, nPipe$)
           
-          nObject = CFStringCreateWithCString(0, Text)
-          If nObject
-            CFNotificationCenterPostNotification(dCenter, nObject, Object, #Null, #True)
-            CFRelease(nObject)
+          If Text
+          
+            nObject = CFStringCreateWithCString(0, Text)
+            If nObject
+              CFNotificationCenterPostNotification(dCenter, nObject, Object, #Null, #True)
+              CFRelease(nObject)
+            EndIf
+            
           EndIf
           
         EndProcedure
@@ -621,7 +620,7 @@ CompilerIf #PB_Compiler_IsMainFile
         
         If OpenWindow(#Window, 0, 0, 400, 400, "Named Pipe Server", #PB_Window_SystemMenu|#PB_Window_ScreenCentered)
           
-          Pipe$ = NamedPipe::GetFullName("MyPipe")
+          Pipe$ = NamedPipe::GetFullName("mdHelp")
           
           EditorGadget (#Editor, 10, 40, 380, 350, #PB_Editor_ReadOnly)
           StringGadget(#String,  10, 10, 150,  20, Pipe$, #PB_String_ReadOnly)
@@ -643,17 +642,17 @@ CompilerIf #PB_Compiler_IsMainFile
                 quitWindow = #True  
               Case NamedPipe::#Event_Message
                 Select NamedPipe::EventPipe()
-                  Case "MyPipe"
-                    AddGadgetItem(#Editor, -1, ">>> " + NamedPipe::GetEventMessage("MyPipe"))
+                  Case "mdHelp"
+                    AddGadgetItem(#Editor, -1, ">>> " + NamedPipe::GetEventMessage("mdHelp"))
                 EndSelect  
               Case #PB_Event_Gadget
                 Select EventGadget()
                   Case #Button ;{ Start Server
                     If Not nPipe
-                      nPipe = NamedPipe::Create("MyPipe")
+                      nPipe = NamedPipe::Create("mdHelp")
                       If nPipe
                         CompilerIf #PB_Compiler_OS = #PB_OS_Windows
-                          NamedPipe::SetMessageReply("MyPipe", "OK")
+                          NamedPipe::SetMessageReply("mdHelp", "OK")
                         CompilerEndIf  
                         AddGadgetItem(#Editor, -1, "Waiting for connection ...")
                         DisableGadget(#Button, #True)
@@ -663,12 +662,12 @@ CompilerIf #PB_Compiler_IsMainFile
                     ;}
                   CompilerIf #PB_Compiler_OS = #PB_OS_Windows    
                     Case #Pause
-                      NamedPipe::Pause("MyPipe")
+                      NamedPipe::Pause("mdHelp")
                       AddGadgetItem(#Editor, -1, "Pause Server ...")
                       DisableGadget(#Pause,  #True)
                       DisableGadget(#Resume, #False)
                     Case #Resume
-                      NamedPipe::Resume("MyPipe")
+                      NamedPipe::Resume("mdHelp")
                       AddGadgetItem(#Editor, -1, "Resume Server ...")
                       DisableGadget(#Pause,  #False)
                       DisableGadget(#Resume, #True)
@@ -679,7 +678,7 @@ CompilerIf #PB_Compiler_IsMainFile
            
           Until quitWindow
           
-          NamedPipe::Close("MyPipe")
+          NamedPipe::Close("mdHelp")
           CloseWindow(#Window)
         EndIf
         
@@ -693,7 +692,7 @@ CompilerIf #PB_Compiler_IsMainFile
         
         If OpenWindow(#Window, 0, 0, 400, 250, "Named Pipe Client", #PB_Window_SystemMenu|#PB_Window_ScreenCentered)
   
-          Pipe$ = NamedPipe::GetFullName("MyPipe")
+          Pipe$ = NamedPipe::GetFullName("mdHelp")
           
           EditorGadget(#Editor, 10, 40, 380, 200, #PB_Editor_ReadOnly)
           StringGadget(#String, 10, 10, 150, 20, Pipe$, #PB_String_ReadOnly)
@@ -707,7 +706,7 @@ CompilerIf #PB_Compiler_IsMainFile
               Case #PB_Event_Gadget
                 Select EventGadget()
                   Case #Button
-                    Reply$ = NamedPipe::SendMessage("MyPipe", GetGadgetText(#Text))
+                    Reply$ = NamedPipe::SendMessage("mdHelp", GetGadgetText(#Text))
                     AddGadgetItem(#Editor, -1, "Send: " + GetGadgetText(#Text))
                     If Reply$ : AddGadgetItem(#Editor, -1, ">>> " + Reply$): EndIf 
                     SetGadgetText(#Text, "")  
@@ -724,11 +723,10 @@ CompilerIf #PB_Compiler_IsMainFile
   CompilerEndSelect
  
 CompilerEndIf
-
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 279
-; FirstLine = 118
-; Folding = kuGAAwJ+
+; CursorPosition = 105
+; FirstLine = 39
+; Folding = 1HHDAk4
 ; EnableThread
 ; EnableXP
 ; DPIAware

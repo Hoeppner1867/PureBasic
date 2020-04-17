@@ -7,7 +7,9 @@
 ;/ © 2020 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 11.04.2020
+; Last Update: 17.04.2020
+;
+; Syntax highlight improvements
 ;
 ; Added: Shift + Mouseclick
 ;
@@ -137,7 +139,7 @@
 
 DeclareModule EditEx
   
-  #Version  = 20041100
+  #Version  = 20041700
   #ModuleEx = 20010800
   
   ;- ============================================================================
@@ -633,6 +635,7 @@ Module EditEx
     X.i
     String.s
     Color.i
+    Check.i
   EndStructure
   
   Structure Select_Structure         ;{ EditEx()\Selection
@@ -1349,62 +1352,132 @@ Module EditEx
   EndProcedure
   
   Procedure.s GetWord_(Word.s, Flags.i=#WordOnly)
-    ; word with or without punctuation etc.
-    Define.i i 
+    Define.i i, sPos, ePos 
     Define.s Char$, Diff1$, Diff2$
     
     Word = RTrim(Trim(Word), #LF$)
-   ;If EditEx()\Visible\CtrlChars : Word = RTrim(Word, #Paragraph$) : EndIf
-    
-    For i=1 To 2
-      Char$ = Left(Word, 1)
-      Select Char$
-        Case "{", "[", "(", "<"
-          If Flags & #Brackets Or Flags & #WordOnly
-            Word = LTrim(Word, Char$)
+
+    If Flags & #WordOnly
+      
+      For i=1 To Len(Word)
+        
+        Char$ = Mid(Word, i, 1)
+        
+        Select Asc(Char$)
+          Case 35, 47, 62, 63, 92
+            sPos = i
+            Break  
+          Case 0 To 64, 91 To 96, 123 To 192
             Diff1$ + Char$
-          EndIf
-        Case Chr(34), "'", "«", "»"
-          If Flags & #QuotationMarks Or Flags & #WordOnly
-            Word = LTrim(Word, Char$)
+          Case 247, 248
             Diff1$ + Char$
-          EndIf
-        Case #LF$, #Paragraph$
-          Word = LTrim(Word, Char$)
-        Default
-          Break
-      EndSelect
-    Next
-    
-    For i=1 To 2
-      Char$ = Right(Word, 1)
-      Select Char$
-        Case ".", ":", ",", ";", "!", "?"
-          If Flags & #Punctation Or Flags & #WordOnly
-            Word = RTrim(Word, Char$)
-            Diff2$ + Char$
-          EndIf
-        Case  ")", "]", "}", ">"
-          If Flags & #Brackets Or Flags & #WordOnly
-            Word = RTrim(Word, Char$)
-            Diff2$ + Char$
-          EndIf
-        Case Chr(34), "'", "«", "»"
-          If Flags & #QuotationMarks Or Flags & #WordOnly
-            Word = RTrim(Word, Char$)
-            Diff2$ + Char$
-          EndIf  
-        Case " ", #LF$, #Paragraph$
-          Word = LTrim(Word, Char$)
-        Default
-          Break
-      EndSelect
-    Next
+          Default
+            sPos = i
+            Break 
+        EndSelect
+        
+      Next
+      
+      For i=Len(Word) To 1 Step -1
+        
+        Char$ = Mid(Word, i, 1)
+        
+        Select Asc(Char$)
+          Case 47, 92
+            sPos = i
+            Break    
+          Case 0 To 64, 91 To 96, 123 To 192
+            Diff2$ = Char$ + Diff2$
+          Case 247, 248
+            Diff2$ = Char$ + Diff2$
+          Default
+            ePos = i
+            Break 
+        EndSelect
+        
+      Next
+      
+      Word = Mid(Word, sPos, ePos - sPos + 1)
+
+    Else
+      
+      For i=1 To 2
+        Char$ = Left(Word, 1)
+        Select Char$
+          Case "!", "?", "*"
+            If Flags & #Brackets
+              Word = LTrim(Word, Char$)
+              Diff1$ + Char$
+            EndIf  
+          Case "{", "[", "(", "<"
+            If Flags & #Brackets
+              Word = LTrim(Word, Char$)
+              Diff1$ + Char$
+            EndIf
+          Case Chr(34), "'", "«", "»"
+            If Flags & #QuotationMarks
+              Word = LTrim(Word, Char$)
+              Diff1$ + Char$
+            EndIf
+          Case #LF$;, #Paragraph$
+            Word = LTrim(Word, Char$)
+          Default
+            Break
+        EndSelect
+      Next
+      
+      For i=1 To 2
+        Char$ = Right(Word, 1)
+        Select Char$
+          Case ".", ":", ",", ";", "!", "?"
+            If Flags & #Punctation
+              Word = RTrim(Word, Char$)
+              Diff2$ + Char$
+            EndIf
+          Case  ")", "]", "}", ">"
+            If Flags & #Brackets
+              Word = RTrim(Word, Char$)
+              Diff2$ + Char$
+            EndIf
+          Case Chr(34), "'", "«", "»"
+            If Flags & #QuotationMarks
+              Word = RTrim(Word, Char$)
+              Diff2$ + Char$
+            EndIf  
+          Case " ", #LF$;, #Paragraph$
+            Word = LTrim(Word, Char$)
+          Default
+            Break
+        EndSelect
+      Next
+      
+    EndIf  
+
     If Flags & #Parse
       ProcedureReturn Diff1$+"|"+Word+"|"+Diff2$
     Else  
       ProcedureReturn Word
     EndIf
+    
+  EndProcedure
+  
+  Procedure.s SplitWords_(Word.s)
+    Define.i i, sPos, Count = 0
+    Define.s Words$
+  
+    sPos = 1
+    
+    For i=1 To Len(Word)
+      Select Mid(Word, i, 1)
+        Case ")", "]", "}"
+          Words$ + GetWord_(Mid(Word, sPos, i - sPos + 1)) + "|"
+          sPos = i + 1
+      EndSelect
+    Next
+    
+    Words$ + GetWord_(Mid(Word, sPos, i - sPos + 1))
+  
+    ProcedureReturn RTrim(Words$, "|")
   EndProcedure
   
   
@@ -2144,35 +2217,107 @@ Module EditEx
   
   CompilerIf #Enable_SyntaxHighlight
     
-    Procedure   CalcSyntaxHighlight_(Word$, Pos.i, X.i, Part$="", WordPos.i=#True)
-      Define.i wPos, DiffW
-      Define.s sWord$
-      
+    Procedure.s CalcSyntaxHighlight_(Word$, Pos.i, X.i, Part$="", LastWord.s="", WordPos.i=#True)
+      Define.i w, PosX, wPos, DiffW, Words, Found, Check, posOffset
+      Define.s sWord$, mapWord$, splitWord$
+
       sWord$ = GetWord_(Word$)
-      If EditEx()\SyntaxHighlight = #NoCase : sWord$ = LCase(sWord$) :  EndIf
+      sWord$ = SplitWords_(sWord$)
+      
+      If Trim(sWord$) = "" : ProcedureReturn "" : EndIf 
+      
+      If EditEx()\SyntaxHighlight = #NoCase
+        mapWord$ = LCase(sWord$)
+      Else
+        mapWord$ = sWord$
+      EndIf  
 
-      If FindMapElement(EditEx()\Syntax(), sWord$)
+      Words = CountString(sWord$, "|") + 1 
+      
+      posOffset = 1
+      
+      For w=1 To Words
         
-        If Part$ : sWord$ = Part$ : EndIf
+        PosX  = X
+        Check = #False
+        Found = #False
         
-        If WordPos
-          wPos = FindString(Word$, sWord$)
-          If wPos > 1 : X + TextWidth(Left(Word$, wPos - 1)) : EndIf
-        EndIf 
+        splitWord$ = StringField(sWord$, w, "|")
         
-        If AddElement(EditEx()\Row()\Highlight())
-          EditEx()\Row()\Highlight()\X = X
-          EditEx()\Row()\Highlight()\String = RTrim(sWord$, #LF$)
-          EditEx()\Row()\Highlight()\Color  = EditEx()\Syntax()
+        If LastWord ;{ "Word1_..._Word"
+         
+          If FindMapElement(EditEx()\Syntax(), LastWord + "_" + StringField(mapWord$, w, "|") + "_") ; another word part to highlight
+
+            LastWord + "_" + StringField(mapWord$, w, "|")
+            
+            Check = 1
+            Found = #True
+          ElseIf FindMapElement(EditEx()\Syntax(), LastWord + "_" + StringField(mapWord$, w, "|"))   ; last word part to highlight
+            
+            ForEach EditEx()\Row() ;{ all word parts are found => highlight
+              ForEach EditEx()\Row()\Highlight()
+                EditEx()\Row()\Highlight()\Check = #False
+              Next
+            Next ;}
+            
+            LastWord = ""
+            Found    = #True
+          Else
+            
+            Found = FindMapElement(EditEx()\Syntax(), StringField(mapWord$, w, "|"))
+            
+            ForEach EditEx()\Row() ;{ remove all previous word parts
+              ForEach EditEx()\Row()\Highlight()
+                If EditEx()\Row()\Highlight()\Check
+                  DeleteElement(EditEx()\Row()\Highlight())
+                EndIf  
+              Next
+            Next ;}
+            
+            LastWord = ""
+          EndIf  
+          ;}
+        Else
+          
+          If FindMapElement(EditEx()\Syntax(), StringField(mapWord$, w, "|") + "_")  ; "Word1_"
+            LastWord = StringField(mapWord$, w, "|")
+            Check    = 1
+            Found    = #True
+          Else  
+            Found = FindMapElement(EditEx()\Syntax(), StringField(mapWord$, w, "|")) ; "Word1"
+            LastWord = ""
+          EndIf
+          
+        EndIf  
+
+        If Found
+
+          If Part$ : splitWord$ = Part$ : EndIf
+          
+          If WordPos
+            wPos = FindString(Word$, splitWord$, posOffset) 
+            If wPos > 1 : PosX + TextWidth(Left(Word$, wPos - 1)) : EndIf
+          EndIf 
+          
+          If AddElement(EditEx()\Row()\Highlight())
+            EditEx()\Row()\Highlight()\X = PosX
+            EditEx()\Row()\Highlight()\String = splitWord$
+            EditEx()\Row()\Highlight()\Color  = EditEx()\Syntax()
+            EditEx()\Row()\Highlight()\Check  = Check
+          EndIf
+          
+          If EditEx()\Cursor\Pos >= Pos + wPos - 1 And EditEx()\Cursor\Pos < Pos + wPos + Len(splitWord$)
+            EditEx()\Cursor\FrontColor = EditEx()\Syntax()
+            EditEx()\Cursor\BackColor  = EditEx()\Color\Back
+          EndIf
+
         EndIf
         
-        If EditEx()\Cursor\Pos >= Pos + wPos - 1 And EditEx()\Cursor\Pos < Pos + wPos + Len(sWord$)
-          EditEx()\Cursor\FrontColor = EditEx()\Syntax()
-          EditEx()\Cursor\BackColor  = EditEx()\Color\Back
-        EndIf
+        posOffset + Len(splitWord$)
         
-      EndIf
-
+      Next
+      
+      ProcedureReturn LastWord
     EndProcedure
 
   CompilerEndIf
@@ -2586,8 +2731,8 @@ Module EditEx
   Procedure   CalcRows_() 
     Define.i r, w, h, X, Y, PosX, PosY, Pos, Pos1, Pos2, WordLen, maxTextWidth
     Define.i Rows, Words, Hyphen, SyntaxHighlight, AutoSpellCheck, SoftHyphen, PosOffset, RowOffset
-    Define.s Row$, Word$, hWord$, WordOnly$, WordMask$, Part$
-
+    Define.s Row$, Word$, hWord$, WordOnly$, WordMask$, Part$, LastWord$
+    
     ;{ _____ Selection position _____
     If EditEx()\Selection\Pos1 > EditEx()\Selection\Pos2
       Pos1 = EditEx()\Selection\Pos2
@@ -2695,7 +2840,7 @@ Module EditEx
                       CompilerEndIf
                       
                       CompilerIf #Enable_SyntaxHighlight
-                        If SyntaxHighlight : CalcSyntaxHighlight_(Word$, Pos, PosX, Part$ + "-") : EndIf
+                        If SyntaxHighlight : LastWord$ = CalcSyntaxHighlight_(Word$, Pos, PosX, Part$ + "-", LastWord$) : EndIf
                       CompilerEndIf
                       
                       If EditEx()\Selection\Flag = #Selected : CalcSelection_(PosX, Pos, WordLen, Pos1, Pos2) : EndIf
@@ -2739,9 +2884,9 @@ Module EditEx
               
               If SyntaxHighlight
                 If Part$
-                  CalcSyntaxHighlight_(Word$, Pos, PosX, Part$, #False)
+                  LastWord$ = CalcSyntaxHighlight_(Word$, Pos, PosX, Part$, LastWord$, #False)
                 Else
-                  CalcSyntaxHighlight_(Word$, Pos, PosX)
+                  LastWord$ = CalcSyntaxHighlight_(Word$, Pos, PosX, "", LastWord$)
                 EndIf
               EndIf
               
@@ -2792,7 +2937,7 @@ Module EditEx
             
             CompilerIf #Enable_SyntaxHighlight
               
-              If SyntaxHighlight : CalcSyntaxHighlight_(Word$, Pos, PosX) : EndIf
+              If SyntaxHighlight : LastWord$ = CalcSyntaxHighlight_(Word$, Pos, PosX, "", LastWord$) : EndIf
               
             CompilerEndIf 
             
@@ -2886,7 +3031,15 @@ Module EditEx
       
       StopDrawing()
     EndIf
-  
+    
+    ForEach EditEx()\Row()
+      ForEach EditEx()\Row()\Highlight() ;{ remove all obsolete word parts
+        If EditEx()\Row()\Highlight()\Check
+          DeleteElement(EditEx()\Row()\Highlight())
+        EndIf   
+      Next ;}
+    Next
+    
   EndProcedure
 
   Procedure   CalcOffset_()
@@ -5093,9 +5246,38 @@ Module EditEx
     EndProcedure
   
     Procedure AddWord(GNum.i, Word.s, Color.i)
+      Define.i w, Spaces
+      Define.s Word$, sWord$
       
       If FindMapElement(EditEx(), Str(GNum))
-        EditEx()\Syntax(Word)  = Color
+        
+        Spaces = CountString(Word, " ")
+        
+        For w=1 To Spaces + 1
+          
+          sWord$ = GetWord_(StringField(Word, w, " "))
+          
+          If w = 1
+            If Spaces
+              Word$ = sWord$ + "_"
+            Else  
+              Word$ = sWord$
+            EndIf
+          ElseIf w <= Spaces
+            Word$ + sWord$ + "_"
+          Else
+            Word$ + sWord$
+          EndIf  
+
+          If EditEx()\SyntaxHighlight = #NoCase
+            EditEx()\Syntax(LCase(Word$)) = Color
+          Else
+            EditEx()\Syntax(Word$) = Color
+          EndIf  
+          Debug Word$
+        Next  
+
+        ReDraw_()
       EndIf
     
     EndProcedure
@@ -5105,7 +5287,8 @@ Module EditEx
       If FindMapElement(EditEx(), Str(GNum))
         
         DeleteMapElement(EditEx()\Syntax(), Word) 
-  
+        
+        ReDraw_()
       EndIf  
    
     EndProcedure
@@ -5116,6 +5299,7 @@ Module EditEx
         
         ClearMap(EditEx()\Syntax())
         
+        ReDraw_()
       EndIf
       
     EndProcedure
@@ -6356,9 +6540,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 11
-; FirstLine = 3
-; Folding = wBCMAkQgwAAgAYEAYACAfAAD9TA69AfIhQOAwACABQcB9jD-TACAAZMEAUQCnOoM+-
-; Markers = 1102,2929,3038,5568
+; CursorPosition = 1366
+; FirstLine = 554
+; Folding = wBCMAkRA5AAwAYGAwAGA+wLgA-1Kh9hPkQIHAYABgAIuA+xh-NMRBAICCAKIhXHUG--
+; Markers = 1354,2220,5248
 ; EnableXP
 ; DPIAware

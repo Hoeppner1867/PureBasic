@@ -65,7 +65,7 @@
 
 DeclareModule ModuleEx
   
-  #Version = 20041000
+  #Version = 20041700
   
   #Enable_Tabulator_Management = #True
   
@@ -92,6 +92,7 @@ DeclareModule ModuleEx
     #Event_Theme
     #Event_Timer
     #Event_ToolTip
+    #Event_Message
   EndEnumeration ;}
   
   Enumeration #PB_EventType_FirstCustomValue ;{ #EventType
@@ -1376,6 +1377,7 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 ; IDE Options = PureBasic 5.72 (Windows - x64)
 ; CursorPosition = 67
-; Folding = kBABCBAAQAOAEq
+; FirstLine = 21
+; Folding = gBABCBAAQAOAEq
 ; EnableXP
 ; DPIAware

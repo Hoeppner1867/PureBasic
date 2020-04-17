@@ -1,6 +1,6 @@
-﻿;/ ==================================
+﻿;/ ============================
 ;/ =    MarkDownModule.pbi    =
-;/ ==================================
+;/ ============================
 ;/
 ;/ [ PB V5.7x / 64Bit / All OS / DPI ]
 ;/
@@ -9,7 +9,7 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 14.04.2020
+; Last Update: 17.04.2020
 ;
 ; - Added: Support of relative path for Help2HTML()
 ; - Added: Wildcards for help window search
@@ -110,8 +110,8 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20041400
-  #ModuleEx = 19112100
+  #Version  = 20041700
+  #ModuleEx = 20041700
   
   #Enable_Gadget     = #True
   #Enable_Requester  = #True
@@ -145,11 +145,14 @@ DeclareModule MarkDown
   ;{ _____ Constants _____
   #Bullet$ = "•"
   
+  #Help = -1
+  
 	EnumerationBinary ;{ Gadget Flags
 		#AutoResize        ; Automatic resizing of the gadget
 		#Borderless        ; Draw no border
 		#UseExistingCanvas ; e.g. for dialogs
 		#IgnorePath
+		#CompletePath
 		; Requester
 		#YesNo
 	  #YesNoCancel
@@ -166,13 +169,15 @@ DeclareModule MarkDown
 	Enumeration       ;{ Type
 	  #Gadget
 	  #Requester
-	  #Help
+	  #HelpWindow
 	EndEnumeration  ;}
 	
 	Enumeration 1     ;{ Format
 	  #MarkDown
 	  #HTML
 	  #PDF
+	  #List
+	  #Tree
 	EndEnumeration ;}
 	
 	EnumerationBinary ;{ AutoResize
@@ -247,6 +252,7 @@ DeclareModule MarkDown
 		#Event_Gadget   = ModuleEx::#Event_Gadget
 		#Event_Theme    = ModuleEx::#Event_Theme
 		#Event_Timer    = ModuleEx::#Event_Timer
+		#Event_Message  = ModuleEx::#Event_Message
 		
 		#EventType_Link = ModuleEx::#EventType_Link
 		
@@ -255,6 +261,7 @@ DeclareModule MarkDown
 		Enumeration #PB_Event_FirstCustomValue
 		  #Event_Gadget
 		  #Event_Timer
+		  #Event_Message
 		EndEnumeration
 		
 		Enumeration #PB_EventType_FirstCustomValue
@@ -274,7 +281,7 @@ DeclareModule MarkDown
     Text.s
     Level.i
   EndStructure ;}
-	
+  
 	Structure Words_Structure              ;{ Word Structure
     Font.i
     String.s
@@ -283,6 +290,13 @@ DeclareModule MarkDown
     Flag.i
   EndStructure ;}
   
+  Structure Links_Structure              ;{ ...\Links\...
+    String.s
+    Destination.s
+    Label.s
+    Valid.i
+  EndStructure  
+    
   Structure TOC_Structure                ;{ ...\TOC()\...
     ID.s
     Level.i
@@ -313,7 +327,7 @@ DeclareModule MarkDown
 	;-   DeclareModule
 	;- ===========================================================================
 	
-	Declare.i UsedImages(Markdown.s, Path.s, Map Images.s())
+	Declare.i UsedImages(Markdown.s, Path.s, Map Images.s(), Flags.i=#False)
 	Declare   Convert(MarkDown.s, Type.i, Path.s, File.s="", Title.s="")
 	Declare   InsertAsPDF(PDF.i, MarkDown.s, LeftMargin.i=10, RightMargin.i=10, FontSize.i=12)
 	Declare.s InsertAsHTML(MarkDown.s)
@@ -356,6 +370,7 @@ DeclareModule MarkDown
       Declare.s Help2HTML(Title.s, File.s, Folder.s="HTML", FileHTML.s="")
     CompilerEndIf
     
+    Declare   SetHelpFont(Font.i, Type.i=#False)
     Declare   ChangeHelpTopic(Label.s)
     Declare.s Help(Title.s, File.s, Label.s="", Flags.i=#False, Parent.i=#PB_Default)
     
@@ -370,7 +385,7 @@ DeclareModule MarkDown
   CompilerEndIf 
   
   ;{ Internal
-  Declare MergeHelp(List Items.Item_Structure(), List TOC.TOC_Structure(), Map Glossary.Glossary_Structure(), Map Keywords.Keywords_Structure())
+  Declare MergeHelp(List Items.Item_Structure(), List TOC.TOC_Structure(), Map Glossary.Glossary_Structure(), Map Keywords.Keywords_Structure(), List Links.Links_Structure())
   Declare UpdateHelp(GNum.i, List TOC.TOC_Structure(), Map Glossary.Glossary_Structure(), List Found.s(), Export.i=#False)
   ;}
   
@@ -585,6 +600,13 @@ Module MarkDown
   
   CompilerIf #Enable_HelpWindow
     
+    Structure Help_Font_Structure
+      Tree.i
+      ListView.i
+      Name.s
+      Size.i
+    EndStructure
+    
     Structure Help_Sort_Structure
       Topic.s
       Index.i
@@ -617,6 +639,7 @@ Module MarkDown
       Search.i
       File.s
       DataDir.s
+      Font.Help_Font_Structure
       Window.Help_Window_Structure
       Image.Help_Image_Structure
       Map  Label.i()
@@ -751,6 +774,7 @@ Module MarkDown
     Height.i
     URL.s
     Title.s
+    String.s
     Label.s
     State.i
   EndStructure ;}
@@ -3128,10 +3152,12 @@ Module MarkDown
           Select MarkDown()\Items()\Type
             Case #Heading        ;{ Heading
               
-              If Level <> #PB_Default
-                If Level <= 3 : PDF::AddEntryTOC(PDF, GetString_(MarkDown()\Items()\Words()), Level) : EndIf
-              ElseIf MarkDown()\Items()\Level <= 3
-                PDF::AddEntryTOC(PDF, GetString_(MarkDown()\Items()\Words()), MarkDown()\Items()\Level)
+              If MarkDown()\Type <> #HelpWindow
+                If Level <> #PB_Default
+                  If Level <= 3 : PDF::AddEntryTOC(PDF, GetString_(MarkDown()\Items()\Words()), Level) : EndIf
+                ElseIf MarkDown()\Items()\Level <= 3
+                  PDF::AddEntryTOC(PDF, GetString_(MarkDown()\Items()\Words()), MarkDown()\Items()\Level)
+                EndIf
               EndIf
             
               If MarkDown()\Items()\ID
@@ -3291,13 +3317,10 @@ Module MarkDown
                   
                   PDF::SetPosX(PDF, 10)
                   FontPDF_(PDF, #Font_Bold, #False, FontSize - 2)
-                  
                   PDF::Cell(PDF, MarkDown()\Lists()\Row()\String, PDF::GetStringWidth(PDF, MarkDown()\Lists()\Row()\String), #PB_Default, #False, PDF::#NextLine) 
-                  
+   
+                  RowPDF_(PDF, LeftMargin + 5, MarkDown()\Items()\BlockQuote, MarkDown()\Lists()\Row()\Words(), #False, "L", "", FontSize- 2)
                   PDF::Ln(PDF, 1.5)
-                  
-                  FontPDF_(PDF, #Font_Normal, #False, FontSize - 2)
-                  RowPDF_(PDF, LeftMargin + 5, MarkDown()\Items()\BlockQuote, MarkDown()\Lists()\Row()\Words(), #False, "L", "", FontSize)
                   
                 Next
                 
@@ -3793,7 +3816,8 @@ Module MarkDown
             Words()\Flag   = #AutoLink
           EndIf
           
-          MarkDown()\Link()\URL = Words()\String
+          MarkDown()\Link()\String = Words()\String
+          MarkDown()\Link()\URL    = Words()\String
           
           ProcedureReturn #True
         EndIf
@@ -3838,6 +3862,8 @@ Module MarkDown
             Words()\Flag   = #Link 
           EndIf
           
+          MarkDown()\Link()\String = Words()\String
+          
           nPos = ePos + 2
           
           ePos = FindString(String, "]", nPos)
@@ -3861,6 +3887,8 @@ Module MarkDown
               Words()\Index  = ListIndex(MarkDown()\Link())
               Words()\Flag   = #Link 
             EndIf
+            
+            MarkDown()\Link()\String = Words()\String
             
             nPos = ePos + 2
             
@@ -4311,6 +4339,8 @@ Module MarkDown
                   Words()\Flag   = #Link 
                 EndIf
                 
+                MarkDown()\Link()\String = Words()\String
+                
                 nPos = ePos + 2
                 
                 ePos = FindString(Row, "]", nPos)
@@ -4337,6 +4367,8 @@ Module MarkDown
                     Words()\Index  = ListIndex(MarkDown()\Link())
                     Words()\Flag   = #Link 
                   EndIf
+                  
+                  MarkDown()\Link()\String = Words()\String
                   
                   nPos = ePos + 2
                   
@@ -4397,7 +4429,8 @@ Module MarkDown
                 Words()\Flag   = #AutoLink 
               EndIf
               
-              MarkDown()\Link()\URL = Words()\String
+              MarkDown()\Link()\URL    = Words()\String
+              MarkDown()\Link()\String = Words()\String
               
             EndIf
 
@@ -5634,12 +5667,14 @@ Module MarkDown
   
   Declare ReDraw()
   
-  Procedure   MergeHelp(List Items.Item_Structure(), List TOC.TOC_Structure(), Map Glossary.Glossary_Structure(), Map Keywords.Keywords_Structure())
+  Procedure   MergeHelp(List Items.Item_Structure(), List TOC.TOC_Structure(), Map Glossary.Glossary_Structure(), Map Keywords.Keywords_Structure(), List Links.Links_Structure())
     Define.i Result, Counter
     Define.s GNum$, Keyword$  
 
     ClearList(TOC())
+    ClearList(Links())
     ClearMap(Glossary())
+    ClearMap(Keywords())
     
     PushMapPosition(MarkDown())
     
@@ -5691,6 +5726,24 @@ Module MarkDown
           Next  
           ;}
         Next
+        
+        ForEach MarkDown()\Link()      ;{ Links
+
+          If AddElement(Links())
+            
+            Links()\String = MarkDown()\Link()\String
+
+            If MarkDown()\Link()\Label
+              Links()\Destination = MarkDown()\Label(MarkDown()\Link()\Label)\Destination
+            Else 
+              Links()\Destination = MarkDown()\Link()\URL 
+            EndIf  
+            
+            Links()\Label = Items()\Label
+            
+          EndIf
+          ;}
+        Next  
         
       EndIf
       
@@ -5764,7 +5817,7 @@ Module MarkDown
     PopMapPosition(MarkDown())
     
   EndProcedure
-  	
+ 
 	;- __________ Drawing __________
 
 	CompilerIf #Enable_Requester
@@ -7330,7 +7383,7 @@ Module MarkDown
 			X = GetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_MouseX)
 			Y = GetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_MouseY)
 
-			If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll")
+			If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll") ;{ ScrollBar
 			 
         If MarkDown()\ScrollBar\Item()\Hide = #False
         
@@ -7367,7 +7420,7 @@ Module MarkDown
     			EndIf
     			
   			EndIf
-  			
+  			;}
       EndIf 			
 			
 			ForEach MarkDown()\Link() ;{ Click link
@@ -7414,7 +7467,7 @@ Module MarkDown
 			Y = GetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_MouseY)
 			
 			
-      If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll")
+      If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll") ;{ ScrollBar
         
   		  If MarkDown()\ScrollBar\Item()\Hide = #False
   		  
@@ -7445,7 +7498,7 @@ Module MarkDown
     			EndIf  
 			    
   			EndIf
-  			
+  			;}
   		EndIf	
 			
 			
@@ -7876,8 +7929,9 @@ Module MarkDown
 						
 						CompilerIf #Enable_HelpWindow
 						  
-						  If MarkDown()\Type = #Help
-						    ResizeGadget(Help\TreeNum, #PB_Ignore, #PB_Ignore, #PB_Ignore, GadgetHeight(MarkDown()\CanvasNum) - 30)
+						  If MarkDown()\Type = #HelpWindow
+						    If IsGadget(Help\TreeNum) : ResizeGadget(Help\TreeNum, #PB_Ignore, #PB_Ignore, #PB_Ignore, GadgetHeight(MarkDown()\CanvasNum) - 30) : EndIf
+						    If IsGadget(Help\ListNum) : ResizeGadget(Help\ListNum, #PB_Ignore, #PB_Ignore, #PB_Ignore, GadgetHeight(MarkDown()\CanvasNum) - 30) : EndIf
 						  EndIf
 						  
 						CompilerEndIf
@@ -7946,7 +8000,7 @@ Module MarkDown
     		MarkDown()\Margin\Left   = 10
     		MarkDown()\Margin\Right  = 10
     		MarkDown()\Margin\Bottom = 15
-    	Case #Help
+    	Case #HelpWindow
     	  MarkDown()\Margin\Top    = 10
     		MarkDown()\Margin\Left   = 10
     		MarkDown()\Margin\Right  = 10
@@ -8036,7 +8090,219 @@ Module MarkDown
     
   EndProcedure 
   
-	
+  CompilerIf #Enable_HelpWindow
+
+	  Procedure   AddToHistory_(Index.i)
+	    
+	    LastElement(Help\History())
+      If AddElement(Help\History())
+        Help\History() = Index
+      EndIf   
+      
+	  EndProcedure  
+	  
+	  Procedure   EnableSearch_(State.i)
+	    
+	    If State
+	      SetGadgetAttribute(Help\HomeNum, #PB_Button_Image, ImageID(Help\Image\Close))
+	      CompilerIf Defined(ListView, #PB_Module)
+	        ListView::Hide(Help\ListNum, #False)
+	      CompilerElse  
+	        HideGadget(Help\ListNum, #False)
+	      CompilerEndIf  
+        HideGadget(Help\TreeNum, #True)
+        HideGadget(Help\PrevNum, #True)
+        HideGadget(Help\NextNum, #True)
+        ResizeGadget(Help\InputNum, #PB_Ignore, #PB_Ignore, 147, #PB_Ignore)
+        ResizeGadget(Help\SearchNum, 190, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+      Else
+        SetGadgetAttribute(Help\HomeNum, #PB_Button_Image, ImageID(Help\Image\GoHome))
+        CompilerIf Defined(ListView, #PB_Module)
+          ListView::Hide(Help\ListNum, #True)
+        CompilerElse    
+          HideGadget(Help\ListNum, #True)
+        CompilerEndIf    
+        HideGadget(Help\TreeNum, #False)
+        HideGadget(Help\PrevNum, #False)
+        HideGadget(Help\NextNum, #False)
+        ResizeGadget(Help\InputNum, #PB_Ignore, #PB_Ignore, 92, #PB_Ignore)
+        ResizeGadget(Help\SearchNum, 135, #PB_Ignore, #PB_Ignore, #PB_Ignore)
+      EndIf
+      
+	  EndProcedure
+	  
+	  Procedure.i Search_(String.s, Map Keywords.Keywords_Structure(), List Found.s(),Flags.i=#False)
+	    Define.i Index, LastIndex
+	    
+	    ClearList(Found())
+	    
+	    NewList Sort.Help_Sort_Structure()
+	    
+	    CompilerIf Defined(ListView, #PB_Module)
+	      ListView::ClearItems(Help\ListNum)
+	    CompilerElse
+	      ClearGadgetItems(Help\ListNum)
+	    CompilerEndIf
+	    
+	    If Flags & #KeywordsOnly = #False
+	      
+	      String = LCase(Trim(String))
+	      
+	      If Left(String, 1) = "*" And Right(String, 1) = "*"
+	        
+	        String = Trim(String, "*")
+ 
+	        ForEach Help\Item() ;{ Search Topic
+	          If CountString(LCase(Help\Item()\Titel), String)
+	            Index = ListIndex(Help\Item())
+  	          If AddElement(Sort())
+                Sort()\Index = Index
+                Sort()\Topic = Help\Item()\Titel
+              EndIf
+            EndIf 
+	        Next ;}
+	        
+	        ForEach Keywords()  ;{ Search  Keywords
+	          If CountString(LCase(MapKey(Keywords())), String)
+	            If AddElement(Found()) : Found() = MapKey(Keywords()) : EndIf
+              ForEach Keywords()\Label()
+                If FindMapElement(Help\Label(), Keywords()\Label()\Name)
+                  If SelectElement(Help\Item(), Help\Label())
+                    Index = ListIndex(Help\Item())
+                    If AddElement(Sort())
+                      Sort()\Index = Index
+                      Sort()\Topic = Help\Item()\Titel
+                    EndIf
+                  EndIf
+                EndIf 
+              Next  
+            EndIf  
+          Next ;}
+	        
+        ElseIf Left(String,  1) = "*"
+          
+          String = LTrim(String, "*")
+          
+          ForEach Help\Item() ;{ Search Topic
+            If Right(LCase(Help\Item()\Titel), Len(String)) = String
+              Index = ListIndex(Help\Item())
+  	          If AddElement(Sort())
+                Sort()\Index = Index
+                Sort()\Topic = Help\Item()\Titel
+              EndIf
+            EndIf
+          Next ;}
+          
+          ForEach Keywords()  ;{ Search  Keywords
+            If Right(LCase(MapKey(Keywords())), Len(String)) = String
+              If AddElement(Found()) : Found() = MapKey(Keywords()) : EndIf
+              ForEach Keywords()\Label()
+                If FindMapElement(Help\Label(), Keywords()\Label()\Name)
+                  If SelectElement(Help\Item(), Help\Label())
+                    Index = ListIndex(Help\Item())
+                    If AddElement(Sort())
+                      Sort()\Index = Index
+                      Sort()\Topic = Help\Item()\Titel
+                    EndIf
+                  EndIf
+                EndIf 
+              Next  
+            EndIf  
+          Next ;}
+        
+        ElseIf Right(String, 1) = "*"
+          
+          String = RTrim(String, "*")
+          
+          ForEach Help\Item() ;{ Search Topic
+            If Left(LCase(Help\Item()\Titel), Len(String)) = String
+              Index = ListIndex(Help\Item())
+  	          If AddElement(Sort())
+                Sort()\Index = Index
+                Sort()\Topic = Help\Item()\Titel
+              EndIf
+            EndIf
+          Next ;}  
+          
+          ForEach Keywords()  ;{ Search  Keywords
+            If Left(LCase(MapKey(Keywords())), Len(String)) = String
+              If AddElement(Found()) : Found() = MapKey(Keywords()) : EndIf
+              ForEach Keywords()\Label()
+                If FindMapElement(Help\Label(), Keywords()\Label()\Name)
+                  If SelectElement(Help\Item(), Help\Label())
+                    Index = ListIndex(Help\Item())
+                    If AddElement(Sort())
+                      Sort()\Index = Index
+                      Sort()\Topic = Help\Item()\Titel
+                    EndIf
+                  EndIf
+                EndIf 
+              Next  
+            EndIf  
+          Next ;}
+          
+        Else
+          
+          ForEach Help\Item() ;{ Search Topic
+            If Left(LCase(Help\Item()\Titel), Len(String)) = String
+              Index = ListIndex(Help\Item())
+              If AddElement(Sort())
+                Sort()\Index = Index
+                Sort()\Topic = Help\Item()\Titel
+              EndIf
+            EndIf
+          Next ;}
+          
+          ForEach Keywords() ;{ Search  Keywords
+            If LCase(MapKey(Keywords())) = String
+              If AddElement(Found()) : Found() = MapKey(Keywords()) : EndIf
+              ForEach Keywords()\Label()
+                If FindMapElement(Help\Label(), Keywords()\Label()\Name)
+                  If SelectElement(Help\Item(), Help\Label())
+                    Index = ListIndex(Help\Item())
+                    If AddElement(Sort())
+                      Sort()\Index = Index
+                      Sort()\Topic = Help\Item()\Titel
+                    EndIf
+                  EndIf
+                EndIf 
+              Next  
+            EndIf  
+          Next ;}
+          
+        EndIf
+ 
+	    EndIf
+	    
+	    SortStructuredList(Sort(), #PB_Sort_Ascending, OffsetOf(Help_Sort_Structure\Index), TypeOf(Help_Sort_Structure\Index))
+	    
+	    LastIndex = -1
+	    
+	    ForEach Sort()
+	      If Sort()\Index = LastIndex : DeleteElement(Sort()) : EndIf
+	      LastIndex = Sort()\Index
+	    Next  
+	    
+      SortStructuredList(Sort(), #PB_Sort_Ascending|#PB_Sort_NoCase, OffsetOf(Help_Sort_Structure\Topic), TypeOf(Help_Sort_Structure\Topic))
+      
+      ForEach Sort()
+        CompilerIf Defined(ListView, #PB_Module)
+          ListView::AddItem(Help\ListNum, ListIndex(Sort()), Sort()\Topic)
+          ListView::SetItemData(Help\ListNum, ListIndex(Sort()), Sort()\Index)
+  	    CompilerElse
+          AddGadgetItem(Help\ListNum, ListIndex(Sort()), Sort()\Topic)
+          SetGadgetItemData(Help\ListNum, ListIndex(Sort()), Sort()\Index)
+  	    CompilerEndIf
+      Next
+      
+      EnableSearch_(#True)
+      Help\Search = #True
+      
+      ProcedureReturn ListSize(Sort())
+	  EndProcedure  
+	  
+  CompilerEndIf  
+
 	;- ==========================================================================
 	;-   Module - Declared Procedures
 	;- ==========================================================================
@@ -8124,7 +8390,7 @@ Module MarkDown
 	    
 	    If Path : SetPath(GNum, Path) : EndIf 
 	    
-	    If MarkDown()\Type = #Help
+	    If MarkDown()\Type = #HelpWindow
 	      Clear_()
 	    Else
 	      Clear_(#True)
@@ -8155,7 +8421,7 @@ Module MarkDown
 	  
 	EndProcedure  
 	
-	Procedure.i UsedImages(Markdown.s, Path.s, Map Images.s())
+	Procedure.i UsedImages(Markdown.s, Path.s, Map Images.s(), Flags.i=#False)
 	  Define.s Image$, File$
 
     If AddMapElement(MarkDown(), "Parse")
@@ -8164,7 +8430,15 @@ Module MarkDown
 	    
 	    ForEach MarkDown()\Image()
 	      Image$ = GetFilePart(MarkDown()\Image()\Source)
-        Images(Image$) = GetAbsolutePath_(Path, MarkDown()\Image()\Source)
+	      
+	      If Flags & #CompletePath
+	        Images(Image$) = GetAbsolutePath_(Path, MarkDown()\Image()\Source)
+	      ElseIf Flags & #IgnorePath
+	        Images(Image$) = GetFilePart(MarkDown()\Image()\Source)
+	      Else  
+	        Images(Image$) = MarkDown()\Image()\Source
+	      EndIf
+	      
 	    Next
 	    
 	    DeleteMapElement(MarkDown())
@@ -8432,9 +8706,14 @@ Module MarkDown
   	  
   	EndProcedure
   	
-  	Procedure   SetFont(GNum.i, Name.s, Size.i) 
-      
-      If FindMapElement(MarkDown(), Str(GNum))
+  	Procedure   SetFont(GNum.i, Name.s, Size.i) ; GNum: #Help (= Help Window)
+  	  
+  	  If GNum = #Help
+  	    
+  	    Help\Font\Name = Name
+  	    Help\Font\Size = Size
+  	    
+      ElseIf FindMapElement(MarkDown(), Str(GNum))
         
         FreeFonts_()
         
@@ -8837,10 +9116,11 @@ Module MarkDown
   	    NewMap  Glossary.Glossary_Structure()
   	    NewList Item.Item_Structure()
   	    NewList Found.s()
+  	    NewList Links.Links_Structure()
   	    
   	    If AddMapElement(MarkDown(), "Help")
   	      
-  	      MarkDown()\Type = #Help
+  	      MarkDown()\Type = #HelpWindow
 
   	      ;{ _____ Load Help File _____
     	    Pack = OpenPack(#PB_Any, File, #PB_PackerPlugin_Lzma)
@@ -8888,7 +9168,7 @@ Module MarkDown
             ClosePack(Pack)
     	    EndIf ;}
     	    
-    	    MergeHelp(Item(), TOC(), Glossary(), Keywords())
+    	    MergeHelp(Item(), TOC(), Glossary(), Keywords(), Links())
 
     	    PDF = PDF::Create(#PB_Any, Orientation, "", Format)
           If PDF
@@ -8932,6 +9212,8 @@ Module MarkDown
 
               PDF::SetPageNumbering(PDF, #True)
               
+              PDF::AddEntryTOC(PDF, Item()\Titel, Item()\Level)
+              
               Clear_()
               
               Parse_(Item()\Text)
@@ -8974,6 +9256,7 @@ Module MarkDown
   	    NewList TOC.TOC_Structure()
   	    NewList Item.Item_Structure()
   	    NewList Found.s()
+  	    NewList Links.Links_Structure()
   	    
 	      ;{ _____ Filename & Folder _____
 	      If FileHTML = "" : FileHTML = GetPathPart(File) + GetFilePart(File, #PB_FileSystem_NoExtension) + ".html" : EndIf 
@@ -8995,7 +9278,7 @@ Module MarkDown
         
   	    If AddMapElement(MarkDown(), "Help")
   	      
-  	      MarkDown()\Type = #Help
+  	      MarkDown()\Type = #HelpWindow
   	      
   	      ;{ _____ Load Help File _____
     	    Pack = OpenPack(#PB_Any, File, #PB_PackerPlugin_Lzma)
@@ -9031,7 +9314,7 @@ Module MarkDown
             ClosePack(Pack)
     	    EndIf ;}  
     	    
-    	    MergeHelp(Item(), TOC(), Glossary(), Keywords())
+    	    MergeHelp(Item(), TOC(), Glossary(), Keywords(), Links())
 
     	    ;{ _____ Frames File _____
     	    ForEach Item()
@@ -9168,206 +9451,32 @@ Module MarkDown
   	  
   	CompilerEndIf
   	
-	  Procedure   ChangeHelpTopic(Label.s)
+  	Procedure   SetHelpFont(Font.i, Type.i=#False)
+  	  
+  	  If IsFont(Font)
+  	    
+  	    Select Type
+  	      Case #List
+  	        Help\Font\ListView = Font
+  	      Case #Tree
+  	        Help\Font\Tree     = Font
+  	      Default
+  	        Help\Font\Tree     = Font
+  	        Help\Font\ListView = Font
+  	    EndSelect    
+
+  	  EndIf
+  	  
+  	EndProcedure  
+  	
+  	Procedure   ChangeHelpTopic(Label.s)
 	    
   	  CompilerIf Defined(NamedPipe, #PB_Module)
   	    NamedPipe::SendMessage("mdHelp", Label)
   	  CompilerEndIf 
   	  
   	EndProcedure
-	
-	  Procedure   AddToHistory_(Index.i)
-	    
-	    LastElement(Help\History())
-      If AddElement(Help\History())
-        Help\History() = Index
-      EndIf   
-      
-	  EndProcedure  
-	  
-	  Procedure   EnableSearch_(State.i)
-	    
-	    If State
-  	    SetGadgetAttribute(Help\HomeNum, #PB_Button_Image, ImageID(Help\Image\Close))
-        HideGadget(Help\ListNum, #False)
-        HideGadget(Help\TreeNum, #True)
-        HideGadget(Help\PrevNum, #True)
-        HideGadget(Help\NextNum, #True)
-        ResizeGadget(Help\InputNum, #PB_Ignore, #PB_Ignore, 147, #PB_Ignore)
-        ResizeGadget(Help\SearchNum, 190, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-      Else
-        SetGadgetAttribute(Help\HomeNum, #PB_Button_Image, ImageID(Help\Image\GoHome))
-        HideGadget(Help\ListNum, #True)
-        HideGadget(Help\TreeNum, #False)
-        HideGadget(Help\PrevNum, #False)
-        HideGadget(Help\NextNum, #False)
-        ResizeGadget(Help\InputNum, #PB_Ignore, #PB_Ignore, 92, #PB_Ignore)
-        ResizeGadget(Help\SearchNum, 135, #PB_Ignore, #PB_Ignore, #PB_Ignore)
-      EndIf
-      
-	  EndProcedure
-	  
-	  Procedure.i Search_(String.s, Map Keywords.Keywords_Structure(), List Found.s(),Flags.i=#False)
-	    Define.i Index, LastIndex
-	    
-	    ClearList(Found())
-	    
-	    NewList Sort.Help_Sort_Structure()
-	    
-	    ClearGadgetItems(Help\ListNum)
-
-	    If Flags & #KeywordsOnly = #False
-	      
-	      String = LCase(Trim(String))
-	      
-	      If Left(String, 1) = "*" And Right(String, 1) = "*"
-	        
-	        String = Trim(String, "*")
- 
-	        ForEach Help\Item() ;{ Search Topic
-	          If CountString(LCase(Help\Item()\Titel), String)
-	            Index = ListIndex(Help\Item())
-  	          If AddElement(Sort())
-                Sort()\Index = Index
-                Sort()\Topic = Help\Item()\Titel
-              EndIf
-            EndIf 
-	        Next ;}
-	        
-	        ForEach Keywords()  ;{ Search  Keywords
-	          If CountString(LCase(MapKey(Keywords())), String)
-	            If AddElement(Found()) : Found() = MapKey(Keywords()) : EndIf
-              ForEach Keywords()\Label()
-                If FindMapElement(Help\Label(), Keywords()\Label()\Name)
-                  If SelectElement(Help\Item(), Help\Label())
-                    Index = ListIndex(Help\Item())
-                    If AddElement(Sort())
-                      Sort()\Index = Index
-                      Sort()\Topic = Help\Item()\Titel
-                    EndIf
-                  EndIf
-                EndIf 
-              Next  
-            EndIf  
-          Next ;}
-	        
-        ElseIf Left(String,  1) = "*"
-          
-          String = LTrim(String, "*")
-          
-          ForEach Help\Item() ;{ Search Topic
-            If Right(LCase(Help\Item()\Titel), Len(String)) = String
-              Index = ListIndex(Help\Item())
-  	          If AddElement(Sort())
-                Sort()\Index = Index
-                Sort()\Topic = Help\Item()\Titel
-              EndIf
-            EndIf
-          Next ;}
-          
-          ForEach Keywords()  ;{ Search  Keywords
-            If Right(LCase(MapKey(Keywords())), Len(String)) = String
-              If AddElement(Found()) : Found() = MapKey(Keywords()) : EndIf
-              ForEach Keywords()\Label()
-                If FindMapElement(Help\Label(), Keywords()\Label()\Name)
-                  If SelectElement(Help\Item(), Help\Label())
-                    Index = ListIndex(Help\Item())
-                    If AddElement(Sort())
-                      Sort()\Index = Index
-                      Sort()\Topic = Help\Item()\Titel
-                    EndIf
-                  EndIf
-                EndIf 
-              Next  
-            EndIf  
-          Next ;}
-        
-        ElseIf Right(String, 1) = "*"
-          
-          String = RTrim(String, "*")
-          
-          ForEach Help\Item() ;{ Search Topic
-            If Left(LCase(Help\Item()\Titel), Len(String)) = String
-              Index = ListIndex(Help\Item())
-  	          If AddElement(Sort())
-                Sort()\Index = Index
-                Sort()\Topic = Help\Item()\Titel
-              EndIf
-            EndIf
-          Next ;}  
-          
-          ForEach Keywords()  ;{ Search  Keywords
-            If Left(LCase(MapKey(Keywords())), Len(String)) = String
-              If AddElement(Found()) : Found() = MapKey(Keywords()) : EndIf
-              ForEach Keywords()\Label()
-                If FindMapElement(Help\Label(), Keywords()\Label()\Name)
-                  If SelectElement(Help\Item(), Help\Label())
-                    Index = ListIndex(Help\Item())
-                    If AddElement(Sort())
-                      Sort()\Index = Index
-                      Sort()\Topic = Help\Item()\Titel
-                    EndIf
-                  EndIf
-                EndIf 
-              Next  
-            EndIf  
-          Next ;}
-          
-        Else
-          
-          ForEach Help\Item() ;{ Search Topic
-            If Left(LCase(Help\Item()\Titel), Len(String)) = String
-              Index = ListIndex(Help\Item())
-              If AddElement(Sort())
-                Sort()\Index = Index
-                Sort()\Topic = Help\Item()\Titel
-              EndIf
-            EndIf
-          Next ;}
-          
-          ForEach Keywords() ;{ Search  Keywords
-            If LCase(MapKey(Keywords())) = String
-              If AddElement(Found()) : Found() = MapKey(Keywords()) : EndIf
-              ForEach Keywords()\Label()
-                If FindMapElement(Help\Label(), Keywords()\Label()\Name)
-                  If SelectElement(Help\Item(), Help\Label())
-                    Index = ListIndex(Help\Item())
-                    If AddElement(Sort())
-                      Sort()\Index = Index
-                      Sort()\Topic = Help\Item()\Titel
-                    EndIf
-                  EndIf
-                EndIf 
-              Next  
-            EndIf  
-          Next ;}
-          
-        EndIf
- 
-	    EndIf
-	    
-	    SortStructuredList(Sort(), #PB_Sort_Ascending, OffsetOf(Help_Sort_Structure\Index), TypeOf(Help_Sort_Structure\Index))
-	    
-	    LastIndex = -1
-	    
-	    ForEach Sort()
-	      If Sort()\Index = LastIndex : DeleteElement(Sort()) : EndIf
-	      LastIndex = Sort()\Index
-	    Next  
-	    
-      SortStructuredList(Sort(), #PB_Sort_Ascending|#PB_Sort_NoCase, OffsetOf(Help_Sort_Structure\Topic), TypeOf(Help_Sort_Structure\Topic))
-      
-      ForEach Sort()
-        AddGadgetItem(Help\ListNum, ListIndex(Sort()), Sort()\Topic)
-        SetGadgetItemData(Help\ListNum, ListIndex(Sort()), Sort()\Index)
-      Next
-      
-      EnableSearch_(#True)
-      Help\Search = #True
-      
-      ProcedureReturn ListSize(Sort())
-	  EndProcedure  
-	  
+  	
 	  Procedure.s Help(Title.s, File.s, Label.s="", Flags.i=#False, Parent.i=#PB_Default)
 	    ; Flags: #AutoResize | #FindKeywords
 	    Define.i WindowNum, WindowFlags, quitWindow
@@ -9376,6 +9485,7 @@ Module MarkDown
 	    Define   *Buffer
 	    
 	    NewList Found.s()
+	    NewList Links.Links_Structure()
 	    NewList TOC.TOC_Structure()
 	    NewMap  Glossary.Glossary_Structure()
 	    NewMap  Keywords.Keywords_Structure()
@@ -9422,17 +9532,28 @@ Module MarkDown
   	    CompilerIf Defined(TreeEx, #PB_Module)
   	      Help\TreeNum = TreeEx::Gadget(#PB_Any, 10, 40, 205, 470, "", TreeEx::#AlwaysShowSelection, WindowNum)
   	      TreeEx::SetColor(Help\TreeNum, TreeEx::#FrontColor, $701919)
+  	      If IsFont(Help\Font\Tree) : TreeEx::SetFont(Help\TreeNum, FontID(Help\Font\Tree)) : EndIf 
   	    CompilerElse
   	      Help\TreeNum = TreeGadget(#PB_Any, 10, 40, 205, 470, #PB_Tree_AlwaysShowSelection)
   	      SetGadgetColor(Help\TreeNum, #PB_Gadget_FrontColor, $701919)
+  	      If IsFont(Help\Font\Tree) : SetGadgetFont(Help\TreeNum, FontID(Help\Font\Tree)) : EndIf 
   	    CompilerEndIf  
   	    ;}
   	    
   	    Help\InputNum = StringGadget(#PB_Any, 40, 12, 92, 21, "")
-  	    Help\ListNum  = ListViewGadget(#PB_Any, 10, 40, 205, 470)
-  	    SetGadgetColor(Help\ListNum, #PB_Gadget_FrontColor, $004B00)
-  	    HideGadget(Help\ListNum, #True)
   	    
+  	    CompilerIf Defined(ListView, #PB_Module)
+  	      Help\ListNum = ListView::Gadget(#PB_Any, 10, 40, 205, 470, ListView::#GridLines, WindowNum)
+  	      ListView::SetColor(Help\ListNum, ListView::#FrontColor, $004B00)
+  	      ListView::Hide(Help\ListNum, #True)
+  	      If IsFont(Help\Font\ListView) : ListView::SetFont(Help\ListNum, FontID(Help\Font\ListView)) : EndIf 
+  	    CompilerElse  
+    	    Help\ListNum = ListViewGadget(#PB_Any, 10, 40, 205, 470)
+    	    SetGadgetColor(Help\ListNum, #PB_Gadget_FrontColor, $004B00)
+      	  HideGadget(Help\ListNum, #True)
+      	  If IsFont(Help\Font\ListView) : SetGadgetFont(Help\ListNum, FontID(Help\Font\ListView)) : EndIf 
+    	  CompilerEndIf
+  	  
   	    ;{ _____ Buttons _____
   	    Help\HomeNum   = ButtonImageGadget(#PB_Any, 10,  10, 25, 25, ImageID(Help\Image\GoHome))
   	    Help\SearchNum = ButtonImageGadget(#PB_Any, 135, 11, 23, 23, ImageID(Help\Image\Search))
@@ -9446,7 +9567,7 @@ Module MarkDown
 
   	      If AddMapElement(MarkDown(), Str(Help\CanvasNum))
   	        
-  	        MarkDown()\Type = #Help
+  	        MarkDown()\Type = #HelpWindow
   	        
   	        MarkDown()\Window\Num  = WindowNum
   	        MarkDown()\CanvasNum   = Help\CanvasNum
@@ -9469,9 +9590,13 @@ Module MarkDown
             ElseIf Flags & #Style_DragPoint
               MarkDown()\ScrollBar\Flags = #ScrollBar_DragPoint
   	        EndIf
-
-				    LoadFonts_("Arial", 11)
-    				
+  	        
+  	        If Help\Font\Name And Help\Font\Size
+  	          LoadFonts_(Help\Font\Name, Help\Font\Size)
+  	        Else  
+  				    LoadFonts_("Arial", 11)
+  				  EndIf
+				  
     				InitDefault_()
     				
     				MarkDown()\Color\Keyword = $000000
@@ -9538,7 +9663,7 @@ Module MarkDown
   	    EndIf  
   	    ;}
   	    
-  	    MergeHelp(Help\Item(), TOC(), Glossary(), Keywords())
+  	    MergeHelp(Help\Item(), TOC(), Glossary(), Keywords(), Links())
   	  
   	    ForEach Help\Item()
   	      
@@ -9586,7 +9711,7 @@ Module MarkDown
   	      HideWindow(WindowNum, #False)
   	      
   	      CompilerIf Defined(NamedPipe, #PB_Module)
-  	        NamedPipe::Create("mdHelp")
+  	        NamedPipe::Create("mdHelp", #Event_Message)
   	      CompilerEndIf
   	      
     	    Repeat
@@ -9604,7 +9729,7 @@ Module MarkDown
                   quitWindow = #True
                 EndIf ;}
               CompilerIf Defined(NamedPipe, #PB_Module)
-                Case NamedPipe::#Event_Message ;{ Change label
+                Case #Event_Message ;{ Change label
 
                   If NamedPipe::EventPipe() = "mdHelp"
                     
@@ -9806,9 +9931,13 @@ Module MarkDown
                     
                     If EventType() = #PB_EventType_LeftClick
                       
-                      Index = GetGadgetItemData(Help\ListNum, GetGadgetState(Help\ListNum))
+                      CompilerIf Defined(ListView, #PB_Module)
+                        Index = ListView::GetItemData(Help\ListNum, ListView::GetState(Help\ListNum))
+                      CompilerElse
+                        Index = GetGadgetItemData(Help\ListNum, GetGadgetState(Help\ListNum))
+                      CompilerEndIf
+
                       If Index <> -1
-                        
                         If SelectElement(Help\Item(), Index)
                           SetText(Help\CanvasNum, Help\Item()\Text)
                           MarkDown()\PageLabel = Help\Item()\Label
@@ -9819,9 +9948,8 @@ Module MarkDown
                             SetGadgetState(Help\TreeNum, ListIndex(Help\Item()))
                           CompilerEndIf
                         EndIf
-                        
                       EndIf
-                      
+    
                     EndIf
                     ;}
                 EndSelect
@@ -10720,9 +10848,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 9625
-; FirstLine = 1346
-; Folding = wsAA0HAQQQAAQEAMfAEAgiIEACAACABAAQAEIAAKAAHkAAg5FAAAAAAAAAAAAQBSAYAAAgACAAAAMAAAYQxCAAIjDAIAmIAYCEOOZgAEAAwD9
-; Markers = 4242
+; CursorPosition = 3323
+; FirstLine = 426
+; Folding = wGAQ5PAABQQAAAEA+AAAAFRAiEAAAACAAQABAAAIDAOIIEAAAAAIAAAAAEAAAAEIDgJAAAAIAAAACCAAAJyAAFIAAAIMgghcKFAgAnMwAEAAwD9
+; Markers = 4270
 ; EnableXP
 ; DPIAware
