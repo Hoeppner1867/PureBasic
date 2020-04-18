@@ -9,8 +9,12 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 17.04.2020
+; Last Update: 18.04.2020
 ;
+; - Added RequesterButtons() for language support
+;
+; - Bugfixes
+; 
 ; - Added: Support of relative path for Help2HTML()
 ; - Added: Wildcards for help window search
 ;
@@ -110,7 +114,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20041700
+  #Version  = 20041800
   #ModuleEx = 20041700
   
   #Enable_Gadget     = #True
@@ -229,7 +233,7 @@ DeclareModule MarkDown
 	
 	CompilerIf #Enable_Requester
 	  
-	  #ButtonWidth  = 60
+	  #ButtonWidth  = 70
 	  #ButtonHeight = 20
 	  
 	  #OK = 0
@@ -357,7 +361,14 @@ DeclareModule MarkDown
   CompilerEndIf  
 
   CompilerIf #Enable_Requester
-    Declare.i Requester(Title.s, Text.s, Flags.i=#False, Parent.i=#PB_Default)
+    
+    Declare.i AddRequesterButton(Label.s, Text.s="", Result.i=#PB_Default, Width.i=#PB_Default)  
+    Declare   AddRequesterImage(Label.s, Image.i) 
+    
+    Declare   RequesterButtons(TextOK.s, TextYes.s="", TextNo.s="", TextCancel.s="", ButtonWidth.i=#PB_Default)
+    Declare   RequesterPadding(Padding.i)
+    Declare.i Requester(Title.s, Text.s, Flags.i=#False, Parent.i=#PB_Default, Image.s="", Buttons.s="")
+    
   CompilerEndIf
   
   CompilerIf #Enable_HelpWindow
@@ -652,29 +663,47 @@ Module MarkDown
  
   CompilerIf #Enable_Requester
     
-    Structure Requester_Image_Structure  ;{ MarkDown()\Requester\Image\...
+    Structure MarkDown_Requester_Image_Structure  ;{ MarkDown()\Requester\Image\...
   	  Num.i
   	  Width.i
   	  Height.i
   	EndStructure ;}
     
-    Structure Requester_Button_Structure ;{ MarkDown()\Requester\Button\...
+    Structure MarkDown_Requester_Button_Structure ;{ MarkDown()\Requester\Button\...
   	  X.i
   	  Text.s
+  	  Width.i
   	  State.i
   	  Result.i
   	  Visible.i
   	EndStructure ;}
     
-    Structure Requester_Structure        ;{ MarkDown()\Requester\...
+    Structure MarkDown_Requester_Structure        ;{ MarkDown()\Requester\...
       FontID.i
       Padding.i
       ButtonY.i
       Result.i
-      Image.Requester_Image_Structure
-      Map Button.Requester_Button_Structure()
+      UserButtons.s
+      ButtonsWidth.i
+      Image.MarkDown_Requester_Image_Structure
+      Map Button.MarkDown_Requester_Button_Structure()
     EndStructure ;} 
-  
+    
+    Structure Requester_Button_Structure
+      Text.s
+      Result.i
+      Width.i
+    EndStructure
+    
+    Structure Requester_Structure
+      LastResult.i
+      ButtonWidth.i
+      Padding.i
+      Map Image.MarkDown_Requester_Image_Structure()
+      Map Button.Requester_Button_Structure()
+    EndStructure
+    Global Requester.Requester_Structure
+    
   CompilerEndIf
   
   
@@ -964,7 +993,7 @@ Module MarkDown
 		Window.MarkDown_Window_Structure
 		
 		CompilerIf #Enable_Requester
-		  Requester.Requester_Structure
+		  Requester.MarkDown_Requester_Structure
 		CompilerEndIf  
 		
 		Map  Abbreviation.Abbreviation_Structure()
@@ -1466,7 +1495,7 @@ Module MarkDown
               MarkDown()\Items()\Words()\Width = dpiX(16)
               ;}
             Case #Image     ;{ Image
-              
+
               If SelectElement(MarkDown()\Image(), MarkDown()\Items()\Words()\Index)
                 
                 Image$ = GetFilePart(MarkDown()\Image()\Source)
@@ -1501,10 +1530,33 @@ Module MarkDown
           
         Next
         
-        MarkDown()\Items()\Height * MarkDown()\LineSpacing
-        
-        MarkDown()\Required\Height + MarkDown()\Items()\Height
-        If MarkDown()\Items()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Items()\Width : EndIf 
+        If MarkDown()\Items()\Type = #Image
+          
+          Image$ = GetFilePart(MarkDown()\Image()\Source)
+          File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
+          
+          If FindMapElement(MarkDown()\ImageNum(), Image$) = #False
+            If AddMapElement(MarkDown()\ImageNum(), Image$)
+              MarkDown()\ImageNum() = LoadImage(#PB_Any, File$) 
+            EndIf
+          EndIf
+          
+          If IsImage(MarkDown()\ImageNum())
+	          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
+	          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
+	        EndIf
+	        
+	        MarkDown()\Required\Height + dpiY(MarkDown()\Image()\Height)
+          If dpiX(MarkDown()\Image()\Width)  > MarkDown()\Required\Width : MarkDown()\Required\Width = dpiX(MarkDown()\Image()\Width)  : EndIf 
+
+        Else
+          
+          MarkDown()\Required\Height + MarkDown()\Items()\Height
+          If MarkDown()\Items()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Items()\Width : EndIf 
+          
+          MarkDown()\Items()\Height * MarkDown()\LineSpacing
+
+        EndIf
 
       Next ;}
       
@@ -3521,7 +3573,7 @@ Module MarkDown
             Case #Note           ;{ Note
               
               Y = PDF::GetPosY(PDF)
-              NotePDF(PDF, MarkDown()\Items()\Index, LeftMargin, Y, PageWidth - 30, FontSize) 
+              NotePDF(PDF, MarkDown()\Items()\Index, LeftMargin, Y, PageWidth - 40, FontSize) 
             ;}  
             Case #InsertTOC      ;{ Table of Contents
               PDF::InsertTOC(PDF, #False, "", #False, 10, "Arial")
@@ -5827,7 +5879,9 @@ Module MarkDown
   	  Define.i BackColor, BorderColor
   	  Define.s Text
   	  
-  	  Width  = dpiX(#ButtonWidth)
+  	  
+  	  Width  = dpiX(MarkDown()\Requester\Button(Key)\Width)
+  	  
   	  Height = dpiY(#ButtonHeight)
   	  
   	  Text = MarkDown()\Requester\Button(Key)\Text
@@ -6927,7 +6981,7 @@ Module MarkDown
   
 	Procedure   Draw_()
 	  Define.i X, Y, Width, Height, LeftBorder, WrapPos, TextWidth, TextHeight, MsgHeight, Cols
-	  Define.i Indent, Level, Offset, OffSetX, OffSetY, maxCol, ImgSize
+	  Define.i b, Indent, Level, Offset, OffSetX, OffSetY, maxCol, ImgSize
 	  Define.i c, OffsetList, NumWidth, ColWidth, TableWidth
 		Define.i FrontColor, BackColor, BorderColor, LinkColor
 		Define.s Text$, Num$, ColText$, Label$, Image$, File$
@@ -6943,15 +6997,22 @@ Module MarkDown
 		CompilerIf #Enable_Requester
 		  
   		If MarkDown()\Type = #Requester
-  		  Height - dpiY(30)
-  		  MsgHeight = dpiY(GadgetHeight(MarkDown()\CanvasNum)) - dpiY(30)
-  		  If IsImage(MarkDown()\Requester\Image\Num) : X + dpiX(MarkDown()\Requester\Image\Width + MarkDown()\Requester\Padding) : EndIf  
+  		  
+  		  Height - dpiY(40)
+  		  
+  		  MsgHeight = dpiY(GadgetHeight(MarkDown()\CanvasNum)) - dpiY(40)
+  		  
+  		  If IsImage(MarkDown()\Requester\Image\Num)
+  		    Width - dpiX(MarkDown()\Requester\Image\Width + MarkDown()\Requester\Padding)
+  		    X + dpiX(MarkDown()\Requester\Image\Width + MarkDown()\Requester\Padding)
+  		  EndIf  
+  		  
   		EndIf
   		
   	CompilerEndIf
   	
 		MarkDown()\LeftBorder = X
-		MarkDown()\WrapPos = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(MarkDown()\Margin\Right)
+		MarkDown()\WrapPos    = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(MarkDown()\Margin\Right)
 		
 		If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll") ;{ ScrollBar
 		  
@@ -6959,12 +7020,20 @@ Module MarkDown
   		  MarkDown()\ScrollBar\Item()\X          = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(#ScrollBarSize) - dpiX(1)
         MarkDown()\ScrollBar\Item()\Y          = dpiY(1)
         MarkDown()\ScrollBar\Item()\Width      = dpiX(#ScrollBarSize)
-        MarkDown()\ScrollBar\Item()\Height     = dpiY(GadgetHeight(MarkDown()\CanvasNum)) - dpiY(2)
+        If MarkDown()\Type = #Requester
+          MarkDown()\ScrollBar\Item()\Height   = MsgHeight - dpiY(2)
+        Else  
+          MarkDown()\ScrollBar\Item()\Height   = dpiY(GadgetHeight(MarkDown()\CanvasNum)) - dpiY(2)
+        EndIf  
       Else
         MarkDown()\ScrollBar\Item()\X          = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(#ScrollBarSize)
         MarkDown()\ScrollBar\Item()\Y          = 0
         MarkDown()\ScrollBar\Item()\Width      = dpiX(#ScrollBarSize)
-        MarkDown()\ScrollBar\Item()\Height     = dpiY(GadgetHeight(MarkDown()\CanvasNum))
+        If MarkDown()\Type = #Requester
+          MarkDown()\ScrollBar\Item()\Height   = MsgHeight
+        Else   
+          MarkDown()\ScrollBar\Item()\Height   = dpiY(GadgetHeight(MarkDown()\CanvasNum)) 
+        EndIf  
       EndIf  
       
       MarkDown()\ScrollBar\Item()\Minimum    = 0
@@ -7202,25 +7271,47 @@ Module MarkDown
   			  
   			  DrawingFont(FontID(MarkDown()\Font\Normal))
   			  
-  			  MarkDown()\Requester\ButtonY = MsgHeight + dpiY(5)
+  			  MarkDown()\Requester\ButtonY = MsgHeight + dpiY(9)
   			  
-  			  If MarkDown()\Flags & #YesNo ;{ Buttons
-    			  X = (dpiX(GadgetWidth(MarkDown()\CanvasNum)) - (dpiX(#ButtonWidth) * 2) - dpiX(10)) / 2
-    			  Button_("Yes", X, MarkDown()\Requester\ButtonY)
-    			  X + dpiX(#ButtonWidth) + dpiX(10)
-    			  Button_("No", X, MarkDown()\Requester\ButtonY)
-    			ElseIf MarkDown()\Flags & #YesNoCancel
-    			  X = dpiX(MarkDown()\Margin\Left)
-    			  Button_("Yes", X, MarkDown()\Requester\ButtonY)
-    			  X + dpiX(#ButtonWidth) + dpiX(10)
-    			  Button_("No", X, MarkDown()\Requester\ButtonY)
-    			  X = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(#ButtonWidth) - dpiX(MarkDown()\Margin\Right)
-    			  Button_("Cancel", X, MarkDown()\Requester\ButtonY)
-    			Else
-    			  X = (dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(#ButtonWidth)) / 2
-    			  Button_("OK", X, MarkDown()\Requester\ButtonY)
-    			EndIf
-    			
+  			  DrawingMode(#PB_2DDrawing_Default)
+		      Box(0, MsgHeight, dpiX(GadgetWidth(MarkDown()\CanvasNum)), dpiY(40), MarkDown()\Color\Gadget)
+		      
+		      If MarkDown()\Requester\UserButtons
+		        
+		        X = (dpiX(GadgetWidth(MarkDown()\CanvasNum)) - MarkDown()\Requester\ButtonsWidth) / 2
+
+		        For b=1 To CountString(MarkDown()\Requester\UserButtons, "|") + 1
+		          
+		          Label$ = StringField(MarkDown()\Requester\UserButtons, b, "|")
+		          
+		          If FindMapElement(MarkDown()\Requester\Button(), Label$)
+		            Button_(Label$, X, MarkDown()\Requester\ButtonY)
+      			    X + dpiX(MarkDown()\Requester\Button()\Width) + dpiX(10)
+		          EndIf   
+		          
+		        Next
+		        
+		      Else
+		        
+    			  If MarkDown()\Flags & #YesNo ;{ Buttons
+      			  X = (dpiX(GadgetWidth(MarkDown()\CanvasNum)) - MarkDown()\Requester\ButtonsWidth) / 2
+      			  Button_("Yes", X, MarkDown()\Requester\ButtonY)
+      			  X + dpiX(MarkDown()\Requester\Button("Yes")\Width) + dpiX(10)
+      			  Button_("No", X, MarkDown()\Requester\ButtonY)
+      			ElseIf MarkDown()\Flags & #YesNoCancel
+      			  X = dpiX(10)
+      			  Button_("Yes", X, MarkDown()\Requester\ButtonY)
+      			  X + dpiX(MarkDown()\Requester\Button("Yes")\Width) + dpiX(10)
+      			  Button_("No", X, MarkDown()\Requester\ButtonY)
+      			  X = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(MarkDown()\Requester\Button("Cancel")\Width) - dpiX(10)
+      			  Button_("Cancel", X, MarkDown()\Requester\ButtonY)
+      			Else
+      			  X = (dpiX(GadgetWidth(MarkDown()\CanvasNum)) - MarkDown()\Requester\ButtonsWidth) / 2
+      			  Button_("OK", X, MarkDown()\Requester\ButtonY)
+      			EndIf
+      			
+      		EndIf
+      		
     		EndIf	;}
 			  
 			CompilerEndIf  
@@ -7230,7 +7321,7 @@ Module MarkDown
 			  DrawingMode(#PB_2DDrawing_Outlined)
 			  Box_(0, 0, dpiX(GadgetWidth(MarkDown()\CanvasNum)), dpiY(GadgetHeight(MarkDown()\CanvasNum)), BorderColor)
 			  If MarkDown()\Type = #Requester
-			    Box_(0, 0, dpiX(GadgetWidth(MarkDown()\CanvasNum)), dpiY(GadgetHeight(MarkDown()\CanvasNum) - dpiY(30)), BorderColor)
+			    Box_(0, 0, dpiX(GadgetWidth(MarkDown()\CanvasNum)), dpiY(GadgetHeight(MarkDown()\CanvasNum) - dpiY(40)), BorderColor)
 			  EndIf   
 			EndIf ;}
 
@@ -7440,7 +7531,7 @@ Module MarkDown
 		      If Not MarkDown()\Requester\Button()\Visible : Continue : EndIf
 		      
 		      If Y >= MarkDown()\Requester\ButtonY And Y <= MarkDown()\Requester\ButtonY + dpiY(#ButtonHeight)  
-    			  If X >= MarkDown()\Requester\Button()\X And X <= MarkDown()\Requester\Button()\X + dpiX(#ButtonWidth)
+    			  If X >= MarkDown()\Requester\Button()\X And X <= MarkDown()\Requester\Button()\X + dpiX(MarkDown()\Requester\Button()\Width)
     			    If MarkDown()\Requester\Button()\State <> #Click
     			      MarkDown()\Requester\Button()\State = #Click
     			      Draw_()
@@ -7566,7 +7657,7 @@ Module MarkDown
 		      If Not MarkDown()\Requester\Button()\Visible : Continue : EndIf
 		      
 		      If Y >= MarkDown()\Requester\ButtonY And Y <= MarkDown()\Requester\ButtonY + dpiY(#ButtonHeight)  
-    			  If X >= MarkDown()\Requester\Button()\X And X <= MarkDown()\Requester\Button()\X + dpiX(#ButtonWidth)
+    			  If X >= MarkDown()\Requester\Button()\X And X <= MarkDown()\Requester\Button()\X + dpiX(MarkDown()\Requester\Button()\Width)
     			    
     			    MarkDown()\Requester\Button()\State = #Focus
     			    MarkDown()\Requester\Result = MarkDown()\Requester\Button()\Result
@@ -7825,7 +7916,7 @@ Module MarkDown
 		      If Not MarkDown()\Requester\Button()\Visible : Continue : EndIf
 		      
 		      If Y >= MarkDown()\Requester\ButtonY And Y <= MarkDown()\Requester\ButtonY + dpiY(#ButtonHeight)  
-    			  If X >= MarkDown()\Requester\Button()\X And X <= MarkDown()\Requester\Button()\X + dpiX(#ButtonWidth)
+    			  If X >= MarkDown()\Requester\Button()\X And X <= MarkDown()\Requester\Button()\X + dpiX(MarkDown()\Requester\Button()\Width)
     			    If MarkDown()\Requester\Button()\State <> #Focus
     			      MarkDown()\Requester\Button()\State = #Focus
     			      Draw_()
@@ -8843,11 +8934,65 @@ Module MarkDown
 	;- _____ Requester _____
 	
 	CompilerIf #Enable_Requester
-    
-	  Procedure.i Requester(Title.s, Text.s, Flags.i=#False, Parent.i=#PB_Default)
+	  
+	  Procedure   AddRequesterImage(Label.s, Image.i)   
+	    
+	    If IsImage(Image)
+	      
+	      If AddMapElement(Requester\Image(), Label)
+	        Requester\Image()\Num    = Image
+	        Requester\Image()\Width  = ImageWidth(Image)
+	        Requester\Image()\Height = ImageHeight(Image)
+	      EndIf
+	      
+	    EndIf
+	    
+	  EndProcedure  
+	  
+	  Procedure   AddRequesterButton(Label.s, Text.s="", Result.i=#PB_Default, Width.i=#PB_Default)   
+	    
+	    If Not Requester\LastResult : Requester\LastResult = #Result_Cancel : EndIf 
+	    
+	    If AddMapElement(Requester\Button(), Label)
+	      
+        If Text
+          Requester\Button()\Text = Text
+        Else
+          Requester\Button()\Text = Label
+        EndIf
+        
+        If Result = #PB_Default
+          Requester\LastResult + 1
+          Requester\Button()\Result = Requester\LastResult
+        Else
+          Requester\Button()\Result = Result
+        EndIf 
+        
+        Requester\Button()\Width = Width
+        
+	    EndIf
+	    
+	    ProcedureReturn Requester\Button()\Result
+	  EndProcedure 
+	  
+	  Procedure   RequesterButtons(TextOK.s, TextYes.s="", TextNo.s="", TextCancel.s="", ButtonWidth.i=#PB_Default)
+	    Requester\Button("OK")\Text     = TextOK
+	    Requester\Button("Yes")\Text    = TextYes
+	    Requester\Button("No")\Text     = TextNo
+	    Requester\Button("Cancel")\Text = TextCancel
+	    Requester\ButtonWidth = ButtonWidth
+	  EndProcedure
+	  
+	  Procedure   RequesterPadding(Padding.i)
+	    Requester\Padding = Padding
+	  EndProcedure  
+	  
+	  Procedure.i Requester(Title.s, Text.s, Flags.i=#False, Parent.i=#PB_Default, Image.s="", Buttons.s="")
 	    ; Flags: #YesNo / #YesNoCancel | #Info / #Question / #Error / #Warning
-	    Define.i GNum, WindowNum, quitWindow
-	    Define.i Width, Height, buttonWidth, Result
+	    ; Buttons: "Button1|Button2"
+	    Define.i GNum, WindowNum, quitWindow, b, Number
+	    Define.i Width, Height, wButtons, buttonWidth, Result
+	    Define.s Label$
 	    
 	    CompilerIf Defined(ModuleEx, #PB_Module)
         If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
@@ -8871,7 +9016,7 @@ Module MarkDown
   	        
   	        MarkDown()\Window\Num = WindowNum
   	        MarkDown()\CanvasNum  = GNum
-  	        
+
   	        MarkDown()\Type  = #Requester
 				    MarkDown()\Flags = Flags
 				    
@@ -8884,73 +9029,165 @@ Module MarkDown
             ElseIf Flags & #Style_DragPoint
               MarkDown()\ScrollBar\Flags = #ScrollBar_DragPoint
   	        EndIf
-            
-    				;CloseGadgetList()
-    				
-    				;{ _____ Buttons _____
-        		If AddMapElement(MarkDown()\Requester\Button(), "OK")
-        		  MarkDown()\Requester\Button()\Text   = "OK"
+
+  	        ;{ _____ Buttons _____
+  	        If Requester\ButtonWidth > 0 
+  	          buttonWidth = Requester\ButtonWidth
+  	        Else
+  	          buttonWidth = #ButtonWidth
+  	        EndIf  
+
+  	        If AddMapElement(MarkDown()\Requester\Button(), "OK")
+  	          If Requester\Button("OK")\Text
+  	            MarkDown()\Requester\Button()\Text = Requester\Button("OK")\Text
+  	          Else
+  	            MarkDown()\Requester\Button()\Text = "OK"
+  	          EndIf 
+  	          MarkDown()\Requester\Button()\Width  = buttonWidth
         		  MarkDown()\Requester\Button()\Result = #True
         		EndIf
         		
         		If AddMapElement(MarkDown()\Requester\Button(), "Yes")
-        		  MarkDown()\Requester\Button()\Text   = "Yes"
+        		  If Requester\Button("Yes")\Text
+        		    MarkDown()\Requester\Button()\Text = Requester\Button("Yes")\Text
+        		  Else
+        		    MarkDown()\Requester\Button()\Text = "Yes"
+        		  EndIf  
+        		  MarkDown()\Requester\Button()\Width  = buttonWidth
         		  MarkDown()\Requester\Button()\Result = #Result_Yes
         		EndIf 
         		
         		If AddMapElement(MarkDown()\Requester\Button(), "No")  
-        		  MarkDown()\Requester\Button()\Text   = "No"
+        		  If Requester\Button("No")\Text
+        		    MarkDown()\Requester\Button()\Text = Requester\Button("No")\Text
+        		  Else
+        		    MarkDown()\Requester\Button()\Text = "No"
+        		  EndIf  
+        		  MarkDown()\Requester\Button()\Width  = buttonWidth
         		  MarkDown()\Requester\Button()\Result = #Result_No
         		EndIf 
         		
         		If AddMapElement(MarkDown()\Requester\Button(), "Cancel")  
-        		  MarkDown()\Requester\Button()\Text   = "Cancel" 
+        		  If Requester\Button("Cancel")\Text
+        		    MarkDown()\Requester\Button()\Text = Requester\Button("Cancel")\Text
+        		  Else
+        		    MarkDown()\Requester\Button()\Text = "Cancel" 
+        		  EndIf   
+        		  MarkDown()\Requester\Button()\Width  = buttonWidth
         		  MarkDown()\Requester\Button()\Result = #Result_Cancel
         		EndIf   
-    				
-    				If Flags & #YesNo 
-    				  MarkDown()\Requester\Button("OK")\Visible     = #False
-    				  MarkDown()\Requester\Button("Yes")\Visible    = #True
-    				  MarkDown()\Requester\Button("No")\Visible     = #True
-    				  MarkDown()\Requester\Button("Cancel")\Visible = #False
-    				  buttonWidth = dpiX(#ButtonWidth) * 2 + dpiX(10)
-    				ElseIf Flags & #YesNoCancel
-    				  MarkDown()\Requester\Button("OK")\Visible     = #False
-    				  MarkDown()\Requester\Button("Yes")\Visible    = #True
-    				  MarkDown()\Requester\Button("No")\Visible     = #True
-    				  MarkDown()\Requester\Button("Cancel")\Visible = #True		 
-    				  buttonWidth = dpiX(#ButtonWidth) * 3 + dpiX(30)
-    				Else
-    				  MarkDown()\Requester\Button("OK")\Visible     = #True
+        		
+        		If Buttons
+        		  
+        		  MarkDown()\Requester\UserButtons = Buttons
+        		  
+        		  MarkDown()\Requester\Button("OK")\Visible     = #False
     				  MarkDown()\Requester\Button("Yes")\Visible    = #False
     				  MarkDown()\Requester\Button("No")\Visible     = #False
     				  MarkDown()\Requester\Button("Cancel")\Visible = #False
-    				  buttonWidth = dpiX(#ButtonWidth)
-    				EndIf ;}
+        		  
+        		  Number = CountString(Buttons, "|") + 1
+        		  
+        		  For b=1 To Number
+        		    
+        		    Label$ = StringField(Buttons, b, "|")
+        		    
+        		    If FindMapElement(MarkDown()\Requester\Button(), Label$)
+        		      
+        		      MarkDown()\Requester\Button()\Visible = #True
+        		      
+        		      wButtons + dpiX(MarkDown()\Requester\Button()\Width + 10)
+        		      
+        		    ElseIf FindMapElement(Requester\Button(), Label$)
+        		      
+          		    If AddMapElement(MarkDown()\Requester\Button(), Label$) 
+          		      MarkDown()\Requester\Button()\Text    = Requester\Button()\Text
+          		      If Requester\Button()\Width > 0
+          		        MarkDown()\Requester\Button()\Width = Requester\Button()\Width
+          		      Else  
+          		        MarkDown()\Requester\Button()\Width = buttonWidth
+          		      EndIf  
+          		      MarkDown()\Requester\Button()\Result  = Requester\Button()\Result
+          		      MarkDown()\Requester\Button()\Visible = #True
+          		      wButtons + dpiX(buttonWidth + 10)
+          		    EndIf
+          		    
+          		  EndIf
+        		  
+        		  Next
+        		  
+        		  If wButtons : wButtons - dpiX(10) : EndIf
+        		  
+        		  MarkDown()\Requester\ButtonsWidth = wButtons
+        		  
+        		Else
+        		  
+      				If Flags & #YesNo 
+      				  MarkDown()\Requester\Button("OK")\Visible     = #False
+      				  MarkDown()\Requester\Button("Yes")\Visible    = #True
+      				  MarkDown()\Requester\Button("No")\Visible     = #True
+      				  MarkDown()\Requester\Button("Cancel")\Visible = #False
+      				  wButtons = dpiX(MarkDown()\Requester\Button("Yes")\Width + MarkDown()\Requester\Button("No")\Width + 10)
+      				ElseIf Flags & #YesNoCancel
+      				  MarkDown()\Requester\Button("OK")\Visible     = #False
+      				  MarkDown()\Requester\Button("Yes")\Visible    = #True
+      				  MarkDown()\Requester\Button("No")\Visible     = #True
+      				  MarkDown()\Requester\Button("Cancel")\Visible = #True		 
+      				  wButtons = dpiX(MarkDown()\Requester\Button("Yes")\Width + MarkDown()\Requester\Button("No")\Width + MarkDown()\Requester\Button("Cancel")\Width + 30)
+      				Else
+      				  MarkDown()\Requester\Button("OK")\Visible     = #True
+      				  MarkDown()\Requester\Button("Yes")\Visible    = #False
+      				  MarkDown()\Requester\Button("No")\Visible     = #False
+      				  MarkDown()\Requester\Button("Cancel")\Visible = #False
+      				  wButtons = dpiX(MarkDown()\Requester\Button("OK")\Width)
+      				EndIf
+      				
+      				MarkDown()\Requester\ButtonsWidth = wButtons
+      				
+      			EndIf ;}
     				
     				LoadFonts_("Arial", 9)
     				
     				InitDefault_()
-
-        	  MarkDown()\Requester\Padding = 10
+    				
+    				MarkDown()\Margin\Top        = 10
+    				MarkDown()\Margin\Bottom     = 5
+    				
+    				If Requester\Padding
+    				  MarkDown()\Requester\Padding = Requester\Padding
+    				Else  
+    				  MarkDown()\Requester\Padding = 10
+    				EndIf  
     				
     				;{ _____ Image _____
-    				If MarkDown()\Flags & #Info
-    				  MarkDown()\Requester\Image\Num = CatchImage(#PB_Any, ?Information, 2128)
-    				ElseIf MarkDown()\Flags & #Question
-    				  MarkDown()\Requester\Image\Num = CatchImage(#PB_Any, ?Question, 2196)
-    				ElseIf MarkDown()\Flags & #Error
-      		    MarkDown()\Requester\Image\Num = CatchImage(#PB_Any, ?Error, 1782)
-      		  ElseIf MarkDown()\Flags & #Warning
-      		    MarkDown()\Requester\Image\Num = CatchImage(#PB_Any, ?Warning, 1699)
-      		  Else  
-      		    MarkDown()\Requester\Image\Num = #PB_Default
-      		  EndIf
-      		  
-      		  If IsImage(MarkDown()\Requester\Image\Num)
-      		    MarkDown()\Requester\Image\Width  = ImageWidth(MarkDown()\Requester\Image\Num)
-      		    MarkDown()\Requester\Image\Height = ImageHeight(MarkDown()\Requester\Image\Num)
-      		  EndIf
+    				If Image And FindMapElement(Requester\Image(), Image)
+    				  
+    				  If IsImage(Requester\Image()\Num)
+    				    MarkDown()\Requester\Image\Num    = Requester\Image()\Num
+    				    MarkDown()\Requester\Image\Width  = Requester\Image()\Width
+        		    MarkDown()\Requester\Image\Height = Requester\Image()\Height
+    				  EndIf
+    				  
+    				Else
+    				  
+      				If MarkDown()\Flags & #Info
+      				  MarkDown()\Requester\Image\Num = CatchImage(#PB_Any, ?Information, 2128)
+      				ElseIf MarkDown()\Flags & #Question
+      				  MarkDown()\Requester\Image\Num = CatchImage(#PB_Any, ?Question, 2196)
+      				ElseIf MarkDown()\Flags & #Error
+        		    MarkDown()\Requester\Image\Num = CatchImage(#PB_Any, ?Error, 1782)
+        		  ElseIf MarkDown()\Flags & #Warning
+        		    MarkDown()\Requester\Image\Num = CatchImage(#PB_Any, ?Warning, 1699)
+        		  Else  
+        		    MarkDown()\Requester\Image\Num = #PB_Default
+        		  EndIf
+        		  
+        		  If IsImage(MarkDown()\Requester\Image\Num)
+        		    MarkDown()\Requester\Image\Width  = ImageWidth(MarkDown()\Requester\Image\Num)
+        		    MarkDown()\Requester\Image\Height = ImageHeight(MarkDown()\Requester\Image\Num)
+        		  EndIf
+        		  
+        		EndIf  
       		  ;}
         		
     				BindGadgetEvent(MarkDown()\CanvasNum,  @_MouseMoveHandler(),      #PB_EventType_MouseMove)
@@ -8969,6 +9206,7 @@ Module MarkDown
   	    EndIf ;}  
   	    
   	    Parse_(Text)
+  	    
   	    DetermineTextSize_()
   	    
   	    ;{ _____ Image _____
@@ -8978,10 +9216,10 @@ Module MarkDown
   	      EndIf 
   	    EndIf ;}
   	    
-  	    If buttonWidth > MarkDown()\Required\Width : MarkDown()\Required\Width = buttonWidth : EndIf
-  	    
+  	    If wButtons > MarkDown()\Required\Width : MarkDown()\Required\Width = wButtons : EndIf
+
   	    Width  = MarkDown()\Required\Width  + dpiX(MarkDown()\Margin\Left + MarkDown()\Margin\Right)
-  	    Height = MarkDown()\Required\Height + dpiY(MarkDown()\Margin\Top  + MarkDown()\Margin\Bottom + 30)
+  	    Height = MarkDown()\Required\Height + dpiY(MarkDown()\Margin\Top  + MarkDown()\Margin\Bottom + 40)
   	    
   	    If IsImage(MarkDown()\Requester\Image\Num)
   	      Width + dpiX(MarkDown()\Requester\Image\Width + MarkDown()\Requester\Padding)
@@ -8991,7 +9229,18 @@ Module MarkDown
         ResizeGadget(MarkDown()\CanvasNum, 0, 0, Width, Height)
         
         ReDraw()
+        
+        If MarkDown()\ScrollBar\Item()\Hide = #False
 
+          Width + dpiX(#ScrollBarSize) + dpiX(2)
+          
+          ResizeWindow(MarkDown()\Window\Num, #PB_Ignore, #PB_Ignore, Width, #PB_Ignore)
+          ResizeGadget(MarkDown()\CanvasNum,  #PB_Ignore, #PB_Ignore, Width, #PB_Ignore)
+        
+          Draw_()
+          
+        EndIf  
+        
   	    Repeat
           Select WaitWindowEvent()
             Case #PB_Event_CloseWindow           ;{ Close window
@@ -9011,6 +9260,7 @@ Module MarkDown
         Until quitWindow
         
         If FindMapElement(MarkDown(), Str(GNum))
+
           Result = MarkDown()\Requester\Result
           
           UnbindGadgetEvent(MarkDown()\CanvasNum,  @_MouseMoveHandler(),      #PB_EventType_MouseMove)
@@ -10541,7 +10791,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
   
-  #Example = 30
+  #Example = 22
   
   ; === Gadget ===
   ;  1: Headings
@@ -10563,6 +10813,8 @@ CompilerIf #PB_Compiler_IsMainFile
   ; 17: Notes
   ; === Requester ===
   ; 20: Message Requester
+  ; 21: User image
+  ; 22: User buttons
   ; === Help ===
   ; 30: Help Window
   ; 31: Help to PDF
@@ -10719,7 +10971,12 @@ CompilerIf #PB_Compiler_IsMainFile
       ;}
     Case 20  ;{ Reqester
       Text$ = "Just a **short** information text.  " + #LF$
-      Text$ + "*Second requester line*" 
+      Text$ + "*Second requester line*" + #LF$
+      Text$ + "![](Test.jpg)" + #LF$
+      ;}
+    Case 21, 22 ;{ Reqester - UserImage 
+      Text$ = "Just a **short** information text.  " + #LF$
+      Text$ + "*Second requester line*" + #LF$
       ;}
     Default  ;{ Example text
       Text$ = "## MarkDown ##" + #LF$ + #LF$
@@ -10818,9 +11075,40 @@ CompilerIf #PB_Compiler_IsMainFile
     
   CompilerElseIf #Example < 30 
     
+    #Image = 1
+    
     CompilerIf MarkDown::#Enable_Requester
-
-      MarkDown::Requester("Markdown - Requester", Text$, MarkDown::#Info)
+      
+      CompilerSelect #Example
+        CompilerCase 21
+          
+          If LoadImage(#Image, "Symbol.png")
+            MarkDown::AddRequesterImage("Bug", #Image)
+          EndIf
+          
+          MarkDown::Requester("Markdown - Requester", Text$, #False, #PB_Default, "Bug")
+        CompilerCase 22
+          
+          Button1 = MarkDown::AddRequesterButton("Bt1", "Button 1")
+          Button2 = MarkDown::AddRequesterButton("Bt2", "Button 2")
+          
+          Result =  MarkDown::Requester("Markdown - Requester", Text$, MarkDown::#Warning, #PB_Default, "", "Bt1|Bt2")
+          
+          Select Result
+            Case Button1
+              Debug ">>> Button 1"
+            Case Button2
+              Debug ">>> Button 2"
+          EndSelect    
+          
+        CompilerDefault  
+ 
+          MarkDown::RequesterButtons("Klar", "Ja", "Nein", "Abbrechen")
+          ;MarkDown::RequesterPadding(20)
+    
+          MarkDown::Requester("Markdown - Requester", Text$, MarkDown::#Info)
+        
+      CompilerEndSelect
 
     CompilerEndIf
   
@@ -10848,9 +11136,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 3323
-; FirstLine = 426
-; Folding = wGAQ5PAABQQAAAEA+AAAAFRAiEAAAACAAQABAAAIDAOIIEAAAAAIAAAAAEAAAAEIDgJAAAAIAAAACCAAAJyAAFIAAAIMgghcKFAgAnMwAEAAwD9
-; Markers = 4270
+; CursorPosition = 11096
+; FirstLine = 1424
+; Folding = wGQR5PAABAAAAYEA+AACAFRAiEAAAACAAQABIAAIDAOIIEAAAAAIAAAAAEDIAAEIDgJAAAOIAwZACOAAEJyAAFIAAAICdYYInSBAIwJDMABAAqB+
+; Markers = 4322
 ; EnableXP
 ; DPIAware
