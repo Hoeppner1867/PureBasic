@@ -9,8 +9,10 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 18.04.2020
+; Last Update: 19.04.2020
 ;
+; - LZMA replaced by ZIP (due to problems with MacOS)
+; 
 ; - Added RequesterButtons() for language support
 ;
 ; - Bugfixes
@@ -114,7 +116,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20041800
+  #Version  = 20041801
   #ModuleEx = 20041700
   
   #Enable_Gadget     = #True
@@ -299,7 +301,7 @@ DeclareModule MarkDown
     Destination.s
     Label.s
     Valid.i
-  EndStructure  
+  EndStructure ;}
     
   Structure TOC_Structure                ;{ ...\TOC()\...
     ID.s
@@ -410,7 +412,7 @@ Module MarkDown
 	UseJPEGImageDecoder()
 	
 	CompilerIf #Enable_HelpWindow Or #Enable_CreateHelp
-	  UseLZMAPacker()
+	  UseZipPacker()
 	CompilerEndIf  
 	
 	;- ============================================================================
@@ -452,6 +454,7 @@ Module MarkDown
     #BlockQuote
     #Block
     #Bold
+    #BoldItalic
     #Code
     #CodeHeader
     #DefinitionList
@@ -2111,7 +2114,7 @@ Module MarkDown
   	    
   	    If Flag <> Words()\Flag
   	      
-  	      HTML$ + endTag$
+    	    HTML$ + endTag$
   
     	    Select Words()\Flag
     	      Case #Bold         ;{ Emphasis
@@ -2120,7 +2123,7 @@ Module MarkDown
     	      Case #Italic
     	        HTML$ + "<em>" + EscapeHTML_(Words()\String)
     	        endTag$ = "</em>"
-    	      Case #Bold|#Italic
+    	      Case #BoldItalic
     	        HTML$ + "<strong><em>" + EscapeHTML_(Words()\String)
     	        endTag$ = "</strong></em>"
     	      Case #StrikeThrough
@@ -2142,7 +2145,7 @@ Module MarkDown
               endTag$ = "</a>"
               ;}
     	      Case #Link         ;{ Links
-    	        
+
     	        ; Take me to <a href="#pookie">pookie</a>
               ; <a name="pookie">this is pookie</a>
     	        
@@ -2160,8 +2163,8 @@ Module MarkDown
                   String$ = EscapeHTML_(Words()\String)
                 EndIf
                 
-                If Left(Link$, 6) = "#Page:" : Link$ = Mid(Link$, 7) + ".html" : EndIf  
-                
+                If Left(Link$, 1) = "#" : Link$ = Mid(Link$, 2) + ".html" : EndIf  
+  
                 If MarkDown()\Link()\Title
                   HTML$ + "<a href=" + #DQUOTE$ + Link$ + #DQUOTE$ + " title=" + #DQUOTE$ + Title$ + #DQUOTE$ + ">" + String$
                 Else  
@@ -2187,7 +2190,7 @@ Module MarkDown
               EndIf
               ;}
             Case #Image        ;{ Images
-
+  
               If SelectElement(MarkDown()\Image(), Words()\Index)
                 
                 If MarkDown()\Image()\Width And MarkDown()\Image()\Height
@@ -2288,10 +2291,10 @@ Module MarkDown
     	    
     	  EndIf
     	  
-  	  Next 
-  	  
-  	  HTML$ + endTag$
-  	  
+    	Next 
+    
+    	HTML$ + endTag$
+  	
   	  ProcedureReturn HTML$
   	EndProcedure
   	
@@ -3047,7 +3050,6 @@ Module MarkDown
       EndIf
 
     EndProcedure
-    
     
     Procedure.i SymbolPDF(PDF.i, Char.s, X.i, Y.i, Height.i, Color.i, Triangle.i=#False)
       Define.f cWidth, OffsetX, OffsetY
@@ -4138,14 +4140,14 @@ Module MarkDown
               ePos = 0
               
               Select Start$
-                Case "***", "___" ;{ #Bold|#Italic
+                Case "***", "___" ;{ #BoldItalic
                   
                   ePos = FindString(Row, Start$, Pos + 3)
                   If ePos
                     
                     FirstItem = AddStringBefore_(sPos, Pos, Row, FirstItem, Words())
                     
-                    If ParseString_(Mid(Row, Pos + 3, ePos - Pos - 3), #Font_BoldItalic, #Bold|#Italic, Words(), LastHeading)
+                    If ParseString_(Mid(Row, Pos + 3, ePos - Pos - 3), #Font_BoldItalic, #BoldItalic, Words(), LastHeading)
                       ePos + 2
                     EndIf
                     
@@ -6998,9 +7000,9 @@ Module MarkDown
 		  
   		If MarkDown()\Type = #Requester
   		  
-  		  Height - dpiY(40)
+  		  Height - dpiY(33)
   		  
-  		  MsgHeight = dpiY(GadgetHeight(MarkDown()\CanvasNum)) - dpiY(40)
+  		  MsgHeight = dpiY(GadgetHeight(MarkDown()\CanvasNum)) - dpiY(33)
   		  
   		  If IsImage(MarkDown()\Requester\Image\Num)
   		    Width - dpiX(MarkDown()\Requester\Image\Width + MarkDown()\Requester\Padding)
@@ -7271,7 +7273,7 @@ Module MarkDown
   			  
   			  DrawingFont(FontID(MarkDown()\Font\Normal))
   			  
-  			  MarkDown()\Requester\ButtonY = MsgHeight + dpiY(9)
+  			  MarkDown()\Requester\ButtonY = MsgHeight + dpiY(6)
   			  
   			  DrawingMode(#PB_2DDrawing_Default)
 		      Box(0, MsgHeight, dpiX(GadgetWidth(MarkDown()\CanvasNum)), dpiY(40), MarkDown()\Color\Gadget)
@@ -7286,7 +7288,7 @@ Module MarkDown
 		          
 		          If FindMapElement(MarkDown()\Requester\Button(), Label$)
 		            Button_(Label$, X, MarkDown()\Requester\ButtonY)
-      			    X + dpiX(MarkDown()\Requester\Button()\Width) + dpiX(10)
+      			    X + dpiX(MarkDown()\Requester\Button()\Width) + dpiX(7)
 		          EndIf   
 		          
 		        Next
@@ -7296,14 +7298,14 @@ Module MarkDown
     			  If MarkDown()\Flags & #YesNo ;{ Buttons
       			  X = (dpiX(GadgetWidth(MarkDown()\CanvasNum)) - MarkDown()\Requester\ButtonsWidth) / 2
       			  Button_("Yes", X, MarkDown()\Requester\ButtonY)
-      			  X + dpiX(MarkDown()\Requester\Button("Yes")\Width) + dpiX(10)
+      			  X + dpiX(MarkDown()\Requester\Button("Yes")\Width) + dpiX(7)
       			  Button_("No", X, MarkDown()\Requester\ButtonY)
       			ElseIf MarkDown()\Flags & #YesNoCancel
-      			  X = dpiX(10)
+      			  X = dpiX(7)
       			  Button_("Yes", X, MarkDown()\Requester\ButtonY)
-      			  X + dpiX(MarkDown()\Requester\Button("Yes")\Width) + dpiX(10)
+      			  X + dpiX(MarkDown()\Requester\Button("Yes")\Width) + dpiX(7)
       			  Button_("No", X, MarkDown()\Requester\ButtonY)
-      			  X = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(MarkDown()\Requester\Button("Cancel")\Width) - dpiX(10)
+      			  X = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(MarkDown()\Requester\Button("Cancel")\Width) - dpiX(7)
       			  Button_("Cancel", X, MarkDown()\Requester\ButtonY)
       			Else
       			  X = (dpiX(GadgetWidth(MarkDown()\CanvasNum)) - MarkDown()\Requester\ButtonsWidth) / 2
@@ -7321,7 +7323,7 @@ Module MarkDown
 			  DrawingMode(#PB_2DDrawing_Outlined)
 			  Box_(0, 0, dpiX(GadgetWidth(MarkDown()\CanvasNum)), dpiY(GadgetHeight(MarkDown()\CanvasNum)), BorderColor)
 			  If MarkDown()\Type = #Requester
-			    Box_(0, 0, dpiX(GadgetWidth(MarkDown()\CanvasNum)), dpiY(GadgetHeight(MarkDown()\CanvasNum) - dpiY(40)), BorderColor)
+			    Box_(0, 0, dpiX(GadgetWidth(MarkDown()\CanvasNum)), dpiY(GadgetHeight(MarkDown()\CanvasNum) - dpiY(33)), BorderColor)
 			  EndIf   
 			EndIf ;}
 
@@ -9096,7 +9098,7 @@ Module MarkDown
         		      
         		      MarkDown()\Requester\Button()\Visible = #True
         		      
-        		      wButtons + dpiX(MarkDown()\Requester\Button()\Width + 10)
+        		      wButtons + dpiX(MarkDown()\Requester\Button()\Width + 7)
         		      
         		    ElseIf FindMapElement(Requester\Button(), Label$)
         		      
@@ -9109,14 +9111,14 @@ Module MarkDown
           		      EndIf  
           		      MarkDown()\Requester\Button()\Result  = Requester\Button()\Result
           		      MarkDown()\Requester\Button()\Visible = #True
-          		      wButtons + dpiX(buttonWidth + 10)
+          		      wButtons + dpiX(buttonWidth + 7)
           		    EndIf
           		    
           		  EndIf
         		  
         		  Next
         		  
-        		  If wButtons : wButtons - dpiX(10) : EndIf
+        		  If wButtons : wButtons - dpiX(7) : EndIf
         		  
         		  MarkDown()\Requester\ButtonsWidth = wButtons
         		  
@@ -9127,13 +9129,13 @@ Module MarkDown
       				  MarkDown()\Requester\Button("Yes")\Visible    = #True
       				  MarkDown()\Requester\Button("No")\Visible     = #True
       				  MarkDown()\Requester\Button("Cancel")\Visible = #False
-      				  wButtons = dpiX(MarkDown()\Requester\Button("Yes")\Width + MarkDown()\Requester\Button("No")\Width + 10)
+      				  wButtons = dpiX(MarkDown()\Requester\Button("Yes")\Width + MarkDown()\Requester\Button("No")\Width + 7)
       				ElseIf Flags & #YesNoCancel
       				  MarkDown()\Requester\Button("OK")\Visible     = #False
       				  MarkDown()\Requester\Button("Yes")\Visible    = #True
       				  MarkDown()\Requester\Button("No")\Visible     = #True
       				  MarkDown()\Requester\Button("Cancel")\Visible = #True		 
-      				  wButtons = dpiX(MarkDown()\Requester\Button("Yes")\Width + MarkDown()\Requester\Button("No")\Width + MarkDown()\Requester\Button("Cancel")\Width + 30)
+      				  wButtons = dpiX(MarkDown()\Requester\Button("Yes")\Width + MarkDown()\Requester\Button("No")\Width + MarkDown()\Requester\Button("Cancel")\Width + 21)
       				Else
       				  MarkDown()\Requester\Button("OK")\Visible     = #True
       				  MarkDown()\Requester\Button("Yes")\Visible    = #False
@@ -9219,7 +9221,7 @@ Module MarkDown
   	    If wButtons > MarkDown()\Required\Width : MarkDown()\Required\Width = wButtons : EndIf
 
   	    Width  = MarkDown()\Required\Width  + dpiX(MarkDown()\Margin\Left + MarkDown()\Margin\Right)
-  	    Height = MarkDown()\Required\Height + dpiY(MarkDown()\Margin\Top  + MarkDown()\Margin\Bottom + 40)
+  	    Height = MarkDown()\Required\Height + dpiY(MarkDown()\Margin\Top  + MarkDown()\Margin\Bottom + 33)
   	    
   	    If IsImage(MarkDown()\Requester\Image\Num)
   	      Width + dpiX(MarkDown()\Requester\Image\Width + MarkDown()\Requester\Padding)
@@ -9308,7 +9310,7 @@ Module MarkDown
 	    Define.s File$
 	    Define   *Buffer
 	    
-	    If CreatePack(Pack, Help\File, #PB_PackerPlugin_Lzma)
+	    If CreatePack(Pack, Help\File, #PB_PackerPlugin_Zip)
     
         If CreateJSON(JSON)  ;{ Save Markdown
           
@@ -9373,7 +9375,7 @@ Module MarkDown
   	      MarkDown()\Type = #HelpWindow
 
   	      ;{ _____ Load Help File _____
-    	    Pack = OpenPack(#PB_Any, File, #PB_PackerPlugin_Lzma)
+    	    Pack = OpenPack(#PB_Any, File, #PB_PackerPlugin_Zip)
     	    If Pack
     	      
     	      ClearMap(MarkDown()\ImageMem())
@@ -9497,7 +9499,7 @@ Module MarkDown
   	
   	  Procedure.s Help2HTML(Title.s, File.s, Folder.s="HTML", FileHTML.s="")
   	    Define.i PDF, FileID, Pack, JSON, Size, Counter, Level
-  	    Define.s File$, FileName$, HTML$, Style$, Label$, Start$, Image$, ImagePath$, Path$
+  	    Define.s File$, FileName$, HtmlFile$, HTML$, Style$, Label$, Start$, Image$, ImagePath$, Path$
   	    Define   *Buffer
   	    
   	    NewMap  Image.s()
@@ -9516,9 +9518,9 @@ Module MarkDown
         Else
           File$ = FileHTML
         EndIf
-
-        If GetPathPart(File)
-          Path$ = GetPathPart(GetAbsolutePath_(GetPathPart(File), File$))
+        
+        If GetPathPart(FileHTML)
+          Path$ = GetPathPart(GetAbsolutePath_(GetPathPart(File$), File$))
         Else
           Path$ = GetPathPart(GetAbsolutePath_(GetCurrentDirectory(), File$))
         EndIf
@@ -9531,7 +9533,7 @@ Module MarkDown
   	      MarkDown()\Type = #HelpWindow
   	      
   	      ;{ _____ Load Help File _____
-    	    Pack = OpenPack(#PB_Any, File, #PB_PackerPlugin_Lzma)
+    	    Pack = OpenPack(#PB_Any, File, #PB_PackerPlugin_Zip)
     	    If Pack
     	      
     	      ClearMap(MarkDown()\ImageMem())
@@ -9619,12 +9621,12 @@ Module MarkDown
     	    HTML$ + "</body>" + #LF$ + "</html>"
     	    
     	    If Folder
-            File$ = GetPathPart(FileHTML) + Folder + #PS$ + "Navigation.html"
+            HtmlFile$ = GetPathPart(FileHTML) + Folder + #PS$ + "Navigation.html"
           Else
-            File$ = "Navigation.html"
+            HtmlFile$ = "Navigation.html"
           EndIf
     	    
-  	      FileID = CreateFile(#PB_Any, File$, #PB_UTF8)
+  	      FileID = CreateFile(#PB_Any, HtmlFile$, #PB_UTF8)
           If FileID
     	      WriteStringFormat(FileID,  #PB_UTF8)
     	      WriteString(FileID, HTML$, #PB_UTF8)
@@ -9634,14 +9636,14 @@ Module MarkDown
     	    
     	    ;{ _____ CSS File _____
     	    If Folder
-            File$ = GetPathPart(FileHTML) + Folder + #PS$ + "Markdown.css"
+            HtmlFile$ = GetPathPart(FileHTML) + Folder + #PS$ + "Markdown.css"
           Else
-            File$ = "Markdown.css"
+            HtmlFile$ = "Markdown.css"
           EndIf
           
           Style$ = StyleCSS()
           
-    	    FileID = CreateFile(#PB_Any, File$, #PB_UTF8)
+    	    FileID = CreateFile(#PB_Any, HtmlFile$, #PB_UTF8)
           If FileID
     	      WriteStringFormat(FileID,  #PB_UTF8)
     	      WriteString(FileID, Style$, #PB_UTF8)
@@ -9663,12 +9665,12 @@ Module MarkDown
             Label$ = Item()\Label
             
             If Folder
-              File$ = GetPathPart(FileHTML) + Folder + #PS$ + Label$ + ".html"
+              HtmlFile$ = GetPathPart(File) + Folder + #PS$ + Label$ + ".html"
             Else
-              File$ = Label$ + ".html"
+              HtmlFile$ = Label$ + ".html"
             EndIf
             
-            FileID = CreateFile(#PB_Any, File$, #PB_UTF8)
+            FileID = CreateFile(#PB_Any, LCase(HtmlFile$), #PB_UTF8)
             If FileID
       	      WriteStringFormat(FileID,  #PB_UTF8)
       	      WriteString(FileID, HTML$, #PB_UTF8)
@@ -9696,7 +9698,7 @@ Module MarkDown
           
     	  EndIf
     	  
-    	  ProcedureReturn FileHTML
+    	  ProcedureReturn Path$ + GetFilePart(File$)
   	  EndProcedure
   	  
   	CompilerEndIf
@@ -9875,7 +9877,7 @@ Module MarkDown
   	    ;}
 
   	    ;{ _____ Load help file _____
-  	    Pack = OpenPack(#PB_Any, File, #PB_PackerPlugin_Lzma)
+  	    Pack = OpenPack(#PB_Any, File, #PB_PackerPlugin_Zip)
   	    If Pack
   	      
   	      If ExaminePack(Pack)
@@ -9998,6 +10000,9 @@ Module MarkDown
                           MarkDown()\PageLabel = MarkDown()\EventLabel
                           UpdateHelp(Help\CanvasNum, TOC(), Glossary(), Found())  
                           AddToHistory_(Help\Label())
+                          CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+                            SendMessage_(#HWND_BROADCAST, #WM_SYSCOMMAND, #SC_HOTKEY, WindowID(WindowNum))
+                          CompilerEndIf
                           SetActiveWindow(WindowNum)
                         EndIf
                       EndIf
@@ -10791,7 +10796,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
   
-  #Example = 22
+  #Example = 30
   
   ; === Gadget ===
   ;  1: Headings
@@ -11106,7 +11111,7 @@ CompilerIf #PB_Compiler_IsMainFile
           MarkDown::RequesterButtons("Klar", "Ja", "Nein", "Abbrechen")
           ;MarkDown::RequesterPadding(20)
     
-          MarkDown::Requester("Markdown - Requester", Text$, MarkDown::#Info)
+          MarkDown::Requester("Markdown - Requester", Text$, MarkDown::#Info|MarkDown::#YesNo)
         
       CompilerEndSelect
 
@@ -11126,8 +11131,8 @@ CompilerIf #PB_Compiler_IsMainFile
         CompilerEndIf  
       Case 32
         CompilerIf MarkDown::#Enable_HelpWindow
-          MarkDown::Help2HTML("Markdown Module", "Help.mdh", "HTML", "Index.html") 
-          RunProgram("Index.html")
+          HTML$ = MarkDown::Help2HTML("Markdown Module", "Help.mdh", "HTML", "Index.html") 
+          RunProgram(HTML$)
         CompilerEndIf  
     EndSelect
     
@@ -11136,9 +11141,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 11096
-; FirstLine = 1424
-; Folding = wGQR5PAABAAAAYEA+AACAFRAiEAAAACAAQABIAAIDAOIIEAAAAAIAAAAAEDIAAEIDgJAAAOIAwZACOAAEJyAAFIAAAICdYYInSBAIwJDMABAAqB+
-; Markers = 4322
+; CursorPosition = 10798
+; FirstLine = 1877
+; Folding = QAAB5fCABAAAAYEA+AACAFRIiAAAAQCBAAAAAAAIjQOIIEAAAAAIAAAAAEDIAAEIDgJAAAGIAwRACOAAEJyAAFIAAAMCPY6ZlyNYIlTGYACAAwDy
+; Markers = 4324
 ; EnableXP
 ; DPIAware

@@ -254,7 +254,17 @@ Module PreView
 	;- ============================================================================
 	;-   Module - Internal
 	;- ============================================================================
-
+	
+	Procedure.i BlendColor_(Color1.i, Color2.i, Scale.i=50)
+    Define.i R1, G1, B1, R2, G2, B2
+    Define.f Blend = Scale / 100
+    
+    R1 = Red(Color1): G1 = Green(Color1): B1 = Blue(Color1)
+    R2 = Red(Color2): G2 = Green(Color2): B2 = Blue(Color2)
+    
+    ProcedureReturn RGB((R1*Blend) + (R2 * (1-Blend)), (G1*Blend) + (G2 * (1-Blend)), (B1*Blend) + (B2 * (1-Blend)))
+  EndProcedure
+	
 	CompilerIf #PB_Compiler_OS = #PB_OS_MacOS
 		; Addition of mk-soft
 
@@ -1379,7 +1389,6 @@ Module PreView
           PreView()\VScrollBar\Hide = #True
         EndIf
         
-        
   			If WindowNum = #PB_Default
           PreView()\Window\Num = GetGadgetWindow()
         Else
@@ -1767,9 +1776,9 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf 
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 1350
-; FirstLine = 170
-; Folding = 5GAAgwDEAAEfN+
+; IDE Options = PureBasic 5.72 (Windows - x64)
+; CursorPosition = 1439
+; FirstLine = 274
+; Folding = 5GAOAhHIAAI+a9
 ; EnableXP
 ; DPIAware

@@ -9,8 +9,10 @@
 ;/ © 2020 Thorsten1867 (08/2019)
 ;/
 
-; Last Update: 19.03.2020
-
+; Last Update: 19.04.2020
+;
+; - LZMA replaced by ZIP (due to problems with MacOS)
+;
 
 ;{ ===== MIT License =====
 ;
@@ -62,7 +64,7 @@
 
 DeclareModule ResourceEx
   
-  #Version = 20031900
+  #Version = 20041900
   
   ;- ==================================
 	;-   DeclareModule
@@ -84,7 +86,7 @@ Module ResourceEx
   
   EnableExplicit
   
-  UseLZMAPacker()
+  UseZipPacker()
   UseSHA3Fingerprint()
   
   ;- ==================================
@@ -479,7 +481,7 @@ Module ResourceEx
     
     If AddMapElement(ResEx(), Str(ID))
       
-      ResEx()\ID   = OpenPack(#PB_Any, File, #PB_PackerPlugin_Lzma)
+      ResEx()\ID   = OpenPack(#PB_Any, File, #PB_PackerPlugin_Zip)
       ResEx()\File = File
       ResEx()\Key  = Key
       
@@ -709,6 +711,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
+  #Pack  = 1
   #ResEx = 1
   #XML   = 1
   #JSON  = 1
@@ -717,7 +720,15 @@ CompilerIf #PB_Compiler_IsMainFile
   UseJPEGImageDecoder()
   UseLZMAPacker()
 
-  Key$  = "18qAES07PW67"
+  ;Key$  = "18qAES07PW67"
+  
+  ;If CreatePack(#Pack, "Test.res", #PB_PackerPlugin_Zip) 
+  ;  AddPackFile(#Pack, "Test" + #PS$ + "Test.xml", "Test.xml")  
+  ;  AddPackFile(#Pack, "Test" + #PS$ + "Test.json", "Test.json") 
+  ;  AddPackFile(#Pack, "Test" + #PS$ + "Test.txt", "Test.txt")  
+  ;  AddPackFile(#Pack, "Test" + #PS$ + "Test.jpg", "Test.jpg") 
+  ;  ClosePack(#Pack)
+  ;EndIf
   
   If ResourceEx::Open(#ResEx, "Test.res", Key$)
     
@@ -746,9 +757,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
   
 CompilerEndIf  
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 8
-; FirstLine = 3
-; Folding = YhPAA0
+; IDE Options = PureBasic 5.72 (Windows - x64)
+; CursorPosition = 730
+; FirstLine = 119
+; Folding = QhPAA9
 ; EnableXP
 ; DPIAware

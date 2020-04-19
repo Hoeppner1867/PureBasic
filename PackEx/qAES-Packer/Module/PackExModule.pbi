@@ -10,7 +10,6 @@
 ;/
 
 ; [ Extended Packer ]
-
 ; - Add or replace a file to an opened archive
 ; - Remove a file from an open archive
 ; - Move files back to the archive or update them when the archive is closed. [#MoveBack/#Update]
@@ -49,6 +48,14 @@
 ; SOFTWARE.
 ;}
 
+;{ ===== Additional tea & pizza license =====
+; <purebasic@thprogs.de> has created this code. 
+; If you find the code useful and you want to use it for your programs, 
+; you are welcome to support my work with a cup of tea or a pizza
+; (or the amount of money for it). 
+; [ https://www.paypal.me/Hoeppner1867 ]
+;}
+
 
 ;{ _____ PackEx - Commands _____
 
@@ -80,6 +87,9 @@
 
 
 DeclareModule PackEx
+  
+  #Version  = 19090600
+  #ModuleEx = 19112100
   
   #Enable_EmbeddingLSB = #True
   
@@ -2330,10 +2340,10 @@ CompilerIf #PB_Compiler_IsMainFile
   CompilerEndSelect    
   
 CompilerEndIf  
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 2135
-; FirstLine = 360
-; Folding = cUAAAAADAAAAAgIA-
+; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; CursorPosition = 94
+; FirstLine = 18
+; Folding = 5oAAAAAGAAAAAARA+
 ; EnableXP
 ; DPIAware
 ; Executable = ..\..\qAES-Packer\qAES-Packer64.exe
