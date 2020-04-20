@@ -116,7 +116,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20041801
+  #Version  = 20041900
   #ModuleEx = 20041700
   
   #Enable_Gadget     = #True
@@ -383,6 +383,7 @@ DeclareModule MarkDown
       Declare.s Help2HTML(Title.s, File.s, Folder.s="HTML", FileHTML.s="")
     CompilerEndIf
     
+    Declare   SetAppDataDir(Path.s)
     Declare   SetHelpFont(Font.i, Type.i=#False)
     Declare   ChangeHelpTopic(Label.s)
     Declare.s Help(Title.s, File.s, Label.s="", Flags.i=#False, Parent.i=#PB_Default)
@@ -9703,6 +9704,10 @@ Module MarkDown
   	  
   	CompilerEndIf
   	
+  	Procedure   SetAppDataDir(Path.s)
+  	  Help\DataDir = Path
+  	EndProcedure
+  	
   	Procedure   SetHelpFont(Font.i, Type.i=#False)
   	  
   	  If IsFont(Font)
@@ -9751,11 +9756,13 @@ Module MarkDown
       Help\Window\Width  = #PB_Ignore
       Help\Window\Height = #PB_Ignore
       
-      If Left(GetCurrentDirectory(), Len(GetUserDirectory(#PB_Directory_Programs))) = GetUserDirectory(#PB_Directory_Programs)
-        Help\DataDir = GetUserDirectory(#PB_Directory_ProgramData) + GetFilePart(ProgramFilename(), #PB_FileSystem_NoExtension) + #PS$
-      Else
-        Help\DataDir = GetCurrentDirectory()
-      EndIf 
+      If Help\DataDir = "" Or FileSize(Help\DataDir) <> -2
+        If Left(GetCurrentDirectory(), Len(GetUserDirectory(#PB_Directory_Programs))) = GetUserDirectory(#PB_Directory_Programs)
+          Help\DataDir = GetUserDirectory(#PB_Directory_ProgramData) + GetFilePart(ProgramFilename(), #PB_FileSystem_NoExtension) + #PS$
+        Else
+          Help\DataDir = GetCurrentDirectory()
+        EndIf 
+      EndIf
       
       WindowFlags = #PB_Window_Tool|#PB_Window_SystemMenu|#PB_Window_Invisible
       If Flags & #AutoResize : WindowFlags | #PB_Window_SizeGadget : EndIf
@@ -11141,9 +11148,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 10798
-; FirstLine = 1877
-; Folding = QAAB5fCABAAAAYEA+AACAFRIiAAAAQCBAAAAAAAIjQOIIEAAAAAIAAAAAEDIAAEIDgJAAAGIAwRACOAAEJyAAFIAAAMCPY6ZlyNYIlTGYACAAwDy
-; Markers = 4324
+; CursorPosition = 118
+; FirstLine = 15
+; Folding = wAAB5fCABAAAAYEA+AACAFRIiAAAAQCBAAAAAAAIjQOIIEAAAAAIAAAAAEDIAAEIDgJAAAGIAwRACOAAEJyAAFIAAAMCPYZJlmawQKnMwAEAAgHk-
+; Markers = 4325
 ; EnableXP
 ; DPIAware
