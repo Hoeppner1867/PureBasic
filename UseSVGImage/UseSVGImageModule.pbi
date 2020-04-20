@@ -10,6 +10,12 @@
 ;/ © 2020 Thorsten Hoeppner (04/2020)
 ;/ 
 
+; Last Update: 20.04.2020
+;
+; Added: CreateIcon()
+; Added: Center proportional resized image (#CenterImage)
+;
+
 ;{ ===== MIT License =====
 
 ; Copyright (c) 2019 Martin Guttmann (alias STARGÅTE)
@@ -47,16 +53,24 @@
 
 ;}
 
+; ***** If CreateIcon is not required, this line can be commented out. *****
+CompilerIf Not Defined(Icon, #PB_Module) : XIncludeFile "UseIconModule.pbi" : CompilerEndIf
 
 DeclareModule SVG
+  
+  #Version  = 20042000
+  #ModuleEx = 20041700
   
   EnumerationBinary ; Image Flags
     #Proportional    ; scales the image proportionally
     #ForceSizeRatio  ; uses the specified aspect ratio (even if #Proportional has been set)
     #KeepImage       ; keeps the previous image after resizing (only if #PB_Any was used)
+    #CenterImage     ; 
     #CreateNoImage   ; loads the SVG file without creating an image [=> 'SVG::DrawVector()']
+    #Windows         ; Icon: *.ico
+    #MacOS           ; Icon: *.icns
   EndEnumeration
-  
+
   ;- ===========================================================================
   ;-   DeclareModule
   ;- ===========================================================================
@@ -67,6 +81,10 @@ DeclareModule SVG
   Declare.i CatchString(Image.i, StringSVG.s, Flags.i=#False, BackColor.q=#PB_Image_Transparent, Width.d=0, Height.d=0, Font.i=#False)
   Declare.i Resize(Image.i, Width.d, Height.d, Flags.i=#False)
   Declare   DrawVector(Image.i, Width.d=0, Height.d=0, Flags.i=#False)
+  
+  CompilerIf Defined(Icon, #PB_Module)
+    Declare.i CreateIcon(Image.i, File.s, Flags.i=#False)
+  CompilerEndIf  
   
 EndDeclareModule
 
@@ -1252,7 +1270,7 @@ Module SVG
   	
   EndProcedure
   
-  Procedure   DrawSVGImage_(XML.i)
+  Procedure   DrawSVGImage_(XML.i, OffSetX.d=0, OffsetY.d=0)
     Define.s Width$, Height$
     Define   *MainNode
     
@@ -1274,15 +1292,12 @@ Module SVG
 
   	  *MainNode = MainXMLNode(XML)  
   	  If *MainNode
-  	    
-      	;SVG()\Width  = Parse_Attribute_Length(GetXMLAttribute(*MainNode, "width"),  SVG()\Image\Width)
-      	;SVG()\Height = Parse_Attribute_Length(GetXMLAttribute(*MainNode, "height"), SVG()\Image\Height)
-  	    
+  	     
       	BeginVectorLayer()
       	
       	If SVG()\ViewBox\State
       		ScaleCoordinates(SVG()\Image\Width / SVG()\ViewBox\Width, SVG()\Image\Height / SVG()\ViewBox\Height)
-      		TranslateCoordinates(-SVG()\ViewBox\X, -SVG()\ViewBox\Y)
+      		TranslateCoordinates(-SVG()\ViewBox\X + OffSetX, -SVG()\ViewBox\Y + OffsetY)
       		AddPathBox(SVG()\ViewBox\X, SVG()\ViewBox\Y, SVG()\ViewBox\Width, SVG()\ViewBox\Height)
       		ClipPath()
       	Else
@@ -1371,7 +1386,7 @@ Module SVG
   
   Procedure   DrawVector(Image.i, Width.d=0, Height.d=0, Flags.i=#False)
     ; Flags: #Proportional / #ForceSizeRatio
-    Define.f Factor, wFactor, hFactor
+    Define.f Factor, wFactor, hFactor, OffSetX, OffSetY
     Define.i XML
     
     If FindMapElement(SVG(), Str(Image))
@@ -1380,15 +1395,22 @@ Module SVG
       SVG()\Image\Height = Height
       
       If Flags & #ForceSizeRatio = #False
-        If SVG()\Flags & #Proportional Or Flags  & #Proportional
+        If SVG()\Flags & #Proportional Or Flags & #Proportional
+          
           AdjustSizeRatio()
+          
+          If SVG()\Flags & #CenterImage Or Flags & #CenterImage
+            OffSetX = (Width  - SVG()\Image\Width)  / 2
+            OffSetY = (Height - SVG()\Image\Height) / 2 
+          EndIf
+          
         EndIf  
       EndIf
       
       XML = ParseXML(#PB_Any, SVG()\strgXML)
       If IsXML(XML)
         
-        DrawSVGImage_(XML)
+        DrawSVGImage_(XML, OffSetX, OffSetY)
 
         FreeXML(XML)
       EndIf   
@@ -1458,7 +1480,7 @@ Module SVG
     ; Flags:     #Proportional / #CreateNoImage
     ; BackColor: #PB_Image_Transparent
     Define.f Factor, wFactor, hFactor
-    Define.i Result, Depth, PB_Any
+    Define.i Result, Depth, PB_Any, OffSetX, OffSetY
 
     If IsXML(svgXML)
       
@@ -1507,8 +1529,13 @@ Module SVG
           SVG()\Image\Width  = SVG()\Width
           SVG()\Image\Height = SVG()\Height
         EndIf
-
-        If Flags & #Proportional : AdjustSizeRatio() : EndIf  
+        
+        Width  = dpiX(SVG()\Image\Width)
+        Height = dpiY(SVG()\Image\Height)
+        
+        If Flags & #Proportional
+          AdjustSizeRatio()
+        EndIf  
         
         SVG()\Image\Width  = dpiX(SVG()\Image\Width)
         SVG()\Image\Height = dpiY(SVG()\Image\Height)
@@ -1516,7 +1543,18 @@ Module SVG
         If IsImage(Image) And Flags & #CreateNoImage = #False
         
           If SVG()\Image\Width And SVG()\Image\Height
-            ResizeImage(Image, SVG()\Image\Width, SVG()\Image\Height, #PB_Image_Raw)
+            
+            If Flags & #CenterImage
+              
+              ResizeImage(Image, Width, Height, #PB_Image_Raw)
+
+              OffSetX = (Width  - SVG()\Image\Width)  / 2
+              OffSetY = (Height - SVG()\Image\Height) / 2 
+              
+            Else  
+              ResizeImage(Image, SVG()\Image\Width, SVG()\Image\Height, #PB_Image_Raw)
+            EndIf
+            
           EndIf
           
           If StartVectorDrawing(ImageVectorOutput(Image))
@@ -1538,7 +1576,7 @@ Module SVG
             
         		If IsFont(SVG()\Font) : VectorFont(FontID(SVG()\Font)) : EndIf 
         		
-        		DrawSVGImage_(svgXML)
+        		DrawSVGImage_(svgXML, OffSetX, OffSetY)
         		
             StopVectorDrawing()
           EndIf
@@ -1552,7 +1590,7 @@ Module SVG
     
     ProcedureReturn Result
   EndProcedure
-    
+ 
   Procedure.i CatchString(Image.i, StringSVG.s, Flags.i=#False, BackColor.q=#PB_Image_Transparent, Width.d=0, Height.d=0, Font.i=#False)
     ; Flags:     #Proportional / #CreateNoImage
     ; BackColor: #PB_Image_Transparent
@@ -1593,6 +1631,47 @@ Module SVG
     ProcedureReturn Result
   EndProcedure
   
+  
+  CompilerIf Defined(Icon, #PB_Module)
+    
+    Procedure.i CreateIcon(Image.i, File.s, Flags.i=#False)
+      Define.i d, XML, Size, Icon, Image
+      
+      If FindMapElement(SVG(), Str(Image))
+
+        If Flags & #Windows And Flags & #MacOS
+          Icon = Icon::Create(#PB_Any, File, Icon::#Windows|Icon::#MacOS)
+        ElseIf Flags & #MacOS
+          Icon = Icon::Create(#PB_Any, File, Icon::#MacOS)
+        Else
+          Icon = Icon::Create(#PB_Any, File, Icon::#Windows)
+        EndIf  
+
+        If Icon
+          
+          Restore IconSize
+          
+          For d=1 To 9
+            Read.i Size
+            Image = SVG::Resize(Image, Size, Size, SVG::#Proportional|SVG::#CenterImage)
+            Icon::AddImage(Icon, Image)
+          Next
+          
+          Icon::Close(Icon)  
+        EndIf
+      
+      EndIf
+      
+      ProcedureReturn  Image
+    EndProcedure
+    
+    DataSection
+      IconSize:
+      Data.i 16, 24, 32, 48, 64, 128, 256, 512, 1024
+    EndDataSection
+
+  CompilerEndIf  
+
 EndModule
 
 ;- ========  Module - Example ========
@@ -1602,7 +1681,7 @@ CompilerIf #PB_Compiler_IsMainFile
   Define.s SVG$
   Define.i quitWindow = #False
   
-  #Example = 10
+  #Example = 20
   
   ;  0: Load a SVG to the image gadget
   ;  1: Load a SVG to the image gadget (transparent)
@@ -1613,7 +1692,8 @@ CompilerIf #PB_Compiler_IsMainFile
   ;  6: Catch already loaded SVG (XML)
   ;  7: Load image form URL
   ; 10: Draw SVG directly on a CanvasGadget
- 
+  ; 20: Create Icons from SVG
+  
   Enumeration
   	#Window
   	#Gadget
@@ -1657,7 +1737,7 @@ CompilerIf #PB_Compiler_IsMainFile
       CompilerCase 5   
         
         ; SVG::Load(#Image, "ReadingGirl.svg", #False, $FFFFFF, 580, 580) ; no adjust
-        SVG::Load(#Image, "ReadingGirl.svg", SVG::#Proportional, $FFFFFF, 580, 580)
+        SVG::Load(#Image, "ReadingGirl.svg", SVG::#Proportional|SVG::#CenterImage, $FFFFFF, 580, 580)
         
         SetGadgetState(#Gadget, ImageID(#Image))
         
@@ -1693,9 +1773,16 @@ CompilerIf #PB_Compiler_IsMainFile
         
         If StartVectorDrawing(CanvasVectorOutput(#Canvas))
           
-          SVG::DrawVector(#SVG, 580, 580, SVG::#Proportional)
+          SVG::DrawVector(#SVG, 580, 580, SVG::#Proportional|SVG::#CenterImage)
         
           StopVectorDrawing()
+        EndIf
+        
+      CompilerCase 20
+        
+        If SVG::Load(#SVG, "Test.svg", SVG::#CreateNoImage)
+          SVG::CreateIcon(#SVG, "Test.ico", SVG::#Windows|SVG::#MacOS)
+          quitWindow = #True
         EndIf
         
       CompilerDefault
@@ -1719,8 +1806,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 1514
-; FirstLine = 165
-; Folding = KADAAAAN-
+; CursorPosition = 1784
+; FirstLine = 305
+; Folding = 9AAAAAAQ5-
 ; EnableXP
 ; DPIAware
