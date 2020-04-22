@@ -32,7 +32,9 @@
 
 ;{ _____ Module - Commands _____
 
-; Icon::Save()      - similar to 'SaveImage()' [#MacOS|#Windows|#Cursor] 
+; Icon::Save()      - similar to 'SaveImage()'   [#MacOS|#Windows|#Cursor] 
+; Icon::Encode()    - similar to 'EncodeImage()' [#ImagePlugin_ICO|#ImagePlugin_ICNS] 
+;
 ; Icon::Create()    - create a new icon with several sizes [#Windows|#MacOS]
 ; Icon::AddImage()  - add an image to the icon
 ; Icon::Close()     - close and create the icon
@@ -41,7 +43,7 @@
 
 DeclareModule Icon
   
-  #Version  = 20042000
+  #Version  = 20042001
   #ModuleEx = 20041700
   
   EnumerationBinary ; Flags
@@ -50,12 +52,18 @@ DeclareModule Icon
     #Windows
     #MacOS
   EndEnumeration
-
+  
+  #ImagePlugin_ICO  = #Windows
+  #ImagePlugin_ICNS = #MacOS
+  
   ;- ===========================================================================
   ;-   DeclareModule
   ;- ===========================================================================
   
   Declare.i Save(Image.i, File.s, Flags.i=#Icon, HotspotX.i=0, HotspotY.i=0)
+  
+  Declare.i Encode(Image.i, ImagePlugin.i, Flags.i=#False) 
+  
   Declare.i Create(ID.i, File.s, Flags.i=#False) 
   Declare.i AddImage(ID.i, Image.i, Size.i=#PB_Default)
   Declare   Close(ID.i)
@@ -167,6 +175,7 @@ Module Icon
     ProcedureReturn #False
   EndProcedure  
   
+  
   Procedure   WriteWinHeader_(FileNum.i, Type.w=#CreateIcon, Number.w=1)
     
     WriteWord(FileNum, 0)      ; Offset 00: Reserved = 0
@@ -189,14 +198,14 @@ Module Icon
   Procedure   WriteImageDir_(FileNum.i, List ImageDir.ImageDir_Structure())
     
     ForEach ImageDir()
-      WriteByte(FileNum.i, ImageDir()\Width)        ; Offset 00: 0 - 255
-      WriteByte(FileNum.i, ImageDir()\Height)       ; Offset 01: 0 - 255
-      WriteByte(FileNum.i, ImageDir()\NumOfColors)  ; Offset 02: 0 without color palette
-      WriteByte(FileNum.i, 0)                       ; Offset 03: Reserved (should be 0)
-      WriteWord(FileNum.i, ImageDir()\ColorPlanes)  ; Offset 04: 0 or 1 (ICO) / X pixel from left (CUR)
-      WriteWord(FileNum.i, ImageDir()\BitsPerPixel) ; Offset 06: Bits per pixel (ICO) / Y pixel from top (CUR)
-      WriteLong(FileNum.i, ImageDir()\Size)         ; Offset 08: Bytes of image data
-      WriteLong(FileNum.i, ImageDir()\Offset)       ; Offset 12: Offset from beginning
+      WriteByte(FileNum, ImageDir()\Width)        ; Offset 00: 0 - 255
+      WriteByte(FileNum, ImageDir()\Height)       ; Offset 01: 0 - 255
+      WriteByte(FileNum, ImageDir()\NumOfColors)  ; Offset 02: 0 without color palette
+      WriteByte(FileNum, 0)                       ; Offset 03: Reserved (should be 0)
+      WriteWord(FileNum, ImageDir()\ColorPlanes)  ; Offset 04: 0 or 1 (ICO) / X pixel from left (CUR)
+      WriteWord(FileNum, ImageDir()\BitsPerPixel) ; Offset 06: Bits per pixel (ICO) / Y pixel from top (CUR)
+      WriteLong(FileNum, ImageDir()\Size)         ; Offset 08: Bytes of image data
+      WriteLong(FileNum, ImageDir()\Offset)       ; Offset 12: Offset from beginning
     Next
     
   EndProcedure
@@ -260,10 +269,53 @@ Module Icon
     ProcedureReturn Size
   EndProcedure  
   
-  Procedure.i AddWinImage_(ImgNum.i, List ImageDir.ImageDir_Structure(), OffSet.i=#False, CursorX.i=-1, CursorY.i=-1)
+  
+  Procedure.i SquareImage_(ImageNum.i)
+    Define.i Width, Height, SquareNum.i, Offset
+    
+    Width  = ImageWidth(ImageNum)
+    Height = ImageHeight(ImageNum)
+    
+    If Width > Height
+      
+      Offset = (Width - Height) / 2
+      
+      SquareNum = CreateImage(#PB_Any, Width, Width, 32, #PB_Image_Transparent)
+      If SquareNum
+        If StartDrawing(ImageOutput(SquareNum)) 
+          DrawingMode(#PB_2DDrawing_AlphaBlend)
+          DrawImage(ImageNum, Offset, 0)
+          StopDrawing()
+        EndIf
+      EndIf
+      
+    ElseIf Width < Height  
+      
+      Offset = (Height - Width) / 2
+      
+      SquareNum = CreateImage(#PB_Any, Height, Height, 32, #PB_Image_Transparent)
+      If SquareNum
+        If StartDrawing(ImageOutput(SquareNum)) 
+          DrawingMode(#PB_2DDrawing_AlphaBlend)
+          DrawImage(ImageNum, 0, Offset)
+          StopDrawing()
+        EndIf
+      EndIf
+      
+    EndIf  
+    
+    If IsImage(SquareNum)
+      FreeImage(ImageNum)
+      ProcedureReturn CopyImage(SquareNum, #PB_Any)
+    EndIf   
+    
+  EndProcedure   
+  
+  
+  Procedure.i AddWinImage_(ImageNum.i, List ImageDir.ImageDir_Structure(), OffSet.i=#False, CursorX.i=-1, CursorY.i=-1)
     Define *Image, Size.i
     
-    *Image = EncodeImage(ImgNum, #PB_ImagePlugin_PNG, #False, 32)
+    *Image = EncodeImage(ImageNum, #PB_ImagePlugin_PNG, #False, 32)
     If *Image 
      
       Size = MemorySize(*Image)
@@ -272,8 +324,8 @@ Module Icon
         
         ImageDir()\Buffer = *Image
  
-        ImageDir()\Width  = ImageWidth(ImgNum)
-        ImageDir()\Height = ImageHeight(ImgNum)
+        ImageDir()\Width  = ImageWidth(ImageNum)
+        ImageDir()\Height = ImageHeight(ImageNum)
         
         ImageDir()\NumOfColors  =  0   ; Number of colors in the color palette (0 without color palette)
         
@@ -300,10 +352,10 @@ Module Icon
   
   EndProcedure 
   
-  Procedure.i AddMacImage_(ImgNum.i, Type.s, List IconData.IconData_Structure()) 
+  Procedure.i AddMacImage_(ImageNum.i, Type.s, List IconData.IconData_Structure()) 
     Define *Image, Size.i, Type.s
     
-    *Image = EncodeImage(ImgNum, #PB_ImagePlugin_PNG, #False, 32)
+    *Image = EncodeImage(ImageNum, #PB_ImagePlugin_PNG, #False, 32)
     If *Image 
      
       Size = MemorySize(*Image)
@@ -321,12 +373,13 @@ Module Icon
     
   EndProcedure
   
+
   ;- ==========================================================================
   ;-   Module - Declared Procedures
   ;- ========================================================================== 
   
   Procedure.i Save(Image.i, File.s, Flags.i=#Icon, HotspotX.i=0, HotspotY.i=0)
-    Define.i FileNum, Result, Width, Height, OffSet, Type, Size
+    Define.i FileNum, Result, Width, Height, Type, Size
     Define.s Type$, Path$
     
     NewList ImageDir.ImageDir_Structure()
@@ -337,23 +390,9 @@ Module Icon
       Width  = ImageWidth(Image)
       Height = ImageHeight(Image)
       
-      If Width <> Height ;{ Image non-square
-
-        If Width < Height
-          Result = ResizeImage(Image, Width, Width, #PB_Image_Smooth)
-          Size   = Width
-        Else
-          Result = ResizeImage(Image, Height, Height, #PB_Image_Smooth)
-          Size   = Height
-        EndIf  
-        
-        If Not Result : ProcedureReturn #False : EndIf
-        ;}
-      Else
-        Size = Width
-      EndIf
-      
-      OffSet = #WinHeaderSize + #ImageDirSize
+      If Width <> Height : Image = SquareImage_(Image) : EndIf
+     
+      Size = ImageWidth(Image)
       
       If Flags & #MacOS And Flags & #Windows ;{ MacOS (ICNS) / Windows (ICO)
         
@@ -362,7 +401,7 @@ Module Icon
           If AddMacImage_(Image, Type$, IconData()) : Result = #True : EndIf
         EndIf
         
-        If AddWinImage_(Image, ImageDir(), OffSet)
+        If AddWinImage_(Image, ImageDir(), #WinHeaderSize + #ImageDirSize)
           Type   = #CreateIcon
           Result = #True
         EndIf  
@@ -378,10 +417,10 @@ Module Icon
         
         If Flags & #Cursor
           Type   = #CreateCursor
-          Result = AddWinImage_(Image, ImageDir(), OffSet, HotspotX, HotspotY)
+          Result = AddWinImage_(Image, ImageDir(), #WinHeaderSize + #ImageDirSize, HotspotX, HotspotY)
         Else
           Type   = #CreateIcon
-          Result = AddWinImage_(Image, ImageDir(), OffSet)
+          Result = AddWinImage_(Image, ImageDir(), #WinHeaderSize + #ImageDirSize)
         EndIf
         ;}
       EndIf
@@ -458,6 +497,142 @@ Module Icon
     
   EndProcedure
   
+  Procedure.i Encode(Image.i, ImagePlugin.i, Flags.i=#False) 
+    Define.i Result, Width, Height, OffSet, Type, Size, t
+    Define.s Type$
+    Define   *Icon, *Pointer
+    
+    NewList ImageDir.ImageDir_Structure()
+    NewList IconData.IconData_Structure()
+    
+    If IsImage(Image)
+      
+      Width  = ImageWidth(Image)
+      Height = ImageHeight(Image)
+      
+      If Width <> Height ;{ Image non-square
+
+        If Width < Height
+          Result = ResizeImage(Image, Width, Width, #PB_Image_Smooth)
+          Size   = Width
+        Else
+          Result = ResizeImage(Image, Height, Height, #PB_Image_Smooth)
+          Size   = Height
+        EndIf  
+        
+        If Not Result : ProcedureReturn #False : EndIf
+        ;}
+      Else
+        Size = Width
+      EndIf
+      
+      If Flags & #ImagePlugin_ICNS ;{ MacOS (ICNS)
+        
+        Type$ = GetMacIconType(Size)
+        If Type$
+          Result = AddMacImage_(Image, Type$, IconData()) 
+        EndIf 
+        ;}
+      Else                         ;{ Windows (ICO/CUR)
+
+        Type   = #CreateIcon       
+        Result = AddWinImage_(Image, ImageDir(), #WinHeaderSize + #ImageDirSize)
+        ;}
+      EndIf 
+      
+      If Result
+        
+        If Flags & #ImagePlugin_ICNS ;{ MacOS (ICNS)
+          
+          If ListSize(IconData())
+            
+            Size = CalcIcnsSize_(IconData())
+            
+            *Icon = AllocateMemory(Size)
+            If *Icon
+              
+              *Pointer = *Icon
+              
+              PokeB(*Pointer, $69)            ; Offset 00: Magic literal
+              PokeB(*Pointer + 1, $63)        ; Offset 01: Magic literal
+              PokeB(*Pointer + 2, $6E)        ; Offset 02: Magic literal
+              PokeB(*Pointer + 3, $73)        ; Offset 03: Magic literal
+              PokeL(*Pointer + 4, Long(Size)) ; Offset 04: Length of file (MSB first)
+              
+              *Pointer + 8
+              
+              ForEach IconData()
+      
+                If IconData()\Type             ;{ Offset 00: Icon Type (-> OSType)
+                  For t=0 To 3
+                    PokeB(*Pointer + t, Asc(Mid(IconData()\Type, t+1, 1)))
+                  Next   
+                Else
+                  Continue
+                EndIf ;}
+                
+                PokeL(*Pointer + 4, Long(IconData()\Size + #IconDataSize))  ;  Offset 04: Length of data + 8 Byte (MSB first)
+                CopyMemory(IconData()\Buffer, *Pointer + 4, IconData()\Size)
+
+                *Pointer + IconData()\Size + #IconDataSize
+                
+                FreeMemory(IconData()\Buffer)
+              Next
+
+            EndIf
+            
+          EndIf  
+          ;}
+        Else                         ;{ Windows (ICO/CUR)
+          
+          If ListSize(ImageDir())
+            
+            Size = CalcOffset_(ImageDir())
+            
+            *Icon = AllocateMemory(Size)
+            If *Icon
+              
+              *Pointer = *Icon
+              
+              PokeW(*Pointer, 0)                        ; Offset 00: Reserved = 0
+              PokeW(*Pointer + 2, #CreateIcon)          ; Offset 02: Image type (1 = Icon / 2 = Cursor) 
+              PokeW(*Pointer + 4, ListSize(ImageDir())) ; Offset 04: Number of images
+              
+              *Pointer + 6
+              
+              ForEach ImageDir()
+                PokeB(*Pointer,      ImageDir()\Width)        ; Offset 00: 0 - 255
+                PokeB(*Pointer +  1, ImageDir()\Height)       ; Offset 01: 0 - 255
+                PokeB(*Pointer +  2, ImageDir()\NumOfColors)  ; Offset 02: 0 without color palette
+                PokeB(*Pointer +  3, 0)                       ; Offset 03: Reserved (should be 0)
+                PokeW(*Pointer +  4, ImageDir()\ColorPlanes)  ; Offset 04: 0 or 1 (ICO) / X pixel from left (CUR)
+                PokeW(*Pointer +  6, ImageDir()\BitsPerPixel) ; Offset 06: Bits per pixel (ICO) / Y pixel from top (CUR)
+                PokeL(*Pointer +  8, ImageDir()\Size)         ; Offset 08: Bytes of image data
+                PokeL(*Pointer + 12, ImageDir()\Offset)       ; Offset 12: Offset from beginning
+                *Pointer + 16
+              Next
+              
+              ForEach ImageDir()
+                
+                CopyMemory(ImageDir()\Buffer, *Pointer, ImageDir()\Size)
+                FreeMemory(ImageDir()\Buffer)
+                
+                *Pointer + ImageDir()\Size
+              Next 
+              
+            EndIf
+            
+          EndIf  
+          ;}  
+        EndIf
+        
+      EndIf  
+      
+    EndIf
+    
+    ProcedureReturn *Icon
+  EndProcedure
+  
   
   Procedure.i Create(ID.i, File.s, Flags.i=#False)
     Define.i Count = 1
@@ -498,37 +673,23 @@ Module Icon
       
       If IsImage(Image)
         
-        If Size = #PB_Default ;{ Original Size
-          
-          Width  = ImageWidth(Image)
-          Height = ImageHeight(Image)
-          
-          If Width <> Height ;{ Image non-square
+        Width  = ImageWidth(Image)
+        Height = ImageHeight(Image)
+        
+        If Width <> Height : Image = SquareImage_(Image) : EndIf
 
-            If Width < Height
-              Result = ResizeImage(Image, Width, Width, #PB_Image_Smooth)
-              Size   = Width
-            Else
-              Result = ResizeImage(Image, Height, Height, #PB_Image_Smooth)
-              Size   = Height
-            EndIf  
-            
-            If Not Result : ProcedureReturn #False : EndIf
-            ;}
-          Else
-            Size = Width
-          EndIf  
-          ;}
-        Else                  ;{ Resize Image
-          
+        If Size <> #PB_Default ;{ Resize
+
           If ResizeImage(Image, Size, Size) = #False
             ProcedureReturn #False
           EndIf  
+        Else
+          Size = ImageWidth(Image)
           ;}
         EndIf
 
         If Icon()\Flags & #MacOS And Icon()\Flags & #Windows ;{ MacOS (ICNS) / Windows (ICO)
-         
+
           Type$ = GetMacIconType(Size)
           If Type$
             If AddMacImage_(Image, Type$, Icon()\IconData()) : Result = #True : EndIf 
@@ -645,6 +806,12 @@ EndModule
 CompilerIf #PB_Compiler_IsMainFile
   Define.i quitWindow = #False
   
+  #Example = 1
+  
+  ; 1: Icon::Save()
+  ; 2: Icon::Create()
+  ; 3: Icon::Encode()
+  
   UseJPEGImageDecoder()
   UsePNGImageDecoder()
 
@@ -653,34 +820,63 @@ CompilerIf #PB_Compiler_IsMainFile
     #Image
     #Image1
     #Image2
+    #File
   EndEnumeration
   
-  If LoadImage(#Image, "Test32.png")
+  Select #Example
+    Case 1 ;{ Icon::Save()
+      
+      If LoadImage(#Image, "Test32.png")
     
-    Icon::Save(#Image, "Test32.ico",  Icon::#Windows|Icon::#MacOS)
-    
-    FreeImage(#Image)
-  EndIf  
-  
-  If Icon::Create(#Icon, "Test3264.ico", Icon::#Windows|Icon::#MacOS)
-    
-    If LoadImage(#Image1, "Test64.png")
-      Icon::AddImage(#Icon, #Image1)
-      FreeImage(#Image1)
-    EndIf  
-    
-    If LoadImage(#Image2, "Test32.png")
-      Icon::AddImage(#Icon, #Image2)
-      FreeImage(#Image2)
-    EndIf
-    
-    Icon::Close(#Icon)  
-  EndIf
+        Icon::Save(#Image, "Test32.ico",  Icon::#Windows|Icon::#MacOS)
+        
+        FreeImage(#Image)
+      EndIf 
+      ;}
+    Case 2 ;{ Icon::Create()
+      
+      If Icon::Create(#Icon, "Test3264.ico", Icon::#Windows|Icon::#MacOS)
+        
+        If LoadImage(#Image1, "Test64.png")
+          Icon::AddImage(#Icon, #Image1)
+          FreeImage(#Image1)
+        EndIf  
+        
+        If LoadImage(#Image2, "Test32.png")
+          Icon::AddImage(#Icon, #Image2)
+          FreeImage(#Image2)
+        EndIf
+        
+        Icon::Close(#Icon)  
+      EndIf
+      ;}
+    Case 3 ;{ Icon::Encode()
+
+      If LoadImage(#Image, "Test32.png")
+        
+        *Memory = Icon::Encode(#Image, Icon::#ImagePlugin_ICO) ; #ImagePlugin_ICNS
+        If *Memory
+          
+          Size.i = MemorySize(*Memory)
+          
+          If CreateFile(#File, "Encoded.ico")
+            WriteData(#File, *Memory, Size)
+            CloseFile(#File)
+          EndIf
+          
+          FreeMemory(*Memory)
+        EndIf
+        
+        FreeImage(#Image)
+      EndIf
+      
+      ;}
+  EndSelect    
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 461
-; FirstLine = 89
-; Folding = MAgAA1d-
+; CursorPosition = 733
+; FirstLine = 164
+; Folding = KIAAAMOT0
 ; EnableXP
 ; DPIAware

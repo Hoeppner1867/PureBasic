@@ -9,10 +9,9 @@
 ;/ © 2019  by Thorsten Hoeppner (09/2019)
 ;/
 
-
-; Last Update: 08.12.19
+; Last Update: 22.04.20
 ;
-; Added: #UseExistingCanvas
+; Added: Support of multi-frame images (e.g GIF)
 ;
 
 ;{ ===== MIT License =====
@@ -67,8 +66,8 @@
 
 DeclareModule ImageEx
   
-  #Version  = 19120800
-  #ModuleEx = 19112102
+  #Version  = 20042200
+  #ModuleEx = 20041700
   
 	;- ===========================================================================
 	;-   DeclareModule - Constants
@@ -112,13 +111,15 @@ DeclareModule ImageEx
 
 	CompilerIf Defined(ModuleEx, #PB_Module)
 
-		#Event_Gadget = ModuleEx::#Event_Gadget
+	  #Event_Gadget = ModuleEx::#Event_Gadget
+	  #Event_Timer  = ModuleEx::#Event_Timer
 		#Event_Theme  = ModuleEx::#Event_Theme
 		
 	CompilerElse
 
 		Enumeration #PB_Event_FirstCustomValue
-			#Event_Gadget
+		  #Event_Gadget
+		  #Event_Timer
 		EndEnumeration
 		
 		Enumeration #PB_EventType_FirstCustomValue
@@ -167,7 +168,8 @@ Module ImageEx
 	;-   Module - Constants
 	;- ============================================================================
 
-
+	#Frequency = 600
+	
 	;- ============================================================================
 	;-   Module - Structures
 	;- ============================================================================
@@ -177,6 +179,13 @@ Module ImageEx
 	  Name.s
 	  Size.i
 	  Style.i
+	EndStructure ;}
+	
+	Structure Frame_Structure           ;{ ImageEx()\Frame\...
+	  Index.i
+	  Delay.i
+	  Count.i
+	  Pause.i
 	EndStructure ;}
 	
 	Structure ImageEx_Image_Structure   ;{ ImageEx()\Image\
@@ -239,6 +248,7 @@ Module ImageEx
 		PopupNum.i
 		
 		Image.ImageEx_Image_Structure
+		Frame.Frame_Structure
 		Text.ImageEx_Text_Structure
 		
 		Quad.q
@@ -263,7 +273,16 @@ Module ImageEx
 
 	EndStructure ;}
 	Global NewMap ImageEx.ImageEx_Structure()
-
+	
+	
+	Structure Timer_Thread_Structure    ;{ Thread\...
+	  Num.i
+	  Frequency.i
+	  Active.i
+    Exit.i
+  EndStructure ;}
+	Global Thread.Timer_Thread_Structure
+	
 	;- ============================================================================
 	;-   Module - Internal
 	;- ============================================================================
@@ -387,18 +406,32 @@ Module ImageEx
 			DrawingFont(ImageEx()\FontID)
 			
 			;{ Adjust image width and height
-			If ImageEx()\Flags & #IgnoreProportion
-			  imgWidth  = Width
-			  imgHeight = Height
-			Else
-			  winFactor = Height / Width
-		    If winFactor < ImageEx()\Image\Factor
-		      imgWidth  = Height / ImageEx()\Image\Factor
-		      imgHeight = Height
-		    Else
-		      imgWidth  = Width
-		      imgHeight = Width * ImageEx()\Image\Factor
-		    EndIf
+			If ImageEx()\Image\Width > Width Or ImageEx()\Image\Height > Height ;{ Resize Image 
+			
+  			If ImageEx()\Flags & #IgnoreProportion
+
+			    imgWidth  = Width
+			    imgHeight = Height 
+
+  			Else
+
+			    winFactor = Height / Width
+			    
+  		    If winFactor < ImageEx()\Image\Factor
+  		      imgWidth  = Height / ImageEx()\Image\Factor
+  		      imgHeight = Height
+  		    Else
+  		      imgWidth  = Width
+  		      imgHeight = Width * ImageEx()\Image\Factor
+  		    EndIf
+
+  		  EndIf
+  		  ;}
+  		Else  
+  		 
+		    imgWidth  = ImageEx()\Image\Width
+		    imgHeight = ImageEx()\Image\Height
+		    
 		  EndIf ;}
 		  
 		  If imgWidth  < Width  : imgX = X + ((Width  - imgWidth)  / 2) : EndIf
@@ -418,9 +451,11 @@ Module ImageEx
 		  Else
 		    DrawingMode(#PB_2DDrawing_Default)
 		  EndIf
-
-		  DrawImage(ImageID(ImageEx()\Image\Num), imgX, imgY, imgWidth, imgHeight)
 		  
+		  If IsImage(ImageEx()\Image\Num)
+  		  DrawImage(ImageID(ImageEx()\Image\Num), imgX, imgY, imgWidth, imgHeight)
+  		EndIf
+		
 		  ImageEx()\Current\X = imgX
 		  ImageEx()\Current\Y = imgY
 		  ImageEx()\Current\Width  = imgWidth
@@ -487,7 +522,69 @@ Module ImageEx
     
   CompilerEndIf 	
 	
-	
+  
+  Procedure _TimerThread(Frequency.i)
+    Define.i ElapsedTime
+    
+    Thread\Frequency = Frequency
+    
+    Repeat
+      
+      If ElapsedTime >= Thread\Frequency
+        PostEvent(#Event_Timer)
+        ElapsedTime = 0
+      EndIf
+      
+      Delay(Thread\Frequency)
+      
+      ElapsedTime + Thread\Frequency
+      
+    Until Thread\Exit
+    
+  EndProcedure
+  
+  Procedure _ImageFrames()
+    
+    ForEach ImageEx()
+      
+      If ImageEx()\Frame\Pause = #False
+        
+        SetImageFrame(ImageEx()\Image\Num, ImageEx()\Frame\Index)
+        
+        ImageEx()\Frame\Index + 1
+        
+        Draw_()
+        
+        If ImageEx()\Frame\Index >= ImageEx()\Frame\Count
+          ImageEx()\Frame\Index = 0
+        EndIf
+        
+      EndIf
+      
+    Next
+  
+  EndProcedure
+  
+  
+  Procedure _FocusHandler()
+    Define.i GNum = EventGadget()
+
+    If FindMapElement(ImageEx(), Str(GNum))
+      ImageEx()\Frame\Pause = #False
+    EndIf
+    
+  EndProcedure 
+  
+  Procedure _LostFocusHandler()
+    Define.i GNum = EventGadget()
+
+    If FindMapElement(ImageEx(), Str(GNum))
+      Thread\Frequency = ImageEx()\Frame\Delay
+      ImageEx()\Frame\Pause = #True
+    EndIf
+    
+  EndProcedure
+  
 	Procedure _LeftDoubleClickHandler()
 		Define.i X, Y
 		Define.i GadgetNum = EventGadget()
@@ -731,7 +828,7 @@ Module ImageEx
       EndIf
       ;}
     Else
-      Result = CanvasGadget(GNum, X, Y, Width, Height)
+      Result = CanvasGadget(GNum, X, Y, Width, Height, #PB_Canvas_Keyboard)
     EndIf
 		
 		If Result
@@ -760,7 +857,14 @@ Module ImageEx
 					CompilerCase #PB_OS_Linux
 						ImageEx()\FontID = GetGadgetFont(#PB_Default)
 				CompilerEndSelect ;}
+				
+				If Thread\Active = #False
+          Thread\Exit   = #False
+          Thread\Num    = CreateThread(@_TimerThread(), #Frequency)
+          Thread\Active = #True
+        EndIf
 
+				
 				ImageEx()\Size\X = X
 				ImageEx()\Size\Y = Y
 				ImageEx()\Size\Width  = Width
@@ -809,6 +913,10 @@ Module ImageEx
 				BindGadgetEvent(ImageEx()\CanvasNum,  @_MouseMoveHandler(),       #PB_EventType_MouseMove)
 				BindGadgetEvent(ImageEx()\CanvasNum,  @_LeftButtonDownHandler(),  #PB_EventType_LeftButtonDown)
 				BindGadgetEvent(ImageEx()\CanvasNum,  @_LeftButtonUpHandler(),    #PB_EventType_LeftButtonUp)
+				BindGadgetEvent(ImageEx()\CanvasNum,  @_LostFocusHandler(),       #PB_EventType_LostFocus)
+				BindGadgetEvent(ImageEx()\CanvasNum,  @_FocusHandler(),           #PB_EventType_Focus)
+				
+				BindEvent(#Event_Timer, @_ImageFrames())
 				
         CompilerIf Defined(ModuleEx, #PB_Module)
           BindEvent(#Event_Theme, @_ThemeHandler())
@@ -832,7 +940,7 @@ Module ImageEx
 	EndProcedure
 	
 	
-	  Procedure.q GetData(GNum.i)
+	Procedure.q GetData(GNum.i)
 	  
 	  If FindMapElement(ImageEx(), Str(GNum))
 	    ProcedureReturn ImageEx()\Quad
@@ -958,12 +1066,26 @@ Module ImageEx
     
     If FindMapElement(ImageEx(), Str(GNum))
       
+      ImageEx()\Frame\Pause     = #True
+      Thread\Frequency = 600
+      
       ImageEx()\Image\Num = ImageNum
-			If IsImage(ImageNum)
+      If IsImage(ImageNum)
+        
 			  ImageEx()\Image\Width  = ImageWidth(ImageNum)
 			  ImageEx()\Image\Height = ImageHeight(ImageNum)
 			  ImageEx()\Image\Depth  = ImageDepth(ImageNum)
 			  ImageEx()\Image\Factor = ImageEx()\Image\Height / ImageEx()\Image\Width
+			  ImageEx()\Frame\Count  = ImageFrameCount(ImageNum)
+			  ImageEx()\Frame\Delay  = GetImageFrameDelay(ImageNum)
+			  ImageEx()\Frame\Index  = 0
+			  
+			  If ImageEx()\Frame\Count > 1
+			    Thread\Frequency = ImageEx()\Frame\Delay
+			    ImageEx()\Frame\Pause = #False
+			    SetActiveGadget(ImageEx()\CanvasNum)
+			  EndIf  
+
 			EndIf  
       
       If ImageEx()\ReDraw : Draw_() : EndIf
@@ -1086,7 +1208,10 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
+  #Example = 1
+  
   UsePNGImageDecoder()
+  UseGIFImageDecoder()
   
   Enumeration 1 
     #Window
@@ -1095,30 +1220,42 @@ CompilerIf #PB_Compiler_IsMainFile
   EndEnumeration
 
   #Image = 1
-  
-  LoadImage(#Image, "TestH.png")
-  
+    
   If OpenWindow(#Window, 0, 0, 300, 200, "Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
     
-    If ImageEx::Gadget(#ImageEx, 10, 10, 280, 180, #Image, ImageEx::#Border|ImageEx::#ChangeCursor|ImageEx::#AutoResize)
-      ImageEx::SetFlags(#ImageEx, ImageEx::#AdjustBorder|ImageEx::#AdjustBackground)
+    If ImageEx::Gadget(#ImageEx, 10, 10, 280, 180, #False, ImageEx::#Border|ImageEx::#ChangeCursor|ImageEx::#AutoResize) ; 
+      ;ImageEx::SetFlags(#ImageEx, ImageEx::#AdjustBorder|ImageEx::#AdjustBackground)
       ImageEx::SetColor(#ImageEx, ImageEx::#FrontColor, $B48246)
       ;ImageEx::SetColor(#ImageEx, ImageEx::#BackColor,  $FFFFFF)
       ImageEx::ToolTip(#ImageEx, "This is a image gadget")
     EndIf
     
-    CompilerIf Defined(ModuleEx, #PB_Module)
-      
-      ImageEx::SetText(#ImageEx, "Example", ImageEx::#FitText)
-      ImageEx::SetDynamicFont(#ImageEx, "Arial", 14, #PB_Font_Bold)
-      
-    CompilerElse  
-      
-      ImageEx::SetText(#ImageEx, "Thorsten", ImageEx::#FitText)
-      LoadFont(#Font, "Arial", 14, #PB_Font_Bold)
-      ImageEx::SetFont(#ImageEx, #Font)
-      
-    CompilerEndIf  
+    Select #Example
+      Case 1
+        
+        LoadImage(#Image, "morph.gif")
+        ImageEx::SetState(#ImageEx, #Image)
+        
+      Default 
+        
+        LoadImage(#Image, "TestH.png") ; TestH.png
+        
+        ImageEx::SetState(#ImageEx, #Image)
+        
+        CompilerIf Defined(ModuleEx, #PB_Module)
+          
+          ImageEx::SetText(#ImageEx, "Example", ImageEx::#FitText)
+          ImageEx::SetDynamicFont(#ImageEx, "Arial", 14, #PB_Font_Bold)
+          
+        CompilerElse  
+          
+          ImageEx::SetText(#ImageEx, "Thorsten", ImageEx::#FitText)
+          LoadFont(#Font, "Arial", 14, #PB_Font_Bold)
+          ImageEx::SetFont(#ImageEx, #Font)
+          
+        CompilerEndIf  
+        
+    EndSelect
     
     ; ModuleEx::SetTheme(ModuleEx::#Theme_Green)
     
@@ -1148,9 +1285,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 39
-; FirstLine = 6
-; Folding = 5qCEAAAILzEj0
+; IDE Options = PureBasic 5.72 (Windows - x64)
+; CursorPosition = 13
+; Folding = YgCIAA5GQAAgE6-
+; EnableThread
 ; EnableXP
 ; DPIAware

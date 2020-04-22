@@ -50,6 +50,8 @@
 ; SVG::CatchString() - reads the SVG data from a string
 ;
 ; SVG::DrawVector()  - converts a loaded SVG file to 'VectorDrawing' commands
+;
+; SVG::CreateIcon()  - create an icon file from an SVG image
 
 ;}
 
@@ -1806,8 +1808,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 1784
-; FirstLine = 305
-; Folding = 9AAAAAAQ5-
+; CursorPosition = 53
+; FirstLine = 18
+; Folding = +AAAAAAQ5-
 ; EnableXP
 ; DPIAware
