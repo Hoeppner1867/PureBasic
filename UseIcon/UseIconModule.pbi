@@ -284,7 +284,7 @@ Module Icon
       If SquareNum
         If StartDrawing(ImageOutput(SquareNum)) 
           DrawingMode(#PB_2DDrawing_AlphaBlend)
-          DrawImage(ImageNum, Offset, 0)
+          DrawImage(ImageID(ImageNum), Offset, 0)
           StopDrawing()
         EndIf
       EndIf
@@ -297,7 +297,7 @@ Module Icon
       If SquareNum
         If StartDrawing(ImageOutput(SquareNum)) 
           DrawingMode(#PB_2DDrawing_AlphaBlend)
-          DrawImage(ImageNum, 0, Offset)
+          DrawImage(ImageID(ImageNum), 0, Offset)
           StopDrawing()
         EndIf
       EndIf
@@ -875,8 +875,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 733
-; FirstLine = 164
-; Folding = KIAAAMOT0
+; CursorPosition = 292
+; FirstLine = 102
+; Folding = KIABAMOT0
 ; EnableXP
 ; DPIAware

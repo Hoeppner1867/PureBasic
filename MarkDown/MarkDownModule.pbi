@@ -9,7 +9,7 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 19.04.2020
+; Last Update: 23.04.2020
 ;
 ; - LZMA replaced by ZIP (due to problems with MacOS)
 ; 
@@ -116,7 +116,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20041900
+  #Version  = 20042300
   #ModuleEx = 20041700
   
   #Enable_Gadget     = #True
@@ -384,6 +384,7 @@ DeclareModule MarkDown
     CompilerEndIf
     
     Declare   SetAppDataDir(Path.s)
+    Declare   SetAppDataName(FileName.s)
     Declare   SetHelpFont(Font.i, Type.i=#False)
     Declare   ChangeHelpTopic(Label.s)
     Declare.s Help(Title.s, File.s, Label.s="", Flags.i=#False, Parent.i=#PB_Default)
@@ -654,6 +655,7 @@ Module MarkDown
       Search.i
       File.s
       DataDir.s
+      DataName.s
       Font.Help_Font_Structure
       Window.Help_Window_Structure
       Image.Help_Image_Structure
@@ -1196,7 +1198,18 @@ Module MarkDown
     EndIf  
     
   EndProcedure  
-	
+  
+  Procedure.s AdjustImagePath(File.s) 
+    
+    CompilerIf #PB_Compiler_OS = #PB_OS_Windows
+      ProcedureReturn ReplaceString(File, "/", "\")
+    CompilerElse
+      ProcedureReturn ReplaceString(File, "\", "/")
+    CompilerEndIf
+
+  EndProcedure
+  
+  
 	Procedure.s WordOnly_(Word.s)
     ; word with or without punctuation etc.
     Define.i i 
@@ -3179,16 +3192,16 @@ Module MarkDown
           Image$ = GetFilePart(MarkDown()\Image()\Source)
           File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
           
-          If Not FindMapElement(MarkDown()\ImageNum(), Image$)
+          If Not FindMapElement(MarkDown()\ImageNum(), Image$) Or IsImage(MarkDown()\ImageNum()) = #False
+            
             If AddMapElement(MarkDown()\ImageNum(), Image$)
-
               If FindMapElement(MarkDown()\ImageMem(), Image$)
                 MarkDown()\ImageNum() = CatchImage(#PB_Any, MarkDown()\ImageMem()\Buffer, MarkDown()\ImageMem()\Size)
               Else  
                 MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
               EndIf 
-              
             EndIf
+            
           EndIf
           
           If IsImage(MarkDown()\ImageNum())
@@ -4238,11 +4251,11 @@ Module MarkDown
                     If Left(String$, 1) = "<"
                       nPos = FindString(String$, ">", 2)
                       If nPos
-                        MarkDown()\Image()\Source = Trim(Mid(String$, 2, nPos - 1), #DQUOTE$)
+                        MarkDown()\Image()\Source = AdjustImagePath(Trim(Mid(String$, 2, nPos - 1), #DQUOTE$))
                         String$ = Trim(Mid(String$, nPos + 1))
                       EndIf 
                     Else
-                      MarkDown()\Image()\Source = Trim(StringField(String$, 1, " "), #DQUOTE$)
+                      MarkDown()\Image()\Source = AdjustImagePath(Trim(StringField(String$, 1, " "), #DQUOTE$))
                       String$ = Trim(Mid(String$, Len(MarkDown()\Image()\Source) + 1))
                     EndIf ;}
                     
@@ -5479,11 +5492,11 @@ Module MarkDown
                   If Left(String$, 1) = "<"
                     nPos = FindString(String$, ">", 2)
                     If nPos
-                      MarkDown()\Image()\Source = Trim(Mid(String$, 2, nPos - 1), #DQUOTE$)
+                      MarkDown()\Image()\Source = AdjustImagePath(Trim(Mid(String$, 2, nPos - 1), #DQUOTE$))
                       String$ = Trim(Mid(String$, nPos + 1))
                     EndIf 
                   Else
-                    MarkDown()\Image()\Source = Trim(StringField(String$, 1, " "), #DQUOTE$)
+                    MarkDown()\Image()\Source = AdjustImagePath(Trim(StringField(String$, 1, " "), #DQUOTE$))
                     String$ = Trim(Mid(String$, Len(MarkDown()\Image()\Source) + 1))
                   EndIf ;}
                   
@@ -9708,6 +9721,10 @@ Module MarkDown
   	  Help\DataDir = Path
   	EndProcedure
   	
+  	Procedure   SetAppDataName(FileName.s)
+  	  Help\DataName = FileName
+  	EndProcedure
+  	
   	Procedure   SetHelpFont(Font.i, Type.i=#False)
   	  
   	  If IsFont(Font)
@@ -9738,7 +9755,7 @@ Module MarkDown
 	    ; Flags: #AutoResize | #FindKeywords
 	    Define.i WindowNum, WindowFlags, quitWindow
 	    Define.i Pack, JSON, Size, Selected, SearchResult, Index
-	    Define.s FileName$, Link$, Label$, Search$
+	    Define.s FileName$, Link$, Label$, Search$, AppDataName$
 	    Define   *Buffer
 	    
 	    NewList Found.s()
@@ -9763,6 +9780,12 @@ Module MarkDown
           Help\DataDir = GetCurrentDirectory()
         EndIf 
       EndIf
+      
+      If Help\DataDir
+        AppDataName$ = Help\DataDir
+      Else
+        AppDataName$ = "Help"
+      EndIf  
       
       WindowFlags = #PB_Window_Tool|#PB_Window_SystemMenu|#PB_Window_Invisible
       If Flags & #AutoResize : WindowFlags | #PB_Window_SizeGadget : EndIf
@@ -9957,7 +9980,7 @@ Module MarkDown
   	      
   	      ReDraw()
   	      
-  	      JSON = LoadJSON(#PB_Any, Help\DataDir + "Help.win")
+  	      JSON = LoadJSON(#PB_Any, Help\DataDir + AppDataName$ + ".win")
           If JSON
             ExtractJSONStructure(JSONValue(JSON), @Help\Window, Help_Window_Structure)
             FreeJSON(JSON)
@@ -10221,7 +10244,7 @@ Module MarkDown
           JSON = CreateJSON(#PB_Any)
           If JSON
             InsertJSONStructure(JSONValue(JSON), @Help\Window, Help_Window_Structure)
-            SaveJSON(JSON, Help\DataDir + "Help.win")
+            SaveJSON(JSON, Help\DataDir + AppDataName$ + ".win")
             FreeJSON(JSON)
           EndIf
           
@@ -10803,7 +10826,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
   
-  #Example = 30
+  #Example = 5
   
   ; === Gadget ===
   ;  1: Headings
@@ -10872,7 +10895,9 @@ CompilerIf #PB_Compiler_IsMainFile
       ;}
     Case 5   ;{ Image
       Text$ = "## Image ##"  + #LF$
-      Text$ + " ![Programmer](Test.png " + #DQUOTE$ + "Programmer Image" + #DQUOTE$ + ")"
+      Text$ + "Zeile davor" + #LF$
+      Text$ + "![Programmer](Test.png " + #DQUOTE$ + "Programmer Image" + #DQUOTE$ + ")" + #LF$
+      Text$ + "Zeile danach" + #LF$
       ;}
     Case 6   ;{ Table
       Text$ = "## Table ##"  + #LF$
@@ -11148,9 +11173,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 118
-; FirstLine = 15
-; Folding = wAAB5fCABAAAAYEA+AACAFRIiAAAAQCBAAAAAAAIjQOIIEAAAAAIAAAAAEDIAAEIDgJAAAGIAwRACOAAEJyAAFIAAAMCPYZJlmawQKnMwAEAAgHk-
-; Markers = 4325
+; CursorPosition = 10058
+; FirstLine = 2414
+; Folding = wEQBwZAgCAAAAQEA+CAsWXVhISADQAJEIALAAAAgMC5PgAACAAAgAANAAQMgAAUgNAmAAAYwAAHBI5AAQkIDAUwAAAwI9g2lU7cCEQ6kBGgQAA9g9
+; Markers = 4338
 ; EnableXP
 ; DPIAware
