@@ -11,6 +11,7 @@
 
 ; Last Update: 25.04.20
 
+; Added: Pause() for animated images
 ; Added: SetItemState() for single frames
 ; Added: Support of SVG           (needs UseSVGImageModule.pbi)
 ; Added: Support of animated PNGs (needs UsePNGExModule.pbi)
@@ -151,7 +152,8 @@ DeclareModule ImageEx
   Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, ImageNum.i, Flags.i=#False, WindowNum.i=#PB_Default)
   Declare.q GetData(GNum.i)
 	Declare.s GetID(GNum.i)
-  Declare   Hide(GNum.i, State.i=#True)
+	Declare   Hide(GNum.i, State.i=#True)
+	Declare   Pause(ImageNum.i, State.i=#PB_Default)
   Declare   SetAutoResizeFlags(GNum.i, Flags.i)
   Declare   SetColor(GNum.i, ColorTyp.i, Value.i)
   Declare   SetData(GNum.i, Value.q)
@@ -782,9 +784,7 @@ Module ImageEx
 			
       If X >= ImageEx()\Current\X And X <= ImageEx()\Current\X + ImageEx()\Current\Width
 			  If Y >= ImageEx()\Current\Y And Y <= ImageEx()\Current\Y + ImageEx()\Current\Height
-			    
-			    PostEvent(#Event_Gadget, ImageEx()\Window\Num, GadgetNum, #PB_EventType_LeftClick)
-			    
+
 			  EndIf
 			EndIf 
 
@@ -1107,6 +1107,22 @@ Module ImageEx
     
   EndProcedure	
   
+  Procedure.i Pause(GNum.i, State.i=#PB_Default)
+
+    If FindMapElement(ImageEx(), Str(GNum))
+      
+      If State = #PB_Default
+        ImageEx()\Frame\Pause ! #True
+      Else
+        
+        ImageEx()\Frame\Pause = State
+      EndIf
+      
+    EndIf 
+    
+    ProcedureReturn ImageEx()\Frame\Pause
+  EndProcedure
+  
   
 	Procedure   SetAutoResizeFlags(GNum.i, Flags.i)
     
@@ -1192,7 +1208,7 @@ Module ImageEx
 			        ImageEx()\Format = #PB_ImagePlugin_PNG
 			        ImageEx()\Frame\Count = PNG::FrameCount(ImageNum)
 			        ImageEx()\Frame\Index = Index
-			        Debug ImageEx()\Frame\Count
+			        
 			        If ImageEx()\Frame\Count > 1
 			          ImageEx()\Frame\Pause = #False
 			          ImageEx()\Current\Loops = 0			          
@@ -1479,7 +1495,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 4
+  #Example = 2
   
   ; 0: Normal image 
   ; 1: Animated GIF
@@ -1576,7 +1592,8 @@ CompilerIf #PB_Compiler_IsMainFile
             Case #ImageEx
               Select EventType()
                 Case #PB_EventType_LeftClick       ;{ Left mouse click
-                  Debug "Left Click"
+                  
+                  ImageEx::Pause(#ImageEx)
                   ;}
                 Case #PB_EventType_LeftDoubleClick ;{ LeftDoubleClick
                   Debug "Left DoubleClick"
@@ -1596,7 +1613,8 @@ CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
 ; CursorPosition = 13
-; Folding = 5BAAAAYEBAgAgAGQA0-
+; FirstLine = 117
+; Folding = 5BCAAAYEnBg5AAMiAa-
 ; EnableThread
 ; EnableXP
 ; DPIAware

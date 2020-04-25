@@ -998,11 +998,11 @@ CompilerIf #PB_Compiler_IsMainFile
   #Timer   = 1
 
   File$ = "Elephant.png"
-  
+
   Define.i OffsetX, OffsetY
   
   PNG::Load(#Image, File$)
-  PNG::AddFrames(#Image)
+  ;PNG::AddFrames(#Image)
 
   If OpenWindow(#Window, 0, 0, 500, 420, "ImageGadget", #PB_Window_SystemMenu | #PB_Window_ScreenCentered)
     
@@ -1017,7 +1017,7 @@ CompilerIf #PB_Compiler_IsMainFile
       Event = WaitWindowEvent()
       
       Select Event
-        Case #PB_Event_Timer 
+        Case #PB_Event_Timer  ;{ Timer
           
           If EventTimer() = #Timer
             
@@ -1040,7 +1040,7 @@ CompilerIf #PB_Compiler_IsMainFile
             
               If Frame >= PNG::FrameCount(#Image) : Frame = 0 : EndIf 
               ;}
-            Else 
+            Else            ;{ Internal frames
               
               PNG::SetFrame(#Image, Frame)
   
@@ -1058,11 +1058,11 @@ CompilerIf #PB_Compiler_IsMainFile
               Frame + 1
             
               If Frame >= PNG::FrameCount(#Image) : Frame = 0 : EndIf 
-              
+              ;}
             EndIf
             
           EndIf 
-          
+          ;}  
       EndSelect
       
     Until Event = #PB_Event_CloseWindow
@@ -1075,7 +1075,8 @@ CompilerEndIf
   
  
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 13
-; Folding = YAAAAAAEo
+; CursorPosition = 1018
+; FirstLine = 266
+; Folding = YAAAACAAY+
 ; EnableXP
 ; DPIAware
