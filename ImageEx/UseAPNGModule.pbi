@@ -9,8 +9,10 @@
 ;/ © 2020  by Thorsten Hoeppner (04/2020)
 ;/
 
-; Last Update:
-
+; Last Update: 25.04.2020
+;
+; Added: PNG::Save()
+; 
 
 ;{ ===== MIT License =====
 ;
@@ -47,6 +49,7 @@
 ;{ _____ APNG - Commands _____
 
 ; PNG::Load()              ; comparable with 'LoadImage()'
+; PNG::Save()              ; comparable with 'SaveImage()', but with all frames
 
 ; PNG::FrameCount()        ; comparable with 'ImageFrameCount()'
 ; PNG::FrameID()           ; comparable with 'ImageID()', but for the current Frame of the image
@@ -95,6 +98,8 @@ DeclareModule PNG
 	;-   DeclareModule
 	;- ======================================================
   
+  Declare.i AddFrames(ImageNum.i)
+  
   Declare.i Load(ImageNum.i, File.s, Flags.i=#False) 
   
   Declare.i FrameCount(ImageNum.i)
@@ -108,6 +113,8 @@ DeclareModule PNG
 
   Declare.i LoopCount(ImageNum.i)
   
+  Declare   Save(ImageNum.i, File.s)
+  
   Declare   SetFrame(ImageNum.i, Index.i)
   
 EndDeclareModule
@@ -116,6 +123,7 @@ Module PNG
 
   EnableExplicit
   
+  UsePNGImageEncoder()
   UseCRC32Fingerprint()
   
 	;- ======================================================
@@ -276,42 +284,48 @@ Module PNG
     EndIf
     
   EndProcedure
-  
-  
-  Procedure   FindIDAT_(*Memory, Size.i, *IDAT.IDAT_Structure)
-    Define.i BlockLen, CRC, Result
-    Define.i HeaderSize
-    Define.s BlockTyp, Signature
+
+  Procedure   IDAT_(*Memory, Size.i, List IDAT.IDAT_Structure())
+    Define.i BlockLen
+    Define.s BlockTyp
     Define *MemPtr
     
     If *Memory
 
-      *MemPtr = *Memory + 8
+      *MemPtr = *Memory + #Signature
 
       Repeat
         
         BlockLen = uint32(PeekL(*MemPtr))
+        BlockTyp = PeekS(*MemPtr + 4, 4, #PB_Ascii)
         
-        *MemPtr + 4
-        
-        BlockTyp = PeekS(*MemPtr, 4, #PB_Ascii)
-        
-        *MemPtr + 4
-        
-        If BlockTyp = "IDAT"
-          *IDAT\Pointer = *MemPtr
-          *IDAT\Size    = BlockLen
-          Break
-        EndIf
+        Select BlockTyp
+          Case  "IDAT"
+            If AddElement(IDAT())
+              IDAT()\Pointer = *MemPtr
+              IDAT()\Size    = BlockLen
+            EndIf 
+          Case "IEND"
+            Break
+        EndSelect
        
-        *MemPtr + BlockLen + 4
+        *MemPtr + BlockLen + #BlockHeader + #CRC
 
       Until *MemPtr >= *Memory + Size
 
     EndIf
     
-    ProcedureReturn Result
+    ProcedureReturn ListSize(IDAT())
   EndProcedure 
+  
+  Procedure   PokeBlockType(*Pointer, Type.s)
+    Define.i c
+    
+    For c=0 To 3
+      PokeB(*Pointer + c, Asc(Mid(Type, c + 1, 1)))
+    Next
+    
+  EndProcedure
   
   Procedure.s AnalyzeStream_(*Stream, Size.i, *aPNG.StreamPNG_Structure)
     Define.i BlockSize, Index 
@@ -497,6 +511,36 @@ Module PNG
 	;-   Module - Declared Procedures
 	;- ======================================================
   
+  Procedure.i AddFrames(ImageNum.i)
+
+    If FindMapElement(Image(), Str(ImageNum))
+      
+      PushListPosition(Image()\Frame())
+      
+      ForEach Image()\Frame()
+        
+        If AddImageFrame(ImageNum)
+
+          If StartDrawing(ImageOutput(ImageNum))
+            DrawingMode(#PB_2DDrawing_AlphaBlend)
+            DrawAlphaImage(ImageID(Image()\Frame()\ImageNum), Image()\Frame()\OffsetX, Image()\Frame()\OffsetY)
+            StopDrawing()
+          EndIf
+        
+          SetImageFrameDelay(ImageNum, Image()\Frame()\Delay)
+          
+        EndIf
+        
+      Next
+      
+      PopListPosition(Image()\Frame())
+      
+    EndIf 
+    
+    ProcedureReturn ImageFrameCount(ImageNum)
+  EndProcedure
+  
+  
   Procedure.i GetFrame(ImageNum.i)
     
     If FindMapElement(Image(), Str(ImageNum))
@@ -651,6 +695,7 @@ Module PNG
     ProcedureReturn Height
   EndProcedure
   
+  
   Procedure.i FrameID(ImageNum.i, Index.i=#PB_Default) 
     Define.i FrameNum
     
@@ -749,6 +794,179 @@ Module PNG
     ProcedureReturn ImageNum
   EndProcedure
   
+  Procedure   Save(ImageNum.i, File.s)
+    Define.i f, FileNum, Frames, ImageSize, FrameSize
+    Define.i BlockSize, Index, Width, Height, Delay, DelayDen
+    Define.s CRC
+    Define   *Stream, *Frame, *Block
+    Define   ImgData.StreamPNG_Structure
+    
+    NewList Frame.IDAT_Structure()
+    
+    If IsImage(ImageNum)
+      
+      Frames = ImageFrameCount(ImageNum)
+      Width  = ImageWidth(ImageNum)
+      Height = ImageHeight(ImageNum)
+      
+      *Stream = EncodeImage(ImageNum, #PB_ImagePlugin_PNG)
+      If *Stream
+        
+        ImageSize = MemorySize(*Stream)
+        
+        AnalyzeStream_(*Stream, ImageSize, @ImgData)
+
+        FileNum = CreateFile(#PB_Any, File)
+        If FileNum
+          
+          WriteData(FileNum, *Stream, #Signature)
+          WriteData(FileNum, ImgData\IHDR\Pointer, ImgData\IHDR\Size)
+       
+          If Frames > 1
+            
+            SetImageFrame(ImageNum, 0)
+            
+            ;{ Write acTL: Animation Control Chunk
+            BlockSize = 8
+            *Block = AllocateMemory(#BlockHeader + BlockSize + #CRC)
+            If *Block
+              PokeL(*Block, uint32(BlockSize))  ; Block size
+              PokeBlockType(*Block + 4, "acTL") ; Block type
+              PokeL(*Block + 8, uint32(Frames)) ; Number of frames       (unsigned int)
+              PokeL(*Block + 12, 0)             ; 0 for infinite looping (unsigned int)
+              WriteData(FileNum, *Block, #BlockHeader + BlockSize)
+              CRC = Fingerprint(*Block + 4, BlockSize + 4, #PB_Cipher_CRC32)
+              FreeMemory(*Block) 
+            EndIf
+            
+            WriteLong(FileNum, uint32(Val("$" + CRC)))
+            ;}
+            
+            ;{ Write fcTL: Frame Control Chunk
+            Delay = GetImageFrameDelay(ImageNum)
+            
+            If Delay = 0 : Delay = 20 : EndIf 
+            DelayDen  = 100
+            
+            BlockSize = 26
+            
+            *Block = AllocateMemory(#BlockHeader + BlockSize + #CRC)
+            If *Block
+              PokeL(*Block, uint32(BlockSize))       ; Block size
+              PokeBlockType(*Block + 4, "fcTL")      ; Block type
+              PokeL(*Block +  8, uint32(Index))      ; 00: Sequence number starting form 0  (unsigned int)
+              PokeL(*Block + 12, uint32(Width))      ; 04: Width of frame  > 0              (unsigned int)
+              PokeL(*Block + 16, uint32(Height))     ; 08: Height of frame > 0              (unsigned int)
+              PokeL(*Block + 20, uint32(0))          ; 12: X position to render >= 0        (unsigned int)
+              PokeL(*Block + 24, uint32(0))          ; 16: Y position to render >= 0        (unsigned int)
+              PokeW(*Block + 28, uint16(1))          ; 20: Frame delay fraction numerator   (unsigned short)
+              PokeW(*Block + 30, uint16(DelayDen))   ; 22: Frame delay fraction denominator (unsigned short)
+              PokeB(*Block + 32, 1)                  ; 24: Type of frame area disposal to be done after rendering (Byte)
+              PokeB(*Block + 33, 1)                  ; 25: Type of frame area rendering for this frame            (Byte)
+              WriteData(FileNum, *Block, #BlockHeader + BlockSize)
+              CRC = Fingerprint(*Block + 4, BlockSize + 4, #PB_Cipher_CRC32)
+              FreeMemory(*Block) 
+            EndIf
+            
+            WriteLong(FileNum, uint32(Val("$" + CRC)))
+            
+            Index + 1
+            ;}
+         
+            ;{ Write IDAT
+            ForEach ImgData\IDAT()
+              WriteData(FileNum, ImgData\IDAT()\Pointer, ImgData\IDAT()\Size)
+            Next  
+            ;}
+            
+            For f=1 To Frames - 1
+              
+              SetImageFrame(ImageNum, f)
+              
+              ClearList(Frame())
+              
+              ;{ Write fcTL: Frame Control Chunk
+              Delay = GetImageFrameDelay(ImageNum)
+              If Delay = 0 : Delay = 10 : EndIf 
+              
+              DelayDen = 1000 / Delay
+              
+              BlockSize = 26
+              
+              *Block = AllocateMemory(#BlockHeader + BlockSize + #CRC)
+              If *Block
+                PokeL(*Block, uint32(BlockSize))  ; Block size
+                PokeBlockType(*Block + 4, "fcTL") ; Block type
+                PokeL(*Block +  8, uint32(Index))      ; 00: Sequence number starting form 0  (unsigned int)
+                PokeL(*Block + 12, uint32(Width))      ; 04: Width of frame  > 0              (unsigned int)
+                PokeL(*Block + 16, uint32(Height))     ; 08: Height of frame > 0              (unsigned int)
+                PokeL(*Block + 20, uint32(0))          ; 12: X position to render >= 0        (unsigned int)
+                PokeL(*Block + 24, uint32(0))          ; 16: Y position to render >= 0        (unsigned int)
+                PokeW(*Block + 28, uint16(1))          ; 20: Frame delay fraction numerator   (unsigned short)
+                PokeW(*Block + 30, uint16(DelayDen))   ; 22: Frame delay fraction denominator (unsigned short)
+                PokeB(*Block + 32, 1)                  ; 24: Type of frame area disposal to be done after rendering (Byte)
+                PokeB(*Block + 33, 1)                  ; 25: Type of frame area rendering for this frame            (Byte)
+                WriteData(FileNum, *Block, #BlockHeader + BlockSize)
+                CRC = Fingerprint(*Block + 4, BlockSize + 4, #PB_Cipher_CRC32)
+                FreeMemory(*Block) 
+              EndIf
+              
+              WriteLong(FileNum, uint32(Val("$" + CRC)))
+              
+              Index + 1
+              ;}
+
+              ;{ Write fdAT: Frame Data Chunk
+              *Frame = EncodeImage(ImageNum, #PB_ImagePlugin_PNG)
+              If *Frame
+
+                IDAT_(*Frame, MemorySize(*Frame), Frame())
+                
+                ForEach Frame()
+                  
+                  BlockSize = Frame()\Size + 4
+                  
+                  *Block = AllocateMemory(#BlockHeader + BlockSize)
+                  If *Block
+                    
+                    PokeL(*Block, uint32(BlockSize))  ; 00: Block size
+                    
+                    PokeBlockType(*Block + 4, "fdAT") ; 04: Block type
+                    
+                    PokeL(*Block + 8, uint32(Index))  ; 08: Sequence number 
+                    
+                    CopyMemory(Frame()\Pointer + #BlockHeader, *Block + 12, Frame()\Size)
+                    WriteData(FileNum, *Block, #BlockHeader + BlockSize)
+                    CRC = Fingerprint(*Block + 4, BlockSize + 4, #PB_Cipher_CRC32)
+                    FreeMemory(*Block)
+                  EndIf 
+
+                  WriteLong(FileNum, uint32(Val("$" + CRC)))
+                  
+                  Index + 1
+                Next
+                
+                FreeMemory(*Frame)
+              EndIf
+              ;}
+              
+            Next  
+          
+          EndIf
+          
+          WriteData(FileNum, ImgData\IEND\Pointer, ImgData\IEND\Size)
+          
+          CloseFile(FileNum)
+        EndIf
+        
+        FreeMemory(*Stream)
+      EndIf
+      
+    EndIf
+    
+  EndProcedure
+  
+ 
   Procedure   SetFrame(ImageNum.i, Index.i)
     
     If FindMapElement(Image(), Str(ImageNum))
@@ -764,65 +982,92 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
+  #Example = 0
+  
+  ; 0: internal frames
+  ; 1: PNG::AddFrames()
+  
+  UsePNGImageDecoder()
+  
   #File  = 1
   #Image = 1
   #Frame = 2	
 
-  #Windows = 1
+  #Window = 1
   #Gadget  = 1
   #Timer   = 1
-  
-  UsePNGImageDecoder()
 
   File$ = "Elephant.png"
   
   Define.i OffsetX, OffsetY
   
   PNG::Load(#Image, File$)
+  PNG::AddFrames(#Image)
 
-  If OpenWindow(#Windows, 0, 0, 505, 425, "ImageGadget", #PB_Window_SystemMenu | #PB_Window_ScreenCentered)
+  If OpenWindow(#Window, 0, 0, 500, 420, "ImageGadget", #PB_Window_SystemMenu | #PB_Window_ScreenCentered)
     
-    ImageGadget(#Gadget, 10, 10, 280, 280, #False)
-    
-    If PNG::FrameCount(#Image) > 1
-      AddWindowTimer(#Windows, #Timer, 50)
-    EndIf
-    
+    CanvasGadget(#Gadget, 10, 10, 480, 400)
+
+    AddWindowTimer(#Window, #Timer, 1)
+
     Frame = 0
     
     Repeat
+      
       Event = WaitWindowEvent()
+      
       Select Event
         Case #PB_Event_Timer 
           
           If EventTimer() = #Timer
             
-            OffsetX = PNG::GetFrameAttribute(#Image, PNG::#OffsetX)
-            OffsetY = PNG::GetFrameAttribute(#Image, PNG::#OffsetY)
+            If #Example = 1 ;{ PNG::AddFrames()
 
-            PNG::SetFrame(#Image, Frame)
+              SetImageFrame(#Image, Frame)
+              
+              RemoveWindowTimer(#Window, #Timer)
+              AddWindowTimer(#Window, #Timer, PNG::GetFrameDelay(#Image))
+              
+              If StartDrawing(CanvasOutput(#Gadget))
+                DrawingMode(#PB_2DDrawing_Default)
+                Box(0, 0, GadgetWidth(#Gadget), GadgetHeight(#Gadget), $FFFFFF)
+                DrawingMode(#PB_2DDrawing_AlphaBlend)
+                DrawImage(ImageID(#Image), 0, 0)
+                StopDrawing()
+              EndIf
+              
+              Frame + 1
             
-            SetGadgetState(#Gadget, PNG::FrameID(#Image))
+              If Frame >= PNG::FrameCount(#Image) : Frame = 0 : EndIf 
+              ;}
+            Else 
+              
+              PNG::SetFrame(#Image, Frame)
+  
+              RemoveWindowTimer(#Window, #Timer)
+              AddWindowTimer(#Window, #Timer, PNG::GetFrameDelay(#Image))
+              
+              If StartDrawing(CanvasOutput(#Gadget))
+                DrawingMode(#PB_2DDrawing_Default)
+                Box(0, 0, GadgetWidth(#Gadget), GadgetHeight(#Gadget), $FFFFFF)
+                DrawingMode(#PB_2DDrawing_AlphaBlend)
+                DrawImage(PNG::FrameID(#Image), PNG::GetFrameAttribute(#Image, PNG::#OffsetX), PNG::GetFrameAttribute(#Image, PNG::#OffsetY))
+                StopDrawing()
+              EndIf
+              
+              Frame + 1
             
-            ResizeGadget(#Gadget, 10 + OffsetX, 10 + OffsetY, #PB_Ignore, #PB_Ignore)
-            
-            While WindowEvent() : Wend
-            
-            Debug PNG::GetFrameAttribute(#Image, PNG::#Dispos)
-            
-            Frame + 1
-            If Frame >= PNG::FrameCount(#Image)
-              Frame = 0
-              RemoveWindowTimer(#Windows, #Timer)
-            EndIf 
+              If Frame >= PNG::FrameCount(#Image) : Frame = 0 : EndIf 
+              
+            EndIf
             
           EndIf 
           
       EndSelect
       
     Until Event = #PB_Event_CloseWindow
-    
-    CloseWindow(#Windows)
+
+    CloseWindow(#Window)
   EndIf
   
   
@@ -830,8 +1075,7 @@ CompilerEndIf
   
  
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 48
-; FirstLine = 18
-; Folding = cAAACAQ+
+; CursorPosition = 13
+; Folding = YAAAAAAEo
 ; EnableXP
 ; DPIAware
