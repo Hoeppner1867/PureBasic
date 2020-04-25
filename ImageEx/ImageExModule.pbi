@@ -11,7 +11,8 @@
 
 ; Last Update: 25.04.20
 
-; Added; Support of SVG           (needs UseSVGImageModule.pbi)
+; Added: SetItemState() for single frames
+; Added: Support of SVG           (needs UseSVGImageModule.pbi)
 ; Added: Support of animated PNGs (needs UsePNGExModule.pbi)
 ; Added: Support of animated GIFs
 ;
@@ -74,7 +75,7 @@ CompilerIf Not Defined(SVG, #PB_Module) : XIncludeFile "UseSVGImageModule.pbi" :
 
 DeclareModule ImageEx
   
-  #Version  = 20042500
+  #Version  = 20042501
   #ModuleEx = 20041700
   
 	;- ===========================================================================
@@ -157,6 +158,7 @@ DeclareModule ImageEx
   Declare   SetFont(GNum.i, FontID.i)
   Declare   SetFlags(GNum.i, Flags.i) 
   Declare   SetID(GNum.i, String.s)
+  Declare   SetItemState(GNum.i, ImageNum.i, Index.i)
   Declare   SetMargins(GNum.i, Left.i, Top.i, Bottom.i=#PB_Default, Right.i=#PB_Default)
   Declare   SetState(GNum.i, ImageNum.i, ImagePlugin.i=#PB_Default)
   Declare   SetText(GNum.i, Text.s, Flags.i=#False)
@@ -404,7 +406,7 @@ Module ImageEx
 		ProcedureReturn RGB((Red1 * Blend) + (Red2 * (1 - Blend)), (Green1 * Blend) + (Green2 * (1 - Blend)), (Blue1 * Blend) + (Blue2 * (1 - Blend)))
 	EndProcedure
 	
-	Procedure   DrawFrame_()
+	Procedure   DrawFrame_(SingleFrame.i=#False)
 	  Define.i X, Y, Width, Height, Delay, OffsetX, OffsetY
 	  
 	  If ImageEx()\Hide : ProcedureReturn #False : EndIf
@@ -416,19 +418,23 @@ Module ImageEx
 		      
 		      SetImageFrame(ImageEx()\Image\Num, ImageEx()\Frame\Index)
 		      
-		      Delay = GetImageFrameDelay(ImageEx()\Image\Num)
-		      If Delay <= 0
-		        Delay = 100
-		      Else
-		        Delay + 20
-		      EndIf
-          
-          If ImageEx()\Frame\Delay <> Delay
-            RemoveWindowTimer(ImageEx()\Window\Num, #Timer)
-            AddWindowTimer(ImageEx()\Window\Num, #Timer, Delay)
-            ImageEx()\Frame\Delay = Delay
-          EndIf  
+		      If SingleFrame = #False
 		      
+  		      Delay = GetImageFrameDelay(ImageEx()\Image\Num)
+  		      If Delay <= 0
+  		        Delay = 100
+  		      Else
+  		        Delay + 20
+  		      EndIf
+            
+            If ImageEx()\Frame\Delay <> Delay
+              RemoveWindowTimer(ImageEx()\Window\Num, #Timer)
+              AddWindowTimer(ImageEx()\Window\Num, #Timer, Delay)
+              ImageEx()\Frame\Delay = Delay
+            EndIf  
+            
+          EndIf
+        
 		      If ImageEx()\Image\Depth = 32
 		        DrawingMode(#PB_2DDrawing_Default)
 		        Box(X + ImageEx()\Frame\X, Y + ImageEx()\Frame\Y, ImageEx()\Frame\Width, ImageEx()\Frame\Height, ImageEx()\Color\Gadget)
@@ -457,13 +463,17 @@ Module ImageEx
 
 		      PNG::SetFrame(ImageEx()\Image\Num, ImageEx()\Frame\Index)
 		      
-		      Delay = PNG::GetFrameDelay(ImageEx()\Image\Num) + 20
-		      
-		      If ImageEx()\Frame\Delay <> Delay
-		        RemoveWindowTimer(ImageEx()\Window\Num, #Timer)
-            AddWindowTimer(ImageEx()\Window\Num, #Timer, Delay)
-            ImageEx()\Frame\Delay = Delay
-          EndIf 
+		      If SingleFrame = #False
+		        
+  		      Delay = PNG::GetFrameDelay(ImageEx()\Image\Num) + 20
+  		      
+  		      If ImageEx()\Frame\Delay <> Delay
+  		        RemoveWindowTimer(ImageEx()\Window\Num, #Timer)
+              AddWindowTimer(ImageEx()\Window\Num, #Timer, Delay)
+              ImageEx()\Frame\Delay = Delay
+            EndIf 
+            
+          EndIf
           
           If ImageEx()\Image\Depth = 32
             
@@ -511,8 +521,8 @@ Module ImageEx
 		
 		If ImageEx()\Hide : ProcedureReturn #False : EndIf
 		
-		X = ImageEx()\Margin\Left
-		Y = ImageEx()\Margin\Top
+		X = dpiX(ImageEx()\Margin\Left)
+		Y = dpiY(ImageEx()\Margin\Top)
 
 		Width  = dpiX(GadgetWidth(ImageEx()\CanvasNum)  - ImageEx()\Margin\Left - ImageEx()\Margin\Right)
 		Height = dpiY(GadgetHeight(ImageEx()\CanvasNum) - ImageEx()\Margin\Top  - ImageEx()\Margin\Bottom)
@@ -558,7 +568,6 @@ Module ImageEx
 		
       ImageEx()\Frame\FactorX = imgWidth  / ImageEx()\Image\Width 
       ImageEx()\Frame\FactorY = imgHeight / ImageEx()\Image\Height
-      
       
 		  If imgWidth < Width
 		    imgX = X + ((Width - imgWidth) / 2)
@@ -1147,6 +1156,110 @@ Module ImageEx
     
   EndProcedure 
   
+  Procedure   SetItemState(GNum.i, ImageNum.i, Index.i)
+    Define.i X, Y, Width, Height, imgX, imgY, imgWidth, imgHeight
+    Define.f winFactor
+    
+    If FindMapElement(ImageEx(), Str(GNum))
+      
+      X      = dpiX(ImageEx()\Margin\Left)
+		  Y      = dpiY(ImageEx()\Margin\Top)
+      Width  = dpiX(GadgetWidth(ImageEx()\CanvasNum)  - ImageEx()\Margin\Left - ImageEx()\Margin\Right)
+		  Height = dpiY(GadgetHeight(ImageEx()\CanvasNum) - ImageEx()\Margin\Top  - ImageEx()\Margin\Bottom)
+      
+      ImageEx()\Frame\Pause = #True
+      
+      ImageEx()\Image\Num = ImageNum
+      If IsImage(ImageNum)
+        
+			  Select ImageFormat(ImageNum)
+			    Case #PB_ImagePlugin_GIF ;{ Animated GIF
+			      
+			      ImageEx()\Format = #PB_ImagePlugin_GIF
+			      ImageEx()\Frame\Count = ImageFrameCount(ImageNum)
+			      ImageEx()\Frame\Index = Index
+			      
+			      If ImageEx()\Frame\Count > 1
+			        ImageEx()\Frame\Pause = #False
+			        SetImageFrame(ImageEx()\Image\Num, Index)
+			        SetActiveGadget(ImageEx()\CanvasNum)	
+  			    EndIf
+            ;}
+			    Case #PB_ImagePlugin_PNG ;{ Animated PNG
+			      
+			      CompilerIf Defined(PNG, #PB_Module)
+
+			        ImageEx()\Format = #PB_ImagePlugin_PNG
+			        ImageEx()\Frame\Count = PNG::FrameCount(ImageNum)
+			        ImageEx()\Frame\Index = Index
+			        Debug ImageEx()\Frame\Count
+			        If ImageEx()\Frame\Count > 1
+			          ImageEx()\Frame\Pause = #False
+			          ImageEx()\Current\Loops = 0			          
+			          SetActiveGadget(ImageEx()\CanvasNum)	
+    			    EndIf
+			        
+			      CompilerEndIf  
+			      ;}
+			  EndSelect
+			  
+			  ImageEx()\Image\Width  = ImageWidth(ImageNum)
+			  ImageEx()\Image\Height = ImageHeight(ImageNum)
+			  ImageEx()\Image\Depth  = ImageDepth(ImageNum)
+			  ImageEx()\Image\Factor = ImageEx()\Image\Height / ImageEx()\Image\Width
+			  
+			  ;{ Adjust image width and height
+			  If ImageEx()\Image\Width > Width Or ImageEx()\Image\Height > Height ;{ Resize Image 
+			  
+  			  If ImageEx()\Flags & #IgnoreProportion
+  			    imgWidth  = Width
+  			    imgHeight = Height 
+  			  Else
+  			    winFactor = Height / Width
+    		    If winFactor < ImageEx()\Image\Factor
+    		      imgWidth  = Height / ImageEx()\Image\Factor
+    		      imgHeight = Height
+    		    Else
+    		      imgWidth  = Width
+    		      imgHeight = Width * ImageEx()\Image\Factor
+    		    EndIf
+    		  EndIf
+    		  ;}
+    		Else  
+  		    imgWidth  = ImageEx()\Image\Width
+  		    imgHeight = ImageEx()\Image\Height
+  		  EndIf ;}
+		
+        ImageEx()\Frame\FactorX = imgWidth  / ImageEx()\Image\Width 
+        ImageEx()\Frame\FactorY = imgHeight / ImageEx()\Image\Height
+        
+  		  If imgWidth < Width
+  		    imgX = X + ((Width - imgWidth) / 2)
+  		    ImageEx()\Frame\X = (Width - imgWidth) / 2
+  		  Else
+  		    ImageEx()\Frame\X = 0
+  		  EndIf
+  		  
+  		  If imgHeight < Height
+  		    imgY = Y + ((Height - imgHeight) / 2)
+  		    ImageEx()\Frame\Y = (Height - imgHeight) / 2
+  		  Else
+  		    ImageEx()\Frame\Y = 0
+  		  EndIf 
+  		  
+  		  ImageEx()\Frame\Width   = imgWidth
+  		  ImageEx()\Frame\Height  = imgHeight
+  		  
+  		  RemoveWindowTimer(ImageEx()\Window\Num, #Timer)
+  		  
+			  DrawFrame_(#True)
+			  
+			EndIf  
+
+    EndIf
+    
+  EndProcedure
+  
   Procedure   SetFont(GNum.i, FontNum.i) 
     
     If FindMapElement(ImageEx(), Str(GNum))
@@ -1187,7 +1300,6 @@ Module ImageEx
   EndProcedure  
   
   Procedure   SetState(GNum.i, ImageNum.i, ImagePlugin.i=#PB_Default)
-    Define.i Width, Height
     
     If FindMapElement(ImageEx(), Str(GNum))
       
@@ -1367,12 +1479,14 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 0
+  #Example = 4
   
-  ; 0: normal image 
-  ; 1: animated GIF
-  ; 2: animated PNG
-  ; 3: SVG
+  ; 0: Normal image 
+  ; 1: Animated GIF
+  ; 2: Animated PNG
+  ; 3: Single frame (GIF)
+  ; 4: Single frame (APNG)
+  ; 5: SVG
   
   UsePNGImageDecoder()
   UseGIFImageDecoder()
@@ -1408,7 +1522,21 @@ CompilerIf #PB_Compiler_IsMainFile
           
         CompilerEndIf
         ;}
-      Case 3  ;{ SVG 
+      Case 3  ;{ Single Frame (GIF)
+        
+        LoadImage(#Image, "Chicken.gif")
+        ImageEx::SetItemState(#ImageEx, #Image, 5)
+        ;}
+      Case 4  ;{ Single Frame (APNG)
+        
+        CompilerIf Defined(PNG, #PB_Module)
+
+          PNG::Load(#Image, "Elephant.png")
+          ImageEx::SetItemState(#ImageEx, #Image, 20)
+          
+        CompilerEndIf  
+        ;}
+      Case 5  ;{ SVG 
         
         CompilerIf Defined(SVG, #PB_Module)
           SVG::Load(#Image, "BookGirl.svg")
@@ -1467,9 +1595,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 686
-; FirstLine = 199
-; Folding = YBChAQBkAAgAgIQ--
+; CursorPosition = 13
+; Folding = 5BAAAAYEBAgAgAGQA0-
 ; EnableThread
 ; EnableXP
 ; DPIAware

@@ -44,8 +44,22 @@
 ;}
 
 
-
 ;{ _____ APNG - Commands _____
+
+; PNG::Load()              ; comparable with 'LoadImage()'
+
+; PNG::FrameCount()        ; comparable with 'ImageFrameCount()'
+; PNG::FrameID()           ; comparable with 'ImageID()', but for the current Frame of the image
+
+; PNG::GetFrame()          ; comparable with 'GetImageFrame()'
+; PNG::GetFrameDelay()     ; comparable with 'GetImageFrameDelay()'
+; PNG::GetFrameWidth()     ; comparable with 'ImageWidth'
+; PNG::GetFrameHeight()    ; comparable with 'ImageHeight'
+; PNG::GetFrameAttribute() ; [#OffsetX/#OffSetY/#Dispos/#Blend/#DelayNum/#DelayDen]
+
+; PNG::LoopCount()         ; returns number of times to loop OR 0 for infinite loop
+
+; PNG::SetFrame()          ; comparable with 'SetImageFrame()'
 
 ;}
 
@@ -816,7 +830,8 @@ CompilerEndIf
   
  
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 77
-; Folding = AAAACAA+
+; CursorPosition = 48
+; FirstLine = 18
+; Folding = cAAACAQ+
 ; EnableXP
 ; DPIAware
