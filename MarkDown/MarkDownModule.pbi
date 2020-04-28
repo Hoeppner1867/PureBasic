@@ -9,7 +9,9 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 23.04.2020
+; Last Update: 28.04.2020
+;
+; - Bugfix: internal labels
 ;
 ; - LZMA replaced by ZIP (due to problems with MacOS)
 ; 
@@ -1063,7 +1065,10 @@ Module MarkDown
 				ProcedureReturn rgb
 			EndIf
 		EndProcedure
-
+		
+		#NSApplicationActivateAllWindows = 1 << 0
+    #NSApplicationActivateIgnoringOtherApps = 1 << 1
+		
 	CompilerEndIf
 	
   CompilerIf Defined(ModuleEx, #PB_Module)
@@ -5213,7 +5218,7 @@ Module MarkDown
             If Pos
               ePos = FindString(String$, "}")
               If ePos
-                MarkDown()\Items()\ID = Mid(String$, Pos + 1, ePos - Pos - 1)
+                MarkDown()\Items()\ID = "HDG:" + Mid(String$, Pos + 1, ePos - Pos - 1)
                 String$ = Left(String$, Pos - 1)
               EndIf  
             EndIf  
@@ -5241,7 +5246,7 @@ Module MarkDown
             
             If MarkDown()\Items()\ID = ""
               Counter + 1
-              MarkDown()\Items()\ID = "#HDG" + RSet(Str(Counter), 3, "0")
+              MarkDown()\Items()\ID = "HDG:" + RSet(Str(Counter), 3, "0")
             EndIf 
             
             If LCase(MarkDown()\Items()\ID) = "ignore"
@@ -7629,7 +7634,7 @@ Module MarkDown
 			  
 			  If Y >= MarkDown()\Link()\Y And Y <= MarkDown()\Link()\Y + MarkDown()\Link()\Height 
 			    If X >= MarkDown()\Link()\X And X <= MarkDown()\Link()\X + MarkDown()\Link()\Width
-			      
+
 			      If MarkDown()\Link()\Label
 			        If FindMapElement(MarkDown()\Label(), MarkDown()\Link()\Label)
 			          MarkDown()\EventValue = Trim(MarkDown()\Label()\Destination)
@@ -7638,13 +7643,13 @@ Module MarkDown
 			        MarkDown()\EventValue = Trim(MarkDown()\Link()\URL)
 			      EndIf
 			      
-			      If Left(MarkDown()\EventValue, 1) = "#" ; Page Link
-			        MarkDown()\EventLabel = Mid(MarkDown()\EventValue, 1)
-			      Else
+			      If Left(MarkDown()\EventValue, 4) = "HDG:"
 			        If FindMapElement(MarkDown()\HeadingID(), MarkDown()\EventValue)
 			          GotoHeading_(MarkDown()\EventValue)
 			        EndIf  
 			        MarkDown()\EventLabel = ""
+			      ElseIf Left(MarkDown()\EventValue, 1) = "#" ; Page Link
+			        MarkDown()\EventLabel = LTrim(MarkDown()\EventValue, "#")
 			      EndIf  
 
 			      PostEvent(#Event_Gadget,    MarkDown()\Window\Num, MarkDown()\CanvasNum, #EventType_Link)
@@ -9753,7 +9758,7 @@ Module MarkDown
   	
 	  Procedure.s Help(Title.s, File.s, Label.s="", Flags.i=#False, Parent.i=#PB_Default)
 	    ; Flags: #AutoResize | #FindKeywords
-	    Define.i WindowNum, WindowFlags, quitWindow
+	    Define.i WindowNum, WindowFlags, quitWindow, cApp
 	    Define.i Pack, JSON, Size, Selected, SearchResult, Index
 	    Define.s FileName$, Link$, Label$, Search$, AppDataName$
 	    Define   *Buffer
@@ -10032,6 +10037,10 @@ Module MarkDown
                           AddToHistory_(Help\Label())
                           CompilerIf #PB_Compiler_OS = #PB_OS_Windows
                             SendMessage_(#HWND_BROADCAST, #WM_SYSCOMMAND, #SC_HOTKEY, WindowID(WindowNum))
+                          CompilerElseIf #PB_Compiler_OS = #PB_OS_MacOS
+                            ; Thanks to Wolfram
+                            cApp = CocoaMessage(0, 0, "NSRunningApplication currentApplication")
+                            CocoaMessage(0, cApp, "activateWithOptions:", #NSApplicationActivateAllWindows|#NSApplicationActivateIgnoringOtherApps)
                           CompilerEndIf
                           SetActiveWindow(WindowNum)
                         EndIf
@@ -10060,6 +10069,7 @@ Module MarkDown
                     If EventType() = #EventType_Link
                       
                       If FindMapElement(MarkDown(), Str(Help\CanvasNum))
+                        Debug "Label: " + MarkDown()\EventLabel
                         If MarkDown()\EventLabel ;{ Table of Contents
                           If FindMapElement(Help\Label(), MarkDown()\EventLabel)
                             If SelectElement(Help\Item(), Help\Label())
@@ -10077,6 +10087,7 @@ Module MarkDown
                           GotoHeading_(MarkDown()\EventValue)
                           ;}
                         Else                     ;{ Internal Link
+                          Debug "Link: " + MarkDown()\EventValue
                           If Left(MarkDown()\EventValue, 1) = "#"
                             Label = LTrim(MarkDown()\EventValue, "#")
                             If FindMapElement(Help\Label(), Label)
@@ -10826,7 +10837,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
   
-  #Example = 5
+  #Example = 30
   
   ; === Gadget ===
   ;  1: Headings
@@ -10895,9 +10906,7 @@ CompilerIf #PB_Compiler_IsMainFile
       ;}
     Case 5   ;{ Image
       Text$ = "## Image ##"  + #LF$
-      Text$ + "Zeile davor" + #LF$
       Text$ + "![Programmer](Test.png " + #DQUOTE$ + "Programmer Image" + #DQUOTE$ + ")" + #LF$
-      Text$ + "Zeile danach" + #LF$
       ;}
     Case 6   ;{ Table
       Text$ = "## Table ##"  + #LF$
@@ -11173,9 +11182,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 10058
-; FirstLine = 2414
-; Folding = wEQBwZAgCAAAAQEA+CAsWXVhISADQAJEIALAAAAgMC5PgAACAAAgAANAAQMgAAUgNAmAAAYwAAHBI5AAQkIDAUwAAAwI9g2lU7cCEQ6kBGgQAA9g9
-; Markers = 4338
+; CursorPosition = 10042
+; FirstLine = 2006
+; Folding = wEQBwZAgCAAAAwEA+CAASWEhASAKQgBEIAPAAAAgMC5PgAACAAAgCANAAQMgAAUgNAmAAAY5AAHRI2AAQkIDAUwAAAwI9g2lU7cCkI6kBGgAAA9g9
+; Markers = 4343
 ; EnableXP
 ; DPIAware
