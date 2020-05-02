@@ -9,7 +9,7 @@
 ;/ © 2020  by Thorsten Hoeppner (04/2020)
 ;/
 
-; Last Update: 25.04.2020
+; Last Update: 02.05.2020
 ;
 ; Added: PNG::Save()
 ; 
@@ -48,7 +48,7 @@
 
 ;{ _____ APNG - Commands _____
 
-; PNG::AddFrames()         ; comparable with 'AddImageFrame()', but for all frames of the APNG
+; PNG::GenerateFrames()    ; generates usable frames and add them to the image
 
 ; PNG::ResetFrames()       ; sets the frame index before the first frame
 ; PNG::DrawFrame()         ; draws the current frame
@@ -56,6 +56,10 @@
 
 ; PNG::Load()              ; comparable with 'LoadImage()'
 ; PNG::Save()              ; comparable with 'SaveImage()', but with all frames
+
+; PNG::Create()            ; create an APNG from the image
+; PNG::AddFrame()          ; add an image as frame
+; PNG::Close()             ; finishes the creation and saves the APNG
 
 ; PNG::FrameCount()        ; comparable with 'ImageFrameCount()'
 ; PNG::FrameID()           ; comparable with 'ImageID()', but for the current Frame of the image
@@ -80,12 +84,14 @@
 
 DeclareModule PNG
   
+  #Version  = 20050200
+
   ;- ===========================================================================
 	;-   DeclareModule - Constants
   ;- ===========================================================================
   
   #Timer = $494D47
-  
+
   ; ___ Drawing Output ___
   
   Enumeration 1
@@ -97,6 +103,7 @@ DeclareModule PNG
   EndEnumeration
   
   ; ___ Frame Attribute ___
+  
   Enumeration 1
     #OffsetX  ; Offset X
     #OffSetY  ; Offset Y
@@ -121,7 +128,7 @@ DeclareModule PNG
 	;-   DeclareModule
 	;- ======================================================
   
-  Declare.i AddFrames(ImageNum.i)
+  Declare.i GenerateFrames(ImageNum.i, Scale.f=1)
   
   Declare   ResetFrames(ImageNum.i)
   Declare.i DrawFrame(ImageNum.i, OutputID.i, X.i=0, Y.i=0, Index.i=#PB_Default, BackColor.i=#PB_Default) 
@@ -142,6 +149,10 @@ DeclareModule PNG
   Declare.i LoopCount(ImageNum.i)
   
   Declare   Save(ImageNum.i, File.s)
+  
+  Declare.i Create(ImageNum.i, File.s, Loops.i=0, Delay.i=0, Flags.i=#False)
+  Declare.i AddFrame(ImageNum.i, FrameNum.i, X.i=0, Y.i=0, Width.i=0, Height.i=0, Delay.i=0, Dispos_OP.i=0, Blend_OP.i=0, Index.i=#PB_Default)
+  Declare   Close(ImageNum.i)
   
   Declare   SetFrame(ImageNum.i, Index.i)
   Declare   SetTimer(ImageNum.i, Delay.i, Timer.i=#PB_Default)
@@ -171,6 +182,8 @@ Module PNG
   #ICO$    = "00000100"
   #ICNS$   = "69636E73"
   
+  #TransparentBlack = -2
+ 
   ; ___ Bytes ___
   
   #BlockHeader =  8
@@ -299,6 +312,8 @@ Module PNG
     CurrentLoop.i
     BackColor.i
     Window.i
+    File.s
+    Flags.i
     PrevImage.Previous_Structure
     List Frame.Image_Frame_Structure()
   EndStructure ;}
@@ -792,22 +807,27 @@ Module PNG
 	  Define.i X, Y, Width, Height, Delay, OffsetX, OffsetY
 
 		If StartDrawing(OutputID)
-		  
+
 		  If ListIndex(Image()\Frame()) <> -1
 		    
 		    OffsetX = Image()\Frame()\OffsetX * Image()\ScaleX
         OffsetY = Image()\Frame()\OffsetY * Image()\ScaleY
         Width   = Image()\Frame()\Width   * Image()\ScaleX
         Height  = Image()\Frame()\Height  * Image()\ScaleY
-		    
-		    Select Image()\Frame()\Dispose    ; Dispose Output Buffer
-          Case #APNG_Dispos_OP_None       ;{ None
-            ;}
+        
+        Select Image()\Frame()\Dispose    ; Dispose Output Buffer
           Case #APNG_Dispos_OP_Background ;{ Background
-            DrawingMode(#PB_2DDrawing_AlphaBlend)
-            Box(X + OffsetX, Y + OffsetY, Width, Height, $00000000) 
+            ;Debug "#APNG_Dispos_OP_Background"
+            If Image()\BackColor = #TransparentBlack
+              DrawingMode(#PB_2DDrawing_AlphaChannel)
+              Box(X + OffsetX, Y + OffsetY, Width, Height, $00000000)
+            Else  
+              DrawingMode(#PB_2DDrawing_Default)
+              Box(X + OffsetX, Y + OffsetY, Width, Height, Image()\BackColor)
+            EndIf
             ;}
           Case #APNG_Dispos_OP_Previous   ;{ Previous
+            ;Debug "#APNG_Dispos_OP_Previous"
             If IsImage(Image()\PrevImage\Num)
               DrawingMode(#PB_2DDrawing_Default)
               DrawImage(ImageID(Image()\PrevImage\Num), Image()\PrevImage\X, Image()\PrevImage\Y)
@@ -820,7 +840,7 @@ Module PNG
         FirstElement(Image()\Frame())
         Image()\CurrentLoop + 1
       EndIf
-      
+
       OffsetX = Image()\Frame()\OffsetX * Image()\ScaleX
       OffsetY = Image()\Frame()\OffsetY * Image()\ScaleY
       Width   = Image()\Frame()\Width   * Image()\ScaleX
@@ -836,14 +856,27 @@ Module PNG
 
         Select Image()\Frame()\Blend ; Blend Output Buffer
           Case #APNG_Blend_OP_Over   ;{ Over
+            ;Debug "#APNG_Blend_OP_Over"
             DrawingMode(#PB_2DDrawing_AlphaBlend)
             DrawImage(ImageID(Image()\Frame()\ImageNum), X + OffsetX, Y + OffsetY, Width, Height)
             ;}
           Case #APNG_Blend_OP_Source ;{ Source
-            DrawingMode(#PB_2DDrawing_Default)
-            Box(X, Y, Image()\Width, Image()\Height, Image()\BackColor)
-            DrawingMode(#PB_2DDrawing_AlphaBlend)
-            DrawImage(ImageID(Image()\Frame()\ImageNum), X + OffsetX, Y + OffsetY, Width, Height)
+            ;Debug "#APNG_Blend_OP_Source"
+            If Image()\BackColor = #TransparentBlack
+
+              DrawingMode(#PB_2DDrawing_AllChannels)
+              DrawImage(ImageID(Image()\Frame()\ImageNum), X + OffsetX, Y + OffsetY, Width, Height)
+
+            Else
+              
+              DrawingMode(#PB_2DDrawing_Default)
+              Box(X + OffsetX, Y + OffsetY, Width, Height, Image()\BackColor) ; Image()\BackColor
+              
+              DrawingMode(#PB_2DDrawing_AlphaBlend)
+              DrawImage(ImageID(Image()\Frame()\ImageNum), X + OffsetX, Y + OffsetY, Width, Height)
+              
+            EndIf 
+          
             ;}
         EndSelect
 
@@ -861,33 +894,51 @@ Module PNG
 	;-   Module - Declared Procedures
 	;- ======================================================
   
-  Procedure.i AddFrames(ImageNum.i)
-
+  Procedure.i GenerateFrames(ImageNum.i, Scale.f=1)
+    Define.i f, OutputBuffer, Width, Height
+  
     If FindMapElement(Image(), Str(ImageNum))
       
-      PushListPosition(Image()\Frame())
-      
-      ForEach Image()\Frame()
+      If IsImage(ImageNum)
         
-        If AddImageFrame(ImageNum)
+        SetImageFrame(ImageNum, 0)
+        
+        OutputBuffer = CreateImage(#PB_Any, Image()\Width, Image()\Height, 32, #PB_Image_Transparent)
+    
+        PushListPosition(Image()\Frame())
+        
+        Width  = ImageWidth(ImageNum)  * Scale
+        Height = ImageHeight(ImageNum) * Scale
+        
+        Image()\BackColor = #TransparentBlack
+        
+        ResetList(Image()\Frame())
 
-          If StartDrawing(ImageOutput(ImageNum))
-            DrawingMode(#PB_2DDrawing_AlphaBlend)
-            DrawAlphaImage(ImageID(Image()\Frame()\ImageNum), Image()\Frame()\OffsetX, Image()\Frame()\OffsetY)
-            StopDrawing()
+        For f=1 To ListSize(Image()\Frame())
+          
+          If AddImageFrame(ImageNum)
+  
+            DrawFrame_(ImageOutput(OutputBuffer), 0, 0) 
+
+            If StartDrawing(ImageOutput(ImageNum))
+              DrawingMode(#PB_2DDrawing_AlphaBlend)
+              DrawImage(ImageID(OutputBuffer), 0, 0, Width, Height)
+              StopDrawing()
+            EndIf   
+            
+            SetImageFrameDelay(ImageNum, Image()\Frame()\Delay)
+            
           EndIf
           
-          SetImageFrameDelay(ImageNum, Image()\Frame()\Delay)
-          
-        EndIf
+        Next
+      
+        PopListPosition(Image()\Frame())
         
-      Next
+        ProcedureReturn ImageFrameCount(ImageNum)
+      EndIf
       
-      PopListPosition(Image()\Frame())
-      
-    EndIf 
+    EndIf   
     
-    ProcedureReturn ImageFrameCount(ImageNum)
   EndProcedure
   
   Procedure   ResetFrames(ImageNum.i)
@@ -926,12 +977,14 @@ Module PNG
       If BackColor <> #PB_Default : Image()\BackColor = BackColor : EndIf
       
       If Index = #PB_Default
-
-        Delay = DrawFrame_(OutputID, X, Y)
+        
+        If ListIndex(Image()\Frame()) <> -1 : Delay = Image()\Frame()\Delay :  EndIf
         If Delay = 0 : Delay = 10 : EndIf
         
         If Image()\Timer : SetTimer_(Delay + 20, Image()\Timer) : EndIf 
-        
+
+        DrawFrame_(OutputID, X, Y)
+
       Else
         
         If Index > 0
@@ -939,11 +992,13 @@ Module PNG
         Else
           ResetList(Image()\Frame())
         EndIf  
-
-        Delay = DrawFrame_(OutputID, X, Y)
+        
+        If ListIndex(Image()\Frame()) <> -1 : Delay = Image()\Frame()\Delay :  EndIf
         If Delay = 0 : Delay = 10 : EndIf
         
         If Image()\Timer : SetTimer_(Delay + 20, Image()\Timer) : EndIf 
+        
+        DrawFrame_(OutputID, X, Y)
 
       EndIf
       
@@ -1262,7 +1317,6 @@ Module PNG
           WriteData(FileNum, *Stream, #Signature)
           WriteData(FileNum, ImgData\IHDR\Pointer, ImgData\IHDR\Size)
           
-          
           If Frames > 1
             
             SetImageFrame(ImageNum, 0)
@@ -1407,7 +1461,236 @@ Module PNG
     
   EndProcedure
   
- 
+  
+  Procedure.i Create(ImageNum.i, File.s, Loops.i=0, Delay.i=0, Flags.i=#False)
+
+    If AddMapElement(Image(), Str(ImageNum))
+      
+      If Delay = 0 : Delay = 10 : EndIf 
+      
+      If IsImage(ImageNum) 
+        
+        Image()\Num    = ImageNum
+        Image()\Width  = ImageWidth(ImageNum)
+        Image()\Height = ImageHeight(ImageNum)
+        Image()\Loops  = Loops
+        Image()\Delay  = Delay
+        Image()\File   = File
+        Image()\Flags  = Flags
+        
+        If AddElement(Image()\Frame())
+          Image()\Frame()\ImageNum = ImageNum
+          Image()\Frame()\Width    = Image()\Width
+          Image()\Frame()\Height   = Image()\Height
+        EndIf
+        
+        ProcedureReturn #True
+      EndIf
+    
+    EndIf
+    
+   ProcedureReturn #False
+  EndProcedure
+  
+  Procedure.i AddFrame(ImageNum.i, FrameNum.i, X.i=0, Y.i=0, Width.i=0, Height.i=0, Delay.i=0, Dispos_OP.i=0, Blend_OP.i=0, Index.i=#PB_Default) 
+    
+    If FindMapElement(Image(), Str(ImageNum))
+      
+      
+      If Not Width  : Width  = Image()\Width  : EndIf
+      If Not Height : Height = Image()\Height : EndIf
+      If Not Delay  : Delay  = 10 : EndIf
+      
+      If Index = #PB_Default
+        LastElement(Image()\Frame())
+      Else
+        SelectElement(Image()\Frame(), Index - 1)
+      EndIf 
+      
+      If AddElement(Image()\Frame())
+        
+        Image()\Frame()\ImageNum = FrameNum
+        Image()\Frame()\OffsetX = X 
+        Image()\Frame()\OffsetY = Y
+        Image()\Frame()\Width   = Width
+        Image()\Frame()\Height  = Height
+        Image()\Frame()\Delay   = Delay
+        Image()\Frame()\Dispose = Dispos_OP
+        Image()\Frame()\Blend   = Blend_OP
+        
+      EndIf
+      
+    EndIf
+    
+    ProcedureReturn ListIndex(Image()\Frame())
+  EndProcedure
+  
+  Procedure   Close(ImageNum.i)
+    Define.i f, FileNum, Frames, ImageSize, FrameSize
+    Define.i BlockSize, Index, Width, Height, Delay, DelayDen
+    Define.s CRC
+    Define   *Stream, *Frame, *Block
+    Define   ImgData.Stream_Structure
+    
+    NewList Frame.IDAT_Structure()
+    
+    If FindMapElement(Image(), Str(ImageNum))
+      
+      Image()\Frames = ListSize(Image()\Frame())
+      
+      If IsImage(ImageNum)
+        
+        *Stream = EncodeImage(ImageNum, #PB_ImagePlugin_PNG, #False, 32)
+        If *Stream
+          
+          ImageSize = MemorySize(*Stream)
+          
+          AnalyzeStream_(*Stream, ImageSize, @ImgData)
+          
+          FileNum = CreateFile(#PB_Any, Image()\File)
+          If FileNum
+            
+            WriteData(FileNum, *Stream, #Signature)
+            WriteData(FileNum, ImgData\IHDR\Pointer, ImgData\IHDR\Size)
+            
+            ForEach Image()\Frame()
+              
+              If ListIndex(Image()\Frame()) = 0
+                
+                ;{ Write acTL: Animation Control Chunk
+                BlockSize = 8
+                *Block = AllocateMemory(#BlockHeader + BlockSize + #CRC)
+                If *Block
+                  PokeL(*Block, uint32(BlockSize))          ; Block size
+                  PokeBlockType(*Block + 4, "acTL")         ; Block type
+                  PokeL(*Block + 8, uint32(Image()\Frames)) ; Number of frames       (unsigned int)
+                  PokeL(*Block + 12, Image()\Loops)         ; 0 for infinite looping (unsigned int)
+                  WriteData(FileNum, *Block, #BlockHeader + BlockSize)
+                  CRC = Fingerprint(*Block + 4, BlockSize + 4, #PB_Cipher_CRC32)
+                  FreeMemory(*Block) 
+                EndIf
+                
+                WriteLong(FileNum, uint32(Val("$" + CRC)))
+                ;}
+                
+                ;{ Write fcTL: Frame Control Chunk
+                DelayDen  = 100
+                BlockSize = 26
+                
+                *Block = AllocateMemory(#BlockHeader + BlockSize + #CRC)
+                If *Block
+                  PokeL(*Block, uint32(BlockSize))       ; Block size
+                  PokeBlockType(*Block + 4, "fcTL")      ; Block type
+                  PokeL(*Block +  8, uint32(Index))      ; 00: Sequence number starting form 0  (unsigned int)
+                  PokeL(*Block + 12, uint32(Width))      ; 04: Width of frame  > 0              (unsigned int)
+                  PokeL(*Block + 16, uint32(Height))     ; 08: Height of frame > 0              (unsigned int)
+                  PokeL(*Block + 20, uint32(0))          ; 12: X position to render >= 0        (unsigned int)
+                  PokeL(*Block + 24, uint32(0))          ; 16: Y position to render >= 0        (unsigned int)
+                  PokeW(*Block + 28, uint16(1))          ; 20: Frame delay fraction numerator   (unsigned short)
+                  PokeW(*Block + 30, uint16(DelayDen))   ; 22: Frame delay fraction denominator (unsigned short)
+                  PokeB(*Block + 32, 0)                  ; 24: Type of frame area disposal to be done after rendering (Byte)
+                  PokeB(*Block + 33, 0)                  ; 25: Type of frame area rendering for this frame            (Byte)
+                  WriteData(FileNum, *Block, #BlockHeader + BlockSize)
+                  CRC = Fingerprint(*Block + 4, BlockSize + 4, #PB_Cipher_CRC32)
+                  FreeMemory(*Block) 
+                EndIf
+                
+                WriteLong(FileNum, uint32(Val("$" + CRC)))
+                
+                Index + 1
+                ;}
+                
+                ;{ Write IDAT
+                ForEach ImgData\IDAT()
+                  WriteData(FileNum, ImgData\IDAT()\Pointer, ImgData\IDAT()\Size)
+                Next  
+                ;}
+                
+              Else
+                
+                ;{ Write fcTL: Frame Control Chunk
+                Delay = GetImageFrameDelay(ImageNum)
+                If Delay = 0 : Delay = 10: EndIf 
+                
+                DelayDen  = 1000 / Delay
+                BlockSize = 26
+                
+                *Block = AllocateMemory(#BlockHeader + BlockSize + #CRC)
+                If *Block
+                  PokeL(*Block, uint32(BlockSize))                    ; Block size
+                  PokeBlockType(*Block + 4, "fcTL")                   ; Block type
+                  PokeL(*Block +  8, uint32(Index))                   ; 00: Sequence number starting form 0  (unsigned int)
+                  PokeL(*Block + 12, uint32(Image()\Frame()\Width))   ; 04: Width of frame  > 0              (unsigned int)
+                  PokeL(*Block + 16, uint32(Image()\Frame()\Height))  ; 08: Height of frame > 0              (unsigned int)
+                  PokeL(*Block + 20, uint32(Image()\Frame()\OffsetX)) ; 12: X position to render >= 0        (unsigned int)
+                  PokeL(*Block + 24, uint32(Image()\Frame()\OffsetY)) ; 16: Y position to render >= 0        (unsigned int)
+                  PokeW(*Block + 28, uint16(1))                       ; 20: Frame delay fraction numerator   (unsigned short)
+                  PokeW(*Block + 30, uint16(DelayDen))                ; 22: Frame delay fraction denominator (unsigned short)
+                  PokeB(*Block + 32, Image()\Frame()\Dispose)         ; 24: Type of frame area disposal to be done after rendering (Byte)
+                  PokeB(*Block + 33, Image()\Frame()\Blend)           ; 25: Type of frame area rendering for this frame            (Byte)
+                  WriteData(FileNum, *Block, #BlockHeader + BlockSize)
+                  CRC = Fingerprint(*Block + 4, BlockSize + 4, #PB_Cipher_CRC32)
+                  FreeMemory(*Block) 
+                EndIf
+                
+                WriteLong(FileNum, uint32(Val("$" + CRC)))
+                
+                Index + 1
+                ;}
+                
+                ;{ Write fdAT: Frame Data Chunk
+              *Frame = EncodeImage(ImageNum, #PB_ImagePlugin_PNG, #False, 32)
+              If *Frame
+
+                IDAT_(*Frame, MemorySize(*Frame), Frame())
+                
+                ForEach Frame()
+                  
+                  BlockSize = Frame()\Size + 4
+                  
+                  *Block = AllocateMemory(#BlockHeader + BlockSize)
+                  If *Block
+                    
+                    PokeL(*Block, uint32(BlockSize))  ; 00: Block size
+                    
+                    PokeBlockType(*Block + 4, "fdAT") ; 04: Block type
+                    
+                    PokeL(*Block + 8, uint32(Index))  ; 08: Sequence number 
+                    
+                    CopyMemory(Frame()\Pointer + #BlockHeader, *Block + 12, Frame()\Size)
+                    WriteData(FileNum, *Block, #BlockHeader + BlockSize)
+                    CRC = Fingerprint(*Block + 4, BlockSize + 4, #PB_Cipher_CRC32)
+                    FreeMemory(*Block)
+                  EndIf 
+
+                  WriteLong(FileNum, uint32(Val("$" + CRC)))
+                  
+                  Index + 1
+                Next
+                
+                FreeMemory(*Frame)
+              EndIf
+              ;}
+                
+              EndIf  
+              
+            Next
+            
+            WriteData(FileNum, ImgData\IEND\Pointer, ImgData\IEND\Size)
+          
+            CloseFile(FileNum)
+          EndIf
+          
+          FreeMemory(*Stream)
+        EndIf
+        
+      EndIf
+      
+    EndIf  
+    
+  EndProcedure
+  
+  
   Procedure   SetFrame(ImageNum.i, Index.i)
     
     If FindMapElement(Image(), Str(ImageNum))
@@ -1498,11 +1781,12 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 0
+  #Example = 3
   
-  ; 0: Use PNG::DrawFram()
-  ; 1: PNG::AddFrames()
+  ; 0: Use PNG::DrawFrame()
+  ; 1: PNG::GenerateFrames()
   ; 2: Convert GIF
+  ; 3: Single Frames
   
   UsePNGImageDecoder()
   
@@ -1511,24 +1795,50 @@ CompilerIf #PB_Compiler_IsMainFile
   #Frame = 2	
 
   #Window  = 1
-  #Gadget  = 1
+  
+  Enumeration 1
+    #Gadget
+    #iGadget
+    #Spin
+    #Text
+  EndEnumeration
+
   #Timer   = 1
   
   File$ = "Elephant.png" ; Elephant.png  grace-hoppers-107th-birthday.png clock.png bugbuckbunny.png
   GIF$  = "Chicken.gif"
   
-  If OpenWindow(#Window, 0, 0, 500, 420, "ImageGadget", #PB_Window_SystemMenu | #PB_Window_ScreenCentered)
+  If OpenWindow(#Window, 0, 0, 540, 455, "ImageGadget", #PB_Window_SystemMenu | #PB_Window_ScreenCentered)
     
-    CanvasGadget(#Gadget, 10, 10, 480, 400)
-  
+    CanvasGadget(#Gadget, 10, 10, 520, 400)
+    
+    SpinGadget(#Spin, 10, 10, 40, 20, 0, 0, #PB_Spin_ReadOnly|#PB_Spin_Numeric)
+    TextGadget(#Text, 55, 10, 475, 20, "", #PB_Text_Border)
+    ImageGadget(#iGadget, 10, 40, 520, 400, #False, #PB_Image_Border)
+    
+    SetGadgetState(#Spin, 0)
+    
+    HideGadget(#Spin,    #True)
+    HideGadget(#iGadget, #True)
+    HideGadget(#Text,    #True)
+    
     Select #Example
       Case 1  ;{ Use PB image frames
         
-        Frame = 0
-        
         PNG::Load(#Image, File$)
-        PNG::AddFrames(#Image)
-
+        
+        ;ResizeImage(#Image, 240, 200)
+        
+        PNG::GenerateFrames(#Image)
+  
+        SetImageFrame(#Image, 0)
+        
+        If StartDrawing(CanvasOutput(#Gadget))
+          DrawingMode(#PB_2DDrawing_AlphaBlend)
+          DrawImage(ImageID(#Image), 0, 0)
+          StopDrawing()
+        EndIf
+        
         AddWindowTimer(#Window, #Timer, 1)
         ;}
       Case 2  ;{ Convert GIF
@@ -1544,34 +1854,69 @@ CompilerIf #PB_Compiler_IsMainFile
           AddWindowTimer(#Window, #Timer, 1)
         EndIf
         ;}
-      Default ;{ Use internal frames
+      Case 3  ;{ Single Frames 
+        
+        HideGadget(#Gadget,  #True)
+        HideGadget(#Spin,    #False)
+        HideGadget(#iGadget, #False)
+        HideGadget(#Text,    #False)
         
         PNG::Load(#Image, File$)
         
+        Frames = PNG::GenerateFrames(#Image, 0.5)
+        SetGadgetAttribute(#Spin, #PB_Spin_Maximum, Frames - 1)
+        
+        SetImageFrame(#Image, 0)
+        
+        SetGadgetState(#iGadget, ImageID(#Image))
+        
+        Text$ = "  Dispose: " + PNG::GetFrameAttribute(#Image, PNG::#Dispos, Frame) + " / Blend: " + PNG::GetFrameAttribute(#Image, PNG::#Blend, Frame)
+        SetGadgetText(#Text, Text$)
+        ;}
+      Default ;{ Use internal frames
+        
+        PNG::Load(#Image, File$)
+     
         ;PNG::ScaleFrames(#Image, 0.5, 0.5)
         
         PNG::ResetFrames(#Image)
-        PNG::StartTimer(#Image, #Window)
+        PNG::StartTimer(#Image, #Window, #PB_Default, #Timer)
         ;}
     EndSelect
 
     Repeat
       Event = WaitWindowEvent()
       Select Event
-        Case #PB_Event_Timer  ;{ Timer
-          
-          If EventTimer() = PNG::#Timer
-            Select #Example
-              Case 1  ;{ PNG::AddFrames()
-
+        Case #PB_Event_Gadget ;{ SpinGadget
+          Select EventGadget()
+            Case #Spin
+              If EventType() = #PB_EventType_Change
+                
+                Frame = GetGadgetState(#Spin)
+                
+                Text$ = "  Dispose: " + PNG::GetFrameAttribute(#Image, PNG::#Dispos, Frame) + " / Blend: " + PNG::GetFrameAttribute(#Image, PNG::#Blend, Frame)
+                SetGadgetText(#Text, Text$)
+                
                 SetImageFrame(#Image, Frame)
                 
-                Delay = GetImageFrameDelay(#Image)
-                If Delay = 0 : Delay = 100 : EndIf
-               
-                RemoveWindowTimer(#Window, #Timer)
-                AddWindowTimer(#Window, #Timer, Delay)
+                SetGadgetState(#iGadget, ImageID(#Image))
                 
+              EndIf  
+          EndSelect
+          ;}
+        Case #PB_Event_Timer  ;{ Timer
+          
+          If EventTimer() = #Timer
+            Select #Example
+              Case 1  ;{ PNG::GenerateFrames()
+
+                SetImageFrame(#Image, GetImageFrame(#Image) + 1)
+                
+                Delay = GetImageFrameDelay(#Image)
+                If Delay = 0 : Delay = 10 : EndIf
+                RemoveWindowTimer(#Window, #Timer)
+                AddWindowTimer(#Window, #Timer, Delay + 20)
+
                 If StartDrawing(CanvasOutput(#Gadget))
                   DrawingMode(#PB_2DDrawing_Default)
                   Box(0, 0, GadgetWidth(#Gadget), GadgetHeight(#Gadget), $FFFFFF)
@@ -1579,15 +1924,13 @@ CompilerIf #PB_Compiler_IsMainFile
                   DrawImage(ImageID(#Image), 0, 0)
                   StopDrawing()
                 EndIf
-              
-                Frame + 1
-              
-                If Frame >= PNG::FrameCount(#Image) : Frame = 0 : EndIf 
+ 
+                If GetImageFrame(#Image) >= ImageFrameCount (#Image) - 1 : SetImageFrame(#Image, 0) : EndIf 
               ;}
               Default ;{ Internal frames
                 
-                PNG::DrawFrame(#Image, CanvasOutput(#Gadget))
-
+                PNG::DrawFrame(#Image, CanvasOutput(#Gadget), 0, 0, #PB_Default, $FFFFFF)
+        
                 If PNG::LoopCount(#Image)
                   If PNG::GetLoop(#Image) >= PNG::LoopCount(#Image)
                     PNG::StopTimer(#Image, #Window)
@@ -1608,8 +1951,8 @@ CompilerEndIf
   
  
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 1516
-; FirstLine = 328
-; Folding = YAAgCAAAAgAAGAk6
+; CursorPosition = 919
+; FirstLine = 140
+; Folding = QAAAAAAAAgAAiAEIh-
 ; EnableXP
 ; DPIAware
