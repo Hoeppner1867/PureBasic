@@ -8,9 +8,9 @@
 ;/ ( based on 'PurePDF' by LuckyLuke / ABBKlaus / normeus )
 ;/
 
-; Last Update: 05.04.2020
+; Last Update: 03.05.2020
 ; 
-; Added: PDF::GetStringHeight()
+; Conversion of incompatible PNGs 
 ;
 
 ;{ ===== MIT License =====
@@ -188,7 +188,7 @@
 
 DeclareModule PDF
   
-  #Version  = 20040500
+  #Version  = 20050300
   
   #Enable_AcroFormCommands  = #True
   #Enable_Annotations       = #True
@@ -575,7 +575,11 @@ Module PDF
   
   EnableExplicit
   
+  UsePNGImageDecoder()
+  UsePNGImageEncoder()
+  
   UseZipPacker()
+  
   UseMD5Fingerprint()
 
 ;- ===========================================================================
@@ -5976,31 +5980,44 @@ Module PDF
   EndProcedure 
   
   Procedure   Image(ID.i, FileName.s, X.f=#PB_Default, Y.f=#PB_Default, Width.f=#PB_Default, Height.f=#PB_Default, Link.i=#NoLink)
-    Define.i FileLen, Size
+    Define.i ImageNum, FileLen, Size
     Define   *Memory
  
     If FindMapElement(PDF(), Str(ID))
       
-      If X = #PB_Default      : X = PDF()\Page\X  : EndIf
-      If Y = #PB_Default      : Y = PDF()\Page\Y  : EndIf
-      If Width  = #PB_Default : Width  = 0        : EndIf
-      If Height = #PB_Default : Height = 0        : EndIf
+      If X = #PB_Default      : X = PDF()\Page\X : EndIf
+      If Y = #PB_Default      : Y = PDF()\Page\Y : EndIf
+      If Width  = #PB_Default : Width  = 0       : EndIf
+      If Height = #PB_Default : Height = 0       : EndIf
       
-      If ReadFile(#File, FileName) ;{ Read image file
-        FileLen = Lof(#File)
-        *Memory = AllocateMemory(FileLen)
-        If *Memory
-          Size = ReadData(#File, *Memory, FileLen)
-        EndIf
-        CloseFile(#File)
-      EndIf ;}
- 
+      If LCase(GetExtensionPart(FileName)) = "png"
+        
+        ImageNum = LoadImage(#PB_Any, FileName) ;{ Convert PNG file
+        If IsImage(ImageNum)
+          *Memory = EncodeImage(ImageNum, #PB_ImagePlugin_PNG, #False, 24)
+          Size    = MemorySize(*Memory)
+          FreeImage(ImageNum)
+        EndIf ;}
+        
+      Else 
+        
+        If ReadFile(#File, FileName)            ;{ Read image file
+          FileLen = Lof(#File)
+          *Memory = AllocateMemory(FileLen)
+          If *Memory
+            Size = ReadData(#File, *Memory, FileLen)
+          EndIf
+          CloseFile(#File)
+        EndIf ;}
+        
+      EndIf
+    
       If *Memory And Size
         Select LCase(GetExtensionPart(FileName))
           Case "png"
-            Image_(GetFilePart(FileName), *Memory, Size, #Image_PNG, X, Y, Width, Height, Link)
+            Image_(GetFilePart(FileName), *Memory, Size, #Image_PNG,      X, Y, Width, Height, Link)
           Case "jpg", "jpeg", "jfif", "jif", "jpe" 
-            Image_(GetFilePart(FileName), *Memory, Size, #Image_JPEG, X, Y, Width, Height, Link)
+            Image_(GetFilePart(FileName), *Memory, Size, #Image_JPEG,     X, Y, Width, Height, Link)
           Case "jp2", "jpc", "j2k", "jpm", "jpx", "jpg2", "jpeg2000"
             Image_(GetFilePart(FileName), *Memory, Size, #Image_JPEG2000, X, Y, Width, Height, Link)
           Default
@@ -6984,11 +7001,11 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf 
 
 ;- ========================
-; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 451
-; FirstLine = 33
-; Folding = IAAAApAegAQAwACAACAABAAw1CIDAAAAAFACAmARAAARAkAAAAAQBEQAAAACCTAABAEaAA5
-; Markers = 584,1019,2196,2375,2475,3270,3779,3849
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 11
+; FirstLine = 3
+; Folding = AAAAAoACgAQAwAAAACAABAAQ1AIDAAAAAAACAkABAAARAAAAAAAQBEQAAAACCTAABAIkAAw
+; Markers = 588,1023,2200,2379,2479,3274,3783,3853
 ; EnableXP
 ; DPIAware
 ; EnablePurifier

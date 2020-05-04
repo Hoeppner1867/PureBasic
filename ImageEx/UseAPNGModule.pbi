@@ -9,7 +9,9 @@
 ;/ © 2020  by Thorsten Hoeppner (04/2020)
 ;/
 
-; Last Update: 02.05.2020
+; Last Update: 04.05.2020
+;
+; BugFix
 ;
 ; Added: PNG::Save()
 ; 
@@ -55,6 +57,7 @@
 ; PNG::ScaleFrames()       ; scales the output of the frames
 
 ; PNG::Load()              ; comparable with 'LoadImage()'
+; PNG::Free()              ; free all internal apng frame images (e.g. after 'GenerateFrames')
 ; PNG::Save()              ; comparable with 'SaveImage()', but with all frames
 
 ; PNG::Create()            ; create an APNG from the image
@@ -84,7 +87,7 @@
 
 DeclareModule PNG
   
-  #Version  = 20050200
+  #Version  = 20050400
 
   ;- ===========================================================================
 	;-   DeclareModule - Constants
@@ -134,10 +137,9 @@ DeclareModule PNG
   Declare.i DrawFrame(ImageNum.i, OutputID.i, X.i=0, Y.i=0, Index.i=#PB_Default, BackColor.i=#PB_Default) 
   Declare   ScaleFrames(ImageNum.i, FactorX.f, FactorY.f)
   
-  Declare.i Load(ImageNum.i, File.s, Flags.i=#False) 
-  
-  Declare.i FrameCount(ImageNum.i)
   Declare.i FrameID(ImageNum.i, Index.i=#PB_Default) 
+  Declare.i FrameCount(ImageNum.i)
+   Declare.i LoopCount(ImageNum.i)
   
   Declare.i GetFrame(ImageNum.i)
   Declare.i GetFrameDelay(ImageNum.i, Index.i=#PB_Default)
@@ -145,9 +147,9 @@ DeclareModule PNG
   Declare.i GetFrameHeight(ImageNum.i, Index.i=#PB_Default)
   Declare.i GetFrameAttribute(ImageNum.i, Attribute.i, Index.i=#PB_Default)
   Declare.i GetLoop(ImageNum.i)
-  
-  Declare.i LoopCount(ImageNum.i)
-  
+
+  Declare.i Load(ImageNum.i, File.s, Flags.i=#False) 
+  Declare   Free(ImageNum)
   Declare   Save(ImageNum.i, File.s)
   
   Declare.i Create(ImageNum.i, File.s, Loops.i=0, Delay.i=0, Flags.i=#False)
@@ -899,42 +901,51 @@ Module PNG
   
     If FindMapElement(Image(), Str(ImageNum))
       
+      Image()\BackColor = #TransparentBlack
+      
       If IsImage(ImageNum)
+        
+        OutputBuffer = CreateImage(#PB_Any, Image()\Width, Image()\Height, 32, #PB_Image_Transparent)
+        
+        If Scale <> 1 : ImageNum = CreateImage(#PB_Any, ImageWidth(ImageNum) * Scale, ImageHeight(ImageNum) * Scale, 32, #PB_Image_Transparent) : EndIf
+
+        PushListPosition(Image()\Frame())
         
         SetImageFrame(ImageNum, 0)
         
-        OutputBuffer = CreateImage(#PB_Any, Image()\Width, Image()\Height, 32, #PB_Image_Transparent)
-    
-        PushListPosition(Image()\Frame())
-        
-        Width  = ImageWidth(ImageNum)  * Scale
-        Height = ImageHeight(ImageNum) * Scale
-        
-        Image()\BackColor = #TransparentBlack
-        
+        Width  = ImageWidth(ImageNum)
+        Height = ImageHeight(ImageNum)
+
         ResetList(Image()\Frame())
+        
+        SetImageFrame(ImageNum, 0)
+        
+        For f=0 To ListSize(Image()\Frame()) - 1
 
-        For f=1 To ListSize(Image()\Frame())
-          
-          If AddImageFrame(ImageNum)
-  
-            DrawFrame_(ImageOutput(OutputBuffer), 0, 0) 
-
-            If StartDrawing(ImageOutput(ImageNum))
-              DrawingMode(#PB_2DDrawing_AlphaBlend)
-              DrawImage(ImageID(OutputBuffer), 0, 0, Width, Height)
-              StopDrawing()
-            EndIf   
-            
-            SetImageFrameDelay(ImageNum, Image()\Frame()\Delay)
-            
+          If f = 0
+            If Scale = 1
+              DrawFrame_(ImageOutput(OutputBuffer), 0, 0) 
+              SetImageFrameDelay(ImageNum, Image()\Frame()\Delay)
+              Continue
+            EndIf 
+          Else
+            AddImageFrame(ImageNum)
           EndIf
           
+          DrawFrame_(ImageOutput(OutputBuffer), 0, 0) 
+          SetImageFrameDelay(ImageNum, Image()\Frame()\Delay)
+
+          If StartDrawing(ImageOutput(ImageNum))
+            DrawingMode(#PB_2DDrawing_AlphaBlend)
+            DrawImage(ImageID(OutputBuffer), 0, 0, Width, Height)
+            StopDrawing()
+          EndIf   
+
         Next
       
         PopListPosition(Image()\Frame())
         
-        ProcedureReturn ImageFrameCount(ImageNum)
+        ProcedureReturn ImageNum
       EndIf
       
     EndIf   
@@ -1211,7 +1222,6 @@ Module PNG
     ProcedureReturn #False
   EndProcedure
   
-  
   Procedure.i FrameCount(ImageNum.i)
     
     If FindMapElement(Image(), Str(ImageNum))
@@ -1219,6 +1229,7 @@ Module PNG
     EndIf  
     
   EndProcedure
+  
   
   Procedure.i LoopCount(ImageNum.i)
     ; Number of times to loop OR 0 for infinite loop
@@ -1228,6 +1239,7 @@ Module PNG
     EndIf  
     
   EndProcedure
+  
   
   
   Procedure.i Load(ImageNum.i, File.s, Flags.i=#False)
@@ -1288,6 +1300,20 @@ Module PNG
     
     ProcedureReturn ImageNum
   EndProcedure
+  
+  Procedure   Free(ImageNum)
+    
+    If FindMapElement(Image(), Str(ImageNum))
+      
+      ForEach Image()\Frame()
+        If IsImage(Image()\Frame()\ImageNum) : FreeImage(Image()\Frame()\ImageNum) : EndIf 
+      Next
+      
+      DeleteMapElement(Image())
+      
+    EndIf
+    
+  EndProcedure  
   
   Procedure   Save(ImageNum.i, File.s)
     Define.i f, FileNum, Frames, ImageSize, FrameSize
@@ -1830,7 +1856,8 @@ CompilerIf #PB_Compiler_IsMainFile
         ;ResizeImage(#Image, 240, 200)
         
         PNG::GenerateFrames(#Image)
-  
+        PNG::Free(#Image) ; The original image frames from APNG are no longer required
+        
         SetImageFrame(#Image, 0)
         
         If StartDrawing(CanvasOutput(#Gadget))
@@ -1863,15 +1890,20 @@ CompilerIf #PB_Compiler_IsMainFile
         
         PNG::Load(#Image, File$)
         
-        Frames = PNG::GenerateFrames(#Image, 0.5)
-        SetGadgetAttribute(#Spin, #PB_Spin_Maximum, Frames - 1)
-        
-        SetImageFrame(#Image, 0)
-        
-        SetGadgetState(#iGadget, ImageID(#Image))
-        
-        Text$ = "  Dispose: " + PNG::GetFrameAttribute(#Image, PNG::#Dispos, Frame) + " / Blend: " + PNG::GetFrameAttribute(#Image, PNG::#Blend, Frame)
-        SetGadgetText(#Text, Text$)
+        ImageNum = PNG::GenerateFrames(#Image, 0.6) ; New image number due to scaling
+        If IsImage(ImageNum)
+
+          Frames = ImageFrameCount(ImageNum)
+          SetGadgetAttribute(#Spin, #PB_Spin_Maximum, Frames - 1)
+          
+          SetImageFrame(ImageNum, 0)
+          
+          SetGadgetState(#iGadget, ImageID(ImageNum))
+          
+          Text$ = "  Dispose: " + PNG::GetFrameAttribute(#Image, PNG::#Dispos, Frame) + " / Blend: " + PNG::GetFrameAttribute(#Image, PNG::#Blend, Frame)
+          SetGadgetText(#Text, Text$)
+          
+        EndIf
         ;}
       Default ;{ Use internal frames
         
@@ -1897,9 +1929,9 @@ CompilerIf #PB_Compiler_IsMainFile
                 Text$ = "  Dispose: " + PNG::GetFrameAttribute(#Image, PNG::#Dispos, Frame) + " / Blend: " + PNG::GetFrameAttribute(#Image, PNG::#Blend, Frame)
                 SetGadgetText(#Text, Text$)
                 
-                SetImageFrame(#Image, Frame)
+                SetImageFrame(ImageNum, Frame)
                 
-                SetGadgetState(#iGadget, ImageID(#Image))
+                SetGadgetState(#iGadget, ImageID(ImageNum))
                 
               EndIf  
           EndSelect
@@ -1914,6 +1946,7 @@ CompilerIf #PB_Compiler_IsMainFile
                 
                 Delay = GetImageFrameDelay(#Image)
                 If Delay = 0 : Delay = 10 : EndIf
+                
                 RemoveWindowTimer(#Window, #Timer)
                 AddWindowTimer(#Window, #Timer, Delay + 20)
 
@@ -1925,7 +1958,7 @@ CompilerIf #PB_Compiler_IsMainFile
                   StopDrawing()
                 EndIf
  
-                If GetImageFrame(#Image) >= ImageFrameCount (#Image) - 1 : SetImageFrame(#Image, 0) : EndIf 
+                If GetImageFrame(#Image) >= ImageFrameCount(#Image) - 1 : SetImageFrame(#Image, 0) : EndIf 
               ;}
               Default ;{ Internal frames
                 
@@ -1951,8 +1984,8 @@ CompilerEndIf
   
  
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 919
-; FirstLine = 140
-; Folding = QAAAAAAAAgAAiAEIh-
+; CursorPosition = 89
+; FirstLine = 57
+; Folding = cAAAAAAAAgAAGBIQg+
 ; EnableXP
 ; DPIAware
