@@ -8,8 +8,9 @@
 ;/ ( based on 'PurePDF' by LuckyLuke / ABBKlaus / normeus )
 ;/
 
-; Last Update: 03.05.2020
+; Last Update: 05.05.2020
 ; 
+; Workaround: BMP-Images
 ; Conversion of incompatible PNGs 
 ;
 
@@ -188,7 +189,7 @@
 
 DeclareModule PDF
   
-  #Version  = 20050300
+  #Version  = 20050500
   
   #Enable_AcroFormCommands  = #True
   #Enable_Annotations       = #True
@@ -307,6 +308,7 @@ DeclareModule PDF
     #Image_PNG
     #Image_JPEG
     #Image_JPEG2000
+    #Image_BMP
   EndEnumeration
   ;}  
   ;{ ----- Info:        SetInfo() -----
@@ -5990,31 +5992,32 @@ Module PDF
       If Width  = #PB_Default : Width  = 0       : EndIf
       If Height = #PB_Default : Height = 0       : EndIf
       
-      If LCase(GetExtensionPart(FileName)) = "png"
+      Select LCase(GetExtensionPart(FileName))
+        Case "png", "bmp"
         
-        ImageNum = LoadImage(#PB_Any, FileName) ;{ Convert PNG file
-        If IsImage(ImageNum)
-          *Memory = EncodeImage(ImageNum, #PB_ImagePlugin_PNG, #False, 24)
-          Size    = MemorySize(*Memory)
-          FreeImage(ImageNum)
-        EndIf ;}
+          ImageNum = LoadImage(#PB_Any, FileName) ;{ Convert PNG file
+          If IsImage(ImageNum)
+            *Memory = EncodeImage(ImageNum, #PB_ImagePlugin_PNG, #False, 24)
+            Size    = MemorySize(*Memory)
+            FreeImage(ImageNum)
+          EndIf ;}
         
-      Else 
-        
-        If ReadFile(#File, FileName)            ;{ Read image file
-          FileLen = Lof(#File)
-          *Memory = AllocateMemory(FileLen)
-          If *Memory
-            Size = ReadData(#File, *Memory, FileLen)
-          EndIf
-          CloseFile(#File)
-        EndIf ;}
-        
-      EndIf
+        Default
+          
+          If ReadFile(#File, FileName)            ;{ Read image file
+            FileLen = Lof(#File)
+            *Memory = AllocateMemory(FileLen)
+            If *Memory
+              Size = ReadData(#File, *Memory, FileLen)
+            EndIf
+            CloseFile(#File)
+          EndIf ;}
+          
+      EndSelect
     
       If *Memory And Size
         Select LCase(GetExtensionPart(FileName))
-          Case "png"
+          Case "png", "bmp"
             Image_(GetFilePart(FileName), *Memory, Size, #Image_PNG,      X, Y, Width, Height, Link)
           Case "jpg", "jpeg", "jfif", "jif", "jpe" 
             Image_(GetFilePart(FileName), *Memory, Size, #Image_JPEG,     X, Y, Width, Height, Link)
@@ -6032,6 +6035,7 @@ Module PDF
   EndProcedure
   
   Procedure   ImageMemory(ID.i, ImageName.s, *Memory, Size.i, Format.i, X.f=#PB_Default, Y.f=#PB_Default, Width.f=#PB_Default, Height.f=#PB_Default, Link.i=#NoLink)
+    Define.i ImageNum
     
     If FindMapElement(PDF(), Str(ID))
       
@@ -6039,6 +6043,19 @@ Module PDF
       If Y = #PB_Default      : Y = PDF()\Page\Y  : EndIf
       If Width  = #PB_Default : Width  = 0        : EndIf
       If Height = #PB_Default : Height = 0        : EndIf
+      
+      ImageNum = CatchImage(#PB_Any, *Memory, Size)
+      If IsImage(ImageNum)
+        
+        Select ImageFormat(ImageNum)
+          Case #PB_ImagePlugin_PNG, #PB_ImagePlugin_BMP
+            *Memory = EncodeImage(ImageNum, #PB_ImagePlugin_PNG, #False, 24)
+            Size    = MemorySize(*Memory)
+            Format  = #Image_PNG
+        EndSelect
+        
+        FreeImage(ImageNum)
+      EndIf
       
       Image_(ImageName, *Memory, Size, Format, X, Y, Width, Height, Link)
       
@@ -7002,10 +7019,9 @@ CompilerEndIf
 
 ;- ========================
 ; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 11
-; FirstLine = 3
-; Folding = AAAAAoACgAQAwAAAACAABAAQ1AIDAAAAAAACAkABAAARAAAAAAAQBEQAAAACCTAABAIkAAw
-; Markers = 588,1023,2200,2379,2479,3274,3783,3853
+; CursorPosition = 191
+; Folding = YAQAAoACgAQAwAAAACAABAAQ1AMDAAAAAAACAkABAAARAAAAAAAQBEQAAAACCTAYBAIkAAw
+; Markers = 590,1025,2202,2381,2481,3276,3785,3855
 ; EnableXP
 ; DPIAware
 ; EnablePurifier

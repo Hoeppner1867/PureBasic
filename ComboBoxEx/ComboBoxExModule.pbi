@@ -87,7 +87,7 @@
 
 ;}
 
-; XIncludeFile "ModuleEx.pbi"
+XIncludeFile "ModuleEx.pbi"
 
 DeclareModule ComboBoxEx
   
@@ -1670,7 +1670,7 @@ Module ComboBoxEx
           ComboEx()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
         EndIf
         
-        If ModuleEx::ThemeGUI\ScrollBar : ComboEx()\ScrollBar\Flags = ModuleEx::ThemeGUI\ScrollBar : EndIf 
+        ;If ModuleEx::ThemeGUI\ScrollBar : ComboEx()\ScrollBar\Flags = ModuleEx::ThemeGUI\ScrollBar : EndIf 
         
         ComboEx()\Color\Front         = ModuleEx::ThemeGUI\FrontColor
         ComboEx()\Color\Back          = ModuleEx::ThemeGUI\BackColor
@@ -3612,10 +3612,10 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 2706
-; FirstLine = 388
-; Folding = IkBAAAAAAEApBQAAQQAEGMAAAAAwCAAAAAAAg-
+; IDE Options = PureBasic 5.71 LTS (Windows - x86)
+; CursorPosition = 1672
+; FirstLine = 322
+; Folding = IkBAAAAAAEApBQAA5QAEGMAAAAAwGAAAAAAAg-
 ; EnableThread
 ; EnableXP
 ; DPIAware
