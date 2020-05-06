@@ -7,7 +7,9 @@
 ;/ © 2019 Thorsten1867 (12/2019)
 ;/
 
-; Last Update: 07.03.2020
+; Last Update: 06.05.2020
+;
+; Bugfixes
 ;
 ; Added:   Attribute #ScrollBar [#ScrollBar_Default/#ScrollBar_Frame/#ScrollBar_DragPoint]
 ; Added:   SetColor() -> [#ScrollBar_FrontColor/#ScrollBar_BackColor/#ScrollBar_BorderColor/#ScrollBar_ButtonColor/#ScrollBar_ThumbColor]
@@ -87,11 +89,11 @@
 
 ;}
 
-XIncludeFile "ModuleEx.pbi"
+;XIncludeFile "ModuleEx.pbi"
 
 DeclareModule ComboBoxEx
   
-  #Version  = 20030700
+  #Version  = 20050600
   #ModuleEx = 19112600
   
   ;- ===========================================================================
@@ -1689,7 +1691,7 @@ Module ComboBoxEx
 			  ComboEx()\ListView\ScrollBar\Color\Back         = ModuleEx::ThemeGUI\BackColor
 			  ComboEx()\ListView\ScrollBar\Color\Border       = ModuleEx::ThemeGUI\BorderColor
 			  ComboEx()\ListView\ScrollBar\Color\Gadget       = ModuleEx::ThemeGUI\GadgetColor
-			  ComboEx()\ListView\ScrollBar\Color\Focus        = ModuleEx::ThemeGUI\FocusBack
+			  ComboEx()\ListView\ScrollBar\Color\Focus        = ModuleEx::ThemeGUI\Focus\BackColor
         ComboEx()\ListView\ScrollBar\Color\Button       = ModuleEx::ThemeGUI\Button\BackColor
         ComboEx()\ListView\ScrollBar\Color\ScrollBar    = ModuleEx::ThemeGUI\ScrollbarColor
         
@@ -3612,9 +3614,8 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 1672
-; FirstLine = 322
+; IDE Options = PureBasic 5.72 (Windows - x64)
+; CursorPosition = 91
 ; Folding = IkBAAAAAAEApBQAA5QAEGMAAAAAwGAAAAAAAg-
 ; EnableThread
 ; EnableXP
