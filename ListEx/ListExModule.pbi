@@ -9,7 +9,7 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 17.04.2020
+; Last Update: 15.05.2020
 ;
 ; Bugfixes
 ;
@@ -149,7 +149,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20041700
+  #Version  = 20051500
   #ModuleEx = 20030400
   
   #Enable_CSV_Support   = #True
@@ -10225,6 +10225,8 @@ Module ListEx
         
         SortColumn_()
         
+        UpdateRowY_()
+        
         ;ListEx()\Focus = #False
         ;ListEx()\Row\Focus = #NotValid
         
@@ -10326,7 +10328,7 @@ CompilerIf #PB_Compiler_IsMainFile
         ListEx::AddColumn(#List, ListEx::#LastItem, "Combo",   60, "combo",  ListEx::#ComboBoxes)
         ListEx::AddColumn(#List, ListEx::#LastItem, "Date",    76, "date",   ListEx::#DateGadget)
         ListEx::AddColumn(#List, ListEx::#LastItem, "Buttons", 55, "button", ListEx::#Buttons) ; ListEx::#Hide
-        ListEx::AddColumn(#List, ListEx::#LastItem, "Test", 30, "test",   ListEx::#Editable) 
+
         ; --- Test ProgressBar ---
         CompilerIf ListEx::#Enable_ProgressBar
           ;ListEx::AddColumn(#List, ListEx::#LastItem, "Progress", 60, "progress", ListEx::#ProgressBar)
@@ -10389,7 +10391,7 @@ CompilerIf #PB_Compiler_IsMainFile
         ;ListEx::SetColor(#List, ListEx::#AlternateRowColor, $F0FFF0)
         
         ; --- Define AutoResize ---
-        ;ListEx::SetAutoResizeColumn(#List, 2, 50)
+        ListEx::SetAutoResizeColumn(#List, 2, 50)
         ListEx::SetAutoResizeFlags(#List, ListEx::#Height|ListEx::#Width) ; 
         
         ; --- Mark content in accordance with certain rules   ---
@@ -10408,9 +10410,10 @@ CompilerIf #PB_Compiler_IsMainFile
         
         ; --- Use images ---
         If LoadImage(#Image, "Delete.png")
+          Debug "Delete.png"
           ListEx::SetItemImage(#List, 0, 1, #Image)
           ListEx::SetItemImage(#List, 1, 5, #Image, ListEx::#Center, 14, 14)
-          ListEx::SetItemImage(#List, ListEx::#Header, 2, 14, 14, #Image, ListEx::#Right)
+          ListEx::SetItemImage(#List, ListEx::#Header, 2, #Image, ListEx::#Right, 14, 14)
         EndIf
         
         ; --- Test single cell flags ---
@@ -10441,7 +10444,7 @@ CompilerIf #PB_Compiler_IsMainFile
       
       ;ListEx::SetCellFlags(#List, 3, 1, ListEx::#Editable)
       
-      ListEx::SetColumnFlags(#List, 5, ListEx::#Hide)      
+      ;ListEx::SetColumnFlags(#List, 5, ListEx::#Hide)      
       
     EndIf
     
@@ -10538,8 +10541,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 14
-; Folding = wAC5P+--------fA-------------4H+-j-C1GAwCgA1bA9--HACwAwLwfSEA5--w-HgwMQXdM5A9------nDwQcehDBNO4
+; CursorPosition = 151
+; FirstLine = 12
+; Folding = wAC5P+--------fA-------------4H+-j-C1GAwCgA1bA9--HACwAwLhfREA5--w-HgwMQXdM5A9------nDwQcehBgNO4
 ; Markers = 9263
 ; EnableThread
 ; EnableXP
