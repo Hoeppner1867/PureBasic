@@ -68,13 +68,13 @@
 
 DeclareModule Date64
   
-  #Version = 19112300
+  #Version = 20051900
   
 	;- ===========================================================================
 	;-   DeclareModule
 	;- ===========================================================================
   
-  Declare.q AddDate_(Date.q, Type.i, Value.i)
+  Declare.q AddDate_(Date.q, Type.i, Value.q)
   Declare.q Date_(Year.i=#PB_Default, Month.i=1, Day.i=1, Hour.i=0, Minute.i=0, Second.i=0)
   Declare.i Day_(Date.q)
   Declare.i DayOfWeek_(Date.q)
@@ -490,7 +490,7 @@ Module Date64
   
   CompilerIf #PB_Compiler_OS = #PB_OS_MacOS
     
-    Procedure.q AddDate_Date.q, Type.i, Value.i)
+    Procedure.q AddDate_Date.q, Type.i, Value.q)
       Define.d at
       
       at = Date - 978307200
@@ -735,8 +735,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
+; IDE Options = PureBasic 5.72 (Windows - x64)
 ; CursorPosition = 70
-; Folding = cfwgJ0
+; Folding = cfwgL0
 ; EnableXP
 ; DPIAware
