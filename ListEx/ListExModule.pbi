@@ -9,9 +9,10 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 15.05.2020
+; Last Update: 19.05.2020
 ;
-; Bugfixes
+; Added: Attribut '#ParentGadget' for resizing (e.g. ContainerGadget)
+; Added: Attribut '#MinimumSize'  for minimum size of scrollbar thumb
 ;
 
 ;{ ===== MIT License =====
@@ -149,7 +150,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20051500
+  #Version  = 20051900
   #ModuleEx = 20030400
   
   #Enable_CSV_Support   = #True
@@ -284,7 +285,9 @@ DeclareModule ListEx
     #GadgetFont
     #FirstVisibleRow
     #VisibleRows
-    #ScrollBar
+    #ScrollBar       ; Set scrollbar flags
+    #MinimumSize     ; Minimum size of scrollbar thumb
+    #ParentGadget    ; Parent gadget for resizing
   EndEnumeration ;}
   
   EnumerationBinary ;{ Column Flags
@@ -697,7 +700,7 @@ Module ListEx
 
 	  Adjust.i
 	  Radius.i
-
+    MinSize.i
 	  Flags.i
 	  
 	  Color.ScrollBar_Color_Structure
@@ -1071,6 +1074,14 @@ Module ListEx
     Flags.i
   EndStructure ;}
   
+  Structure ListEx_Parent_Structure     ;{ ListEx()\Parent\...
+    Num.i
+    X.i
+    Y.i
+    Width.i
+    Height.i
+  EndStructure  
+  
   Structure ListEx_Window_Structure     ;{ ListEx()\Window\...
     Num.i
     Width.f
@@ -1082,6 +1093,7 @@ Module ListEx
     Quad.i
     
     CanvasNum.i
+    
     ;ComboNum.i
     DateNum.i
     PopUpID.i
@@ -1109,7 +1121,7 @@ Module ListEx
     
     AutoResize.ListEx_AutoResize_Structure
     Window.ListEx_Window_Structure
-    
+    Parent.ListEx_Parent_Structure
     Header.ListEx_Header_Structure
     Row.ListEx_Row_Structure
     Col.ListEx_Col_Structure
@@ -1493,7 +1505,7 @@ Module ListEx
     	  ListEx()\ScrollBar\Item()\Area\Height  = ListEx()\ScrollBar\Item()\Height - dpiY(ListEx()\ScrollBar\Adjust) - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(2)
     	  ListEx()\ScrollBar\Item()\Thumb\Y      = ListEx()\ScrollBar\Item()\Area\Y
     	  ListEx()\ScrollBar\Item()\Thumb\Size   = Round(ListEx()\ScrollBar\Item()\Area\Height * ListEx()\ScrollBar\Item()\Ratio, #PB_Round_Down)
-    	  If ListEx()\ScrollBar\Item()\Thumb\Size < dpiY(6) : ListEx()\ScrollBar\Item()\Thumb\Size = dpiY(6) : EndIf
+    	  If ListEx()\ScrollBar\Item()\Thumb\Size < dpiY(ListEx()\ScrollBar\MinSize) : ListEx()\ScrollBar\Item()\Thumb\Size = dpiY(ListEx()\ScrollBar\MinSize) : EndIf
     	  ListEx()\ScrollBar\Item()\Thumb\Factor = (ListEx()\ScrollBar\Item()\Area\Height - ListEx()\ScrollBar\Item()\Thumb\Size) / Range
   	  Else
   	    ListEx()\ScrollBar\Item()\Area\X       = ListEx()\ScrollBar\Item()\X + dpiX(#ScrollBar_ButtonSize) + dpiX(1)
@@ -1502,7 +1514,7 @@ Module ListEx
     	  ListEx()\ScrollBar\Item()\Area\Height  = ListEx()\ScrollBar\Item()\Height
     	  ListEx()\ScrollBar\Item()\Thumb\X      = ListEx()\ScrollBar\Item()\Area\X
     	  ListEx()\ScrollBar\Item()\Thumb\Size   = Round(ListEx()\ScrollBar\Item()\Area\Width * ListEx()\ScrollBar\Item()\Ratio, #PB_Round_Down)
-    	  If ListEx()\ScrollBar\Item()\Thumb\Size < dpiX(6) : ListEx()\ScrollBar\Item()\Thumb\Size = dpiX(6) : EndIf
+    	  If ListEx()\ScrollBar\Item()\Thumb\Size < dpiX(ListEx()\ScrollBar\MinSize) : ListEx()\ScrollBar\Item()\Thumb\Size = dpiX(ListEx()\ScrollBar\MinSize) : EndIf
     	  ListEx()\ScrollBar\Item()\Thumb\Factor = (ListEx()\ScrollBar\Item()\Area\Width - ListEx()\ScrollBar\Item()\Thumb\Size) / Range
   	  EndIf  
   	  
@@ -7476,27 +7488,36 @@ Module ListEx
  
         If ListEx()\Flags & #AutoResize
           
-          If IsWindow(ListEx()\Window\Num)
+          If ListEx()\ParentNum <> #PB_Default
             
-            OffSetX = WindowWidth(ListEx()\Window\Num)  - ListEx()\Window\Width
-            OffsetY = WindowHeight(ListEx()\Window\Num) - ListEx()\Window\Height
-            
-            If ListEx()\Size\Flags
-              
-              X = #PB_Ignore : Y = #PB_Ignore : Width  = #PB_Ignore : Height = #PB_Ignore
-              
-              If ListEx()\Size\Flags & #MoveX : X = ListEx()\Size\X + OffSetX : EndIf
-              If ListEx()\Size\Flags & #MoveY : Y = ListEx()\Size\Y + OffSetY : EndIf
-              If ListEx()\Size\Flags & #Width  : Width  = ListEx()\Size\Width  + OffSetX : EndIf
-              If ListEx()\Size\Flags & #Height : Height = ListEx()\Size\Height + OffSetY : EndIf
-              
-              ResizeGadget(ListEx()\CanvasNum, X, Y, Width, Height)
-              
-            Else
-              
-              ResizeGadget(ListEx()\CanvasNum, #PB_Ignore, #PB_Ignore, ListEx()\Size\Width + OffSetX, ListEx()\Size\Height + OffsetY)
-              
+            If IsGadget(ListEx()\Parent\Num)
+              OffSetX = GadgetWidth(ListEx()\Parent\Num)  - ListEx()\Parent\Width
+              OffsetY = GadgetHeight(ListEx()\Parent\Num) - ListEx()\Parent\Height
             EndIf
+            
+          Else
+            
+            If IsWindow(ListEx()\Window\Num)
+              OffSetX = WindowWidth(ListEx()\Window\Num)  - ListEx()\Window\Width
+              OffsetY = WindowHeight(ListEx()\Window\Num) - ListEx()\Window\Height
+            EndIf
+          
+          EndIf
+
+          If ListEx()\Size\Flags
+            
+            X = #PB_Ignore : Y = #PB_Ignore : Width  = #PB_Ignore : Height = #PB_Ignore
+            
+            If ListEx()\Size\Flags & #MoveX : X = ListEx()\Size\X + OffSetX : EndIf
+            If ListEx()\Size\Flags & #MoveY : Y = ListEx()\Size\Y + OffSetY : EndIf
+            If ListEx()\Size\Flags & #Width  : Width  = ListEx()\Size\Width  + OffSetX : EndIf
+            If ListEx()\Size\Flags & #Height : Height = ListEx()\Size\Height + OffSetY : EndIf
+            
+            ResizeGadget(ListEx()\CanvasNum, X, Y, Width, Height)
+            
+          Else
+            
+            ResizeGadget(ListEx()\CanvasNum, #PB_Ignore, #PB_Ignore, ListEx()\Size\Width + OffSetX, ListEx()\Size\Height + OffsetY)
             
           EndIf
           
@@ -8494,15 +8515,17 @@ Module ListEx
       If ColLabel = "" : ColLabel = "0" : EndIf
       
       If AddMapElement(ListEx(), Str(GNum))
-
+        
+        ListEx()\Parent\Num = #PB_Default
+        
 				If WindowNum = #PB_Default
           ListEx()\Window\Num = GetGadgetWindow()
         Else
           ListEx()\Window\Num = WindowNum
         EndIf
-        
-        ListEx()\CanvasNum = GNum
-        
+
+        ListEx()\CanvasNum  = GNum
+
         CompilerIf Defined(ModuleEx, #PB_Module)
 
           If ModuleEx::AddWindow(ListEx()\Window\Num, ModuleEx::#Tabulator|ModuleEx::#CursorEvent)
@@ -8581,6 +8604,7 @@ Module ListEx
           ListEx()\Window\Width  = WindowWidth(ListEx()\Window\Num)
           ListEx()\Window\Height = WindowHeight(ListEx()\Window\Num)
         EndIf
+        ListEx()\ScrollBar\MinSize = 6
         ;}        
 
         ;{ Gadgets
@@ -8598,6 +8622,7 @@ Module ListEx
           EndIf
         CompilerEndIf
         ListEx()\Date\Mask = ListEx()\Country\DateMask
+        ;}
         
         InitScrollBar_()
         
@@ -9211,18 +9236,27 @@ Module ListEx
   
   
   Procedure   SetAttribute(GNum.i, Attrib.i, Value.i)
-    ; Attrib: #Padding
-    
+
     If FindMapElement(ListEx(), Str(GNum))
       
       Select Attrib
         Case #Padding
-          ListEx()\Col\Padding     = Value
-        Case #MaxChars
+          ListEx()\Col\Padding       = Value
+        Case #MaxChars     ; maximum number of characters for StringGadget/ComboBox 
           ListEx()\String\MaxChars   = Value
           ListEx()\ComboBox\MaxChars = Value
-        Case #ScrollBar
+        Case #ScrollBar    ; Flags for scrollbar
           ListEx()\ScrollBar\Flags   = Value
+        Case #MinimumSize  ; Minimum size of scrollbar thumb
+          ListEx()\ScrollBar\MinSize = Value
+        Case #ParentGadget ; Parent gadget for resizing  
+          If IsGadget(Value)
+            ListEx()\Parent\Num      = Value
+            ListEx()\Parent\X        = GadgetX(Value)
+            ListEx()\Parent\Y        = GadgetY(Value)
+            ListEx()\Parent\Width    = GadgetWidth(Value)
+            ListEx()\Parent\Height   = GadgetHeight(Value)
+          EndIf  
       EndSelect
       
       If ListEx()\ReDraw : Redraw_() : EndIf
@@ -10541,10 +10575,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 151
-; FirstLine = 12
-; Folding = wAC5P+--------fA-------------4H+-j-C1GAwCgA1bA9--HACwAwLhfREA5--w-HgwMQXdM5A9------nDwQcehBgNO4
-; Markers = 9263
+; CursorPosition = 7
+; Folding = wAB5PAAAAAAA1--A+---fYe------vP+-H-FoNAgFABo4A5--PAEgBgXC-iIAw--h-PAhJAu7IwB5g+----Pvhh59CDAbcu-
+; Markers = 1505,7494,9297
 ; EnableThread
 ; EnableXP
 ; DPIAware
