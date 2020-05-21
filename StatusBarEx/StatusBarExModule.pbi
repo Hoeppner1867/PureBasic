@@ -9,14 +9,10 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
   
-; Last Update: 08.12.2019
+; Last Update: 19.05.2020
 ;
-; Bugfix: DPI & SizeHandle
+; Bugfix: #NoWindow
 ;
-; Added: #NoWindow (use container or gadget instead of window for resizing)
-; Added: ClearItems() / Disable()
-; Added: #UseExistingCanvas
-; Added: StatusBar::Hide()
 
 
 ;{ ===== MIT License =====
@@ -89,7 +85,7 @@
 
 DeclareModule StatusBar
   
-  #Version  = 19120800
+  #Version  = 20051900
   #ModuleEx = 19111703
   
   ;- ===========================================================================
@@ -262,6 +258,12 @@ Module StatusBar
     Height.f
   EndStructure ;}
   
+  Structure StBEx_Parent_Structure     ;{ StBEx()\Parent\...
+    Num.i
+    Width.i
+    Height.i
+  EndStructure  
+  
   Structure StBEx_Fields_Structure     ;{ StBEx()\Fields()\...
     X.f
     Text.s
@@ -293,6 +295,7 @@ Module StatusBar
     Event.StBEx_Event_Structure
     Size.StBEx_Size_Structure
     Window.StBEx_Window_Structure
+    Parent.StBEx_Parent_Structure
     
     List Fields.StBEx_Fields_Structure()
     Map  Gadget.Gadget_Structure()
@@ -761,13 +764,23 @@ Module StatusBar
       
       If IsGadget(StBEx()\CanvasNum)
         
-        If IsWindow(StBEx()\Window\Num)
+        If StBEx()\Flags & #NoWindow
           
-          OffSetX = WindowWidth(StBEx()\Window\Num)  - StBEx()\Window\Width
-          OffSetY = WindowHeight(StBEx()\Window\Num) - StBEx()\Window\Height
+          If IsGadget(StBEx()\Parent\Num)
+            OffSetX = GadgetWidth(StBEx()\Parent\Num)  - StBEx()\Parent\Width
+            OffSetY = GadgetHeight(StBEx()\Parent\Num) - StBEx()\Parent\Height
+          EndIf
           
-          ResizeGadget(StBEx()\CanvasNum, #PB_Ignore, StBEx()\Size\Y + OffsetY, StBEx()\Size\Width + OffSetX, #PB_Ignore)
+        Else  
+        
+          If IsWindow(StBEx()\Window\Num)
+            OffSetX = WindowWidth(StBEx()\Window\Num)  - StBEx()\Window\Width
+            OffSetY = WindowHeight(StBEx()\Window\Num) - StBEx()\Window\Height
+          EndIf
+
         EndIf
+        
+        ResizeGadget(StBEx()\CanvasNum, #PB_Ignore, StBEx()\Size\Y + OffsetY, StBEx()\Size\Width + OffSetX, #PB_Ignore)
         
       EndIf
       
@@ -1026,6 +1039,12 @@ Module StatusBar
         StBEx()\Window\Num    = WindowNum
         StBEx()\Window\Width  = Width
         StBEx()\Window\Height = Height
+        
+        If Flags & #NoWindow
+          StBEx()\Parent\Num    = WindowNum
+          StBEx()\Parent\Width  = Width
+          StBEx()\Parent\Height = Height
+        EndIf
         
         CompilerSelect #PB_Compiler_OS           ;{ Default Gadget Font
 					CompilerCase #PB_OS_Windows
@@ -1612,8 +1631,8 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf  
   
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 91
-; Folding = 5BIAAAAAARgDAI5
+; IDE Options = PureBasic 5.72 (Windows - x64)
+; CursorPosition = 87
+; Folding = 5BUAAAAgAiIHAQw
 ; EnableXP
 ; DPIAware

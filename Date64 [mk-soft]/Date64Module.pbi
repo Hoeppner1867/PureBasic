@@ -517,7 +517,7 @@ Module Date64
     
   CompilerElse ; Windows or Linux
     
-    Procedure.q AddDate_(Date.q, Type.i, Value.i)
+    Procedure.q AddDate_(Date.q, Type.i, Value.q)
       Define.i Day, Month, Year
 
       Select Type
@@ -736,7 +736,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 70
-; Folding = cfwgL0
+; CursorPosition = 519
+; FirstLine = 255
+; Folding = cfwgJ0
 ; EnableXP
 ; DPIAware
