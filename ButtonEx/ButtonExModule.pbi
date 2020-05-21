@@ -4,18 +4,13 @@
 ;/
 ;/ [ PB V5.7x / 64Bit / all OS / DPI ]
 ;/
-;/ Â© 2019 Thorsten1867 (03/2019)
+;/ © 2020 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 08.12.2019
+; Last Update: 21.05.2020
 ;
-; Bugfix: Themes
-;
-; Added:   #UseExistingCanvas
-; Changed: #ResizeWidth -> #Width / #ResizeHeight -> #Height
-; Added:   SetDynamicFont() / FitText() / SetFitText()       [needs ModuleEx.pbi]
-; Added:   Flags '#FitText' & '#FixPadding' for Autoresize   [needs ModuleEx.pbi]
-
+; Added: ButtonEx::CombineToogle()
+; Added: ButtonEx::Free()
 
 ;{ ===== MIT License =====
 ;
@@ -51,20 +46,31 @@
 
 ;{ _____ ButtonEx - Commands _____
 
-; Button::AddDropDown()        - adds a dropdown menue to the button
-; Button::AddImage()           - adds an image to the button
-; Button::Gadget()             - similar to 'ButtonGadget()'
-; Button::GetState()           - similar to 'GetGadgetState()'
-; Button::SetState()           - similar to 'SetGadgetState()'
-; Button::SetAutoResizeFlags() - [#MoveX|#MoveY|#Width|#Height]
-; Button::SetAttribute()       - similar to 'SetGadgetAttribute()'
-; Button::SetFont()            - similar to 'SetGadgetFont()'
-; Button::SetColor()           - similar to 'SetGadgetColor()'
-; Button::SetText()            - similar to 'SetGadgetText()'
+; ButtonEx::AddDropDown()        - adds a dropdown menue to the button
+; ButtonEx::AddImage()           - adds an image to the button
+; ButtonEx::CombineToogle()      - combine a group of toggle buttons
+; ButtonEx::Disable()            - similar to 'DisableGadget()'
+; ButtonEx::Free()               - similar to 'FreeGadget()'
+; ButtonEx::Gadget()             - similar to 'ButtonGadget()'
+; ButtonEx::GetData()            - similar to 'GetGadgetData()'
+; ButtonEx::GetID()              - similar to 'GetGadgetData()', but string
+; ButtonEx::GetState()           - similar to 'GetGadgetState()'
+; ButtonEx::GetText()            - similar to 'GetGadgetText()'
+
+; ButtonEx::SetAutoResizeFlags() - [#MoveX|#MoveY|#Width|#Height]
+; ButtonEx::SetAttribute()       - similar to 'SetGadgetAttribute()'
+; ButtonEx::SetColor()           - similar to 'SetGadgetColor()'
+; ButtonEx::SetData()            - similar to 'SetGadgetData()'
+; ButtonEx::SetFont()            - similar to 'SetGadgetFont()'
+; ButtonEx::SetID()              - similar to 'SetGadgetData()', but string
+; ButtonEx::SetState()           - similar to 'SetGadgetState()'
+; ButtonEx::SetText()            - similar to 'SetGadgetText()'
+; ButtonEx::Hide()               - similar to 'HideGadget()'
+
 ; _____ ModuleEx.pbi _____
-; Button::FitTextEx()          - fits text size                  [needs SetFontEx() before]
-; Button::SetFontEx()          - sets a font that can be fitted  
-; Button::SetTextEx()          - change text and fit its size    [needs SetFontEx() before]
+; ButtonEx::FitTextEx()          - fits text size                  [needs SetFontEx() before]
+; ButtonEx::SetFontEx()          - sets a font that can be fitted  
+; ButtonEx::SetTextEx()          - change text and fit its size    [needs SetFontEx() before]
 
 ;}
 
@@ -72,7 +78,7 @@
 
 DeclareModule ButtonEx
   
-  #Version  = 19120800
+  #Version  = 20052100
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -147,7 +153,9 @@ DeclareModule ButtonEx
 
 	Declare   AddDropDown(GNum.i, PopupNum.i)
 	Declare   AddImage(GNum.i, ImageNum.i, Width.i=#PB_Default, Height.i=#PB_Default, Flags.i=#Left)
+	Declare.i CombineToogle(GNum.i, Group.s, State.i=#True)
 	Declare   Disable(GNum.i, State.i=#True)
+	Declare   Free(GNum.i)
 	Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Text.s, Flags.i, WindowNum.i=#PB_Default)
 	Declare.q GetData(GNum.i)
 	Declare.s GetID(GNum.i)
@@ -201,6 +209,11 @@ Module ButtonEx
 	;- ============================================================================
 	;- Module - Structures
 	;- ============================================================================
+	
+	Structure Toogle_Group_Structure
+	  List GadgetNum.i()
+	EndStructure  
+	Global NewMap Group.Toogle_Group_Structure()
 	
 	Structure ButtonEx_Image_Structure   ;{ ButtonEx()\Image\...
 		Num.i
@@ -263,6 +276,8 @@ Module ButtonEx
     PaddingX.i
     PaddingY.i
     PFactor.f
+    
+    Group.s
     
     Font.ButtonEx_Font_Structure
 		Color.ButtonEx_Color_Structure
@@ -739,13 +754,47 @@ Module ButtonEx
 			BtEx()\State | #Click
 
 			If BtEx()\Flags & #DropDownButton
+			  
 				If X > dpiX(GadgetWidth(BtEx()\CanvasNum)) - dpiX(#DropDownWidth)
 					BtEx()\State | #DropDown
 				Else
 					If BtEx()\Flags & #Toggle : BtEx()\Toggle ! #True : EndIf
 				EndIf
+				
 			Else
-				If BtEx()\Flags & #Toggle : BtEx()\Toggle ! #True : EndIf
+			  
+			  If BtEx()\Flags & #Toggle
+			    
+			    BtEx()\Toggle ! #True
+
+			    If BtEx()\Group
+			      
+			      If BtEx()\Toggle = #True
+			        
+			        If FindMapElement(Group(), BtEx()\Group)
+			          
+			          ForEach Group()\GadgetNum()
+			            
+  			          If Group()\GadgetNum() = GNum : Continue : EndIf
+  			          
+  			          PushMapPosition(BtEx())
+  			          
+  			          If FindMapElement(BtEx(), Str(Group()\GadgetNum()))
+  			            BtEx()\Toggle = #False
+  			            Draw_()
+  			          EndIf  
+  			          
+  			          PopMapPosition(BtEx())
+  			          
+  			        Next 
+  			        
+  			      EndIf 
+  			      
+			      EndIf
+			      
+			    EndIf
+			    
+			  EndIf
 			EndIf
 
 			Draw_()
@@ -889,7 +938,38 @@ Module ButtonEx
 	;- ==========================================================================
 	;- Module - Declared Procedures
 	;- ==========================================================================
-
+	
+	Procedure.i CombineToogle(GNum.i, Group.s, State.i=#True)
+	  
+	  If FindMapElement(BtEx(), Str(GNum))
+	    
+	    If State
+	      
+	      BtEx()\Group = Group
+	      
+	      If AddElement(Group(Group)\GadgetNum())
+  	      Group(Group)\GadgetNum() = GNum
+  	    EndIf
+	    
+	    Else
+	      
+	      BtEx()\Group = ""
+	      
+	      If FindMapElement(Group(), Group)
+	        ForEach Group()
+	          If Group()\GadgetNum() = GNum
+	            DeleteElement(Group()\GadgetNum())
+	          EndIf  
+	        Next  
+	      EndIf
+	      
+	    EndIf  
+	    
+	  EndIf  
+	  
+	  ProcedureReturn ListSize(Group(Group)\GadgetNum())
+	EndProcedure  
+	
 	Procedure   AddDropDown(GNum.i, PopupNum.i)
 
 		If FindMapElement(BtEx(), Str(GNum))
@@ -935,6 +1015,28 @@ Module ButtonEx
     EndIf  
     
   EndProcedure 
+  
+  Procedure   Free(GNum.i)
+    
+    If FindMapElement(BtEx(), Str(GNum))
+      
+      DeleteMapElement(BtEx())
+      
+      ForEach Group()
+        
+        ForEach Group()\GadgetNum()
+          If Group()\GadgetNum() = GNum
+            DeleteElement(Group()\GadgetNum())
+          EndIf  
+        Next
+        
+        If MapSize(Group()) = 0 : DeleteMapElement(Group()) : EndIf
+        
+      Next   
+      
+    EndIf
+    
+  EndProcedure  
   
   
 	Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Text.s, Flags.i, WindowNum.i=#PB_Default)
@@ -1408,9 +1510,8 @@ CompilerIf #PB_Compiler_IsMainFile
 	EndIf
 
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 939
-; FirstLine = 173
-; Folding = YgAEA96JQEGAA9
+; IDE Options = PureBasic 5.72 (Windows - x64)
+; CursorPosition = 12
+; Folding = YgAEA966wAYQAw-
 ; EnableXP
 ; DPIAware
