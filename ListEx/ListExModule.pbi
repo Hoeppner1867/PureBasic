@@ -9,7 +9,9 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 19.05.2020
+; Last Update: 21.05.2020
+;
+; Bugfixes (DPI)
 ;
 ; Added: Attribut '#ParentGadget' for resizing (e.g. ContainerGadget)
 ; Added: Attribut '#MinimumSize'  for minimum size of scrollbar thumb
@@ -150,7 +152,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 20051900
+  #Version  = 20052100
   #ModuleEx = 20030400
   
   #Enable_CSV_Support   = #True
@@ -1290,7 +1292,7 @@ Module ListEx
       ListEx()\Cols()\X  = ListEx()\Size\Cols
       ListEx()\Size\Cols + ListEx()\Cols()\Width
     Next  
-     
+  
   EndProcedure
   
   Procedure   UpdateRowY_()
@@ -3895,7 +3897,7 @@ Module ListEx
       
       colX = dpiX(ListEx()\Size\X) - dpiX(ListEx()\Col\OffsetX)
       
-      ListEx()\Size\Cols   = 0
+      ListEx()\Size\Cols = 0
       
       ;{ _____ Header _____
       If ListEx()\Flags & #NoRowHeader
@@ -3908,7 +3910,7 @@ Module ListEx
           
           If ListEx()\Cols()\Flags & #Hide Or ListEx()\Cols()\Width = 0 : Continue : EndIf
           
-          ListEx()\Size\Cols + dpiX(ListEx()\Cols()\Width)
+          ListEx()\Size\Cols + ListEx()\Cols()\Width ; No DPI!
           
         Next  
         
@@ -3918,7 +3920,7 @@ Module ListEx
           
           If ListEx()\Cols()\Flags & #Hide Or ListEx()\Cols()\Width = 0 : Continue : EndIf
           
-          ListEx()\Size\Cols + dpiX(ListEx()\Cols()\Width)
+          ListEx()\Size\Cols + ListEx()\Cols()\Width ; No DPI!
           
           ListEx()\Cols()\minWidth = 0
           
@@ -4413,10 +4415,10 @@ Module ListEx
       colX = dpiX(ListEx()\Size\X) - dpiX(ListEx()\Col\OffsetX)
       rowY = dpiY(ListEx()\Size\Y)
       
-      Line(0, dpiY(ListEx()\Header\Height), ListEx()\Size\Cols, 1, ListEx()\Color\HeaderLine)
+      Line(0, dpiY(ListEx()\Header\Height), dpiX(ListEx()\Size\Cols), 1, ListEx()\Color\HeaderLine)
       
       DrawingMode(#PB_2DDrawing_Default)
-      Box(ListEx()\Size\Cols, 0, dpiX(GadgetWidth(ListEx()\CanvasNum)) - ListEx()\Size\Cols, dpiY(GadgetHeight(ListEx()\CanvasNum)), ListEx()\Color\Back)
+      Box(dpiX(ListEx()\Size\Cols), 0, dpiX(GadgetWidth(ListEx()\CanvasNum)) - dpiX(ListEx()\Size\Cols), dpiY(GadgetHeight(ListEx()\CanvasNum)), ListEx()\Color\Back)
       
       ;{ _____ Border _____
       If ListEx()\Flags & #NumberedColumn
@@ -4542,8 +4544,7 @@ Module ListEx
 
   Procedure.i AdjustScrollBars_(Force.i=#False)
     Define.i WidthOffset, Width, PageRows, Result
-    
-   
+
     ;{ Vertical ScrollBar
     If ListEx()\Size\Rows > (GadgetHeight(ListEx()\CanvasNum) - ListEx()\Header\Height)
     
@@ -4574,25 +4575,26 @@ Module ListEx
     If ListEx()\ScrollBar\Item("VScroll")\Hide 
       Width = GadgetWidth(ListEx()\CanvasNum)
     Else
-      Width = GadgetWidth(ListEx()\CanvasNum) - #ScrollBarSize - dpiX(1)
+      Width = GadgetWidth(ListEx()\CanvasNum) - #ScrollBarSize - 1
     EndIf
     
     If ListEx()\AutoResize\Column <> #PB_Ignore ;{ Resize column
-  
+      
+      Debug "Width: " + Str(Width) + " / Cols: " + Str(ListEx()\Size\Cols)
+      
       If ListEx()\Size\Cols > Width
         
         WidthOffset = ListEx()\Size\Cols - Width
 
         If SelectElement(ListEx()\Cols(), ListEx()\AutoResize\Column)
-
           If ListEx()\Cols()\Width - WidthOffset >= ListEx()\AutoResize\MinWidth
             ListEx()\Cols()\Width  - WidthOffset
             ListEx()\Size\Cols     - WidthOffset
             UpdateColumnX_()
           Else 
-            WidthOffset = ListEx()\AutoResize\Width - ListEx()\Cols()\Width
+            WidthOffset = ListEx()\Cols()\Width - ListEx()\AutoResize\MinWidth
             ListEx()\Size\Cols - WidthOffset
-            ListEx()\Cols()\Width = ListEx()\AutoResize\Width
+            ListEx()\Cols()\Width = ListEx()\AutoResize\MinWidth
             UpdateColumnX_()
           EndIf
           
@@ -7489,7 +7491,7 @@ Module ListEx
         If ListEx()\Flags & #AutoResize
           
           If ListEx()\Parent\Num <> #PB_Default
-          
+            
             If IsGadget(ListEx()\Parent\Num)
               OffSetX = GadgetWidth(ListEx()\Parent\Num)  - ListEx()\Parent\Width
               OffsetY = GadgetHeight(ListEx()\Parent\Num) - ListEx()\Parent\Height
@@ -10444,6 +10446,7 @@ CompilerIf #PB_Compiler_IsMainFile
         
         ; --- Use images ---
         If LoadImage(#Image, "Delete.png")
+          Debug "Delete.png"
           ListEx::SetItemImage(#List, 0, 1, #Image)
           ListEx::SetItemImage(#List, 1, 5, #Image, ListEx::#Center, 14, 14)
           ListEx::SetItemImage(#List, ListEx::#Header, 2, #Image, ListEx::#Right, 14, 14)
@@ -10574,10 +10577,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 10445
-; FirstLine = 3901
-; Folding = wAB5PAAAAAAA1--A+---fYe------vP+-H-FoNAgFQBo4A5--PAEgBgXC-iIAw--h-PIhJgu7IwB5g+----P-hh59DfAbcu-
-; Markers = 1505,7494,9297
+; CursorPosition = 154
+; FirstLine = 9
+; Folding = wAB5PAAAAAAA1--Ci4--fYe------vP+-H-FodAgFQBo4A5--PAEgBgXC-iIAw--h-PIhJAu7IwB5g+----DHAg59DbAbcu-
+; Markers = 4581,7496
 ; EnableThread
 ; EnableXP
 ; DPIAware
