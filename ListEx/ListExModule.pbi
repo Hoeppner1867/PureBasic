@@ -4578,9 +4578,9 @@ Module ListEx
     EndIf
     
     If ListEx()\AutoResize\Column <> #PB_Ignore ;{ Resize column
-      
+  
       If ListEx()\Size\Cols > Width
-
+        
         WidthOffset = ListEx()\Size\Cols - Width
 
         If SelectElement(ListEx()\Cols(), ListEx()\AutoResize\Column)
@@ -7488,8 +7488,8 @@ Module ListEx
  
         If ListEx()\Flags & #AutoResize
           
-          If ListEx()\ParentNum <> #PB_Default
-            
+          If ListEx()\Parent\Num <> #PB_Default
+          
             If IsGadget(ListEx()\Parent\Num)
               OffSetX = GadgetWidth(ListEx()\Parent\Num)  - ListEx()\Parent\Width
               OffsetY = GadgetHeight(ListEx()\Parent\Num) - ListEx()\Parent\Height
@@ -10444,7 +10444,6 @@ CompilerIf #PB_Compiler_IsMainFile
         
         ; --- Use images ---
         If LoadImage(#Image, "Delete.png")
-          Debug "Delete.png"
           ListEx::SetItemImage(#List, 0, 1, #Image)
           ListEx::SetItemImage(#List, 1, 5, #Image, ListEx::#Center, 14, 14)
           ListEx::SetItemImage(#List, ListEx::#Header, 2, #Image, ListEx::#Right, 14, 14)
@@ -10575,8 +10574,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 7
-; Folding = wAB5PAAAAAAA1--A+---fYe------vP+-H-FoNAgFABo4A5--PAEgBgXC-iIAw--h-PAhJAu7IwB5g+----Pvhh59CDAbcu-
+; CursorPosition = 10445
+; FirstLine = 3901
+; Folding = wAB5PAAAAAAA1--A+---fYe------vP+-H-FoNAgFQBo4A5--PAEgBgXC-iIAw--h-PIhJgu7IwB5g+----P-hh59DfAbcu-
 ; Markers = 1505,7494,9297
 ; EnableThread
 ; EnableXP
