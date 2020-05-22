@@ -7,9 +7,9 @@
 ;/ © 2020 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 21.05.2020
+; Last Update: 22.05.2020
 ;
-; Added: ButtonEx::CombineToogle()
+; Added: ButtonEx::CombineToggle()
 ; Added: ButtonEx::Free()
 
 ;{ ===== MIT License =====
@@ -48,7 +48,7 @@
 
 ; ButtonEx::AddDropDown()        - adds a dropdown menue to the button
 ; ButtonEx::AddImage()           - adds an image to the button
-; ButtonEx::CombineToogle()      - combine a group of toggle buttons
+; ButtonEx::CombineToggle()      - combine a group of toggle buttons
 ; ButtonEx::Disable()            - similar to 'DisableGadget()'
 ; ButtonEx::Free()               - similar to 'FreeGadget()'
 ; ButtonEx::Gadget()             - similar to 'ButtonGadget()'
@@ -78,7 +78,7 @@
 
 DeclareModule ButtonEx
   
-  #Version  = 20052100
+  #Version  = 20052200
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -153,7 +153,7 @@ DeclareModule ButtonEx
 
 	Declare   AddDropDown(GNum.i, PopupNum.i)
 	Declare   AddImage(GNum.i, ImageNum.i, Width.i=#PB_Default, Height.i=#PB_Default, Flags.i=#Left)
-	Declare.i CombineToogle(GNum.i, Group.s, State.i=#True)
+	Declare.i CombineToggle(GNum.i, Group.s, State.i=#True)
 	Declare   Disable(GNum.i, State.i=#True)
 	Declare   Free(GNum.i)
 	Declare.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Text.s, Flags.i, WindowNum.i=#PB_Default)
@@ -939,7 +939,7 @@ Module ButtonEx
 	;- Module - Declared Procedures
 	;- ==========================================================================
 	
-	Procedure.i CombineToogle(GNum.i, Group.s, State.i=#True)
+	Procedure.i CombineToggle(GNum.i, Group.s, State.i=#True)
 	  
 	  If FindMapElement(BtEx(), Str(GNum))
 	    
@@ -1511,7 +1511,8 @@ CompilerIf #PB_Compiler_IsMainFile
 
 CompilerEndIf
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 12
-; Folding = YgAEA966wAYQAw-
+; CursorPosition = 80
+; FirstLine = 33
+; Folding = cgAEA966wAYQAw-
 ; EnableXP
 ; DPIAware
