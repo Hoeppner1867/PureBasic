@@ -7,7 +7,9 @@
 ;/ © 2020 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 22.05.2020
+; Last Update: 03.06.2020
+;
+; Added: OSX_GadgetColor()
 ;
 ; Added: ButtonEx::CombineToggle()
 ; Added: ButtonEx::Free()
@@ -78,7 +80,7 @@
 
 DeclareModule ButtonEx
   
-  #Version  = 20052200
+  #Version  = 20060300
   #ModuleEx = 19112100
   
 	;- ===========================================================================
@@ -292,7 +294,10 @@ Module ButtonEx
 	;- Module - Internal
 	;- ============================================================================
 
+	Declare.i BlendColor_(Color1.i, Color2.i, Factor.i=50) 
+	
 	CompilerIf #PB_Compiler_OS = #PB_OS_MacOS
+	  
 		; Addition of mk-soft
 
 		Procedure OSX_NSColorToRGBA(NSColor)
@@ -322,7 +327,33 @@ Module ButtonEx
 				ProcedureReturn rgb
 			EndIf
 		EndProcedure
-
+		
+		Procedure OSX_NSColorByNameToRGB(NSColorName.s)
+      Protected.cgfloat red, green, blue
+      Protected nscolorspace, rgb
+      nscolorspace = CocoaMessage(0, CocoaMessage(0, 0, "NSColor " + NSColorName), "colorUsingColorSpaceName:$", @"NSCalibratedRGBColorSpace")
+      If nscolorspace
+        CocoaMessage(@red, nscolorspace, "redComponent")
+        CocoaMessage(@green, nscolorspace, "greenComponent")
+        CocoaMessage(@blue, nscolorspace, "blueComponent")
+        rgb = RGB(red * 255.0, green * 255.0, blue * 255.0)
+        ProcedureReturn rgb
+      EndIf
+    EndProcedure
+		
+		Procedure OSX_GadgetColor()
+		  Define.i UserDefaults, NSString
+		  
+		  UserDefaults = CocoaMessage(0, 0, "NSUserDefaults standardUserDefaults")
+      NSString = CocoaMessage(0, UserDefaults, "stringForKey:$", @"AppleInterfaceStyle")
+      If NSString And PeekS(CocoaMessage(0, NSString, "UTF8String"), -1, #PB_UTF8) = "Dark"
+        ProcedureReturn BlendColor_(OSX_NSColorByNameToRGB("controlBackgroundColor"), #White, 85)
+      Else
+        ProcedureReturn BlendColor_(OSX_NSColorByNameToRGB("windowBackgroundColor"), #White, 85)
+      EndIf 
+      
+		EndProcedure  
+		
 	CompilerEndIf
 	
   CompilerIf Defined(ModuleEx, #PB_Module)
@@ -1126,7 +1157,7 @@ Module ButtonEx
 						BtEx()\Color\Back   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
 						BtEx()\Color\Focus  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedControlColor"))
 						BtEx()\Color\Border = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
-						BtEx()\Color\Gadget = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
+						BtEx()\Color\Gadget = OSX_GadgetColor()
 					CompilerCase #PB_OS_Linux
 
 				CompilerEndSelect ;}
@@ -1511,8 +1542,8 @@ CompilerIf #PB_Compiler_IsMainFile
 
 CompilerEndIf
 ; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 80
-; FirstLine = 33
-; Folding = cgAEA966wAYQAw-
+; CursorPosition = 82
+; FirstLine = 30
+; Folding = cgAAAwnnDDhBBA-
 ; EnableXP
 ; DPIAware
