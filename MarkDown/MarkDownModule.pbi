@@ -9,7 +9,7 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 28.04.2020
+; Last Update: 28.04.2022
 ;
 ; - Bugfix: internal labels
 ;
@@ -118,7 +118,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 20042300
+  #Version  = 22042800
   #ModuleEx = 20041700
   
   #Enable_Gadget     = #True
@@ -5574,7 +5574,7 @@ Module MarkDown
                 LastElement(MarkDown()\Table()\Row())
               EndIf
               ;}
-            Else                                                     ;{ Table row
+            Else                                                               ;{ Table row
 
               If AddElement(MarkDown()\Table()\Row())
                 
@@ -8822,8 +8822,10 @@ Module MarkDown
   	  
   	  If GNum = #Help
   	    
-  	    Help\Font\Name = Name
-  	    Help\Font\Size = Size
+  	    CompilerIf #Enable_HelpWindow
+  	      Help\Font\Name = Name
+  	      Help\Font\Size = Size
+  	    CompilerEndIf
   	    
       ElseIf FindMapElement(MarkDown(), Str(GNum))
         
@@ -10837,7 +10839,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
   
-  #Example = 30
+  #Example = 6
   
   ; === Gadget ===
   ;  1: Headings
@@ -11181,10 +11183,10 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 10042
-; FirstLine = 2006
-; Folding = wEQBwZAgCAAAAwEA+CAASWEhASAKQgBEIAPAAAAgMC5PgAACAAAgCANAAQMgAAUgNAmAAAY5AAHRI2AAQkIDAUwAAAwI9g2lU7cCkI6kBGgAAA9g9
+; IDE Options = PureBasic 5.73 LTS (Windows - x64)
+; CursorPosition = 10917
+; FirstLine = 1425
+; Folding = wEQBwZAgCAAAAwEA+CAASWEhASAKQgBEIAPAAAAgMC5PgAACAAAgAAsCAQMgAAQABAmAAQY5AAHRI2AAQkIDAUwAAAGRwBjLp1pEIxyJDMABBAQB6
 ; Markers = 4343
 ; EnableXP
 ; DPIAware

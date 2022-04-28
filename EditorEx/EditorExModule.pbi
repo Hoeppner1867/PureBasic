@@ -4,14 +4,12 @@
 ;/
 ;/ [ PB V5.7x / 64Bit / all OS / DPI ]
 ;/
-;/ © 2020 Thorsten1867 (03/2019)
+;/ © 2022 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 17.04.2020
+; Last Update: 28.04.2022
 ;
-; Syntax highlight improvements
-;
-; Added: Shift + Mouseclick
+; Bugfixes
 ;
 
 ;{ ===== MIT License =====
@@ -139,7 +137,7 @@
 
 DeclareModule EditEx
   
-  #Version  = 20041700
+  #Version  = 22042800
   #ModuleEx = 20010800
   
   ;- ============================================================================
@@ -256,13 +254,15 @@ DeclareModule EditEx
   
   CompilerIf Defined(ModuleEx, #PB_Module)
     
-    #Event_Gadget      = ModuleEx::#Event_Gadget
-    #Event_Cursor      = ModuleEx::#Event_Cursor
-    #Event_Theme       = ModuleEx::#Event_Theme
-    #Event_Timer       = ModuleEx::#Event_Timer
+    #Event_Gadget        = ModuleEx::#Event_Gadget
+    #Event_Cursor        = ModuleEx::#Event_Cursor
+    #Event_Theme         = ModuleEx::#Event_Theme
+    #Event_Timer         = ModuleEx::#Event_Timer
     
-    #EventType_Change  = ModuleEx::#EventType_Change
-    #EventType_NewLine = ModuleEx::#EventType_NewLine
+    #EventType_Focus     = ModuleEx::#EventType_Focus
+    #EventType_LostFocus = ModuleEx::#EventType_LostFocus
+    #EventType_Change    = ModuleEx::#EventType_Change
+    #EventType_NewLine   = ModuleEx::#EventType_NewLine
     
   CompilerElse
     
@@ -275,6 +275,8 @@ DeclareModule EditEx
     Enumeration #PB_EventType_FirstCustomValue
       #EventType_Change
       #EventType_NewLine
+      #EventType_Focus
+      #EventType_LostFocus
     EndEnumeration
     
   CompilerEndIf
@@ -400,8 +402,8 @@ Module EditEx
   ;{ _____ ScrollBar Constants _____
   #ScrollBar_ButtonSize = 18
 
-  #ScrollBar_Timer      = 100
-	#ScrollBar_TimerDelay = 3
+  #ScrollBar_Timer      = 800
+	#ScrollBar_TimerDelay = 1
 	
 	Enumeration 1             ; ScrollBar Buttons
 	  #ScrollBar_Forwards
@@ -987,10 +989,10 @@ Module EditEx
   EndProcedure  
 
   ;- ----- Cursor -----
-  
+    
   Procedure.i CursorUpDown_(Direction.i)
     ; Change cursor row (up/down)
-    Define.i Row, c, CursorPos, PosX, PosY, RowOffset
+    Define.i Row, c, CursorPos, PosX, PosY
     
     Select Direction
       Case #Cursor_Up
@@ -1004,7 +1006,7 @@ Module EditEx
       If SelectElement(EditEx()\Row(), Row)
         
         PosX = EditEx()\Row()\X - dpiX(EditEx()\Visible\PosOffset)
-        PosY = EditEx()\Row()\Y - RowOffset
+        PosY = EditEx()\Row()\Y
 
         If StartDrawing(CanvasOutput(EditEx()\CanvasNum))
           
@@ -1043,14 +1045,14 @@ Module EditEx
 
   Procedure.i CursorPos_(CursorX.i, Y.i, Change.i=#True)
     ; Determine cursor position based on X/Y position
-    Define.i PosX, PosY, c, CursorPos, RowOffSet
+    Define.i PosX, PosY, c, CursorPos, RowOffsetH
     
-    RowOffSet = EditEx()\Visible\RowOffset * EditEx()\Text\Height
+    RowOffsetH = EditEx()\Visible\RowOffset * EditEx()\Text\Height
     
     ForEach EditEx()\Row()
       
       PosX = EditEx()\Row()\X
-      PosY = EditEx()\Row()\Y - RowOffSet
+      PosY = EditEx()\Row()\Y - RowOffsetH
 
       If Y >= PosY And Y <= PosY + EditEx()\Text\Height
 
@@ -1139,6 +1141,8 @@ Module EditEx
     	  EditEx()\ScrollBar\Item()\Thumb\Factor = (EditEx()\ScrollBar\Item()\Area\Width - EditEx()\ScrollBar\Item()\Thumb\Size) / Range
   	  EndIf  
   	  
+  	  If EditEx()\ScrollBar\Item()\Thumb\Size < 0 : EditEx()\ScrollBar\Item()\Thumb\Size = 0 : EndIf 
+  	  
 	  EndIf   
 
 	EndProcedure  
@@ -1200,7 +1204,8 @@ Module EditEx
     
     If FindMapElement(EditEx()\ScrollBar\Item(), "HScroll") ;{ Horizontal Scrollbar
       
-      EditEx()\ScrollBar\Item()\maxPos = GetScrollStateMax_(#Horizontal)
+      ;EditEx()\ScrollBar\Item()\maxPos = GetScrollStateMax_(#Horizontal)
+
       If EditEx()\ScrollBar\Item()\maxPos <= #Scroll_Max
         
         If HScroll And EditEx()\ScrollBar\Item()\Hide
@@ -1222,7 +1227,8 @@ Module EditEx
     
     If FindMapElement(EditEx()\ScrollBar\Item(), "VScroll") ;{ Vertical Scrollbar
       
-      EditEx()\ScrollBar\Item()\maxPos = GetScrollStateMax_(#Vertical)
+      ;EditEx()\ScrollBar\Item()\maxPos = GetScrollStateMax_(#Vertical)
+      
       If EditEx()\ScrollBar\Item()\maxPos <= #Scroll_Max
         
         If VScroll And EditEx()\ScrollBar\Item()\Hide
@@ -2485,7 +2491,7 @@ Module EditEx
 	
 	Procedure   DrawScrollButton_(X.i, Y.i, Width.i, Height.i, ScrollBar.s, Type.i, State.i=#False)
 	  Define.i Color, Border
-	  
+    
 	  If StartDrawing(CanvasOutput(EditEx()\ScrollBar\Item()\Num))
 	    
 	    DrawingMode(#PB_2DDrawing_Default)
@@ -2644,8 +2650,8 @@ Module EditEx
   	  
 		  EndIf
 
-  		If StartDrawing(CanvasOutput(EditEx()\ScrollBar\Item()\Num))
-  		  
+		  If StartDrawing(CanvasOutput(EditEx()\ScrollBar\Item()\Num))
+		    
   		  ;{ _____ Color _____
   		  FrontColor  = EditEx()\ScrollBar\Color\Front
   		  BackColor   = EditEx()\ScrollBar\Color\Back
@@ -2666,43 +2672,47 @@ Module EditEx
   			;}
   			
   		  ;{ _____ Draw Thumb _____
-  		  Select EditEx()\ScrollBar\Item()\Thumb\State
-  			  Case #ScrollBar_Focus
-  			    Box(EditEx()\ScrollBar\Item()\Thumb\X, EditEx()\ScrollBar\Item()\Thumb\Y, EditEx()\ScrollBar\Item()\Thumb\Width, EditEx()\ScrollBar\Item()\Thumb\Height, BlendColor_(EditEx()\ScrollBar\Color\Focus, EditEx()\ScrollBar\Color\ScrollBar, 10))
-  			  Case #ScrollBar_Click
-  			    Box(EditEx()\ScrollBar\Item()\Thumb\X, EditEx()\ScrollBar\Item()\Thumb\Y, EditEx()\ScrollBar\Item()\Thumb\Width, EditEx()\ScrollBar\Item()\Thumb\Height, BlendColor_(EditEx()\ScrollBar\Color\Focus, EditEx()\ScrollBar\Color\ScrollBar, 20))
-  			  Default
-  			    Box(EditEx()\ScrollBar\Item()\Thumb\X, EditEx()\ScrollBar\Item()\Thumb\Y, EditEx()\ScrollBar\Item()\Thumb\Width, EditEx()\ScrollBar\Item()\Thumb\Height, EditEx()\ScrollBar\Color\ScrollBar)
-  			EndSelect
-  			
-  		  If EditEx()\ScrollBar\Flags & #ScrollBar_DragLines   ;{ Drag Lines
+  		  If EditEx()\ScrollBar\Item()\Thumb\Size
   		    
-  		    If EditEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical
-  		      
-    			  If EditEx()\ScrollBar\Item()\Thumb\Size > dpiY(10)
-    		      OffsetY = (EditEx()\ScrollBar\Item()\Thumb\Size - dpiY(7)) / 2			      
-    		      Line(EditEx()\ScrollBar\Item()\Thumb\X + dpiX(4), EditEx()\ScrollBar\Item()\Thumb\Y + OffsetY, EditEx()\ScrollBar\Item()\Thumb\Width - dpiX(8), dpiY(1), EditEx()\ScrollBar\Color\Front)
-    		      Line(EditEx()\ScrollBar\Item()\Thumb\X + dpiX(4), EditEx()\ScrollBar\Item()\Thumb\Y + OffsetY + dpiY(3), EditEx()\ScrollBar\Item()\Thumb\Width - dpiX(8), dpiY(1), EditEx()\ScrollBar\Color\Front)
-    		      Line(EditEx()\ScrollBar\Item()\Thumb\X + dpiX(4), EditEx()\ScrollBar\Item()\Thumb\Y + OffsetY + dpiY(6), EditEx()\ScrollBar\Item()\Thumb\Width - dpiX(8), dpiY(1), EditEx()\ScrollBar\Color\Front)
-    		    EndIf
+    		  Select EditEx()\ScrollBar\Item()\Thumb\State
+    			  Case #ScrollBar_Focus
+    			    Box(EditEx()\ScrollBar\Item()\Thumb\X, EditEx()\ScrollBar\Item()\Thumb\Y, EditEx()\ScrollBar\Item()\Thumb\Width, EditEx()\ScrollBar\Item()\Thumb\Height, BlendColor_(EditEx()\ScrollBar\Color\Focus, EditEx()\ScrollBar\Color\ScrollBar, 10))
+    			  Case #ScrollBar_Click
+    			    Box(EditEx()\ScrollBar\Item()\Thumb\X, EditEx()\ScrollBar\Item()\Thumb\Y, EditEx()\ScrollBar\Item()\Thumb\Width, EditEx()\ScrollBar\Item()\Thumb\Height, BlendColor_(EditEx()\ScrollBar\Color\Focus, EditEx()\ScrollBar\Color\ScrollBar, 20))
+    			  Default
+    			    Box(EditEx()\ScrollBar\Item()\Thumb\X, EditEx()\ScrollBar\Item()\Thumb\Y, EditEx()\ScrollBar\Item()\Thumb\Width, EditEx()\ScrollBar\Item()\Thumb\Height, EditEx()\ScrollBar\Color\ScrollBar)
+    			EndSelect
+    			
+    		  If EditEx()\ScrollBar\Flags & #ScrollBar_DragLines   ;{ Drag Lines
     		    
-    		  Else
-  
-    			  If EditEx()\ScrollBar\Item()\Thumb\Size > dpiX(10)
-      		    OffsetX = (EditEx()\ScrollBar\Item()\Thumb\Size - dpiX(7)) / 2
-      		    Line(EditEx()\ScrollBar\Item()\Thumb\X + OffsetX, EditEx()\ScrollBar\Item()\Thumb\Y + dpiX(4), dpiX(1), EditEx()\ScrollBar\Item()\Thumb\Height - dpiY(8), EditEx()\ScrollBar\Color\Front)
-  			      Line(EditEx()\ScrollBar\Item()\Thumb\X + OffsetX + dpiX(3), EditEx()\ScrollBar\Item()\Thumb\Y + dpiX(4), dpiX(1), EditEx()\ScrollBar\Item()\Thumb\Height - dpiY(8), EditEx()\ScrollBar\Color\Front)
-  			      Line(EditEx()\ScrollBar\Item()\Thumb\X + OffsetX + dpiX(6), EditEx()\ScrollBar\Item()\Thumb\Y + dpiX(4), dpiX(1), EditEx()\ScrollBar\Item()\Thumb\Height - dpiY(8), EditEx()\ScrollBar\Color\Front)
-  			    EndIf
-  			    
-  			  EndIf
-  			  ;}
-  			EndIf
-  			
-  			If EditEx()\ScrollBar\Flags & #ScrollBar_ThumbBorder ;{ Thumb Border
-  			  DrawingMode(#PB_2DDrawing_Outlined)
-  			  Box(EditEx()\ScrollBar\Item()\Thumb\X, EditEx()\ScrollBar\Item()\Thumb\Y, EditEx()\ScrollBar\Item()\Thumb\Width, EditEx()\ScrollBar\Item()\Thumb\Height, EditEx()\ScrollBar\Color\Border)
-  			  ;}
+    		    If EditEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical
+    		      
+      			  If EditEx()\ScrollBar\Item()\Thumb\Size > dpiY(10)
+      		      OffsetY = (EditEx()\ScrollBar\Item()\Thumb\Size - dpiY(7)) / 2			      
+      		      Line(EditEx()\ScrollBar\Item()\Thumb\X + dpiX(4), EditEx()\ScrollBar\Item()\Thumb\Y + OffsetY, EditEx()\ScrollBar\Item()\Thumb\Width - dpiX(8), dpiY(1), EditEx()\ScrollBar\Color\Front)
+      		      Line(EditEx()\ScrollBar\Item()\Thumb\X + dpiX(4), EditEx()\ScrollBar\Item()\Thumb\Y + OffsetY + dpiY(3), EditEx()\ScrollBar\Item()\Thumb\Width - dpiX(8), dpiY(1), EditEx()\ScrollBar\Color\Front)
+      		      Line(EditEx()\ScrollBar\Item()\Thumb\X + dpiX(4), EditEx()\ScrollBar\Item()\Thumb\Y + OffsetY + dpiY(6), EditEx()\ScrollBar\Item()\Thumb\Width - dpiX(8), dpiY(1), EditEx()\ScrollBar\Color\Front)
+      		    EndIf
+      		    
+      		  Else
+    
+      			  If EditEx()\ScrollBar\Item()\Thumb\Size > dpiX(10)
+        		    OffsetX = (EditEx()\ScrollBar\Item()\Thumb\Size - dpiX(7)) / 2
+        		    Line(EditEx()\ScrollBar\Item()\Thumb\X + OffsetX, EditEx()\ScrollBar\Item()\Thumb\Y + dpiX(4), dpiX(1), EditEx()\ScrollBar\Item()\Thumb\Height - dpiY(8), EditEx()\ScrollBar\Color\Front)
+    			      Line(EditEx()\ScrollBar\Item()\Thumb\X + OffsetX + dpiX(3), EditEx()\ScrollBar\Item()\Thumb\Y + dpiX(4), dpiX(1), EditEx()\ScrollBar\Item()\Thumb\Height - dpiY(8), EditEx()\ScrollBar\Color\Front)
+    			      Line(EditEx()\ScrollBar\Item()\Thumb\X + OffsetX + dpiX(6), EditEx()\ScrollBar\Item()\Thumb\Y + dpiX(4), dpiX(1), EditEx()\ScrollBar\Item()\Thumb\Height - dpiY(8), EditEx()\ScrollBar\Color\Front)
+    			    EndIf
+    			    
+    			  EndIf
+    			  ;}
+    			EndIf
+    			
+    			If EditEx()\ScrollBar\Flags & #ScrollBar_ThumbBorder ;{ Thumb Border
+    			  DrawingMode(#PB_2DDrawing_Outlined)
+    			  Box(EditEx()\ScrollBar\Item()\Thumb\X, EditEx()\ScrollBar\Item()\Thumb\Y, EditEx()\ScrollBar\Item()\Thumb\Width, EditEx()\ScrollBar\Item()\Thumb\Height, EditEx()\ScrollBar\Color\Border)
+    			  ;}
+    			EndIf
+    			
   			EndIf
   			;}
   			
@@ -2718,7 +2728,7 @@ Module EditEx
   			EndIf ;}
   
   			StopDrawing()
-  		EndIf
+  		EndIf	
   		
     	DrawScrollButton_(EditEx()\ScrollBar\Item()\Buttons\Forwards\X,  EditEx()\ScrollBar\Item()\Buttons\Forwards\Y,  EditEx()\ScrollBar\Item()\Buttons\Forwards\Width,  EditEx()\ScrollBar\Item()\Buttons\Forwards\Height,  ScrollBar, #ScrollBar_Forwards,  EditEx()\ScrollBar\Item()\Buttons\Forwards\State)
     	DrawScrollButton_(EditEx()\ScrollBar\Item()\Buttons\Backwards\X, EditEx()\ScrollBar\Item()\Buttons\Backwards\Y, EditEx()\ScrollBar\Item()\Buttons\Backwards\Width, EditEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards, EditEx()\ScrollBar\Item()\Buttons\Backwards\State)
@@ -2732,6 +2742,8 @@ Module EditEx
     Define.i r, w, h, X, Y, PosX, PosY, Pos, Pos1, Pos2, WordLen, maxTextWidth
     Define.i Rows, Words, Hyphen, SyntaxHighlight, AutoSpellCheck, SoftHyphen, PosOffset, RowOffset
     Define.s Row$, Word$, hWord$, WordOnly$, WordMask$, Part$, LastWord$
+    
+    If IsGadget(EditEx()\CanvasNum) = #False : ProcedureReturn #False : EndIf
     
     ;{ _____ Selection position _____
     If EditEx()\Selection\Pos1 > EditEx()\Selection\Pos2
@@ -3042,7 +3054,7 @@ Module EditEx
     
   EndProcedure
 
-  Procedure   CalcOffset_()
+  Procedure   CalcCursorOffset()
     Define.i PosOffSet, RowOffSet, PageRows, Changed
     
     PosOffSet = EditEx()\Visible\PosOffset
@@ -3059,15 +3071,15 @@ Module EditEx
     EndIf
     
     If EditEx()\Flags &  #ScrollBar_Vertical
-      
+
       If EditEx()\Cursor\Row < EditEx()\Visible\RowOffset
         EditEx()\Visible\RowOffset = EditEx()\Cursor\Row
         If EditEx()\Visible\RowOffset < 0 : EditEx()\Visible\RowOffset = 0 : EndIf
       EndIf
       
-      PageRows = (EditEx()\Visible\Height / EditEx()\Text\Height) - 1
-      If EditEx()\Cursor\Row > PageRows
-        EditEx()\Visible\RowOffset = EditEx()\Cursor\Row - PageRows
+      PageRows = Round(EditEx()\Visible\Height / EditEx()\Text\Height, #PB_Round_Down)
+      If EditEx()\Cursor\Row => PageRows
+        EditEx()\Visible\RowOffset = EditEx()\Cursor\Row - PageRows + 1
       EndIf
       
     EndIf
@@ -3081,7 +3093,7 @@ Module EditEx
   
  
   Procedure   Draw_()
-    Define.i PosX, PosY, PosOffset, RowOffset, Width, Height
+    Define.i PosX, PosY, PosOffset, RowOffsetH, Width, Height
     Define.i FrontColor.i, BackColor.i, BorderColor.i
     Define.s Row$
     
@@ -3106,7 +3118,6 @@ Module EditEx
       
       ;{ _____ ScrollBars _____
       If EditEx()\ScrollBar\Item("VScroll")\Hide = #False
-        EditEx()\Visible\RowOffset = EditEx()\ScrollBar\Item("VScroll")\Pos
         If EditEx()\ScrollBar\Flags = #False
           EditEx()\ScrollBar\Item("VScroll")\X      = Width - dpiX(#Scroll_Width) - dpiX(1)
           EditEx()\ScrollBar\Item("VScroll")\Y      = dpiY(1)
@@ -3118,9 +3129,9 @@ Module EditEx
           EditEx()\ScrollBar\Item("VScroll")\Width  = dpiX(#Scroll_Width)
           EditEx()\ScrollBar\Item("VScroll")\Height = Height
         EndIf
+
         CalcScrollBarThumb_("VScroll", #False)
-      Else
-        EditEx()\Visible\RowOffset = 0
+        
       EndIf
       
       If EditEx()\ScrollBar\Item("HScroll")\Hide = #False
@@ -3137,23 +3148,21 @@ Module EditEx
           EditEx()\ScrollBar\Item("HScroll")\Height = dpiY(#Scroll_Width)
         EndIf 
         CalcScrollBarThumb_("HScroll", #False)
-      Else
-        EditEx()\Visible\PosOffset = 0
       EndIf ;}
-        
+      
       ;{ _____ Draw Background _____
       DrawingMode(#PB_2DDrawing_Default) 
       Box(0, 0, Width, Height, BackColor)  
       ;}
       
       PosOffset = dpiX(EditEx()\Visible\PosOffset)
-      RowOffset = EditEx()\Visible\RowOffset * EditEx()\Text\Height
+      RowOffsetH = EditEx()\Visible\RowOffset * EditEx()\Text\Height
 
       ;{ _____ Draw Text _____
       ForEach EditEx()\Row()
         
         PosX = EditEx()\Row()\X - PosOffset
-        PosY = EditEx()\Row()\Y - RowOffset
+        PosY = EditEx()\Row()\Y - RowOffsetH
         
         DrawingMode(#PB_2DDrawing_Transparent)
         
@@ -3203,7 +3212,7 @@ Module EditEx
             EditEx()\Cursor\X = EditEx()\Row()\X  - PosOffset + TextWidth(Mid(EditEx()\Text$, EditEx()\Row()\Pos))
           EndIf
 
-          EditEx()\Cursor\Y   = EditEx()\Row()\Y - RowOffset
+          EditEx()\Cursor\Y   = EditEx()\Row()\Y - RowOffsetH
           EditEx()\Cursor\Row = ListIndex(EditEx()\Row())
           EditEx()\Cursor\BackChar = ""
           
@@ -3232,7 +3241,7 @@ Module EditEx
               EditEx()\Cursor\BackChar = Mid(EditEx()\Text$, EditEx()\Cursor\Pos, 1)
             EndIf
             
-            EditEx()\Cursor\Y   = EditEx()\Row()\Y - RowOffset
+            EditEx()\Cursor\Y   = EditEx()\Row()\Y - RowOffsetH
             EditEx()\Cursor\Row = ListIndex(EditEx()\Row())
             
             Break  
@@ -3274,9 +3283,9 @@ Module EditEx
     
     CalcRows_()
     
-    AdjustScrolls_() 
-
-    If OffSet : CalcOffset_() : EndIf
+    AdjustScrolls_()
+    
+    If OffSet : CalcCursorOffset() : EndIf
     
     Draw_()
     
@@ -3346,7 +3355,11 @@ Module EditEx
     
     ForEach EditEx()
       
+      If GetActiveGadget() <> EditEx()\CanvasNum : Continue : EndIf
+      
       ForEach EditEx()\ScrollBar\Item()
+        
+        If EditEx()\ScrollBar\Item()\Hide : Continue : EndIf
         
         If EditEx()\ScrollBar\Item()\Timer
           
@@ -3354,18 +3367,44 @@ Module EditEx
             EditEx()\ScrollBar\Item()\TimerDelay - 1
             Continue
           EndIf  
-          
+
           Select EditEx()\ScrollBar\Item()\Timer
-            Case #ScrollBar_Up, #ScrollBar_Left
+            Case #ScrollBar_Left   
               EditEx()\ScrollBar\Item()\Pos - 1
-              If EditEx()\ScrollBar\Item()\Pos < EditEx()\ScrollBar\Item()\minPos : EditEx()\ScrollBar\Item()\Pos = EditEx()\ScrollBar\Item()\minPos : EndIf
-            Case #ScrollBar_Down, #ScrollBar_Right
+              If EditEx()\ScrollBar\Item()\Pos < EditEx()\ScrollBar\Item()\minPos
+                EditEx()\ScrollBar\Item()\Pos   = EditEx()\ScrollBar\Item()\minPos
+                EditEx()\ScrollBar\Item()\Timer = #False
+              EndIf
+              EditEx()\Visible\PosOffset = EditEx()\ScrollBar\Item()\Pos
+              Draw_()
+            Case #ScrollBar_Up 
+              EditEx()\ScrollBar\Item()\Pos - 1
+              If EditEx()\ScrollBar\Item()\Pos < EditEx()\ScrollBar\Item()\minPos
+                EditEx()\ScrollBar\Item()\Pos   = EditEx()\ScrollBar\Item()\minPos
+                EditEx()\ScrollBar\Item()\Timer = #False
+              EndIf
+              EditEx()\Visible\RowOffset = EditEx()\ScrollBar\Item()\Pos
+              Draw_()
+            Case #ScrollBar_Down 
               EditEx()\ScrollBar\Item()\Pos + 1
-              If EditEx()\ScrollBar\Item()\Pos > EditEx()\ScrollBar\Item()\maxPos : EditEx()\ScrollBar\Item()\Pos = EditEx()\ScrollBar\Item()\maxPos : EndIf
+              If EditEx()\ScrollBar\Item()\Pos > EditEx()\ScrollBar\Item()\maxPos
+                EditEx()\ScrollBar\Item()\Pos = EditEx()\ScrollBar\Item()\maxPos
+                EditEx()\ScrollBar\Item()\Timer = #False
+              EndIf
+              EditEx()\Visible\RowOffset = EditEx()\ScrollBar\Item()\Pos
+              Draw_()
+            Case #ScrollBar_Right
+              EditEx()\ScrollBar\Item()\Pos + 1
+              If EditEx()\ScrollBar\Item()\Pos > EditEx()\ScrollBar\Item()\maxPos
+                EditEx()\ScrollBar\Item()\Pos = EditEx()\ScrollBar\Item()\maxPos
+                EditEx()\ScrollBar\Item()\Timer = #False
+              EndIf
+              EditEx()\Visible\PosOffset = EditEx()\ScrollBar\Item()\Pos
+              Draw_()
+            Default
+              EditEx()\ScrollBar\Item()\Timer = #False
           EndSelect
-          
-          Draw_()
-          
+
     		EndIf 
     		
       Next
@@ -3498,7 +3537,8 @@ Module EditEx
       
       EditEx()\Cursor\Pause = #False
       EditEx()\Cursor\State = #False
-
+      
+      PostEvent(#Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Focus)
     EndIf  
  
   EndProcedure
@@ -3511,6 +3551,7 @@ Module EditEx
       EditEx()\Cursor\Pause = #True
       _CursorDrawing()
       
+      ;PostEvent(#Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_LostFocus)
     EndIf
     
   EndProcedure  
@@ -3802,8 +3843,9 @@ Module EditEx
             EditEx()\Text$    = InsertString(EditEx()\Text$, #LF$, EditEx()\Cursor\Pos)
             EditEx()\Text\Len = Len(EditEx()\Text$)
             EditEx()\Cursor\Pos + 1
-            RemoveSelection_()
             
+            RemoveSelection_()
+
             CompilerIf #Enable_SpellChecking
               
               If EditEx()\Flags & #AutoSpellCheck
@@ -4215,7 +4257,7 @@ Module EditEx
     			      DrawScrollBar_(ScrollBar)
     			    EndIf ;} 
     			  EndIf
-    			  
+
     			  ProcedureReturn #True
   			  EndIf
   			  
@@ -4304,35 +4346,40 @@ Module EditEx
 
       X   = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
       Y   = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
-      
+
       ForEach EditEx()\ScrollBar\Item()
-      
+        
+        EditEx()\ScrollBar\Item()\Timer = #False
+        
   		  If EditEx()\ScrollBar\Item()\Hide : Continue : EndIf 
   		  
   			EditEx()\ScrollBar\Item()\Cursor = #PB_Default
-  			EditEx()\ScrollBar\Item()\Timer  = #False
   			
   			ScrollBar = MapKey(EditEx()\ScrollBar\Item())
-  			
+
   			If EditEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical ;{ Vertical Scrollbar
-  			  
+ 
   			  If X >= EditEx()\ScrollBar\Item()\X And X <= EditEx()\ScrollBar\Item()\X + EditEx()\ScrollBar\Item()\Width
   			    
     			  If Y >= EditEx()\ScrollBar\Item()\Buttons\Backwards\Y And Y <= EditEx()\ScrollBar\Item()\Buttons\Backwards\Y + EditEx()\ScrollBar\Item()\Buttons\Backwards\Height
     			    EditEx()\ScrollBar\Item()\Pos - 1
     			    If EditEx()\ScrollBar\Item()\Pos < EditEx()\ScrollBar\Item()\minPos : EditEx()\ScrollBar\Item()\Pos = EditEx()\ScrollBar\Item()\minPos : EndIf
+    			    EditEx()\Visible\RowOffset = EditEx()\ScrollBar\Item()\Pos
     			    Draw_()
     			  ElseIf Y >= EditEx()\ScrollBar\Item()\Buttons\Forwards\Y And Y <= EditEx()\ScrollBar\Item()\Buttons\Forwards\Y + EditEx()\ScrollBar\Item()\Buttons\Forwards\Height
     			    EditEx()\ScrollBar\Item()\Pos + 1
     			    If EditEx()\ScrollBar\Item()\Pos > EditEx()\ScrollBar\Item()\maxPos : EditEx()\ScrollBar\Item()\Pos = EditEx()\ScrollBar\Item()\maxPos : EndIf
+    			    EditEx()\Visible\RowOffset = EditEx()\ScrollBar\Item()\Pos
     			    Draw_()
     			  ElseIf Y < EditEx()\ScrollBar\Item()\Thumb\Y
     			    EditEx()\ScrollBar\Item()\Pos - EditEx()\ScrollBar\Item()\PageLength
     			    If EditEx()\ScrollBar\Item()\Pos < EditEx()\ScrollBar\Item()\minPos : EditEx()\ScrollBar\Item()\Pos = EditEx()\ScrollBar\Item()\minPos : EndIf
+    			    EditEx()\Visible\RowOffset = EditEx()\ScrollBar\Item()\Pos
     			    Draw_()
     			  ElseIf Y > EditEx()\ScrollBar\Item()\Thumb\Y + EditEx()\ScrollBar\Item()\Thumb\Height
     			    EditEx()\ScrollBar\Item()\Pos + EditEx()\ScrollBar\Item()\PageLength
     			    If EditEx()\ScrollBar\Item()\Pos > EditEx()\ScrollBar\Item()\maxPos : EditEx()\ScrollBar\Item()\Pos = EditEx()\ScrollBar\Item()\maxPos : EndIf
+    			    EditEx()\Visible\RowOffset = EditEx()\ScrollBar\Item()\Pos
     			    Draw_()
     			  EndIf
     			  
@@ -4346,18 +4393,22 @@ Module EditEx
     			  If X <= EditEx()\ScrollBar\Item()\Buttons\Backwards\X + EditEx()\ScrollBar\Item()\Buttons\Backwards\Width
     			    EditEx()\ScrollBar\Item()\Pos - 1
     			    If EditEx()\ScrollBar\Item()\Pos < EditEx()\ScrollBar\Item()\minPos : EditEx()\ScrollBar\Item()\Pos = EditEx()\ScrollBar\Item()\minPos : EndIf
+    			    EditEx()\Visible\PosOffset = EditEx()\ScrollBar\Item()\Pos
     			    Draw_()
     			  ElseIf X >= EditEx()\ScrollBar\Item()\Buttons\Forwards\X
     			    EditEx()\ScrollBar\Item()\Pos + 1
     			    If EditEx()\ScrollBar\Item()\Pos > EditEx()\ScrollBar\Item()\maxPos : EditEx()\ScrollBar\Item()\Pos = EditEx()\ScrollBar\Item()\maxPos : EndIf
+    			    EditEx()\Visible\PosOffset = EditEx()\ScrollBar\Item()\Pos
     			    Draw_()
     			  ElseIf X < EditEx()\ScrollBar\Item()\Thumb\X
     			    EditEx()\ScrollBar\Item()\Pos - EditEx()\ScrollBar\Item()\PageLength
     			    If EditEx()\ScrollBar\Item()\Pos < EditEx()\ScrollBar\Item()\minPos : EditEx()\ScrollBar\Item()\Pos = EditEx()\ScrollBar\Item()\minPos : EndIf
+    			    EditEx()\Visible\PosOffset = EditEx()\ScrollBar\Item()\Pos
     			    Draw_()
     			  ElseIf X > EditEx()\ScrollBar\Item()\Thumb\X + EditEx()\ScrollBar\Item()\Thumb\Width
     			    EditEx()\ScrollBar\Item()\Pos + EditEx()\ScrollBar\Item()\PageLength
     			    If EditEx()\ScrollBar\Item()\Pos > EditEx()\ScrollBar\Item()\maxPos : EditEx()\ScrollBar\Item()\Pos = EditEx()\ScrollBar\Item()\maxPos : EndIf
+    			    EditEx()\Visible\PosOffset = EditEx()\ScrollBar\Item()\Pos
     			    Draw_()
     			  EndIf
     			  
@@ -4367,7 +4418,7 @@ Module EditEx
   			EndIf
   			
   		Next
-        
+     
       If EditEx()\Mouse\Status = #Mouse_Select
         
         CursorPos = CursorPos_(X, Y)
@@ -4465,11 +4516,11 @@ Module EditEx
   	    
   	    ScrollBar = MapKey(EditEx()\ScrollBar\Item())
   	    
-  	    If EditEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical       ;{ Vertical Scrollbar
-  	      
+  	    If EditEx()\ScrollBar\Item()\Type = #ScrollBar_Vertical        ;{ Vertical Scrollbar
+
   	      If X >= EditEx()\ScrollBar\Item()\X And X <= EditEx()\ScrollBar\Item()\X + EditEx()\ScrollBar\Item()\Width
-  	      
-    	      If Y <= EditEx()\ScrollBar\Item()\Buttons\Backwards\Y + EditEx()\ScrollBar\Item()\Buttons\Backwards\Height
+  	        
+  	        If Y <= EditEx()\ScrollBar\Item()\Buttons\Backwards\Y + EditEx()\ScrollBar\Item()\Buttons\Backwards\Height
     			    ;{ Backwards Button
     			    If EditEx()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Focus
     			      
@@ -4483,9 +4534,7 @@ Module EditEx
     			      EndIf 
     			      
     			    EndIf
-    			    
-    			    
-  			    ;}
+  			      ;}
     			    ProcedureReturn #True
     			  ElseIf Y >= EditEx()\ScrollBar\Item()\Buttons\Forwards\Y
     			    ;{ Forwards Button
@@ -4503,7 +4552,7 @@ Module EditEx
     			    EndIf ;}
     			    ProcedureReturn #True
     			  EndIf
-  
+
     			  EditEx()\ScrollBar\Item()\Timer = #False
     			  
     			  If EditEx()\ScrollBar\Item()\Buttons\Backwards\State <> #False ;{ Backwards Button
@@ -4528,8 +4577,11 @@ Module EditEx
     			      If EditEx()\ScrollBar\Item()\Pos < EditEx()\ScrollBar\Item()\minPos : EditEx()\ScrollBar\Item()\Pos = EditEx()\ScrollBar\Item()\minPos : EndIf
     			      
     			      EditEx()\ScrollBar\Item()\Cursor = Y
-    		        
-    		        Draw_()
+    			      
+    			      EditEx()\Visible\RowOffset = EditEx()\ScrollBar\Item()\Pos
+    			      
+    			      Draw_()
+    			      
     		        ProcedureReturn #True
     		      EndIf ;}
     			    ;{ Thumb Focus
@@ -4540,16 +4592,18 @@ Module EditEx
     			    ProcedureReturn #True
     			  EndIf
     			  
+    			  EditEx()\ScrollBar\Item()\Timer = #False
+    			  
     			  ProcedureReturn #True
     			EndIf  
   			  ;}
-  	    Else                                                          ;{ Horizontal Scrollbar
+  	    Else                                                           ;{ Horizontal Scrollbar
   	      
   	      If Y >= EditEx()\ScrollBar\Item()\Y And Y <= EditEx()\ScrollBar\Item()\Y + EditEx()\ScrollBar\Item()\Height
   	      
     	      If X <= EditEx()\ScrollBar\Item()\Buttons\Backwards\X + EditEx()\ScrollBar\Item()\Buttons\Backwards\Width
     			    ;{ Backwards Button
-    			    If EditEx()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Focus
+    	        If EditEx()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Focus
     			      DrawScrollButton_(EditEx()\ScrollBar\Item()\Buttons\Backwards\X, EditEx()\ScrollBar\Item()\Buttons\Backwards\Y, EditEx()\ScrollBar\Item()\Buttons\Backwards\Width, EditEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards, #ScrollBar_Focus)
     			      EditEx()\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Focus
     			    EndIf ;}
@@ -4562,12 +4616,10 @@ Module EditEx
     			    EndIf ;}
     			    ProcedureReturn #True
     			  EndIf
-  			  
-  			  
-  			  
+
     			  EditEx()\ScrollBar\Item()\Timer = #False
     			  
-      			If EditEx()\ScrollBar\Item()\Buttons\Backwards\State <> #False ;{ Backwards Button
+    			  If EditEx()\ScrollBar\Item()\Buttons\Backwards\State <> #False ;{ Backwards Button
       			  DrawScrollButton_(EditEx()\ScrollBar\Item()\Buttons\Backwards\X, EditEx()\ScrollBar\Item()\Buttons\Backwards\Y, EditEx()\ScrollBar\Item()\Buttons\Backwards\Width, EditEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards)
       			  EditEx()\ScrollBar\Item()\Buttons\Backwards\State = #False
       			  ;}
@@ -4590,7 +4642,10 @@ Module EditEx
     		        
     		        EditEx()\ScrollBar\Item()\Cursor = X
     		        
+    		        EditEx()\Visible\PosOffset = EditEx()\ScrollBar\Item()\Pos
+    		        
     		        Draw_()
+    		        
     		        ProcedureReturn #True
     		      EndIf ;}
     			    ;{ Thumb Focus
@@ -4600,6 +4655,8 @@ Module EditEx
     			    EndIf ;} 
     			    ProcedureReturn #True
     			  EndIf
+    			  
+    			  EditEx()\ScrollBar\Item()\Timer = #False
     			  
     			  ProcedureReturn #True
   			  EndIf
@@ -4618,14 +4675,16 @@ Module EditEx
   			  ;}
   			EndIf
   			
-  			If EditEx()\ScrollBar\Item()\Thumb\State <> #False            ;{ Thumb Button
+  			If EditEx()\ScrollBar\Item()\Thumb\State <> #False             ;{ Thumb Button
   			  EditEx()\ScrollBar\Item()\Thumb\State = #False
   			  DrawScrollBar_(ScrollBar)
   			  ;}
   			EndIf
+  			
+  			EditEx()\ScrollBar\Item()\Timer = #False
         ;}
   		Next
-      
+
       LastCursorPos = EditEx()\Cursor\Pos
       
       If EditEx()\Mouse\LeftButton ;{ Left Mouse Button
@@ -4697,7 +4756,9 @@ Module EditEx
   
           If EditEx()\ScrollBar\Item()\Pos > EditEx()\ScrollBar\Item()\maxPos : EditEx()\ScrollBar\Item()\Pos = EditEx()\ScrollBar\Item()\maxPos : EndIf
           If EditEx()\ScrollBar\Item()\Pos < EditEx()\ScrollBar\Item()\minPos : EditEx()\ScrollBar\Item()\Pos = EditEx()\ScrollBar\Item()\minPos : EndIf
-         
+
+          EditEx()\Visible\RowOffset = EditEx()\ScrollBar\Item()\Pos
+          
           Draw_() 
   	    EndIf
 	    
@@ -4754,7 +4815,7 @@ Module EditEx
 	    
   	    ScrollBar = MapKey(EditEx()\ScrollBar\Item())
   	    
-  		  CalcScrollBarThumb_(ScrollBar)
+  	    CalcScrollBarThumb_(ScrollBar)
   		  DrawScrollBar_(ScrollBar)
   		  
   	  Next
@@ -4896,6 +4957,7 @@ Module EditEx
 			EditEx()\ScrollBar\Item()\Buttons\Backwards\State = #PB_Default
 			
 			CalcScrollBarThumb_(Label)
+			
 		  DrawScrollBar_(Label)
 			
     EndIf
@@ -5274,7 +5336,6 @@ Module EditEx
           Else
             EditEx()\Syntax(Word$) = Color
           EndIf  
-          Debug Word$
         Next  
 
         ReDraw_()
@@ -5452,9 +5513,9 @@ Module EditEx
           DeleteSelection_()
         EndIf
         
-        EditEx()\Text$ = InsertString(EditEx()\Text$, Text, EditEx()\Cursor\Pos + 1)
+        EditEx()\Text$ = InsertString(EditEx()\Text$, Text, EditEx()\Cursor\Pos)
         EditEx()\Cursor\Pos + Len(Text)
-        
+
         CompilerIf #Enable_UndoRedo
           AddUndo_()
         CompilerEndIf
@@ -6459,7 +6520,7 @@ CompilerIf #PB_Compiler_IsMainFile
     SetGadgetText(#Editor, Text)
     SetGadgetFont(#Editor, FontID(#Font))
     
-    EditEx::Gadget(#EditEx, 8, 146, 306, 133, EditEx::#AutoResize|EditEx::#WordWrap, #Window) ; 
+    EditEx::Gadget(#EditEx, 8, 146, 306, 133, EditEx::#AutoResize|EditEx::#WordWrap, #Window) 
     EditEx::SetFont(#EditEx, FontID(#Font))
 
     ; Test WordWrap and Hyphenation
@@ -6539,10 +6600,10 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 1366
-; FirstLine = 554
-; Folding = wBCMAkRA5AAwAYGAwAGA+wLgA-1Kh9hPkQIHAYABgAIuA+xh-NMRBAICCAKIhXHUG--
-; Markers = 1354,2220,5248
+; IDE Options = PureBasic 5.73 LTS (Windows - x64)
+; CursorPosition = 5517
+; FirstLine = 1075
+; Folding = xBCMAkQAgAAICDAGwAEA+ADIA1FCjMGAAQIEAYABQxB+QhCB2IIQIAIGCAAIgXXUW-+
+; Markers = 1360,2226,3281,5310
 ; EnableXP
 ; DPIAware
