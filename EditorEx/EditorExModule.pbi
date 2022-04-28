@@ -7,7 +7,11 @@
 ;/ © 2022 Thorsten1867 (03/2019)
 ;/
 
+<<<<<<< HEAD
 ; Last Update: 28.04.2022
+=======
+; Last Update: 26.04.2022
+>>>>>>> ea6a5c4c21ae272521465128c54d3de330e0d866
 ;
 ; Bugfixes
 ;
@@ -137,7 +141,11 @@
 
 DeclareModule EditEx
   
+<<<<<<< HEAD
   #Version  = 22042800
+=======
+  #Version  = 22042601
+>>>>>>> ea6a5c4c21ae272521465128c54d3de330e0d866
   #ModuleEx = 20010800
   
   ;- ============================================================================
@@ -6601,9 +6609,16 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
+<<<<<<< HEAD
 ; CursorPosition = 5517
 ; FirstLine = 1075
 ; Folding = xBCMAkQAgAAICDAGwAEA+ADIA1FCjMGAAQIEAYABQxB+QhCB2IIQIAIGCAAIgXXUW-+
 ; Markers = 1360,2226,3281,5310
+=======
+; CursorPosition = 3376
+; FirstLine = 396
+; Folding = xBCMAkQAgAAICDAGwAEA+ADIA1ECjMGIAQIEAYABQxB+QhCB2IIQIAICCAAIgXXUW-+
+; Markers = 1360,2226,3279,5308
+>>>>>>> ea6a5c4c21ae272521465128c54d3de330e0d866
 ; EnableXP
 ; DPIAware
