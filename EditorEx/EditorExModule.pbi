@@ -7,12 +7,10 @@
 ;/ © 2022 Thorsten1867 (03/2019)
 ;/
 
-<<<<<<< HEAD
-; Last Update: 28.04.2022
-=======
-; Last Update: 26.04.2022
->>>>>>> ea6a5c4c21ae272521465128c54d3de330e0d866
+; Last Update: 3.05.2022
 ;
+; Change Cursor flashing
+; Changed timer
 ; Bugfixes
 ;
 
@@ -141,11 +139,7 @@
 
 DeclareModule EditEx
   
-<<<<<<< HEAD
-  #Version  = 22042800
-=======
-  #Version  = 22042601
->>>>>>> ea6a5c4c21ae272521465128c54d3de330e0d866
+  #Version  = 22043000
   #ModuleEx = 20010800
   
   ;- ============================================================================
@@ -212,6 +206,9 @@ DeclareModule EditEx
     #UseExistingCanvas
     #Corner
     #ScrollBar
+    #StaticCursor
+    #NoCursor
+    #AutoScroll
   EndEnumeration ;}
   
   EnumerationBinary ;{ SpellCheck
@@ -409,9 +406,10 @@ Module EditEx
   
   ;{ _____ ScrollBar Constants _____
   #ScrollBar_ButtonSize = 18
-
-  #ScrollBar_Timer      = 800
-	#ScrollBar_TimerDelay = 1
+  
+  #AutoScroll_Timer     = 1869
+  #AutoScroll_Frequency = 800
+	#AutoScroll_Delay = 1
 	
 	Enumeration 1             ; ScrollBar Buttons
 	  #ScrollBar_Forwards
@@ -421,15 +419,16 @@ Module EditEx
 	EndEnumeration
 	;}
   
-  ;{ _____ Constants _____
-  #CursorFrequency = 600
-
+	;{ _____ Constants _____
+	#Cursor_Timer    = 1867
+	#Cursor_Frequency = 600
+	
   Enumeration Cursor 1
     #Cursor_Up
     #Cursor_Down
   EndEnumeration
   
-  Enumeration MouseMove
+  Enumeration MouseMove 1
     #Mouse_Move   ; just changing the cursor ...
     #Mouse_Select ; selecting
   EndEnumeration
@@ -554,6 +553,7 @@ Module EditEx
   ;{ _____ Structures _____
   Structure Cursor_Thread_Structure ;{ Cursor-Thread
     Num.i
+    Time.q
     Active.i
     Exit.i
   EndStructure ;}
@@ -702,6 +702,7 @@ Module EditEx
     LastX.i
     LastPos.i
     Pause.i
+    Delay.i
     State.i
   EndStructure ;}
   
@@ -789,7 +790,8 @@ Module EditEx
     List Row.EditEx_Row_Structure()
   EndStructure ;}
   Global NewMap EditEx.EditEx_Structure()
-
+  Global ActiveGadget.s
+  
   ;} ------------------------------
   
   ;- ============================================================================
@@ -3099,6 +3101,16 @@ Module EditEx
     ProcedureReturn #False
   EndProcedure
   
+  Procedure   DrawCursor_()
+    
+    If EditEx()\Flags & #NoCursor : ProcedureReturn #False : EndIf
+    
+    If EditEx()\Cursor\Pause = #False
+      Line(EditEx()\Cursor\X, EditEx()\Cursor\Y, 1, EditEx()\Cursor\Height, EditEx()\Color\Cursor)
+      EditEx()\Cursor\State = #True
+    EndIf
+
+  EndProcedure  
  
   Procedure   Draw_()
     Define.i PosX, PosY, PosOffset, RowOffsetH, Width, Height
@@ -3258,6 +3270,8 @@ Module EditEx
         Next
         ;}
       EndIf
+      
+      DrawCursor_()
       ;}
       
       ;{ _____ Padding _____
@@ -3277,9 +3291,12 @@ Module EditEx
         DrawingMode(#PB_2DDrawing_Outlined)
         Box(0, 0, Width, Height, BorderColor)
       EndIf ;}
+      
 
       StopDrawing()
     EndIf
+    
+    
     
     If EditEx()\ScrollBar\Item("VScroll")\Hide = #False : DrawScrollBar_("VScroll") : EndIf
     If EditEx()\ScrollBar\Item("HScroll")\Hide = #False : DrawScrollBar_("HScroll") : EndIf
@@ -3357,6 +3374,7 @@ Module EditEx
     Until TimerThread\Exit
     
   EndProcedure
+  
   
   Procedure _AutoScroll()
     Define.i X, Y
@@ -3473,67 +3491,181 @@ Module EditEx
   
   ;- --- Cursor-Handler ---  
   
-  Procedure _CursorDrawing() ; Trigger from Thread (PostEvent Change)
-    Define.i WindowNum = EventWindow()
+  Procedure _Timer()
     
-    ForEach EditEx()
-      
-      If IsGadget(EditEx()\CanvasNum) = #False : Continue : EndIf
-      
-      If EditEx()\Cursor\Pause = #False
+    Select EventTimer()
+      Case #Cursor_Timer           ;{ Cursor drawing
         
-        EditEx()\Cursor\State ! #True
-      
-        If StartDrawing(CanvasOutput(EditEx()\CanvasNum)) 
+        If FindMapElement(EditEx(), ActiveGadget)
+        
+          If IsGadget(EditEx()\CanvasNum)
           
-          DrawingMode(#PB_2DDrawing_Default)
-          
-          If EditEx()\Cursor\State
+            If EditEx()\Cursor\Pause = #False And EditEx()\Flags & #NoCursor = #False
+    
+              EditEx()\Cursor\State ! #True
             
-            Line(EditEx()\Cursor\X, EditEx()\Cursor\Y, 1, EditEx()\Cursor\Height, EditEx()\Color\Cursor)
+              If StartDrawing(CanvasOutput(EditEx()\CanvasNum)) 
+                
+                DrawingMode(#PB_2DDrawing_Default)
+                
+                If EditEx()\Cursor\State
+                  Line(EditEx()\Cursor\X, EditEx()\Cursor\Y, 1, EditEx()\Cursor\Height, EditEx()\Color\Cursor)
+                Else
+                  If EditEx()\Cursor\BackChar
+                    If EditEx()\FontID : DrawingFont(EditEx()\FontID) : EndIf
+                    DrawText(EditEx()\Cursor\X, EditEx()\Cursor\Y, EditEx()\Cursor\BackChar, EditEx()\Cursor\FrontColor, EditEx()\Cursor\BackColor)
+                  Else
+                    Line(EditEx()\Cursor\X, EditEx()\Cursor\Y, 1, EditEx()\Cursor\Height, EditEx()\Color\Back)
+                  EndIf
+                EndIf
+                
+                StopDrawing()
+              EndIf
+              
+            ElseIf EditEx()\Cursor\State
+              
+              If StartDrawing(CanvasOutput(EditEx()\CanvasNum))
+                DrawingMode(#PB_2DDrawing_Default)
+                Line(EditEx()\Cursor\X, EditEx()\Cursor\Y, 1, EditEx()\Cursor\Height, EditEx()\Color\Back)
+                StopDrawing()
+              EndIf
             
-          Else
-            
-            If EditEx()\FontID : DrawingFont(EditEx()\FontID) : EndIf
-
-            If EditEx()\Cursor\BackChar
-              DrawText(EditEx()\Cursor\X, EditEx()\Cursor\Y, EditEx()\Cursor\BackChar, EditEx()\Cursor\FrontColor, EditEx()\Cursor\BackColor)
-            Else
-              Line(EditEx()\Cursor\X, EditEx()\Cursor\Y, 1, EditEx()\Cursor\Height, EditEx()\Color\Back)
             EndIf
             
           EndIf
-          StopDrawing()
-        EndIf
+          
+        EndIf ;}
+      Case #AutoScroll_Timer ;{ Auto scrolling
         
-      ElseIf EditEx()\Cursor\State
+        If FindMapElement(EditEx(), ActiveGadget)
         
-        If StartDrawing(CanvasOutput(EditEx()\CanvasNum))
-          DrawingMode(#PB_2DDrawing_Default)
-          Line(EditEx()\Cursor\X, EditEx()\Cursor\Y, 1, EditEx()\Cursor\Height, EditEx()\Color\Back)
-          StopDrawing()
-        EndIf
+          If IsGadget(EditEx()\CanvasNum)
+            
+            ForEach EditEx()\ScrollBar\Item()
+        
+              If EditEx()\ScrollBar\Item()\Hide : Continue : EndIf
+              
+              If EditEx()\ScrollBar\Item()\Timer
+                
+                If EditEx()\ScrollBar\Item()\TimerDelay
+                  EditEx()\ScrollBar\Item()\TimerDelay - 1
+                  Continue
+                EndIf  
       
+                Select EditEx()\ScrollBar\Item()\Timer
+                  Case #ScrollBar_Left   
+                    EditEx()\ScrollBar\Item()\Pos - 1
+                    If EditEx()\ScrollBar\Item()\Pos < EditEx()\ScrollBar\Item()\minPos
+                      EditEx()\ScrollBar\Item()\Pos   = EditEx()\ScrollBar\Item()\minPos
+                      EditEx()\ScrollBar\Item()\Timer = #False
+                    EndIf
+                    EditEx()\Visible\PosOffset = EditEx()\ScrollBar\Item()\Pos
+                    Draw_()
+                  Case #ScrollBar_Up 
+                    EditEx()\ScrollBar\Item()\Pos - 1
+                    If EditEx()\ScrollBar\Item()\Pos < EditEx()\ScrollBar\Item()\minPos
+                      EditEx()\ScrollBar\Item()\Pos   = EditEx()\ScrollBar\Item()\minPos
+                      EditEx()\ScrollBar\Item()\Timer = #False
+                    EndIf
+                    EditEx()\Visible\RowOffset = EditEx()\ScrollBar\Item()\Pos
+                    Draw_()
+                  Case #ScrollBar_Down 
+                    EditEx()\ScrollBar\Item()\Pos + 1
+                    If EditEx()\ScrollBar\Item()\Pos > EditEx()\ScrollBar\Item()\maxPos
+                      EditEx()\ScrollBar\Item()\Pos = EditEx()\ScrollBar\Item()\maxPos
+                      EditEx()\ScrollBar\Item()\Timer = #False
+                    EndIf
+                    EditEx()\Visible\RowOffset = EditEx()\ScrollBar\Item()\Pos
+                    Draw_()
+                  Case #ScrollBar_Right
+                    EditEx()\ScrollBar\Item()\Pos + 1
+                    If EditEx()\ScrollBar\Item()\Pos > EditEx()\ScrollBar\Item()\maxPos
+                      EditEx()\ScrollBar\Item()\Pos = EditEx()\ScrollBar\Item()\maxPos
+                      EditEx()\ScrollBar\Item()\Timer = #False
+                    EndIf
+                    EditEx()\Visible\PosOffset = EditEx()\ScrollBar\Item()\Pos
+                    Draw_()
+                  Default
+                    EditEx()\ScrollBar\Item()\Timer = #False
+                EndSelect
+      
+          		EndIf 
+          		
+          	Next
+          	
+          EndIf
+          
+        EndIf  
+        ;}
+    EndSelect
+    
+  EndProcedure  
+  
+  Procedure _CursorDrawing() ; Trigger from Thread (PostEvent Change)
+    
+    If FindMapElement(EditEx(), ActiveGadget)
+      
+      If IsGadget(EditEx()\CanvasNum)
+      
+        If EditEx()\Cursor\Pause = #False And EditEx()\Flags & #NoCursor = #False
+
+          ;If EditEx()\Cursor\State
+          ;  EditEx()\Cursor\Delay - 1
+          ;  If EditEx()\Cursor\Delay > 0 : ProcedureReturn #False : EndIf 
+          ;Else
+          ;  EditEx()\Cursor\Delay = 1
+          ;EndIf   
+
+          EditEx()\Cursor\State ! #True
+        
+          If StartDrawing(CanvasOutput(EditEx()\CanvasNum)) 
+            
+            DrawingMode(#PB_2DDrawing_Default)
+            
+            If EditEx()\Cursor\State
+              Line(EditEx()\Cursor\X, EditEx()\Cursor\Y, 1, EditEx()\Cursor\Height, EditEx()\Color\Cursor)
+            Else
+              If EditEx()\Cursor\BackChar
+                If EditEx()\FontID : DrawingFont(EditEx()\FontID) : EndIf
+                DrawText(EditEx()\Cursor\X, EditEx()\Cursor\Y, EditEx()\Cursor\BackChar, EditEx()\Cursor\FrontColor, EditEx()\Cursor\BackColor)
+              Else
+                Line(EditEx()\Cursor\X, EditEx()\Cursor\Y, 1, EditEx()\Cursor\Height, EditEx()\Color\Back)
+              EndIf
+            EndIf
+            
+            StopDrawing()
+          EndIf
+          
+        ElseIf EditEx()\Cursor\State
+          
+          If StartDrawing(CanvasOutput(EditEx()\CanvasNum))
+            DrawingMode(#PB_2DDrawing_Default)
+            Line(EditEx()\Cursor\X, EditEx()\Cursor\Y, 1, EditEx()\Cursor\Height, EditEx()\Color\Back)
+            StopDrawing()
+          EndIf
+        
+        EndIf
+        
       EndIf
       
-    Next
+    EndIf
     
   EndProcedure 
  
   Procedure _CursorThread(Frequency.i)
     Define.i ElapsedTime
     
+    ElapsedTime = ElapsedMilliseconds() + Frequency
+    
     Repeat
-      
-      If ElapsedTime >= Frequency
+
+      If ElapsedMilliseconds() >= ElapsedTime
         PostEvent(#Event_Cursor)
-        ElapsedTime = 0
+        ElapsedTime = ElapsedMilliseconds() + Frequency
       EndIf
       
       Delay(100)
-      
-      ElapsedTime + 100
-      
+
     Until Thread\Exit
     
   EndProcedure
@@ -3543,8 +3675,12 @@ Module EditEx
     
     If FindMapElement(EditEx(), Str(GNum))
       
+      ActiveGadget = Str(GNum)
+      
       EditEx()\Cursor\Pause = #False
       EditEx()\Cursor\State = #False
+      
+      Draw_()
       
       PostEvent(#Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Focus)
     EndIf  
@@ -3556,10 +3692,12 @@ Module EditEx
     
     If FindMapElement(EditEx(), Str(GNum))
       
-      EditEx()\Cursor\Pause = #True
-      _CursorDrawing()
+      ActiveGadget = ""
       
-      ;PostEvent(#Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_LostFocus)
+      EditEx()\Cursor\Pause = #True
+      
+      Draw_()
+
     EndIf
     
   EndProcedure  
@@ -4245,7 +4383,7 @@ Module EditEx
     			    ;{ Backwards Button
     			    If EditEx()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Click
     			      DrawScrollButton_(EditEx()\ScrollBar\Item()\Buttons\Backwards\X, EditEx()\ScrollBar\Item()\Buttons\Backwards\Y, EditEx()\ScrollBar\Item()\Buttons\Backwards\Width, EditEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards, #ScrollBar_Click)
-    			      EditEx()\ScrollBar\Item()\TimerDelay = #ScrollBar_TimerDelay
+    			      EditEx()\ScrollBar\Item()\TimerDelay = #AutoScroll_Delay
     			      EditEx()\ScrollBar\Item()\Timer      = #ScrollBar_Up
     			      EditEx()\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Click 
     			    EndIf ;}
@@ -4253,7 +4391,7 @@ Module EditEx
     			    ;{ Forwards Button
     			    If EditEx()\ScrollBar\Item()\Buttons\Forwards\State <> #ScrollBar_Click
     			      DrawScrollButton_(EditEx()\ScrollBar\Item()\Buttons\Forwards\X, EditEx()\ScrollBar\Item()\Buttons\Forwards\Y, EditEx()\ScrollBar\Item()\Buttons\Forwards\Width, EditEx()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards, #ScrollBar_Click)
-    			      EditEx()\ScrollBar\Item()\TimerDelay = #ScrollBar_TimerDelay
+    			      EditEx()\ScrollBar\Item()\TimerDelay = #AutoScroll_Delay
     			      EditEx()\ScrollBar\Item()\Timer      = #ScrollBar_Down
     			      EditEx()\ScrollBar\Item()\Buttons\Forwards\State = #ScrollBar_Click
     			    EndIf ;}
@@ -4277,7 +4415,7 @@ Module EditEx
     			    ;{ Backwards Button
     			    If EditEx()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Click
     			      DrawScrollButton_(EditEx()\ScrollBar\Item()\Buttons\Backwards\X, EditEx()\ScrollBar\Item()\Buttons\Backwards\Y, EditEx()\ScrollBar\Item()\Buttons\Backwards\Width, EditEx()\ScrollBar\Item()\Buttons\Backwards\Height, ScrollBar, #ScrollBar_Backwards, #ScrollBar_Click)
-    			      EditEx()\ScrollBar\Item()\TimerDelay = #ScrollBar_TimerDelay
+    			      EditEx()\ScrollBar\Item()\TimerDelay = #AutoScroll_Delay
     			      EditEx()\ScrollBar\Item()\Timer      = #ScrollBar_Left
     			      EditEx()\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Click
     			    EndIf ;}
@@ -4285,7 +4423,7 @@ Module EditEx
     			    ;{ Forwards Button
     			    If EditEx()\ScrollBar\Item()\Buttons\Forwards\State <> #ScrollBar_Click
     			      DrawScrollButton_(EditEx()\ScrollBar\Item()\Buttons\Forwards\X, EditEx()\ScrollBar\Item()\Buttons\Forwards\Y, EditEx()\ScrollBar\Item()\Buttons\Forwards\Width, EditEx()\ScrollBar\Item()\Buttons\Forwards\Height, ScrollBar, #ScrollBar_Forwards, #ScrollBar_Click)
-    			      EditEx()\ScrollBar\Item()\TimerDelay = #ScrollBar_TimerDelay
+    			      EditEx()\ScrollBar\Item()\TimerDelay = #AutoScroll_Delay
     			      EditEx()\ScrollBar\Item()\Timer      = #ScrollBar_Right
     			      EditEx()\ScrollBar\Item()\Buttons\Forwards\State = #ScrollBar_Click
     			    EndIf ;}
@@ -4600,6 +4738,9 @@ Module EditEx
     			    ProcedureReturn #True
     			  EndIf
     			  
+    			  SetGadgetAttribute(GNum, #PB_Canvas_Cursor, #PB_Cursor_Default)
+            EditEx()\Mouse\Cursor = #PB_Cursor_Default
+    			  EditEx()\Mouse\Status = #False
     			  EditEx()\ScrollBar\Item()\Timer = #False
     			  
     			  ProcedureReturn #True
@@ -4664,6 +4805,9 @@ Module EditEx
     			    ProcedureReturn #True
     			  EndIf
     			  
+    			  SetGadgetAttribute(GNum, #PB_Canvas_Cursor, #PB_Cursor_Default)
+            EditEx()\Mouse\Cursor = #PB_Cursor_Default
+    			  EditEx()\Mouse\Status = #False
     			  EditEx()\ScrollBar\Item()\Timer = #False
     			  
     			  ProcedureReturn #True
@@ -4884,14 +5028,14 @@ Module EditEx
     
       If EditEx()\Window\Num = Window
         
-        CompilerIf Defined(ModuleEx, #PB_Module) = #False
-          If MapSize(EditEx()) = 1
-            Thread\Exit = #True
-            Delay(100)
-            If IsThread(Thread\Num) : KillThread(Thread\Num) : EndIf
-            Thread\Active = #False
-          EndIf
-        CompilerEndIf
+        ;CompilerIf Defined(ModuleEx, #PB_Module) = #False
+        ;  If MapSize(EditEx()) = 1
+        ;    Thread\Exit = #True
+        ;    Delay(100)
+        ;    If IsThread(Thread\Num) : KillThread(Thread\Num) : EndIf
+        ;    Thread\Active = #False
+        ;  EndIf
+        ;CompilerEndIf
         
       EndIf
       
@@ -4905,11 +5049,13 @@ Module EditEx
 
 	  EditEx()\ScrollBar\Flags = Flags
 	  
-	  If TimerThread\Active = #False 
-      TimerThread\Exit   = #False
-      TimerThread\Num    = CreateThread(@_TimerThread(), #ScrollBar_Timer)
-      TimerThread\Active = #True
-    EndIf
+	  ;If EditEx()\Flags & #AutoScroll
+  	;  If TimerThread\Active = #False 
+    ;    TimerThread\Exit   = #False
+    ;    TimerThread\Num    = CreateThread(@_TimerThread(), #AutoScroll_Frequency)
+    ;    TimerThread\Active = #True
+    ;  EndIf
+    ;EndIf   
 	  
 		EditEx()\ScrollBar\Color\Back         = $F0F0F0
 		EditEx()\ScrollBar\Color\Border       = $A0A0A0
@@ -4939,8 +5085,10 @@ Module EditEx
 			CompilerCase #PB_OS_Linux
 
 		CompilerEndSelect ;}
-    
-		BindEvent(#Event_Timer, @_AutoScroll())
+		
+		;If EditEx()\Flags & #AutoScroll
+		;  BindEvent(#Event_Timer, @_AutoScroll())
+		;EndIf
 		
 	EndProcedure
 	
@@ -5611,7 +5759,7 @@ Module EditEx
         EndIf
         
         EditEx()\Text$ = InsertString(EditEx()\Text$, Text, EditEx()\Cursor\Pos)
-        EditEx()\Cursor\Pos + Len(Text)
+        EditEx()\Cursor\Pos + Len(Text) + 1
         
         CompilerIf #Enable_SpellChecking
 
@@ -6227,19 +6375,19 @@ Module EditEx
 
         CompilerIf Defined(ModuleEx, #PB_Module)
           
-          If ModuleEx::AddWindow(EditEx()\Window\Num, ModuleEx::#Tabulator|ModuleEx::#CursorEvent)
-            ModuleEx::AddGadget(GNum, EditEx()\Window\Num, ModuleEx::#UseTabulator)
-          EndIf
+          ;If ModuleEx::AddWindow(EditEx()\Window\Num, ModuleEx::#Tabulator|ModuleEx::#CursorEvent)
+          ;  ModuleEx::AddGadget(GNum, EditEx()\Window\Num, ModuleEx::#UseTabulator)
+          ;EndIf
           
         CompilerElse  
           
-          If Thread\Active = #False
-            
-            Thread\Exit   = #False
-            Thread\Num    = CreateThread(@_CursorThread(), #CursorFrequency)
-            Thread\Active = #True
-
-          EndIf
+          ;If EditEx()\Flags & #StaticCursor = #False And EditEx()\Flags & #NoCursor = #False
+          ;  If Thread\Active = #False
+          ;    Thread\Exit   = #False
+          ;    Thread\Num    = CreateThread(@_CursorThread(), #Cursor_Frequency)
+          ;    Thread\Active = #True
+          ;  EndIf
+          ;EndIf
           
         CompilerEndIf
         
@@ -6328,6 +6476,7 @@ Module EditEx
       CompilerEndSelect
       
       If EditEx()\Flags & #ReadOnly
+        EditEx()\Flags | #NoCursor
         EditEx()\Color\Back = EditEx()\Color\ReadOnly
       EndIf
       
@@ -6350,7 +6499,9 @@ Module EditEx
       BindGadgetEvent(GNum, @_FocusHandler(),            #PB_EventType_Focus)
       BindGadgetEvent(GNum, @_ResizeHandler(),           #PB_EventType_Resize)
       
-      BindEvent(#Event_Cursor, @_CursorDrawing())
+      ;If EditEx()\Flags & #StaticCursor = #False And EditEx()\Flags & #NoCursor = #False
+        ;BindEvent(#Event_Cursor, @_CursorDrawing())
+      ;EndIf
       
       CompilerIf Defined(ModuleEx, #PB_Module)
         BindEvent(#Event_Theme, @_ThemeHandler())
@@ -6361,11 +6512,23 @@ Module EditEx
         EditEx()\Window\Width  = WindowWidth(EditEx()\Window\Num)
         EditEx()\Window\Height = WindowHeight(EditEx()\Window\Num)
         
-        If Flags & #AutoResize
+        If EditEx()\Flags & #AutoResize
           BindEvent(#PB_Event_SizeWindow, @_ResizeWindowHandler(), EditEx()\Window\Num)
         EndIf
         
-        BindEvent(#PB_Event_CloseWindow, @_CloseWindowHandler(), EditEx()\Window\Num)
+        If EditEx()\Flags & #StaticCursor = #False And EditEx()\Flags & #NoCursor = #False
+          AddWindowTimer(EditEx()\Window\Num, #Cursor_Timer, #Cursor_Frequency)
+          BindEvent(#PB_Event_Timer, @_Timer(), EditEx()\Window\Num)
+        EndIf
+        
+        If EditEx()\Flags & #AutoScroll
+          AddWindowTimer(EditEx()\Window\Num, #AutoScroll_Timer, #AutoScroll_Frequency)
+          If EditEx()\Flags & #StaticCursor Or EditEx()\Flags & #NoCursor
+            BindEvent(#PB_Event_Timer, @_Timer(), EditEx()\Window\Num)
+          EndIf   
+        EndIf
+        
+        ;BindEvent(#PB_Event_CloseWindow, @_CloseWindowHandler(), EditEx()\Window\Num)
       EndIf
       
       CloseGadgetList()
@@ -6528,7 +6691,7 @@ CompilerIf #PB_Compiler_IsMainFile
     SetGadgetText(#Editor, Text)
     SetGadgetFont(#Editor, FontID(#Font))
     
-    EditEx::Gadget(#EditEx, 8, 146, 306, 133, EditEx::#AutoResize|EditEx::#WordWrap, #Window) 
+    EditEx::Gadget(#EditEx, 8, 146, 306, 133, EditEx::#AutoResize|EditEx::#WordWrap|EditEx::#AutoScroll, #Window) 
     EditEx::SetFont(#EditEx, FontID(#Font))
 
     ; Test WordWrap and Hyphenation
@@ -6609,16 +6772,8 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-<<<<<<< HEAD
-; CursorPosition = 5517
-; FirstLine = 1075
-; Folding = xBCMAkQAgAAICDAGwAEA+ADIA1FCjMGAAQIEAYABQxB+QhCB2IIQIAIGCAAIgXXUW-+
-; Markers = 1360,2226,3281,5310
-=======
-; CursorPosition = 3376
-; FirstLine = 396
-; Folding = xBCMAkQAgAAICDAGwAEA+ADIA1ECjMGIAQIEAYABQxB+QhCB2IIQIAICCAAIgXXUW-+
-; Markers = 1360,2226,3279,5308
->>>>>>> ea6a5c4c21ae272521465128c54d3de330e0d866
+; CursorPosition = 13
+; Folding = YFAUAsQAgAAEADAEwAEA+ADIA1ECjYFAEAECBAGQAUAgHQAEgCBBCAARQAAAB9Cjy74
+; Markers = 1370,2236,3306,5466
 ; EnableXP
 ; DPIAware
