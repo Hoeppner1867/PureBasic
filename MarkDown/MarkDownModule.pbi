@@ -2622,10 +2622,16 @@ Module MarkDown
               EndSelect
               
               HTML$ + "<div class=" + #DQUOTE$ + "boxtitle" + #DQUOTE$ + " style=" + #DQUOTE$ + BackColor$ + #DQUOTE$ + ">"
-              HTML$ + Symbol$ + " <strong class=" + #DQUOTE$ + "note" + #DQUOTE$ + ">Note</strong>"
+              HTML$ + Symbol$ + " <strong class=" + #DQUOTE$ + "note" + #DQUOTE$ + ">"
+              HTML$ + TextHTML_(MarkDown()\Items()\Words())
+              HTML$ + "</strong>"
               HTML$ + "</div>"
+              
               HTML$ + "<div class=" + #DQUOTE$ + "box" + #DQUOTE$ + ">"
-              HTML$ + "Lore Ipsum"
+              ForEach MarkDown()\Note()\Row()
+                HTML$ + TextHTML_(MarkDown()\Note()\Row()\Words())
+                HTML$ + "<br>" + #LF$
+              Next
               HTML$ + "</div>"
               
             EndIf  
@@ -10839,7 +10845,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
   
-  #Example = 6
+  #Example = 17
   
   ; === Gadget ===
   ;  1: Headings
@@ -11184,9 +11190,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 10917
-; FirstLine = 1425
-; Folding = wEQBwZAgCAAAAwEA+CAASWEhASAKQgBEIAPAAAAgMC5PgAACAAAgAAsCAQMgAAQABAmAAQY5AAHRI2AAQkIDAUwAAAGRwBjLp1pEIxyJDMABBAQB6
-; Markers = 4343
+; CursorPosition = 2633
+; FirstLine = 416
+; Folding = wEQBwZAACAAAAwEA+CAASWJhAAABAQNAAgCAAAAgMA5PgAAAAAAgAAsCAQEgAAQABAmAAQY5AAHRI2AAQkIDA1xYwAGRwBjLr1pEIxyJDMABAgQB6
+; Markers = 4349
 ; EnableXP
 ; DPIAware
