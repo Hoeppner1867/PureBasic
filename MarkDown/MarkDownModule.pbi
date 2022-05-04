@@ -9,21 +9,11 @@
 ;/ © 2020 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 28.04.2022
+; Last Update: 4.05.2022
 ;
-; - Bugfix: internal labels
+; - Bugfixs
 ;
-; - LZMA replaced by ZIP (due to problems with MacOS)
-; 
-; - Added RequesterButtons() for language support
-;
-; - Bugfixes
-; 
-; - Added: Support of relative path for Help2HTML()
-; - Added: Wildcards for help window search
-;
-; - Added: Invisible keywords '[<Invisble]'
-; - Added: dynamic column widths for tables
+
 ;
 
 ;{ ===== MIT License =====
@@ -1290,11 +1280,11 @@ Module MarkDown
 	  MarkDown()\Font\FootItalic     = LoadFont(#PB_Any, Name, Size - 2, #PB_Font_Italic)
 	  MarkDown()\Font\FootBoldItalic = LoadFont(#PB_Any, Name, Size - 2, #PB_Font_Bold|#PB_Font_Italic)
 	  
-	  MarkDown()\Font\H6 = LoadFont(#PB_Any, Name, Size - 4,     #PB_Font_Bold)
-	  MarkDown()\Font\H5 = LoadFont(#PB_Any, Name, Size - 2, #PB_Font_Bold)
-	  MarkDown()\Font\H4 = LoadFont(#PB_Any, Name, Size, #PB_Font_Bold)
-	  MarkDown()\Font\H3 = LoadFont(#PB_Any, Name, Size + 2, #PB_Font_Bold)
-	  MarkDown()\Font\H2 = LoadFont(#PB_Any, Name, Size + 6, #PB_Font_Bold)
+	  MarkDown()\Font\H6 = LoadFont(#PB_Any, Name, Size - 4,  #PB_Font_Bold)
+	  MarkDown()\Font\H5 = LoadFont(#PB_Any, Name, Size - 2,  #PB_Font_Bold)
+	  MarkDown()\Font\H4 = LoadFont(#PB_Any, Name, Size,      #PB_Font_Bold)
+	  MarkDown()\Font\H3 = LoadFont(#PB_Any, Name, Size + 2,  #PB_Font_Bold)
+	  MarkDown()\Font\H2 = LoadFont(#PB_Any, Name, Size + 6,  #PB_Font_Bold)
 	  MarkDown()\Font\H1 = LoadFont(#PB_Any, Name, Size + 12, #PB_Font_Bold)
 	  
 	EndProcedure
@@ -1476,11 +1466,9 @@ Module MarkDown
   EndProcedure
  
   Procedure.i DetermineTextSize_(NoGadget.i=#False)
-    Define.i Font, TextHeight, Image, Output, OutputNum
+    Define.i TextHeight, Image, Output, OutputNum
     Define.i Key$, Image$, File$
 
-    Font = #PB_Default
-    
     MarkDown()\Required\Width  = 0
     MarkDown()\Required\Height = 0
     
@@ -1509,7 +1497,7 @@ Module MarkDown
 
         ForEach MarkDown()\Items()\Words()
           
-          If Font <> MarkDown()\Items()\Words()\Font : Font = DrawingFont_(MarkDown()\Items()\Words()\Font) : EndIf
+          DrawingFont_(MarkDown()\Items()\Words()\Font)
           
           Select MarkDown()\Items()\Words()\Flag
             Case #Emoji     ;{ Emoji (16x16)
@@ -1586,7 +1574,6 @@ Module MarkDown
       
       ForEach MarkDown()\Lists()
         
-        Font = #PB_Default
         TextHeight = 0
         
         ForEach MarkDown()\Lists()\Row() ;{ List rows
@@ -1598,7 +1585,7 @@ Module MarkDown
           
           ForEach MarkDown()\Lists()\Row()\Words()
         
-            If Font <> MarkDown()\Lists()\Row()\Words()\Font : Font = DrawingFont_(MarkDown()\Lists()\Row()\Words()\Font) : EndIf
+            DrawingFont_(MarkDown()\Lists()\Row()\Words()\Font)
             
             Select MarkDown()\Lists()\Row()\Words()\Flag
               Case #Emoji     ;{ Emoji (16x16)
@@ -1653,7 +1640,6 @@ Module MarkDown
       ;{ _____ Tables _____
       ForEach MarkDown()\Table()
         
-        Font = #PB_Default
         TextHeight = 0
         
         ForEach MarkDown()\Table()\Column() : MarkDown()\Table()\Column()\Width = 0 : Next  
@@ -1672,9 +1658,7 @@ Module MarkDown
             
             ForEach MarkDown()\Table()\Row()\Col()\Words() ;{ Words
 
-              If Font <> MarkDown()\Table()\Row()\Col()\Words()\Font
-                Font = DrawingFont_(MarkDown()\Table()\Row()\Col()\Words()\Font)
-              EndIf        
+              DrawingFont_(MarkDown()\Table()\Row()\Col()\Words()\Font)       
               
               Select MarkDown()\Table()\Row()\Col()\Words()\Flag
                 Case #Emoji     ;{ Emoji (16x16)
@@ -1741,8 +1725,7 @@ Module MarkDown
       
       ;{ _____ Notes _____
       ForEach MarkDown()\Note()
-        
-        Font = #PB_Default
+
         TextHeight = 0
         
         DrawingFont(FontID(MarkDown()\Font\Normal))
@@ -1754,7 +1737,7 @@ Module MarkDown
           
           ForEach MarkDown()\Note()\Row()\Words()
           
-            If Font <> MarkDown()\Note()\Row()\Words()\Font : Font = DrawingFont_(MarkDown()\Note()\Row()\Words()\Font) : EndIf
+            DrawingFont_(MarkDown()\Note()\Row()\Words()\Font)
             
             Select MarkDown()\Note()\Row()\Words()\Flag
               Case #Emoji     ;{ Emoji (16x16)
@@ -1813,7 +1796,6 @@ Module MarkDown
       ;{ _____ Footnotes _____
       ForEach MarkDown()\FootLabel()
         
-        Font = #PB_Default
         TextHeight = 0
 
         DrawingFont(FontID(MarkDown()\Font\FootText))
@@ -1824,7 +1806,7 @@ Module MarkDown
         
         ForEach MarkDown()\FootLabel()\Words()
           
-          If Font <> MarkDown()\FootLabel()\Words()\Font : Font = DrawingFont_(MarkDown()\FootLabel()\Words()\Font) : EndIf
+          DrawingFont_(MarkDown()\FootLabel()\Words()\Font)
 
           Select MarkDown()\FootLabel()\Words()\Flag
             Case #Emoji     ;{ Emoji (16x16)
@@ -1875,7 +1857,6 @@ Module MarkDown
       ;{ _____ Table of Contents _____
       ForEach MarkDown()\TOC()
         
-        Font = #PB_Default
         TextHeight = 0
         
         DrawingFont(FontID(MarkDown()\Font\Normal))
@@ -1885,7 +1866,7 @@ Module MarkDown
         
         ForEach MarkDown()\TOC()\Words()
           
-          If Font <> MarkDown()\TOC()\Words()\Font : Font = DrawingFont_(MarkDown()\TOC()\Words()\Font) : EndIf
+          DrawingFont_(MarkDown()\TOC()\Words()\Font)
         
           MarkDown()\TOC()\Width + TextWidth(MarkDown()\TOC()\Words()\String)
           
@@ -4660,7 +4641,7 @@ Module MarkDown
       
       Row$  = ReplaceString(StringField(Text, r, #LF$), #TAB$, Space(4))
       tRow$ = LTrim(Row$)
-      
+
       Select Type
         Case #Code ;{ Add to codeblock
           
@@ -4933,7 +4914,7 @@ Module MarkDown
         If AddDocRow_(Mid(Row$, 2), #Block) : Continue : EndIf ;}
         
       Else
-        
+
         ;{ _____ Setext headings _____      [4.3]
         If ListSize(Document()) And Trim(Document()\String) And Document()\Type = #Parse And Not NewLine 
 
@@ -5004,7 +4985,6 @@ Module MarkDown
         EndIf ;}
         
         ;{ _____ Thematic breaks _____      [4.1]
-        
         Select Left(RemoveString(tRow$, " "), 3) 
           Case "---", "***", "___"
             If AddDocRow_(tRow$, #Line) : Continue : EndIf 
@@ -5205,7 +5185,7 @@ Module MarkDown
       Select Document()\Type
         ;{ _____ Thematic breaks _____            [4.1]  
         Case #Line
-          
+ 
           If AddElement(MarkDown()\Items())
             MarkDown()\Items()\Type = #Line
           EndIf
@@ -6269,7 +6249,7 @@ Module MarkDown
 	;}
   
   Procedure.i DrawRow_(X.i, Y.i, Width.i, Height.i, BlockQuote.i, List Words.Words_Structure(), ColWidth.i=#False, Align.s="L")
-    Define.i c, Font, TextWidth, ImgSize, Image, WordIdx
+    Define.i c, TextWidth, ImgSize, Image, WordIdx
     Define.i Pos, PosX, PosY, lX, lY, OffSetX, OffSetY, OffSetBQ
     Define.s Word$, WordOnly$, Image$, File$
     
@@ -6283,7 +6263,7 @@ Module MarkDown
     DrawingMode(#PB_2DDrawing_Transparent)
     
     If X + Width > MarkDown()\WrapPos
-      
+
       lY = PosY
       
       WordIdx = 0
@@ -6294,7 +6274,7 @@ Module MarkDown
         
         Word$ = Words()\String
         
-        If Font <> Words()\Font : Font = DrawingFont_(Words()\Font) : EndIf
+        DrawingFont_(Words()\Font)
         
         If ColWidth And Words()\Width > ColWidth - dpiX(10)
         
@@ -6510,7 +6490,7 @@ Module MarkDown
       
       ForEach Words()
         
-        If Font <> Words()\Font : Font = DrawingFont_(Words()\Font) : EndIf
+        DrawingFont_(Words()\Font)
         
         lX = PosX
         
@@ -6683,7 +6663,7 @@ Module MarkDown
         Box(MarkDown()\LeftBorder + dpiX(10), lY, dpiX(5), Height, MarkDown()\Color\BlockQuote)
       EndIf ;}
     EndIf
-    
+
     ProcedureReturn PosY + Height
   EndProcedure
   
@@ -6782,12 +6762,10 @@ Module MarkDown
     ProcedureReturn Y
   EndProcedure
   
-  Procedure.i DrawList_(Index.i, Type.i, X.i, Y.i, Width.i, Height.i, BlockQuote.i)
-    Define.i PosX, bqY, OffSetBQ, Indent
-    Define.s Chars$, Level$
-    
-    NewMap ListNum.i()
-    
+  Procedure.i DrawList_(Index.i, Type.i, Map ListNum.i(), X.i, Y.i, Width.i, Height.i, BlockQuote.i)
+    Define.i PosX, bqY, OffSetBQ, Indent, Level
+    Define.s Chars$
+
     If BlockQuote
       OffSetBQ = dpiX(10) * BlockQuote
       OffSetBQ - dpiX(5)
@@ -6799,28 +6777,32 @@ Module MarkDown
       
       DrawingMode(#PB_2DDrawing_Transparent)
       DrawingFont(FontID(MarkDown()\Font\Normal))
-      
-      ListNum("1") = MarkDown()\Lists()\Start - 1
-      
+
       Y + dpiY(3)
-      
+
       If Type = #DefinitionList
         DrawingFont(FontID(MarkDown()\Font\Bold))
         Y = DrawRow_(X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, #False, MarkDown()\Items()\Words())
       EndIf
-
+      
       ForEach MarkDown()\Lists()\Row()
         
         PosX = X
         bqY  = Y
-        
+
         Select Type
           Case #OrderedList    ;{ Ordered list
-            Level$ = Str(MarkDown()\Lists()\Row()\Level)
-            ListNum(Level$) + 1
-            Chars$ = Str(ListNum(Level$)) + ". "
+            
+            Level = MarkDown()\Lists()\Row()\Level 
+            If FindMapElement(ListNum(), Str(Level)) = #False : ListNum(Str(Level)) = MarkDown()\Lists()\Start - 1 : EndIf 
+            
+            ListNum(Str(Level)) + 1
+            Chars$ = Str(ListNum(Str(Level))) + ". "
             Indent = TextWidth(Chars$) * MarkDown()\Lists()\Row()\Level + MarkDown()\Indent
             PosX   = DrawText(PosX + Indent, Y, Chars$, MarkDown()\Color\Front)
+            
+            ListNum(Str(Level + 1)) = 0
+            
             ;}
           Case #DefinitionList ;{ Definition list
             Indent = MarkDown()\Indent * MarkDown()\Lists()\Row()\Level
@@ -6831,14 +6813,14 @@ Module MarkDown
             CheckBox_(PosX + MarkDown()\Indent, Y + dpiY(1), MarkDown()\Lists()\Row()\Height - dpiY(2), MarkDown()\Color\Front, MarkDown()\Color\Back, MarkDown()\Lists()\Row()\State)
             PosX + Indent
             ;}
-          Case #Glossary   ;{ Glossary 
+          Case #Glossary       ;{ Glossary 
             DrawingFont(FontID(MarkDown()\Font\Bold))
             DrawText(PosX, Y, MarkDown()\Lists()\Row()\String, MarkDown()\Color\Front)
             Y + TextHeight(MarkDown()\Lists()\Row()\String)
             Indent = MarkDown()\Indent * MarkDown()\Lists()\Row()\Level
             PosX + Indent + MarkDown()\Indent
             ;}
-          Default                ;{ Unordered list
+          Default              ;{ Unordered list
             Chars$ = #Bullet$ + " "
             Indent = TextWidth(Chars$) * MarkDown()\Lists()\Row()\Level + MarkDown()\Indent
             PosX   = DrawText(PosX + Indent, Y, Chars$, MarkDown()\Color\Front)
@@ -6855,7 +6837,7 @@ Module MarkDown
           EndIf
           DrawingMode(#PB_2DDrawing_Transparent) ;}
         EndIf
-        
+
       Next
       
       Y + dpiY(3)
@@ -7015,6 +6997,8 @@ Module MarkDown
 
 		If MarkDown()\Hide : ProcedureReturn #False : EndIf 
 		
+		NewMap ListNum.i()
+		
 		X = dpiX(MarkDown()\Margin\Left)
 		Y = dpiY(MarkDown()\Margin\Top)
 
@@ -7113,6 +7097,7 @@ Module MarkDown
 			ForEach MarkDown()\Items()
 			  
 			  DrawingFont(FontID(MarkDown()\Font\Normal))
+			  
 			  TextHeight = TextHeight("X")
 			  
 			  Select MarkDown()\Items()\Type
@@ -7133,7 +7118,7 @@ Module MarkDown
 			      Y + (TextHeight / 4)
 			      ;}
 			    Case #Heading          ;{ Headings
-			      If MarkDown()\Items()\ID : MarkDown()\HeadingID( MarkDown()\Items()\ID) = Y : EndIf
+			      If MarkDown()\Items()\ID : MarkDown()\HeadingID(MarkDown()\Items()\ID) = Y : EndIf
 			      Y + (TextHeight / 4)
 			      Y = DrawRow_(X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words())
 			      Y + (TextHeight / 4)
@@ -7199,7 +7184,7 @@ Module MarkDown
     	      EndIf
 			      ;}
 			    Case #Line             ;{ Horizontal rule  
-			      
+			  
 			      OffSetY = TextHeight / 2
 			      
 			      DrawingMode(#PB_2DDrawing_Default)
@@ -7210,21 +7195,21 @@ Module MarkDown
 			      ;}
 			    Case #DefinitionList   ;{ Definition list
 			      
-			      Y = DrawList_(MarkDown()\Items()\Index, #DefinitionList, X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote) 
+			      Y = DrawList_(MarkDown()\Items()\Index, #DefinitionList, ListNum(), X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote) 
 			      ;}
 			    Case #OrderedList      ;{ Ordered list
 			      
-            Y = DrawList_(MarkDown()\Items()\Index, #OrderedList, X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote) 
-			      ;}
+            Y = DrawList_(MarkDown()\Items()\Index, #OrderedList, ListNum(), X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote) 
+            ;}
 			    Case #TaskList         ;{ Task list
 			      
-            Y = DrawList_(MarkDown()\Items()\Index, #TaskList, X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote) 
+            Y = DrawList_(MarkDown()\Items()\Index, #TaskList, ListNum(), X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote) 
 			      ;}
           Case #UnorderedList    ;{ Unordered list
-            Y = DrawList_(MarkDown()\Items()\Index, #UnorderedList, X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote) 
+            Y = DrawList_(MarkDown()\Items()\Index, #UnorderedList, ListNum(), X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote) 
 			      ;}
           Case #Glossary         ;{ Glossary
-            Y = DrawList_(MarkDown()\Items()\Index, #Glossary, X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote)
+            Y = DrawList_(MarkDown()\Items()\Index, #Glossary, ListNum(), X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote)
             ;}
           Case #Note             ;{ Note
             Y = DrawNote(MarkDown()\Items()\Index, X, Y, Width) 
@@ -7239,9 +7224,14 @@ Module MarkDown
 			      Y = DrawTOC(X, Y)
 			      ;}
 			    Default                ;{ Text
+
 			      Y = DrawRow_(X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words())
 			      ;}
 			  EndSelect
+			  
+			  If MarkDown()\Items()\Type <> #OrderedList And MarkDown()\Items()\Type <> #UnorderedList
+			    ClearMap(ListNum())
+			  EndIf   
 			  
 			Next
 			
@@ -10077,7 +10067,6 @@ Module MarkDown
                     If EventType() = #EventType_Link
                       
                       If FindMapElement(MarkDown(), Str(Help\CanvasNum))
-                        Debug "Label: " + MarkDown()\EventLabel
                         If MarkDown()\EventLabel ;{ Table of Contents
                           If FindMapElement(Help\Label(), MarkDown()\EventLabel)
                             If SelectElement(Help\Item(), Help\Label())
@@ -10095,7 +10084,6 @@ Module MarkDown
                           GotoHeading_(MarkDown()\EventValue)
                           ;}
                         Else                     ;{ Internal Link
-                          Debug "Link: " + MarkDown()\EventValue
                           If Left(MarkDown()\EventValue, 1) = "#"
                             Label = LTrim(MarkDown()\EventValue, "#")
                             If FindMapElement(Help\Label(), Label)
@@ -10845,7 +10833,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
   
-  #Example = 17
+  #Example = 1
   
   ; === Gadget ===
   ;  1: Headings
@@ -10901,8 +10889,8 @@ CompilerIf #PB_Compiler_IsMainFile
       ;}
     Case 3   ;{ Lists
       Text$ = "## Ordered List ##" + #LF$
-      Text$ + "1. List item"+#LF$+"   2. List item"+#LF$+"   3. List item"+#LF$+"4. List item"+ #LF$
-      Text$ + "-----" + #LF$
+      Text$ + "1. List item"+#LF$+"   2. List item"+#LF$+"   3. List item"+#LF$+"4. List item"+ #LF$+ #LF$
+      Text$ + "-----" + #LF$+ #LF$
       Text$ + "## Unordered List ##" + #LF$
       Text$ + "- First list item" + #LF$ + "  - Second list item:" + #LF$ + "  - Third list item" + #LF$ + " - Fourth list item" + #LF$ 
       ;}
@@ -11088,7 +11076,6 @@ CompilerIf #PB_Compiler_IsMainFile
               Case #MarkDown
                 Select EventType()
                   Case MarkDown::#EventType_Link ;{ Left mouse click
-                    Debug "Link: " + MarkDown::EventValue(#MarkDown)
                     RunProgram(MarkDown::EventValue(#MarkDown))
                     ;}
                 EndSelect
@@ -11190,9 +11177,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 2633
-; FirstLine = 416
-; Folding = wEQBwZAACAAAAwEA+CAASWJhAAABAQNAAgCAAAAgMA5PgAAAAAAgAAsCAQEgAAQABAmAAQY5AAHRI2AAQkIDA1xYwAGRwBjLr1pEIxyJDMABAgQB6
-; Markers = 4349
+; CursorPosition = 10835
+; FirstLine = 1071
+; Folding = wECAAIAAAAAAAAAAAAAAAAAgAAAQAAIAAAAAAAAAAAAAAAAGACAAYAAAAAAAAAAAAAAAIAIAAAAAAAAAAAAAAAgAAAgRYAABAAwAAAAAAAABAAIAx
+; Markers = 4330
 ; EnableXP
 ; DPIAware

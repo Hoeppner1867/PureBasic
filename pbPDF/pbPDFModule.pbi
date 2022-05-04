@@ -4,14 +4,15 @@
 ;/
 ;/ [ PB V5.7x / All OS ]
 ;/
-;/  © 2020 Thorsten1867 (12/2018)
+;/  © 2022 Thorsten1867 (12/2018)
 ;/ ( based on 'PurePDF' by LuckyLuke / ABBKlaus / normeus )
 ;/
 
-; Last Update: 05.05.2020
+; Last Update: 04.05.2022
 ; 
 ; Workaround: BMP-Images
 ; Conversion of incompatible PNGs 
+; Added code by normeus
 ;
 
 ;{ ===== MIT License =====
@@ -458,7 +459,7 @@ DeclareModule PDF
   Declare.i Create(ID.i, Orientation.s="P", Unit.s="", Format.s="")
   Declare   DividingLine(ID.i, X.f=#PB_Default, Y.f=#PB_Default, Width.f=#PB_Default)
   Declare.i EmbedFile(ID.i, Filename.s, Description.s="")
-  Declare.s EmbedFont(ID.i, Filename.s, Family.s="", Style.s="", Flags.i=#False)
+  Declare.s EmbedFont(ID.i, Filename.s, Family.s="", Style.s="", Flags.i=#False, UseFontName.i=#False)
   Declare   EmbedJavaScript(ID.i, Script.s, Name.s="EmbeddedJS")
   Declare.i EmbedJavaScriptFile(ID.i, FileName.s, Name.s="EmbeddedJS")
   Declare   EnableFooter(ID.i, Flag.i=#True)
@@ -1272,7 +1273,7 @@ Module PDF
   Procedure CompressFile_(File.s, *Compress.Memory_Structure)
     Define.i targetLen, compressLen, Result = #False
     Define *Source, *Target
-    
+
     If ReadFile(#File, File)
       *Compress\Length = Lof(#File)
       targetLen  = *Compress\Length + 13 + (Int(*Compress\Length / 100))
@@ -2622,238 +2623,284 @@ Module PDF
     EndProcedure
     
   CompilerEndIf
-   
+ 
   ;- ----- Fonts ----------------------------
 
-  Procedure FileHeaderTTF_(FileName.s,*Font.TTF_Header_Structure)
-    Define.i i, utf, HeaderID, Result, Position, Length, Size, Number
+  Procedure FileHeaderTTF_(FileName.s,*Font.TTF_Header_Structure, UseFontName.i=#False)
+    Define.i i, utf, HeaderID, Result, Position, Length, Size, Number, LoadFontFile=#True
     Define.i Skala, Encoding, Blocks, maxGID, NumGID, GID
     Define.s ID, psName$, osName$, UTF$
     Define *Memory, *MemoryPtr, *BlockPtr, *StartPos
     NewMap  Block.TTF_Block_Structure()
     NewMap  ucChar.i()
     
-    If ReadFile(#File, FileName)
+    CompilerIf #PB_Compiler_OS=#PB_OS_Windows 
+      ; Code by normeus
+      Define.i Wfontx, WhDC, Wnchars, WFontName$
+      Define *WTextFace
       
-      Size = Lof(#File)
-      
-      *Memory = AllocateMemory(Size)
-      If *Memory
-        
-        If ReadData(HeaderID, *Memory, Size)
-          
-          *MemoryPtr = *Memory
-          
-          *Font\Signature = Hex(uint32(PeekL(*MemoryPtr)))
-          *MemoryPtr + 4
-          
-          If *Font\Signature = "10000"
-            
-            ;{ Read: Block Directory
-            Blocks    = uint16(PeekW(*MemoryPtr))        : *MemoryPtr + 8
-            For i=1 To Blocks
-              ID  = PeekS(*MemoryPtr, 4, #PB_Ascii)      : *MemoryPtr + 8
-              If AddMapElement(Block(), ID)
-                Block()\Pos  = uint32(PeekL(*MemoryPtr)) : *MemoryPtr + 4
-                Block()\Size = uint32(PeekL(*MemoryPtr)) : *MemoryPtr + 4
+      If UseFontName Or FileSize(FileName) <= 0
+
+        Wfontx = LoadFont(#PB_Any, FileName, 750)
+        If WFontx
+          WhDC=CreateDC_("DISPLAY",#Null,#Null,#Null)
+          If WhDC
+            SelectObject_(WhDC,FontID(WFontx))
+            WnChars=GetTextFace_(WhDC,0,0)
+            If WnChars>0
+              *WTextFace=AllocateMemory(WnChars*SizeOf(Character))
+              If *WTextFace
+                If GetTextFace_(WhDC,WnChars,*WTextFace)
+                  WFontName$=PeekS(*WTextFace,WnChars)
+                EndIf
+                FreeMemory(*WTextFace)
               EndIf
-            Next ;}
-            
-            If FindMapElement(Block(), "name") ;{ Block: "name"
-              *BlockPtr  = *Memory + Block()\Pos
-              *MemoryPtr = *BlockPtr + 2
-              Number     = uint16(PeekW(*MemoryPtr)) : *MemoryPtr + 2
-              *StartPos  = *BlockPtr + uint16(PeekW(*MemoryPtr)) : *MemoryPtr + 2
-              For i=1 To Number
-                If uint16(PeekW(*MemoryPtr)) = 3       ; platform
-                  Length = uint16(PeekW(*MemoryPtr + 8))
-                  Position = uint16(PeekW(*MemoryPtr + 10))
-                  Select uint16(PeekW(*MemoryPtr + 6)) ; typ
-                    Case 4                             ; OS-specific name
-                      If uint16(PeekW(*MemoryPtr + 4)) = $409 ; language
-                        osName$ = PeekUTF16(*StartPos + Position, Length)
-                      EndIf
-                    Case 6 ; PostScript name
-                      psName$ = PeekUTF16(*StartPos + Position, Length)
-                  EndSelect
-                EndIf
-                *MemoryPtr + 12
-              Next
-              
-              If psName$ 
-                *Font\Name = psName$
-              Else
-                *Font\Name = osName$
-              EndIf
-              ;}
             EndIf
-            
-            If FindMapElement(Block(), "head") ;{ Block: "head" [/FontBBox]
-              *BlockPtr  = *Memory + Block()\Pos
-              Skala = uint16(PeekW(*BlockPtr + 18))
-              *Font\Skala = Skala
-              *Font\BBox\X1 = Round((int16(PeekW(*BlockPtr + 36)) * 1000) / Skala, #PB_Round_Nearest)
-              *Font\BBox\Y1 = Round((int16(PeekW(*BlockPtr + 38)) * 1000) / Skala, #PB_Round_Nearest)
-              *Font\BBox\X2 = Round((int16(PeekW(*BlockPtr + 40)) * 1000) / Skala, #PB_Round_Nearest)
-              *Font\BBox\Y2 = Round((int16(PeekW(*BlockPtr + 42)) * 1000) / Skala, #PB_Round_Nearest)
-              ;}
-            EndIf
-            
-            If FindMapElement(Block(), "OS/2") ;{ Block: "OS/2"
-              *BlockPtr = *Memory + Block()\Pos
-              *Font\Flag    = Round((int16(PeekW(*BlockPtr +  8)) * 1000) / Skala, #PB_Round_Nearest)
-              *Font\Ascent  = Round((int16(PeekW(*BlockPtr + 68)) * 1000) / Skala, #PB_Round_Nearest)
-              *Font\Descent = Round((int16(PeekW(*BlockPtr + 70)) * 1000) / Skala, #PB_Round_Nearest)
-              If uint16(PeekW(*BlockPtr)) >= 2 ; block format version 
-                *Font\CapHeight = Round((int16(PeekW(*BlockPtr + 88)) * 1000) / Skala, #PB_Round_Nearest)
-              Else
-                *Font\CapHeight = *Font\Ascent
-              EndIf
-              ;}
-            EndIf
-            
-            If FindMapElement(Block(), "post") ;{ Block: "post"
-              ; Bevel = BevelFraction / 65536 + BevelInteger
-              *BlockPtr = *Memory + Block()\Pos
-              *Font\BevelInteger   = int16(PeekW(*BlockPtr + 4))
-              *Font\BevelFraction  = uint16(PeekW(*BlockPtr + 6))
-              *Font\FixedWidth     = uint32(PeekL(*BlockPtr + 12))
-              *Font\ItalicAngle    = (*Font\BevelFraction / 65536) + *Font\BevelInteger
-              ;}
-            EndIf
-            
-            If FindMapElement(Block(), "cmap") ;{ Block: "cmap"
-              *BlockPtr = *Memory + Block()\Pos
-              
-              Number     = uint16(PeekW(*BlockPtr + 2))
-              *MemoryPtr = *BlockPtr + 4
-              
-              ;{ ----- Search subblock -----
-              For i=1 To Number 
-                If uint16(PeekW(*MemoryPtr)) = 3 ; Plattform
-                  Encoding = uint16(PeekW(*MemoryPtr + 2))
-                  If Encoding = 0 Or Encoding = 1
-                    *StartPos  = *BlockPtr + uint32(PeekL(*MemoryPtr + 4))
-                    *Font\Encoding = Encoding
-                    Break
-                  EndIf
-                EndIf
-                *MemoryPtr + 8
-              Next ;}
-              
-              ;{ ----- Segment Lists -----
-              *MemoryPtr = *StartPos
-              If uint16(PeekW(*MemoryPtr)) = 4 ; Format
-                Length = uint16(PeekW(*MemoryPtr + 6)) ; List lenght (byte)
-                *MemoryPtr + 14
-                Number = Length / 2
-                Dim Segment.TTF_Segment_Structure(Number - 1)
-                For i=0 To Number - 1
-                  Segment(i)\EndCode = uint16(PeekW(*MemoryPtr))
-                  *MemoryPtr + 2
-                Next
-                *MemoryPtr + 2
-                For i=0 To Number - 1
-                  Segment(i)\StartCode = uint16(PeekW(*MemoryPtr))
-                  *MemoryPtr + 2
-                Next
-                For i=0 To Number - 1
-                  Segment(i)\Delta = uint16(PeekW(*MemoryPtr))
-                  *MemoryPtr + 2
-                Next
-                For i=0 To Number - 1
-                  Segment(i)\Offset = uint16(PeekW(*MemoryPtr))
-                  *MemoryPtr + 2
-                Next
-              EndIf ;}
-              
-              ;{ ----- Determine GID -----
-              *Font\CIDToGIDMap = AllocateMemory(131072)
-              
-              *MemoryPtr = *Font\CIDToGIDMap
-              
-              For utf=0 To 65535 ; Unicode
-              
-                For i=0 To Number - 1
-                  If Segment(i)\EndCode >= utf
-                    UTF$ = Str(utf)
-                    If Segment(i)\StartCode > utf    ;{ StartCode > UC
-                      ucChar(UTF$) = 0
-                      Break ;}
-                    Else
-                      If Segment(i)\Offset = 0       ;{ Offset = 0
-                        If Segment(i)\Delta = 0
-                          ucChar(UTF$) = utf
-                          Break
-                        Else
-                          ucChar(UTF$) = utf + Segment(i)\Delta
-                          ucChar(UTF$) = ucChar(UTF$) % 65536
-                          Break
-                        EndIf ;}
-                      Else                           ;{ Offset <> 0
-                        Position = 16 + (Length * 3) + (i * 2) + Segment(i)\Offset + ((utf - Segment(i)\StartCode) * 2)
-                        ucChar(UTF$) = uint16(PeekW(*StartPos + Position))
-                        Break ;}
-                      EndIf
-                    EndIf
-                  EndIf
-                Next
-                
-                If *MemoryPtr
-                  PokeW(*MemoryPtr, int16(ucChar(UTF$)))
-                  *MemoryPtr + 2
-                EndIf
-                
-              Next ;}
-              
-              ;}
-            EndIf
-            
-            If FindMapElement(Block(), "hhea") ;{ Block: "hhea"
-              *BlockPtr = *Memory + Block()\Pos
-              NumGID = uint16(PeekW(*BlockPtr + 34)) ; Number of GIDs with explicitly listed character width
-              maxGID = NumGID - 1                    ; First GID = 0
-              ;}
-            EndIf
-            
-            If FindMapElement(Block(), "hmtx") ;{ Block: "hmtx"
-              *BlockPtr = *Memory + Block()\Pos
-  
-              Dim CharW.i(maxGID)
-              
-              For i=0 To maxGID ;{ GID widths
-                CharW(i) = uint16(PeekW(*BlockPtr))
-                *BlockPtr + 4 ;}
-              Next
-              
-              *Font\MissingWidth = Round((CharW(0)  * 1000) / Skala, #PB_Round_Nearest)
-              
-              ForEach ucChar()
-                If ucChar() > 0
-                  UTF$ = MapKey(ucChar())
-                  If ucChar() > maxGID
-                    *Font\CharWidth(UTF$) = Round((CharW(maxGID)   * 1000) / Skala, #PB_Round_Nearest)
-                  Else
-                    *Font\CharWidth(UTF$) = Round((CharW(ucChar()) * 1000) / Skala, #PB_Round_Nearest)
-                  EndIf
-                EndIf
-              Next
-              ;}
-            EndIf
-            
-            Result = #True
-            
-          EndIf 
+          EndIf
         EndIf
         
-        FreeMemory(*Memory)
-      EndIf
+        Size = GetFontData_(WhDC, 0, 0, #Null, #Null)
+        If Size <> #GDI_ERROR And Size <> -1
+          *Memory = AllocateMemory(Size)
+          If *Memory And GetFontData_(WhDC,0,0,*Memory,Size) <> #GDI_ERROR
+            LoadFontFile = #False
+          EndIf
+        Else
+          Size = #False
+          PDF()\Error = #ERROR_TTF_UNEMBEDDABLE
+        EndIf
+        
+      EndIf  
       
-      CloseFile(#File)
-    Else
-      PDF()\Error = #ERROR_FILE_READ
-    EndIf
+    CompilerEndIf 
+
+    If LoadFontFile ;{ Load Font
+      
+      If ReadFile(#File, FileName)
+        
+        Size = Lof(#File)
+        
+        *Memory = AllocateMemory(Size)
+        If *Memory
+          ReadData(#File, *Memory, Size)
+        EndIf
+
+        CloseFile(#File)
+      Else
+        PDF()\Error = #ERROR_FILE_READ
+      EndIf
+      ;}
+    EndIf   
     
+    If *Memory And Size > 0
+      
+      *MemoryPtr = *Memory
+
+      *Font\Signature = Hex(uint32(PeekL(*MemoryPtr)))
+      *MemoryPtr + 4
+      
+      If *Font\Signature = "10000"
+        
+        ;{ Read: Block Directory
+        Blocks    = uint16(PeekW(*MemoryPtr))        : *MemoryPtr + 8
+        For i=1 To Blocks
+          ID  = PeekS(*MemoryPtr, 4, #PB_Ascii)      : *MemoryPtr + 8
+          If AddMapElement(Block(), ID)
+            Block()\Pos  = uint32(PeekL(*MemoryPtr)) : *MemoryPtr + 4
+            Block()\Size = uint32(PeekL(*MemoryPtr)) : *MemoryPtr + 4
+          EndIf
+        Next ;}
+        
+        If FindMapElement(Block(), "name") ;{ Block: "name"
+          *BlockPtr  = *Memory + Block()\Pos
+          *MemoryPtr = *BlockPtr + 2
+          Number     = uint16(PeekW(*MemoryPtr)) : *MemoryPtr + 2
+          *StartPos  = *BlockPtr + uint16(PeekW(*MemoryPtr)) : *MemoryPtr + 2
+          For i=1 To Number
+            If uint16(PeekW(*MemoryPtr)) = 3       ; platform
+              Length = uint16(PeekW(*MemoryPtr + 8))
+              Position = uint16(PeekW(*MemoryPtr + 10))
+              Select uint16(PeekW(*MemoryPtr + 6)) ; typ
+                Case 4                             ; OS-specific name
+                  If uint16(PeekW(*MemoryPtr + 4)) = $409 ; language
+                    osName$ = PeekUTF16(*StartPos + Position, Length)
+                  EndIf
+                Case 6 ; PostScript name
+                  psName$ = PeekUTF16(*StartPos + Position, Length)
+              EndSelect
+            EndIf
+            *MemoryPtr + 12
+          Next
+          
+          If psName$ 
+            *Font\Name = psName$
+          Else
+            *Font\Name = osName$
+          EndIf
+          ;}
+        EndIf
+        
+        If FindMapElement(Block(), "head") ;{ Block: "head" [/FontBBox]
+          *BlockPtr  = *Memory + Block()\Pos
+          Skala = uint16(PeekW(*BlockPtr + 18))
+          *Font\Skala = Skala
+          *Font\BBox\X1 = Round((int16(PeekW(*BlockPtr + 36)) * 1000) / Skala, #PB_Round_Nearest)
+          *Font\BBox\Y1 = Round((int16(PeekW(*BlockPtr + 38)) * 1000) / Skala, #PB_Round_Nearest)
+          *Font\BBox\X2 = Round((int16(PeekW(*BlockPtr + 40)) * 1000) / Skala, #PB_Round_Nearest)
+          *Font\BBox\Y2 = Round((int16(PeekW(*BlockPtr + 42)) * 1000) / Skala, #PB_Round_Nearest)
+          ;}
+        EndIf
+        
+        If FindMapElement(Block(), "OS/2") ;{ Block: "OS/2"
+          *BlockPtr = *Memory + Block()\Pos
+          *Font\Flag    = Round((int16(PeekW(*BlockPtr +  8)) * 1000) / Skala, #PB_Round_Nearest)
+          *Font\Ascent  = Round((int16(PeekW(*BlockPtr + 68)) * 1000) / Skala, #PB_Round_Nearest)
+          *Font\Descent = Round((int16(PeekW(*BlockPtr + 70)) * 1000) / Skala, #PB_Round_Nearest)
+          If uint16(PeekW(*BlockPtr)) >= 2 ; block format version 
+            *Font\CapHeight = Round((int16(PeekW(*BlockPtr + 88)) * 1000) / Skala, #PB_Round_Nearest)
+          Else
+            *Font\CapHeight = *Font\Ascent
+          EndIf
+          ;}
+        EndIf
+        
+        If FindMapElement(Block(), "post") ;{ Block: "post"
+          ; Bevel = BevelFraction / 65536 + BevelInteger
+          *BlockPtr = *Memory + Block()\Pos
+          *Font\BevelInteger   = int16(PeekW(*BlockPtr + 4))
+          *Font\BevelFraction  = uint16(PeekW(*BlockPtr + 6))
+          *Font\FixedWidth     = uint32(PeekL(*BlockPtr + 12))
+          *Font\ItalicAngle    = (*Font\BevelFraction / 65536) + *Font\BevelInteger
+          ;}
+        EndIf
+        
+        If FindMapElement(Block(), "cmap") ;{ Block: "cmap"
+          *BlockPtr = *Memory + Block()\Pos
+          
+          Number     = uint16(PeekW(*BlockPtr + 2))
+          *MemoryPtr = *BlockPtr + 4
+          
+          ;{ ----- Search subblock -----
+          For i=1 To Number 
+            If uint16(PeekW(*MemoryPtr)) = 3 ; Plattform
+              Encoding = uint16(PeekW(*MemoryPtr + 2))
+              If Encoding = 0 Or Encoding = 1
+                *StartPos  = *BlockPtr + uint32(PeekL(*MemoryPtr + 4))
+                *Font\Encoding = Encoding
+                Break
+              EndIf
+            EndIf
+            *MemoryPtr + 8
+          Next ;}
+          
+          ;{ ----- Segment Lists -----
+          *MemoryPtr = *StartPos
+          If uint16(PeekW(*MemoryPtr)) = 4 ; Format
+            Length = uint16(PeekW(*MemoryPtr + 6)) ; List lenght (byte)
+            *MemoryPtr + 14
+            Number = Length / 2
+            Dim Segment.TTF_Segment_Structure(Number - 1)
+            For i=0 To Number - 1
+              Segment(i)\EndCode = uint16(PeekW(*MemoryPtr))
+              *MemoryPtr + 2
+            Next
+            *MemoryPtr + 2
+            For i=0 To Number - 1
+              Segment(i)\StartCode = uint16(PeekW(*MemoryPtr))
+              *MemoryPtr + 2
+            Next
+            For i=0 To Number - 1
+              Segment(i)\Delta = uint16(PeekW(*MemoryPtr))
+              *MemoryPtr + 2
+            Next
+            For i=0 To Number - 1
+              Segment(i)\Offset = uint16(PeekW(*MemoryPtr))
+              *MemoryPtr + 2
+            Next
+          EndIf ;}
+          
+          ;{ ----- Determine GID -----
+          *Font\CIDToGIDMap = AllocateMemory(131072)
+          
+          *MemoryPtr = *Font\CIDToGIDMap
+          
+          For utf=0 To 65535 ; Unicode
+          
+            For i=0 To Number - 1
+              If Segment(i)\EndCode >= utf
+                UTF$ = Str(utf)
+                If Segment(i)\StartCode > utf    ;{ StartCode > UC
+                  ucChar(UTF$) = 0
+                  Break ;}
+                Else
+                  If Segment(i)\Offset = 0       ;{ Offset = 0
+                    If Segment(i)\Delta = 0
+                      ucChar(UTF$) = utf
+                      Break
+                    Else
+                      ucChar(UTF$) = utf + Segment(i)\Delta
+                      ucChar(UTF$) = ucChar(UTF$) % 65536
+                      Break
+                    EndIf ;}
+                  Else                           ;{ Offset <> 0
+                    Position = 16 + (Length * 3) + (i * 2) + Segment(i)\Offset + ((utf - Segment(i)\StartCode) * 2)
+                    ucChar(UTF$) = uint16(PeekW(*StartPos + Position))
+                    Break ;}
+                  EndIf
+                EndIf
+              EndIf
+            Next
+            
+            If *MemoryPtr
+              PokeW(*MemoryPtr, int16(ucChar(UTF$)))
+              *MemoryPtr + 2
+            EndIf
+            
+          Next ;}
+          
+          ;}
+        EndIf
+        
+        If FindMapElement(Block(), "hhea") ;{ Block: "hhea"
+          *BlockPtr = *Memory + Block()\Pos
+          NumGID = uint16(PeekW(*BlockPtr + 34)) ; Number of GIDs with explicitly listed character width
+          maxGID = NumGID - 1                    ; First GID = 0
+          ;}
+        EndIf
+        
+        If FindMapElement(Block(), "hmtx") ;{ Block: "hmtx"
+          *BlockPtr = *Memory + Block()\Pos
+
+          Dim CharW.i(maxGID)
+          
+          For i=0 To maxGID ;{ GID widths
+            CharW(i) = uint16(PeekW(*BlockPtr))
+            *BlockPtr + 4 ;}
+          Next
+          
+          *Font\MissingWidth = Round((CharW(0)  * 1000) / Skala, #PB_Round_Nearest)
+          
+          ForEach ucChar()
+            If ucChar() > 0
+              UTF$ = MapKey(ucChar())
+              If ucChar() > maxGID
+                *Font\CharWidth(UTF$) = Round((CharW(maxGID)   * 1000) / Skala, #PB_Round_Nearest)
+              Else
+                *Font\CharWidth(UTF$) = Round((CharW(ucChar()) * 1000) / Skala, #PB_Round_Nearest)
+              EndIf
+            EndIf
+          Next
+          ;}
+        EndIf
+        
+        Result = #True
+        
+      EndIf 
+      
+      FreeMemory(*Memory)
+      
+    EndIf
+
     ProcedureReturn Result
   EndProcedure 
   
@@ -5602,9 +5649,9 @@ Module PDF
     ProcedureReturn FileNum
   EndProcedure  
   
-  Procedure.s EmbedFont(ID.i, Filename.s, Family.s="", Style.s="", Flags.i=#False)
+  Procedure.s EmbedFont(ID.i, Filename.s, Family.s="", Style.s="", Flags.i=#False, UseFontName.i=#False)
     ; PDF Reference Version 1.6 - Chapter 5.8
-    Define.i i, UTF, Length
+    Define.i i, UTF, Length, Result
     Define.s objEmbed, objCharW, objFontDesc, objCIDMap, objDescFonts, objStrg
     Define.s Error1, Error2, Error3, FontKey, Titel, FontName
     Define   Font.TTF_Header_Structure, Compress.Memory_Structure
@@ -5616,7 +5663,7 @@ Module PDF
       If FindString(Style, "U", 1) > 0 : Style = ReplaceString(Style, "U", "") : EndIf
       If Style = "IB" : Style = "BI" : EndIf
       
-      If FileHeaderTTF_(FileName, @Font)
+      If FileHeaderTTF_(FileName, @Font, UseFontName)
         
         If Family = "" : Family = Font\Name : EndIf
         
@@ -5635,16 +5682,66 @@ Module PDF
             Flags = Flags & ~#Unicode
           EndIf
           PDF()\Fonts()\Flags = Flags
-          
-          ;PDF()\Fonts()\FixedWidth   = Font\FixedWidth
 
           ForEach Font\CharWidth()
             UTF = Val(MapKey(Font\CharWidth()))
             PDF()\Fonts()\CharWidth(Chr(UTF)) = Font\CharWidth()
           Next
-          
-          If CompressFile_(Filename, @Compress)
+
+          If UseFontName Or FileSize(Filename) <= 0
             
+            CompilerIf #PB_Compiler_OS=#PB_OS_Windows 
+              ; Code by normeus
+              Define Wfontx, WhDC, Wnchars, WFontName$
+              Define *Source, *WTextFace
+              
+              Wfontx=LoadFont(#PB_Any, Filename, 750)
+              If WFontx
+                WhDC = CreateDC_("DISPLAY", #Null, #Null, #Null)
+                If WhDC
+                  SelectObject_(WhDC, FontID(WFontx))
+                  WnChars = GetTextFace_(WhDC, 0, 0)
+                  If WnChars > 0
+                    *WTextFace=AllocateMemory(WnChars*SizeOf(Character))
+                    If *WTextFace
+                      If GetTextFace_(WhDC,WnChars, *WTextFace)
+                        WFontName$ = PeekS(*WTextFace, WnChars)
+                      EndIf
+                      FreeMemory(*WTextFace)
+                    EndIf
+                  EndIf
+                EndIf
+              EndIf
+              
+              Compress\Length = GetFontData_(WhDC, 0, 0, #Null, #Null)
+              If Compress\Length = #GDI_ERROR Or Compress\Length < -1
+                Compress\Length = 0 ; failed to get font, default to ARIAL
+                Font\Flag & #TTF_Unembeddable
+              Else
+                *Source = AllocateMemory(Compress\Length)
+                If *Source
+                  If  GetFontData_(WhDC, 0, 0, *Source, Compress\Length) <> #GDI_ERROR
+                    CompressMemory_(*Source, @Compress)
+                    Result = #True
+                  EndIf
+                  FreeMemory(*Source)
+                Else
+                  Compress\Length = 0
+                EndIf
+              EndIf    
+           
+            CompilerEndIf 
+
+          Else
+            
+            If CompressFile_(Filename, @Compress)
+              Result = #True
+            EndIf  
+            
+          EndIf  
+         
+          If Result  
+
             FontName = ReplaceString(PDF()\Fonts()\Name, " ", "#20")
             
             ;{ --- Embed Font ---
@@ -7018,10 +7115,11 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf 
 
 ;- ========================
-; IDE Options = PureBasic 5.71 LTS (Windows - x86)
-; CursorPosition = 191
-; Folding = YAQAAoACgAQAwAAAACAABAAQ1AMDAAAAAAACAkABAAARAAAAAAAQBEQAAAACCTAYBAIkAAw
-; Markers = 590,1025,2202,2381,2481,3276,3785,3855
+; IDE Options = PureBasic 5.73 LTS (Windows - x64)
+; CursorPosition = 5719
+; FirstLine = 871
+; Folding = cCQCAoADgAQAwAAAACAAAAAQ1AIDAYgfCAAIAQCEAAAEBAAAAAAAFQABAAAIIDAACAAhGIA9
+; Markers = 591,1026,2203,2382,2482,3323,3832,3902
 ; EnableXP
 ; DPIAware
 ; EnablePurifier

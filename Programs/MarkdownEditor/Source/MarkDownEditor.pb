@@ -6,10 +6,14 @@
 ;/
 ;/  Gadget to display MarkDown languages
 ;/
-;/ © 2020  by Thorsten Hoeppner (01/2020)
+;/ © 2022  by Thorsten Hoeppner (01/2020)
 ;/
 
-; Last Update: 01.04.2020
+; Last Update: 4.05.2022
+;
+; - Tooltips
+; - Bugfixes
+;
 
 ; PDF-Icon: Icon erstellt von Dimitry Miroliubov (https://www.flaticon.com)
 
@@ -97,6 +101,16 @@ Enumeration 1
   #Emoji_Clip
   #Emoji_Magnifier
   #Emoji_Warning
+  #Emoji_Angry
+  #Emoji_Cool
+  #Emoji_Eyes
+  #Emoji_Laugh
+  #Emoji_Rolf
+  #Emoji_Sad
+  #Emoji_Smile
+  #Emoji_Smirk
+  #Emoji_Wink
+  #Emoji_Worry
   #Menu_CodeBlock
   ;}
   
@@ -209,11 +223,22 @@ Enumeration 1
   #IMG_Warning
   #IMG_Bt_Note
   #IMG_Bt_Table
+  #IMG_Angry
+  #IMG_Cool
+  #IMG_Eyes
+  #IMG_Laugh
+  #IMG_Rolf
+  #IMG_Sad
+  #IMG_Smile
+  #IMG_Smirk
+  #IMG_Wink
+  #IMG_Worry
 EndEnumeration
 ;}
 
 ;{ Load Images
 If ResourceEx::Open(#ResEx, "MarkDownEditor.res")
+  
   ResourceEx::UseImage(#ResEx, #IMG_Autolink,      "AutoLink.png")
   ResourceEx::UseImage(#ResEx, #IMG_Bold,          "Bold.png")
   ResourceEx::UseImage(#ResEx, #IMG_BoldItalic,    "BoldItalic.png")
@@ -258,6 +283,16 @@ If ResourceEx::Open(#ResEx, "MarkDownEditor.res")
   ResourceEx::UseImage(#ResEx, #IMG_Warning,       "Warning.png")
   ResourceEx::UseImage(#ResEx, #IMG_Bt_Table,      "Bt_Table.png")
   ResourceEx::UseImage(#ResEx, #IMG_Bt_Note,       "Bt_Note.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Angry,         "Angry.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Cool,          "Cool.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Eyes,          "Eyes.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Laugh,         "Laugh.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Rolf,          "Rofl.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Sad,           "Sad.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Smile,         "Smile.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Smirk,         "Smirk.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Wink,          "Wink.png")
+  ResourceEx::UseImage(#ResEx, #IMG_Worry,         "Worry.png")
 EndIf ;}
 
 ;- __________ Structures __________
@@ -273,7 +308,7 @@ Global NewMap Lng.s()
 
 Procedure.i Window_Note()
   
-  If OpenWindow(#Window_Note, 0, 0, 175, 170, " " + Lng("Note"), #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_WindowCentered|#PB_Window_Invisible)
+  If OpenWindow(#Window_Note, 0, 0, 175, 170, " " + Lng("Note"), #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_WindowCentered|#PB_Window_Invisible, WindowID(#Window_MarkDown))
     
       FrameGadget(#Gadget_Note_Frame, 10, 5, 155, 125, "")
       OptionGadget(#Gadget_Note_OG_Info, 24, 25, 125, 15, " " + Lng("Info"))
@@ -285,7 +320,7 @@ Procedure.i Window_Note()
       OptionGadget(#Gadget_Note_OG_Warning, 24, 100, 125, 15, " " + Lng("Caution"))
         SetGadgetFont(#Gadget_Note_OG_Warning, FontID(#Font_Arial9B))
       
-      ButtonGadget(#Gadget_Note_OK,45,135,80,25,"Apply")
+      ButtonGadget(#Gadget_Note_OK,45,135,80,25,Lng("Apply"))
       
       HideWindow(#Window_Note, #False)
       
@@ -424,6 +459,17 @@ Procedure.i Window_MarkDown()
         MenuItem(#Emoji_Pencil,      Lng("Pencil"),         ImageID(#IMG_Pencil))
         MenuItem(#Emoji_Phone,       Lng("Phone"),          ImageID(#IMG_Phone))
         MenuItem(#Emoji_Warning,     Lng("Warning"),        ImageID(#IMG_Warning))
+        MenuBar()
+        MenuItem(#Emoji_Angry,        Lng("Angry"),          ImageID(#IMG_Angry))
+        MenuItem(#Emoji_Cool,         Lng("Cool"),           ImageID(#IMG_Cool))
+        MenuItem(#Emoji_Eyes,         Lng("Eyes"),           ImageID(#IMG_Eyes))
+        MenuItem(#Emoji_Laugh,        Lng("Laugh"),          ImageID(#IMG_Laugh))
+        MenuItem(#Emoji_Rolf,         Lng("Rofl"),           ImageID(#IMG_Rolf))
+        MenuItem(#Emoji_Sad,          Lng("Sad"),            ImageID(#IMG_Sad))
+        MenuItem(#Emoji_Smile,        Lng("Smile"),          ImageID(#IMG_Smile))
+        MenuItem(#Emoji_Smirk,        Lng("Smirk"),          ImageID(#IMG_Smirk))
+        MenuItem(#Emoji_Wink,         Lng("Wink"),           ImageID(#IMG_Wink))
+        MenuItem(#Emoji_Worry,        Lng("Worry"),          ImageID(#IMG_Worry))
       CloseSubMenu()
     EndIf ;}
     
@@ -439,15 +485,21 @@ Procedure.i Window_MarkDown()
     EndIf
 
     ButtonImageGadget(#Gadget_MarkDown_Bt_Update,    10, 560, 30, 30, ImageID(#IMG_Update))
+      GadgetToolTip(#Gadget_MarkDown_Bt_Update, Lng("TT_Update"))
     ButtonImageGadget(#Gadget_MarkDown_Bt_Table,     55, 560, 30, 30, ImageID(#IMG_Bt_Table))
+      GadgetToolTip(#Gadget_MarkDown_Bt_Table, Lng("TT_Table"))
     ButtonImageGadget(#Gadget_MarkDown_Bt_Note,      90, 560, 30, 30, ImageID(#IMG_Bt_Note))
-    
+      GadgetToolTip(#Gadget_MarkDown_Bt_Note, Lng("TT_Note"))
     ButtonImageGadget(#Gadget_MarkDown_Bt_New,      405, 560, 30, 30, ImageID(#IMG_New))
+      GadgetToolTip(#Gadget_MarkDown_Bt_New, Lng("TT_New"))
     ButtonImageGadget(#Gadget_MarkDown_Bt_Open,     440, 560, 30, 30, ImageID(#IMG_Open))
-    ButtonImageGadget(#Gadget_MarkDown_Bt_Save,     475, 560, 30, 30, ImageID(#IMG_Save))
+      GadgetToolTip(#Gadget_MarkDown_Bt_Open, Lng("TT_Open"))
     ButtonImageGadget(#Gadget_MarkDown_Bt_Settings, 515, 560, 30, 30, ImageID(#IMG_Settings))
+      GadgetToolTip(#Gadget_MarkDown_Bt_Settings, Lng("TT_Settings"))
     ButtonImageGadget(#Gadget_MarkDown_Bt_PDF,      725, 560, 30, 30, ImageID(#IMG_PDF))
+      GadgetToolTip(#Gadget_MarkDown_Bt_PDF, Lng("TT_PDF"))
     ButtonImageGadget(#Gadget_MarkDown_Bt_HTML,     760, 560, 30, 30, ImageID(#IMG_HTML))
+      GadgetToolTip(#Gadget_MarkDown_Bt_HTML, Lng("TT_HTML"))
     
     If Resize::AddWindow(#Window_MarkDown, 400, 300)
       Resize::AddGadget(#Gadget_MarkDown_Editor,      Resize::#Width|Resize::#Height)
@@ -467,6 +519,7 @@ Procedure.i Window_MarkDown()
       Resize::AddGadget(#Gadget_MarkDown_Bt_Save,     Resize::#MoveX|Resize::#MoveY)
       Resize::SetFactor(#Gadget_MarkDown_Bt_Save,     Resize::#HFactor, "50%")
       Resize::AddGadget(#Gadget_MarkDown_Bt_PDF,      Resize::#MoveX|Resize::#MoveY)
+      Resize::AddGadget(#Gadget_MarkDown_Bt_HTML,     Resize::#MoveX|Resize::#MoveY)
     EndIf
     
     HideWindow(#Window_MarkDown, #False)
@@ -777,6 +830,8 @@ Procedure SettingsWindow()
               EndIf
               ;}
               
+              MessageRequester(Lng("Settings"), Lng("Msg_Restart"))
+              
               quitWindow = #True
               ;}
           EndSelect
@@ -828,7 +883,7 @@ If Window_MarkDown()
           Case #Window_MarkDown
             quitWindow = #True
         EndSelect ;}
-      Case #PB_Event_Menu
+      Case #PB_Event_Menu          ;{ Menü
         Select EventMenu()
           Case #Menu_Copy          ;{ Copy & Paste
             EditEx::Copy(#Gadget_MarkDown_Editor)
@@ -933,7 +988,16 @@ If Window_MarkDown()
           Case #Emoji_Warning
             EditEx::InsertText(#Gadget_MarkDown_Editor, ":warning:")  
             ;}
-        EndSelect    
+        EndSelect ;}
+      Case MarkDown::#Event_Gadget ;{ Module Events
+          Select EventGadget()  
+            Case #Gadget_MarkDown_Viewer
+              Select EventType()
+                Case MarkDown::#EventType_Link ;{ Left mouse click
+                  RunProgram(MarkDown::EventValue(#Gadget_MarkDown_Viewer))
+                  ;}
+              EndSelect  
+          EndSelect ;}
       Case #PB_Event_Gadget
         Select EventGadget()
           Case #Gadget_MarkDown_Editor      ;{ Update
@@ -982,7 +1046,7 @@ If Window_MarkDown()
             SettingsWindow()
             ;}
         EndSelect
-    EndSelect
+    EndSelect   
   Until quitWindow
   
   Window::Save("MarkdownEditor.win")
@@ -993,10 +1057,9 @@ EndIf
 AppReg::Close(#AppReg)
 
 End
-; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 11
-; FirstLine = 3
-; Folding = IA9gBlBAAAA-
+; IDE Options = PureBasic 5.73 LTS (Windows - x64)
+; CursorPosition = 14
+; Folding = BQAgBAAAAgAw
 ; EnableXP
 ; DPIAware
 ; UseIcon = Markdown.ico
