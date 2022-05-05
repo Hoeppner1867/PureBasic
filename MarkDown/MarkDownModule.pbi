@@ -6,14 +6,12 @@
 ;/
 ;/  Gadget, Requester & HelpWindow for Markdown
 ;/
-;/ © 2020 by Thorsten Hoeppner (12/2019)
+;/ © 2022 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 4.05.2022
+; Last Update: 05.05.2022
 ;
-; - Bugfixs
-;
-
+; - Added: ToolTip() ; Tooltips with Markdown
 ;
 
 ;{ ===== MIT License =====
@@ -93,7 +91,7 @@
 
 ;{ _____ Available Emojis _____
 
-; :bookmark: / :date: / :mail: / :memo: / :pencil: / :phone: / :warning: / :bulb: / :paperclip: / :magnify:
+; :bookmark: / :date: / :mail: / :memo: / :pencil: / :phone: / :warning: / :bulb: / :paperclip: / :mag:
 ; :angry: / :cool: / :eyes: / :laugh: / / :rofl: / :sad: / :smile: / :smirk: / :wink: / :worry:
 
 ;}
@@ -113,6 +111,7 @@ DeclareModule MarkDown
   
   #Enable_Gadget     = #True
   #Enable_Requester  = #True
+  #Enable_Tooltips   = #True
   #Enable_HelpWindow = #True
   #Enable_CreateHelp = #False
   #Enable_Emoji      = #True
@@ -167,6 +166,7 @@ DeclareModule MarkDown
 	Enumeration       ;{ Type
 	  #Gadget
 	  #Requester
+	  #ToolTip
 	  #HelpWindow
 	EndEnumeration  ;}
 	
@@ -251,7 +251,7 @@ DeclareModule MarkDown
 		#Event_Theme    = ModuleEx::#Event_Theme
 		#Event_Timer    = ModuleEx::#Event_Timer
 		#Event_Message  = ModuleEx::#Event_Message
-		
+		#Event_ToolTip  = ModuleEX::#Event_ToolTip
 		#EventType_Link = ModuleEx::#EventType_Link
 		
 	CompilerElse
@@ -259,6 +259,7 @@ DeclareModule MarkDown
 		Enumeration #PB_Event_FirstCustomValue
 		  #Event_Gadget
 		  #Event_Timer
+		  #Event_ToolTip
 		  #Event_Message
 		EndEnumeration
 		
@@ -364,6 +365,15 @@ DeclareModule MarkDown
     Declare.i Requester(Title.s, Text.s, Flags.i=#False, Parent.i=#PB_Default, Image.s="", Buttons.s="")
     
   CompilerEndIf
+  
+  CompilerIf #Enable_Tooltips
+    
+    Declare.i Tooltip(Gadget.i, Text.s, Window.i)
+    
+    Declare   TooltipColor(ColorTyp.i, Value.i)
+    Declare   TooltipFont(Name.s, Size.i)
+    
+  CompilerEndIf  
   
   CompilerIf #Enable_HelpWindow
 
@@ -507,6 +517,26 @@ Module MarkDown
     #UseDraw
     #UsePDF
   EndEnumeration  
+  
+  CompilerIf #Enable_Tooltips
+    
+    Enumeration 1
+      #MouseX
+      #MouseY
+    EndEnumeration
+  
+    EnumerationBinary
+      #MouseEnter
+      #MouseLeave
+      #MouseMove
+    EndEnumeration
+    
+    #MouseEvents = #MouseEnter|#MouseLeave|#MouseMove
+    
+    #TooltipTimer    = 1867
+	  #MouseEventTimer = 1868
+    
+  CompilerEndIf
   
 	;- ============================================================================
 	;-   Module - Structures
@@ -704,21 +734,93 @@ Module MarkDown
     
   CompilerEndIf
   
+  CompilerIf #Enable_Tooltips
+    
+    Structure ToolTips_Style_Structure    ;{ TooltypStyle()\...
+      FontName.s
+      FontSize.i
+      FrontColor.i
+      BackColor.i
+      BorderColor.i
+    EndStructure ;}
+    Global TooltypStyle.ToolTips_Style_Structure
+    
+    ;{ Defaults TooltipStyle
+    TooltypStyle\FontName    = ""
+    TooltypStyle\FontSize    = #PB_Default
+    TooltypStyle\FrontColor  = #PB_Default
+    TooltypStyle\BackColor   = #PB_Default
+    TooltypStyle\BorderColor = #PB_Default
+    ;}
+    
+    Structure MouseEvent_Window_Structure ;{ MouseEvent()\Window\...
+      Num.i
+      MouseX.i
+      MouseY.i
+    EndStructure ;}
+    
+    Structure MouseEvent_Gadget_Structure ;{ MouseEvent()\Gadget('num')\...
+      Num.i
+      MouseX.i
+      MouseY.i
+    EndStructure ;}
+    
+    Structure MouseEvent_Structure        ;{ MouseEvent('Window')\...
+      Window.MouseEvent_Window_Structure
+      Map Gadget.MouseEvent_Gadget_Structure()
+      lastGadget.i
+      lastHandle.i
+      Flags.i
+    EndStructure ;}
+    Global NewMap MouseEvent.MouseEvent_Structure()
+    
+    Structure Timer_Structure             ;{ Timer()\...
+  	  GadgetNum.i
+  	  WindowNum.i
+  	  Focus.i
+  	  State.i
+  	  Active.i
+  	  Delay.i
+  	  Value.i
+  	EndStructure ;}
+  	Global NewMap Timer.Timer_Structure()
+
+    Structure Tooltips_Structure          ;{ Tooltips()\...
+      WindowNum.i ; Tooltip Window
+      CanvasNum.i ; Markdown Canvas
+      Window.i
+      Gadget.i
+      PosX.i
+      PosY.i
+      MouseX.i
+      MouseY.i
+      Visible.i
+    EndStructure ;}
+    Global NewMap Tooltips.Tooltips_Structure()
+    
+    Global Mutex.i = CreateMutex()
+    
+    Structure MarkDown_Tooltip_Structure  ;{ Tooltips()\...
+      Gadget.i
+      Window.i
+    EndStructure ;}
+    
+  CompilerEndIf
   
-  Structure CellBorder_Structure
+  Structure CellBorder_Structure          ;{ Map CellBorder()
     X.i
     Width.i
     Border.i
-  EndStructure  
+  EndStructure ;}
   
-  Structure List_Structure               ;{ Lists\...
+  Structure List_Structure                ;{ Lists\...
     Marker.s ; ul: - or + or * / ol: . or ) 
     Indent.i
     Start.i
     Level.i
   EndStructure ;}
   
-  Structure Document_Structure           ;{ Document()\...
+  Structure Document_Structure            ;{ Document()\...
     Type.i
     BlockQuote.i
     Marker.s
@@ -728,43 +830,43 @@ Module MarkDown
   Global NewList Document.Document_Structure()
   
   
-  Structure Note_Rows_Structure          ;{ MarkDown()\Note()\Words()\...
+  Structure Note_Rows_Structure           ;{ MarkDown()\Note()\Words()\...
     Width.i
     Height.i
     List Words.Words_Structure()
   EndStructure ;}
   
-  Structure Note_Structure               ;{ MarkDown()\Note()\...
+  Structure Note_Structure                ;{ MarkDown()\Note()\...
     Type.s
     Width.i
     Height.i
     List Row.Note_Rows_Structure()
   EndStructure ;}
   
-  Structure Block_Structure              ;{ MarkDown()\Block()\...
+  Structure Block_Structure               ;{ MarkDown()\Block()\...
     Font.i
     String.s
     List Row.s()
   EndStructure ;}
 
-  Structure FootLabel_Structure          ;{ MarkDown()\FootLabel('label')\...
+  Structure FootLabel_Structure           ;{ MarkDown()\FootLabel('label')\...
     Width.i
     Height.i
     List Words.Words_Structure()
   EndStructure ;}
   
-  Structure Label_Structure              ;{ MarkDown()\Label('label')\...
+  Structure Label_Structure               ;{ MarkDown()\Label('label')\...
     Destination.s
     Title.s
     String.s
   EndStructure ;}
 
-  Structure Keyword_Structure            ;{ MarkDown()\Keyword('keyword')\...
+  Structure Keyword_Structure             ;{ MarkDown()\Keyword('keyword')\...
     Found.i
     List HeadingID.s()
   EndStructure ;}
   
-  Structure Footnote_Structure           ;{ MarkDown()\Footnote()\...
+  Structure Footnote_Structure            ;{ MarkDown()\Footnote()\...
     X.i
     Y.i
     Width.i
@@ -772,11 +874,11 @@ Module MarkDown
     Label.s
   EndStructure ;}
 
-  Structure Abbreviation_Structure       ;{ MarkDown()\Abbreviation()\...
+  Structure Abbreviation_Structure        ;{ MarkDown()\Abbreviation()\...
     String.s
   EndStructure ;}
   
-  Structure Word_Link_Structure          ;{ MarkDown()\...\...
+  Structure Word_Link_Structure           ;{ MarkDown()\...\...
     X.i
     Y.i
     Width.i
@@ -784,7 +886,7 @@ Module MarkDown
     Word.s
   EndStructure ;}
   
-  Structure Image_Structure              ;{ MarkDown()\Image()\...
+  Structure Image_Structure               ;{ MarkDown()\Image()\...
     X.i
     Y.i
     Width.i
@@ -794,7 +896,7 @@ Module MarkDown
     Title.s
   EndStructure ;}
   
-  Structure Link_Structure               ;{ MarkDown()\Link()\...
+  Structure Link_Structure                ;{ MarkDown()\Link()\...
     X.i
     Y.i
     Width.i
@@ -806,7 +908,7 @@ Module MarkDown
     State.i
   EndStructure ;}
 
-  Structure Lists_Row_Structure          ;{ MarkDown()\Lists()\Row()\...
+  Structure Lists_Row_Structure           ;{ MarkDown()\Lists()\Row()\...
     BlockQuote.i
     Width.i
     Height.i
@@ -816,49 +918,49 @@ Module MarkDown
     List Words.Words_Structure()
   EndStructure ;}
   
-  Structure Lists_Structure              ;{ MarkDown()\Lists()\..
+  Structure Lists_Structure               ;{ MarkDown()\Lists()\..
     Start.i
     List Row.Lists_Row_Structure()
   EndStructure ;}
   
-  Structure Margin_Structure             ;{ MarkDown()\Margin\...
+  Structure Margin_Structure              ;{ MarkDown()\Margin\...
 		Top.i
 		Left.i
 		Right.i
 		Bottom.i
 	EndStructure ;}
-	
-  Structure Table_Item_Structure         ;{ MarkDown()\Table()\Row()\Col('num')\Item()\...
+
+  Structure Table_Item_Structure          ;{ MarkDown()\Table()\Row()\Col('num')\Item()\...
     Type.i
     String.s
     Index.i
   EndStructure ;}
   
-  Structure Table_Cols_Structure         ;{ MarkDown()\Table()\Row()\Col('num')\...
+  Structure Table_Cols_Structure          ;{ MarkDown()\Table()\Row()\Col('num')\...
     Width.i
     Span.i
     List Words.Words_Structure()
   EndStructure ;}
   
-  Structure Table_Row_Structure          ;{ MarkDown()\Table()\Row()\...
+  Structure Table_Row_Structure           ;{ MarkDown()\Table()\Row()\...
     Type.i
     Height.i
     Map Col.Table_Cols_Structure()
   EndStructure ;}
   
-  Structure Table_Column_Structure       ;{ MarkDown()\Table()\Column\...
+  Structure Table_Column_Structure        ;{ MarkDown()\Table()\Column\...
     Align.s
     Width.i
   EndStructure ;}
   
-  Structure Table_Structure              ;{ MarkDown()\Table()\...
+  Structure Table_Structure               ;{ MarkDown()\Table()\...
     Cols.i
     Width.i
     Map Column.Table_Column_Structure()
     List Row.Table_Row_Structure()
   EndStructure ;}
   
-  Structure MarkDown_Items_Structure     ;{ MarkDown()\Items()\...
+  Structure MarkDown_Items_Structure      ;{ MarkDown()\Items()\...
     ID.s
     Type.i
     Level.i
@@ -869,18 +971,18 @@ Module MarkDown
     List Words.Words_Structure()
   EndStructure ;}
   
-  Structure MarkDown_ImageMem_Structure  ;{ MarkDown()\ImageMem()\...
+  Structure MarkDown_ImageMem_Structure   ;{ MarkDown()\ImageMem()\...
     Type.i
     *Buffer
     Size.i
   EndStructure ;}
   
-  Structure MarkDown_Required_Structure  ;{ MarkDown()\Required\...
+  Structure MarkDown_Required_Structure   ;{ MarkDown()\Required\...
     Width.i
     Height.i
   EndStructure ;}
   
-  Structure MarkDown_Font_Structure      ;{ MarkDown()\Font\...
+  Structure MarkDown_Font_Structure       ;{ MarkDown()\Font\...
     ; FontNums
     Normal.i
     Bold.i
@@ -901,7 +1003,7 @@ Module MarkDown
     H6.i
   EndStructure ;}
   
-	Structure MarkDown_Color_Structure     ;{ MarkDown()\Color\...
+	Structure MarkDown_Color_Structure      ;{ MarkDown()\Color\...
 	  Back.i
 	  BlockQuote.i
 	  Border.i
@@ -925,7 +1027,7 @@ Module MarkDown
 		Line.i
 	EndStructure  ;}
 	
-	Structure MarkDown_Scroll_Structure    ;{ MarkDown()\ScrollBar\Item()\...
+	Structure MarkDown_Scroll_Structure     ;{ MarkDown()\ScrollBar\Item()\...
 	  Num.i
 	  MinPos.i
     MaxPos.i
@@ -934,13 +1036,13 @@ Module MarkDown
     Hide.i
   EndStructure ;}
 	
-	Structure MarkDown_Window_Structure    ;{ MarkDown()\Window\...
+	Structure MarkDown_Window_Structure     ;{ MarkDown()\Window\...
 		Num.i
 		Width.f
 		Height.f
 	EndStructure ;}
 
-	Structure MarkDown_Size_Structure      ;{ MarkDown()\Size\...
+	Structure MarkDown_Size_Structure       ;{ MarkDown()\Size\...
 		X.f
 		Y.f
 		Width.f
@@ -949,7 +1051,7 @@ Module MarkDown
 	EndStructure ;}
 	
 	
-	Structure MarkDown_Structure           ;{ MarkDown()\...
+	Structure MarkDown_Structure            ;{ MarkDown()\...
 		CanvasNum.i
 		PopupNum.i
 		
@@ -989,6 +1091,10 @@ Module MarkDown
 		ScrollBar.ScrollBar_Structure
 		Size.MarkDown_Size_Structure
 		Window.MarkDown_Window_Structure
+		
+		CompilerIf #Enable_Tooltips
+		  Tooltips.MarkDown_Tooltip_Structure
+		CompilerEndIf  
 		
 		CompilerIf #Enable_Requester
 		  Requester.MarkDown_Requester_Structure
@@ -1076,6 +1182,7 @@ Module MarkDown
         PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
         PB_Object_EnumerateAbort( PB_Objects )
         PB_Window_Objects.i
+        PB_Gadget_Objects.i
       EndImport
     CompilerElse
       ImportC ""
@@ -1083,6 +1190,7 @@ Module MarkDown
         PB_Object_EnumerateNext( PB_Objects, *ID.Integer )
         PB_Object_EnumerateAbort( PB_Objects )
         PB_Window_Objects.i
+        PB_Gadget_Objects.i
       EndImport
     CompilerEndIf
     
@@ -1107,7 +1215,6 @@ Module MarkDown
     EndProcedure
     
   CompilerEndIf	
-  
   
   Procedure.f dpiX(Num.i)
 	  If Num > 0  
@@ -1317,6 +1424,7 @@ Module MarkDown
       Emoji(":bulb:")      = CatchImage(#PB_Any, ?Bulb, 396)
       Emoji(":paperclip:") = CatchImage(#PB_Any, ?Clip, 474)
       Emoji(":mag:")       = CatchImage(#PB_Any, ?Magnifier, 520)
+      Emoji(":magnifier:") = Emoji(":mag:")
     CompilerEndIf
     
   EndProcedure
@@ -2265,7 +2373,7 @@ Module MarkDown
                   HTML$ + "&#128278;"
                 Case ":clip:", ":paperclip:"
                   HTML$ + "&#128206"
-                Case ":mag:", "magnifier"
+                Case ":mag:", ":magnifier:"
                   HTML$ + "&#128270"
                 Case ":bulb:"
                   HTML$ + "&#128161"
@@ -5726,7 +5834,7 @@ Module MarkDown
   
   Declare ReDraw()
   
-  Procedure   MergeHelp(List Items.Item_Structure(), List TOC.TOC_Structure(), Map Glossary.Glossary_Structure(), Map Keywords.Keywords_Structure(), List Links.Links_Structure())
+  Procedure MergeHelp(List Items.Item_Structure(), List TOC.TOC_Structure(), Map Glossary.Glossary_Structure(), Map Keywords.Keywords_Structure(), List Links.Links_Structure())
     Define.i Result, Counter
     Define.s GNum$, Keyword$  
 
@@ -5812,7 +5920,7 @@ Module MarkDown
     
   EndProcedure
 
-  Procedure   UpdateHelp(GNum.i, List TOC.TOC_Structure(), Map Glossary.Glossary_Structure(), List Found.s(), Export.i=#False)
+  Procedure UpdateHelp(GNum.i, List TOC.TOC_Structure(), Map Glossary.Glossary_Structure(), List Found.s(), Export.i=#False)
  
     NewList Sort.s() 
     
@@ -7274,8 +7382,10 @@ Module MarkDown
 			MarkDown()\Required\Width + dpiX(MarkDown()\Margin\Left + MarkDown()\Margin\Right)
 			MarkDown()\Required\Height = Y + dpiY(MarkDown()\Margin\Bottom)
 			
-			MarkDown()\ScrollBar\Item()\Maximum = MarkDown()\Required\Height
-			
+			If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll") ;{ ScrollBar
+  			MarkDown()\ScrollBar\Item()\Maximum = MarkDown()\Required\Height
+  		EndIf ;}
+		
 			CompilerIf #Enable_Requester
 			  
 			  If MarkDown()\Type = #Requester
@@ -7377,6 +7487,104 @@ Module MarkDown
     
   EndProcedure  
   
+  CompilerIf #Enable_Tooltips
+    
+    Procedure.i AddMouseEvents_(Window.i, Gadget.i=#PB_Default, Flags.i=#MouseEvents)
+    
+      If IsWindow(Window)
+        
+        If FindMapElement(MouseEvent(), Str(Window)) = #False
+          AddMapElement(MouseEvent(), Str(Window))
+        EndIf 
+  
+        MouseEvent()\Window\Num = Window
+        
+        If IsGadget(Gadget)
+          MouseEvent()\Gadget(Str(Gadget))\Num = Gadget
+        Else
+          MouseEvent()\Gadget(Str(Gadget))\Num = #PB_Default
+        EndIf
+        
+        MouseEvent()\Flags = Flags
+        
+        ; Code by mk-soft
+        AddWindowTimer(MouseEvent()\Window\Num, #MouseEventTimer, 100)
+  
+        ProcedureReturn #True
+      EndIf
+      
+    EndProcedure
+    
+    Procedure.i GetMouseEventAttribute_(Window.i, Attribute.i, Gadget.i=#PB_Default)
+      
+      If FindMapElement(MouseEvent(), Str(Window))
+        
+        If Gadget = #PB_Default Or MouseEvent()\lastGadget = Gadget
+          
+          Select Attribute
+            Case #MouseX
+              ProcedureReturn MouseEvent()\Gadget(Str(Gadget))\MouseX
+            Case #MouseY
+              ProcedureReturn MouseEvent()\Gadget(Str(Gadget))\MouseY
+            Case #Gadget
+              ProcedureReturn MouseEvent()\lastGadget
+          EndSelect
+  
+        EndIf  
+        
+      EndIf
+      
+      ProcedureReturn #PB_Default
+    EndProcedure
+    
+    Procedure   TooltipPosition_(X.i, Y.i)
+  	  Define.i gX, gY, wX, wY, gWidth, gHeight, wWidth, wHeight, cWidth, cHeight, PosX, PosY, Reverse
+  	  
+  	  If IsGadget(ToolTips()\Gadget)
+    	  wX = dpiX(GadgetX(ToolTips()\Gadget, #PB_Gadget_ScreenCoordinate))
+    	  wY = dpiY(GadgetY(ToolTips()\Gadget, #PB_Gadget_ScreenCoordinate))
+    	  gX = dpiX(GadgetX(ToolTips()\Gadget, #PB_Gadget_WindowCoordinate))
+    	  gY = dpiY(GadgetY(ToolTips()\Gadget, #PB_Gadget_WindowCoordinate))
+    	  gWidth  = dpiX(GadgetWidth(ToolTips()\Gadget))
+    	  gHeight = dpiY(GadgetHeight(ToolTips()\Gadget)) 
+    	EndIf 
+    	
+    	If IsWindow(ToolTips()\Window)
+    	  wWidth  = dpiX(WindowWidth(ToolTips()\Window))
+    	  wHeight = dpiY(WindowHeight(ToolTips()\Window))
+    	EndIf
+    	
+    	If IsGadget(ToolTips()\CanvasNum)
+    	  cWidth  = dpiX(GadgetWidth(ToolTips()\CanvasNum))
+    	  cHeight = dpiY(GadgetHeight(ToolTips()\CanvasNum))
+    	EndIf   
+    	
+    	PosX = X + gX + cWidth
+    	PosY = Y + gY
+    	
+    	If PosX < wWidth
+    	  ToolTips()\PosX = X + wX
+    	Else
+    	  ToolTips()\PosX = X + wX - cWidth
+    	  Reverse = #True
+    	EndIf
+
+    	If PosY - cHeight  > 0 
+    	  ToolTips()\PosY = Y + wY - cHeight  + dpiY(1)
+    	  ToolTips()\PosX + dpiX(2)
+    	ElseIf PosY + dpiY(GadgetHeight(ToolTips()\CanvasNum))  > wHeight
+    	  ToolTips()\PosY = Y + wY - cHeight  + dpiY(1)
+    	  ToolTips()\PosX + dpiX(2)
+    	Else
+    	  ToolTips()\PosY = Y + wY + dpiY(2)
+    	  If Reverse = #False
+    	    ToolTips()\PosX + dpiX(8)
+    	  EndIf
+    	EndIf
+    	
+  	EndProcedure
+    
+  CompilerEndIf
   
 	;- __________ Events __________
 	
@@ -7415,59 +7623,6 @@ Module MarkDown
     EndProcedure
     
   CompilerEndIf 
-  
-  
-  Procedure _TimerThread(Frequency.i)
-    Define.i ElapsedTime
-    
-    Repeat
-      
-      If ElapsedTime >= Frequency
-        PostEvent(#Event_Timer)
-        ElapsedTime = 0
-      EndIf
-      
-      Delay(100)
-      
-      ElapsedTime + 100
-      
-    Until TimerThread\Exit
-    
-  EndProcedure  
-  
-  Procedure _AutoScroll()
-    Define.i X, Y
-    
-    ForEach MarkDown()
-      
-      ForEach MarkDown()\ScrollBar\Item()
-        
-        If MarkDown()\ScrollBar\Item()\Timer
-          
-          If MarkDown()\ScrollBar\Item()\TimerDelay
-            MarkDown()\ScrollBar\Item()\TimerDelay - 1
-            Continue
-          EndIf  
-          
-          Select MarkDown()\ScrollBar\Item()\Timer
-            Case #ScrollBar_Up, #ScrollBar_Left
-              MarkDown()\ScrollBar\Item()\Pos - 1
-              If MarkDown()\ScrollBar\Item()\Pos < MarkDown()\ScrollBar\Item()\minPos : MarkDown()\ScrollBar\Item()\Pos = MarkDown()\ScrollBar\Item()\minPos : EndIf
-            Case #ScrollBar_Down, #ScrollBar_Right
-              MarkDown()\ScrollBar\Item()\Pos + 1
-              If MarkDown()\ScrollBar\Item()\Pos > MarkDown()\ScrollBar\Item()\maxPos : MarkDown()\ScrollBar\Item()\Pos = MarkDown()\ScrollBar\Item()\maxPos : EndIf
-          EndSelect
-          
-          Draw_()
-          
-    		EndIf 
-    		
-      Next
-      
-    Next
-    
-  EndProcedure  
-  
   
 	Procedure _RightClickHandler()
 		Define.i GNum = EventGadget()
@@ -7698,13 +7853,76 @@ Module MarkDown
 	  Define.i X, Y
 	  Define.s ToolTip$
 		Define.i GNum = EventGadget()
+		
+		CompilerIf #Enable_Tooltips
+		  
+			If FindMapElement(Tooltips(), Str(GNum))
+			  
+			  If GadgetType(GNum) = #PB_GadgetType_Canvas
+          X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
+          Y = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
+        Else
+          X = GetMouseEventAttribute_(Tooltips()\Window, #MouseX, GNum)
+          Y = GetMouseEventAttribute_(Tooltips()\Window, #MouseY, GNum)
+        EndIf
+
+        If X <> Tooltips()\MouseX Or Y <> Tooltips()\MouseY
+          
+          Tooltips()\MouseX = X
+          Tooltips()\MouseY = Y
+          
+          ;{ Cursor move
+          LockMutex(Mutex)
+          
+          Timer(Str(GNum))\Active = #True
+          Timer(Str(GNum))\Value  = 0
+          
+          UnlockMutex(Mutex)
+  
+          If ToolTips()\Visible
+        
+            LockMutex(Mutex)
+      	    Timer(Str(GNum))\Focus  = #False
+      	    Timer(Str(GNum))\Active = #True
+      	    Timer(Str(GNum))\Value  = 0
+      	    Timer(Str(GNum))\State  = #False
+      	    UnlockMutex(Mutex)
+  	    
+      	    Tooltips()\MouseX  = #PB_Default
+      	    Tooltips()\MouseY  = #PB_Default
+      	    ToolTips()\Visible = #False
+      	    
+            HideWindow(ToolTips()\WindowNum, #True)
+            
+            SetActiveWindow(ToolTips()\Window)
+            
+          Else  
+            
+            TooltipPosition_(X, Y)
+            
+            LockMutex(Mutex)
+      	    Timer(Str(GNum))\State = #True
+      	    UnlockMutex(Mutex)
+      	    
+      	    ProcedureReturn #True
+          EndIf ;}
+          
+          LockMutex(Mutex)
+    	    Timer(Str(GNum))\State = #True
+    	    UnlockMutex(Mutex)
+          
+        EndIf
+
+			EndIf 
+			
+	  CompilerEndIf
 
 		If FindMapElement(MarkDown(), Str(GNum))
 
 			X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
 			Y = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
 
-			If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll")
+			If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll") ;{ Scrollbar
       
   	    If MarkDown()\ScrollBar\Item()\Hide = #False
   	    
@@ -7801,9 +8019,8 @@ Module MarkDown
     			EndIf
     			
     		EndIf
-    		
+    	  ;}	
   		EndIf
-			
 			
 			ForEach MarkDown()\Link()         ;{ Links
 			  
@@ -7958,10 +8175,10 @@ Module MarkDown
 	EndProcedure
 	
 	Procedure _MouseWheelHandler()
-    Define.i GadgetNum = EventGadget()
+    Define.i GNum = EventGadget()
     Define.i X, Y, Delta
     
-    If FindMapElement(MarkDown(), Str(GadgetNum))
+    If FindMapElement(MarkDown(), Str(GNum))
       
       Delta = GetGadgetAttribute(MarkDown()\ScrollBar\Num, #PB_Canvas_WheelDelta)
 	  
@@ -7983,7 +8200,277 @@ Module MarkDown
     EndIf
     
   EndProcedure
+  
+  CompilerIf #Enable_Tooltips
+    
+    Procedure _TimerEventHandler()
+      Define.i X, Y, Handle, Window, Gadget, GadgetNum
+  
+      Window = GetActiveWindow()
+      
+      Select EventTimer()
+        Case #TooltipTimer    ;{ Tooltip Delay
+ 
+          LockMutex(Mutex)
+          
+          ForEach Timer()
+            
+            If Timer()\Focus And Timer()\State 
+              
+              If Timer()\Active
+                
+                Timer()\Value + 200
+                
+    	          If Timer()\Value >= Timer()\Delay
+    	            PostEvent(#Event_ToolTip, Timer()\WindowNum, Timer()\GadgetNum)
+    	            Timer()\Value  = 0
+    	            Timer()\Active = #False
+    	          EndIf
+    	          
+    	        EndIf
+    	        
+    	      EndIf
+    	      
+    	    Next
+    	    
+    	    UnlockMutex(Mutex) 
+          ;}
+        Case #MouseEventTimer ;{ MouseEvents
+          
+          If FindMapElement(MouseEvent(), Str(Window))
+      
+            X = WindowMouseX(Window)
+            Y = WindowMouseY(Window)
+            
+            If X <> MouseEvent()\Window\MouseX Or Y <> MouseEvent()\Window\MouseY
+              
+              MouseEvent()\Window\MouseX = X
+              MouseEvent()\Window\MouseY = Y
+              
+              ; Get Handle under mouse (mk-soft)
+              CompilerSelect #PB_Compiler_OS
+                CompilerCase #PB_OS_Windows ;{ Windows
+                  Protected.i DesktopX, DesktopY
+                  
+                  DesktopX = DesktopMouseX()
+                  Desktopy = DesktopMouseY()
+                  Handle   = WindowFromPoint_(DesktopY << 32 | DesktopX)
+                  ;}
+                CompilerCase #PB_OS_MacOS   ;{ MacOS
+                  Protected WinID.i, WinCV.i, pt.NSPoint
+                  
+                  WinID = WindowID(Window)
+                  WinCV = CocoaMessage(0, WinID, "contentView")
+                  CocoaMessage(@pt, WinID, "mouseLocationOutsideOfEventStream")
+                  Handle = CocoaMessage(0, WinCV, "hitTest:@", @pt)
+                  ;}
+                CompilerCase #PB_OS_Linux   ;{ Linux
+                  Protected DesktopX.i, DesktopY.i, *GdkWindow.GdkWindowObject
+                  
+                  *GdkWindow.GdkWindowObject = gdk_window_at_pointer_(@DesktopX,@Desktopy)
+                  If *GdkWindow
+                    gdk_window_get_user_data_(*GdkWindow, @Handle)
+                  Else
+                    Handle = #False
+                  EndIf
+                  ;} 
+              CompilerEndSelect
+              
+              If Handle <> MouseEvent()\lastHandle
+                
+                ;{ ___ Event: MouseLeave ___ (mk-soft)
+                If IsGadget(MouseEvent()\lastGadget)
+                
+                  If MouseEvent()\Flags & #MouseLeave
+                    If GadgetType(MouseEvent()\lastGadget) <> #PB_GadgetType_Canvas
+                      ForEach MouseEvent()\Gadget()
+                        If MouseEvent()\Gadget()\Num = #PB_Default Or MouseEvent()\lastGadget = MouseEvent()\Gadget()\Num
+                          PostEvent(#PB_Event_Gadget, MouseEvent()\Window\Num, MouseEvent()\lastGadget, #PB_EventType_MouseLeave)
+                          Break
+                        EndIf
+                      Next
+                    EndIf
+                  EndIf
+                  
+                  MouseEvent()\lastGadget = #PB_Default
+                  
+                EndIf ;}
+                
+                ; Find GadgetID over Handle (mk-soft)
+                PB_Object_EnumerateStart(PB_Gadget_Objects)
+                
+                While PB_Object_EnumerateNext(PB_Gadget_Objects, @Gadget)
+                  
+                  If Handle = GadgetID(Gadget)
+                    
+                    MouseEvent()\lastGadget = Gadget
+                    
+                    ;{ ___ Event: MouseEnter ___ (mk-soft)
+                    If MouseEvent()\Flags & #MouseEnter
+                      If GadgetType(MouseEvent()\lastGadget) <> #PB_GadgetType_Canvas
+                        ForEach MouseEvent()\Gadget()
+                          If MouseEvent()\Gadget()\Num = #PB_Default Or MouseEvent()\lastGadget = MouseEvent()\Gadget()\Num
+                            PostEvent(#PB_Event_Gadget, MouseEvent()\Window\Num, MouseEvent()\lastGadget, #PB_EventType_MouseEnter)
+                            Break
+                          EndIf  
+                        Next
+                      EndIf
+                    EndIf ;}
+                    
+                    PB_Object_EnumerateAbort(PB_Gadget_Objects)
+                    Break
+                  EndIf
+                  
+                Wend
+                
+                MouseEvent()\lastHandle = Handle
+              EndIf
+              
+              ;{ ___ Event: MouseMove ___ (mk-soft)
+              If MouseEvent()\Flags & #MouseMove
+                
+                If IsGadget(MouseEvent()\lastGadget)
+                  If GadgetType(MouseEvent()\lastGadget) <> #PB_GadgetType_Canvas
+                    ForEach MouseEvent()\Gadget()
+                      If MouseEvent()\Gadget()\Num = #PB_Default Or MouseEvent()\lastGadget = MouseEvent()\Gadget()\Num
+                        MouseEvent()\Gadget()\MouseX = MouseEvent()\Window\MouseX - GadgetX(MouseEvent()\lastGadget, #PB_Gadget_WindowCoordinate)
+                        MouseEvent()\Gadget()\MouseY = MouseEvent()\Window\MouseY - GadgetY(MouseEvent()\lastGadget, #PB_Gadget_WindowCoordinate)
+                        PostEvent(#PB_Event_Gadget, MouseEvent()\Window\Num, MouseEvent()\lastGadget, #PB_EventType_MouseMove)
+                        Break
+                      EndIf 
+                    Next
+                  EndIf
+                EndIf
+                
+              EndIf ;}
+              
+            EndIf
+            
+          EndIf
+        ;}
+      EndSelect
+    
+    EndProcedure
+    
+    Procedure _MouseEnterHandler()
+  	  Define.i GNum = EventGadget()
+  	 
+  	  If FindMapElement(ToolTips(), Str(GNum))
+  	    
+  	    LockMutex(Mutex)
+  	    Timer(Str(GNum))\Focus = #True
+  	    Timer(Str(GNum))\Value = 0
+  	    Timer(Str(GNum))\State = #False
+  	    UnlockMutex(Mutex)
+
+  	  EndIf
+  	  
+  	EndProcedure
 	
+  	Procedure _MouseLeaveHandler()
+  	  Define.i GNum = EventGadget()
+  
+  	  If FindMapElement(Tooltips(), Str(GNum))
+  	    
+  	    LockMutex(Mutex)
+  	    
+  	    Timer(Str(GNum))\Focus  = #False
+  	    Timer(Str(GNum))\Active = #True
+  	    Timer(Str(GNum))\Value  = 0
+  	    Timer(Str(GNum))\State  = #False
+  	    
+  	    UnlockMutex(Mutex)
+  	    
+  	    Tooltips()\MouseX  = #PB_Default
+  	    Tooltips()\MouseY  = #PB_Default
+  	    Tooltips()\Visible = #False
+  	    
+  	    HideWindow(Tooltips()\WindowNum, #True)
+        
+  	    SetActiveWindow(Tooltips()\Window)
+  	  EndIf
+  	  
+  	EndProcedure
+  	
+	  Procedure _MouseLeftClickHandler()
+      Define.i GNum, CanvasNum = EventGadget()
+      
+      GNum = GetGadgetData(CanvasNum)
+      
+      If FindMapElement(ToolTips(), Str(GNum))
+        
+        LockMutex(Mutex)
+  	    Timer(Str(GNum))\Focus  = #False
+  	    Timer(Str(GNum))\Active = #True
+  	    Timer(Str(GNum))\Value  = 0
+  	    Timer(Str(GNum))\State  = #False
+  	    UnlockMutex(Mutex)
+  	    
+  	    ToolTips()\MouseX  = #PB_Default
+  	    ToolTips()\MouseY  = #PB_Default
+  	    ToolTips()\Visible = #False
+  	    
+  	    HideWindow(ToolTips()\WindowNum, #True)
+  	    
+  	    SetActiveWindow(ToolTips()\Window)
+
+  	  EndIf
+  	  
+  	  PostEvent(#PB_Event_Gadget, ToolTips()\Window, ToolTips()\Gadget, #PB_EventType_LeftClick)
+  	  
+    EndProcedure
+  
+    Procedure _MouseRightClickHandler()
+      Define.i GNum, CanvasNum = EventGadget()
+      
+      GNum = GetGadgetData(CanvasNum)
+      
+      If FindMapElement(ToolTips(), Str(GNum))
+        
+        LockMutex(Mutex)
+  	    Timer(Str(GNum))\Focus  = #False
+  	    Timer(Str(GNum))\Active = #True
+  	    Timer(Str(GNum))\Value  = 0
+  	    Timer(Str(GNum))\State  = #False
+  	    UnlockMutex(Mutex)
+  	    
+  	    ToolTips()\MouseX  = #PB_Default
+  	    ToolTips()\MouseY  = #PB_Default
+  	    ToolTips()\Visible = #False
+  	    
+  	    HideWindow(ToolTips()\WindowNum, #True)
+  	    
+  	    SetActiveWindow(ToolTips()\Window)
+        
+  	    PostEvent(#PB_Event_Gadget, ToolTips()\Window, ToolTips()\Gadget, #PB_EventType_RightClick)
+  	    
+      EndIf  
+      
+    EndProcedure
+
+  	Procedure _ToolTipHandler()
+  	  Define.i GNum = EventGadget()
+  	  
+  	  If FindMapElement(ToolTips(), Str(GNum))
+
+	      SetGadgetData(ToolTips()\CanvasNum, GNum)
+	      
+	      ResizeWindow(ToolTips()\WindowNum, DesktopUnscaledX(ToolTips()\PosX), DesktopUnscaledY(ToolTips()\PosY), #PB_Ignore, #PB_Ignore)
+	      ResizeWindow(ToolTips()\WindowNum, DesktopUnscaledX(ToolTips()\PosX), DesktopUnscaledY(ToolTips()\PosY), #PB_Ignore, #PB_Ignore)
+
+        Draw_()
+        
+        ToolTips()\Visible = #True
+        
+        HideWindow(ToolTips()\WindowNum, #False)
+        
+        SetActiveWindow(ToolTips()\Window)
+
+  	  EndIf
+  	  
+  	EndProcedure
+  	
+  CompilerEndIf
 
 	Procedure _ResizeHandler()
 		Define.i GadgetID = EventGadget()
@@ -8054,6 +8541,43 @@ Module MarkDown
 		
 	EndProcedure
 	
+  Procedure _CloseWindowHandler()
+    Define.i WindowNum = EventWindow()
+    
+    ForEach MarkDown()
+      
+      Select MarkDown()\Type
+        Case #ToolTip ;{ Tooltips
+          
+          If MarkDown()\Tooltips\Window = WindowNum
+            
+            RemoveWindowTimer(MarkDown()\Window\Num, #TooltipTimer)
+            RemoveWindowTimer(MarkDown()\Window\Num, #MouseEventTimer)
+            
+            If IsWindow(MarkDown()\Window\Num)
+              CloseWindow(MarkDown()\Window\Num)
+            EndIf
+            
+            DeleteMapElement(MouseEvent(), Str(MarkDown()\Tooltips\Window))
+            DeleteMapElement(Tooltips(),   Str(MarkDown()\Tooltips\Gadget))
+            DeleteMapElement(Timer(),      Str(MarkDown()\Tooltips\Gadget))
+            DeleteMapElement(MarkDown())
+            
+          EndIf
+          ;}
+        Case #Gadget  ;{ Gadget
+          
+          If MarkDown()\Window\Num = WindowNum
+            DeleteMapElement(MarkDown())
+          EndIf  
+          ;}
+        Default
+          Continue
+      EndSelect    
+      
+    Next  
+    
+  EndProcedure 
 
 	;- __________ Init __________
 	
@@ -8104,10 +8628,15 @@ Module MarkDown
 		;{ _____ Margins _____
 		Select MarkDown()\Type
 		  Case #Requester
-  		  MarkDown()\Margin\Top    = 15
+  		  MarkDown()\Margin\Top    = 10
     		MarkDown()\Margin\Left   = 10
     		MarkDown()\Margin\Right  = 10
-    		MarkDown()\Margin\Bottom = 15
+    		MarkDown()\Margin\Bottom = 5
+    	Case #ToolTip
+    	  MarkDown()\Margin\Top    = 3
+    		MarkDown()\Margin\Left   = 5
+    		MarkDown()\Margin\Right  = 5
+    		MarkDown()\Margin\Bottom = 3
     	Case #HelpWindow
     	  MarkDown()\Margin\Top    = 10
     		MarkDown()\Margin\Left   = 10
@@ -8132,13 +8661,7 @@ Module MarkDown
 	  MarkDown()\ScrollBar\Num = CanvasNum
 	  
 	  MarkDown()\ScrollBar\Flags = Flags
-	  
-	  If TimerThread\Active = #False 
-      TimerThread\Exit   = #False
-      TimerThread\Num    = CreateThread(@_TimerThread(), #ScrollBar_Timer)
-      TimerThread\Active = #True
-    EndIf
-	  
+
 		MarkDown()\ScrollBar\Color\Back         = $F0F0F0
 		MarkDown()\ScrollBar\Color\Border       = $A0A0A0
 		MarkDown()\ScrollBar\Color\Button       = $F0F0F0
@@ -8167,9 +8690,7 @@ Module MarkDown
 			CompilerCase #PB_OS_Linux
 
 		CompilerEndSelect ;}
-    
-		BindEvent(#Event_Timer, @_AutoScroll())
-		
+
 	EndProcedure
 	
   Procedure CreateScrollBar_(Label.s, X.i, Y.i, Width.i, Height.i, Minimum.i, Maximum.i, PageLength.i, Type.i=#False)
@@ -8555,7 +9076,9 @@ Module MarkDown
 	  EndIf
 	  
 	EndProcedure
-
+	
+  ;- _____ Gadget _____
+	
 	CompilerIf #Enable_Gadget
 	  
   	Procedure   AttachPopupMenu(GNum.i, PopUpNum.i)
@@ -8937,6 +9460,10 @@ Module MarkDown
   					EndIf
   				EndIf ;}
   				
+  				If IsWindow(MarkDown()\Window\Num)
+  				  BindEvent(#PB_Event_CloseWindow, @_CloseWindowHandler(), MarkDown()\Window\Num)
+  				EndIf
+  				
   				LoadFonts_("Arial", 11)
   				
   				Draw_()
@@ -9169,9 +9696,6 @@ Module MarkDown
     				
     				InitDefault_()
     				
-    				MarkDown()\Margin\Top        = 10
-    				MarkDown()\Margin\Bottom     = 5
-    				
     				If Requester\Padding
     				  MarkDown()\Requester\Padding = Requester\Padding
     				Else  
@@ -9298,6 +9822,187 @@ Module MarkDown
 	  EndProcedure
 
 	CompilerEndIf
+	
+	;- _____ Tooltips _____
+	
+	CompilerIf #Enable_Tooltips
+	  
+	  Procedure   TooltipColor(ColorTyp.i, Value.i)
+	    
+	    Select ColorTyp 
+	      Case #Color_Back
+	        TooltypStyle\BackColor   = Value
+        Case #Color_Border
+          TooltypStyle\BorderColor = Value     
+        Case #Color_Front
+          TooltypStyle\FrontColor  = Value  
+      EndSelect
+      
+      ForEach Tooltips()
+        
+        If FindMapElement(Markdown(), Str(Tooltips()\CanvasNum))
+          
+          If TooltypStyle\FrontColor <> #PB_Default
+            MarkDown()\Color\Front = TooltypStyle\FrontColor
+          EndIf   
+          
+          If TooltypStyle\BackColor <> #PB_Default
+            MarkDown()\Color\Back = TooltypStyle\BackColor
+          EndIf
+          
+          If TooltypStyle\BorderColor <> #PB_Default
+            MarkDown()\Color\Border = TooltypStyle\BorderColor
+          EndIf
+          
+          Draw_()
+          
+        EndIf
+        
+      Next  
+      
+	  EndProcedure  
+	  
+	  Procedure   TooltipFont(Name.s, Size.i)
+	    
+	    If Name And Size
+	      
+  	    TooltypStyle\FontName = Name
+  	    TooltypStyle\FontSize = Size
+  	    
+  	    ForEach Tooltips()
+  	      
+  	      If FindMapElement(Markdown(), Str(Tooltips()\CanvasNum))
+  	        
+  	        FreeFonts_()
+          
+            LoadFonts_(TooltypStyle\FontName, TooltypStyle\FontSize)
+            
+            DetermineTextSize_()
+  	        
+  	        Draw_()
+  	        
+  	      EndIf
+  	      
+  	    Next  
+  	    
+  	  EndIf  
+  	 
+	  EndProcedure  
+	  
+	  Procedure.i Tooltip(Gadget.i, Text.s, Window.i)
+	    Define.i GNum, WindowNum, Width, Height, Result
+    
+	    CompilerIf Defined(ModuleEx, #PB_Module)
+        If ModuleEx::#Version < #ModuleEx : Debug "Please update ModuleEx.pbi" : EndIf 
+      CompilerEndIf
+      
+      If IsWindow(Window) And IsGadget(Gadget)
+        
+        WindowNum = OpenWindow(#PB_Any, 0, 0, 0, 0, "", #PB_Window_BorderLess|#PB_Window_WindowCentered|#PB_Window_Invisible, WindowID(Window))
+        If WindowNum
+          
+          GNum = CanvasGadget(#PB_Any, 0, 0, 0, 0)
+  	      If GNum
+  	      
+  	        If AddMapElement(MarkDown(), Str(GNum))
+  	          
+  	          MarkDown()\Window\Num      = WindowNum
+  	          MarkDown()\CanvasNum       = GNum
+  	          MarkDown()\Tooltips\Gadget = Gadget
+  	          MarkDown()\Tooltips\Window = Window
+    	        MarkDown()\Type            = #ToolTip 
+    	        
+    	        If AddMapElement(Tooltips(), Str(Gadget))
+    	          Tooltips()\WindowNum  = WindowNum
+    	          Tooltips()\CanvasNum  = GNum
+      	        Tooltips()\Window     = Window
+      	        Tooltips()\Gadget     = Gadget
+      	      EndIf
+      	      
+      	      If AddMapElement(Timer(), Str(Gadget))
+                Timer()\Delay     = 600
+                Timer()\GadgetNum = ToolTips()\Gadget
+                Timer()\WindowNum = Tooltips()\Window
+              EndIf
+              
+              If TooltypStyle\FontName = "" Or TooltypStyle\FontSize = #PB_Default
+                LoadFonts_("Arial", 9)
+              Else  
+      	        LoadFonts_(TooltypStyle\FontName, TooltypStyle\FontSize)
+      	      EndIf
+    	      
+    	        InitDefault_()
+    	        
+    	        If TooltypStyle\FrontColor <> #PB_Default
+    	          MarkDown()\Color\Front = TooltypStyle\FrontColor
+    	        EndIf   
+    	        
+    	        If TooltypStyle\BackColor <> #PB_Default
+    	          MarkDown()\Color\Back = TooltypStyle\BackColor
+    	        EndIf
+    	        
+    	        If TooltypStyle\BorderColor <> #PB_Default
+    	          MarkDown()\Color\Border = TooltypStyle\BorderColor
+    	        EndIf
+    	        
+    	        BindEvent(#Event_ToolTip, @_ToolTipHandler())
+    	        
+    	        If GadgetType(ToolTips()\Gadget) <> #PB_GadgetType_Canvas
+          		  AddMouseEvents_(ToolTips()\Window, ToolTips()\Gadget)
+          		EndIf
+          		
+          		If IsGadget(ToolTips()\Gadget)
+          		  BindGadgetEvent(ToolTips()\Gadget, @_MouseEnterHandler(), #PB_EventType_MouseEnter)
+          		  BindGadgetEvent(ToolTips()\Gadget, @_MouseLeaveHandler(), #PB_EventType_MouseLeave)
+          		  BindGadgetEvent(ToolTips()\Gadget, @_MouseMoveHandler(),  #PB_EventType_MouseMove)
+          		EndIf   
+          		
+          		If IsGadget(ToolTips()\CanvasNum)
+          		  SetGadgetData(ToolTips()\CanvasNum, ToolTips()\Gadget)
+          		  BindGadgetEvent(ToolTips()\CanvasNum, @_MouseLeftClickHandler(),  #PB_EventType_LeftClick)
+  		          BindGadgetEvent(ToolTips()\CanvasNum, @_MouseRightClickHandler(), #PB_EventType_RightClick)
+          		EndIf   
+          		
+          		If IsWindow(ToolTips()\Window)
+                AddWindowTimer(ToolTips()\Window, #TooltipTimer, 200)
+                BindEvent(#PB_Event_Timer,       @_TimerEventHandler(),  ToolTips()\Window)
+                BindEvent(#PB_Event_CloseWindow, @_CloseWindowHandler(), ToolTips()\Window)
+              EndIf
+
+    	        CompilerIf Defined(ModuleEx, #PB_Module)
+                BindEvent(#Event_Theme, @_ThemeHandler())
+              CompilerEndIf
+
+    	        Parse_(Text)
+    	    
+    	        DetermineTextSize_()
+    	        
+    	        Width  = MarkDown()\Required\Width  + dpiX(MarkDown()\Margin\Left + MarkDown()\Margin\Right)
+    	        Height = MarkDown()\Required\Height + dpiY(MarkDown()\Margin\Top  + MarkDown()\Margin\Bottom)
+    	        
+    	        ResizeWindow(MarkDown()\Window\Num, #PB_Ignore, #PB_Ignore, Width, Height)
+              ResizeGadget(MarkDown()\CanvasNum, 0, 0, Width, Height)
+          
+              Draw_()
+              
+              If IsWindow(ToolTips()\Window)
+                SetActiveWindow(Window)
+              EndIf
+              
+              Result = #True
+            EndIf 
+            
+  	      EndIf
+  	      
+  
+        EndIf
+        
+      EndIf
+      
+      ProcedureReturn Result
+	  EndProcedure  
+	  
+	CompilerEndIf  
 	
 	;- _____ Help Window _____
 	
@@ -11020,7 +11725,7 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ = "Just a **short** information text.  " + #LF$
       Text$ + "*Second requester line*" + #LF$
       ;}
-    Default  ;{ Example text
+    Default     ;{ Example text
       Text$ = "## MarkDown ##" + #LF$ + #LF$
       Text$ + "> The gadget can display text formatted with the [MarkDown Syntax](https://www.markdownguide.org/basic-syntax/).  "+ #LF$
       Text$ + "> Markdown[^1] is a lightweight [>MarkUp] language that you can use to add formatting elements to plaintext text documents."+ #LF$ + #LF$
@@ -11059,7 +11764,7 @@ CompilerIf #PB_Compiler_IsMainFile
       
       ButtonGadget(#Button3, 205, 290, 40, 20, "PDF")
       ButtonGadget(#Button4, 250, 290, 40, 20, "HTML")
-      
+
       DisableGadget(#Button2, #True)
       
       If MarkDown::Gadget(#MarkDown, 10, 10, 280, 275, MarkDown::#AutoResize)
@@ -11067,7 +11772,21 @@ CompilerIf #PB_Compiler_IsMainFile
         MarkDown::SetFont(#MarkDown, "Arial", 10)
         MarkDown::SetAttribute(#MarkDown, MarkDown::#ScrollBar, MarkDown::#ScrollBar_DragPoint)
       EndIf
-  
+      
+      CompilerIf MarkDown::#Enable_Tooltips
+        
+        MarkDown::TooltipColor(MarkDown::#Color_Back,   $F0FFFF)
+        MarkDown::TooltipColor(MarkDown::#Color_Border, $8CE6F0)
+        
+        MarkDown::Tooltip(#Button1, "Edit **Markdown**-Text", #Window)
+        MarkDown::Tooltip(#Button2, ":mag: View *Markdown*",        #Window) 
+        MarkDown::Tooltip(#Button3, "Export as **PDF**",      #Window)
+        MarkDown::Tooltip(#Button4, "Export as *HTML*",       #Window)
+        
+        SetActiveWindow(#Window)
+        
+      CompilerEndIf  
+
       Repeat
         Event = WaitWindowEvent()
         Select Event
@@ -11083,28 +11802,38 @@ CompilerIf #PB_Compiler_IsMainFile
           Case #PB_Event_Gadget  
             Select EventGadget()  
               Case #Button1            ;{ Edit
-                HideGadget(#Editor,   #False)
-                HideGadget(#MarkDown, #True)
-                DisableGadget(#Button1, #True)
-                DisableGadget(#Button2, #False)
+                
+                If EventType() = #PB_EventType_LeftClick
+                  HideGadget(#Editor,   #False)
+                  HideGadget(#MarkDown, #True)
+                  DisableGadget(#Button1, #True)
+                  DisableGadget(#Button2, #False)
+                EndIf   
                 ;}
               Case #Button2            ;{ View
-                MarkDown::SetText(#MarkDown, GetGadgetText(#Editor))
-                HideGadget(#Editor,   #True)
-                HideGadget(#MarkDown, #False)
-                DisableGadget(#Button1, #False)
-                DisableGadget(#Button2, #True)
+                
+                If EventType() = #PB_EventType_LeftClick
+                  MarkDown::SetText(#MarkDown, GetGadgetText(#Editor))
+                  HideGadget(#Editor,     #True)
+                  HideGadget(#MarkDown,   #False)
+                  DisableGadget(#Button1, #False)
+                  DisableGadget(#Button2, #True)
+                EndIf   
                 ;}
               Case #Button3            ;{ PDF
-                CompilerIf Defined(PDF, #PB_Module)
-                  MarkDown::SetText(#MarkDown, GetGadgetText(#Editor))
-                  MarkDown::Export(#MarkDown, MarkDown::#PDF, "Export.pdf", "PDF")
-                  RunProgram("Export.pdf")
-                CompilerEndIf
+                If EventType() = #PB_EventType_LeftClick
+                  CompilerIf Defined(PDF, #PB_Module)
+                    MarkDown::SetText(#MarkDown, GetGadgetText(#Editor))
+                    MarkDown::Export(#MarkDown, MarkDown::#PDF, "Export.pdf", "PDF")
+                    RunProgram("Export.pdf")
+                  CompilerEndIf
+                EndIf
                 ;}
               Case #Button4            ;{ HTML
-                MarkDown::Export(#MarkDown, MarkDown::#HTML, "Export.htm", "HTML")
-                RunProgram("Export.htm")
+                If EventType() = #PB_EventType_LeftClick
+                  MarkDown::Export(#MarkDown, MarkDown::#HTML, "Export.htm", "HTML")
+                  RunProgram("Export.htm")
+                EndIf   
                 ;}
             EndSelect
         EndSelect        
@@ -11113,7 +11842,7 @@ CompilerIf #PB_Compiler_IsMainFile
       CloseWindow(#Window)
     EndIf 
     ;}
-    
+   
   CompilerElseIf #Example < 30 
     
     #Image = 1
@@ -11177,9 +11906,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 10835
-; FirstLine = 1071
-; Folding = wECAAIAAAAAAAAAAAAAAAAAgAAAQAAIAAAAAAAAAAAAAAAAGACAAYAAAAAAAAAAAAAAAIAIAAAAAAAAAAAAAAAgAAAgRYAABAAwAAAAAAAABAAIAx
-; Markers = 4330
+; CursorPosition = 9922
+; FirstLine = 742
+; Folding = wEAAAQAAoAAAAAAwAAAAFAAAAADAACAAYDAAAAAgBAAAAAAAAAAEAAxIAAAAAAAAAAAAAAAAAAAAAAACIBAACAAEAAAAAAAAAAwJSBAAAgBAAAAAAECAAwBB-
+; Markers = 4438
 ; EnableXP
 ; DPIAware

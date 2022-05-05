@@ -9,9 +9,9 @@
 ;/ © 2020 by Thorsten Hoeppner (07/2019)
 ;/
 
-; Last Update: 28.03.2020
+; Last Update: 4.05.2022
 
-; Changed: Tooltip Window
+; Changed: Timer
 
 
 ;{ ===== MIT License =====
@@ -142,7 +142,8 @@ Module ToolTip
 
 	EnableExplicit
 	
-	#MouseEventTimer = 20000
+	#TooltipTimer    = 1867
+	#MouseEventTimer = 1868
 	
 	Enumeration 1
     #MouseX
@@ -181,13 +182,7 @@ Module ToolTip
     Flags.i
   EndStructure ;}
   Global NewMap MouseEvent.MouseEvent_Structure()
-  
-  ;Structure Canvas_Structure
-	;  Window.i
-	;  Gadget.i
-  ;EndStructure
-  ;Global Canvas.Canvas_Structure
-  
+    
 	Structure Timer_Structure           ;{ Timer()\...
 	  GadgetNum.i
 	  WindowNum.i
@@ -272,7 +267,6 @@ Module ToolTip
 	EndStructure ;}
 	Global NewMap ToolTip.ToolTip_Structure()
 	
-	Global ThreadID.i, ExitThread.i
 	Global Mutex.i = CreateMutex()
 	Global NewMap Timer.Timer_Structure()
 	
@@ -308,7 +302,6 @@ Module ToolTip
 	;-   Module - Internal
   ;- ============================================================================
   
-	Declare _TimerThread(Map *Timer())
 	Declare.i GetMouseEventAttribute_(Window.i, Attribute.i, Gadget.i=#PB_Default)
 	
 	UsePNGImageDecoder()
@@ -320,32 +313,7 @@ Module ToolTip
 	Procedure.f dpiY(Num.i)
 		ProcedureReturn DesktopScaledY(Num)
 	EndProcedure
-	
-	Procedure StartTimerThread()
 
-    If Not IsThread(ThreadID)
-      ThreadID = CreateThread(@_TimerThread(), @Timer())
-    EndIf
-    
-  EndProcedure
-  
-  Procedure StopTimerThread()
-
-    ExitThread = #True
-    
-    Delay(200)
-    
-    While IsThread(ThreadID)
-      KillThread(ThreadID)
-      Delay(50)
-    Wend
-    
-    ThreadID   = 0
-    ExitThread = #False
-
-  EndProcedure
-  
-	
 	Procedure   GetFontID_(FontNum.i) 
 	  
 	  If FontNum = #PB_Default
@@ -549,40 +517,7 @@ Module ToolTip
     EndProcedure
     
   CompilerEndIf
-	
-	Procedure _TimerThread(Map *Timer())
-	  
-	  While Not ExitThread
-	    
-	    Delay(100)
-	    
-	    LockMutex(Mutex)
 
-	    ForEach Timer()
-	      
-	      If Timer()\Focus And Timer()\State
-
-	        If Timer()\Active
-	          
-	          Timer()\Value + 100
-	          
-	          If Timer()\Value >= Timer()\Delay
-	            PostEvent(#Event_ToolTip, Timer()\WindowNum, Timer()\GadgetNum)
-	            Timer()\Value  = 0
-	            Timer()\Active = #False
-	          EndIf
-	          
-	        EndIf
-	      EndIf
-	      
-	    Next  
-	    
-	    UnlockMutex(Mutex)
-
-	  Wend
-	  
-	EndProcedure
-	
 	Procedure _ToolTipHandler()
 	  Define.i GadgetNum = EventGadget()
 	  
@@ -602,131 +537,160 @@ Module ToolTip
 	  
 	EndProcedure
 	
-	Procedure _MouseEventHandler()
-    Define.i X, Y, Handle, Window, Gadget
-    
-    Window = GetActiveWindow()
-    If FindMapElement(MouseEvent(), Str(Window))
+	Procedure _TimerEventHandler()
+    Define.i X, Y, Handle, Window, Gadget, GadgetNum
 
-      X = WindowMouseX(Window)
-      Y = WindowMouseY(Window)
-      
-      If X <> MouseEvent()\Window\MouseX Or Y <> MouseEvent()\Window\MouseY
+    Window = GetActiveWindow()
+    
+    Select EventTimer()
+      Case #TooltipTimer    ;{ Tooltip Delay
         
-        MouseEvent()\Window\MouseX = X
-        MouseEvent()\Window\MouseY = Y
+        LockMutex(Mutex)
         
-        ; Get Handle under mouse (mk-soft)
-        CompilerSelect #PB_Compiler_OS
-          CompilerCase #PB_OS_Windows ;{ Windows
-            Protected.i DesktopX, DesktopY
-            
-            DesktopX = DesktopMouseX()
-            Desktopy = DesktopMouseY()
-            Handle   = WindowFromPoint_(DesktopY << 32 | DesktopX)
-            ;}
-          CompilerCase #PB_OS_MacOS   ;{ MacOS
-            Protected WinID.i, WinCV.i, pt.NSPoint
-            
-            WinID = WindowID(Window)
-            WinCV = CocoaMessage(0, WinID, "contentView")
-            CocoaMessage(@pt, WinID, "mouseLocationOutsideOfEventStream")
-            Handle = CocoaMessage(0, WinCV, "hitTest:@", @pt)
-            ;}
-          CompilerCase #PB_OS_Linux   ;{ Linux
-            Protected DesktopX.i, DesktopY.i, *GdkWindow.GdkWindowObject
-            
-            *GdkWindow.GdkWindowObject = gdk_window_at_pointer_(@DesktopX,@Desktopy)
-            If *GdkWindow
-              gdk_window_get_user_data_(*GdkWindow, @Handle)
-            Else
-              Handle = #False
-            EndIf
-            ;} 
-        CompilerEndSelect
+        ForEach Timer()
+
+          If Timer()\Focus And Timer()\State
+    
+  	        If Timer()\Active
+  	          Timer()\Value + 200
+  	          If Timer()\Value >= Timer()\Delay
+  	            PostEvent(#Event_ToolTip, Timer()\WindowNum, Timer()\GadgetNum)
+  	            Timer()\Value  = 0
+  	            Timer()\Active = #False
+  	          EndIf
+  	          
+  	        EndIf
+  	        
+  	      EndIf
+
+  	    Next 
+  	    
+  	    UnlockMutex(Mutex)
+        ;}
+      Case #MouseEventTimer ;{ MouseEvents
         
-        If Handle <> MouseEvent()\lastHandle
+        If FindMapElement(MouseEvent(), Str(Window))
+    
+          X = WindowMouseX(Window)
+          Y = WindowMouseY(Window)
           
-          ;{ ___ Event: MouseLeave ___ (mk-soft)
-          If IsGadget(MouseEvent()\lastGadget)
-          
-            If MouseEvent()\Flags & #MouseLeave
-              If GadgetType(MouseEvent()\lastGadget) <> #PB_GadgetType_Canvas
-                ForEach MouseEvent()\Gadget()
-                  If MouseEvent()\Gadget()\Num = #PB_Default Or MouseEvent()\lastGadget = MouseEvent()\Gadget()\Num
-                    PostEvent(#PB_Event_Gadget, MouseEvent()\Window\Num, MouseEvent()\lastGadget, #PB_EventType_MouseLeave)
-                    Break
+          If X <> MouseEvent()\Window\MouseX Or Y <> MouseEvent()\Window\MouseY
+            
+            MouseEvent()\Window\MouseX = X
+            MouseEvent()\Window\MouseY = Y
+            
+            ; Get Handle under mouse (mk-soft)
+            CompilerSelect #PB_Compiler_OS
+              CompilerCase #PB_OS_Windows ;{ Windows
+                Protected.i DesktopX, DesktopY
+                
+                DesktopX = DesktopMouseX()
+                Desktopy = DesktopMouseY()
+                Handle   = WindowFromPoint_(DesktopY << 32 | DesktopX)
+                ;}
+              CompilerCase #PB_OS_MacOS   ;{ MacOS
+                Protected WinID.i, WinCV.i, pt.NSPoint
+                
+                WinID = WindowID(Window)
+                WinCV = CocoaMessage(0, WinID, "contentView")
+                CocoaMessage(@pt, WinID, "mouseLocationOutsideOfEventStream")
+                Handle = CocoaMessage(0, WinCV, "hitTest:@", @pt)
+                ;}
+              CompilerCase #PB_OS_Linux   ;{ Linux
+                Protected DesktopX.i, DesktopY.i, *GdkWindow.GdkWindowObject
+                
+                *GdkWindow.GdkWindowObject = gdk_window_at_pointer_(@DesktopX,@Desktopy)
+                If *GdkWindow
+                  gdk_window_get_user_data_(*GdkWindow, @Handle)
+                Else
+                  Handle = #False
+                EndIf
+                ;} 
+            CompilerEndSelect
+            
+            If Handle <> MouseEvent()\lastHandle
+              
+              ;{ ___ Event: MouseLeave ___ (mk-soft)
+              If IsGadget(MouseEvent()\lastGadget)
+              
+                If MouseEvent()\Flags & #MouseLeave
+                  If GadgetType(MouseEvent()\lastGadget) <> #PB_GadgetType_Canvas
+                    ForEach MouseEvent()\Gadget()
+                      If MouseEvent()\Gadget()\Num = #PB_Default Or MouseEvent()\lastGadget = MouseEvent()\Gadget()\Num
+                        PostEvent(#PB_Event_Gadget, MouseEvent()\Window\Num, MouseEvent()\lastGadget, #PB_EventType_MouseLeave)
+                        Break
+                      EndIf
+                    Next
                   EndIf
-                Next
-              EndIf
+                EndIf
+                
+                MouseEvent()\lastGadget = #PB_Default
+                
+              EndIf ;}
+              
+              ; Find GadgetID over Handle (mk-soft)
+              PB_Object_EnumerateStart(PB_Gadget_Objects)
+              
+              While PB_Object_EnumerateNext(PB_Gadget_Objects, @Gadget)
+                
+                If Handle = GadgetID(Gadget)
+                  
+                  MouseEvent()\lastGadget = Gadget
+                  
+                  ;{ ___ Event: MouseEnter ___ (mk-soft)
+                  If MouseEvent()\Flags & #MouseEnter
+                    If GadgetType(MouseEvent()\lastGadget) <> #PB_GadgetType_Canvas
+                      ForEach MouseEvent()\Gadget()
+                        If MouseEvent()\Gadget()\Num = #PB_Default Or MouseEvent()\lastGadget = MouseEvent()\Gadget()\Num
+                          PostEvent(#PB_Event_Gadget, MouseEvent()\Window\Num, MouseEvent()\lastGadget, #PB_EventType_MouseEnter)
+                          Break
+                        EndIf  
+                      Next
+                    EndIf
+                  EndIf ;}
+                  
+                  PB_Object_EnumerateAbort(PB_Gadget_Objects)
+                  Break
+                EndIf
+                
+              Wend
+              
+              MouseEvent()\lastHandle = Handle
             EndIf
             
-            MouseEvent()\lastGadget = #PB_Default
-            
-          EndIf ;}
-          
-          ; Find GadgetID over Handle (mk-soft)
-          PB_Object_EnumerateStart(PB_Gadget_Objects)
-          
-          While PB_Object_EnumerateNext(PB_Gadget_Objects, @Gadget)
-            
-            If Handle = GadgetID(Gadget)
+            ;{ ___ Event: MouseMove ___ (mk-soft)
+            If MouseEvent()\Flags & #MouseMove
               
-              MouseEvent()\lastGadget = Gadget
-              
-              ;{ ___ Event: MouseEnter ___ (mk-soft)
-              If MouseEvent()\Flags & #MouseEnter
+              If IsGadget(MouseEvent()\lastGadget)
                 If GadgetType(MouseEvent()\lastGadget) <> #PB_GadgetType_Canvas
                   ForEach MouseEvent()\Gadget()
                     If MouseEvent()\Gadget()\Num = #PB_Default Or MouseEvent()\lastGadget = MouseEvent()\Gadget()\Num
-                      PostEvent(#PB_Event_Gadget, MouseEvent()\Window\Num, MouseEvent()\lastGadget, #PB_EventType_MouseEnter)
+                      MouseEvent()\Gadget()\MouseX = MouseEvent()\Window\MouseX - GadgetX(MouseEvent()\lastGadget, #PB_Gadget_WindowCoordinate)
+                      MouseEvent()\Gadget()\MouseY = MouseEvent()\Window\MouseY - GadgetY(MouseEvent()\lastGadget, #PB_Gadget_WindowCoordinate)
+                      PostEvent(#PB_Event_Gadget, MouseEvent()\Window\Num, MouseEvent()\lastGadget, #PB_EventType_MouseMove)
                       Break
-                    EndIf  
+                    EndIf 
                   Next
                 EndIf
-              EndIf ;}
+              EndIf
               
-              PB_Object_EnumerateAbort(PB_Gadget_Objects)
-              Break
-            EndIf
+            EndIf ;}
             
-          Wend
-          
-          MouseEvent()\lastHandle = Handle
-        EndIf
-        
-        ;{ ___ Event: MouseMove ___ (mk-soft)
-        If MouseEvent()\Flags & #MouseMove
-          
-          If IsGadget(MouseEvent()\lastGadget)
-            If GadgetType(MouseEvent()\lastGadget) <> #PB_GadgetType_Canvas
-              ForEach MouseEvent()\Gadget()
-                If MouseEvent()\Gadget()\Num = #PB_Default Or MouseEvent()\lastGadget = MouseEvent()\Gadget()\Num
-                  MouseEvent()\Gadget()\MouseX = MouseEvent()\Window\MouseX - GadgetX(MouseEvent()\lastGadget, #PB_Gadget_WindowCoordinate)
-                  MouseEvent()\Gadget()\MouseY = MouseEvent()\Window\MouseY - GadgetY(MouseEvent()\lastGadget, #PB_Gadget_WindowCoordinate)
-                  PostEvent(#PB_Event_Gadget, MouseEvent()\Window\Num, MouseEvent()\lastGadget, #PB_EventType_MouseMove)
-                  Break
-                EndIf 
-              Next
-            EndIf
           EndIf
           
-        EndIf ;}
-        
-      EndIf
-      
-    EndIf
-
+        EndIf
+      ;}
+    EndSelect
+  
   EndProcedure
 	
   Procedure _MouseEnterHandler()
 	  Define.i GadgetNum = EventGadget()
-	  Define.i X, Y, aX, aY, aWidth, aHeight, gX, gY, gWidth, gHeight
 
 	  If FindMapElement(ToolTip(), Str(GadgetNum))
 	    LockMutex(Mutex)
 	    Timer(Str(GadgetNum))\Focus = #True
-	    Timer(Str(GadgetNum))\Value  = 0
+	    Timer(Str(GadgetNum))\Value = 0
 	    Timer(Str(GadgetNum))\State = #False
 	    UnlockMutex(Mutex)
 	  EndIf
@@ -739,10 +703,12 @@ Module ToolTip
 	  If FindMapElement(ToolTip(), Str(GadgetNum))
 	    
 	    LockMutex(Mutex)
+	    
 	    Timer(Str(GadgetNum))\Focus  = #False
 	    Timer(Str(GadgetNum))\Active = #True
 	    Timer(Str(GadgetNum))\Value  = 0
 	    Timer(Str(GadgetNum))\State  = #False
+	    
 	    UnlockMutex(Mutex)
 	    
 	    ToolTip()\MouseX  = #PB_Default
@@ -777,8 +743,10 @@ Module ToolTip
         
         ;{ Cursor move
         LockMutex(Mutex)
+        
         Timer(Str(GadgetNum))\Active = #True
         Timer(Str(GadgetNum))\Value  = 0
+        
         UnlockMutex(Mutex)
 
         If ToolTip()\Visible
@@ -799,6 +767,7 @@ Module ToolTip
           SetActiveWindow(ToolTip()\WindowNum)
         EndIf
         ;}
+        
         
         If X >= ToolTip()\Area\X And X <= ToolTip()\Area\X + ToolTip()\Area\Width
           If Y >= ToolTip()\Area\Y And Y <= ToolTip()\Area\Y + ToolTip()\Area\Height
@@ -886,12 +855,16 @@ Module ToolTip
       
       If ToolTip()\WindowNum = WindowNum
       
-        StopTimerThread()  
+        ;StopTimerThread()  
+        RemoveWindowTimer(ToolTip()\WindowNum, #TooltipTimer)
+        RemoveWindowTimer(ToolTip()\WindowNum, #MouseEventTimer)
         
         If IsWindow(ToolTip()\Number)
           CloseWindow(ToolTip()\Number)
         EndIf
         
+        DeleteMapElement(Timer(),      Str(ToolTip()\GadgetNum))
+        DeleteMapElement(MouseEvent(), Str(WindowNum))
         DeleteMapElement(ToolTip())
       EndIf
       
@@ -921,8 +894,7 @@ Module ToolTip
       
       ; Code by mk-soft
       AddWindowTimer(MouseEvent()\Window\Num, #MouseEventTimer, 100)
-      BindEvent(#PB_Event_Timer, @_MouseEventHandler())
-        
+
       ProcedureReturn #True
     EndIf
     
@@ -1038,9 +1010,7 @@ Module ToolTip
   		ToolTip()\Color\TitleBorder = #PB_Default
   		
   		If GadgetType(ToolTip()\GadgetNum) <> #PB_GadgetType_Canvas
-  	  
   		  AddMouseEvents_(ToolTip()\WindowNum, ToolTip()\GadgetNum)
-  		 
   		EndIf
   		
   		If IsGadget(ToolTip()\GadgetNum)
@@ -1060,18 +1030,21 @@ Module ToolTip
         BindEvent(#Event_Theme, @_ThemeHandler())
       CompilerEndIf
   		
-  		If IsWindow(ToolTip()\WindowNum)
+      If IsWindow(ToolTip()\WindowNum)
+        AddWindowTimer(ToolTip()\WindowNum, #TooltipTimer, 200)
+        BindEvent(#PB_Event_Timer,       @_TimerEventHandler(),  ToolTip()\WindowNum)
         BindEvent(#PB_Event_CloseWindow, @_CloseWindowHandler(), ToolTip()\WindowNum)
       EndIf
+
       
       If AddMapElement(Timer(), Str(Gadget))
-        Timer()\Delay     = 500
+        Timer()\Delay     = 600
         Timer()\GadgetNum = ToolTip()\GadgetNum
         Timer()\WindowNum = ToolTip()\WindowNum
       EndIf
-    
-      StartTimerThread()
-  		
+      
+      ;SetActiveWindow(ToolTip()\WindowNum)
+      
   		ProcedureReturn ToolTip()\CanvasNum
   	EndIf
     
@@ -1273,16 +1246,26 @@ CompilerIf #PB_Compiler_IsMainFile
     EndIf
     
     Repeat
-      Event = WaitWindowEvent()    
+      Event = WaitWindowEvent()
+      Select Event
+        Case #PB_Event_Gadget  
+          Select EventGadget()  
+            Case #Button
+              If EventType() = #PB_EventType_LeftClick
+                Debug "Button clicked"
+              EndIf   
+          EndSelect
+      EndSelect        
     Until Event = #PB_Event_CloseWindow
 
     CloseWindow(#Window)
   EndIf 
   
 CompilerEndIf
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 11
-; Folding = 5PAAAKQPAMg
-; Markers = 784
+; IDE Options = PureBasic 5.73 LTS (Windows - x64)
+; CursorPosition = 1006
+; FirstLine = 257
+; Folding = 5BAAACACgA5
+; Markers = 752
 ; EnableXP
 ; DPIAware
