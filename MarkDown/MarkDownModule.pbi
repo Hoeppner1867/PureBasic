@@ -102,20 +102,22 @@
 ; XIncludeFile "NamedPipeModule.pbi"
 
 ; ***** If no PDF is required, this line can be commented out. *****
-CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : CompilerEndIf
+;CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : CompilerEndIf
+
 
 DeclareModule MarkDown
   
   #Version  = 22042800
   #ModuleEx = 20041700
   
-  #Enable_Gadget     = #True
-  #Enable_Requester  = #True
-  #Enable_Tooltips   = #True
-  #Enable_HelpWindow = #True
-  #Enable_CreateHelp = #False
-  #Enable_Emoji      = #True
-  #Enable_ExportHTML = #True
+  #Enable_Gadget      = #False
+  #Enable_Requester   = #False
+  #Enable_Tooltips    = #False
+  #Enable_HelpWindow  = #False
+  #Enable_CreateHelp  = #False
+  #Enable_Emoji       = #False
+  #Enable_ExportHTML  = #False
+  #Enable_DrawCanvas  = #True
   
 	;- ===========================================================================
 	;-   DeclareModule - Constants
@@ -167,6 +169,7 @@ DeclareModule MarkDown
 	  #Gadget
 	  #Requester
 	  #ToolTip
+	  #DrawCanvas
 	  #HelpWindow
 	EndEnumeration  ;}
 	
@@ -295,7 +298,7 @@ DeclareModule MarkDown
     Label.s
     Valid.i
   EndStructure ;}
-    
+  
   Structure TOC_Structure                ;{ ...\TOC()\...
     ID.s
     Level.i
@@ -400,6 +403,15 @@ DeclareModule MarkDown
     Declare   SaveHelp()
     
   CompilerEndIf 
+  
+  CompilerIf #Enable_DrawCanvas
+    
+    Declare   Text(X.i, Y.i, Text.s, FrontColor.i=#PB_Default, BackColor.i=#PB_Default, Width.i=#PB_Default, Height.i=#PB_Default)
+    Declare   LoadFonts(Name.s, Size.i)
+    Declare.i Height(Canvas.i, Text.s="")
+    Declare.i Width(Canvas.i,  Text.s="")
+    
+  CompilerEndIf  
   
   ;{ Internal
   Declare MergeHelp(List Items.Item_Structure(), List TOC.TOC_Structure(), Map Glossary.Glossary_Structure(), Map Keywords.Keywords_Structure(), List Links.Links_Structure())
@@ -537,6 +549,10 @@ Module MarkDown
 	  #MouseEventTimer = 1868
     
   CompilerEndIf
+  
+  CompilerIf #Enable_DrawCanvas
+    #DrawText = "DrawMD"
+  CompilerEndIf  
   
 	;- ============================================================================
 	;-   Module - Structures
@@ -2016,6 +2032,412 @@ Module MarkDown
 
 		ProcedureReturn RGB((Red1 * Blend) + (Red2 * (1 - Blend)), (Green1 * Blend) + (Green2 * (1 - Blend)), (Blue1 * Blend) + (Blue2 * (1 - Blend)))
 	EndProcedure
+	
+	CompilerIf #Enable_DrawCanvas
+	  
+  	Procedure   DrawingTextSize_()
+  	  Define.i TextHeight, Image, Output, OutputNum
+      Define.i Key$, Image$, File$
+  
+      MarkDown()\Required\Width  = 0
+      MarkDown()\Required\Height = 0
+
+      ;{ _____ Items _____
+      ForEach MarkDown()\Items()
+        
+        DrawingFont(FontID(MarkDown()\Font\Normal))
+        
+        MarkDown()\Items()\Width  = 0
+        MarkDown()\Items()\Height = TextHeight("X")
+
+        ForEach MarkDown()\Items()\Words()
+          
+          DrawingFont_(MarkDown()\Items()\Words()\Font)
+          
+          Select MarkDown()\Items()\Words()\Flag
+            Case #Emoji     ;{ Emoji (16x16)
+              TextHeight = dpiY(16)
+              MarkDown()\Items()\Words()\Width = dpiX(16)
+              ;}
+            Case #Image     ;{ Image
+
+              If SelectElement(MarkDown()\Image(), MarkDown()\Items()\Words()\Index)
+                
+                Image$ = GetFilePart(MarkDown()\Image()\Source)
+                File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
+
+                If FindMapElement(MarkDown()\ImageNum(), Image$) = #False
+                  If AddMapElement(MarkDown()\ImageNum(), Image$)
+                    MarkDown()\ImageNum() = LoadImage(#PB_Any, File$) 
+                  EndIf
+                EndIf
+                
+                If IsImage(MarkDown()\ImageNum())
+  			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
+  			          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
+  			          TextHeight = dpiY(MarkDown()\Image()\Height)
+  			          MarkDown()\Items()\Words()\Width = dpiX(MarkDown()\Image()\Width)  
+  			        EndIf
+ 
+  			      EndIf
+  			      ;}
+  			    Case #Keystroke ;{ Keystroke (5 + Key + 5)  
+  			      TextHeight = TextHeight(MarkDown()\Items()\Words()\String)
+  			      MarkDown()\Items()\Words()\Width = TextWidth(MarkDown()\Items()\Words()\String) + dpiX(10)
+  			      ;}
+  			    Default  
+              TextHeight = TextHeight(MarkDown()\Items()\Words()\String)
+              MarkDown()\Items()\Words()\Width = TextWidth(MarkDown()\Items()\Words()\String)
+          EndSelect
+          
+          MarkDown()\Items()\Width + MarkDown()\Items()\Words()\Width
+          If TextHeight > MarkDown()\Items()\Height : MarkDown()\Items()\Height = TextHeight : EndIf
+          
+        Next
+        
+        If MarkDown()\Items()\Type = #Image
+          
+          Image$ = GetFilePart(MarkDown()\Image()\Source)
+          File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
+          
+          If FindMapElement(MarkDown()\ImageNum(), Image$) = #False
+            If AddMapElement(MarkDown()\ImageNum(), Image$)
+              MarkDown()\ImageNum() = LoadImage(#PB_Any, File$) 
+            EndIf
+          EndIf
+          
+          If IsImage(MarkDown()\ImageNum())
+	          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
+	          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
+	        EndIf
+	        
+	        MarkDown()\Required\Height + dpiY(MarkDown()\Image()\Height)
+          If dpiX(MarkDown()\Image()\Width)  > MarkDown()\Required\Width : MarkDown()\Required\Width = dpiX(MarkDown()\Image()\Width)  : EndIf 
+
+        Else
+          
+          MarkDown()\Required\Height + MarkDown()\Items()\Height
+          If MarkDown()\Items()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Items()\Width : EndIf 
+          
+          MarkDown()\Items()\Height * MarkDown()\LineSpacing
+
+        EndIf
+
+      Next ;}
+      
+      ;{ _____ Lists _____
+      
+      ForEach MarkDown()\Lists()
+        
+        TextHeight = 0
+        
+        ForEach MarkDown()\Lists()\Row() ;{ List rows
+          
+          DrawingFont(FontID(MarkDown()\Font\Normal))
+          
+          MarkDown()\Lists()\Row()\Width  = 0
+          MarkDown()\Lists()\Row()\Height = TextHeight("X")
+          
+          ForEach MarkDown()\Lists()\Row()\Words()
+        
+            DrawingFont_(MarkDown()\Lists()\Row()\Words()\Font)
+            
+            Select MarkDown()\Lists()\Row()\Words()\Flag
+              Case #Emoji     ;{ Emoji (16x16)
+                TextHeight = dpiY(16)
+                MarkDown()\Lists()\Row()\Words()\Width = dpiX(16)
+                ;}
+              Case #Image     ;{ Image
+                
+                If SelectElement(MarkDown()\Image(), MarkDown()\Lists()\Row()\Words()\Index)
+                  
+                  Image$ = GetFilePart(MarkDown()\Image()\Source)
+                  File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
+                  
+                  If FindMapElement(MarkDown()\ImageNum(), Image$) = #False
+                    If AddMapElement(MarkDown()\ImageNum(), Image$)
+                      MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
+                    EndIf
+                  EndIf
+                  
+                  If IsImage(MarkDown()\ImageNum())
+    			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
+    			          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
+    			          TextHeight = dpiY(MarkDown()\Image()\Height)
+    			          MarkDown()\Items()\Words()\Width = dpiX(MarkDown()\Image()\Width)  
+    			        EndIf
+    			        
+    			      EndIf
+    			      ;}
+    			    Case #Keystroke ;{ Keystroke (5 + Key + 5)  
+    			      TextHeight = TextHeight(MarkDown()\Items()\Words()\String)
+    			      MarkDown()\Items()\Words()\Width = TextWidth(MarkDown()\Items()\Words()\String) + dpiX(10)
+    			      ;}
+    			    Default  
+                TextHeight = TextHeight(MarkDown()\Lists()\Row()\Words()\String)
+                MarkDown()\Lists()\Row()\Words()\Width = TextWidth(MarkDown()\Lists()\Row()\Words()\String)
+            EndSelect
+           
+            MarkDown()\Lists()\Row()\Width + MarkDown()\Lists()\Row()\Words()\Width
+            If TextHeight > MarkDown()\Lists()\Row()\Height : MarkDown()\Lists()\Row()\Height = TextHeight : EndIf
+            
+          Next
+         
+          MarkDown()\Lists()\Row()\Height * MarkDown()\LineSpacing
+          MarkDown()\Required\Height + MarkDown()\Lists()\Row()\Height
+          
+          If MarkDown()\Lists()\Row()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Lists()\Row()\Width : EndIf
+          ;}
+        Next
+
+      Next ;} 
+
+      ;{ _____ Tables _____
+      ForEach MarkDown()\Table()
+        
+        TextHeight = 0
+        
+        ForEach MarkDown()\Table()\Column() : MarkDown()\Table()\Column()\Width = 0 : Next  
+        
+        ForEach MarkDown()\Table()\Row()
+          
+          DrawingFont(FontID(MarkDown()\Font\Normal))
+        
+          MarkDown()\Table()\Row()\Height = TextHeight("X")
+          
+          ForEach MarkDown()\Table()\Row()\Col() ;{ Columns
+            
+            Key$ = MapKey(MarkDown()\Table()\Row()\Col())
+            
+            MarkDown()\Table()\Row()\Col()\Width = 0 
+            
+            ForEach MarkDown()\Table()\Row()\Col()\Words() ;{ Words
+
+              DrawingFont_(MarkDown()\Table()\Row()\Col()\Words()\Font)       
+              
+              Select MarkDown()\Table()\Row()\Col()\Words()\Flag
+                Case #Emoji     ;{ Emoji (16x16)
+                  TextHeight = dpiY(16)
+                  MarkDown()\Table()\Row()\Col()\Words()\Width = dpiX(16)
+                  ;}
+                Case #Image     ;{ Image
+                  
+                  If SelectElement(MarkDown()\Image(), MarkDown()\Table()\Row()\Col()\Words()\Index)
+                    
+                    Image$ = GetFilePart(MarkDown()\Image()\Source)
+                    File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
+                    
+                    If FindMapElement(MarkDown()\ImageNum(), Image$) = #False
+                      If AddMapElement(MarkDown()\ImageNum(), Image$) 
+                        MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
+                      EndIf
+                    EndIf
+                    
+                    If IsImage(MarkDown()\ImageNum())
+      			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
+      			          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
+      			          TextHeight = dpiY(MarkDown()\Image()\Height)
+      			          MarkDown()\Items()\Words()\Width = dpiX(MarkDown()\Image()\Width)  
+      			        EndIf
+      			        
+      			      EndIf
+      			      ;}
+      			    Case #Keystroke ;{ Keystroke (5 + Key + 5)  
+      			      TextHeight = TextHeight(MarkDown()\Items()\Words()\String)
+      			      MarkDown()\Items()\Words()\Width = TextWidth(MarkDown()\Items()\Words()\String) + dpiX(10) 
+      			      ;}
+      			    Default  
+                  TextHeight = TextHeight(MarkDown()\Table()\Row()\Col()\Words()\String)
+                  MarkDown()\Table()\Row()\Col()\Words()\Width = TextWidth(MarkDown()\Table()\Row()\Col()\Words()\String)
+              EndSelect
+            
+              MarkDown()\Table()\Row()\Col()\Width + MarkDown()\Table()\Row()\Col()\Words()\Width
+              If TextHeight > MarkDown()\Table()\Row()\Height : MarkDown()\Table()\Row()\Height = TextHeight : EndIf
+              ;}
+            Next
+            
+            If MarkDown()\Table()\Row()\Col()\Width > MarkDown()\Table()\Column(Key$)\Width : MarkDown()\Table()\Column(Key$)\Width = MarkDown()\Table()\Row()\Col()\Width : EndIf
+            ;}
+          Next          
+          
+          MarkDown()\Table()\Row()\Height * MarkDown()\LineSpacing
+          MarkDown()\Required\Height + MarkDown()\Table()\Row()\Height
+        Next
+        
+        DrawingFont(FontID(MarkDown()\Font\Normal))
+        
+        MarkDown()\Table()\Width = 0
+
+        ForEach MarkDown()\Table()\Column()
+          MarkDown()\Table()\Column()\Width + dpiX(10)
+          MarkDown()\Table()\Width + MarkDown()\Table()\Column()\Width
+        Next
+        
+        If MarkDown()\Table()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Table()\Width : EndIf
+        
+      Next  
+      ;}
+      
+      ;{ _____ Notes _____
+      ForEach MarkDown()\Note()
+
+        TextHeight = 0
+        
+        DrawingFont(FontID(MarkDown()\Font\Normal))
+        MarkDown()\Note()\Height = TextHeight("X")
+        
+        ForEach MarkDown()\Note()\Row()
+  
+          MarkDown()\Note()\Row()\Width = 0
+          
+          ForEach MarkDown()\Note()\Row()\Words()
+          
+            DrawingFont_(MarkDown()\Note()\Row()\Words()\Font)
+            
+            Select MarkDown()\Note()\Row()\Words()\Flag
+              Case #Emoji     ;{ Emoji (16x16)
+                TextHeight = dpiY(16)
+                MarkDown()\Note()\Row()\Words()\Width = dpiX(16)
+                ;}
+              Case #Image     ;{ Image
+                
+                If SelectElement(MarkDown()\Image(), MarkDown()\Note()\Row()\Words()\Index)
+                  
+                  Image$ = GetFilePart(MarkDown()\Image()\Source)
+                  File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
+                  
+                  If FindMapElement(MarkDown()\ImageNum(), Image$) = #False
+                    If AddMapElement(MarkDown()\ImageNum(), Image$)
+                      MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
+                    EndIf
+                  EndIf
+                  
+                  If IsImage(MarkDown()\ImageNum())
+    			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
+    			          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
+    			          TextHeight = dpiY(MarkDown()\Image()\Height)
+    			          MarkDown()\Note()\Row()\Words()\Width = dpiX(MarkDown()\Image()\Width)  
+    			        EndIf
+   
+    			      EndIf
+    			      ;}
+    			    Case #Keystroke ;{ Keystroke (5 + Key + 5)  
+    			      TextHeight = TextHeight(MarkDown()\Note()\Row()\Words()\String)
+    			      MarkDown()\Note()\Row()\Words()\Width = TextWidth(MarkDown()\Note()\Row()\Words()\String) + dpiX(10)
+    			      ;}
+    			    Default  
+                TextHeight = TextHeight(MarkDown()\Note()\Row()\Words()\String)
+                MarkDown()\Note()\Row()\Words()\Width = TextWidth(MarkDown()\Note()\Row()\Words()\String)
+            EndSelect
+            
+            MarkDown()\Note()\Row()\Width + MarkDown()\Note()\Row()\Words()\Width
+            
+            If TextHeight > MarkDown()\Note()\Row()\Height : MarkDown()\Note()\Row()\Height = TextHeight : EndIf
+            
+          Next
+
+          MarkDown()\Note()\Row()\Height * MarkDown()\LineSpacing
+          MarkDown()\Note()\Height + MarkDown()\Note()\Row()\Height 
+          
+        Next
+
+        If MarkDown()\Note()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Note()\Width : EndIf 
+        
+      Next
+      
+      If ListSize(MarkDown()\Note()) : MarkDown()\Required\Height + MarkDown()\Note()\Height : EndIf
+      ;}
+      
+      ;{ _____ Footnotes _____
+      ForEach MarkDown()\FootLabel()
+        
+        TextHeight = 0
+
+        DrawingFont(FontID(MarkDown()\Font\FootText))
+        MarkDown()\FootLabel()\Width  = 0
+        MarkDown()\FootLabel()\Height = TextHeight("X")
+        
+        MarkDown()\Required\Height + MarkDown()\FootLabel()\Height
+        
+        ForEach MarkDown()\FootLabel()\Words()
+          
+          DrawingFont_(MarkDown()\FootLabel()\Words()\Font)
+
+          Select MarkDown()\FootLabel()\Words()\Flag
+            Case #Emoji     ;{ Emoji (16x16)
+              TextHeight = dpiY(16)
+              MarkDown()\FootLabel()\Words()\Width = dpiX(16)
+              ;}
+            Case #Image     ;{ Image
+              
+              If SelectElement(MarkDown()\Image(), MarkDown()\FootLabel()\Words()\Index)
+                
+                Image$ = GetFilePart(MarkDown()\Image()\Source)
+                File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
+                
+  			        If FindMapElement(MarkDown()\ImageNum(), Image$) = #False
+  			          If AddMapElement(MarkDown()\ImageNum(), Image$) 
+                    MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
+                  EndIf
+                EndIf
+                
+                If IsImage(MarkDown()\ImageNum())
+  			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
+  			          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
+  			          TextHeight = dpiY(MarkDown()\Image()\Height)
+  			          MarkDown()\Items()\Words()\Width = dpiX(MarkDown()\Image()\Width)  
+  			        EndIf
+  			        
+  			      EndIf
+  			      ;}
+  			    Case #Keystroke ;{ Keystroke (5 + Key + 5)  
+  			      TextHeight = TextHeight(MarkDown()\Items()\Words()\String)
+  			      MarkDown()\Items()\Words()\Width = TextWidth(MarkDown()\Items()\Words()\String) + dpiX(10) 
+  			      ;}  
+  			    Default  
+              TextHeight = TextHeight(MarkDown()\FootLabel()\Words()\String)
+              MarkDown()\FootLabel()\Words()\Width = TextWidth(MarkDown()\FootLabel()\Words()\String)
+          EndSelect
+          
+          MarkDown()\FootLabel()\Width + MarkDown()\FootLabel()\Words()\Width
+          If TextHeight > MarkDown()\FootLabel()\Height : MarkDown()\FootLabel()\Height = TextHeight : EndIf
+          
+        Next
+        
+        MarkDown()\Required\Height + MarkDown()\FootLabel()\Height
+        If MarkDown()\FootLabel()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\FootLabel()\Width : EndIf 
+        
+      Next ;}
+      
+      ;{ _____ Table of Contents _____
+      ForEach MarkDown()\TOC()
+        
+        TextHeight = 0
+        
+        DrawingFont(FontID(MarkDown()\Font\Normal))
+        
+        MarkDown()\TOC()\Height = TextHeight("X")
+        MarkDown()\TOC()\Width  = 0
+        
+        ForEach MarkDown()\TOC()\Words()
+          
+          DrawingFont_(MarkDown()\TOC()\Words()\Font)
+        
+          MarkDown()\TOC()\Width + TextWidth(MarkDown()\TOC()\Words()\String)
+          
+          TextHeight = TextHeight(MarkDown()\TOC()\Words()\String)
+          If TextHeight > MarkDown()\TOC()\Height : MarkDown()\TOC()\Height = TextHeight : EndIf
+          
+        Next
+        
+        MarkDown()\TOC()\Height * 1.3
+        
+      Next
+      ;}
+     
+  	EndProcedure 
+  	
+  CompilerEndIf
 	
   ;- __________ Convert HTML __________
   
@@ -7096,6 +7518,191 @@ Module MarkDown
   EndProcedure
   
   
+  CompilerIf #Enable_DrawCanvas
+    
+    Procedure   DrawText_()
+  	  Define.i X, Y, Width, Height, LeftBorder, WrapPos, TextWidth, TextHeight, MsgHeight, Cols
+  	  Define.i b, Indent, Level, Offset, OffSetX, OffSetY, maxCol, ImgSize
+  	  Define.i c, OffsetList, NumWidth, ColWidth, TableWidth
+  		Define.i FrontColor, BackColor, BorderColor, LinkColor
+  		Define.s Text$, Num$, ColText$, Label$, Image$, File$
+
+  		NewMap ListNum.i()
+  		
+  		X = dpiX(MarkDown()\Size\X)
+  		Y = dpiY(MarkDown()\Size\Y)
+  		
+  		If MarkDown()\Size\Width = #PB_Default
+  		  Width = dpiX(MarkDown()\Required\Width)
+  		Else
+  		  Width = dpiX(MarkDown()\Size\Width)
+  		EndIf   
+  		
+  		If MarkDown()\Size\Height = #PB_Default
+  		  Height = dpiY(MarkDown()\Required\Height)
+  		Else
+  		  Height = dpiY(MarkDown()\Size\Height)
+  		EndIf
+  		
+  		MarkDown()\LeftBorder = 0
+  		MarkDown()\WrapPos    = X + Width
+
+		  ; _____ Colors _____
+		  FrontColor  = MarkDown()\Color\Front
+		  BackColor   = MarkDown()\Color\Back
+		  LinkColor   = MarkDown()\Color\Link
+
+			; _____ Background _____
+		  DrawingMode(#PB_2DDrawing_Default)
+		  Box(X, Y, Width, Height, MarkDown()\Color\Back)
+
+      ;  _____ MarkDown _____
+			ForEach MarkDown()\Items()
+			  
+			  DrawingFont(FontID(MarkDown()\Font\Normal))
+			  
+			  TextHeight = TextHeight("X")
+			  
+			  Select MarkDown()\Items()\Type
+			    Case #Code             ;{ Code block
+			      
+			      Y + (TextHeight / 4)
+			      
+			      DrawingMode(#PB_2DDrawing_Transparent)
+			      DrawingFont_(MarkDown()\Block()\Font)
+			      
+			      If SelectElement(MarkDown()\Block(), MarkDown()\Items()\Index)
+			        ForEach MarkDown()\Block()\Row()
+			          DrawText(X, Y, MarkDown()\Block()\Row(), MarkDown()\Color\Code)
+			          Y + MarkDown()\Items()\Height
+			        Next
+			      EndIf
+			      
+			      Y + (TextHeight / 4)
+			      ;}
+			    Case #Heading          ;{ Headings
+			      If MarkDown()\Items()\ID : MarkDown()\HeadingID(MarkDown()\Items()\ID) = Y : EndIf
+			      Y + (TextHeight / 4)
+			      Y = DrawRow_(X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words())
+			      Y + (TextHeight / 4)
+			      ;}
+			    Case #Image            ;{ Images
+			      
+			      If SelectElement(MarkDown()\Image(), MarkDown()\Items()\Index)
+			        
+			        ;{ Load Image
+              Image$ = GetFilePart(MarkDown()\Image()\Source)
+              File$  = GetAbsolutePath_(MarkDown()\Path, MarkDown()\Image()\Source)
+
+              If FindMapElement(MarkDown()\ImageNum(),  Image$) = #False
+                If AddMapElement(MarkDown()\ImageNum(), Image$) 
+                  
+                  If IsImage(MarkDown()\ImageNum()) = #False
+                    MarkDown()\ImageNum() = LoadImage(#PB_Any, File$)
+                  EndIf
+    			        
+                EndIf
+              EndIf ;}
+
+    	        If IsImage(MarkDown()\ImageNum())
+   
+    	          OffSet = (Width - ImageWidth(MarkDown()\ImageNum())) / 2
+    	          
+    	          Y + (TextHeight / 2)
+    	          
+    	          DrawingMode(#PB_2DDrawing_AlphaBlend)
+    	          DrawImage(ImageID(MarkDown()\ImageNum()), X + OffSet, Y)
+    	          
+    	          MarkDown()\Image()\X = X + OffSet
+    	          MarkDown()\Image()\Y = Y
+    	          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
+    	          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
+    	          
+    	          Y + MarkDown()\Image()\Height
+    	          
+    	          If ListSize(MarkDown()\Items()\Words())
+    	            
+    	            Y + (TextHeight / 4)
+    	            
+    	            OffSetX = (MarkDown()\Image()\Width - MarkDown()\Items()\Width) / 2
+    	            
+    	            DrawingMode(#PB_2DDrawing_Transparent)
+    	            Y = DrawRow_(MarkDown()\Image()\X + OffSetX, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words())
+
+    	          EndIf
+    	          
+    	          Y + (TextHeight / 2)
+    	          
+    	        ElseIf ListSize(MarkDown()\Items()\Words())
+    	          
+    	          OffSetX = (Width - MarkDown()\Items()\Width) / 2
+    	          
+                DrawingMode(#PB_2DDrawing_Transparent)
+    	          Y = DrawRow_(X + OffSetX, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words())
+               
+    	        EndIf 
+    	        
+    	        If MarkDown()\Image()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Image()\Width : EndIf 
+    	        
+    	      EndIf
+			      ;}
+			    Case #Line             ;{ Horizontal rule  
+			  
+			      OffSetY = TextHeight / 2
+			      
+			      DrawingMode(#PB_2DDrawing_Default)
+			      Box(X, Y + OffSetY, Width, 2, MarkDown()\Color\Line)
+			      DrawingMode(#PB_2DDrawing_Transparent)
+			      
+			      Y + TextHeight
+			      ;}
+			    Case #DefinitionList   ;{ Definition list
+			      
+			      Y = DrawList_(MarkDown()\Items()\Index, #DefinitionList, ListNum(), X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote) 
+			      ;}
+			    Case #OrderedList      ;{ Ordered list
+			      
+            Y = DrawList_(MarkDown()\Items()\Index, #OrderedList, ListNum(), X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote) 
+            ;}
+			    Case #TaskList         ;{ Task list
+			      
+            Y = DrawList_(MarkDown()\Items()\Index, #TaskList, ListNum(), X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote) 
+			      ;}
+          Case #UnorderedList    ;{ Unordered list
+            Y = DrawList_(MarkDown()\Items()\Index, #UnorderedList, ListNum(), X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote) 
+			      ;}
+          Case #Glossary         ;{ Glossary
+            Y = DrawList_(MarkDown()\Items()\Index, #Glossary, ListNum(), X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote)
+            ;}
+          Case #Note             ;{ Note
+            Y = DrawNote(MarkDown()\Items()\Index, X, Y, Width) 
+            ;}
+          Case #Paragraph        ;{ Paragraph
+			       Y + (TextHeight / 2)
+			      ;}
+			    Case #Table            ;{ Table
+			      Y = DrawTable_(MarkDown()\Items()\Index, X, Y, MarkDown()\Items()\BlockQuote) 
+			      ;}
+			    Case #InsertTOC        ;{ Table of Contents
+			      Y = DrawTOC(X, Y)
+			      ;}
+			    Default                ;{ Text
+
+			      Y = DrawRow_(X, Y, MarkDown()\Items()\Width, MarkDown()\Items()\Height, MarkDown()\Items()\BlockQuote, MarkDown()\Items()\Words())
+			      ;}
+			  EndSelect
+			  
+			  If MarkDown()\Items()\Type <> #OrderedList And MarkDown()\Items()\Type <> #UnorderedList
+			    ClearMap(ListNum())
+			  EndIf   
+			  
+			Next
+
+  	EndProcedure
+
+  CompilerEndIf    
+  
+  
 	Procedure   Draw_()
 	  Define.i X, Y, Width, Height, LeftBorder, WrapPos, TextWidth, TextHeight, MsgHeight, Cols
 	  Define.i b, Indent, Level, Offset, OffSetX, OffSetY, maxCol, ImgSize
@@ -8549,21 +9156,23 @@ Module MarkDown
       Select MarkDown()\Type
         Case #ToolTip ;{ Tooltips
           
-          If MarkDown()\Tooltips\Window = WindowNum
-            
-            RemoveWindowTimer(MarkDown()\Window\Num, #TooltipTimer)
-            RemoveWindowTimer(MarkDown()\Window\Num, #MouseEventTimer)
-            
-            If IsWindow(MarkDown()\Window\Num)
-              CloseWindow(MarkDown()\Window\Num)
+          CompilerIf #Enable_Tooltips
+            If MarkDown()\Tooltips\Window = WindowNum
+              
+              RemoveWindowTimer(MarkDown()\Window\Num, #TooltipTimer)
+              RemoveWindowTimer(MarkDown()\Window\Num, #MouseEventTimer)
+              
+              If IsWindow(MarkDown()\Window\Num)
+                CloseWindow(MarkDown()\Window\Num)
+              EndIf
+              
+              DeleteMapElement(MouseEvent(), Str(MarkDown()\Tooltips\Window))
+              DeleteMapElement(Tooltips(),   Str(MarkDown()\Tooltips\Gadget))
+              DeleteMapElement(Timer(),      Str(MarkDown()\Tooltips\Gadget))
+              DeleteMapElement(MarkDown())
+              
             EndIf
-            
-            DeleteMapElement(MouseEvent(), Str(MarkDown()\Tooltips\Window))
-            DeleteMapElement(Tooltips(),   Str(MarkDown()\Tooltips\Gadget))
-            DeleteMapElement(Timer(),      Str(MarkDown()\Tooltips\Gadget))
-            DeleteMapElement(MarkDown())
-            
-          EndIf
+          CompilerEndIf  
           ;}
         Case #Gadget  ;{ Gadget
           
@@ -9028,7 +9637,6 @@ Module MarkDown
 	    MarkDown()\Text = Text
 	    
 	    Parse_(Text)
-	    
 	    DetermineTextSize_()
 	    
 	    ReDraw()
@@ -10003,6 +10611,149 @@ Module MarkDown
 	  EndProcedure  
 	  
 	CompilerEndIf  
+	
+	
+	;- _____ Draw Canvas _____
+	
+  CompilerIf #Enable_DrawCanvas
+	  
+	  Procedure   Text(X.i, Y.i, Text.s, FrontColor.i=#PB_Default, BackColor.i=#PB_Default, Width.i=#PB_Default, Height.i=#PB_Default)
+	    Define.i MapElement
+	    
+	    If FindMapElement(MarkDown(), #DrawText)
+	      MapElement = #True
+	    ElseIf AddMapElement(MarkDown(), #DrawText)
+	      MapElement = #True
+	    EndIf  
+	    
+      If MapElement
+        
+        MarkDown()\Type = #DrawCanvas
+        
+        MarkDown()\Size\X = X
+				MarkDown()\Size\Y = Y
+				MarkDown()\Size\Width  = Width
+				MarkDown()\Size\Height = Height
+
+				MarkDown()\Color\Front = FrontColor
+				MarkDown()\Color\Back  = BackColor
+				
+				If FrontColor = #PB_Default : MarkDown()\Color\Front = $000000 : EndIf 
+				If BackColor  = #PB_Default : MarkDown()\Color\Back  = $FFFFFF : EndIf 
+				
+				If MarkDown()\Font\Normal = #False
+				  Debug "Error: No fonts loaded"
+				  ProcedureReturn #False
+				EndIf
+				
+				MarkDown()\Text = Text
+    
+				Parse_(Text)
+				
+        DrawingTextSize_()
+        
+        DrawText_()
+        
+        ProcedureReturn #True
+      EndIf  
+
+	  EndProcedure
+	  
+	  Procedure   LoadFonts(Name.s, Size.i) ; Use it before StartDrawing()
+  	  Define.i MapElement
+	    
+	    If FindMapElement(MarkDown(), #DrawText)
+	      MapElement = #True
+	    ElseIf AddMapElement(MarkDown(), #DrawText)
+	      MapElement = #True
+	    EndIf  
+	    
+	    If MapElement
+	      
+	      MarkDown()\Type = #DrawCanvas
+	      
+	      FreeFonts_()
+        
+        LoadFonts_(Name, Size)
+        
+        DrawingTextSize_()
+	      
+	    EndIf
+      
+    EndProcedure
+	  
+	  Procedure.i Height(Canvas.i, Text.s="")
+	    Define.i MapElement
+	    
+	    If FindMapElement(MarkDown(), #DrawText)
+	      MapElement = #True
+	    ElseIf AddMapElement(MarkDown(), #DrawText)
+	      MapElement = #True
+	    EndIf  
+	    
+	    If MapElement
+	      
+	      MarkDown()\Type = #DrawCanvas
+	      
+	      If MarkDown()\Font\Normal = #False
+				  Debug "Error: No fonts loaded"
+				  ProcedureReturn #False
+				EndIf
+	      
+				If Text
+				  
+	        MarkDown()\Text = Text
+	        
+	        Parse_(Text)
+	        
+          DrawingTextSize_()
+          
+          ProcedureReturn MarkDown()\Required\Height
+	      Else
+	        ProcedureReturn MarkDown()\Required\Height
+	      EndIf   
+	      
+	    EndIf   
+	    
+	  EndProcedure
+	  
+	  Procedure.i Width(Canvas.i, Text.s="")
+	    Define.i MapElement
+	    
+	    If FindMapElement(MarkDown(), #DrawText)
+	      MapElement = #True
+	    ElseIf AddMapElement(MarkDown(), #DrawText)
+	      MapElement = #True
+	    EndIf  
+	    
+	    If MapElement
+	      
+	      MarkDown()\Type = #DrawCanvas
+	      
+	      If MarkDown()\Font\Normal = #False
+				  Debug "Error: No fonts loaded"
+				  ProcedureReturn #False
+				EndIf
+	      
+				If Text
+				  
+				  MarkDown()\Text = Text
+				  
+				  Parse_(Text)
+				  
+				  DrawingTextSize_()
+				  
+          ProcedureReturn MarkDown()\Required\Width
+	      Else
+	        ProcedureReturn MarkDown()\Required\Width
+	      EndIf   
+	      
+	    EndIf 
+	    
+	  EndProcedure  
+	  
+	CompilerEndIf
+	
 	
 	;- _____ Help Window _____
 	
@@ -11738,110 +12489,113 @@ CompilerIf #PB_Compiler_IsMainFile
 
   CompilerIf #Example < 20 
     
-    ;{ Examples - Gadget
-    Enumeration 
-      #Font 
-      #Window
-      #MarkDown
-      #Editor
-      #Button1
-      #Button2
-      #Button3
-      #Button4
-    EndEnumeration
+    ; Examples - Gadget
+    CompilerIf MarkDown::#Enable_Gadget
+      
+      Enumeration 
+        #Font 
+        #Window
+        #MarkDown
+        #Editor
+        #Button1
+        #Button2
+        #Button3
+        #Button4
+      EndEnumeration
     
-    LoadFont(#Font, "Arial", 10)
+      LoadFont(#Font, "Arial", 10)
+      
+      If OpenWindow(#Window, 0, 0, 300, 315, "Example", #PB_Window_SystemMenu|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
+        
+        EditorGadget(#Editor, 10, 10, 280, 275)
+        SetGadgetFont(#Editor, FontID(#Font))
+        HideGadget(#Editor, #True)
+        SetGadgetText(#Editor, Text$)
+        
+        ButtonGadget(#Button2, 10, 290, 60, 20, "View")
+        ButtonGadget(#Button1, 75, 290, 60, 20, "Edit")
+        
+        ButtonGadget(#Button3, 205, 290, 40, 20, "PDF")
+        ButtonGadget(#Button4, 250, 290, 40, 20, "HTML")
+  
+        DisableGadget(#Button2, #True)
+        
+        If MarkDown::Gadget(#MarkDown, 10, 10, 280, 275, MarkDown::#AutoResize)
+          MarkDown::SetText(#MarkDown, Text$)
+          MarkDown::SetFont(#MarkDown, "Arial", 10)
+          MarkDown::SetAttribute(#MarkDown, MarkDown::#ScrollBar, MarkDown::#ScrollBar_DragPoint)
+        EndIf
+        
+        CompilerIf MarkDown::#Enable_Tooltips
+          
+          MarkDown::TooltipColor(MarkDown::#Color_Back,   $F0FFFF)
+          MarkDown::TooltipColor(MarkDown::#Color_Border, $8CE6F0)
+          
+          MarkDown::Tooltip(#Button1, "Edit **Markdown**-Text", #Window)
+          MarkDown::Tooltip(#Button2, ":mag: View *Markdown*",        #Window) 
+          MarkDown::Tooltip(#Button3, "Export as **PDF**",      #Window)
+          MarkDown::Tooltip(#Button4, "Export as *HTML*",       #Window)
+          
+          SetActiveWindow(#Window)
+          
+        CompilerEndIf  
+  
+        Repeat
+          Event = WaitWindowEvent()
+          Select Event
+            Case MarkDown::#Event_Gadget ;{ Module Events
+              Select EventGadget()  
+                Case #MarkDown
+                  Select EventType()
+                    Case MarkDown::#EventType_Link ;{ Left mouse click
+                      RunProgram(MarkDown::EventValue(#MarkDown))
+                      ;}
+                  EndSelect
+              EndSelect ;}
+            Case #PB_Event_Gadget  
+              Select EventGadget()  
+                Case #Button1            ;{ Edit
+                  
+                  If EventType() = #PB_EventType_LeftClick
+                    HideGadget(#Editor,   #False)
+                    HideGadget(#MarkDown, #True)
+                    DisableGadget(#Button1, #True)
+                    DisableGadget(#Button2, #False)
+                  EndIf   
+                  ;}
+                Case #Button2            ;{ View
+                  
+                  If EventType() = #PB_EventType_LeftClick
+                    MarkDown::SetText(#MarkDown, GetGadgetText(#Editor))
+                    HideGadget(#Editor,     #True)
+                    HideGadget(#MarkDown,   #False)
+                    DisableGadget(#Button1, #False)
+                    DisableGadget(#Button2, #True)
+                  EndIf   
+                  ;}
+                Case #Button3            ;{ PDF
+                  If EventType() = #PB_EventType_LeftClick
+                    CompilerIf Defined(PDF, #PB_Module)
+                      MarkDown::SetText(#MarkDown, GetGadgetText(#Editor))
+                      MarkDown::Export(#MarkDown, MarkDown::#PDF, "Export.pdf", "PDF")
+                      RunProgram("Export.pdf")
+                    CompilerEndIf
+                  EndIf
+                  ;}
+                Case #Button4            ;{ HTML
+                  If EventType() = #PB_EventType_LeftClick
+                    MarkDown::Export(#MarkDown, MarkDown::#HTML, "Export.htm", "HTML")
+                    RunProgram("Export.htm")
+                  EndIf   
+                  ;}
+              EndSelect
+          EndSelect        
+        Until Event = #PB_Event_CloseWindow
     
-    If OpenWindow(#Window, 0, 0, 300, 315, "Example", #PB_Window_SystemMenu|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
-      
-      EditorGadget(#Editor, 10, 10, 280, 275)
-      SetGadgetFont(#Editor, FontID(#Font))
-      HideGadget(#Editor, #True)
-      SetGadgetText(#Editor, Text$)
-      
-      ButtonGadget(#Button2, 10, 290, 60, 20, "View")
-      ButtonGadget(#Button1, 75, 290, 60, 20, "Edit")
-      
-      ButtonGadget(#Button3, 205, 290, 40, 20, "PDF")
-      ButtonGadget(#Button4, 250, 290, 40, 20, "HTML")
-
-      DisableGadget(#Button2, #True)
-      
-      If MarkDown::Gadget(#MarkDown, 10, 10, 280, 275, MarkDown::#AutoResize)
-        MarkDown::SetText(#MarkDown, Text$)
-        MarkDown::SetFont(#MarkDown, "Arial", 10)
-        MarkDown::SetAttribute(#MarkDown, MarkDown::#ScrollBar, MarkDown::#ScrollBar_DragPoint)
+        CloseWindow(#Window)
       EndIf
       
-      CompilerIf MarkDown::#Enable_Tooltips
-        
-        MarkDown::TooltipColor(MarkDown::#Color_Back,   $F0FFFF)
-        MarkDown::TooltipColor(MarkDown::#Color_Border, $8CE6F0)
-        
-        MarkDown::Tooltip(#Button1, "Edit **Markdown**-Text", #Window)
-        MarkDown::Tooltip(#Button2, ":mag: View *Markdown*",        #Window) 
-        MarkDown::Tooltip(#Button3, "Export as **PDF**",      #Window)
-        MarkDown::Tooltip(#Button4, "Export as *HTML*",       #Window)
-        
-        SetActiveWindow(#Window)
-        
-      CompilerEndIf  
-
-      Repeat
-        Event = WaitWindowEvent()
-        Select Event
-          Case MarkDown::#Event_Gadget ;{ Module Events
-            Select EventGadget()  
-              Case #MarkDown
-                Select EventType()
-                  Case MarkDown::#EventType_Link ;{ Left mouse click
-                    RunProgram(MarkDown::EventValue(#MarkDown))
-                    ;}
-                EndSelect
-            EndSelect ;}
-          Case #PB_Event_Gadget  
-            Select EventGadget()  
-              Case #Button1            ;{ Edit
-                
-                If EventType() = #PB_EventType_LeftClick
-                  HideGadget(#Editor,   #False)
-                  HideGadget(#MarkDown, #True)
-                  DisableGadget(#Button1, #True)
-                  DisableGadget(#Button2, #False)
-                EndIf   
-                ;}
-              Case #Button2            ;{ View
-                
-                If EventType() = #PB_EventType_LeftClick
-                  MarkDown::SetText(#MarkDown, GetGadgetText(#Editor))
-                  HideGadget(#Editor,     #True)
-                  HideGadget(#MarkDown,   #False)
-                  DisableGadget(#Button1, #False)
-                  DisableGadget(#Button2, #True)
-                EndIf   
-                ;}
-              Case #Button3            ;{ PDF
-                If EventType() = #PB_EventType_LeftClick
-                  CompilerIf Defined(PDF, #PB_Module)
-                    MarkDown::SetText(#MarkDown, GetGadgetText(#Editor))
-                    MarkDown::Export(#MarkDown, MarkDown::#PDF, "Export.pdf", "PDF")
-                    RunProgram("Export.pdf")
-                  CompilerEndIf
-                EndIf
-                ;}
-              Case #Button4            ;{ HTML
-                If EventType() = #PB_EventType_LeftClick
-                  MarkDown::Export(#MarkDown, MarkDown::#HTML, "Export.htm", "HTML")
-                  RunProgram("Export.htm")
-                EndIf   
-                ;}
-            EndSelect
-        EndSelect        
-      Until Event = #PB_Event_CloseWindow
-  
-      CloseWindow(#Window)
-    EndIf 
-    ;}
+    CompilerEndIf  
    
   CompilerElseIf #Example < 30 
     
@@ -11905,10 +12659,10 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 9922
-; FirstLine = 742
-; Folding = wEAAAQAAoAAAAAAwAAAAFAAAAADAACAAYDAAAAAgBAAAAAAAAAAEAAxIAAAAAAAAAAAAAAAAAAAAAAACIBAACAAEAAAAAAAAAAwJSBAAAgBAAAAAAECAAwBB-
-; Markers = 4438
+; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
+; CursorPosition = 104
+; FirstLine = 6
+; Folding = ACAAAAAAQBAAAAAgDAAAAAAAAAAA9OAAAAAAAQAAAAAAIAAAAAAAAAAgAAIGBAAAAAAAAAAAAAAAA+--EAAABAIgEAAAAAwAAAAAAAAAAAIBIAoAAAEAAAAAAAAAAARE9
+; Markers = 4860
 ; EnableXP
 ; DPIAware
