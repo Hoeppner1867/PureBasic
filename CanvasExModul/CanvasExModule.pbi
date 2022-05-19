@@ -2,7 +2,7 @@
 ;/ =    CanvasExModule.pbi    =
 ;/ ============================
 ;/
-;/ [ PB V5.7x / 64Bit / All OS / DPI ]
+;/ [ PB V5.7x - V6x / 64Bit / All OS / DPI ]
 ;/
 ;/ Extends the CanvasGadget with new functions:
 ;/ - ScrollBars
@@ -10,6 +10,10 @@
 ;/ © 2022  by Thorsten Hoeppner (05/2022)
 ;/
 
+; Last Update: 18.05.2022
+;
+; - Bugfixes
+;
 
 ;{ ===== MIT License =====
 ;
@@ -66,14 +70,14 @@
 
 DeclareModule CanvasEx
   
-  #Version  = 22050700
+  #Version  = 22051100
   #ModuleEx = 22050900
   
 	;- ===========================================================================
 	;-   DeclareModule - Constants
 	;- ===========================================================================
   
-  EnumerationBinary ;{ Canvas Flags
+  EnumerationBinary Flags ;{ Canvas Flags
     #Vertical    = #PB_ScrollBar_Vertical
     #Horizontal
 
@@ -110,13 +114,13 @@ DeclareModule CanvasEx
 
 		#Event_Gadget = ModuleEx::#Event_Gadget
 		#Event_Theme  = ModuleEx::#Event_Theme
-		#Event_Timer  = ModuleEx::#Event_Timer
+		;#Event_Timer  = ModuleEx::#Event_Timer
 		
 	CompilerElse
 
 		Enumeration #PB_Event_FirstCustomValue
 		  #Event_Gadget
-		  #Event_Timer
+		  ;#Event_Timer
 		  #Event_CanvasArea
 		EndEnumeration
 
@@ -136,6 +140,7 @@ DeclareModule CanvasEx
   Declare.i ScrollBar(Canvas.i, Flags.i=#Horizontal, Window.i=#PB_Default)
   
   Declare   HideScrollBar(Canvas.i, State.i, Flags.i=#Horizontal)
+  Declare   AdjustScrollBars_(maxWidth.i, maxHeight.i, PageH.i, PageV.i, MaxH.i, MaxV.i, MinH.i=0, MinV.i=0)
   
   Declare.i GetAttribute(Canvas.i, Attribute.i, Type.i=#Canvas)
   Declare.i GetItemAttribute(Canvas.i, Type.i, Attribute.i)
@@ -174,11 +179,11 @@ Module CanvasEx
 	  #Hover
 	EndEnumeration ;}
 	
-	Enumeration 1     ;{ Direction
-	  #Up
-	  #Left
-	  #Right
-	  #Down
+	EnumerationBinary Flags   ;{ Direction
+	  #Scrollbar_Up
+	  #Scrollbar_Left
+	  #Scrollbar_Right
+	  #Scrollbar_Down
 	  #Forwards
 	  #Backwards
 	EndEnumeration ;}
@@ -314,6 +319,8 @@ Module CanvasEx
 	EndStructure ;}
 	Global NewMap CanvasEx.CanvasEx_Structure()
 	
+	Global Mutex.i = CreateMutex()
+	
 	;- ============================================================================
 	;-   Module - Internal
 	;- ============================================================================
@@ -412,16 +419,12 @@ Module CanvasEx
 	EndProcedure
 	
 	
-  Procedure.f dpiX(Num.i)
-	  If Num > 0  
-	    ProcedureReturn DesktopScaledX(Num)
-	  EndIf   
+  Procedure.i dpiX(Num.i)
+	  ProcedureReturn DesktopScaledX(Num) 
 	EndProcedure
 
-	Procedure.f dpiY(Num.i)
-	  If Num > 0  
-	    ProcedureReturn DesktopScaledY(Num)
-	  EndIf  
+	Procedure.i dpiY(Num.i)
+	  ProcedureReturn DesktopScaledY(Num)  
 	EndProcedure
 	
 	
@@ -435,69 +438,72 @@ Module CanvasEx
 	  
 	  ;{ Calc available canvas area
 	  If CanvasEx()\Scrollbar\Flags & #Horizontal And CanvasEx()\Scrollbar\Flags & #Vertical
-	    If CanvasEx()\HScroll\Hide
-	      CanvasEx()\Area\Width  = Width  - ScrollbarSize - 1
+	    If CanvasEx()\HScroll\Hide And CanvasEx()\VScroll\Hide
+	      CanvasEx()\Area\Width  = Width  - 2
+        CanvasEx()\Area\Height = Height - 2
+	    ElseIf CanvasEx()\HScroll\Hide
+	      CanvasEx()\Area\Width  = Width  - ScrollbarSize - 3
         CanvasEx()\Area\Height = Height
 	    ElseIf CanvasEx()\VScroll\Hide
 	      CanvasEx()\Area\Width  = Width
-        CanvasEx()\Area\Height = Height - ScrollbarSize - 1
+        CanvasEx()\Area\Height = Height - ScrollbarSize - 3
 	    Else
-	      CanvasEx()\Area\Width  = Width  - ScrollbarSize - 1
-        CanvasEx()\Area\Height = Height - ScrollbarSize - 1
+	      CanvasEx()\Area\Width  = Width  - ScrollbarSize - 3
+        CanvasEx()\Area\Height = Height - ScrollbarSize - 3
 	    EndIf  
 	  ElseIf CanvasEx()\Scrollbar\Flags & #Horizontal
       CanvasEx()\Area\Width  = Width
-      CanvasEx()\Area\Height = Height - ScrollbarSize - 1
+      CanvasEx()\Area\Height = Height - ScrollbarSize - 3
     ElseIf CanvasEx()\Scrollbar\Flags & #Vertical
-      CanvasEx()\Area\Width  = Width - ScrollbarSize - 1
+      CanvasEx()\Area\Width  = Width  - ScrollbarSize - 3
       CanvasEx()\Area\Height = Height
     Else
-      CanvasEx()\Area\Width  = Width
-      CanvasEx()\Area\Height = Height
+      CanvasEx()\Area\Width  = Width  - 2
+      CanvasEx()\Area\Height = Height - 2
     EndIf ;}
     
     ;{ Calc scrollbar size
     If CanvasEx()\Scrollbar\Flags & #Horizontal And CanvasEx()\Scrollbar\Flags & #Vertical
       If CanvasEx()\HScroll\Hide      ;{ only vertical visible
         
-        CanvasEx()\VScroll\X        = Width - ScrollbarSize
-        CanvasEx()\VScroll\Y        = 0
+        CanvasEx()\VScroll\X        = Width - ScrollbarSize - 1
+        CanvasEx()\VScroll\Y        = 1
         CanvasEx()\VScroll\Width    = ScrollbarSize
-        CanvasEx()\VScroll\Height   = Height
+        CanvasEx()\VScroll\Height   = Height - 2
         ;}
       ElseIf CanvasEx()\VScroll\Hide  ;{ only horizontal visible
         
-        CanvasEx()\HScroll\X        = 0
-        CanvasEx()\HScroll\Y        = Height - ScrollbarSize
-        CanvasEx()\HScroll\Width    = Width
+        CanvasEx()\HScroll\X        = 1
+        CanvasEx()\HScroll\Y        = Height - ScrollbarSize - 1
+        CanvasEx()\HScroll\Width    = Width - 2
         CanvasEx()\HScroll\Height   = ScrollbarSize
         ;}
       Else                            ;{ both scrollbars visible
         
-        CanvasEx()\HScroll\X        = 0
-        CanvasEx()\HScroll\Y        = Height - ScrollbarSize
-        CanvasEx()\HScroll\Width    = Width  - ScrollbarSize
+        CanvasEx()\HScroll\X        = 1
+        CanvasEx()\HScroll\Y        = Height - ScrollbarSize - 1
+        CanvasEx()\HScroll\Width    = Width  - ScrollbarSize - 2
         CanvasEx()\HScroll\Height   = ScrollbarSize
         
-        CanvasEx()\VScroll\X        = Width - ScrollbarSize
-        CanvasEx()\VScroll\Y        = 0
+        CanvasEx()\VScroll\X        = Width - ScrollbarSize  - 1
+        CanvasEx()\VScroll\Y        = 1
         CanvasEx()\VScroll\Width    = ScrollbarSize
-        CanvasEx()\VScroll\Height   = Height - ScrollbarSize
+        CanvasEx()\VScroll\Height   = Height - ScrollbarSize - 2
         ;}
       EndIf  
     ElseIf CanvasEx()\Scrollbar\Flags & #Horizontal        ;{ only horizontal availible
       
-      CanvasEx()\HScroll\X        = 0
-      CanvasEx()\HScroll\Y        = Height - ScrollbarSize
-      CanvasEx()\HScroll\Width    = Width
+      CanvasEx()\HScroll\X        = 1
+      CanvasEx()\HScroll\Y        = Height - ScrollbarSize -1
+      CanvasEx()\HScroll\Width    = Width - 2
       CanvasEx()\HScroll\Height   = ScrollbarSize
       ;}
     ElseIf CanvasEx()\Scrollbar\Flags & #Vertical          ;{ only vertical availible
       
-      CanvasEx()\VScroll\X        = Width - ScrollbarSize
-      CanvasEx()\VScroll\Y        = 0
+      CanvasEx()\VScroll\X        = Width - ScrollbarSize - 1
+      CanvasEx()\VScroll\Y        = 1
       CanvasEx()\VScroll\Width    = ScrollbarSize
-      CanvasEx()\VScroll\Height   = Height
+      CanvasEx()\VScroll\Height   = Height - 2
       ;}
     EndIf ;} 
     
@@ -506,10 +512,10 @@ Module CanvasEx
       CanvasEx()\HScroll\Buttons\Width  = ScrollbarSize
       CanvasEx()\HScroll\Buttons\Height = ScrollbarSize
       ; forward: right
-      CanvasEx()\HScroll\Buttons\fX     = CanvasEx()\HScroll\Width - ScrollbarSize
+      CanvasEx()\HScroll\Buttons\fX     = CanvasEx()\HScroll\X + CanvasEx()\HScroll\Width - ScrollbarSize
       CanvasEx()\HScroll\Buttons\fY     = CanvasEx()\HScroll\Y
       ; backward: left
-      CanvasEx()\HScroll\Buttons\bX     = 0
+      CanvasEx()\HScroll\Buttons\bX     = CanvasEx()\HScroll\X
       CanvasEx()\HScroll\Buttons\bY     = CanvasEx()\HScroll\Y
     EndIf
     
@@ -518,16 +524,16 @@ Module CanvasEx
       CanvasEx()\VScroll\Buttons\Height = ScrollbarSize
       ; forward: down
       CanvasEx()\VScroll\Buttons\fX     = CanvasEx()\VScroll\X
-      CanvasEx()\VScroll\Buttons\fY     = CanvasEx()\VScroll\Height - ScrollbarSize
+      CanvasEx()\VScroll\Buttons\fY     = CanvasEx()\VScroll\Y + CanvasEx()\VScroll\Height - ScrollbarSize
       ; backward: up
       CanvasEx()\VScroll\Buttons\bX     = CanvasEx()\VScroll\X
-      CanvasEx()\VScroll\Buttons\bY     = 0
+      CanvasEx()\VScroll\Buttons\bY     = CanvasEx()\VScroll\Y
     EndIf
     ;}
     
     ;{ Calc scroll area between buttons
     If CanvasEx()\Scrollbar\Flags & #Horizontal
-      CanvasEx()\HScroll\Area\X      = ScrollbarSize
+      CanvasEx()\HScroll\Area\X      = CanvasEx()\HScroll\X + ScrollbarSize
   		CanvasEx()\HScroll\Area\Y      = CanvasEx()\HScroll\Y
   		CanvasEx()\HScroll\Area\Width  = CanvasEx()\HScroll\Width - (ScrollbarSize * 2)
   		CanvasEx()\HScroll\Area\Height = ScrollbarSize
@@ -535,7 +541,7 @@ Module CanvasEx
     
     If CanvasEx()\Scrollbar\Flags & #Vertical
       CanvasEx()\VScroll\Area\X      = CanvasEx()\VScroll\X
-  		CanvasEx()\VScroll\Area\Y      = ScrollbarSize 
+  		CanvasEx()\VScroll\Area\Y      = CanvasEx()\VScroll\Y + ScrollbarSize 
   		CanvasEx()\VScroll\Area\Width  = ScrollbarSize
   		CanvasEx()\VScroll\Area\Height = CanvasEx()\VScroll\Height - (ScrollbarSize * 2)
     EndIf  		
@@ -614,7 +620,7 @@ Module CanvasEx
 	
 	
 	Procedure.i GetThumbPosX_(X.i)   ; Horizontal Scrollbar
-	  Define.i Delta, Pos
+	  Define.i Delta, Offset
 	  
 	  Delta = X - CanvasEx()\HScroll\CursorPos
 	  CanvasEx()\HScroll\Thumb\X + Delta 
@@ -627,16 +633,17 @@ Module CanvasEx
 	    CanvasEx()\HScroll\Thumb\X = CanvasEx()\HScroll\Area\X + CanvasEx()\HScroll\Area\Width - CanvasEx()\HScroll\Thumb\Width
 	  EndIf
 
-	  Pos = Round((CanvasEx()\HScroll\Thumb\X - CanvasEx()\HScroll\Area\X) * CanvasEx()\HScroll\Factor, #PB_Round_Nearest)
+	  Offset = CanvasEx()\HScroll\Thumb\X - CanvasEx()\HScroll\Area\X
+	  CanvasEx()\HScroll\Pos = Round(Offset / CanvasEx()\HScroll\Factor, #PB_Round_Nearest) + CanvasEx()\HScroll\minPos
 	  
 	  If CanvasEx()\HScroll\Pos > CanvasEx()\HScroll\maxPos : CanvasEx()\HScroll\Pos = CanvasEx()\HScroll\maxPos : EndIf
   	If CanvasEx()\HScroll\Pos < CanvasEx()\HScroll\minPos : CanvasEx()\HScroll\Pos = CanvasEx()\HScroll\minPos : EndIf
 	  
-	  ProcedureReturn Pos
+	  ProcedureReturn CanvasEx()\HScroll\Pos
 	EndProcedure  
 	
 	Procedure.i GetThumbPosY_(Y.i)   ; Vertical Scrollbar
-	  Define.i Delta, Pos
+	  Define.i Delta, Offset
 
 	  Delta = Y - CanvasEx()\VScroll\CursorPos
 	  CanvasEx()\VScroll\Thumb\Y + Delta 
@@ -649,13 +656,13 @@ Module CanvasEx
 	    CanvasEx()\VScroll\Thumb\Y =  CanvasEx()\VScroll\Area\Y + CanvasEx()\VScroll\Area\Height - CanvasEx()\VScroll\Thumb\Height
 	  EndIf
 	  
-	  
-	  Pos = Round((CanvasEx()\VScroll\Thumb\Y -  CanvasEx()\VScroll\Area\Y) * CanvasEx()\VScroll\Factor, #PB_Round_Nearest)
+	  Offset = CanvasEx()\VScroll\Thumb\Y - CanvasEx()\VScroll\Area\Y
+	  CanvasEx()\VScroll\Pos = Round(Offset / CanvasEx()\VScroll\Factor, #PB_Round_Nearest) + CanvasEx()\VScroll\minPos
 	  
 	  If CanvasEx()\VScroll\Pos > CanvasEx()\VScroll\maxPos : CanvasEx()\VScroll\Pos = CanvasEx()\VScroll\maxPos : EndIf
   	If CanvasEx()\VScroll\Pos < CanvasEx()\VScroll\minPos : CanvasEx()\VScroll\Pos = CanvasEx()\VScroll\minPos : EndIf
 	  
-	  ProcedureReturn Pos
+	  ProcedureReturn CanvasEx()\VScroll\Pos
 	EndProcedure  
 	
 	
@@ -684,7 +691,6 @@ Module CanvasEx
     CanvasEx()\VScroll\Thumb\Y = CanvasEx()\VScroll\Area\Y + Offset
 
 	EndProcedure
-	
 	
   ;- ============================================================================
 	;-   Module - Drawing
@@ -721,22 +727,22 @@ Module CanvasEx
 	  aColor= RGBA(Red(Color), Green(Color), Blue(Color), 255)
 	  
 	  Select Direction ;{ Position & Size
-	    Case #Down
+	    Case #Scrollbar_Down
 	      X       = CanvasEx()\VScroll\Buttons\fX
 	      Y       = CanvasEx()\VScroll\Buttons\fY
 	      Width   = CanvasEx()\VScroll\Buttons\Width
 	      Height  = CanvasEx()\VScroll\Buttons\Height
-	    Case #Up
+	    Case #Scrollbar_Up
 	      X       = CanvasEx()\VScroll\Buttons\bX
 	      Y       = CanvasEx()\VScroll\Buttons\bY
 	      Width   = CanvasEx()\VScroll\Buttons\Width
 	      Height  = CanvasEx()\VScroll\Buttons\Height
-	    Case #Left
+	    Case #Scrollbar_Left
 	      X       = CanvasEx()\HScroll\Buttons\bX
 	      Y       = CanvasEx()\HScroll\Buttons\bY
 	      Width   = CanvasEx()\HScroll\Buttons\Width
 	      Height  = CanvasEx()\HScroll\Buttons\Height
-	    Case #Right
+	    Case #Scrollbar_Right
 	      X       = CanvasEx()\HScroll\Buttons\fX
 	      Y       = CanvasEx()\HScroll\Buttons\fY
 	      Width   = CanvasEx()\HScroll\Buttons\Width
@@ -745,7 +751,7 @@ Module CanvasEx
 	  
 	  If CanvasEx()\Scrollbar\Flags & #Style_Win11 ;{ Arrow Size
 	    
-	    If Direction = #Down Or Direction = #Up 
+	    If Direction = #Scrollbar_Down Or Direction = #Scrollbar_Up 
 	      aWidth  = 10
     	  aHeight =  7
 	    Else
@@ -775,12 +781,12 @@ Module CanvasEx
 	    
 	  Else
 	    
-	    If Direction = #Down Or Direction = #Up
-  	    aWidth  = dpiX(8)
-  	    aHeight = dpiX(4)
+	    If Direction = #Scrollbar_Down Or Direction = #Scrollbar_Up
+  	    aWidth  = 8
+  	    aHeight = 4
   	  Else
-        aWidth  = dpiX(4)
-        aHeight = dpiX(8)   
+        aWidth  = 4
+        aHeight = 8
 	    EndIf  
       ;}
 	  EndIf  
@@ -793,22 +799,22 @@ Module CanvasEx
       If CanvasEx()\Scrollbar\Flags & #Style_Win11 ;{ solid
 
         Select Direction
-          Case #Up
+          Case #Scrollbar_Up
             MovePathCursor(dpiX(X), dpiY(Y + aHeight))
             AddPathLine(dpiX(X + aWidth / 2), dpiY(Y))
             AddPathLine(dpiX(X + aWidth), dpiY(Y + aHeight))
             ClosePath()
-          Case #Down 
+          Case #Scrollbar_Down 
             MovePathCursor(dpiX(X), dpiY(Y))
             AddPathLine(dpiX(X + aWidth / 2), dpiY(Y + aHeight))
             AddPathLine(dpiX(X + aWidth), dpiY(Y))
             ClosePath()
-          Case #Left
+          Case #Scrollbar_Left
             MovePathCursor(dpiX(X + aWidth), dpiY(Y))
             AddPathLine(dpiX(X), dpiY(Y + aHeight / 2))
             AddPathLine(dpiX(X + aWidth), dpiY(Y + aHeight))
             ClosePath()
-          Case #Right
+          Case #Scrollbar_Right
             MovePathCursor(dpiX(X), dpiY(Y))
             AddPathLine(dpiX(X + aWidth), dpiY(Y + aHeight / 2))
             AddPathLine(dpiX(X), dpiY(Y + aHeight))
@@ -822,19 +828,19 @@ Module CanvasEx
       Else                               ;{ /\
 
         Select Direction
-          Case #Up
+          Case #Scrollbar_Up
             MovePathCursor(dpiX(X), dpiY(Y + aHeight))
             AddPathLine(dpiX(X + aWidth / 2), dpiY(Y))
             AddPathLine(dpiX(X + aWidth), dpiY(Y + aHeight))
-          Case #Down 
+          Case #Scrollbar_Down 
             MovePathCursor(dpiX(X), dpiY(Y))
             AddPathLine(dpiX(X + aWidth / 2), dpiY(Y + aHeight))
             AddPathLine(dpiX(X + aWidth), dpiY(Y))
-          Case #Left
+          Case #Scrollbar_Left
             MovePathCursor(dpiX(X + aWidth), dpiY(Y))
             AddPathLine(dpiX(X), dpiY(Y + aHeight / 2))
             AddPathLine(dpiX(X + aWidth), dpiY(Y + aHeight))
-          Case #Right
+          Case #Scrollbar_Right
             MovePathCursor(dpiX(X), dpiY(Y))
             AddPathLine(dpiX(X + aWidth), dpiY(Y + aHeight / 2))
             AddPathLine(dpiX(X), dpiY(Y + aHeight))
@@ -850,12 +856,14 @@ Module CanvasEx
 	  
 	EndProcedure
   
-	Procedure   DrawButton_(Scrollbar.i, Type.i)
+	Procedure   DrawScrollButton_(Scrollbar.i, Type.i)
 	  Define.i X, Y, Width, Height
 	  Define.i ArrowColor, ButtonColor, Direction, State
 	  
 	  Select Scrollbar ;{ Position, Size, State & Direction
 	    Case #Horizontal
+	      
+	      If CanvasEx()\HScroll\Hide : ProcedureReturn #False : EndIf
 	      
         Width  = CanvasEx()\HScroll\Buttons\Width
         Height = CanvasEx()\HScroll\Buttons\Height
@@ -865,15 +873,17 @@ Module CanvasEx
             X      = CanvasEx()\HScroll\Buttons\fX
             Y      = CanvasEx()\HScroll\Buttons\fY
             State  = CanvasEx()\HScroll\Buttons\fState
-            Direction = #Right
+            Direction = #Scrollbar_Right
   	      Case #Backwards
   	        X     = CanvasEx()\HScroll\Buttons\bX
             Y     = CanvasEx()\HScroll\Buttons\bY
             State = CanvasEx()\HScroll\Buttons\bState
-            Direction = #Left
+            Direction = #Scrollbar_Left
   	    EndSelect 
         
       Case #Vertical
+        
+        If CanvasEx()\VScroll\Hide : ProcedureReturn #False : EndIf
         
         Width  = CanvasEx()\VScroll\Buttons\Width
         Height = CanvasEx()\VScroll\Buttons\Height
@@ -883,12 +893,12 @@ Module CanvasEx
             X     = CanvasEx()\VScroll\Buttons\fX
             Y     = CanvasEx()\VScroll\Buttons\fY
             State = CanvasEx()\VScroll\Buttons\fState
-            Direction = #Down
+            Direction = #Scrollbar_Down
   	      Case #Backwards
   	        X     = CanvasEx()\VScroll\Buttons\bX
             Y     = CanvasEx()\VScroll\Buttons\bY
             State = CanvasEx()\VScroll\Buttons\bState
-            Direction = #Up
+            Direction = #Scrollbar_Up
         EndSelect
         ;}
     EndSelect    
@@ -949,9 +959,17 @@ Module CanvasEx
 	  ;{ ----- Thumb cursor state -----
 	  Select Scrollbar 
 	    Case #Horizontal
+	      
+	      If CanvasEx()\HScroll\Hide : ProcedureReturn #False : EndIf
+	      
 	      ThumbState = CanvasEx()\HScroll\Thumb\State
-  	  Case #Vertical
+	      
+	    Case #Vertical
+	      
+	      If CanvasEx()\VScroll\Hide : ProcedureReturn #False : EndIf
+	      
   	    ThumbState = CanvasEx()\VScroll\Thumb\State
+  	    
   	EndSelect ;}    
   	
   	;{ ----- Colors -----
@@ -1026,7 +1044,7 @@ Module CanvasEx
   	
 	EndProcedure  
 	
-	Procedure   DrawScrollBar_(Hide.i=#False)
+	Procedure   DrawScrollBar_(ScrollBar.i=#False)
 		Define.i OffsetX, OffsetY
 		Define.i FrontColor, BackColor, BorderColor, ScrollBorderColor
 		
@@ -1047,40 +1065,78 @@ Module CanvasEx
       
 		  DrawingMode(#PB_2DDrawing_Default)
 		  
-		  If CanvasEx()\Scrollbar\Flags & #Horizontal
+		  If CanvasEx()\Scrollbar\Flags & #Horizontal And CanvasEx()\Scrollbar\Flags & #Vertical
 		    
-		    If CanvasEx()\HScroll\Hide
-		      Box_(0, CanvasEx()\HScroll\Y, GadgetWidth(CanvasEx()\Gadget), CanvasEx()\HScroll\Height, CanvasEx()\Color\Back)
-		    Else  
-		      Box_(0, CanvasEx()\HScroll\Y, GadgetWidth(CanvasEx()\Gadget), CanvasEx()\HScroll\Height, CanvasEx()\Color\Gadget)
-		    EndIf
+  		  If ScrollBar = #Horizontal|#Vertical
+      		
+  		    If CanvasEx()\HScroll\Hide = #False
+  		      Box_(CanvasEx()\HScroll\X, CanvasEx()\HScroll\Y, GadgetWidth(CanvasEx()\Gadget) - 2, CanvasEx()\HScroll\Height, CanvasEx()\Color\Gadget)
+  		    EndIf 
+  
+  		    If CanvasEx()\VScroll\Hide = #False
+  		      Box_(CanvasEx()\VScroll\X, CanvasEx()\VScroll\Y, CanvasEx()\VScroll\Width, GadgetHeight(CanvasEx()\Gadget) - 2, CanvasEx()\Color\Gadget)
+  		    EndIf
+  		    
+  		  EndIf 
+  		  
+  		ElseIf CanvasEx()\Scrollbar\Flags & #Horizontal
+  		  
+  		  If ScrollBar = #Horizontal
+  		    If CanvasEx()\HScroll\Hide = #False
+  		      Box_(CanvasEx()\HScroll\X, CanvasEx()\HScroll\Y, GadgetWidth(CanvasEx()\Gadget) - 2, CanvasEx()\HScroll\Height, CanvasEx()\Color\Gadget)
+  		    EndIf
+  		  EndIf
+  		    
+		  ElseIf CanvasEx()\Scrollbar\Flags & #Vertical
 		    
-		  EndIf   
-		  
-		  If CanvasEx()\Scrollbar\Flags & #Vertical
-
-		    If CanvasEx()\VScroll\Hide
-		      Box_(CanvasEx()\VScroll\X, 0, CanvasEx()\VScroll\Width, GadgetHeight(CanvasEx()\Gadget), CanvasEx()\Color\Back)
-		    Else
-		      Box_(CanvasEx()\VScroll\X, 0, CanvasEx()\VScroll\Width, GadgetHeight(CanvasEx()\Gadget), CanvasEx()\Color\Gadget)
-		    EndIf
-		    
+		    If ScrollBar = #Vertical
+  		    If CanvasEx()\VScroll\Hide = #False
+  		      Box_(CanvasEx()\VScroll\X, CanvasEx()\VScroll\Y, CanvasEx()\VScroll\Width, GadgetHeight(CanvasEx()\Gadget) - 2, CanvasEx()\Color\Gadget)
+  		    EndIf
+  		  EndIf
+  		  
 		  EndIf  
 		  
 		  StopDrawing()
 		EndIf
 		
-		If CanvasEx()\Scrollbar\Flags & #Horizontal And CanvasEx()\HScroll\Hide = #False
-		  DrawButton_(#Horizontal, #Forwards)
-		  DrawButton_(#Horizontal, #Backwards)
-		  DrawThumb_(#Horizontal)
-		EndIf
-		
-		If CanvasEx()\Scrollbar\Flags & #Vertical And CanvasEx()\VScroll\Hide = #False
-		  DrawButton_(#Vertical, #Forwards)
-		  DrawButton_(#Vertical, #Backwards)
-		  DrawThumb_(#Vertical)
-		EndIf  
+		Select ScrollBar
+		  Case #Horizontal  
+		    If CanvasEx()\HScroll\Hide = #False
+  		    DrawScrollButton_(#Horizontal, #Forwards)
+      		DrawScrollButton_(#Horizontal, #Backwards)
+      		DrawThumb_(#Horizontal)
+        EndIf		
+  		Case #Vertical
+  		  If CanvasEx()\VScroll\Hide = #False
+  		    DrawScrollButton_(#Vertical, #Forwards)
+      		DrawScrollButton_(#Vertical, #Backwards)
+      		DrawThumb_(#Vertical)
+    		EndIf 
+		  Case #Scrollbar_Left
+		    DrawThumb_(#Horizontal)
+		    DrawScrollButton_(#Horizontal, #Backwards)
+		  Case #Scrollbar_Right
+		    DrawThumb_(#Horizontal)
+		    DrawScrollButton_(#Horizontal, #Forwards)
+		  Case #Scrollbar_Up
+		    DrawThumb_(#Vertical)
+		    DrawScrollButton_(#Vertical, #Backwards)
+		  Case #Scrollbar_Down
+		    DrawThumb_(#Vertical)
+		    DrawScrollButton_(#Vertical, #Forwards)
+		  Case #Horizontal|#Vertical
+		    If CanvasEx()\HScroll\Hide = #False
+    		  DrawScrollButton_(#Horizontal, #Forwards)
+    		  DrawScrollButton_(#Horizontal, #Backwards)
+    		  DrawThumb_(#Horizontal)
+    		EndIf
+    		If CanvasEx()\VScroll\Hide = #False
+    		  DrawScrollButton_(#Vertical, #Forwards)
+    		  DrawScrollButton_(#Vertical, #Backwards)
+    		  DrawThumb_(#Vertical)
+    		EndIf 
+		EndSelect    
 
 	EndProcedure
 	
@@ -1091,7 +1147,9 @@ Module CanvasEx
 	
 	Procedure _AutoScroll()
     Define.i X, Y
-
+    
+    LockMutex(Mutex)
+    
     ForEach CanvasEx()
 
       If CanvasEx()\HScroll\Timer ;{ Horizontal Scrollbar
@@ -1102,9 +1160,9 @@ Module CanvasEx
         EndIf  
         
         Select CanvasEx()\HScroll\Timer
-          Case #Left
+          Case #Scrollbar_Left
             SetThumbPosX_(CanvasEx()\HScroll\Pos - 1)
-          Case #Right
+          Case #Scrollbar_Right
             SetThumbPosX_(CanvasEx()\HScroll\Pos + 1)
         EndSelect
         
@@ -1122,9 +1180,9 @@ Module CanvasEx
         EndIf  
         
         Select CanvasEx()\VScroll\Timer
-          Case #Up
+          Case #Scrollbar_Up
             SetThumbPosY_(CanvasEx()\VScroll\Pos - 1)
-          Case #Down
+          Case #Scrollbar_Down
             SetThumbPosY_(CanvasEx()\VScroll\Pos + 1)
   			EndSelect
   			
@@ -1136,97 +1194,124 @@ Module CanvasEx
       
     Next
     
+    UnlockMutex(Mutex)
+    
   EndProcedure
   
 	
 	Procedure _LeftButtonDownHandler()
 	  Define.i GNum = EventGadget()
-		Define.i X, Y
+		Define.i X, Y, dX, dY
 
 		If FindMapElement(CanvasEx(), Str(GNum))
 
-			X = DesktopUnscaledX(GetGadgetAttribute(GNum, #PB_Canvas_MouseX)) ; DPI?
-			Y = DesktopUnscaledY(GetGadgetAttribute(GNum, #PB_Canvas_MouseY)) ; DPI?
-
+			dX = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
+			dY = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
+			
+			X = DesktopUnscaledX(dX)
+			Y = DesktopUnscaledY(dY)
+			
 			If CanvasEx()\Flags & #Horizontal ;{ Horizontal Scrollbar
 			  
-			  CanvasEx()\HScroll\CursorPos = #PB_Default
-			  
-			  If CanvasEx()\HScroll\Focus
+			  If CanvasEx()\HScroll\Hide = #False
 			    
-  			  If X > CanvasEx()\HScroll\Buttons\bX And  X < CanvasEx()\HScroll\Buttons\bX + CanvasEx()\HScroll\Buttons\Width
-  			    
-  			    ; --- Backwards Button ---
-  			    If CanvasEx()\HScroll\Buttons\bState <> #Click
-  			      CanvasEx()\HScroll\Delay = CanvasEx()\Scrollbar\TimerDelay
-  			      CanvasEx()\HScroll\Timer = #Left
-  			      CanvasEx()\HScroll\Buttons\bState = #Click
-  			      DrawButton_(#Horizontal, #Backwards)
-  			    EndIf
-  			    
-  			  ElseIf X > CanvasEx()\HScroll\Buttons\fX And  X < CanvasEx()\HScroll\Buttons\fX + CanvasEx()\HScroll\Buttons\Width
-  			    
-  			    ; --- Forwards Button ---
-  			    If CanvasEx()\HScroll\Buttons\fState <> #Click
-  			      CanvasEx()\HScroll\Delay = CanvasEx()\Scrollbar\TimerDelay
-  			      CanvasEx()\HScroll\Timer = #Right
-  			      CanvasEx()\HScroll\Buttons\fState = #Click
-  			      DrawButton_(#Horizontal, #Forwards)
-  			    EndIf
-  			    
-  			  ElseIf  X > CanvasEx()\HScroll\Thumb\X And X < CanvasEx()\HScroll\Thumb\X + CanvasEx()\HScroll\Thumb\Width
-  			    
-  			    ; --- Thumb Button ---
-  			    If CanvasEx()\HScroll\Thumb\State <> #Click
-  			      CanvasEx()\HScroll\Thumb\State = #Click
-  			      CanvasEx()\HScroll\CursorPos = X
-  			      DrawThumb_(#Horizontal)
-  			    EndIf
+			    If dY > dpiY(CanvasEx()\HScroll\Y) And dY < dpiY(CanvasEx()\HScroll\Y + CanvasEx()\HScroll\Height)
+  			    If dX > dpiX(CanvasEx()\HScroll\X) And dX < dpiX(CanvasEx()\HScroll\X + CanvasEx()\HScroll\Width)
 			    
-  			  EndIf
-  			  
-  			EndIf
+      			  CanvasEx()\HScroll\CursorPos = #PB_Default
+      			  
+      			  If CanvasEx()\HScroll\Focus
+      			    
+        			  If dX > dpiX(CanvasEx()\HScroll\Buttons\bX) And  dX < dpiX(CanvasEx()\HScroll\Buttons\bX + CanvasEx()\HScroll\Buttons\Width)
+        			    
+        			    ; --- Backwards Button ---
+        			    If CanvasEx()\HScroll\Buttons\bState <> #Click
+        			      CanvasEx()\HScroll\Delay = CanvasEx()\Scrollbar\TimerDelay
+        			      CanvasEx()\HScroll\Timer = #Scrollbar_Left
+        			      CanvasEx()\HScroll\Buttons\bState = #Click
+        			      DrawScrollButton_(#Horizontal, #Backwards)
+        			    EndIf
+        			    
+        			  ElseIf dX > dpiX(CanvasEx()\HScroll\Buttons\fX) And  dX < dpiX(CanvasEx()\HScroll\Buttons\fX + CanvasEx()\HScroll\Buttons\Width)
+        			    
+        			    ; --- Forwards Button ---
+        			    If CanvasEx()\HScroll\Buttons\fState <> #Click
+        			      CanvasEx()\HScroll\Delay = CanvasEx()\Scrollbar\TimerDelay
+        			      CanvasEx()\HScroll\Timer = #Scrollbar_Right
+        			      CanvasEx()\HScroll\Buttons\fState = #Click
+        			      DrawScrollButton_(#Horizontal, #Forwards)
+        			    EndIf
+        			    
+        			  ElseIf  dX > dpiX(CanvasEx()\HScroll\Thumb\X) And dX < dpiX(CanvasEx()\HScroll\Thumb\X + CanvasEx()\HScroll\Thumb\Width)
+        			    
+        			    ; --- Thumb Button ---
+        			    If CanvasEx()\HScroll\Thumb\State <> #Click
+        			      CanvasEx()\HScroll\Thumb\State = #Click
+        			      CanvasEx()\HScroll\CursorPos = X
+        			      DrawThumb_(#Horizontal)
+        			    EndIf
+      			    
+        			  EndIf
+        			  
+        			EndIf
+        			
+        			ProcedureReturn #True
+        		EndIf
+        	EndIf	
+    			
+    		EndIf 	
   			;}
 			EndIf 
 			
-			If CanvasEx()\Flags & #Vertical   ;{ Horizontal Scrollbar
+			If CanvasEx()\Flags & #Vertical   ;{ Vertical Scrollbar
 			  
-			  CanvasEx()\VScroll\CursorPos = #PB_Default
-			  
-			  If CanvasEx()\VScroll\Focus
+			  If CanvasEx()\VScroll\Hide = #False
 			    
-			    If Y > CanvasEx()\VScroll\Buttons\bY And Y < CanvasEx()\VScroll\Buttons\bY + CanvasEx()\VScroll\Buttons\Height
-
-			      If CanvasEx()\VScroll\Buttons\bState <> #Click
-			        ; --- Backwards Button ---
-  			      CanvasEx()\VScroll\Delay = CanvasEx()\Scrollbar\TimerDelay
-  			      CanvasEx()\VScroll\Timer = #Up
-  			      CanvasEx()\VScroll\Buttons\bState = #Click
-  			      DrawButton_(#Vertical, #Backwards)
-  			    EndIf
-  			    
-			    ElseIf Y > CanvasEx()\VScroll\Buttons\fY And Y < CanvasEx()\VScroll\Buttons\fY + CanvasEx()\VScroll\Buttons\Height
-			      
-			      ; --- Forwards Button ---
-  			    If CanvasEx()\VScroll\Buttons\fState <> #Click
-  			      CanvasEx()\VScroll\Delay = CanvasEx()\Scrollbar\TimerDelay
-  			      CanvasEx()\VScroll\Timer = #Down
-  			      CanvasEx()\VScroll\Buttons\fState = #Click
-  			      DrawButton_(#Vertical, #Forwards)
-  			    EndIf
-			      
-			    ElseIf  Y > CanvasEx()\VScroll\Thumb\Y And Y < CanvasEx()\VScroll\Thumb\Y + CanvasEx()\VScroll\Thumb\Height
-			      
-			      ; --- Thumb Button ---
-  			    If CanvasEx()\VScroll\Thumb\State <> #Click
-  			      CanvasEx()\VScroll\Thumb\State = #Click
-  			      CanvasEx()\VScroll\CursorPos = Y
-  			      DrawThumb_(#Vertical)
-  			    EndIf
-			      
-			    EndIf  
-
-			  EndIf
+			    If dX > dpiX(CanvasEx()\VScroll\X) And dX < dpiX(CanvasEx()\VScroll\X + CanvasEx()\VScroll\Width)
+  			    If dY > dpiY(CanvasEx()\VScroll\Y) And dY < dpiY(CanvasEx()\VScroll\Y + CanvasEx()\VScroll\Height)
+			    
+      			  CanvasEx()\VScroll\CursorPos = #PB_Default
+      			  
+      			  If CanvasEx()\VScroll\Focus
+      			    
+      			    If dY > dpiY(CanvasEx()\VScroll\Buttons\bY) And dY < dpiY(CanvasEx()\VScroll\Buttons\bY + CanvasEx()\VScroll\Buttons\Height)
+      
+      			      If CanvasEx()\VScroll\Buttons\bState <> #Click
+      			        ; --- Backwards Button ---
+        			      CanvasEx()\VScroll\Delay = CanvasEx()\Scrollbar\TimerDelay
+        			      CanvasEx()\VScroll\Timer = #Scrollbar_Up
+        			      CanvasEx()\VScroll\Buttons\bState = #Click
+        			      DrawScrollButton_(#Vertical, #Backwards)
+        			    EndIf
+        			    
+      			    ElseIf dY > dpiY(CanvasEx()\VScroll\Buttons\fY) And dY < dpiY(CanvasEx()\VScroll\Buttons\fY + CanvasEx()\VScroll\Buttons\Height)
+      			      
+      			      ; --- Forwards Button ---
+        			    If CanvasEx()\VScroll\Buttons\fState <> #Click
+        			      CanvasEx()\VScroll\Delay = CanvasEx()\Scrollbar\TimerDelay
+        			      CanvasEx()\VScroll\Timer = #Scrollbar_Down
+        			      CanvasEx()\VScroll\Buttons\fState = #Click
+        			      DrawScrollButton_(#Vertical, #Forwards)
+        			    EndIf
+      			      
+      			    ElseIf  dY > dpiY(CanvasEx()\VScroll\Thumb\Y) And dY < dpiY(CanvasEx()\VScroll\Thumb\Y + CanvasEx()\VScroll\Thumb\Height)
+      			      
+      			      ; --- Thumb Button ---
+        			    If CanvasEx()\VScroll\Thumb\State <> #Click
+        			      CanvasEx()\VScroll\Thumb\State = #Click
+        			      CanvasEx()\VScroll\CursorPos = Y
+        			      DrawThumb_(#Vertical)
+        			    EndIf
+      			      
+      			    EndIf  
+      
+      			  EndIf
+      			  
+      			  ProcedureReturn #True
+      			EndIf
+      		EndIf
+      		
+  			EndIf  
 			  ;}
 			EndIf
 			
@@ -1234,8 +1319,8 @@ Module CanvasEx
 			  
 			  ForEach CanvasEx()\EventArea()
 			    
-			    If X > CanvasEx()\EventArea()\X And X < CanvasEx()\EventArea()\X + CanvasEx()\EventArea()\Width
-			      If Y > CanvasEx()\EventArea()\Y And Y < CanvasEx()\EventArea()\Y + CanvasEx()\EventArea()\Height
+			    If dX > dpiX(CanvasEx()\EventArea()\X) And dX < dpiX(CanvasEx()\EventArea()\X + CanvasEx()\EventArea()\Width)
+			      If dY > dpiY(CanvasEx()\EventArea()\Y) And dY < dpiY(CanvasEx()\EventArea()\Y + CanvasEx()\EventArea()\Height)
 
 			        If CanvasEx()\EventArea()\EventType <> #PB_EventType_LeftButtonDown
 			          CanvasEx()\EventArea()\EventType = #PB_EventType_LeftButtonDown
@@ -1256,108 +1341,133 @@ Module CanvasEx
 	
 	Procedure _LeftButtonUpHandler()
 	  Define.i GNum = EventGadget()
-		Define.i X, Y
+		Define.i X, Y, dX, dY
 
 		If FindMapElement(CanvasEx(), Str(GNum))
 
-			X = DesktopUnscaledX(GetGadgetAttribute(GNum, #PB_Canvas_MouseX)) ; DPI?
-			Y = DesktopUnscaledY(GetGadgetAttribute(GNum, #PB_Canvas_MouseY)) ; DPI?
+			dX = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
+			dY = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
+			
+			X = DesktopUnscaledX(dX)
+			Y = DesktopUnscaledY(dY)
 
 			If CanvasEx()\Flags & #Horizontal   ;{ Horizontal Scrollbar
 			  
-			  CanvasEx()\HScroll\CursorPos = #PB_Default
-			  CanvasEx()\HScroll\Timer     = #False
-			  
-			  If CanvasEx()\HScroll\Focus
+			  If CanvasEx()\HScroll\Hide = #False
 			    
-  			  If X > CanvasEx()\HScroll\Buttons\bX And  X < CanvasEx()\HScroll\Buttons\bX + CanvasEx()\HScroll\Buttons\Width
-  			    
-  			    ; --- Backwards Button ---
-  			    SetThumbPosX_(CanvasEx()\HScroll\Pos - 1)
-  			   
-  			    DrawThumb_(#Horizontal)
-  			    
-  			    PostEvent(#Event_Gadget, CanvasEx()\Window, CanvasEx()\Gadget, #PB_EventType_Change, #Horizontal)
-  			    
-  			  ElseIf X > CanvasEx()\HScroll\Buttons\fX And  X < CanvasEx()\HScroll\Buttons\fX + CanvasEx()\HScroll\Buttons\Width
-  			    
-  			    ; --- Forwards Button ---
-  			    SetThumbPosX_(CanvasEx()\HScroll\Pos + 1)
-  			    
-  			    DrawThumb_(#Horizontal)
-  			    
-  			    PostEvent(#Event_Gadget, CanvasEx()\Window, CanvasEx()\Gadget, #PB_EventType_Change, #Horizontal)
-  			    
-  			  ElseIf X > CanvasEx()\HScroll\Area\X And X < CanvasEx()\HScroll\Thumb\X
-  			    
-  			    ; --- Page left ---
-  			    SetThumbPosX_(CanvasEx()\HScroll\Pos - CanvasEx()\HScroll\PageLength)
-  			    
-  			    DrawThumb_(#Horizontal)
-  			    
-  			    PostEvent(#Event_Gadget, CanvasEx()\Window, CanvasEx()\Gadget, #PB_EventType_Change, #Horizontal)
-  			    
-  			  ElseIf X > CanvasEx()\HScroll\Thumb\X + CanvasEx()\HScroll\Thumb\Width And X < CanvasEx()\HScroll\Area\X + CanvasEx()\HScroll\Area\Width
-  			    
-  			    ; --- Page right ---
-  			    SetThumbPosX_(CanvasEx()\HScroll\Pos + CanvasEx()\HScroll\PageLength)
-  			 
-  			    DrawThumb_(#Horizontal)
-  			    
-  			    PostEvent(#Event_Gadget, CanvasEx()\Window, CanvasEx()\Gadget, #PB_EventType_Change, #Horizontal)
-  			    
-  			  EndIf
-    			
-  			EndIf 
+			    If dY > dpiY(CanvasEx()\HScroll\Y) And dY < dpiY(CanvasEx()\HScroll\Y + CanvasEx()\HScroll\Height)
+  			    If dX > dpiX(CanvasEx()\HScroll\X) And dX < dpiX(CanvasEx()\HScroll\X + CanvasEx()\HScroll\Width)
+			    
+      			  CanvasEx()\HScroll\CursorPos = #PB_Default
+      			  CanvasEx()\HScroll\Timer     = #False
+      			  
+      			  If CanvasEx()\HScroll\Focus
+      			    
+        			  If dX > dpiX(CanvasEx()\HScroll\Buttons\bX) And  dX < dpiX(CanvasEx()\HScroll\Buttons\bX + CanvasEx()\HScroll\Buttons\Width)
+        			    
+        			    ; --- Backwards Button ---
+        			    SetThumbPosX_(CanvasEx()\HScroll\Pos - 1)
+        			   
+        			    DrawThumb_(#Horizontal)
+        			    
+        			    PostEvent(#Event_Gadget, CanvasEx()\Window, CanvasEx()\Gadget, #PB_EventType_Change, #Horizontal)
+        			    
+        			  ElseIf dX > dpiX(CanvasEx()\HScroll\Buttons\fX) And  dX < dpiX(CanvasEx()\HScroll\Buttons\fX + CanvasEx()\HScroll\Buttons\Width)
+        			    
+        			    ; --- Forwards Button ---
+        			    SetThumbPosX_(CanvasEx()\HScroll\Pos + 1)
+        			    
+        			    DrawThumb_(#Horizontal)
+        			    
+        			    PostEvent(#Event_Gadget, CanvasEx()\Window, CanvasEx()\Gadget, #PB_EventType_Change, #Horizontal)
+        			    
+        			  ElseIf dX > dpiX(CanvasEx()\HScroll\Area\X) And dX < dpiX(CanvasEx()\HScroll\Thumb\X)
+        			    
+        			    ; --- Page left ---
+        			    SetThumbPosX_(CanvasEx()\HScroll\Pos - CanvasEx()\HScroll\PageLength)
+        			    
+        			    DrawThumb_(#Horizontal)
+        			    
+        			    PostEvent(#Event_Gadget, CanvasEx()\Window, CanvasEx()\Gadget, #PB_EventType_Change, #Horizontal)
+        			    
+        			  ElseIf dX > dpiX(CanvasEx()\HScroll\Thumb\X + CanvasEx()\HScroll\Thumb\Width) And dX < dpiX(CanvasEx()\HScroll\Area\X + CanvasEx()\HScroll\Area\Width)
+        			    
+        			    ; --- Page right ---
+        			    SetThumbPosX_(CanvasEx()\HScroll\Pos + CanvasEx()\HScroll\PageLength)
+        			 
+        			    DrawThumb_(#Horizontal)
+        			    
+        			    PostEvent(#Event_Gadget, CanvasEx()\Window, CanvasEx()\Gadget, #PB_EventType_Change, #Horizontal)
+        			    
+        			  EndIf
+          			
+        			EndIf 
+        			
+        			ProcedureReturn #True
+        		EndIf
+        	EndIf
+        	
+    		EndIf	
 			  ;}
 			EndIf   
 		
       If CanvasEx()\Flags & #Vertical     ;{ Vertical Scrollbar
-			  
-			  CanvasEx()\VScroll\CursorPos = #PB_Default
-			  CanvasEx()\VScroll\Timer     = #False
-			  
-			  If CanvasEx()\VScroll\Focus
-			    
-  			  If Y > CanvasEx()\VScroll\Buttons\bY And  Y < CanvasEx()\VScroll\Buttons\bY + CanvasEx()\VScroll\Buttons\Height
-  			    
-  			    ; --- Backwards Button ---
-  			    SetThumbPosY_(CanvasEx()\VScroll\Pos - 1)
-
-  			    DrawThumb_(#Vertical)
-  			    
-  			    PostEvent(#Event_Gadget, CanvasEx()\Window, CanvasEx()\Gadget, #PB_EventType_Change, #Vertical)
-  			    
-  			  ElseIf Y > CanvasEx()\VScroll\Buttons\fY And  Y < CanvasEx()\VScroll\Buttons\fY + CanvasEx()\VScroll\Buttons\Height
-  			    
-  			    ; --- Forwards Button ---
-  			    SetThumbPosY_(CanvasEx()\VScroll\Pos + 1)
-  			    
-  			    DrawThumb_(#Vertical)
-  			    
-  			    PostEvent(#Event_Gadget, CanvasEx()\Window, CanvasEx()\Gadget, #PB_EventType_Change, #Vertical)
-  			    
-  			  ElseIf Y > CanvasEx()\VScroll\Area\Y And Y < CanvasEx()\VScroll\Thumb\Y
-  			    
-  			    ; --- Page up ---
-  			    SetThumbPosY_(CanvasEx()\VScroll\Pos - CanvasEx()\VScroll\PageLength)
-
-  			    DrawThumb_(#Vertical)
-  			    
-  			    PostEvent(#Event_Gadget, CanvasEx()\Window, CanvasEx()\Gadget, #PB_EventType_Change, #Vertical)
-  			    
-  			  ElseIf Y > CanvasEx()\VScroll\Thumb\Y + CanvasEx()\VScroll\Thumb\Height And Y < CanvasEx()\VScroll\Area\Y + CanvasEx()\VScroll\Area\Height
-  			    
-  			    ; --- Page down ---
-  			    SetThumbPosY_(CanvasEx()\VScroll\Pos + CanvasEx()\VScroll\PageLength)
-
-  			    DrawThumb_(#Vertical)
-  			    
-  			    PostEvent(#Event_Gadget, CanvasEx()\Window, CanvasEx()\Gadget, #PB_EventType_Change, #Vertical)
-  			    
-  			  EndIf
-    			
-  			EndIf 
+        
+        If CanvasEx()\VScroll\Hide = #False
+          
+          If dX > dpiX(CanvasEx()\VScroll\X) And dX < dpiX(CanvasEx()\VScroll\X + CanvasEx()\VScroll\Width)
+  			    If dY > dpiY(CanvasEx()\VScroll\Y) And dY < dpiY(CanvasEx()\VScroll\Y + CanvasEx()\VScroll\Height)
+          
+      			  CanvasEx()\VScroll\CursorPos = #PB_Default
+      			  CanvasEx()\VScroll\Timer     = #False
+      			  
+      			  If CanvasEx()\VScroll\Focus
+      			    
+        			  If dY > dpiY(CanvasEx()\VScroll\Buttons\bY) And  dY < dpiY(CanvasEx()\VScroll\Buttons\bY + CanvasEx()\VScroll\Buttons\Height)
+        			    
+        			    ; --- Backwards Button ---
+        			    SetThumbPosY_(CanvasEx()\VScroll\Pos - 1)
+      
+        			    DrawThumb_(#Vertical)
+        			    
+        			    PostEvent(#Event_Gadget, CanvasEx()\Window, CanvasEx()\Gadget, #PB_EventType_Change, #Vertical)
+        			    
+        			  ElseIf dY > dpiY(CanvasEx()\VScroll\Buttons\fY) And  dY < dpiY(CanvasEx()\VScroll\Buttons\fY + CanvasEx()\VScroll\Buttons\Height)
+        			    
+        			    ; --- Forwards Button ---
+        			    SetThumbPosY_(CanvasEx()\VScroll\Pos + 1)
+        			    
+        			    DrawThumb_(#Vertical)
+        			    
+        			    PostEvent(#Event_Gadget, CanvasEx()\Window, CanvasEx()\Gadget, #PB_EventType_Change, #Vertical)
+        			    
+        			  ElseIf dY > dpiY(CanvasEx()\VScroll\Area\Y) And dY < dpiY(CanvasEx()\VScroll\Thumb\Y)
+        			    
+        			    ; --- Page up ---
+        			    SetThumbPosY_(CanvasEx()\VScroll\Pos - CanvasEx()\VScroll\PageLength)
+      
+        			    DrawThumb_(#Vertical)
+        			    
+        			    PostEvent(#Event_Gadget, CanvasEx()\Window, CanvasEx()\Gadget, #PB_EventType_Change, #Vertical)
+        			    
+        			  ElseIf dY > dpiY(CanvasEx()\VScroll\Thumb\Y + CanvasEx()\VScroll\Thumb\Height) And dY < dpiY(CanvasEx()\VScroll\Area\Y + CanvasEx()\VScroll\Area\Height)
+        			    
+        			    ; --- Page down ---
+        			    SetThumbPosY_(CanvasEx()\VScroll\Pos + CanvasEx()\VScroll\PageLength)
+      
+        			    DrawThumb_(#Vertical)
+        			    
+        			    PostEvent(#Event_Gadget, CanvasEx()\Window, CanvasEx()\Gadget, #PB_EventType_Change, #Vertical)
+        			    
+        			  EndIf
+          			
+        			EndIf 
+        			
+        			ProcedureReturn #True
+        		EndIf
+        	EndIf
+        	
+    		EndIf	
 			  ;}
 			EndIf
 			
@@ -1365,8 +1475,8 @@ Module CanvasEx
 			  
 			  ForEach CanvasEx()\EventArea()
 			    
-			    If X > CanvasEx()\EventArea()\X And X < CanvasEx()\EventArea()\X + CanvasEx()\EventArea()\Width
-			      If Y > CanvasEx()\EventArea()\Y And Y < CanvasEx()\EventArea()\Y + CanvasEx()\EventArea()\Height
+			    If dX > dpiX(CanvasEx()\EventArea()\X) And dX < dpiX(CanvasEx()\EventArea()\X + CanvasEx()\EventArea()\Width)
+			      If dY > dpiY(CanvasEx()\EventArea()\Y) And dY < dpiY(CanvasEx()\EventArea()\Y + CanvasEx()\EventArea()\Height)
 
 			        If CanvasEx()\EventArea()\EventType <> #PB_EventType_LeftButtonUp
 			          CanvasEx()\EventArea()\EventType = #PB_EventType_LeftButtonUp
@@ -1419,90 +1529,101 @@ Module CanvasEx
 			  ;}
 			EndIf
       
-      DrawScrollBar_() 
+      DrawScrollBar_(#Horizontal|#Vertical) 
       
 	  EndIf
 	  
 	EndProcedure
 	
 	Procedure _MouseMoveHandler()
-		Define.i X, Y, Backwards, Forwards, CursorPos, Thumb, Offset, Delta
+		Define.i X, Y, dX, dY, Backwards, Forwards, CursorPos, Thumb, Offset, Delta
 		Define.i GNum = EventGadget()
 
 		If FindMapElement(CanvasEx(), Str(GNum))
 
-			X = DesktopUnscaledX(GetGadgetAttribute(GNum, #PB_Canvas_MouseX)) ; DPI?
-			Y = DesktopUnscaledY(GetGadgetAttribute(GNum, #PB_Canvas_MouseY)) ; DPI?
+			dX = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
+			dY = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
+			
+			X = DesktopUnscaledX(dX)
+			Y = DesktopUnscaledY(dY)
 
 			If CanvasEx()\Scrollbar\Flags & #Horizontal ;{ Horizontal Scrollbar
 			  
-			  CanvasEx()\HScroll\Focus = #False
+			  If CanvasEx()\HScroll\Hide = #False
 			  
-			  Backwards = CanvasEx()\HScroll\Buttons\bState
-			  Forwards  = CanvasEx()\HScroll\Buttons\fState
-			  Thumb     = CanvasEx()\HScroll\Thumb\State
-			  
-			  If Y > CanvasEx()\HScroll\Y And Y < CanvasEx()\HScroll\Y + CanvasEx()\HScroll\Height
-			    If X > CanvasEx()\HScroll\X And X < CanvasEx()\HScroll\X + CanvasEx()\HScroll\Width
-			      
-			      SetGadgetAttribute(GNum, #PB_Canvas_Cursor, #PB_Cursor_Default)
-			      
-			      ; --- Focus Scrollbar ---  
-			      CanvasEx()\HScroll\Buttons\bState = #Focus
-			      CanvasEx()\HScroll\Buttons\fState = #Focus
-			      CanvasEx()\HScroll\Thumb\State    = #Focus
-			      
-			      ; --- Hover Buttons & Thumb ---
-			      If X > CanvasEx()\HScroll\Buttons\bX And  X < CanvasEx()\HScroll\Buttons\bX + CanvasEx()\HScroll\Buttons\Width
-			        
-			        CanvasEx()\HScroll\Buttons\bState = #Hover
-			        
-			      ElseIf X > CanvasEx()\HScroll\Buttons\fX And  X < CanvasEx()\HScroll\Buttons\fX + CanvasEx()\HScroll\Buttons\Width
-			        
-			        CanvasEx()\HScroll\Buttons\fState = #Hover
-			        
-			      ElseIf X > CanvasEx()\HScroll\Thumb\X And X < CanvasEx()\HScroll\Thumb\X + CanvasEx()\HScroll\Thumb\Width
-			        
-			        CanvasEx()\HScroll\Thumb\State = #Hover
-			        
-			        ;{ --- Move thumb with cursor 
-			        If CanvasEx()\HScroll\CursorPos <> #PB_Default
-			          
-			          CursorPos = CanvasEx()\HScroll\Pos
-			          
-  			        CanvasEx()\HScroll\Pos = GetThumbPosX_(X)
-  			        CanvasEx()\HScroll\CursorPos = X
+  			  CanvasEx()\HScroll\Focus = #False
+  			  
+  			  Backwards = CanvasEx()\HScroll\Buttons\bState
+  			  Forwards  = CanvasEx()\HScroll\Buttons\fState
+  			  Thumb     = CanvasEx()\HScroll\Thumb\State
+  			  
+  			  If dY > dpiY(CanvasEx()\HScroll\Y) And dY < dpiY(CanvasEx()\HScroll\Y + CanvasEx()\HScroll\Height)
+  			    If dX > dpiX(CanvasEx()\HScroll\X) And dX < dpiX(CanvasEx()\HScroll\X + CanvasEx()\HScroll\Width)
+  			      
+  			      SetGadgetAttribute(GNum, #PB_Canvas_Cursor, #PB_Cursor_Default)
+  			      
+  			      ; --- Focus Scrollbar ---  
+  			      CanvasEx()\HScroll\Buttons\bState = #Focus
+  			      CanvasEx()\HScroll\Buttons\fState = #Focus
+  			      CanvasEx()\HScroll\Thumb\State    = #Focus
+  			      
+  			      ; --- Hover Buttons & Thumb ---
+  			      If dX > dpiX(CanvasEx()\HScroll\Buttons\bX) And  dX < dpiX(CanvasEx()\HScroll\Buttons\bX + CanvasEx()\HScroll\Buttons\Width)
   			        
-  			        If CursorPos <> CanvasEx()\HScroll\Pos
-  			          
-  			          DrawThumb_(#Horizontal)
-  			          
-  			          PostEvent(#Event_Gadget,    CanvasEx()\Window, CanvasEx()\Gadget, #PB_EventType_Change, #Horizontal)
-  			          
-  			        EndIf  
+  			        CanvasEx()\HScroll\Buttons\bState = #Hover
   			        
-  			      EndIf ;}
-			        
+  			      ElseIf dX > dpiX(CanvasEx()\HScroll\Buttons\fX) And  dX < dpiX(CanvasEx()\HScroll\Buttons\fX + CanvasEx()\HScroll\Buttons\Width)
+  			        
+  			        CanvasEx()\HScroll\Buttons\fState = #Hover
+  			        
+  			      ElseIf dX > dpiX(CanvasEx()\HScroll\Thumb\X) And dX < dpiX(CanvasEx()\HScroll\Thumb\X + CanvasEx()\HScroll\Thumb\Width)
+  			        
+  			        CanvasEx()\HScroll\Thumb\State = #Hover
+  			        
+  			        ;{ --- Move thumb with cursor 
+  			        If CanvasEx()\HScroll\CursorPos <> #PB_Default
+  			          
+  			          CursorPos = CanvasEx()\HScroll\Pos
+  			          
+    			        CanvasEx()\HScroll\Pos = GetThumbPosX_(X)
+    			        CanvasEx()\HScroll\CursorPos = X
+    			        
+    			        If CursorPos <> CanvasEx()\HScroll\Pos
+    			          
+    			          DrawThumb_(#Horizontal)
+ 
+    			        EndIf
+    			        
+    			      EndIf ;}
+    			      
+  			      EndIf
+  			      
+  			      CanvasEx()\HScroll\Focus = #True
+  			      
+      		    If Backwards <> CanvasEx()\HScroll\Buttons\bState : DrawScrollButton_(#Horizontal, #Backwards) : EndIf 
+      		    If Forwards  <> CanvasEx()\HScroll\Buttons\fState : DrawScrollButton_(#Horizontal, #Forwards)  : EndIf 
+      		    If Thumb     <> CanvasEx()\HScroll\Thumb\State    : DrawThumb_(#Horizontal)                    : EndIf
+
+      		    ProcedureReturn #True
   			    EndIf
-  			    
-			      CanvasEx()\HScroll\Focus = #True
     			EndIf
-    		EndIf
     		
-    		If Not CanvasEx()\HScroll\Focus
-    		  
-	        CanvasEx()\HScroll\Buttons\bState = #False
-	        CanvasEx()\HScroll\Buttons\fState = #False
-	        CanvasEx()\HScroll\Thumb\State    = #False
-	        
-	        CanvasEx()\HScroll\Timer = #False
-	      EndIf
-    		
-    		If Backwards <> CanvasEx()\HScroll\Buttons\bState : DrawButton_(#Horizontal, #Backwards) : EndIf 
-		    If Forwards  <> CanvasEx()\HScroll\Buttons\fState : DrawButton_(#Horizontal, #Forwards)  : EndIf 
-		    If Thumb     <> CanvasEx()\HScroll\Thumb\State    : DrawThumb_(#Horizontal)              : EndIf 
-    	
-    		If CanvasEx()\HScroll\Focus : ProcedureReturn #True : EndIf
+      		If Not CanvasEx()\HScroll\Focus
+      		  
+  	        CanvasEx()\HScroll\Buttons\bState = #False
+  	        CanvasEx()\HScroll\Buttons\fState = #False
+  	        CanvasEx()\HScroll\Thumb\State    = #False
+  	        
+  	        CanvasEx()\HScroll\Timer = #False
+  	      EndIf
+      		
+      		If Backwards <> CanvasEx()\HScroll\Buttons\bState : DrawScrollButton_(#Horizontal, #Backwards) : EndIf 
+  		    If Forwards  <> CanvasEx()\HScroll\Buttons\fState : DrawScrollButton_(#Horizontal, #Forwards)  : EndIf 
+  		    If Thumb     <> CanvasEx()\HScroll\Thumb\State    : DrawThumb_(#Horizontal)              : EndIf 
+  		    
+  		    CanvasEx()\HScroll\CursorPos = #PB_Default
+  		    
+  		  EndIf  
 			  ;}
 			EndIf   
 		
@@ -1514,8 +1635,8 @@ Module CanvasEx
 			  Forwards  = CanvasEx()\VScroll\Buttons\fState
 			  Thumb     = CanvasEx()\VScroll\Thumb\State
 			  
-			  If X > CanvasEx()\VScroll\X And X < CanvasEx()\VScroll\X + CanvasEx()\VScroll\Width
-			    If Y > CanvasEx()\VScroll\Y And Y < CanvasEx()\VScroll\Y + CanvasEx()\VScroll\Height
+			  If dX > dpiX(CanvasEx()\VScroll\X) And dX < dpiX(CanvasEx()\VScroll\X + CanvasEx()\VScroll\Width)
+			    If dY > dpiY(CanvasEx()\VScroll\Y) And dY < dpiY(CanvasEx()\VScroll\Y + CanvasEx()\VScroll\Height)
 			     
 			      SetGadgetAttribute(GNum, #PB_Canvas_Cursor, #PB_Cursor_Default)
 			      
@@ -1525,15 +1646,15 @@ Module CanvasEx
 			      CanvasEx()\VScroll\Thumb\State    = #Focus
 			      
 			      ; --- Hover Buttons & Thumb ---
-			      If Y > CanvasEx()\VScroll\Buttons\bY And Y < CanvasEx()\VScroll\Buttons\bY + CanvasEx()\VScroll\Buttons\Height
+			      If dY > dpiY(CanvasEx()\VScroll\Buttons\bY) And dY < dpiY(CanvasEx()\VScroll\Buttons\bY + CanvasEx()\VScroll\Buttons\Height)
 			        
 			        CanvasEx()\VScroll\Buttons\bState = #Hover
 			        
-			      ElseIf Y > CanvasEx()\VScroll\Buttons\fY And Y < CanvasEx()\VScroll\Buttons\fY + CanvasEx()\VScroll\Buttons\Height
+			      ElseIf dY > dpiY(CanvasEx()\VScroll\Buttons\fY) And dY < dpiY(CanvasEx()\VScroll\Buttons\fY + CanvasEx()\VScroll\Buttons\Height)
 			        
 			        CanvasEx()\VScroll\Buttons\fState = #Hover
 
-			      ElseIf Y > CanvasEx()\VScroll\Thumb\Y And Y < CanvasEx()\VScroll\Thumb\Y + CanvasEx()\VScroll\Thumb\Height
+			      ElseIf dY > dpiY(CanvasEx()\VScroll\Thumb\Y) And dY < dpiY(CanvasEx()\VScroll\Thumb\Y + CanvasEx()\VScroll\Thumb\Height)
 			        
 			        CanvasEx()\VScroll\Thumb\State = #Hover
 			        
@@ -1546,10 +1667,10 @@ Module CanvasEx
   			        CanvasEx()\VScroll\CursorPos = Y
   			        
   			        If CursorPos <> CanvasEx()\VScroll\Pos
-  			          
+  			     
   			          DrawThumb_(#Vertical)
   			          
-  			          PostEvent(#Event_Gadget, CanvasEx()\Window, CanvasEx()\Gadget, #PB_EventType_Change, #Horizontal)
+  			          ;PostEvent(#Event_Gadget, CanvasEx()\Window, CanvasEx()\Gadget, #PB_EventType_Change, #Horizontal)
   			          
   			        EndIf
   			        
@@ -1557,7 +1678,13 @@ Module CanvasEx
 
   			    EndIf   
   			    
-            CanvasEx()\VScroll\Focus = #True
+  			    CanvasEx()\VScroll\Focus = #True
+  			    
+  			    If Backwards <> CanvasEx()\VScroll\Buttons\bState : DrawScrollButton_(#Vertical, #Backwards) : EndIf 
+            If Forwards  <> CanvasEx()\VScroll\Buttons\fState : DrawScrollButton_(#Vertical, #Forwards)  : EndIf 
+            If Thumb     <> CanvasEx()\VScroll\Thumb\State    : DrawThumb_(#Vertical)              : EndIf 
+            
+            ProcedureReturn #True
     			EndIf
     		EndIf
     		
@@ -1571,11 +1698,11 @@ Module CanvasEx
           
         EndIf   
         
-        If Backwards <> CanvasEx()\VScroll\Buttons\bState : DrawButton_(#Vertical, #Backwards) : EndIf 
-        If Forwards  <> CanvasEx()\VScroll\Buttons\fState : DrawButton_(#Vertical, #Forwards)  : EndIf 
+        If Backwards <> CanvasEx()\VScroll\Buttons\bState : DrawScrollButton_(#Vertical, #Backwards) : EndIf 
+        If Forwards  <> CanvasEx()\VScroll\Buttons\fState : DrawScrollButton_(#Vertical, #Forwards)  : EndIf 
         If Thumb     <> CanvasEx()\VScroll\Thumb\State    : DrawThumb_(#Vertical)              : EndIf 
         
-        If CanvasEx()\VScroll\Focus : ProcedureReturn #True : EndIf
+        CanvasEx()\VScroll\CursorPos = #PB_Default
 			  ;}
 			EndIf 
 			
@@ -1583,8 +1710,8 @@ Module CanvasEx
 			  
 			  ForEach CanvasEx()\EventArea()
 			    
-			    If X > CanvasEx()\EventArea()\X And X < CanvasEx()\EventArea()\X + CanvasEx()\EventArea()\Width
-			      If Y > CanvasEx()\EventArea()\Y And Y < CanvasEx()\EventArea()\Y + CanvasEx()\EventArea()\Height
+			    If dX > dpiX(CanvasEx()\EventArea()\X) And dX < dpiX(CanvasEx()\EventArea()\X + CanvasEx()\EventArea()\Width)
+			      If dY > dpiY(CanvasEx()\EventArea()\Y) And dY < dpiY(CanvasEx()\EventArea()\Y + CanvasEx()\EventArea()\Height)
 
 			        If CanvasEx()\EventArea()\EventType = #False Or CanvasEx()\EventArea()\EventType = #PB_EventType_MouseLeave
 			          
@@ -1619,19 +1746,22 @@ Module CanvasEx
 	
 	Procedure _RightClickHandler()
 	  Define.i GNum = EventGadget()
-		Define.i X, Y
+		Define.i X, Y, dX, dY
 
 		If FindMapElement(CanvasEx(), Str(GNum))
 
-			X = DesktopUnscaledX(GetGadgetAttribute(GNum, #PB_Canvas_MouseX)) ; DPI?
-			Y = DesktopUnscaledY(GetGadgetAttribute(GNum, #PB_Canvas_MouseY)) ; DPI?
+			dX = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
+			dY = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
+			
+			X = DesktopUnscaledX(dX)
+			Y = DesktopUnscaledY(dY)
 			
 			If CanvasEx()\Internal & #EventArea ;{ Event Area
 			  
 			  ForEach CanvasEx()\EventArea()
 			    
-			    If X > CanvasEx()\EventArea()\X And X < CanvasEx()\EventArea()\X + CanvasEx()\EventArea()\Width
-			      If Y > CanvasEx()\EventArea()\Y And Y < CanvasEx()\EventArea()\Y + CanvasEx()\EventArea()\Height
+			    If dX > dpiX(CanvasEx()\EventArea()\X) And dX < dpiX(CanvasEx()\EventArea()\X + CanvasEx()\EventArea()\Width)
+			      If dY > dpiY(CanvasEx()\EventArea()\Y) And dY < dpiY(CanvasEx()\EventArea()\Y + CanvasEx()\EventArea()\Height)
 
 			        If CanvasEx()\EventArea()\EventType <> #PB_EventType_RightClick
 			          CanvasEx()\EventArea()\EventType = #PB_EventType_RightClick
@@ -1658,41 +1788,23 @@ Module CanvasEx
       
       Delta = GetGadgetAttribute(GNum, #PB_Canvas_WheelDelta)
       
-      If CanvasEx()\Scrollbar\Flags & #Horizontal ;{ Horizontal Scrollbar
-        
-        If CanvasEx()\HScroll\Focus And CanvasEx()\HScroll\Hide = #False
-          
-          CanvasEx()\HScroll\Pos - Delta
-          
-          If CanvasEx()\HScroll\Pos > CanvasEx()\HScroll\maxPos : CanvasEx()\HScroll\Pos = CanvasEx()\HScroll\maxPos : EndIf
-          If CanvasEx()\HScroll\Pos < CanvasEx()\HScroll\minPos : CanvasEx()\HScroll\Pos = CanvasEx()\HScroll\minPos : EndIf
-          
-          Offset = Round((CanvasEx()\HScroll\Pos - CanvasEx()\HScroll\minPos) * CanvasEx()\HScroll\Factor, #PB_Round_Nearest)
-          
-          CanvasEx()\HScroll\Thumb\X = CanvasEx()\HScroll\Area\X + Offset
-          
-          DrawThumb_(#Horizontal)
-          
-        EndIf  
+      If CanvasEx()\HScroll\Focus
+        ;{ Horizontal Scrollbar
+        If CanvasEx()\Scrollbar\Flags & #Horizontal 
+          If CanvasEx()\HScroll\Focus And CanvasEx()\HScroll\Hide = #False
+            SetThumbPosX_(CanvasEx()\HScroll\Pos - Delta)
+            DrawThumb_(#Horizontal)
+          EndIf
+        EndIf   
         ;}
-      EndIf
-      
-      If CanvasEx()\Scrollbar\Flags & #Vertical   ;{ Vertical Scrollbar
-        
-        If CanvasEx()\VScroll\Focus And CanvasEx()\VScroll\Hide = #False
-          
-           CanvasEx()\VScroll\Pos - Delta
-          
-          If CanvasEx()\VScroll\Pos > CanvasEx()\VScroll\maxPos : CanvasEx()\VScroll\Pos = CanvasEx()\VScroll\maxPos : EndIf
-          If CanvasEx()\VScroll\Pos < CanvasEx()\VScroll\minPos : CanvasEx()\VScroll\Pos = CanvasEx()\VScroll\minPos : EndIf
-          
-          Offset = Round((CanvasEx()\VScroll\Pos - CanvasEx()\VScroll\minPos) * CanvasEx()\VScroll\Factor, #PB_Round_Nearest)
-          
-          CanvasEx()\VScroll\Thumb\Y = CanvasEx()\VScroll\Area\Y + Offset
-          
-          DrawThumb_(#Vertical)
-          
-        EndIf
+      Else
+        ;{ Vertical Scrollbar
+        If CanvasEx()\Scrollbar\Flags & #Vertical   
+          If CanvasEx()\VScroll\Hide = #False
+            SetThumbPosY_(CanvasEx()\VScroll\Pos - Delta)
+            DrawThumb_(#Vertical)
+          EndIf
+        EndIf   
         ;}
       EndIf
       
@@ -1705,7 +1817,7 @@ Module CanvasEx
 		Define.i GNum = EventGadget()
 
 		If FindMapElement(CanvasEx(), Str(GNum))
-		  DrawScrollBar_()
+		  DrawScrollBar_(#Horizontal|#Vertical)
 		EndIf
 
 	EndProcedure
@@ -1928,6 +2040,12 @@ Module CanvasEx
           If Flags & #Style_Win11      : CanvasEx()\Scrollbar\Flags | #Style_Win11      : EndIf
           If Flags & #Style_RoundThumb : CanvasEx()\Scrollbar\Flags | #Style_RoundThumb : EndIf
           
+          CompilerIf #PB_Compiler_Version >= 600
+            If OSVersion() = #PB_OS_Windows_11  : CanvasEx()\Scrollbar\Flags | #Style_Win11 : EndIf
+          CompilerElse
+            If OSVersion() >= #PB_OS_Windows_10 : CanvasEx()\Scrollbar\Flags | #Style_Win11 : EndIf
+          CompilerEndIf  
+          
           ;{ ----- Colors -----
           CanvasEx()\Scrollbar\Color\Front  = $C8C8C8
           CanvasEx()\Scrollbar\Color\Back   = $F0F0F0
@@ -1961,7 +2079,7 @@ Module CanvasEx
   
   				CompilerEndSelect
   				
-  				If OSVersion() = #PB_OS_Windows_10 Or Flags & #Style_Win11
+  				If CanvasEx()\Scrollbar\Flags & #Style_Win11
   				  CanvasEx()\Scrollbar\Color\Hover = $666666
   				  CanvasEx()\Scrollbar\Color\Focus = $8C8C8C
   				EndIf   
@@ -1986,7 +2104,7 @@ Module CanvasEx
   				
   				CalcScrollBar_()
 
-				  DrawScrollBar_()
+				  DrawScrollBar_(#Vertical|#Horizontal)
   				
           ProcedureReturn #True
         EndIf
@@ -2016,7 +2134,7 @@ Module CanvasEx
 	      CanvasEx()\VScroll\Hide = State
 	    EndIf
 	    
-	    DrawScrollBar_(State)
+	    DrawScrollBar_(#Horizontal|#Vertical)
 	    
 	  EndIf  
 	  
@@ -2045,6 +2163,53 @@ Module CanvasEx
 	  EndIf
 	  
 	EndProcedure
+	
+	Procedure   AdjustScrollBars_(maxWidth.i, maxHeight.i, PageH.i, PageV.i, MaxH.i, MaxV.i, MinH.i=0, MinV.i=0)
+    Define.i Height, Width
+    Define.i VScroll, HScroll, ScrollbarSize
+    
+    Width  = GadgetWidth(CanvasEx()\Gadget)
+    Height = GadgetHeight(CanvasEx()\Gadget)
+    
+    ScrollbarSize = CanvasEx()\Scrollbar\Size
+    
+    ; --- Size without Scrollbars ---
+    If maxHeight > Height
+      Width - ScrollbarSize
+    EndIf  
+    
+    If maxWidth > Width
+      Height - ScrollbarSize
+    EndIf
+
+    ; --- Size with Scrollbars ---
+    If maxHeight > Height ; Vertical Scrollbar
+      CanvasEx()\VScroll\Minimum    = MinV
+      CanvasEx()\VScroll\Maximum    = MaxV
+      CanvasEx()\VScroll\PageLength = PageV
+      CanvasEx()\VScroll\Hide       = #False
+    Else
+      CanvasEx()\VScroll\Minimum    = 0
+      CanvasEx()\VScroll\Maximum    = 0
+      CanvasEx()\VScroll\PageLength = 0
+      CanvasEx()\VScroll\Hide       = #True
+    EndIf  
+    
+    If maxWidth > Width ; Horizontal Scrollbar
+      CanvasEx()\HScroll\Minimum    = MinV
+      CanvasEx()\HScroll\Maximum    = MaxH
+      CanvasEx()\HScroll\PageLength = PageH
+      CanvasEx()\HScroll\Hide       = #False
+    Else
+      CanvasEx()\HScroll\Minimum    = 0
+      CanvasEx()\HScroll\Maximum    = 0
+      CanvasEx()\HScroll\PageLength = 0
+      CanvasEx()\HScroll\Hide       = #True
+    EndIf
+
+    CalcScrollRange_()
+    
+  EndProcedure
 	
 	; ------------------------------------------------------------
 
@@ -2228,8 +2393,9 @@ EndModule
 ;- ========  Module - Example ========
 
 CompilerIf #PB_Compiler_IsMainFile
-  
+
   Define.i Position
+  Define.s Text$
   
   Enumeration 
     #Window
@@ -2249,7 +2415,10 @@ CompilerIf #PB_Compiler_IsMainFile
       DrawingMode(#PB_2DDrawing_Outlined )
       
       Box(50, 50, 80, 40, #Red)
-
+      
+      DrawingMode(#PB_2DDrawing_Outlined)
+      Box(0, 0, GadgetWidth(Canvas), GadgetHeight(Canvas), $808080)
+      
       StopDrawing()
     EndIf
     
@@ -2270,7 +2439,10 @@ CompilerIf #PB_Compiler_IsMainFile
       ; Debug "Text Height: " + Str(TextHeight(Text$))
       
       DrawText(50, 150, Text$, Color, #White)
-
+      
+      DrawingMode(#PB_2DDrawing_Outlined)
+      Box(0, 0, GadgetWidth(Canvas), GadgetHeight(Canvas), $808080)
+      
       StopDrawing()
     EndIf
     
@@ -2296,8 +2468,7 @@ CompilerIf #PB_Compiler_IsMainFile
     
     DrawCanvasText(#Canvas, #Black)
     CanvasEx::AddEventArea(#Canvas, #TextID, 50, 150, 116, 22, #PB_Cursor_Hand)
-    
-    
+
     Repeat
       Event = WaitWindowEvent()
       Select Event
@@ -2357,8 +2528,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 2319
-; FirstLine = 281
-; Folding = MCAwAgHAAACAACJAQAAi6
+; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
+; CursorPosition = 12
+; Folding = YbAwgD6A+GDbgJJBkHA5g
 ; EnableXP

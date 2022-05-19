@@ -9,8 +9,10 @@
 ;/ © 2022 Thorsten1867 (03/2019)
 ;/
  
-; Last Update: 14.05.2022
+; Last Update: 15.05.2022
 ; 
+; Added: Scrollbar buttons scroll line-by-line or column-by-column
+;
 ;  Fixed: Resize & Scrollbar
 ;  DPI adjustment & Bugfixes
 ;
@@ -939,7 +941,10 @@ Module ListEx
     Width.f
     Padding.i
     OffsetX.f
+    OffSet.i
     MouseX.i
+    ScrollLeft.i
+    ScrollRight.i
     Resize.i
     CheckBoxes.i
   EndStructure ;}
@@ -1012,6 +1017,7 @@ Module ListEx
     AlternateRow.i
     Front.i
     Back.i
+    Border.i
     ComboFront.i
     ComboBack.i
     Gadget.i
@@ -1244,11 +1250,11 @@ Module ListEx
   
   ;- ----- DPI -----
   
-  Procedure.f dpiX(Num.i)
+  Procedure.i dpiX(Num.i)
     ProcedureReturn DesktopScaledX(Num)
   EndProcedure
   
-  Procedure.f dpiY(Num.i)
+  Procedure.i dpiY(Num.i)
     ProcedureReturn DesktopScaledY(Num)
   EndProcedure
   
@@ -1550,14 +1556,14 @@ Module ListEx
 	    ListEx()\Area\Width  = Width
       ListEx()\Area\Height = Height
     ElseIf ListEx()\HScroll\Hide
-      ListEx()\Area\Width  = Width  - ScrollbarSize - 2
+      ListEx()\Area\Width  = Width  - ScrollbarSize - 3
       ListEx()\Area\Height = Height
     ElseIf ListEx()\VScroll\Hide
       ListEx()\Area\Width  = Width
-      ListEx()\Area\Height = Height - ScrollbarSize - 2
+      ListEx()\Area\Height = Height - ScrollbarSize - 3
     Else
-      ListEx()\Area\Width  = Width  - ScrollbarSize - 2
-      ListEx()\Area\Height = Height - ScrollbarSize - 2
+      ListEx()\Area\Width  = Width  - ScrollbarSize - 3
+      ListEx()\Area\Height = Height - ScrollbarSize - 3
     EndIf  
     ;}
     
@@ -1618,11 +1624,11 @@ Module ListEx
 
     ;{ Calc scroll buttons
     If ListEx()\ListView\Hide = #False
-      ListEx()\LScroll\Buttons\Width  = ScrollbarSize - 2
-      ListEx()\LScroll\Buttons\Height = ScrollbarSize - 2
+      ListEx()\LScroll\Buttons\Width  = ScrollbarSize
+      ListEx()\LScroll\Buttons\Height = ScrollbarSize
       ; forward: down
       ListEx()\LScroll\Buttons\fX     = ListEx()\LScroll\X
-      ListEx()\LScroll\Buttons\fY     = ListEx()\LScroll\Height - ScrollbarSize - 2
+      ListEx()\LScroll\Buttons\fY     = ListEx()\LScroll\Height - ScrollbarSize + 1
       ; backward: up
       ListEx()\LScroll\Buttons\bX     = ListEx()\LScroll\X
       ListEx()\LScroll\Buttons\bY     = 1
@@ -1635,7 +1641,7 @@ Module ListEx
       ListEx()\HScroll\Buttons\fX     = ListEx()\HScroll\Width - ScrollbarSize + 1
       ListEx()\HScroll\Buttons\fY     = ListEx()\HScroll\Y
       ; backward: left
-      ListEx()\HScroll\Buttons\bX     = 1
+      ListEx()\HScroll\Buttons\bX     = ListEx()\HScroll\X
       ListEx()\HScroll\Buttons\bY     = ListEx()\HScroll\Y
     EndIf
     
@@ -1644,10 +1650,10 @@ Module ListEx
       ListEx()\VScroll\Buttons\Height = ScrollbarSize
       ; forward: down
       ListEx()\VScroll\Buttons\fX     = ListEx()\VScroll\X
-      ListEx()\VScroll\Buttons\fY     = ListEx()\VScroll\Height - ScrollbarSize + 1
+      ListEx()\VScroll\Buttons\fY     = ListEx()\VScroll\Height - ScrollbarSize
       ; backward: up
       ListEx()\VScroll\Buttons\bX     = ListEx()\VScroll\X
-      ListEx()\VScroll\Buttons\bY     = 1
+      ListEx()\VScroll\Buttons\bY     = ListEx()\VScroll\Y
     EndIf
     ;}
     
@@ -1662,7 +1668,7 @@ Module ListEx
     If ListEx()\Scrollbar\Flags & #Horizontal
       ListEx()\HScroll\Area\X      = ScrollbarSize + 1
   		ListEx()\HScroll\Area\Y      = ListEx()\HScroll\Y
-  		ListEx()\HScroll\Area\Width  = ListEx()\HScroll\Width - ScrollbarSize * 2 
+  		ListEx()\HScroll\Area\Width  = ListEx()\HScroll\Width - (ScrollbarSize * 2)
   		ListEx()\HScroll\Area\Height = ScrollbarSize
     EndIf   
     
@@ -1670,7 +1676,7 @@ Module ListEx
       ListEx()\VScroll\Area\X      = ListEx()\VScroll\X
   		ListEx()\VScroll\Area\Y      = ScrollbarSize + 1
   		ListEx()\VScroll\Area\Width  = ScrollbarSize
-  		ListEx()\VScroll\Area\Height = ListEx()\VScroll\Height - ScrollbarSize * 2
+  		ListEx()\VScroll\Area\Height = ListEx()\VScroll\Height - (ScrollbarSize * 2)
     EndIf  		
     ;}
 
@@ -2921,6 +2927,7 @@ Module ListEx
 
     ListEx()\Color\Front        = $000000
     ListEx()\Color\Back         = $FFFFFF
+    ListEx()\Color\Border       = $A9A9A9
     ListEx()\Color\Canvas       = $FFFFFF
     ListEx()\Color\Gadget       = $C8C8C8
     ListEx()\Color\ScrollBar    = $F0F0F0
@@ -2952,7 +2959,7 @@ Module ListEx
       CompilerCase #PB_OS_Windows
         ListEx()\Color\Gadget       = GetSysColor_(#COLOR_MENU)
         ListEx()\Color\HeaderFront  = GetSysColor_(#COLOR_WINDOWTEXT)
-        ;ListEx()\Color\HeaderBack   = GetSysColor_(#COLOR_3DLIGHT)
+        ListEx()\Color\Border       = GetSysColor_(#COLOR_ACTIVEBORDER)
         ListEx()\Color\HeaderLine   = GetSysColor_(#COLOR_3DSHADOW)
         ListEx()\Color\Front        = GetSysColor_(#COLOR_WINDOWTEXT)
         ListEx()\Color\Back         = GetSysColor_(#COLOR_WINDOW)
@@ -3540,19 +3547,18 @@ Module ListEx
     		  If ScrollBar = #Horizontal|#Vertical
     		    
     		    If ListEx()\HScroll\Hide = #False
-    		      Box_(0, ListEx()\HScroll\Y, GadgetWidth(ListEx()\CanvasNum), ListEx()\HScroll\Height + 1, ListEx()\Color\Gadget) ; ListEx()\Color\Gadget
+    		      Box_(ListEx()\HScroll\X, ListEx()\HScroll\Y, GadgetWidth(ListEx()\CanvasNum) - 2, ListEx()\HScroll\Height, ListEx()\Color\Gadget) 
     		    EndIf 
 
-    		    If ListEx()\HScroll\Hide = #False
-    		      Box_(ListEx()\VScroll\X, 0, ListEx()\VScroll\Width, GadgetHeight(ListEx()\CanvasNum) + 1, ListEx()\Color\Gadget)
+    		    If ListEx()\VScroll\Hide = #False
+    		      Box_(ListEx()\VScroll\X, ListEx()\VScroll\Y, ListEx()\VScroll\Width, GadgetHeight(ListEx()\CanvasNum) - 2, ListEx()\Color\Gadget)
     		    EndIf
     		    
     		  EndIf  
     		  
     		  StopDrawing()
     		EndIf
-
-      	
+    		
 		EndSelect    
 
 		Select ScrollBar
@@ -3815,7 +3821,7 @@ Module ListEx
 
       PopListPosition(ListEx()\Cols())
       PopListPosition(ListEx()\Rows())
-
+      
       StopDrawing()
     EndIf  
   
@@ -3958,6 +3964,8 @@ Module ListEx
     
     If StartDrawing(CanvasOutput(ListEx()\CanvasNum))
       
+      ClipOutput_(ListEx()\Area\X, ListEx()\Area\Y, ListEx()\Area\Width, ListEx()\Area\Height)
+      
       X      = ListEx()\ComboBox\ButtonX
       Y      = ListEx()\ComboBox\Y
       Width  = #ButtonWidth
@@ -3991,6 +3999,8 @@ Module ListEx
       Else
         Box_(X, Y + 1, Width - 1, Height - 2, BackColor)
       EndIf
+      
+      UnclipOutput_()
       
       StopDrawing()
     EndIf
@@ -4357,6 +4367,8 @@ Module ListEx
     
     If StartDrawing(CanvasOutput(ListEx()\CanvasNum))
       
+      ClipOutput_(ListEx()\Area\X, ListEx()\Area\Y, ListEx()\Area\Width, ListEx()\Area\Height)
+      
       DrawingFont(ListEx()\ComboBox\FontID)
 
       txtHeight = TextHeight_("X")
@@ -4369,7 +4381,9 @@ Module ListEx
       ListEx()\Cursor\Pos       = ListEx()\ComboBox\CursorPos
       
       ListEx()\ComboBox\ButtonX = X + Width - #ButtonWidth
-
+      
+      UnclipOutput_()
+      
       StopDrawing()
     EndIf
     
@@ -4381,7 +4395,9 @@ Module ListEx
     Define.i colX, rowY, imgX, imgY, Color
 
     If StartDrawing(CanvasOutput(ListEx()\CanvasNum))
-
+      
+      ClipOutput_(ListEx()\Area\X, ListEx()\Area\Y, ListEx()\Area\Width, ListEx()\Area\Height)
+      
       If FontID > 0
         Button_(X, Y, Width, Height, Text, ColorFlag, FontID)
       Else
@@ -4408,6 +4424,8 @@ Module ListEx
         ;}
       EndIf
       
+      UnclipOutput_()
+      
       StopDrawing()
     EndIf
     
@@ -4417,6 +4435,8 @@ Module ListEx
     Define.f colX, rowY, textX, textY, imgX, imgY
     
     If StartDrawing(CanvasOutput(ListEx()\CanvasNum))
+      
+      ClipOutput_(ListEx()\Area\X, ListEx()\Area\Y, ListEx()\Area\Width, ListEx()\Area\Height)
       
       UpdateRowY_()
 
@@ -4486,7 +4506,9 @@ Module ListEx
         EndIf
         ;}
       EndIf 
-
+      
+      UnclipOutput_()
+      
       StopDrawing()
     EndIf
     
@@ -4537,7 +4559,7 @@ Module ListEx
     
     If StartDrawing(CanvasOutput(ListEx()\CanvasNum))
       
-      ClipOutput_(0, 0, Width, Height)
+      ClipOutput_(X, Y, Width, Height)
       
       DrawingFont(ListEx()\String\FontID)
 
@@ -4559,7 +4581,7 @@ Module ListEx
 
   Procedure   Draw_(ScrollBar.i=#False) ; DPI
     Define.f colX, rowY, textY, textX, colW0, rowHeight, imgY, imgX, imgWidth, imgHeight
-    Define.i r, Width, Height, textRows, maxHeight, OffsetY
+    Define.i r, Width, Height, textRows, maxHeight, OffsetX, OffsetY
     Define.i Flags, imgFlags, Align, Mark, Row
     Define.i FrontColor, BackColor, RowColor, FontID, RowFontID, Time
     Define.s Key$, Text$
@@ -4585,8 +4607,8 @@ Module ListEx
     EndIf   
     ;}
 
-    colX = 0
-    rowY = 0
+    colX = ListEx()\Area\X
+    rowY = ListEx()\Area\Y
     rowHeight = 0    
     
     If StartDrawing(CanvasOutput(ListEx()\CanvasNum))
@@ -4603,9 +4625,9 @@ Module ListEx
       
       colX = ListEx()\Size\X - ListEx()\Col\OffsetX
       
-      ClipOutput_(0, 0, Width, Height)
+      ClipOutput_(ListEx()\Area\X, ListEx()\Area\Y, Width, Height)
       
-      ;{ _____ Header _____
+      ;{ ===== Header =====
       If ListEx()\Flags & #NoRowHeader
 
         ForEach ListEx()\Cols()
@@ -4622,12 +4644,37 @@ Module ListEx
 
       Else
         
+        ListEx()\Col\OffSet = 0
+        
         ForEach ListEx()\Cols()
           
           If ListEx()\Cols()\Flags & #Hide Or ListEx()\Cols()\Width = 0 : Continue : EndIf
           
           ListEx()\Size\Cols + ListEx()\Cols()\Width
-         
+          
+          ;{ Non visible columns
+          If colX <= 0 
+            If colX < 0
+              OffsetX = ColX + ListEx()\Cols()\Width
+              ListEx()\Col\ScrollLeft = ListEx()\Cols()\Width - OffsetX
+            EndIf  
+            ListEx()\Col\ScrollRight = ListEx()\Cols()\Width + ColX
+            ListEx()\Col\OffSet = ListIndex(ListEx()\Cols())
+          EndIf
+
+          If colX + ListEx()\Cols()\Width < ListEx()\Area\X
+            ListEx()\Cols()\X   = colX
+            colX + ListEx()\Cols()\Width
+            Continue
+          EndIf
+
+          If colX > ListEx()\Area\X + ListEx()\Area\Width
+            ListEx()\Cols()\X = colX
+            colX + ListEx()\Cols()\Width
+            Continue
+          EndIf  
+          ;}
+
           ListEx()\Cols()\minWidth = 0
           
           If ListEx()\Cols()\Header\FontID = #PB_Default
@@ -4719,29 +4766,41 @@ Module ListEx
       DrawingFont(ListEx()\Row\FontID)
       FontID = ListEx()\Row\FontID
      
-      ; _____ Rows _____
+      ; ===== Rows =====
       
       ClipOutput_(0, ListEx()\Size\Y + ListEx()\Header\Height, Width, Height - ListEx()\Size\Y - ListEx()\Header\Height)
+      
+      ListEx()\Size\Rows = 0
       
       rowY - ListEx()\Row\OffSetY
       
       ForEach ListEx()\Rows()
         
-        If rowY + ListEx()\Rows()\Height < ListEx()\Header\Height
-          OffsetY = rowY + ListEx()\Rows()\Height
-          ListEx()\Row\Offset   = ListIndex(ListEx()\Rows()) + 1
-          ListEx()\Row\ScrollUp = ListEx()\Rows()\Height - OffsetY
+        ListEx()\Size\Rows + ListEx()\Rows()\Height
+        
+        ;{ Non visible rows
+        If rowY <= ListEx()\Header\Height
+          If rowY < ListEx()\Header\Height
+            OffsetY = (rowY + ListEx()\Rows()\Height - ListEx()\Header\Height)
+            ListEx()\Row\ScrollUp = ListEx()\Rows()\Height - OffsetY
+          EndIf 
+          OffsetY = (rowY - ListEx()\Header\Height)
+          ListEx()\Row\ScrollDown = ListEx()\Rows()\Height + OffsetY
+          ListEx()\Row\Offset     = ListIndex(ListEx()\Rows())
+        EndIf   
+        
+        If rowY + ListEx()\Rows()\Height < ListEx()\Header\Height ; Top
+          ListEx()\Rows()\Y = rowY
           rowY + ListEx()\Rows()\Height
           Continue
         EndIf   
-        
-        If ListEx()\Row\ScrollUp = 0
-          ListEx()\Row\ScrollUp = ListEx()\Rows()\Height
-        EndIf   
-        
-        If ListIndex(ListEx()\Rows()) = ListEx()\Row\Offset 
-          ListEx()\Row\ScrollDown = ListEx()\Rows()\Height
-        EndIf
+
+        If rowY > ListEx()\Area\Y + ListEx()\Area\Height ; Botto
+          ListEx()\Rows()\Y = rowY
+          rowY + ListEx()\Rows()\Height
+          Continue
+        EndIf 
+        ;}
       
         If ListEx()\Rows()\FontID
           FontID = ListEx()\Rows()\FontID
@@ -4769,11 +4828,26 @@ Module ListEx
         Else
           BackColor = ListEx()\Color\Back
         EndIf ;}
-
+        
+        ; ===== Columns =====
         ForEach ListEx()\Cols() ;{ Columns of current row
 
           If ListEx()\Cols()\Flags & #Hide Or ListEx()\Cols()\Width = 0 : Continue : EndIf
+          
+          ;{ Non visible columns
+          If colX + ListEx()\Cols()\Width < ListEx()\Area\X
+            ListEx()\Cols()\X = colX
+            colX + ListEx()\Cols()\Width
+            Continue
+          EndIf  
 
+          If colX > ListEx()\Area\X + ListEx()\Area\Width
+            ListEx()\Cols()\X = colX
+            colX + ListEx()\Cols()\Width
+            Continue
+          EndIf  
+          ;}
+          
           Key$ = ListEx()\Cols()\Key
           If Key$ = "" : Key$ = Str(ListIndex(ListEx()\Cols())) : EndIf
           
@@ -5167,11 +5241,10 @@ Module ListEx
           colX + ListEx()\Cols()\Width
           ;}
         Next
+        ; ==================
         
         ListEx()\Rows()\Y = rowY
-        
-        If rowY > ListEx()\Area\Y + ListEx()\Area\Height : Break : EndIf 
-        
+
         rowY + ListEx()\Rows()\Height
 
       Next
@@ -7058,7 +7131,7 @@ Module ListEx
       
   EndProcedure
   
-  Procedure _LeftButtonUpHandler()
+ Procedure  _LeftButtonUpHandler()
     Define.i X, Y, dX, dY
     Define GNum.i = EventGadget()
     
@@ -7095,13 +7168,13 @@ Module ListEx
         			  If dX > dpiX(ListEx()\HScroll\Buttons\bX) And  dX < dpiX(ListEx()\HScroll\Buttons\bX + ListEx()\HScroll\Buttons\Width)
         			    
         			    ; --- Backwards Button ---
-        			    SetThumbPosX_(ListEx()\HScroll\Pos - 1)
+        			    SetThumbPosX_(ListEx()\HScroll\Pos - ListEx()\Col\ScrollLeft)
         			    Draw_(#Horizontal)
         			    
         			  ElseIf dX > dpiX(ListEx()\HScroll\Buttons\fX) And  dX < dpiX(ListEx()\HScroll\Buttons\fX + ListEx()\HScroll\Buttons\Width)
         			    
         			    ; --- Forwards Button ---
-        			    SetThumbPosX_(ListEx()\HScroll\Pos + 1)
+        			    SetThumbPosX_(ListEx()\HScroll\Pos + ListEx()\Col\ScrollRight)
         			    Draw_(#Horizontal)
     
         			  ElseIf dX > dpiX(ListEx()\HScroll\Area\X) And dX < dpiX(ListEx()\HScroll\Thumb\X)
@@ -7584,8 +7657,8 @@ Module ListEx
           If SelectElement(ListEx()\Rows(), Row)
             If SelectElement(ListEx()\Cols(), Column)
               
-              RowY = ListEx()\Rows()\Y - ListEx()\Row\OffsetY
-              ColX = ListEx()\Cols()\X - ListEx()\Col\OffsetX
+              RowY = ListEx()\Rows()\Y
+              ColX = ListEx()\Cols()\X
               
               Key$   = ListEx()\Cols()\Key
               Flags  = ListEx()\Rows()\Column(Key$)\Flags
@@ -7714,13 +7787,14 @@ Module ListEx
     
     If FindMapElement(ListEx(), Str(GadgetNum))
       
-      ; --- Scrollbar ---
+       ; --- Scrollbar ---
       If ListEx()\Scrollbar\Flags & #Horizontal ;{ Horizontal Scrollbar
 	      
 	      ListEx()\HScroll\Buttons\bState = #False
         ListEx()\HScroll\Buttons\fState = #False
         ListEx()\HScroll\Thumb\State    = #False
         ListEx()\HScroll\CursorPos      = #PB_Default
+        If ListEx()\VScroll\Focus : Draw_(#Horizontal) : EndIf 
 	      ;}
 	    EndIf
 	    
@@ -7730,6 +7804,7 @@ Module ListEx
         ListEx()\VScroll\Buttons\fState = #False
         ListEx()\VScroll\Thumb\State    = #False
         ListEx()\VScroll\CursorPos      = #PB_Default
+        If ListEx()\VScroll\Focus : Draw_(#Vertical) : EndIf 
 	      ;}
       EndIf
       
@@ -11035,10 +11110,10 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 13
-; FirstLine = 1
-; Folding = QAAhAAAAAAAAAAoAAUIAAAAAAAAAAAAAQAACAAjkamAIAIYAU4FAACAAAiAAIQAYAAAAAAAAAwAAAAA1ui0-YCgAAAW5A+
-; Markers = 3095,5306,7853
+; CursorPosition = 7808
+; FirstLine = 946
+; Folding = QAAhAAAAAAAAAQoAACoAAAAAAAAAAAQAwAACAADkAAQAAAADg7uAAQAAAQEDQBCcDAAAAAAAAAEACAAg3Vs-HTAEAAwCHw
+; Markers = 3102,5379,7928
 ; EnableThread
 ; EnableXP
 ; DPIAware

@@ -2,16 +2,20 @@
 ;/ =    MarkDownModule.pbi    =
 ;/ ============================
 ;/
-;/ [ PB V5.7x / 64Bit / All OS / DPI ]
+;/ [ PB V5.7x - V6.0 / 64Bit / All OS / DPI ]
 ;/
-;/  Gadget, Requester & HelpWindow for Markdown
+;/  Gadget, Requester, Tooltips, 2D Drawing & HelpWindow for Markdown
 ;/
 ;/ © 2022 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 05.05.2022
+; Last Update: 16.05.2022
 ;
-; - Added: ToolTip() ; Tooltips with Markdown
+; - New Scrollbar
+; - New DPI managment
+; - Bugfixes
+;
+; - Added: ToolTip() -  Tooltips with Markdown
 ;
 
 ;{ ===== MIT License =====
@@ -87,7 +91,21 @@
 ; MarkDown::ChangeHelpTopic()
 ; MarkDown::EventLabel()
 
+; ----- Tooltip (#Enable_Tooltips) -----
+
+; MarkDown::Tooltip()
+; MarkDown::TooltipColor()
+; MarkDown::TooltipFont()
+
+; ----- Draw Markdown on CanvasGadget  (#Enable_DrawCanvas) -----
+
+; MarkDown::Text()
+; MarkDown::LoadFonts()
+; MarkDown::Height()
+; MarkDown::Width()
+
 ;}
+
 
 ;{ _____ Available Emojis _____
 
@@ -102,7 +120,7 @@
 ; XIncludeFile "NamedPipeModule.pbi"
 
 ; ***** If no PDF is required, this line can be commented out. *****
-;CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : CompilerEndIf
+CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : CompilerEndIf
 
 
 DeclareModule MarkDown
@@ -110,36 +128,27 @@ DeclareModule MarkDown
   #Version  = 22042800
   #ModuleEx = 20041700
   
-  #Enable_Gadget      = #False
-  #Enable_Requester   = #False
-  #Enable_Tooltips    = #False
-  #Enable_HelpWindow  = #False
+  #Enable_Gadget      = #True
+  #Enable_Requester   = #True
+  #Enable_Tooltips    = #True
+  #Enable_HelpWindow  = #True
   #Enable_CreateHelp  = #False
-  #Enable_Emoji       = #False
-  #Enable_ExportHTML  = #False
+  #Enable_Emoji       = #True
+  #Enable_ExportHTML  = #True
   #Enable_DrawCanvas  = #True
   
 	;- ===========================================================================
 	;-   DeclareModule - Constants
   ;- ===========================================================================
-
-  EnumerationBinary ;{ ScrollBar
-		#ScrollBar_Border            ; Draw gadget border
-		#ScrollBar_ButtonBorder      ; Draw button borders
-		#ScrollBar_ThumbBorder       ; Draw thumb border
-		#ScrollBar_DragLines         ; Draw drag lines
-	EndEnumeration ;}
 	
-	Enumeration 1     ;{ ScrollBar Buttons
+  Enumeration 1 ;{ ScrollBar
+    #Vertical   = #PB_ScrollBar_Vertical
+    #Horizontal
 	  #ScrollBar_Up
 	  #ScrollBar_Down
 	  #ScrollBar_Left
 	  #ScrollBar_Right
 	EndEnumeration ;}
-	
-	#ScrollBar_Default   = #False
-	#ScrollBar_Frame     = #ScrollBar_Border
-	#ScrollBar_DragPoint = #ScrollBar_ButtonBorder|#ScrollBar_ThumbBorder|#ScrollBar_DragLines|#ScrollBar_Border 
 	
   ;{ _____ Constants _____
   #Bullet$ = "•"
@@ -159,10 +168,11 @@ DeclareModule MarkDown
 	  #Question
 	  #Error 
 	  #Warning
+	  ; Scrollbaar
+	  #Style_Win11
+	  #Style_RoundThumb
 	  ; Window
 	  #KeywordsOnly  ; Search: Only keywords, no topics 
-	  #Style_Frame
-	  #Style_DragPoint
 	EndEnumeration ;}
 	
 	Enumeration       ;{ Type
@@ -189,7 +199,6 @@ DeclareModule MarkDown
 	EndEnumeration ;}
 	
 	Enumeration 1     ;{ Attribute
-	  #Corner
 	  #Margin_Left
 	  #Margin_Right
 	  #Margin_Top
@@ -228,18 +237,19 @@ DeclareModule MarkDown
 	  #Close
 	EndEnumeration ;}  
 	
+	Enumeration 1   ;{ Cursor States
+	  #Focus
+    #Click
+    #Hover
+  EndEnumeration ;}
+	
 	CompilerIf #Enable_Requester
 	  
 	  #ButtonWidth  = 70
 	  #ButtonHeight = 20
 	  
 	  #OK = 0
-	  
-	  Enumeration 1   ;{ Buttons
-  	  #Click
-  	  #Focus
-  	EndEnumeration ;}
-	  
+
 	  Enumeration 2   ;{ Result
     	#Result_Yes
     	#Result_No
@@ -435,27 +445,22 @@ Module MarkDown
 	;-   Module - Constants
 	;- ============================================================================
 	
-  ;{ OS specific contants
-  CompilerSelect #PB_Compiler_OS
-    CompilerCase #PB_OS_Windows
-      #ScrollBarSize  = 18
-    CompilerCase #PB_OS_MacOS
-      #ScrollBarSize  = 18
-    CompilerCase #PB_OS_Linux
-      #ScrollBarSize  = 18
-  CompilerEndSelect ;}
-  
-  #ScrollBar_ButtonSize = 18
 
-  #ScrollBar_Timer      = 100
-	#ScrollBar_TimerDelay = 3
+  #ScrollBarSize   = 16
 	
-	Enumeration 1                              ;{ ScrollBar Buttons
-	  #ScrollBar_Forwards
-	  #ScrollBar_Backwards
-	  #ScrollBar_Focus
-	  #ScrollBar_Click
+	#AutoScrollTimer = 1867
+	#Frequency       = 100  ; 100ms
+	#TimerDelay      = 3    ; 100ms * 3
+	
+	Enumeration 1     ;{ Direction
+	  #Up
+	  #Left
+	  #Right
+	  #Down
+	  #Forwards
+	  #Backwards
 	EndEnumeration ;}
+	
 	
 	#Return = 0
   
@@ -558,98 +563,88 @@ Module MarkDown
 	;-   Module - Structures
 	;- ============================================================================	
   
-  Structure ScrollBar_Timer_Thread_Structure ;{ Thread\...
-    Num.i
-    Active.i
-    Exit.i
-  EndStructure ;}
-  Global TimerThread.ScrollBar_Timer_Thread_Structure  
+  ; ----- ScrollBar -----
   
-  Structure ScrollBar_Button_Structure       ;{ ...\ScrollBar\Item()\Buttons\Forwards\...
+	Structure Area_Structure                ;{
 	  X.i
 	  Y.i
 	  Width.i
 	  Height.i
-	  State.i
-	EndStructure ;}
-	
-	Structure ScrollBar_Buttons_Structure      ;{ ...\ScrollBar\Item()\Buttons\...
-	  Backwards.ScrollBar_Button_Structure
-	  Forwards.ScrollBar_Button_Structure
-	EndStructure ;}
-	
-	Structure ScrollBar_Thumb_Structure        ;{ ...\ScrollBar\Item()\Thumb\...
-	  X.i
-	  Y.i
-	  Width.i
-	  Height.i
-	  Factor.f
-	  Size.i
-	  State.i
-	EndStructure ;}
-	
-  Structure ScrollBar_Area_Structure         ;{ ...\ScrollBar\Item()\Area\...
-	  X.i
-	  Y.i
-	  Width.i
-	  Height.i
-	EndStructure ;}
-  
-	Structure ScrollBar_Item_Structure         ;{ ...\ScrollBar\Item()\...
-    Type.i
-    
-    Pos.i
-	  minPos.i
-	  maxPos.i
-	  Ratio.f
-	  
-		Minimum.i
-		Maximum.i
-		PageLength.i
-		
-		X.i
-		Y.i
-		Width.i
-		Height.i
-		
-		Timer.i
-	  TimerDelay.i
-	  
-	  Cursor.i
-	  
-	  Disable.i
-		Hide.i
-
-		Thumb.ScrollBar_Thumb_Structure
-		Buttons.ScrollBar_Buttons_Structure
-		Area.ScrollBar_Area_Structure
-
 	EndStructure ;}  
 	
-	Structure ScrollBar_Color_Structure        ;{ ...\ScrollBar\Color\...
-		Front.i
-		Back.i
-		Border.i
+	Structure Size_Structure                ;{
+	  Width.i
+	  Height.i
+	EndStructure ;}
+	
+	
+	Structure ScrollBar_Thumb_Structure     ;{ MarkDown()\HScroll\Forwards\Thumb\...
+	  X.i
+	  Y.i
+	  Width.i
+	  Height.i
+	  State.i
+	EndStructure ;}
+	
+	Structure ScrollBar_Button_Structure    ;{ MarkDown()\HScroll\Buttons\...
+	  Width.i
+	  Height.i
+	  ; forward: right & down
+	  fX.i
+	  fY.i
+	  fState.i
+	  ; backward: left & up
+	  bX.i
+	  bY.i
+	  bState.i
+	EndStructure ;}
+	
+	Structure ScrollBar_Color_Structure     ;{ MarkDown()\HScroll\Color\...
+	  Front.i
+	  Back.i
 		Button.i
 		Focus.i
-		Gadget.i
-		ScrollBar.i
-		DisableFront.i
-		DisableBack.i
-	EndStructure  ;}
+		Hover.i
+		Arrow.i
+	EndStructure ;}
+
 	
-	Structure ScrollBar_Structure              ;{ ...\ScrollBar\...
-	  Num.i
+	Structure MarkDown_ScrollBar_Structure  ;{ MarkDown()\HScroll\...
+	  X.i
+	  Y.i
+	  Width.i
+	  Height.i  
 	  
-	  Adjust.i
-	  Radius.i
+	  Pos.i        ; Scrollbar position
+	  minPos.i     ; max. Position
+	  maxPos.i     ; min. Position
+	  Range.i      ; maxPos - minPos
+	  Ratio.f      ; PageLength / Maximum
+	  Factor.f     ; (ScrollbarArea - ThumbSize) / Range
+	  
+	  Focus.i      ; Scrollbar Focus
+	  CursorPos.i  ; Last Cursor Position
+	  Timer.i      ; AutoScroll Timer
+	  Delay.i      ; AutoScroll Delay
+	  
+	  Hide.i       ; Hide Scrollbar
+	  Minimum.i    ; min. Value
+	  Maximum.i    ; max. Value
+	  PageLength.i ; Visible Size
+	  
+	  Area.Area_Structure                  ; Area between scroll buttons
+	  Buttons.ScrollBar_Button_Structure  ; right & down
+	  Thumb.ScrollBar_Thumb_Structure      ; thumb position & size
+	EndStructure ;}
 
-	  Flags.i
-	  
+	Structure MarkDown_ScrollBars_Structure ;{ MarkDown()\ScrollBar\...
 	  Color.ScrollBar_Color_Structure
+	  Size.i       ; Scrollbar width (vertical) / height (horizontal)
+	  TimerDelay.i ; Autoscroll Delay
+	  Flags.i      ; Flag: #Vertical | #Horizontal
+	EndStructure ;}
 
-    Map Item.ScrollBar_Item_Structure()
-  EndStructure ;}
+  ; ---------------------
   
   
   CompilerIf #Enable_HelpWindow
@@ -1087,8 +1082,6 @@ Module MarkDown
 		Indent.i
 		LineSpacing.f
 		
-    Radius.i
-
 		Hide.i
 		Disable.i
 		ToolTip.i
@@ -1096,7 +1089,16 @@ Module MarkDown
 		EventValue.s
 		EventLabel.s
 		
-		ScrollOffset.i
+		; --- Scrollbar ---
+    Area.Area_Structure ; available area
+	  Scrollbar.MarkDown_ScrollBars_Structure
+	  HScroll.MarkDown_ScrollBar_Structure
+	  VScroll.MarkDown_ScrollBar_Structure
+	  ScrollOffsetY.i
+	  ScrollOffsetX.i
+	  ScrollH.i
+	  ScrollV.i
+    ; ---------
 		
 		Flags.i
 
@@ -1104,7 +1106,6 @@ Module MarkDown
 		Font.MarkDown_Font_Structure
 		Margin.Margin_Structure
 		Required.MarkDown_Required_Structure
-		ScrollBar.ScrollBar_Structure
 		Size.MarkDown_Size_Structure
 		Window.MarkDown_Window_Structure
 		
@@ -1141,6 +1142,8 @@ Module MarkDown
 	Global NewMap MarkDown.MarkDown_Structure()
 	
 	Global NewMap Emoji.i()
+	
+	Global Mutex.i = CreateMutex()
 	
 	;- ============================================================================
 	;-   Module - Internal
@@ -1232,22 +1235,83 @@ Module MarkDown
     
   CompilerEndIf	
   
-  Procedure.f dpiX(Num.i)
-	  If Num > 0  
-	    ProcedureReturn DesktopScaledX(Num)
+  
+  Procedure.i dpiX(Num.i)
+    ProcedureReturn DesktopScaledX(Num)
+  EndProcedure
+  
+  Procedure.i dpiY(Num.i)
+    ProcedureReturn DesktopScaledY(Num)
+  EndProcedure
+  
+	
+	Procedure TextHeight_(Text.s)
+	  ProcedureReturn DesktopUnscaledY(TextHeight(Text))
+	EndProcedure
+	
+	Procedure TextWidth_(Text.s)
+	  ProcedureReturn DesktopUnscaledX(TextWidth(Text))
+	EndProcedure  
+	
+	Procedure DrawText_(X.i, Y.i, Text.s, FrontColor.i=#PB_Default, BackColor.i=#PB_Default)
+	  Define.i PosX
+	  
+	  If FrontColor = #PB_Default
+	    PosX = DrawText(dpiX(X), dpiY(Y), Text)
+	    ProcedureReturn DesktopUnscaledX(PosX)
+	  ElseIf BackColor = #PB_Default
+	    PosX = DrawText(dpiX(X), dpiY(Y), Text, FrontColor)
+	    ProcedureReturn DesktopUnscaledX(PosX)
+	  Else
+	    PosX = DrawText(dpiX(X), dpiY(Y), Text, FrontColor, BackColor)
+	    ProcedureReturn DesktopUnscaledX(PosX)
+	  EndIf 
+	  
+	EndProcedure  
+	
+	Procedure LineXY_(x1.i, y1.i, x2.i, y2.i, Color.i=#PB_Default)
+	  If Color.i=#PB_Default
+	    LineXY(dpiX(x1), dpiY(y1), dpiX(x2), dpiY(y2))
+	  Else
+	    LineXY(dpiX(x1), dpiY(y1), dpiX(x2), dpiY(y2), Color)
 	  EndIf   
 	EndProcedure
-
-	Procedure.f dpiY(Num.i)
-	  If Num > 0  
-	    ProcedureReturn DesktopScaledY(Num)
+	
+	Procedure Line_(X.i, Y.i, Width.i, Height.i, Color.i=#PB_Default)
+	  If Color = #PB_Default
+	    Line(dpiX(X), dpiY(Y), dpiX(Width), dpiY(Height))
+	  Else  
+	    Line(dpiX(X), dpiY(Y), dpiX(Width), dpiY(Height), Color)
+	  EndIf   
+	EndProcedure  
+	
+	Procedure DrawImage_(ImageID.i, X.i, Y.i, Width.i=#PB_Default, Height.i=#PB_Default)
+	  If Width = #PB_Default And Height = #PB_Default
+	    DrawImage(ImageID, dpiX(X), dpiY(Y))
+	  Else
+	    DrawImage(ImageID, dpiX(X), dpiY(Y), dpiX(Width), dpiY(Height))
 	  EndIf  
-	EndProcedure
+	EndProcedure  
+	
+	
+	Procedure ClipOutput_(X, Y, Width, Height)
+    CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+      ClipOutput(dpiX(X), dpiY(Y), dpiX(Width), dpiY(Height)) 
+    CompilerEndIf
+  EndProcedure
+  
+  Procedure UnclipOutput_()
+    CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+      UnclipOutput() 
+    CompilerEndIf
+  EndProcedure
+	
 	
 	Procedure.i mm_(Pixel.i)
 	  ;px = mm * 96 / 25,4mm
 	  ProcedureReturn Round(Pixel * 25.4 / 96, #PB_Round_Nearest)
 	EndProcedure
+	
 	
 	Procedure.s GetAbsolutePath_(Path.s, File.s, Flags.i=#False)
     Define.i i, PS
@@ -1445,75 +1509,285 @@ Module MarkDown
     
   EndProcedure
 
-  Procedure.i CalcScrollBarThumb_()
-	  Define.i Size, Range, HRange
+  ;- ----- ScrollBar -----
+  
+	Procedure   CalcScrollBar_()
+	  Define.i Width, Height, ScrollbarSize
 	  
-	  If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll")
-	    
-  	  MarkDown()\ScrollBar\Item()\minPos   = MarkDown()\ScrollBar\Item()\Minimum
-  	  MarkDown()\ScrollBar\Item()\maxPos   = MarkDown()\ScrollBar\Item()\Maximum - MarkDown()\ScrollBar\Item()\PageLength + 1
-  	  MarkDown()\ScrollBar\Item()\Ratio    = MarkDown()\ScrollBar\Item()\PageLength / MarkDown()\ScrollBar\Item()\Maximum
-  	  MarkDown()\ScrollBar\Item()\Pos      = MarkDown()\ScrollBar\Item()\Minimum
-  	  
-  	  MarkDown()\ScrollBar\Item()\Area\X       = MarkDown()\ScrollBar\Item()\X
-  	  MarkDown()\ScrollBar\Item()\Area\Y       = MarkDown()\ScrollBar\Item()\Y + dpiY(#ScrollBar_ButtonSize) + dpiY(1)
-  	  MarkDown()\ScrollBar\Item()\Area\Width   = MarkDown()\ScrollBar\Item()\Width
-  	  MarkDown()\ScrollBar\Item()\Area\Height  = MarkDown()\ScrollBar\Item()\Height - dpiY(MarkDown()\ScrollBar\Adjust) - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(2)
-  	  
-  	  Range = MarkDown()\ScrollBar\Item()\maxPos - MarkDown()\ScrollBar\Item()\minPos
-  	  
-  	  MarkDown()\ScrollBar\Item()\Thumb\Y      = MarkDown()\ScrollBar\Item()\Area\Y
-  	  MarkDown()\ScrollBar\Item()\Thumb\Size   = Round(MarkDown()\ScrollBar\Item()\Area\Height * MarkDown()\ScrollBar\Item()\Ratio, #PB_Round_Down)
-  	  MarkDown()\ScrollBar\Item()\Thumb\Factor = (MarkDown()\ScrollBar\Item()\Area\Height - MarkDown()\ScrollBar\Item()\Thumb\Size) / Range
-  	  
-	  EndIf   
+	  ; current canvas ScrollbarSize
+	  Width         = GadgetWidth(MarkDown()\CanvasNum)
+	  Height        = GadgetHeight(MarkDown()\CanvasNum)
+	  ScrollbarSize = MarkDown()\Scrollbar\Size
+	  
+	  ;{ Calc available canvas area
+	  MarkDown()\Area\X = 1
+	  MarkDown()\Area\Y = 1
+	  
+    If MarkDown()\HScroll\Hide And MarkDown()\VScroll\Hide
+      MarkDown()\Area\Width  = Width
+      MarkDown()\Area\Height = Height
+    ElseIf MarkDown()\HScroll\Hide
+      MarkDown()\Area\Width  = Width  - ScrollbarSize - 3
+      MarkDown()\Area\Height = Height
+    ElseIf MarkDown()\VScroll\Hide
+      MarkDown()\Area\Width  = Width
+      MarkDown()\Area\Height = Height - ScrollbarSize - 3
+    Else
+      MarkDown()\Area\Width  = Width  - ScrollbarSize - 3
+      MarkDown()\Area\Height = Height - ScrollbarSize - 3
+    EndIf ;}
+    
+    ;{ Calc scrollbar size
+    If MarkDown()\HScroll\Hide      ;{ only vertical visible
+      
+      MarkDown()\VScroll\X        = Width - ScrollbarSize - 1
+      MarkDown()\VScroll\Y        = 1
+      MarkDown()\VScroll\Width    = ScrollbarSize
+      MarkDown()\VScroll\Height   = Height - 2
+      ;}
+    ElseIf MarkDown()\VScroll\Hide  ;{ only horizontal visible
+      
+      MarkDown()\HScroll\X        = 1
+      MarkDown()\HScroll\Y        = Height - ScrollbarSize - 1
+      MarkDown()\HScroll\Width    = Width - 2
+      MarkDown()\HScroll\Height   = ScrollbarSize
+      ;}
+    Else                            ;{ both scrollbars visible
+      
+      MarkDown()\HScroll\X        = 1
+      MarkDown()\HScroll\Y        = Height - ScrollbarSize - 1
+      MarkDown()\HScroll\Width    = Width  - ScrollbarSize - 2
+      MarkDown()\HScroll\Height   = ScrollbarSize
+      
+      MarkDown()\VScroll\X        = Width - ScrollbarSize - 1
+      MarkDown()\VScroll\Y        = 1
+      MarkDown()\VScroll\Width    = ScrollbarSize
+      MarkDown()\VScroll\Height   = Height - ScrollbarSize - 2
+      ;}
+    EndIf ;}
+    
+    ;{ Calc scroll buttons
+    MarkDown()\HScroll\Buttons\Width  = ScrollbarSize
+    MarkDown()\HScroll\Buttons\Height = ScrollbarSize
+    ; forward: right
+    MarkDown()\HScroll\Buttons\fX     = MarkDown()\HScroll\X + MarkDown()\HScroll\Width - ScrollbarSize
+    MarkDown()\HScroll\Buttons\fY     = MarkDown()\HScroll\Y
+    ; backward: left
+    MarkDown()\HScroll\Buttons\bX     = MarkDown()\HScroll\X
+    MarkDown()\HScroll\Buttons\bY     = MarkDown()\HScroll\Y
 
+    MarkDown()\VScroll\Buttons\Width  = ScrollbarSize
+    MarkDown()\VScroll\Buttons\Height = ScrollbarSize
+    ; forward: down
+    MarkDown()\VScroll\Buttons\fX     = MarkDown()\VScroll\X
+    MarkDown()\VScroll\Buttons\fY     = MarkDown()\HScroll\Y + MarkDown()\VScroll\Height - ScrollbarSize
+    ; backward: up
+    MarkDown()\VScroll\Buttons\bX     = MarkDown()\VScroll\X
+    MarkDown()\VScroll\Buttons\bY     = MarkDown()\HScroll\Y
+    ;}
+    
+    ;{ Calc scroll area between buttons
+    MarkDown()\HScroll\Area\X      = MarkDown()\HScroll\X + ScrollbarSize
+		MarkDown()\HScroll\Area\Y      = MarkDown()\HScroll\Y
+		MarkDown()\HScroll\Area\Width  = MarkDown()\HScroll\Width - (ScrollbarSize * 2)
+		MarkDown()\HScroll\Area\Height = ScrollbarSize  
+    
+    MarkDown()\VScroll\Area\X      = MarkDown()\VScroll\X
+		MarkDown()\VScroll\Area\Y      = MarkDown()\HScroll\Y + ScrollbarSize 
+		MarkDown()\VScroll\Area\Width  = ScrollbarSize
+		MarkDown()\VScroll\Area\Height = MarkDown()\VScroll\Height - (ScrollbarSize * 2)	
+    ;}
+
+    ;{ Calc thumb size
+	  MarkDown()\HScroll\Thumb\Y      = MarkDown()\HScroll\Area\Y
+	  MarkDown()\HScroll\Thumb\Width  = Round(MarkDown()\HScroll\Area\Width * MarkDown()\HScroll\Ratio, #PB_Round_Nearest)
+	  MarkDown()\HScroll\Thumb\Height = ScrollbarSize
+	  MarkDown()\HScroll\Factor       = (MarkDown()\HScroll\Area\Width - MarkDown()\HScroll\Thumb\Width) / MarkDown()\HScroll\Range
+	  
+	  If MarkDown()\Scrollbar\Flags & #Style_Win11
+	    MarkDown()\HScroll\Thumb\Height - 10
+	    MarkDown()\HScroll\Thumb\Y      +  5 
+	  Else
+	    MarkDown()\HScroll\Thumb\Height - 4
+	    MarkDown()\HScroll\Thumb\Y      + 2 
+	  EndIf
+
+    MarkDown()\VScroll\Thumb\X      = MarkDown()\VScroll\Area\X
+	  MarkDown()\VScroll\Thumb\Width  = ScrollbarSize
+	  MarkDown()\VScroll\Thumb\Height = Round(MarkDown()\VScroll\Area\Height * MarkDown()\VScroll\Ratio, #PB_Round_Nearest) 
+	  MarkDown()\VScroll\Factor       = (MarkDown()\VScroll\Area\Height - MarkDown()\VScroll\Thumb\Height) /  MarkDown()\VScroll\Range
+	  
+	  If MarkDown()\Scrollbar\Flags & #Style_Win11
+	    MarkDown()\VScroll\Thumb\Width - 10
+	    MarkDown()\VScroll\Thumb\X     +  5 
+	  Else
+	    MarkDown()\VScroll\Thumb\Width - 4
+	    MarkDown()\VScroll\Thumb\X     + 2 
+	  EndIf
+    ;}
+    
 	EndProcedure
 	
-	Procedure.i GetSteps_(Cursor.i)
-	  Define.i Steps
+	Procedure   CalcScrollRange_()
+
+	  If MarkDown()\HScroll\PageLength
+      MarkDown()\HScroll\Pos    = MarkDown()\HScroll\Minimum
+		  MarkDown()\HScroll\minPos = MarkDown()\HScroll\Minimum
+		  MarkDown()\HScroll\maxPos = MarkDown()\HScroll\Maximum - MarkDown()\HScroll\PageLength + 1
+		  MarkDown()\HScroll\Ratio  = MarkDown()\HScroll\PageLength / MarkDown()\HScroll\Maximum
+		  MarkDown()\HScroll\Range  = MarkDown()\HScroll\maxPos - MarkDown()\HScroll\minPos
+		EndIf 
+
+    If MarkDown()\VScroll\PageLength
+      MarkDown()\VScroll\Pos    = MarkDown()\VScroll\Minimum
+		  MarkDown()\VScroll\minPos = MarkDown()\VScroll\Minimum
+		  MarkDown()\VScroll\maxPos = MarkDown()\VScroll\Maximum - MarkDown()\VScroll\PageLength + 1
+		  MarkDown()\VScroll\Ratio  = MarkDown()\VScroll\PageLength / MarkDown()\VScroll\Maximum
+		  MarkDown()\VScroll\Range  = MarkDown()\VScroll\maxPos - MarkDown()\VScroll\minPos
+		EndIf
+
+    CalcScrollBar_()
+    
+    MarkDown()\HScroll\Thumb\X = MarkDown()\HScroll\Area\X
+  	MarkDown()\VScroll\Thumb\Y = MarkDown()\VScroll\Area\Y
+    
+	EndProcedure
+	
+	
+	Procedure.i GetThumbPosX_(X.i)   ; Horizontal Scrollbar
+	  Define.i Delta, Offset
 	  
-	  Steps = (Cursor - MarkDown()\ScrollBar\Item()\Cursor) / MarkDown()\ScrollBar\Item()\Thumb\Factor
+	  Delta = X - MarkDown()\HScroll\CursorPos
+	  MarkDown()\HScroll\Thumb\X + Delta 
 	  
-	  If Steps = 0
-	    If Cursor < MarkDown()\ScrollBar\Item()\Cursor
-	      Steps = -1
-	    Else
-	      Steps = 1
-	    EndIf
+	  If MarkDown()\HScroll\Thumb\X < MarkDown()\HScroll\Area\X
+	    MarkDown()\HScroll\Thumb\X = MarkDown()\HScroll\Area\X
+	  EndIf 
+	  
+	  If MarkDown()\HScroll\Thumb\X + MarkDown()\HScroll\Thumb\Width > MarkDown()\HScroll\Area\X + MarkDown()\HScroll\Area\Width
+	    MarkDown()\HScroll\Thumb\X = MarkDown()\HScroll\Area\X + MarkDown()\HScroll\Area\Width - MarkDown()\HScroll\Thumb\Width
+	  EndIf
+
+	  Offset = MarkDown()\HScroll\Thumb\X - MarkDown()\HScroll\Area\X
+	  MarkDown()\HScroll\Pos = Round(Offset / MarkDown()\HScroll\Factor, #PB_Round_Nearest) + MarkDown()\HScroll\minPos
+	  
+	  If MarkDown()\HScroll\Pos > MarkDown()\HScroll\maxPos : MarkDown()\HScroll\Pos = MarkDown()\HScroll\maxPos : EndIf
+  	If MarkDown()\HScroll\Pos < MarkDown()\HScroll\minPos : MarkDown()\HScroll\Pos = MarkDown()\HScroll\minPos : EndIf
+	  
+	  ProcedureReturn MarkDown()\HScroll\Pos
+	EndProcedure  
+	
+	Procedure.i GetThumbPosY_(Y.i)   ; Vertical Scrollbar
+	  Define.i Delta, Offset
+
+	  Delta = Y - MarkDown()\VScroll\CursorPos
+	  MarkDown()\VScroll\Thumb\Y + Delta 
+	  
+	  If MarkDown()\VScroll\Thumb\Y < MarkDown()\VScroll\Area\Y
+	    MarkDown()\VScroll\Thumb\Y =  MarkDown()\VScroll\Area\Y
+	  EndIf 
+	  
+	  If MarkDown()\VScroll\Thumb\Y + MarkDown()\VScroll\Thumb\Height >  MarkDown()\VScroll\Area\Y + MarkDown()\VScroll\Area\Height
+	    MarkDown()\VScroll\Thumb\Y =  MarkDown()\VScroll\Area\Y + MarkDown()\VScroll\Area\Height - MarkDown()\VScroll\Thumb\Height
 	  EndIf
 	  
-	  ProcedureReturn Steps
+	  Offset = MarkDown()\VScroll\Thumb\Y - MarkDown()\VScroll\Area\Y
+	  MarkDown()\VScroll\Pos = Round(Offset / MarkDown()\VScroll\Factor, #PB_Round_Nearest) + MarkDown()\VScroll\minPos
+	  
+	  If MarkDown()\VScroll\Pos > MarkDown()\VScroll\maxPos : MarkDown()\VScroll\Pos = MarkDown()\VScroll\maxPos : EndIf
+  	If MarkDown()\VScroll\Pos < MarkDown()\VScroll\minPos : MarkDown()\VScroll\Pos = MarkDown()\VScroll\minPos : EndIf
+	  
+	  ProcedureReturn MarkDown()\VScroll\Pos
+	EndProcedure  
+	
+	
+	Procedure   SetThumbPosX_(Pos.i) ; Horizontal Scrollbar
+	  Define.i  Offset
+	  
+	  MarkDown()\HScroll\Pos = Pos
+
+	  If MarkDown()\HScroll\Pos < MarkDown()\HScroll\minPos : MarkDown()\HScroll\Pos = MarkDown()\HScroll\minPos : EndIf
+	  If MarkDown()\HScroll\Pos > MarkDown()\HScroll\maxPos : MarkDown()\HScroll\Pos = MarkDown()\HScroll\maxPos : EndIf
+	  
+    Offset = Round((MarkDown()\HScroll\Pos - MarkDown()\HScroll\minPos) * MarkDown()\HScroll\Factor, #PB_Round_Nearest)
+    MarkDown()\HScroll\Thumb\X = MarkDown()\HScroll\Area\X + Offset
+
 	EndProcedure
 	
-	Procedure.i AdjustScrollBars_()
-	  Define.i Height
+	Procedure   SetThumbPosY_(Pos.i) ; Vertical Scrollbar
+	  Define.i  Offset
 	  
-    Height = GadgetHeight(MarkDown()\CanvasNum) 
-    
-    If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll")
-      
-      If MarkDown()\Required\Height > Height
+	  MarkDown()\VScroll\Pos = Pos
 
-        If MarkDown()\ScrollBar\Item()\Hide
-          CalcScrollBarThumb_()
-          MarkDown()\ScrollBar\Item()\Hide = #False
-        EndIf  
-        
-        ProcedureReturn #True
-      Else
-        
-        If MarkDown()\ScrollBar\Item()\Hide = #False
-          MarkDown()\ScrollBar\Item()\Hide = #True
-        EndIf  
-        
-        ProcedureReturn #True
+	  If MarkDown()\VScroll\Pos < MarkDown()\VScroll\minPos : MarkDown()\VScroll\Pos = MarkDown()\VScroll\minPos : EndIf
+	  If MarkDown()\VScroll\Pos > MarkDown()\VScroll\maxPos : MarkDown()\VScroll\Pos = MarkDown()\VScroll\maxPos : EndIf
+	  
+    Offset = Round((MarkDown()\VScroll\Pos - MarkDown()\VScroll\minPos) * MarkDown()\VScroll\Factor, #PB_Round_Nearest)
+    MarkDown()\VScroll\Thumb\Y = MarkDown()\VScroll\Area\Y + Offset
+
+	EndProcedure
+	
+  
+	Procedure.i AdjustScrollBars_()
+	  Define.i Height, Width
+    Define.i VScroll, HScroll, ScrollbarSize
+    
+    Width   = GadgetWidth(MarkDown()\CanvasNum)  - (MarkDown()\Margin\Left + MarkDown()\Margin\Right)
+		Height  = GadgetHeight(MarkDown()\CanvasNum) - (MarkDown()\Margin\Top  + MarkDown()\Margin\Bottom)
+    
+    ScrollbarSize = MarkDown()\Scrollbar\Size
+    
+    If MarkDown()\Type = #Requester 
+  		Height - 33
+  	EndIf
+    
+    ; --- Size without Scrollbars ---
+    If MarkDown()\Required\Height > Height
+      Width - ScrollbarSize
+    EndIf  
+    
+    If MarkDown()\Type <> #Requester
+      
+      If MarkDown()\Required\Width > Width
+        Height - ScrollbarSize
       EndIf
       
     EndIf
     
-	  ProcedureReturn #False
+    ; --- Size with Scrollbars ---
+    If MarkDown()\Required\Height > Height ; Vertical Scrollbar
+      MarkDown()\VScroll\Minimum    = 0
+      MarkDown()\VScroll\Maximum    = MarkDown()\Required\Height
+      MarkDown()\VScroll\PageLength = Height
+      MarkDown()\VScroll\Hide       = #False
+    Else
+      MarkDown()\VScroll\Minimum    = 0
+      MarkDown()\VScroll\Maximum    = 0
+      MarkDown()\VScroll\PageLength = 0
+      MarkDown()\VScroll\Hide       = #True
+    EndIf  
+    
+    If MarkDown()\Type <> #Requester
+    
+      If MarkDown()\Required\Width > Width ; Horizontal Scrollbar
+        MarkDown()\HScroll\Minimum    = 0
+        MarkDown()\HScroll\Maximum    = MarkDown()\Required\Width
+        MarkDown()\HScroll\PageLength = Width
+        MarkDown()\HScroll\Hide       = #False
+      Else
+        MarkDown()\HScroll\Maximum    = 0
+        MarkDown()\HScroll\Maximum    = 0
+        MarkDown()\HScroll\PageLength = 0
+        MarkDown()\HScroll\Hide       = #True
+      EndIf
+      
+    EndIf
+    
+    CalcScrollRange_()
+    
 	EndProcedure
+	
+	;- ---------------------
 	
 	Procedure   Clear_(Image.i=#False)
 	  
@@ -1609,6 +1883,8 @@ Module MarkDown
       ProcedureReturn #False
     EndIf  
     
+    If MarkDown()\LineSpacing <= 0 : MarkDown()\LineSpacing = 1.06 : EndIf
+    
     If StartDrawing(Output)
       
       ;{ _____ Items _____
@@ -1617,16 +1893,16 @@ Module MarkDown
         DrawingFont(FontID(MarkDown()\Font\Normal))
         
         MarkDown()\Items()\Width  = 0
-        MarkDown()\Items()\Height = TextHeight("X")
-
+        MarkDown()\Items()\Height = TextHeight_("X")
+        
         ForEach MarkDown()\Items()\Words()
           
           DrawingFont_(MarkDown()\Items()\Words()\Font)
           
           Select MarkDown()\Items()\Words()\Flag
             Case #Emoji     ;{ Emoji (16x16)
-              TextHeight = dpiY(16)
-              MarkDown()\Items()\Words()\Width = dpiX(16)
+              TextHeight = 16
+              MarkDown()\Items()\Words()\Width = 16
               ;}
             Case #Image     ;{ Image
 
@@ -1644,19 +1920,19 @@ Module MarkDown
                 If IsImage(MarkDown()\ImageNum())
   			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
   			          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
-  			          TextHeight = dpiY(MarkDown()\Image()\Height)
-  			          MarkDown()\Items()\Words()\Width = dpiX(MarkDown()\Image()\Width)  
+  			          TextHeight = MarkDown()\Image()\Height
+  			          MarkDown()\Items()\Words()\Width = MarkDown()\Image()\Width  
   			        EndIf
  
   			      EndIf
   			      ;}
   			    Case #Keystroke ;{ Keystroke (5 + Key + 5)  
-  			      TextHeight = TextHeight(MarkDown()\Items()\Words()\String)
-  			      MarkDown()\Items()\Words()\Width = TextWidth(MarkDown()\Items()\Words()\String) + dpiX(10)
+  			      TextHeight = TextHeight_(MarkDown()\Items()\Words()\String)
+  			      MarkDown()\Items()\Words()\Width = TextWidth_(MarkDown()\Items()\Words()\String) + 10
   			      ;}
   			    Default  
-              TextHeight = TextHeight(MarkDown()\Items()\Words()\String)
-              MarkDown()\Items()\Words()\Width = TextWidth(MarkDown()\Items()\Words()\String)
+              TextHeight = TextHeight_(MarkDown()\Items()\Words()\String)
+              MarkDown()\Items()\Words()\Width = TextWidth_(MarkDown()\Items()\Words()\String)
           EndSelect
           
           MarkDown()\Items()\Width + MarkDown()\Items()\Words()\Width
@@ -1680,8 +1956,8 @@ Module MarkDown
 	          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
 	        EndIf
 	        
-	        MarkDown()\Required\Height + dpiY(MarkDown()\Image()\Height)
-          If dpiX(MarkDown()\Image()\Width)  > MarkDown()\Required\Width : MarkDown()\Required\Width = dpiX(MarkDown()\Image()\Width)  : EndIf 
+	        MarkDown()\Required\Height + MarkDown()\Image()\Height
+          If MarkDown()\Image()\Width  > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Image()\Width  : EndIf 
 
         Else
           
@@ -1705,7 +1981,7 @@ Module MarkDown
           DrawingFont(FontID(MarkDown()\Font\Normal))
           
           MarkDown()\Lists()\Row()\Width  = 0
-          MarkDown()\Lists()\Row()\Height = TextHeight("X")
+          MarkDown()\Lists()\Row()\Height = TextHeight_("X")
           
           ForEach MarkDown()\Lists()\Row()\Words()
         
@@ -1713,8 +1989,8 @@ Module MarkDown
             
             Select MarkDown()\Lists()\Row()\Words()\Flag
               Case #Emoji     ;{ Emoji (16x16)
-                TextHeight = dpiY(16)
-                MarkDown()\Lists()\Row()\Words()\Width = dpiX(16)
+                TextHeight = 16
+                MarkDown()\Lists()\Row()\Words()\Width = 16
                 ;}
               Case #Image     ;{ Image
                 
@@ -1732,19 +2008,19 @@ Module MarkDown
                   If IsImage(MarkDown()\ImageNum())
     			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
     			          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
-    			          TextHeight = dpiY(MarkDown()\Image()\Height)
-    			          MarkDown()\Items()\Words()\Width = dpiX(MarkDown()\Image()\Width)  
+    			          TextHeight = MarkDown()\Image()\Height
+    			          MarkDown()\Items()\Words()\Width = MarkDown()\Image()\Width  
     			        EndIf
     			        
     			      EndIf
     			      ;}
     			    Case #Keystroke ;{ Keystroke (5 + Key + 5)  
-    			      TextHeight = TextHeight(MarkDown()\Items()\Words()\String)
-    			      MarkDown()\Items()\Words()\Width = TextWidth(MarkDown()\Items()\Words()\String) + dpiX(10)
+    			      TextHeight = TextHeight_(MarkDown()\Items()\Words()\String)
+    			      MarkDown()\Items()\Words()\Width = TextWidth_(MarkDown()\Items()\Words()\String) + 10
     			      ;}
     			    Default  
-                TextHeight = TextHeight(MarkDown()\Lists()\Row()\Words()\String)
-                MarkDown()\Lists()\Row()\Words()\Width = TextWidth(MarkDown()\Lists()\Row()\Words()\String)
+                TextHeight = TextHeight_(MarkDown()\Lists()\Row()\Words()\String)
+                MarkDown()\Lists()\Row()\Words()\Width = TextWidth_(MarkDown()\Lists()\Row()\Words()\String)
             EndSelect
            
             MarkDown()\Lists()\Row()\Width + MarkDown()\Lists()\Row()\Words()\Width
@@ -1772,7 +2048,7 @@ Module MarkDown
           
           DrawingFont(FontID(MarkDown()\Font\Normal))
         
-          MarkDown()\Table()\Row()\Height = TextHeight("X")
+          MarkDown()\Table()\Row()\Height = TextHeight_("X")
           
           ForEach MarkDown()\Table()\Row()\Col() ;{ Columns
             
@@ -1786,8 +2062,8 @@ Module MarkDown
               
               Select MarkDown()\Table()\Row()\Col()\Words()\Flag
                 Case #Emoji     ;{ Emoji (16x16)
-                  TextHeight = dpiY(16)
-                  MarkDown()\Table()\Row()\Col()\Words()\Width = dpiX(16)
+                  TextHeight = 16
+                  MarkDown()\Table()\Row()\Col()\Words()\Width = 16
                   ;}
                 Case #Image     ;{ Image
                   
@@ -1805,19 +2081,19 @@ Module MarkDown
                     If IsImage(MarkDown()\ImageNum())
       			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
       			          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
-      			          TextHeight = dpiY(MarkDown()\Image()\Height)
-      			          MarkDown()\Items()\Words()\Width = dpiX(MarkDown()\Image()\Width)  
+      			          TextHeight = MarkDown()\Image()\Height
+      			          MarkDown()\Items()\Words()\Width = MarkDown()\Image()\Width  
       			        EndIf
       			        
       			      EndIf
       			      ;}
       			    Case #Keystroke ;{ Keystroke (5 + Key + 5)  
-      			      TextHeight = TextHeight(MarkDown()\Items()\Words()\String)
-      			      MarkDown()\Items()\Words()\Width = TextWidth(MarkDown()\Items()\Words()\String) + dpiX(10) 
+      			      TextHeight = TextHeight_(MarkDown()\Items()\Words()\String)
+      			      MarkDown()\Items()\Words()\Width = TextWidth_(MarkDown()\Items()\Words()\String) + 10
       			      ;}
       			    Default  
-                  TextHeight = TextHeight(MarkDown()\Table()\Row()\Col()\Words()\String)
-                  MarkDown()\Table()\Row()\Col()\Words()\Width = TextWidth(MarkDown()\Table()\Row()\Col()\Words()\String)
+                  TextHeight = TextHeight_(MarkDown()\Table()\Row()\Col()\Words()\String)
+                  MarkDown()\Table()\Row()\Col()\Words()\Width = TextWidth_(MarkDown()\Table()\Row()\Col()\Words()\String)
               EndSelect
             
               MarkDown()\Table()\Row()\Col()\Width + MarkDown()\Table()\Row()\Col()\Words()\Width
@@ -1838,7 +2114,7 @@ Module MarkDown
         MarkDown()\Table()\Width = 0
 
         ForEach MarkDown()\Table()\Column()
-          MarkDown()\Table()\Column()\Width + dpiX(10)
+          MarkDown()\Table()\Column()\Width + 10
           MarkDown()\Table()\Width + MarkDown()\Table()\Column()\Width
         Next
         
@@ -1853,7 +2129,7 @@ Module MarkDown
         TextHeight = 0
         
         DrawingFont(FontID(MarkDown()\Font\Normal))
-        MarkDown()\Note()\Height = TextHeight("X")
+        MarkDown()\Note()\Height = TextHeight_("X")
         
         ForEach MarkDown()\Note()\Row()
   
@@ -1865,8 +2141,8 @@ Module MarkDown
             
             Select MarkDown()\Note()\Row()\Words()\Flag
               Case #Emoji     ;{ Emoji (16x16)
-                TextHeight = dpiY(16)
-                MarkDown()\Note()\Row()\Words()\Width = dpiX(16)
+                TextHeight = 16
+                MarkDown()\Note()\Row()\Words()\Width = 16
                 ;}
               Case #Image     ;{ Image
                 
@@ -1884,19 +2160,19 @@ Module MarkDown
                   If IsImage(MarkDown()\ImageNum())
     			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
     			          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
-    			          TextHeight = dpiY(MarkDown()\Image()\Height)
-    			          MarkDown()\Note()\Row()\Words()\Width = dpiX(MarkDown()\Image()\Width)  
+    			          TextHeight = MarkDown()\Image()\Height
+    			          MarkDown()\Note()\Row()\Words()\Width = MarkDown()\Image()\Width  
     			        EndIf
    
     			      EndIf
     			      ;}
     			    Case #Keystroke ;{ Keystroke (5 + Key + 5)  
-    			      TextHeight = TextHeight(MarkDown()\Note()\Row()\Words()\String)
-    			      MarkDown()\Note()\Row()\Words()\Width = TextWidth(MarkDown()\Note()\Row()\Words()\String) + dpiX(10)
+    			      TextHeight = TextHeight_(MarkDown()\Note()\Row()\Words()\String)
+    			      MarkDown()\Note()\Row()\Words()\Width = TextWidth_(MarkDown()\Note()\Row()\Words()\String) + 10
     			      ;}
     			    Default  
-                TextHeight = TextHeight(MarkDown()\Note()\Row()\Words()\String)
-                MarkDown()\Note()\Row()\Words()\Width = TextWidth(MarkDown()\Note()\Row()\Words()\String)
+                TextHeight = TextHeight_(MarkDown()\Note()\Row()\Words()\String)
+                MarkDown()\Note()\Row()\Words()\Width = TextWidth_(MarkDown()\Note()\Row()\Words()\String)
             EndSelect
             
             MarkDown()\Note()\Row()\Width + MarkDown()\Note()\Row()\Words()\Width
@@ -1924,7 +2200,7 @@ Module MarkDown
 
         DrawingFont(FontID(MarkDown()\Font\FootText))
         MarkDown()\FootLabel()\Width  = 0
-        MarkDown()\FootLabel()\Height = TextHeight("X")
+        MarkDown()\FootLabel()\Height = TextHeight_("X")
         
         MarkDown()\Required\Height + MarkDown()\FootLabel()\Height
         
@@ -1934,8 +2210,8 @@ Module MarkDown
 
           Select MarkDown()\FootLabel()\Words()\Flag
             Case #Emoji     ;{ Emoji (16x16)
-              TextHeight = dpiY(16)
-              MarkDown()\FootLabel()\Words()\Width = dpiX(16)
+              TextHeight = 16
+              MarkDown()\FootLabel()\Words()\Width = 16
               ;}
             Case #Image     ;{ Image
               
@@ -1953,19 +2229,19 @@ Module MarkDown
                 If IsImage(MarkDown()\ImageNum())
   			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
   			          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
-  			          TextHeight = dpiY(MarkDown()\Image()\Height)
-  			          MarkDown()\Items()\Words()\Width = dpiX(MarkDown()\Image()\Width)  
+  			          TextHeight = MarkDown()\Image()\Height
+  			          MarkDown()\Items()\Words()\Width = MarkDown()\Image()\Width  
   			        EndIf
   			        
   			      EndIf
   			      ;}
   			    Case #Keystroke ;{ Keystroke (5 + Key + 5)  
-  			      TextHeight = TextHeight(MarkDown()\Items()\Words()\String)
-  			      MarkDown()\Items()\Words()\Width = TextWidth(MarkDown()\Items()\Words()\String) + dpiX(10) 
+  			      TextHeight = TextHeight_(MarkDown()\Items()\Words()\String)
+  			      MarkDown()\Items()\Words()\Width = TextWidth_(MarkDown()\Items()\Words()\String) + 10
   			      ;}  
   			    Default  
-              TextHeight = TextHeight(MarkDown()\FootLabel()\Words()\String)
-              MarkDown()\FootLabel()\Words()\Width = TextWidth(MarkDown()\FootLabel()\Words()\String)
+              TextHeight = TextHeight_(MarkDown()\FootLabel()\Words()\String)
+              MarkDown()\FootLabel()\Words()\Width = TextWidth_(MarkDown()\FootLabel()\Words()\String)
           EndSelect
           
           MarkDown()\FootLabel()\Width + MarkDown()\FootLabel()\Words()\Width
@@ -1985,16 +2261,16 @@ Module MarkDown
         
         DrawingFont(FontID(MarkDown()\Font\Normal))
         
-        MarkDown()\TOC()\Height = TextHeight("X")
+        MarkDown()\TOC()\Height = TextHeight_("X")
         MarkDown()\TOC()\Width  = 0
         
         ForEach MarkDown()\TOC()\Words()
           
           DrawingFont_(MarkDown()\TOC()\Words()\Font)
         
-          MarkDown()\TOC()\Width + TextWidth(MarkDown()\TOC()\Words()\String)
+          MarkDown()\TOC()\Width + TextWidth_(MarkDown()\TOC()\Words()\String)
           
-          TextHeight = TextHeight(MarkDown()\TOC()\Words()\String)
+          TextHeight = TextHeight_(MarkDown()\TOC()\Words()\String)
           If TextHeight > MarkDown()\TOC()\Height : MarkDown()\TOC()\Height = TextHeight : EndIf
           
         Next
@@ -2033,6 +2309,8 @@ Module MarkDown
 		ProcedureReturn RGB((Red1 * Blend) + (Red2 * (1 - Blend)), (Green1 * Blend) + (Green2 * (1 - Blend)), (Blue1 * Blend) + (Blue2 * (1 - Blend)))
 	EndProcedure
 	
+	;- __________ Draw on a CanvasGadget __________	
+	
 	CompilerIf #Enable_DrawCanvas
 	  
   	Procedure   DrawingTextSize_()
@@ -2041,23 +2319,25 @@ Module MarkDown
   
       MarkDown()\Required\Width  = 0
       MarkDown()\Required\Height = 0
-
+      
+      If MarkDown()\LineSpacing <= 0 : MarkDown()\LineSpacing = 1.06 : EndIf
+      
       ;{ _____ Items _____
       ForEach MarkDown()\Items()
         
         DrawingFont(FontID(MarkDown()\Font\Normal))
         
         MarkDown()\Items()\Width  = 0
-        MarkDown()\Items()\Height = TextHeight("X")
-
+        MarkDown()\Items()\Height = TextHeight_("X")
+        
         ForEach MarkDown()\Items()\Words()
           
           DrawingFont_(MarkDown()\Items()\Words()\Font)
           
           Select MarkDown()\Items()\Words()\Flag
             Case #Emoji     ;{ Emoji (16x16)
-              TextHeight = dpiY(16)
-              MarkDown()\Items()\Words()\Width = dpiX(16)
+              TextHeight = 16
+              MarkDown()\Items()\Words()\Width = 16
               ;}
             Case #Image     ;{ Image
 
@@ -2075,19 +2355,19 @@ Module MarkDown
                 If IsImage(MarkDown()\ImageNum())
   			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
   			          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
-  			          TextHeight = dpiY(MarkDown()\Image()\Height)
-  			          MarkDown()\Items()\Words()\Width = dpiX(MarkDown()\Image()\Width)  
+  			          TextHeight = MarkDown()\Image()\Height
+  			          MarkDown()\Items()\Words()\Width = MarkDown()\Image()\Width  
   			        EndIf
  
   			      EndIf
   			      ;}
   			    Case #Keystroke ;{ Keystroke (5 + Key + 5)  
-  			      TextHeight = TextHeight(MarkDown()\Items()\Words()\String)
-  			      MarkDown()\Items()\Words()\Width = TextWidth(MarkDown()\Items()\Words()\String) + dpiX(10)
+  			      TextHeight = TextHeight_(MarkDown()\Items()\Words()\String)
+  			      MarkDown()\Items()\Words()\Width = TextWidth_(MarkDown()\Items()\Words()\String) + 10
   			      ;}
   			    Default  
-              TextHeight = TextHeight(MarkDown()\Items()\Words()\String)
-              MarkDown()\Items()\Words()\Width = TextWidth(MarkDown()\Items()\Words()\String)
+              TextHeight = TextHeight_(MarkDown()\Items()\Words()\String)
+              MarkDown()\Items()\Words()\Width = TextWidth_(MarkDown()\Items()\Words()\String)
           EndSelect
           
           MarkDown()\Items()\Width + MarkDown()\Items()\Words()\Width
@@ -2111,8 +2391,8 @@ Module MarkDown
 	          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
 	        EndIf
 	        
-	        MarkDown()\Required\Height + dpiY(MarkDown()\Image()\Height)
-          If dpiX(MarkDown()\Image()\Width)  > MarkDown()\Required\Width : MarkDown()\Required\Width = dpiX(MarkDown()\Image()\Width)  : EndIf 
+	        MarkDown()\Required\Height + MarkDown()\Image()\Height
+          If MarkDown()\Image()\Width  > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Image()\Width  : EndIf 
 
         Else
           
@@ -2122,7 +2402,7 @@ Module MarkDown
           MarkDown()\Items()\Height * MarkDown()\LineSpacing
 
         EndIf
-
+        
       Next ;}
       
       ;{ _____ Lists _____
@@ -2136,7 +2416,7 @@ Module MarkDown
           DrawingFont(FontID(MarkDown()\Font\Normal))
           
           MarkDown()\Lists()\Row()\Width  = 0
-          MarkDown()\Lists()\Row()\Height = TextHeight("X")
+          MarkDown()\Lists()\Row()\Height = TextHeight_("X")
           
           ForEach MarkDown()\Lists()\Row()\Words()
         
@@ -2144,8 +2424,8 @@ Module MarkDown
             
             Select MarkDown()\Lists()\Row()\Words()\Flag
               Case #Emoji     ;{ Emoji (16x16)
-                TextHeight = dpiY(16)
-                MarkDown()\Lists()\Row()\Words()\Width = dpiX(16)
+                TextHeight = 16
+                MarkDown()\Lists()\Row()\Words()\Width = 16
                 ;}
               Case #Image     ;{ Image
                 
@@ -2163,19 +2443,19 @@ Module MarkDown
                   If IsImage(MarkDown()\ImageNum())
     			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
     			          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
-    			          TextHeight = dpiY(MarkDown()\Image()\Height)
-    			          MarkDown()\Items()\Words()\Width = dpiX(MarkDown()\Image()\Width)  
+    			          TextHeight = MarkDown()\Image()\Height
+    			          MarkDown()\Items()\Words()\Width = MarkDown()\Image()\Width  
     			        EndIf
     			        
     			      EndIf
     			      ;}
     			    Case #Keystroke ;{ Keystroke (5 + Key + 5)  
-    			      TextHeight = TextHeight(MarkDown()\Items()\Words()\String)
-    			      MarkDown()\Items()\Words()\Width = TextWidth(MarkDown()\Items()\Words()\String) + dpiX(10)
+    			      TextHeight = TextHeight_(MarkDown()\Items()\Words()\String)
+    			      MarkDown()\Items()\Words()\Width = TextWidth_(MarkDown()\Items()\Words()\String) + 10
     			      ;}
     			    Default  
-                TextHeight = TextHeight(MarkDown()\Lists()\Row()\Words()\String)
-                MarkDown()\Lists()\Row()\Words()\Width = TextWidth(MarkDown()\Lists()\Row()\Words()\String)
+                TextHeight = TextHeight_(MarkDown()\Lists()\Row()\Words()\String)
+                MarkDown()\Lists()\Row()\Words()\Width = TextWidth_(MarkDown()\Lists()\Row()\Words()\String)
             EndSelect
            
             MarkDown()\Lists()\Row()\Width + MarkDown()\Lists()\Row()\Words()\Width
@@ -2203,7 +2483,7 @@ Module MarkDown
           
           DrawingFont(FontID(MarkDown()\Font\Normal))
         
-          MarkDown()\Table()\Row()\Height = TextHeight("X")
+          MarkDown()\Table()\Row()\Height = TextHeight_("X")
           
           ForEach MarkDown()\Table()\Row()\Col() ;{ Columns
             
@@ -2217,8 +2497,8 @@ Module MarkDown
               
               Select MarkDown()\Table()\Row()\Col()\Words()\Flag
                 Case #Emoji     ;{ Emoji (16x16)
-                  TextHeight = dpiY(16)
-                  MarkDown()\Table()\Row()\Col()\Words()\Width = dpiX(16)
+                  TextHeight = 16
+                  MarkDown()\Table()\Row()\Col()\Words()\Width = 16
                   ;}
                 Case #Image     ;{ Image
                   
@@ -2236,19 +2516,19 @@ Module MarkDown
                     If IsImage(MarkDown()\ImageNum())
       			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
       			          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
-      			          TextHeight = dpiY(MarkDown()\Image()\Height)
-      			          MarkDown()\Items()\Words()\Width = dpiX(MarkDown()\Image()\Width)  
+      			          TextHeight = MarkDown()\Image()\Height
+      			          MarkDown()\Items()\Words()\Width = MarkDown()\Image()\Width  
       			        EndIf
       			        
       			      EndIf
       			      ;}
       			    Case #Keystroke ;{ Keystroke (5 + Key + 5)  
-      			      TextHeight = TextHeight(MarkDown()\Items()\Words()\String)
-      			      MarkDown()\Items()\Words()\Width = TextWidth(MarkDown()\Items()\Words()\String) + dpiX(10) 
+      			      TextHeight = TextHeight_(MarkDown()\Items()\Words()\String)
+      			      MarkDown()\Items()\Words()\Width = TextWidth_(MarkDown()\Items()\Words()\String) + 10
       			      ;}
       			    Default  
-                  TextHeight = TextHeight(MarkDown()\Table()\Row()\Col()\Words()\String)
-                  MarkDown()\Table()\Row()\Col()\Words()\Width = TextWidth(MarkDown()\Table()\Row()\Col()\Words()\String)
+                  TextHeight = TextHeight_(MarkDown()\Table()\Row()\Col()\Words()\String)
+                  MarkDown()\Table()\Row()\Col()\Words()\Width = TextWidth_(MarkDown()\Table()\Row()\Col()\Words()\String)
               EndSelect
             
               MarkDown()\Table()\Row()\Col()\Width + MarkDown()\Table()\Row()\Col()\Words()\Width
@@ -2269,7 +2549,7 @@ Module MarkDown
         MarkDown()\Table()\Width = 0
 
         ForEach MarkDown()\Table()\Column()
-          MarkDown()\Table()\Column()\Width + dpiX(10)
+          MarkDown()\Table()\Column()\Width + 10
           MarkDown()\Table()\Width + MarkDown()\Table()\Column()\Width
         Next
         
@@ -2284,7 +2564,7 @@ Module MarkDown
         TextHeight = 0
         
         DrawingFont(FontID(MarkDown()\Font\Normal))
-        MarkDown()\Note()\Height = TextHeight("X")
+        MarkDown()\Note()\Height = TextHeight_("X")
         
         ForEach MarkDown()\Note()\Row()
   
@@ -2296,8 +2576,8 @@ Module MarkDown
             
             Select MarkDown()\Note()\Row()\Words()\Flag
               Case #Emoji     ;{ Emoji (16x16)
-                TextHeight = dpiY(16)
-                MarkDown()\Note()\Row()\Words()\Width = dpiX(16)
+                TextHeight = 16
+                MarkDown()\Note()\Row()\Words()\Width = 16
                 ;}
               Case #Image     ;{ Image
                 
@@ -2315,19 +2595,19 @@ Module MarkDown
                   If IsImage(MarkDown()\ImageNum())
     			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
     			          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
-    			          TextHeight = dpiY(MarkDown()\Image()\Height)
-    			          MarkDown()\Note()\Row()\Words()\Width = dpiX(MarkDown()\Image()\Width)  
+    			          TextHeight = MarkDown()\Image()\Height
+    			          MarkDown()\Note()\Row()\Words()\Width = MarkDown()\Image()\Width  
     			        EndIf
    
     			      EndIf
     			      ;}
     			    Case #Keystroke ;{ Keystroke (5 + Key + 5)  
-    			      TextHeight = TextHeight(MarkDown()\Note()\Row()\Words()\String)
-    			      MarkDown()\Note()\Row()\Words()\Width = TextWidth(MarkDown()\Note()\Row()\Words()\String) + dpiX(10)
+    			      TextHeight = TextHeight_(MarkDown()\Note()\Row()\Words()\String)
+    			      MarkDown()\Note()\Row()\Words()\Width = TextWidth_(MarkDown()\Note()\Row()\Words()\String) + 10
     			      ;}
     			    Default  
-                TextHeight = TextHeight(MarkDown()\Note()\Row()\Words()\String)
-                MarkDown()\Note()\Row()\Words()\Width = TextWidth(MarkDown()\Note()\Row()\Words()\String)
+                TextHeight = TextHeight_(MarkDown()\Note()\Row()\Words()\String)
+                MarkDown()\Note()\Row()\Words()\Width = TextWidth_(MarkDown()\Note()\Row()\Words()\String)
             EndSelect
             
             MarkDown()\Note()\Row()\Width + MarkDown()\Note()\Row()\Words()\Width
@@ -2355,7 +2635,7 @@ Module MarkDown
 
         DrawingFont(FontID(MarkDown()\Font\FootText))
         MarkDown()\FootLabel()\Width  = 0
-        MarkDown()\FootLabel()\Height = TextHeight("X")
+        MarkDown()\FootLabel()\Height = TextHeight_("X")
         
         MarkDown()\Required\Height + MarkDown()\FootLabel()\Height
         
@@ -2365,8 +2645,8 @@ Module MarkDown
 
           Select MarkDown()\FootLabel()\Words()\Flag
             Case #Emoji     ;{ Emoji (16x16)
-              TextHeight = dpiY(16)
-              MarkDown()\FootLabel()\Words()\Width = dpiX(16)
+              TextHeight = 16
+              MarkDown()\FootLabel()\Words()\Width = 16
               ;}
             Case #Image     ;{ Image
               
@@ -2384,19 +2664,19 @@ Module MarkDown
                 If IsImage(MarkDown()\ImageNum())
   			          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
   			          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
-  			          TextHeight = dpiY(MarkDown()\Image()\Height)
-  			          MarkDown()\Items()\Words()\Width = dpiX(MarkDown()\Image()\Width)  
+  			          TextHeight = MarkDown()\Image()\Height
+  			          MarkDown()\Items()\Words()\Width = MarkDown()\Image()\Width  
   			        EndIf
   			        
   			      EndIf
   			      ;}
   			    Case #Keystroke ;{ Keystroke (5 + Key + 5)  
-  			      TextHeight = TextHeight(MarkDown()\Items()\Words()\String)
-  			      MarkDown()\Items()\Words()\Width = TextWidth(MarkDown()\Items()\Words()\String) + dpiX(10) 
+  			      TextHeight = TextHeight_(MarkDown()\Items()\Words()\String)
+  			      MarkDown()\Items()\Words()\Width = TextWidth_(MarkDown()\Items()\Words()\String) + 10
   			      ;}  
   			    Default  
-              TextHeight = TextHeight(MarkDown()\FootLabel()\Words()\String)
-              MarkDown()\FootLabel()\Words()\Width = TextWidth(MarkDown()\FootLabel()\Words()\String)
+              TextHeight = TextHeight_(MarkDown()\FootLabel()\Words()\String)
+              MarkDown()\FootLabel()\Words()\Width = TextWidth_(MarkDown()\FootLabel()\Words()\String)
           EndSelect
           
           MarkDown()\FootLabel()\Width + MarkDown()\FootLabel()\Words()\Width
@@ -2416,16 +2696,16 @@ Module MarkDown
         
         DrawingFont(FontID(MarkDown()\Font\Normal))
         
-        MarkDown()\TOC()\Height = TextHeight("X")
+        MarkDown()\TOC()\Height = TextHeight_("X")
         MarkDown()\TOC()\Width  = 0
         
         ForEach MarkDown()\TOC()\Words()
           
           DrawingFont_(MarkDown()\TOC()\Words()\Font)
         
-          MarkDown()\TOC()\Width + TextWidth(MarkDown()\TOC()\Words()\String)
+          MarkDown()\TOC()\Width + TextWidth_(MarkDown()\TOC()\Words()\String)
           
-          TextHeight = TextHeight(MarkDown()\TOC()\Words()\String)
+          TextHeight = TextHeight_(MarkDown()\TOC()\Words()\String)
           If TextHeight > MarkDown()\TOC()\Height : MarkDown()\TOC()\Height = TextHeight : EndIf
           
         Next
@@ -2438,8 +2718,10 @@ Module MarkDown
   	EndProcedure 
   	
   CompilerEndIf
-	
-  ;- __________ Convert HTML __________
+  
+  ;- ============================================================================
+	;-   Module - Convert to HTML & PDF
+  ;- ============================================================================	
   
   CompilerIf #Enable_ExportHTML
     
@@ -3234,8 +3516,7 @@ Module MarkDown
     EndProcedure
     
   CompilerEndIf
-  
-  ;- __________ Convert PDF __________
+
   
   CompilerIf Defined(PDF, #PB_Module)
     
@@ -4166,7 +4447,9 @@ Module MarkDown
     
   CompilerEndIf
   
-  ;- __________ MarkDown Parser __________
+  ;- ============================================================================
+	;-   Module - Markdown Parser
+  ;- ============================================================================	
   
   CompilerIf #Enable_Emoji
     
@@ -6252,9 +6535,11 @@ Module MarkDown
     
   EndProcedure  
   
-  ;- __________ Tools __________
+	;- ============================================================================
+	;-   Module - Tools
+  ;- ============================================================================	
   
-  Declare ReDraw()
+  Declare   Draw_(ScrollBar.i=#False)
   
   Procedure MergeHelp(List Items.Item_Structure(), List TOC.TOC_Structure(), Map Glossary.Glossary_Structure(), Map Keywords.Keywords_Structure(), List Links.Links_Structure())
     Define.i Result, Counter
@@ -6397,7 +6682,8 @@ Module MarkDown
       If Export = #False
         If ListSize(MarkDown()\TOC()) Or MapSize(MarkDown()\Glossary())
           DetermineTextSize_()
-          ReDraw()
+          AdjustScrollBars_()
+          Draw_(#Vertical|#Horizontal)
         EndIf
       EndIf
       
@@ -6407,8 +6693,430 @@ Module MarkDown
     
   EndProcedure
  
-	;- __________ Drawing __________
+  ;- ============================================================================
+	;-   Module - Drawing
+	;- ============================================================================
 
+	Procedure   Box_(X.i, Y.i, Width.i, Height.i, Color.i, Round.i=#False)
+	  
+	  If Round
+	    RoundBox(dpiX(X), dpiY(Y), dpiX(Width), dpiY(Height), dpiX(Round), dpiY(Round), Color)  
+  	Else
+  		Box(dpiX(X), dpiY(Y), dpiX(Width), dpiY(Height), Color)
+  	EndIf
+  	
+  EndProcedure	
+ 
+  Procedure   DrawArrow_(Color.i, Direction.i)
+	  Define.i X, Y, Width, Height, aWidth, aHeight, aColor
+	  
+	  aColor= RGBA(Red(Color), Green(Color), Blue(Color), 255)
+	  
+	  Select Direction ;{ Position & Size
+	    Case #Down
+	      X       = MarkDown()\VScroll\Buttons\fX
+	      Y       = MarkDown()\VScroll\Buttons\fY
+	      Width   = MarkDown()\VScroll\Buttons\Width
+	      Height  = MarkDown()\VScroll\Buttons\Height
+	    Case #Up
+	      X       = MarkDown()\VScroll\Buttons\bX
+	      Y       = MarkDown()\VScroll\Buttons\bY
+	      Width   = MarkDown()\VScroll\Buttons\Width
+	      Height  = MarkDown()\VScroll\Buttons\Height
+	    Case #Left
+	      X       = MarkDown()\HScroll\Buttons\bX
+	      Y       = MarkDown()\HScroll\Buttons\bY
+	      Width   = MarkDown()\HScroll\Buttons\Width
+	      Height  = MarkDown()\HScroll\Buttons\Height
+	    Case #Right
+	      X       = MarkDown()\HScroll\Buttons\fX
+	      Y       = MarkDown()\HScroll\Buttons\fY
+	      Width   = MarkDown()\HScroll\Buttons\Width
+	      Height  = MarkDown()\HScroll\Buttons\Height 
+	  EndSelect ;}
+	  
+	  If MarkDown()\Scrollbar\Flags & #Style_Win11 ;{ Arrow Size
+	    
+	    If Direction = #Down Or Direction = #Up 
+	      aWidth  = 10
+    	  aHeight =  7
+	    Else
+	      aWidth  =  7
+        aHeight = 10  
+	    EndIf   
+	    
+	    If MarkDown()\HScroll\Buttons\bState = #Click
+	      aWidth  - 2
+        aHeight - 2 
+	    EndIf 
+	    
+	    If MarkDown()\HScroll\Buttons\fState = #Click
+	      aWidth  - 2
+        aHeight - 2 
+	    EndIf
+	    
+	    If MarkDown()\VScroll\Buttons\bState = #Click
+	      aWidth  - 2
+        aHeight - 2 
+	    EndIf 
+	    
+	    If MarkDown()\VScroll\Buttons\fState= #Click
+	      aWidth  - 2
+        aHeight - 2 
+	    EndIf
+	    
+	  Else
+	    
+	    If Direction = #Down Or Direction = #Up
+  	    aWidth  = dpiX(8)
+  	    aHeight = dpiX(4)
+  	  Else
+        aWidth  = dpiX(4)
+        aHeight = dpiX(8)   
+	    EndIf  
+      ;}
+	  EndIf  
+	  
+	  X + ((Width  - aWidth) / 2)
+    Y + ((Height - aHeight) / 2)
+	  
+	  If StartVectorDrawing(CanvasVectorOutput(MarkDown()\CanvasNum))
+
+      If MarkDown()\Scrollbar\Flags & #Style_Win11 ;{ solid
+
+        Select Direction
+          Case #Up
+            MovePathCursor(dpiX(X), dpiY(Y + aHeight))
+            AddPathLine(dpiX(X + aWidth / 2), dpiY(Y))
+            AddPathLine(dpiX(X + aWidth), dpiY(Y + aHeight))
+            ClosePath()
+          Case #Down 
+            MovePathCursor(dpiX(X), dpiY(Y))
+            AddPathLine(dpiX(X + aWidth / 2), dpiY(Y + aHeight))
+            AddPathLine(dpiX(X + aWidth), dpiY(Y))
+            ClosePath()
+          Case #Left
+            MovePathCursor(dpiX(X + aWidth), dpiY(Y))
+            AddPathLine(dpiX(X), dpiY(Y + aHeight / 2))
+            AddPathLine(dpiX(X + aWidth), dpiY(Y + aHeight))
+            ClosePath()
+          Case #Right
+            MovePathCursor(dpiX(X), dpiY(Y))
+            AddPathLine(dpiX(X + aWidth), dpiY(Y + aHeight / 2))
+            AddPathLine(dpiX(X), dpiY(Y + aHeight))
+            ClosePath()
+        EndSelect
+        
+        VectorSourceColor(aColor)
+        FillPath()
+        StrokePath(1)
+        ;}
+      Else                               ;{ /\
+
+        Select Direction
+          Case #Up
+            MovePathCursor(dpiX(X), dpiY(Y + aHeight))
+            AddPathLine(dpiX(X + aWidth / 2), dpiY(Y))
+            AddPathLine(dpiX(X + aWidth), dpiY(Y + aHeight))
+          Case #Down 
+            MovePathCursor(dpiX(X), dpiY(Y))
+            AddPathLine(dpiX(X + aWidth / 2), dpiY(Y + aHeight))
+            AddPathLine(dpiX(X + aWidth), dpiY(Y))
+          Case #Left
+            MovePathCursor(dpiX(X + aWidth), dpiY(Y))
+            AddPathLine(dpiX(X), dpiY(Y + aHeight / 2))
+            AddPathLine(dpiX(X + aWidth), dpiY(Y + aHeight))
+          Case #Right
+            MovePathCursor(dpiX(X), dpiY(Y))
+            AddPathLine(dpiX(X + aWidth), dpiY(Y + aHeight / 2))
+            AddPathLine(dpiX(X), dpiY(Y + aHeight))
+        EndSelect
+        
+        VectorSourceColor(aColor)
+        StrokePath(2, #PB_Path_RoundCorner)
+        ;}
+      EndIf
+      
+	    StopVectorDrawing()
+	  EndIf
+	  
+	EndProcedure
+  
+	Procedure   DrawButton_(Scrollbar.i, Type.i)
+	  Define.i X, Y, Width, Height
+	  Define.i ArrowColor, ButtonColor, Direction, State
+	  
+	  Select Scrollbar ;{ Position, Size, State & Direction
+	    Case #Horizontal
+	      
+	      If MarkDown()\HScroll\Hide : ProcedureReturn #False : EndIf
+	      
+        Width  = MarkDown()\HScroll\Buttons\Width
+        Height = MarkDown()\HScroll\Buttons\Height
+        
+        Select Type
+          Case #Forwards
+            X      = MarkDown()\HScroll\Buttons\fX
+            Y      = MarkDown()\HScroll\Buttons\fY
+            State  = MarkDown()\HScroll\Buttons\fState
+            Direction = #Right
+  	      Case #Backwards
+  	        X     = MarkDown()\HScroll\Buttons\bX
+            Y     = MarkDown()\HScroll\Buttons\bY
+            State = MarkDown()\HScroll\Buttons\bState
+            Direction = #Left
+  	    EndSelect 
+        
+      Case #Vertical
+        
+        If MarkDown()\VScroll\Hide : ProcedureReturn #False : EndIf
+        
+        Width  = MarkDown()\VScroll\Buttons\Width
+        Height = MarkDown()\VScroll\Buttons\Height
+        
+        Select Type
+          Case #Forwards
+            X     = MarkDown()\VScroll\Buttons\fX
+            Y     = MarkDown()\VScroll\Buttons\fY
+            State = MarkDown()\VScroll\Buttons\fState
+            Direction = #Down
+  	      Case #Backwards
+  	        X     = MarkDown()\VScroll\Buttons\bX
+            Y     = MarkDown()\VScroll\Buttons\bY
+            State = MarkDown()\VScroll\Buttons\bState
+            Direction = #Up
+        EndSelect
+        ;}
+    EndSelect    
+    
+    ;{ ----- Colors -----
+    If MarkDown()\Scrollbar\Flags & #Style_Win11
+      
+      ButtonColor = MarkDown()\Scrollbar\Color\Back
+      
+      Select State
+	      Case #Focus
+	        ArrowColor = MarkDown()\Scrollbar\Color\Focus
+	      Case #Hover
+	        ArrowColor = MarkDown()\Scrollbar\Color\Hover
+	      Case #Click  
+	        ArrowColor = MarkDown()\Scrollbar\Color\Arrow
+	      Default
+	        ArrowColor = #PB_Default
+	    EndSelect    
+
+    Else
+      
+      Select State
+	      Case #Hover
+	        ButtonColor  = BlendColor_(MarkDown()\Scrollbar\Color\Focus, MarkDown()\Scrollbar\Color\Button, 10)
+	      Case #Click
+	        ButtonColor  = BlendColor_(MarkDown()\Scrollbar\Color\Focus, MarkDown()\Scrollbar\Color\Button, 20)
+	      Default
+	        ButtonColor  = MarkDown()\Scrollbar\Color\Button
+	    EndSelect  
+	    
+	    ArrowColor = MarkDown()\Scrollbar\Color\Arrow
+	    
+	  EndIf 
+	  ;}
+    
+	  ;{ ----- Draw button -----
+	  If StartDrawing(CanvasOutput(MarkDown()\CanvasNum))
+	    
+	    DrawingMode(#PB_2DDrawing_Default)
+
+	    Box_(X, Y, Width, Height, ButtonColor)
+	    
+	    StopDrawing()
+	  EndIf ;}
+	  
+	  ;{ ----- Draw Arrows -----
+	  If ArrowColor <> #PB_Default
+	    DrawArrow_(ArrowColor, Direction)
+	  EndIf ;} 
+
+	EndProcedure
+	
+	Procedure   DrawThumb_(Scrollbar.i)
+	  Define.i BackColor, ThumbColor, ThumbState, Round
+	  Define.i OffsetPos, OffsetSize
+	  
+	  ;{ ----- Thumb cursor state -----
+	  Select Scrollbar 
+	    Case #Horizontal
+	      
+	      If MarkDown()\HScroll\Hide : ProcedureReturn #False : EndIf
+	      
+	      ThumbState = MarkDown()\HScroll\Thumb\State
+	      
+	    Case #Vertical
+	      
+	      If MarkDown()\VScroll\Hide : ProcedureReturn #False : EndIf
+	      
+  	    ThumbState = MarkDown()\VScroll\Thumb\State
+  	    
+  	EndSelect ;}    
+  	
+  	;{ ----- Colors -----
+	  If MarkDown()\Scrollbar\Flags & #Style_Win11 
+	    
+	    BackColor = MarkDown()\Scrollbar\Color\Back
+	    
+	    Select ThumbState
+	      Case #Focus
+	        ThumbColor = MarkDown()\Scrollbar\Color\Focus
+	      Case #Hover
+	        ThumbColor = MarkDown()\Scrollbar\Color\Hover
+	      Case #Click
+	        ThumbColor = MarkDown()\Scrollbar\Color\Hover
+	      Default
+	        ThumbColor = MarkDown()\Scrollbar\Color\Focus
+	    EndSelect 
+	    
+	    If ThumbState ;{ Thumb size
+	      Round = 4
+	    Else
+	      OffsetPos  =  2
+	      OffsetSize = -4
+	      Round = 0
+  	    ;}
+	    EndIf
+
+	  Else
+	    
+	    BackColor = MarkDown()\Scrollbar\Color\Back
+	    
+	    Select ThumbState
+	      Case #Focus
+	        ThumbColor = BlendColor_(MarkDown()\Scrollbar\Color\Focus, MarkDown()\Scrollbar\Color\Front, 10)
+	      Case #Hover
+	        ThumbColor = BlendColor_(MarkDown()\Scrollbar\Color\Focus, MarkDown()\Scrollbar\Color\Hover, 10)
+	      Case #Click
+	        ThumbColor = BlendColor_(MarkDown()\Scrollbar\Color\Focus, MarkDown()\Scrollbar\Color\Front, 20)
+	      Default
+	        ThumbColor = MarkDown()\Scrollbar\Color\Front
+	    EndSelect 
+	    
+	    If MarkDown()\Scrollbar\Flags & #Style_RoundThumb
+	      Round = 4
+	    Else
+	      Round = #False
+	    EndIf
+	    
+	  EndIf ;}  
+	  
+	  If StartDrawing(CanvasOutput(MarkDown()\CanvasNum))
+	    
+	    DrawingMode(#PB_2DDrawing_Default)
+
+	    Select Scrollbar 
+  	    Case #Horizontal
+  	      
+  	      Box_(MarkDown()\HScroll\Area\X, MarkDown()\HScroll\Area\Y, MarkDown()\HScroll\Area\Width, MarkDown()\HScroll\Area\Height, BackColor)
+  	      
+      	  Box_(MarkDown()\HScroll\Thumb\X, MarkDown()\HScroll\Thumb\Y + OffsetPos, MarkDown()\HScroll\Thumb\Width, MarkDown()\HScroll\Thumb\Height + OffsetSize, ThumbColor, Round)
+      	  
+      	Case #Vertical
+
+      	  Box_(MarkDown()\VScroll\Area\X, MarkDown()\VScroll\Area\Y, MarkDown()\VScroll\Area\Width, MarkDown()\VScroll\Area\Height, BackColor)
+
+      	  Box_(MarkDown()\VScroll\Thumb\X + OffsetPos, MarkDown()\VScroll\Thumb\Y, MarkDown()\VScroll\Thumb\Width + OffsetSize, MarkDown()\VScroll\Thumb\Height, ThumbColor, Round)
+
+  	  EndSelect
+
+  	  StopDrawing()
+	  EndIf  
+  	
+	EndProcedure  
+	
+  
+  Procedure   DrawScrollBar_(ScrollBar.i=#False)
+		Define.i OffsetX, OffsetY
+		Define.i FrontColor, BackColor, BorderColor, ScrollBorderColor
+		
+		CalcScrollBar_()
+
+  	;{ ----- thumb position -----
+		If MarkDown()\Scrollbar\Flags & #Horizontal
+		  OffsetX = Round((MarkDown()\HScroll\Pos - MarkDown()\HScroll\minPos) * MarkDown()\HScroll\Factor, #PB_Round_Nearest)
+		  MarkDown()\HScroll\Thumb\X = MarkDown()\HScroll\Area\X + OffsetX
+  	EndIf
+		
+		If MarkDown()\Scrollbar\Flags & #Vertical
+		  OffsetY = Round((MarkDown()\VScroll\Pos - MarkDown()\VScroll\minPos) * MarkDown()\VScroll\Factor, #PB_Round_Nearest)
+		  MarkDown()\VScroll\Thumb\Y = MarkDown()\VScroll\Area\Y + OffsetY
+		EndIf ;}
+		
+		If StartDrawing(CanvasOutput(MarkDown()\CanvasNum)) ; Draw scrollbar background
+      
+		  DrawingMode(#PB_2DDrawing_Default)
+		  
+		  If ScrollBar = #Horizontal|#Vertical
+		    
+		    If MarkDown()\Type = #Requester
+		      
+		      If MarkDown()\HScroll\Hide = #False
+  		      Box_(1, MarkDown()\HScroll\Y, GadgetWidth(MarkDown()\CanvasNum) - 2, MarkDown()\HScroll\Height - 33, MarkDown()\Color\Gadget)
+  		    EndIf
+  
+  		    If MarkDown()\VScroll\Hide = #False
+  		      Box_(MarkDown()\VScroll\X, 1, MarkDown()\VScroll\Width, GadgetHeight(MarkDown()\CanvasNum) - 35, MarkDown()\Color\Gadget)
+  		    EndIf
+		      
+		    Else
+		      
+		      If MarkDown()\HScroll\Hide = #False
+  		      Box_(MarkDown()\HScroll\Y, MarkDown()\HScroll\Y, GadgetWidth(MarkDown()\CanvasNum) - 2, MarkDown()\HScroll\Height, MarkDown()\Color\Gadget)
+  		    EndIf
+  
+  		    If MarkDown()\VScroll\Hide = #False
+  		      Box_(MarkDown()\VScroll\X, MarkDown()\VScroll\Y, MarkDown()\VScroll\Width, GadgetHeight(MarkDown()\CanvasNum) - 2, MarkDown()\Color\Gadget)
+  		    EndIf
+
+		    EndIf   
+
+		  EndIf  
+		  
+		  StopDrawing()
+		EndIf
+		
+		Select ScrollBar
+		  Case #Horizontal  
+		    DrawThumb_(#Horizontal) 
+		  Case #Vertical
+		    DrawThumb_(#Vertical)
+		  Case #Scrollbar_Left
+		    DrawThumb_(#Horizontal)
+		    DrawButton_(#Horizontal, #Backwards)
+		  Case #Scrollbar_Right
+		    DrawThumb_(#Horizontal)
+		    DrawButton_(#Horizontal, #Forwards)
+		  Case #Scrollbar_Up
+		    DrawThumb_(#Vertical)
+		    DrawButton_(#Vertical, #Backwards)
+		  Case #Scrollbar_Down
+		    DrawThumb_(#Vertical)
+		    DrawButton_(#Vertical, #Forwards)
+		  Case #Horizontal|#Vertical
+
+		    If MarkDown()\HScroll\Hide = #False
+    		  DrawButton_(#Horizontal, #Forwards)
+    		  DrawButton_(#Horizontal, #Backwards)
+    		  DrawThumb_(#Horizontal)
+    		EndIf
+    		
+    		If MarkDown()\VScroll\Hide = #False
+    		  DrawButton_(#Vertical, #Forwards)
+    		  DrawButton_(#Vertical, #Backwards)
+    		  DrawThumb_(#Vertical)
+    		EndIf 
+    		
+		EndSelect
+
+	EndProcedure
+
+  
 	CompilerIf #Enable_Requester
 	  
   	Procedure Button_(Key.s, X.i, Y.i)
@@ -6417,9 +7125,9 @@ Module MarkDown
   	  Define.s Text
   	  
   	  
-  	  Width  = dpiX(MarkDown()\Requester\Button(Key)\Width)
+  	  Width  = MarkDown()\Requester\Button(Key)\Width
   	  
-  	  Height = dpiY(#ButtonHeight)
+  	  Height = #ButtonHeight
   	  
   	  Text = MarkDown()\Requester\Button(Key)\Text
   	  
@@ -6437,20 +7145,20 @@ Module MarkDown
   	  
     	;{ _____ Background _____
   	  DrawingMode(#PB_2DDrawing_Default)
-  	  Box(X, Y, Width, Height, BackColor)
+  	  Box_(X, Y, Width, Height, BackColor)
   		;}
   	  
   	  MarkDown()\Requester\Button(Key)\X = X
   	  
-  	  OffSetX = (Width - TextWidth(Text)) / 2
-  	  OffsetY = (Height - TextHeight(Text)) / 2
+  	  OffSetX = (Width - TextWidth_(Text)) / 2
+  	  OffsetY = (Height - TextHeight_(Text)) / 2
   	  
   	  DrawingMode(#PB_2DDrawing_Transparent)
-  	  DrawText(X + OffSetX, Y + OffsetY, Text, MarkDown()\Color\Front)
+  	  DrawText_(X + OffSetX, Y + OffsetY, Text, MarkDown()\Color\Front)
   
   	  ;{ _____ Border _____
   	  DrawingMode(#PB_2DDrawing_Outlined)
-  	  Box(X, Y, Width, Height, BorderColor)
+  	  Box_(X, Y, Width, Height, BorderColor)
   	  ;}
   	  
   	EndProcedure
@@ -6460,15 +7168,15 @@ Module MarkDown
 	Procedure.i Keystroke_(X.i, Y.i, Key.s)
 	  Define.i Width, Height
 	  
-	  Width  = TextWidth(Key) + dpiX(10)
-	  Height = TextHeight(Key)
+	  Width  = TextWidth_(Key) + 10
+	  Height = TextHeight_(Key)
 	  
 	  DrawingMode(#PB_2DDrawing_Default)
-	  RoundBox(X, Y, Width, Height, 4, 4, MarkDown()\Color\KeyStrokeBack)
+	  Box_(X, Y, Width, Height, MarkDown()\Color\KeyStrokeBack, 4)
 	  DrawingMode(#PB_2DDrawing_Outlined)
-	  RoundBox(X, Y, Width, Height, 4, 4, MarkDown()\Color\Border)
+	  Box_(X, Y, Width, Height, MarkDown()\Color\Border, 4)
 	  DrawingMode(#PB_2DDrawing_Transparent)
-	  DrawText(X + dpiX(5), Y, Key, MarkDown()\Color\KeyStroke)
+	  DrawText_(X + 5, Y, Key, MarkDown()\Color\KeyStroke)
 	  
 	  ProcedureReturn X + Width
 	EndProcedure  
@@ -6478,7 +7186,7 @@ Module MarkDown
 	  
 	  If Y < GadgetHeight(MarkDown()\CanvasNum)
   	  For i=0 To Width - 1 Step 2
-  	    Plot(X + i, Y, Color)
+  	    Plot(dpiX(X + i), dpiY(Y), Color)
   	  Next
   	EndIf
   	
@@ -6488,7 +7196,7 @@ Module MarkDown
     Define.i X1, X2, Y1, Y2
     Define.i bColor, LineColor
       
-      Box(X, Y, boxWidth, boxWidth, BackColor)
+      Box_(X, Y, boxWidth, boxWidth, BackColor)
       
       LineColor = BlendColor_(FrontColor, BackColor, 60)
       
@@ -6501,33 +7209,24 @@ Module MarkDown
         Y1 = Y + 1
         Y2 = Y + boxWidth - 2
         
-        LineXY(X1 + 1, Y1, X2 + 1, Y2, bColor)
-        LineXY(X1 - 1, Y1, X2 - 1, Y2, bColor)
-        LineXY(X2 + 1, Y1, X1 + 1, Y2, bColor)
-        LineXY(X2 - 1, Y1, X1 - 1, Y2, bColor)
-        LineXY(X2, Y1, X1, Y2, LineColor)
-        LineXY(X1, Y1, X2, Y2, LineColor)
+        LineXY_(X1 + 1, Y1, X2 + 1, Y2, bColor)
+        LineXY_(X1 - 1, Y1, X2 - 1, Y2, bColor)
+        LineXY_(X2 + 1, Y1, X1 + 1, Y2, bColor)
+        LineXY_(X2 - 1, Y1, X1 - 1, Y2, bColor)
+        LineXY_(X2, Y1, X1, Y2, LineColor)
+        LineXY_(X1, Y1, X2, Y2, LineColor)
         
       EndIf
       
       DrawingMode(#PB_2DDrawing_Outlined)
-      Box(X + 2, Y + 2, boxWidth - 4, boxWidth - 4, BlendColor_(LineColor, BackColor, 5))
-      Box(X + 1, Y + 1, boxWidth - 2, boxWidth - 2, BlendColor_(LineColor, BackColor, 25))
-      Box(X, Y, boxWidth, boxWidth, LineColor)
+      
+      Box_(X + 2, Y + 2, boxWidth - 4, boxWidth - 4, BlendColor_(LineColor, BackColor, 5))
+      Box_(X + 1, Y + 1, boxWidth - 2, boxWidth - 2, BlendColor_(LineColor, BackColor, 25))
+      Box_(X, Y, boxWidth, boxWidth, LineColor)
     
   EndProcedure
 
-	Procedure   Box_(X.i, Y.i, Width.i, Height.i, Color.i)
-  
-    If MarkDown()\Radius
-  		RoundBox(X, Y, Width, Height, MarkDown()\Radius, MarkDown()\Radius, Color)
-  	Else
-  		Box(X, Y, Width, Height, Color)
-  	EndIf
-  	
-  EndProcedure
-  
-  
+
   Procedure.i GetAlignOffset_(WordIdx.i, Width.i, Align.s, List Words.Words_Structure())
     Define.i TextWidth, OffsetX
     
@@ -6553,237 +7252,21 @@ Module MarkDown
       Case "C"
         OffsetX = (Width - TextWidth) / 2
       Case "R"
-        OffsetX = Width - TextWidth - dpiX(5)
+        OffsetX = Width - TextWidth - 5
       Default
-        OffsetX = dpiX(5)
+        OffsetX = 5
     EndSelect    
     
     ProcedureReturn OffsetX
   EndProcedure
   
-  ;{ _____ ScrollBar _____
-	Procedure   DrawScrollArrow_(X.i, Y.i, Width.i, Height.i, Color.i, Flag.i)
-	  Define.i aWidth, aHeight, aColor
-
-	  If StartVectorDrawing(CanvasVectorOutput(MarkDown()\ScrollBar\Num))
-
-      aColor  = RGBA(Red(Color), Green(Color), Blue(Color), 255)
-      
-      If Flag = #ScrollBar_Up Or Flag = #ScrollBar_Down
-  	    aWidth  = dpiX(8)
-  	    aHeight = dpiX(4)
-  	  Else
-        aWidth  = dpiX(4)
-        aHeight = dpiX(8)  
-  	  EndIf  
-
-      X + ((Width  - aWidth) / 2)
-      Y + ((Height - aHeight) / 2)
-      
-      Select Flag
-        Case #ScrollBar_Up
-          MovePathCursor(X, Y + aHeight)
-          AddPathLine(X + aWidth / 2, Y)
-          AddPathLine(X + aWidth, Y + aHeight)
-        Case #ScrollBar_Down 
-          MovePathCursor(X, Y)
-          AddPathLine(X + aWidth / 2, Y + aHeight)
-          AddPathLine(X + aWidth, Y)
-        Case #ScrollBar_Left
-          MovePathCursor(X + aWidth, Y)
-          AddPathLine(X, Y + aHeight / 2)
-          AddPathLine(X + aWidth, Y + aHeight)
-        Case #ScrollBar_Right
-          MovePathCursor(X, Y)
-          AddPathLine(X + aWidth, Y + aHeight / 2)
-          AddPathLine(X, Y + aHeight)
-      EndSelect
-      
-      VectorSourceColor(aColor)
-      StrokePath(2, #PB_Path_RoundCorner)
-
-	    StopVectorDrawing()
-	  EndIf
-	  
-	EndProcedure
-	
-	Procedure   DrawScrollButton_(X.i, Y.i, Width.i, Height.i, ScrollBar.s, Type.i, State.i=#False)
-	  Define.i Color, Border
-	  
-	  If StartDrawing(CanvasOutput(MarkDown()\ScrollBar\Num))
-	    
-	    DrawingMode(#PB_2DDrawing_Default)
-	    
-	    Select State
-	      Case #ScrollBar_Focus
-	        Color  = BlendColor_(MarkDown()\ScrollBar\Color\Focus, MarkDown()\ScrollBar\Color\Button, 10)
-	        Border = BlendColor_(MarkDown()\ScrollBar\Color\Focus, MarkDown()\ScrollBar\Color\Border, 10)
-	      Case #ScrollBar_Click
-	        Color  = BlendColor_(MarkDown()\ScrollBar\Color\Focus, MarkDown()\ScrollBar\Color\Button, 20)
-	        Border = BlendColor_(MarkDown()\ScrollBar\Color\Focus, MarkDown()\ScrollBar\Color\Border, 20)
-	      Default
-	        Color  = MarkDown()\ScrollBar\Color\Button
-	        Border = MarkDown()\ScrollBar\Color\Border
-	    EndSelect    
-	    
-	    If FindMapElement(MarkDown()\ScrollBar\Item(), ScrollBar)
-	      
-	      If MarkDown()\ScrollBar\Item()\Hide : ProcedureReturn #False : EndIf 
-	      
-	      Select Type
-  	      Case #ScrollBar_Forwards
-  	        Box_(MarkDown()\ScrollBar\Item()\Buttons\Forwards\X,  MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y,  MarkDown()\ScrollBar\Item()\Buttons\Forwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Height,  Color)
-  	      Case #ScrollBar_Backwards
-  	        Box_(MarkDown()\ScrollBar\Item()\Buttons\Backwards\X, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Height, Color)
-   	    EndSelect    
-	      
-	      If MarkDown()\ScrollBar\Flags & #ScrollBar_ButtonBorder
-	      
-  	      DrawingMode(#PB_2DDrawing_Outlined)
-  	      
-  	      Select Type
-  	        Case #ScrollBar_Forwards
-  	          Box_(MarkDown()\ScrollBar\Item()\Buttons\Forwards\X - dpiX(1), MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Width + dpiX(2), MarkDown()\ScrollBar\Item()\Buttons\Forwards\Height + dpiY(1), Border)
-     	      Case #ScrollBar_Backwards
-    	        Box_(MarkDown()\ScrollBar\Item()\Buttons\Backwards\X - dpiX(1), MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y - dpiY(1), MarkDown()\ScrollBar\Item()\Buttons\Backwards\Width + dpiX(2), MarkDown()\ScrollBar\Item()\Buttons\Backwards\Height + dpiY(1), Border)
-     	    EndSelect 
-    	    
-  	    EndIf 
-	    
-	    EndIf
-
-	    StopDrawing()
-	  EndIf
-	  
-	  ;{ ----- Draw Arrows -----
-	  If FindMapElement(MarkDown()\ScrollBar\Item(), ScrollBar)
-	    
-  	  Select Type
-        Case #ScrollBar_Forwards
-          DrawScrollArrow_(MarkDown()\ScrollBar\Item()\Buttons\Forwards\X, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Height, MarkDown()\ScrollBar\Color\Front, #ScrollBar_Down)
-        Case #ScrollBar_Backwards
-          DrawScrollArrow_(MarkDown()\ScrollBar\Item()\Buttons\Backwards\X, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Height, MarkDown()\ScrollBar\Color\Front, #ScrollBar_Up)
-      EndSelect
-    
-    EndIf ;}
-
-	EndProcedure
-	
-	Procedure   DrawScrollBar_()
-		Define.i X, Y, Width, Height, Offset, OffsetX, OffsetY
-		Define.i FrontColor, BackColor, BorderColor, ScrollBorderColor
-		
-		If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll")
-		  
-      If MarkDown()\ScrollBar\Item()\Hide : ProcedureReturn #False : EndIf 
-  	 
-      ;{ ----- Size -----
-		  X      = MarkDown()\ScrollBar\Item()\X
-		  Y      = MarkDown()\ScrollBar\Item()\Y
-		  Width  = MarkDown()\ScrollBar\Item()\Width 
-		  Height = MarkDown()\ScrollBar\Item()\Height
-		  ;}
-
-		  Offset = (MarkDown()\ScrollBar\Item()\Pos - MarkDown()\ScrollBar\Item()\minPos) * MarkDown()\ScrollBar\Item()\Thumb\Factor
-		  
-      ;{ ----- Buttons -----
-		  MarkDown()\ScrollBar\Item()\Buttons\Forwards\X       = X + dpiX(1)
-  		MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y       = Y + Height - dpiY(#ScrollBar_ButtonSize) - dpiY(MarkDown()\ScrollBar\Adjust) - dpiY(1)
-  		MarkDown()\ScrollBar\Item()\Buttons\Forwards\Width   = Width - dpiX(2)
-  		MarkDown()\ScrollBar\Item()\Buttons\Forwards\Height  = dpiY(#ScrollBar_ButtonSize)	
-  		MarkDown()\ScrollBar\Item()\Buttons\Backwards\X      = X + dpiX(1)
-  		MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y      = Y + dpiY(1)
-  		MarkDown()\ScrollBar\Item()\Buttons\Backwards\Width  = Width - dpiX(2)
-  		MarkDown()\ScrollBar\Item()\Buttons\Backwards\Height = dpiY(#ScrollBar_ButtonSize)
-  		;}
-      ;{ ----- ScrollArea -----
-  		MarkDown()\ScrollBar\Item()\Area\X = X
-  	  MarkDown()\ScrollBar\Item()\Area\Y = Y + dpiY(#ScrollBar_ButtonSize) + dpiY(1)
-  	  MarkDown()\ScrollBar\Item()\Area\Width  = Width
-  	  MarkDown()\ScrollBar\Item()\Area\Height = Height - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(2)
-  	  ;}
-      ;{ ----- Thumb -----
-  	  MarkDown()\ScrollBar\Item()\Thumb\X      = X
-  	  MarkDown()\ScrollBar\Item()\Thumb\Y      = MarkDown()\ScrollBar\Item()\Area\Y + Offset
-  	  MarkDown()\ScrollBar\Item()\Thumb\Width  = Width
-  	  MarkDown()\ScrollBar\Item()\Thumb\Height = MarkDown()\ScrollBar\Item()\Thumb\Size
-  	  If MarkDown()\ScrollBar\Flags & #ScrollBar_ButtonBorder
-  	    MarkDown()\ScrollBar\Item()\Thumb\Y + dpiY(1)
-  	    MarkDown()\ScrollBar\Item()\Thumb\Height - dpiY(2)
-  	  EndIf ;}
-
-  		If StartDrawing(CanvasOutput(MarkDown()\ScrollBar\Num))
-  		  
-  		  ;{ _____ Color _____
-  		  FrontColor  = MarkDown()\ScrollBar\Color\Front
-  		  BackColor   = MarkDown()\ScrollBar\Color\Back
-  		  BorderColor = MarkDown()\ScrollBar\Color\Border
-  		  
-  		  If MarkDown()\ScrollBar\Item()\Disable
-  		    FrontColor  = MarkDown()\ScrollBar\Color\DisableFront
-  		    BackColor   = MarkDown()\ScrollBar\Color\DisableBack
-  		    BorderColor = MarkDown()\ScrollBar\Color\DisableFront
-  		  EndIf
-  		  ;}
-  		  
-  		  DrawingMode(#PB_2DDrawing_Default)
-  		  
-  		  ;{ _____ Background _____
-  		  Box(X, Y, Width, Height, MarkDown()\ScrollBar\Color\Gadget) ; needed for rounded corners
-  		  Box(MarkDown()\ScrollBar\Item()\Area\X, MarkDown()\ScrollBar\Item()\Area\Y, MarkDown()\ScrollBar\Item()\Area\Width, MarkDown()\ScrollBar\Item()\Area\Height, MarkDown()\ScrollBar\Color\Back)
-  			;}
-  			
-  		  ;{ _____ Draw Thumb _____
-  		  Select MarkDown()\ScrollBar\Item()\Thumb\State
-  			  Case #ScrollBar_Focus
-  			    Box_(MarkDown()\ScrollBar\Item()\Thumb\X, MarkDown()\ScrollBar\Item()\Thumb\Y, MarkDown()\ScrollBar\Item()\Thumb\Width, MarkDown()\ScrollBar\Item()\Thumb\Height, BlendColor_(MarkDown()\ScrollBar\Color\Focus, MarkDown()\ScrollBar\Color\ScrollBar, 10))
-  			  Case #ScrollBar_Click
-  			    Box_(MarkDown()\ScrollBar\Item()\Thumb\X, MarkDown()\ScrollBar\Item()\Thumb\Y, MarkDown()\ScrollBar\Item()\Thumb\Width, MarkDown()\ScrollBar\Item()\Thumb\Height, BlendColor_(MarkDown()\ScrollBar\Color\Focus, MarkDown()\ScrollBar\Color\ScrollBar, 20))
-  			  Default
-  			    Box_(MarkDown()\ScrollBar\Item()\Thumb\X, MarkDown()\ScrollBar\Item()\Thumb\Y, MarkDown()\ScrollBar\Item()\Thumb\Width, MarkDown()\ScrollBar\Item()\Thumb\Height, MarkDown()\ScrollBar\Color\ScrollBar)
-  			EndSelect
-  			
-  		  If MarkDown()\ScrollBar\Flags & #ScrollBar_DragLines   ;{ Drag Lines
-
-  			  If MarkDown()\ScrollBar\Item()\Thumb\Size > dpiY(10)
-  		      OffsetY = (MarkDown()\ScrollBar\Item()\Thumb\Size - dpiY(7)) / 2			      
-  		      Line(MarkDown()\ScrollBar\Item()\Thumb\X + dpiX(4), MarkDown()\ScrollBar\Item()\Thumb\Y + OffsetY, MarkDown()\ScrollBar\Item()\Thumb\Width - dpiX(8), dpiY(1), MarkDown()\ScrollBar\Color\Front)
-  		      Line(MarkDown()\ScrollBar\Item()\Thumb\X + dpiX(4), MarkDown()\ScrollBar\Item()\Thumb\Y + OffsetY + dpiY(3), MarkDown()\ScrollBar\Item()\Thumb\Width - dpiX(8), dpiY(1), MarkDown()\ScrollBar\Color\Front)
-  		      Line(MarkDown()\ScrollBar\Item()\Thumb\X + dpiX(4), MarkDown()\ScrollBar\Item()\Thumb\Y + OffsetY + dpiY(6), MarkDown()\ScrollBar\Item()\Thumb\Width - dpiX(8), dpiY(1), MarkDown()\ScrollBar\Color\Front)
-  		    EndIf
-  			  ;}
-  			EndIf
-  			
-  			If MarkDown()\ScrollBar\Flags & #ScrollBar_ThumbBorder ;{ Thumb Border
-  			  DrawingMode(#PB_2DDrawing_Outlined)
-  			  Box_(MarkDown()\ScrollBar\Item()\Thumb\X, MarkDown()\ScrollBar\Item()\Thumb\Y, MarkDown()\ScrollBar\Item()\Thumb\Width, MarkDown()\ScrollBar\Item()\Thumb\Height, MarkDown()\ScrollBar\Color\Border)
-  			  ;}
-  			EndIf
-  			;}
-  			
-  			;{ _____ Border ____
-  			If MarkDown()\ScrollBar\Flags & #ScrollBar_Border
-  				DrawingMode(#PB_2DDrawing_Outlined)
-  				Box_(X, Y, Width, Height, BorderColor)
-  			EndIf ;}
-  
-  			StopDrawing()
-  		EndIf
-  		
-    	DrawScrollButton_(MarkDown()\ScrollBar\Item()\Buttons\Forwards\X,  MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y,  MarkDown()\ScrollBar\Item()\Buttons\Forwards\Width,  MarkDown()\ScrollBar\Item()\Buttons\Forwards\Height,  "VScroll", #ScrollBar_Forwards,  MarkDown()\ScrollBar\Item()\Buttons\Forwards\State)
-    	DrawScrollButton_(MarkDown()\ScrollBar\Item()\Buttons\Backwards\X, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Height, "VScroll", #ScrollBar_Backwards, MarkDown()\ScrollBar\Item()\Buttons\Backwards\State)
-
-    EndIf
-    
-	EndProcedure  
-	;}
   
   Procedure.i DrawRow_(X.i, Y.i, Width.i, Height.i, BlockQuote.i, List Words.Words_Structure(), ColWidth.i=#False, Align.s="L")
     Define.i c, TextWidth, ImgSize, Image, WordIdx
     Define.i Pos, PosX, PosY, lX, lY, OffSetX, OffSetY, OffSetBQ
     Define.s Word$, WordOnly$, Image$, File$
     
-    If BlockQuote : OffSetBQ = dpiX(10) * BlockQuote : EndIf 
+    If BlockQuote : OffSetBQ = 10 * BlockQuote : EndIf 
     
     X + OffSetBQ
 
@@ -6792,7 +7275,7 @@ Module MarkDown
 
     DrawingMode(#PB_2DDrawing_Transparent)
     
-    If X + Width > MarkDown()\WrapPos
+    If X + Width > MarkDown()\WrapPos ;{ Wrap Text
 
       lY = PosY
       
@@ -6806,22 +7289,22 @@ Module MarkDown
         
         DrawingFont_(Words()\Font)
         
-        If ColWidth And Words()\Width > ColWidth - dpiX(10)
+        If ColWidth And Words()\Width > ColWidth - 10
         
           PosX - GetAlignOffset_(0, ColWidth, Align, Words())
           
           For c = Len(Word$) - 1 To 0 Step -1
-            If TextWidth(Left(Word$, c) + #Cut$) <= ColWidth - dpiX(10)
+            If TextWidth_(Left(Word$, c) + #Cut$) <= ColWidth - 10
               Word$ = Left(Word$, c) + #Cut$
               Break
             EndIf   
           Next
           
-          PosX + dpiX(5)
+          PosX + 5
           
         EndIf
           
-        If PosX + TextWidth(Word$) > MarkDown()\WrapPos ;{ New row
+        If PosX + TextWidth_(Word$) > MarkDown()\WrapPos ;{ New row
 
           Word$ = LTrim(Word$)
           
@@ -6834,9 +7317,9 @@ Module MarkDown
 
           If BlockQuote            ;{ BlockQuote
             DrawingMode(#PB_2DDrawing_Default)
-            Box(MarkDown()\LeftBorder, lY, dpiX(5), Height, MarkDown()\Color\BlockQuote)
+            Box_(MarkDown()\LeftBorder, lY, 5, Height, MarkDown()\Color\BlockQuote)
             If BlockQuote = 2
-              Box(MarkDown()\LeftBorder + dpiX(10), lY, dpiX(5), Height, MarkDown()\Color\BlockQuote)
+              Box_(MarkDown()\LeftBorder + 10, lY, 5, Height, MarkDown()\Color\BlockQuote)
             EndIf
             DrawingMode(#PB_2DDrawing_Transparent) ;}
           EndIf
@@ -6849,19 +7332,19 @@ Module MarkDown
         
         Select Words()\Flag
           Case #Code            ;{ Draw Code
-            PosX = DrawText(PosX, PosY, Word$, MarkDown()\Color\Code)
+            PosX = DrawText_(PosX, PosY, Word$, MarkDown()\Color\Code)
             ;}
           Case #Emoji           ;{ Draw emoji  
-            If Height <= dpiY(16)
-              ImgSize = Height - dpiY(1)
+            If Height <= 16
+              ImgSize = Height - 1
             Else
-              ImgSize = dpiY(16)
+              ImgSize = 16
             EndIf  
             OffSetY = (Height - ImgSize) / 2
             Image = Emoji(Word$)
             If IsImage(Image)
               DrawingMode(#PB_2DDrawing_AlphaBlend)
-		          DrawImage(ImageID(Image), PosX, PosY + OffSetY, ImgSize, ImgSize)
+		          DrawImage_(ImageID(Image), PosX, PosY + OffSetY, ImgSize, ImgSize)
 		          PosX + ImgSize
 		        EndIf
 		        DrawingMode(#PB_2DDrawing_Transparent)
@@ -6871,31 +7354,31 @@ Module MarkDown
             If SelectElement(MarkDown()\Footnote(), Words()\Index)
               MarkDown()\Footnote()\X      = PosX
               MarkDown()\Footnote()\Y      = PosY
-              MarkDown()\Footnote()\Width  = TextWidth(Word$)
+              MarkDown()\Footnote()\Width  = TextWidth_(Word$)
               MarkDown()\Footnote()\Height = Height
             EndIf 
             
-            PosX = DrawText(PosX, PosY, Word$, MarkDown()\Color\Hint)
+            PosX = DrawText_(PosX, PosY, Word$, MarkDown()\Color\Hint)
             ;}
           Case #Glossary        ;{ Draw Glossary
             If SelectElement(MarkDown()\GlossaryWord(), Words()\Index)
               MarkDown()\GlossaryWord()\X = PosX
               MarkDown()\GlossaryWord()\Y = PosY
-              MarkDown()\GlossaryWord()\Width  = TextWidth(Word$)
+              MarkDown()\GlossaryWord()\Width  = TextWidth_(Word$)
               MarkDown()\GlossaryWord()\Height = Height
             EndIf
             
-            PosX = DrawText(PosX, PosY, Word$, MarkDown()\Color\Hint)
+            PosX = DrawText_(PosX, PosY, Word$, MarkDown()\Color\Hint)
             ;}
           Case #Highlight       ;{ Draw highlighted text
             DrawingMode(#PB_2DDrawing_Default)
-            PosX = DrawText(PosX, PosY, Word$, MarkDown()\Color\Front, MarkDown()\Color\Highlight)
+            PosX = DrawText_(PosX, PosY, Word$, MarkDown()\Color\Front, MarkDown()\Color\Highlight)
             DrawingMode(#PB_2DDrawing_Transparent)
             ;}
           Case #Underline       ;{ Draw underlined text
             lX   = PosX
-            PosX = DrawText(PosX, PosY, Word$, MarkDown()\Color\Front)
-            Line(lX, PosY + TextHeight(Word$) - 1, TextWidth(Word$), 1, MarkDown()\Color\Front)
+            PosX = DrawText_(PosX, PosY, Word$, MarkDown()\Color\Front)
+            Line_(lX, PosY + TextHeight_(Word$) - 1, TextWidth_(Word$), 1, MarkDown()\Color\Front)
             ;} 
           Case #Image           ;{ Draw image
             
@@ -6922,19 +7405,19 @@ Module MarkDown
     	        
     	        If IsImage(MarkDown()\ImageNum())
     	          
-    	          DrawingMode(#PB_2DDrawing_AlphaBlend)
-    	          DrawImage(ImageID(MarkDown()\ImageNum()), PosX, PosY)
-    	          
     	          MarkDown()\Image()\X = PosX
     	          MarkDown()\Image()\Y = PosY
     	          MarkDown()\Image()\Width  = ImageWidth(MarkDown()\ImageNum())
     	          MarkDown()\Image()\Height = ImageHeight(MarkDown()\ImageNum())
     	          
+    	          DrawingMode(#PB_2DDrawing_AlphaBlend)
+    	          DrawImage_(ImageID(MarkDown()\ImageNum()), PosX, PosY)
+    	          
     	          PosX + MarkDown()\Image()\Width
 
     	        EndIf 
     	        
-    	        If MarkDown()\Image()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Image()\Width : EndIf 
+    	        ;If MarkDown()\Image()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Image()\Width : EndIf 
     	        
     	      EndIf
             ;}
@@ -6944,10 +7427,10 @@ Module MarkDown
     	    Case #Keyword         ;{ Draw keyword
     	      If MarkDown()\Keyword(Trim(Word$))\Found
     	        DrawingMode(#PB_2DDrawing_Default)
-    	        PosX = DrawText(PosX, PosY, Word$, MarkDown()\Color\Found, MarkDown()\Color\FoundBack)
+    	        PosX = DrawText_(PosX, PosY, Word$, MarkDown()\Color\Found, MarkDown()\Color\FoundBack)
     	        DrawingMode(#PB_2DDrawing_Transparent)
     	      Else
-    	        PosX = DrawText(PosX, PosY, Word$, MarkDown()\Color\Keyword)
+    	        PosX = DrawText_(PosX, PosY, Word$, MarkDown()\Color\Keyword)
     	      EndIf   
     	      ;}
     	    Case #Link, #AutoLink ;{ Draw link
@@ -6955,31 +7438,31 @@ Module MarkDown
             If SelectElement(MarkDown()\Link(), Words()\Index)
               MarkDown()\Link()\X      = PosX
               MarkDown()\Link()\Y      = PosY
-              MarkDown()\Link()\Width  = TextWidth(Word$)
+              MarkDown()\Link()\Width  = TextWidth_(Word$)
               MarkDown()\Link()\Height = Height
               If MarkDown()\Link()\State
-                Line(PosX, PosY + TextHeight(Word$) - 1, TextWidth(Word$), 1, MarkDown()\Color\LinkHighlight)
-                PosX = DrawText(PosX, PosY, Word$, MarkDown()\Color\LinkHighlight)
+                Line_(PosX, PosY + TextHeight_(Word$) - 1, TextWidth_(Word$), 1, MarkDown()\Color\LinkHighlight)
+                PosX = DrawText_(PosX, PosY, Word$, MarkDown()\Color\LinkHighlight)
               Else
-                Line(PosX, PosY + TextHeight(Word$) - 1, TextWidth(Word$), 1, MarkDown()\Color\Link)
-                PosX = DrawText(PosX, PosY, Word$, MarkDown()\Color\Link)
+                Line_(PosX, PosY + TextHeight_(Word$) - 1, TextWidth_(Word$), 1, MarkDown()\Color\Link)
+                PosX = DrawText_(PosX, PosY, Word$, MarkDown()\Color\Link)
               EndIf
             EndIf
             ;}
           Case #StrikeThrough   ;{ Draw strikethrough text
             lX   = PosX
-            PosX = DrawText(PosX, PosY, Word$, MarkDown()\Color\Front)
-            Line(lX, PosY + Round(Height / 2, #PB_Round_Up), TextWidth(Word$), 1, MarkDown()\Color\Front)
+            PosX = DrawText_(PosX, PosY, Word$, MarkDown()\Color\Front)
+            Line_(lX, PosY + Round(Height / 2, #PB_Round_Up), TextWidth_(Word$), 1, MarkDown()\Color\Front)
             ;}
           Case #Subscript       ;{ Draw subscripted text
-            OffSetY = Height - TextHeight(Word$) + dpiY(2)
-            PosX = DrawText(PosX, PosY + OffSetY, Word$, MarkDown()\Color\Front)
+            OffSetY = Height - TextHeight_(Word$) + 2
+            PosX = DrawText_(PosX, PosY + OffSetY, Word$, MarkDown()\Color\Front)
             ;}    
           Case #InsertTOC             ;{ Table of Contents
-            PosX = DrawText(PosX, PosY, Word$, MarkDown()\Color\Link)
+            PosX = DrawText_(PosX, PosY, Word$, MarkDown()\Color\Link)
             ;}
           Default 
-            PosX = DrawText(PosX, PosY, Word$, MarkDown()\Color\Front)
+            PosX = DrawText_(PosX, PosY, Word$, MarkDown()\Color\Front)
         EndSelect
 
         ;{ Abbreviation
@@ -6995,14 +7478,14 @@ Module MarkDown
               
               Pos = FindString(Word$, WordOnly$)
               If Pos > 1
-                MarkDown()\AbbrevWord()\X = lX + TextWidth(Left(Word$, Pos - 1) )
+                MarkDown()\AbbrevWord()\X = lX + TextWidth_(Left(Word$, Pos - 1) )
               Else
                 MarkDown()\AbbrevWord()\X = lX  
               EndIf
               
               MarkDown()\AbbrevWord()\Y = lY
-              MarkDown()\AbbrevWord()\Width  = TextWidth(WordOnly$)
-              MarkDown()\AbbrevWord()\Height = TextHeight(WordOnly$)
+              MarkDown()\AbbrevWord()\Width  = TextWidth_(WordOnly$)
+              MarkDown()\AbbrevWord()\Height = TextHeight_(WordOnly$)
             EndIf
             
             DashLine_(MarkDown()\AbbrevWord()\X, lY + MarkDown()\AbbrevWord()\Height - 1, MarkDown()\AbbrevWord()\Width, MarkDown()\Color\Hint)
@@ -7011,7 +7494,7 @@ Module MarkDown
         EndIf ;}
         
       Next
-
+      ;}
     Else
 
       lY = PosY
@@ -7026,19 +7509,19 @@ Module MarkDown
         
         Select Words()\Flag
           Case #Code            ;{ Draw Code
-            PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Code)  
+            PosX = DrawText_(PosX, PosY, Words()\String, MarkDown()\Color\Code)  
             ;}
           Case #Emoji           ;{ Draw emoji  
-            If Height <= dpiY(16)
-              ImgSize = Height - dpiY(1)
+            If Height <= 16
+              ImgSize = Height - 1
             Else
-              ImgSize = dpiY(16)
+              ImgSize = 16
             EndIf  
             OffSetY = (Height - ImgSize) / 2
             Image = Emoji(Words()\String)
             If IsImage(Image)
               DrawingMode(#PB_2DDrawing_AlphaBlend)
-		          DrawImage(ImageID(Image), PosX, PosY + OffSetY, ImgSize, ImgSize)
+		          DrawImage_(ImageID(Image), PosX, PosY + OffSetY, ImgSize, ImgSize)
 		          PosX + ImgSize
 		        EndIf
 		        DrawingMode(#PB_2DDrawing_Transparent)
@@ -7048,25 +7531,25 @@ Module MarkDown
             If SelectElement(MarkDown()\Footnote(), Words()\Index)
               MarkDown()\Footnote()\X      = PosX
               MarkDown()\Footnote()\Y      = PosY
-              MarkDown()\Footnote()\Width  = TextWidth(Words()\String)
+              MarkDown()\Footnote()\Width  = TextWidth_(Words()\String)
               MarkDown()\Footnote()\Height = Height
             EndIf 
             
-            PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Hint)
+            PosX = DrawText_(PosX, PosY, Words()\String, MarkDown()\Color\Hint)
             ;}
           Case #Glossary        ;{ Draw Glossary
             If SelectElement(MarkDown()\GlossaryWord(), Words()\Index)
               MarkDown()\GlossaryWord()\X = PosX
               MarkDown()\GlossaryWord()\Y = PosY
-              MarkDown()\GlossaryWord()\Width  = TextWidth(Words()\String)
+              MarkDown()\GlossaryWord()\Width  = TextWidth_(Words()\String)
               MarkDown()\GlossaryWord()\Height = Height
             EndIf
             
-            PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Hint)
+            PosX = DrawText_(PosX, PosY, Words()\String, MarkDown()\Color\Hint)
             ;}  
           Case #Highlight       ;{ Draw highlighted text
             DrawingMode(#PB_2DDrawing_Default)
-            PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Front, MarkDown()\Color\Highlight)
+            PosX = DrawText_(PosX, PosY, Words()\String, MarkDown()\Color\Front, MarkDown()\Color\Highlight)
             DrawingMode(#PB_2DDrawing_Transparent)
             ;}
           Case #Image           ;{ Draw image
@@ -7090,7 +7573,7 @@ Module MarkDown
     	        If IsImage(MarkDown()\ImageNum())
     	          
     	          DrawingMode(#PB_2DDrawing_AlphaBlend)
-    	          DrawImage(ImageID(MarkDown()\ImageNum()), PosX, PosY)
+    	          DrawImage_(ImageID(MarkDown()\ImageNum()), PosX, PosY)
     	          
     	          MarkDown()\Image()\X = PosX
     	          MarkDown()\Image()\Y = PosY
@@ -7101,7 +7584,7 @@ Module MarkDown
   
     	        EndIf 
       	     
-    	        If MarkDown()\Image()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Image()\Width : EndIf 
+    	        ;If MarkDown()\Image()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Image()\Width : EndIf 
     	        
     	      EndIf   
             ;}  
@@ -7111,10 +7594,10 @@ Module MarkDown
     	    Case #Keyword         ;{ Draw keyword
     	      If MarkDown()\Keyword(Trim(Words()\String))\Found
     	        DrawingMode(#PB_2DDrawing_Default)
-    	        PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Found, MarkDown()\Color\FoundBack)
+    	        PosX = DrawText_(PosX, PosY, Words()\String, MarkDown()\Color\Found, MarkDown()\Color\FoundBack)
     	        DrawingMode(#PB_2DDrawing_Transparent)
     	      Else
-    	        PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Keyword)
+    	        PosX = DrawText_(PosX, PosY, Words()\String, MarkDown()\Color\Keyword)
     	      EndIf
     	      ;}
     	    Case #Link, #AutoLink ;{ Draw link
@@ -7122,36 +7605,36 @@ Module MarkDown
             If SelectElement(MarkDown()\Link(), Words()\Index)
               MarkDown()\Link()\X      = PosX
               MarkDown()\Link()\Y      = PosY
-              MarkDown()\Link()\Width  = TextWidth(Words()\String)
+              MarkDown()\Link()\Width  = TextWidth_(Words()\String)
               MarkDown()\Link()\Height = Height
               If MarkDown()\Link()\State
-                Line(PosX, PosY + TextHeight(Words()\String) - 1, TextWidth(Words()\String), 1, MarkDown()\Color\LinkHighlight)
-                PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\LinkHighlight)
+                Line_(PosX, PosY + TextHeight_(Words()\String) - 1, TextWidth_(Words()\String), 1, MarkDown()\Color\LinkHighlight)
+                PosX = DrawText_(PosX, PosY, Words()\String, MarkDown()\Color\LinkHighlight)
               Else
-                Line(PosX, PosY + TextHeight(Words()\String) - 1, TextWidth(Words()\String), 1, MarkDown()\Color\Link)
-                PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Link)
+                Line_(PosX, PosY + TextHeight_(Words()\String) - 1, TextWidth_(Words()\String), 1, MarkDown()\Color\Link)
+                PosX = DrawText_(PosX, PosY, Words()\String, MarkDown()\Color\Link)
               EndIf
             EndIf
             ;}
           Case #StrikeThrough   ;{ Draw strikethrough text
             lX   = PosX
-            PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Front)
-            Line(lX, PosY + Round(Height / 2, #PB_Round_Up), TextWidth(Words()\String), 1, MarkDown()\Color\Front)
+            PosX = DrawText_(PosX, PosY, Words()\String, MarkDown()\Color\Front)
+            Line_(lX, PosY + Round(Height / 2, #PB_Round_Up), TextWidth_(Words()\String), 1, MarkDown()\Color\Front)
             ;} 
           Case #Subscript       ;{ Draw subscripted text
-            OffSetY = Height - TextHeight(Words()\String) + dpiY(2)
-            PosX = DrawText(PosX, PosY + OffSetY, Words()\String, MarkDown()\Color\Front)
+            OffSetY = Height - TextHeight_(Words()\String) + 2
+            PosX = DrawText_(PosX, PosY + OffSetY, Words()\String, MarkDown()\Color\Front)
             ;}
           Case #Underline       ;{ Draw underlined text
             lX   = PosX
-            PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Front)
-            Line(lX, PosY + TextHeight(Words()\String) - 1, TextWidth(Words()\String), 1, MarkDown()\Color\Front)
+            PosX = DrawText_(PosX, PosY, Words()\String, MarkDown()\Color\Front)
+            Line_(lX, PosY + TextHeight_(Words()\String) - 1, TextWidth_(Words()\String), 1, MarkDown()\Color\Front)
             ;}   
           Case #InsertTOC       ;{ Table of Contents
-            PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Link)
+            PosX = DrawText_(PosX, PosY, Words()\String, MarkDown()\Color\Link)
             ;}  
           Default
-            PosX = DrawText(PosX, PosY, Words()\String, MarkDown()\Color\Front)
+            PosX = DrawText_(PosX, PosY, Words()\String, MarkDown()\Color\Front)
         EndSelect
         
         ;{ Abbreviation
@@ -7167,14 +7650,14 @@ Module MarkDown
               
               Pos = FindString(Words()\String, WordOnly$)
               If Pos > 1
-                MarkDown()\AbbrevWord()\X = lX + TextWidth(Left(Words()\String, Pos - 1) )
+                MarkDown()\AbbrevWord()\X = lX + TextWidth_(Left(Words()\String, Pos - 1) )
               Else
                 MarkDown()\AbbrevWord()\X = lX  
               EndIf
               
               MarkDown()\AbbrevWord()\Y = lY
-              MarkDown()\AbbrevWord()\Width  = TextWidth(WordOnly$)
-              MarkDown()\AbbrevWord()\Height = TextHeight(WordOnly$)
+              MarkDown()\AbbrevWord()\Width  = TextWidth_(WordOnly$)
+              MarkDown()\AbbrevWord()\Height = TextHeight_(WordOnly$)
             EndIf
             
             DashLine_(MarkDown()\AbbrevWord()\X, lY + MarkDown()\AbbrevWord()\Height - 1, MarkDown()\AbbrevWord()\Width, MarkDown()\Color\Hint)
@@ -7188,12 +7671,12 @@ Module MarkDown
     
     If BlockQuote            ;{ BlockQuote
       DrawingMode(#PB_2DDrawing_Default)
-      Box(MarkDown()\LeftBorder, lY, dpiX(5), Height, MarkDown()\Color\BlockQuote)
+      Box_(MarkDown()\LeftBorder, lY, 5, Height, MarkDown()\Color\BlockQuote)
       If BlockQuote = 2
-        Box(MarkDown()\LeftBorder + dpiX(10), lY, dpiX(5), Height, MarkDown()\Color\BlockQuote)
+        Box_(MarkDown()\LeftBorder + 10, lY, 5, Height, MarkDown()\Color\BlockQuote)
       EndIf ;}
     EndIf
-
+    
     ProcedureReturn PosY + Height
   EndProcedure
   
@@ -7201,16 +7684,16 @@ Module MarkDown
     Define.i OffsetX, OffsetY, cWidth
     
     DrawingFont(FontID(MarkDown()\Font\Note))
-    cWidth  = TextWidth(#Circle$) 
-    OffsetY = (Height - TextHeight(#Circle$)) / 2
+    cWidth  = TextWidth_(#Circle$) 
+    OffsetY = (Height - TextHeight_(#Circle$)) / 2
     
-    DrawText(X, Y + OffsetY, #Circle$, Color)
+    DrawText_(X, Y + OffsetY, #Circle$, Color)
     
     DrawingFont(FontID(MarkDown()\Font\Bold))
-    OffsetX = (cWidth - TextWidth(Char)) / 2 
-    OffsetY = (Height - TextHeight(Char)) / 2
+    OffsetX = (cWidth - TextWidth_(Char)) / 2 
+    OffsetY = (Height - TextHeight_(Char)) / 2
     
-    DrawText(X + OffsetX, Y + OffsetY + dpiY(1), Char, Color)
+    DrawText_(X + OffsetX, Y + OffsetY + 1, Char, Color)
     
     ProcedureReturn X + cWidth
   EndProcedure
@@ -7233,15 +7716,15 @@ Module MarkDown
       EndSelect
     
       DrawingMode(#PB_2DDrawing_Default)
-      RoundBox(X, Y, Width, MarkDown()\Items()\Height + dpiY(14), dpiX(4), dpiX(4), BackColor)
-      Box(X, Y + MarkDown()\Items()\Height + dpiY(10), Width, dpiY(8), $FFFFFF)
+      Box_(X, Y, Width, MarkDown()\Items()\Height + 14, BackColor, 4)
+      Box_(X, Y + MarkDown()\Items()\Height + 10, Width, 8, $FFFFFF)
       
       DrawingMode(#PB_2DDrawing_Outlined)
-      RoundBox(X, Y, Width, MarkDown()\Note()\Height + dpiY(20), dpiX(4), dpiX(4), MarkDown()\Color\Border)
-      Line(X, Y + MarkDown()\Items()\Height + dpiY(10), Width, 1, MarkDown()\Color\Border)
+      Box_(X, Y, Width, MarkDown()\Note()\Height + 20, MarkDown()\Color\Border, 4)
+      Line_(X, Y + MarkDown()\Items()\Height + 10, Width, 1, MarkDown()\Color\Border)
       
-      PosX = X + dpiY(10)
-      HeaderHeight = MarkDown()\Items()\Height + dpiY(10)
+      PosX = X + 10
+      HeaderHeight = MarkDown()\Items()\Height + 10
       
       DrawingMode(#PB_2DDrawing_Transparent)
       
@@ -7254,23 +7737,23 @@ Module MarkDown
           PosX = DrawSymbol("!", PosX, Y, HeaderHeight, $2222B2)
         Case "caution"
           DrawingFont(FontID(MarkDown()\Font\Note))
-          OffsetY = (HeaderHeight - TextHeight(#Caution$)) / 2
-          DrawText(PosX, Y + OffsetY, #Caution$, $008CFF)
-          PosX + TextWidth(#Caution$)
+          OffsetY = (HeaderHeight - TextHeight_(#Caution$)) / 2
+          DrawText_(PosX, Y + OffsetY, #Caution$, $008CFF)
+          PosX + TextWidth_(#Caution$)
       EndSelect
       
       DrawingFont(FontID(MarkDown()\Font\Bold))
       
-      OffsetY = (MarkDown()\Items()\Height + dpiY(10) - TextHeight("X")) / 2
+      OffsetY = (MarkDown()\Items()\Height + 10 - TextHeight_("X")) / 2
       
-      Y = DrawRow_(PosX + dpiX(10), Y + OffsetY, MarkDown()\Items()\Width, MarkDown()\Items()\Height, #False, MarkDown()\Items()\Words())
-      Y + dpiY(10)
+      Y = DrawRow_(PosX + 10, Y + OffsetY, MarkDown()\Items()\Width, MarkDown()\Items()\Height, #False, MarkDown()\Items()\Words())
+      Y + 10
       
       ForEach MarkDown()\Note()\Row()
-        Y = DrawRow_(X + dpiX(10), Y, Width - dpiX(30), MarkDown()\Note()\Row()\Height, #False, MarkDown()\Note()\Row()\Words())
+        Y = DrawRow_(X + 10, Y, Width - 30, MarkDown()\Note()\Row()\Height, #False, MarkDown()\Note()\Row()\Words())
       Next
       
-      ProcedureReturn Y + dpiY(5)
+      ProcedureReturn Y + 5
     EndIf  
     
   EndProcedure
@@ -7280,7 +7763,7 @@ Module MarkDown
     
     ForEach MarkDown()\TOC()
      
-      OffsetX = MarkDown()\TOC()\Level * dpiX(15)  
+      OffsetX = MarkDown()\TOC()\Level * 15 
     
       MarkDown()\TOC()\X = X + OffsetX
       MarkDown()\TOC()\Y = Y
@@ -7297,8 +7780,8 @@ Module MarkDown
     Define.s Chars$
 
     If BlockQuote
-      OffSetBQ = dpiX(10) * BlockQuote
-      OffSetBQ - dpiX(5)
+      OffSetBQ = 10 * BlockQuote
+      OffSetBQ - 5
     EndIf 
     
     X + OffSetBQ
@@ -7308,7 +7791,7 @@ Module MarkDown
       DrawingMode(#PB_2DDrawing_Transparent)
       DrawingFont(FontID(MarkDown()\Font\Normal))
 
-      Y + dpiY(3)
+      Y + 3
 
       If Type = #DefinitionList
         DrawingFont(FontID(MarkDown()\Font\Bold))
@@ -7328,8 +7811,8 @@ Module MarkDown
             
             ListNum(Str(Level)) + 1
             Chars$ = Str(ListNum(Str(Level))) + ". "
-            Indent = TextWidth(Chars$) * MarkDown()\Lists()\Row()\Level + MarkDown()\Indent
-            PosX   = DrawText(PosX + Indent, Y, Chars$, MarkDown()\Color\Front)
+            Indent = TextWidth_(Chars$) * MarkDown()\Lists()\Row()\Level + MarkDown()\Indent
+            PosX   = DrawText_(PosX + Indent, Y, Chars$, MarkDown()\Color\Front)
             
             ListNum(Str(Level + 1)) = 0
             
@@ -7339,21 +7822,21 @@ Module MarkDown
             PosX + Indent + MarkDown()\Indent
             ;}
           Case #TaskList       ;{ Task list
-            Indent = (MarkDown()\Lists()\Row()\Height + TextWidth(" ")) * (MarkDown()\Lists()\Row()\Level + 1) + MarkDown()\Indent
-            CheckBox_(PosX + MarkDown()\Indent, Y + dpiY(1), MarkDown()\Lists()\Row()\Height - dpiY(2), MarkDown()\Color\Front, MarkDown()\Color\Back, MarkDown()\Lists()\Row()\State)
+            Indent = (MarkDown()\Lists()\Row()\Height + TextWidth_(" ")) * (MarkDown()\Lists()\Row()\Level + 1) + MarkDown()\Indent
+            CheckBox_(PosX + MarkDown()\Indent, Y + 1, MarkDown()\Lists()\Row()\Height - 2, MarkDown()\Color\Front, MarkDown()\Color\Back, MarkDown()\Lists()\Row()\State)
             PosX + Indent
             ;}
           Case #Glossary       ;{ Glossary 
             DrawingFont(FontID(MarkDown()\Font\Bold))
-            DrawText(PosX, Y, MarkDown()\Lists()\Row()\String, MarkDown()\Color\Front)
-            Y + TextHeight(MarkDown()\Lists()\Row()\String)
+            DrawText_(PosX, Y, MarkDown()\Lists()\Row()\String, MarkDown()\Color\Front)
+            Y + TextHeight_(MarkDown()\Lists()\Row()\String)
             Indent = MarkDown()\Indent * MarkDown()\Lists()\Row()\Level
             PosX + Indent + MarkDown()\Indent
             ;}
           Default              ;{ Unordered list
             Chars$ = #Bullet$ + " "
-            Indent = TextWidth(Chars$) * MarkDown()\Lists()\Row()\Level + MarkDown()\Indent
-            PosX   = DrawText(PosX + Indent, Y, Chars$, MarkDown()\Color\Front)
+            Indent = TextWidth_(Chars$) * MarkDown()\Lists()\Row()\Level + MarkDown()\Indent
+            PosX   = DrawText_(PosX + Indent, Y, Chars$, MarkDown()\Color\Front)
             ;}
         EndSelect 
         
@@ -7361,16 +7844,16 @@ Module MarkDown
         
         If MarkDown()\Lists()\Row()\BlockQuote ;{ BlockQuote
           DrawingMode(#PB_2DDrawing_Default)
-          Box(MarkDown()\LeftBorder, bqY, dpiX(5), MarkDown()\Lists()\Row()\Height, MarkDown()\Color\BlockQuote)
+          Box_(MarkDown()\LeftBorder, bqY, 5, MarkDown()\Lists()\Row()\Height, MarkDown()\Color\BlockQuote)
           If MarkDown()\Lists()\Row()\BlockQuote = 2
-            Box(MarkDown()\LeftBorder + dpiX(10), bqY, dpiX(5), Y - bqY, MarkDown()\Color\BlockQuote)
+            Box_(MarkDown()\LeftBorder + 10, bqY, 5, Y - bqY, MarkDown()\Color\BlockQuote)
           EndIf
           DrawingMode(#PB_2DDrawing_Transparent) ;}
         EndIf
 
       Next
       
-      Y + dpiY(3)
+      Y + 3
       
     EndIf
     
@@ -7389,11 +7872,11 @@ Module MarkDown
     
     If SelectElement(MarkDown()\Table(), Index)
       
-      If BlockQuote : OffSetBQ = dpiX(10) * BlockQuote : EndIf 
+      If BlockQuote : OffSetBQ = 10 * BlockQuote : EndIf 
     
       X + OffSetBQ
       
-      Width = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - (X + dpiX( MarkDown()\Margin\Right))
+      Width = GadgetWidth(MarkDown()\CanvasNum) - (X +  MarkDown()\Margin\Right)
       
       ;{ ___ Columns ___
       For c=1 To MarkDown()\Table()\Cols
@@ -7478,23 +7961,23 @@ Module MarkDown
           CellBorder(Str(c))\X      = PosX
           CellBorder(Str(c))\Width  = ColWidth + 1
           
-          colHeight = MarkDown()\Table()\Row()\Height + dpiX(6)
+          colHeight = MarkDown()\Table()\Row()\Height + 6
           
-          MarkDown()\WrapPos = PosX + colWidth - dpiX(3)
+          MarkDown()\WrapPos = PosX + colWidth - 3
           
           If MarkDown()\Table()\Row()\Type = #TableHeader
             DrawingMode(#PB_2DDrawing_Default)
-            Box(PosX, PosY, colWidth, colHeight, MarkDown()\Color\HeaderBack)
+            Box_(PosX, PosY, colWidth, colHeight, MarkDown()\Color\HeaderBack)
           EndIf   
           
           ;DrawingMode(#PB_2DDrawing_Outlined)
-          ;Box(PosX, PosY, colWidth + 1, colHeight + 1, MarkDown()\Color\Front)
+          ;Box_(PosX, PosY, colWidth + 1, colHeight + 1, MarkDown()\Color\Front)
           
           DrawingMode(#PB_2DDrawing_Transparent)
           
-          ColY = DrawRow_(PosX, PosY + dpiX(3), ColWidth(Num$), MarkDown()\Table()\Row()\Height, BlockQuote, MarkDown()\Table()\Row()\Col(Num$)\Words(), colWidth, MarkDown()\Table()\Column(Num$)\Align)
+          ColY = DrawRow_(PosX, PosY + 3, ColWidth(Num$), MarkDown()\Table()\Row()\Height, BlockQuote, MarkDown()\Table()\Row()\Col(Num$)\Words(), colWidth, MarkDown()\Table()\Column(Num$)\Align)
           
-          ColY + dpiX(3)
+          ColY + 3
           
           If ColY > Y : Y = ColY : EndIf
         Next
@@ -7504,13 +7987,13 @@ Module MarkDown
         DrawingMode(#PB_2DDrawing_Outlined)
         For c=1 To MarkDown()\Table()\Cols
           If CellBorder(Str(c))\Border
-            Box(CellBorder(Str(c))\X, PosY, CellBorder(Str(c))\Width, RowHeight, MarkDown()\Color\Front)
+            Box_(CellBorder(Str(c))\X, PosY, CellBorder(Str(c))\Width, RowHeight, MarkDown()\Color\Front)
           EndIf
         Next
         
       Next
       
-      MarkDown()\WrapPos = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(MarkDown()\Margin\Right)
+      MarkDown()\WrapPos = GadgetWidth(MarkDown()\CanvasNum) - MarkDown()\Margin\Right
       
     EndIf
     
@@ -7520,7 +8003,7 @@ Module MarkDown
   
   CompilerIf #Enable_DrawCanvas
     
-    Procedure   DrawText_()
+    Procedure   DrawTextMD_()
   	  Define.i X, Y, Width, Height, LeftBorder, WrapPos, TextWidth, TextHeight, MsgHeight, Cols
   	  Define.i b, Indent, Level, Offset, OffSetX, OffSetY, maxCol, ImgSize
   	  Define.i c, OffsetList, NumWidth, ColWidth, TableWidth
@@ -7529,19 +8012,19 @@ Module MarkDown
 
   		NewMap ListNum.i()
   		
-  		X = dpiX(MarkDown()\Size\X)
-  		Y = dpiY(MarkDown()\Size\Y)
+  		X = MarkDown()\Size\X
+  		Y = MarkDown()\Size\Y
   		
   		If MarkDown()\Size\Width = #PB_Default
-  		  Width = dpiX(MarkDown()\Required\Width)
+  		  Width = MarkDown()\Required\Width
   		Else
-  		  Width = dpiX(MarkDown()\Size\Width)
+  		  Width = MarkDown()\Size\Width
   		EndIf   
   		
   		If MarkDown()\Size\Height = #PB_Default
-  		  Height = dpiY(MarkDown()\Required\Height)
+  		  Height = MarkDown()\Required\Height
   		Else
-  		  Height = dpiY(MarkDown()\Size\Height)
+  		  Height = MarkDown()\Size\Height
   		EndIf
   		
   		MarkDown()\LeftBorder = 0
@@ -7554,14 +8037,14 @@ Module MarkDown
 
 			; _____ Background _____
 		  DrawingMode(#PB_2DDrawing_Default)
-		  Box(X, Y, Width, Height, MarkDown()\Color\Back)
+		  Box_(X, Y, Width, Height, MarkDown()\Color\Back)
 
       ;  _____ MarkDown _____
 			ForEach MarkDown()\Items()
 			  
 			  DrawingFont(FontID(MarkDown()\Font\Normal))
 			  
-			  TextHeight = TextHeight("X")
+			  TextHeight = TextHeight_("X")
 			  
 			  Select MarkDown()\Items()\Type
 			    Case #Code             ;{ Code block
@@ -7573,7 +8056,7 @@ Module MarkDown
 			      
 			      If SelectElement(MarkDown()\Block(), MarkDown()\Items()\Index)
 			        ForEach MarkDown()\Block()\Row()
-			          DrawText(X, Y, MarkDown()\Block()\Row(), MarkDown()\Color\Code)
+			          DrawText_(X, Y, MarkDown()\Block()\Row(), MarkDown()\Color\Code)
 			          Y + MarkDown()\Items()\Height
 			        Next
 			      EndIf
@@ -7611,7 +8094,7 @@ Module MarkDown
     	          Y + (TextHeight / 2)
     	          
     	          DrawingMode(#PB_2DDrawing_AlphaBlend)
-    	          DrawImage(ImageID(MarkDown()\ImageNum()), X + OffSet, Y)
+    	          DrawImage_(ImageID(MarkDown()\ImageNum()), X + OffSet, Y)
     	          
     	          MarkDown()\Image()\X = X + OffSet
     	          MarkDown()\Image()\Y = Y
@@ -7651,7 +8134,7 @@ Module MarkDown
 			      OffSetY = TextHeight / 2
 			      
 			      DrawingMode(#PB_2DDrawing_Default)
-			      Box(X, Y + OffSetY, Width, 2, MarkDown()\Color\Line)
+			      Box_(X, Y + OffSetY, Width, 2, MarkDown()\Color\Line)
 			      DrawingMode(#PB_2DDrawing_Transparent)
 			      
 			      Y + TextHeight
@@ -7703,7 +8186,7 @@ Module MarkDown
   CompilerEndIf    
   
   
-	Procedure   Draw_()
+	Procedure   Draw_(ScrollBar.i=#False)
 	  Define.i X, Y, Width, Height, LeftBorder, WrapPos, TextWidth, TextHeight, MsgHeight, Cols
 	  Define.i b, Indent, Level, Offset, OffSetX, OffSetY, maxCol, ImgSize
 	  Define.i c, OffsetList, NumWidth, ColWidth, TableWidth
@@ -7714,23 +8197,23 @@ Module MarkDown
 		
 		NewMap ListNum.i()
 		
-		X = dpiX(MarkDown()\Margin\Left)
-		Y = dpiY(MarkDown()\Margin\Top)
+		X = MarkDown()\Margin\Left
+		Y = MarkDown()\Margin\Top
 
-		Width   = dpiX(GadgetWidth(MarkDown()\CanvasNum))  - dpiX(MarkDown()\Margin\Left + MarkDown()\Margin\Right)
-		Height  = dpiY(GadgetHeight(MarkDown()\CanvasNum)) - dpiY(MarkDown()\Margin\Top  + MarkDown()\Margin\Bottom)
+		Width   = MarkDown()\Area\Width  - (MarkDown()\Margin\Left + MarkDown()\Margin\Right)
+		Height  = MarkDown()\Area\Height - (MarkDown()\Margin\Top  + MarkDown()\Margin\Bottom)
 		
 		CompilerIf #Enable_Requester
 		  
   		If MarkDown()\Type = #Requester
   		  
-  		  Height - dpiY(33)
+  		  Height - 33
   		  
-  		  MsgHeight = dpiY(GadgetHeight(MarkDown()\CanvasNum)) - dpiY(33)
+  		  MsgHeight = GadgetHeight(MarkDown()\CanvasNum) - 33
   		  
   		  If IsImage(MarkDown()\Requester\Image\Num)
-  		    Width - dpiX(MarkDown()\Requester\Image\Width + MarkDown()\Requester\Padding)
-  		    X + dpiX(MarkDown()\Requester\Image\Width + MarkDown()\Requester\Padding)
+  		    Width - (MarkDown()\Requester\Image\Width + MarkDown()\Requester\Padding)
+  		    X + MarkDown()\Requester\Image\Width + MarkDown()\Requester\Padding
   		  EndIf  
   		  
   		EndIf
@@ -7738,52 +8221,24 @@ Module MarkDown
   	CompilerEndIf
   	
 		MarkDown()\LeftBorder = X
-		MarkDown()\WrapPos    = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(MarkDown()\Margin\Right)
+		MarkDown()\WrapPos    = MarkDown()\Area\Width - MarkDown()\Margin\Right
 		
-		If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll") ;{ ScrollBar
-		  
-		  If MarkDown()\ScrollBar\Flags = #False
-  		  MarkDown()\ScrollBar\Item()\X          = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(#ScrollBarSize) - dpiX(1)
-        MarkDown()\ScrollBar\Item()\Y          = dpiY(1)
-        MarkDown()\ScrollBar\Item()\Width      = dpiX(#ScrollBarSize)
-        If MarkDown()\Type = #Requester
-          MarkDown()\ScrollBar\Item()\Height   = MsgHeight - dpiY(2)
-        Else  
-          MarkDown()\ScrollBar\Item()\Height   = dpiY(GadgetHeight(MarkDown()\CanvasNum)) - dpiY(2)
-        EndIf  
-      Else
-        MarkDown()\ScrollBar\Item()\X          = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(#ScrollBarSize)
-        MarkDown()\ScrollBar\Item()\Y          = 0
-        MarkDown()\ScrollBar\Item()\Width      = dpiX(#ScrollBarSize)
-        If MarkDown()\Type = #Requester
-          MarkDown()\ScrollBar\Item()\Height   = MsgHeight
-        Else   
-          MarkDown()\ScrollBar\Item()\Height   = dpiY(GadgetHeight(MarkDown()\CanvasNum)) 
-        EndIf  
-      EndIf  
-      
-      MarkDown()\ScrollBar\Item()\Minimum    = 0
-      MarkDown()\ScrollBar\Item()\PageLength = Height
-		  
-  		If Not MarkDown()\ScrollBar\Item()\Hide
-  		  
-  		  Width - dpiX(#ScrollBarSize) - dpiX(1)
-  		  
-  		  MarkDown()\ScrollOffset = MarkDown()\ScrollBar\Item()\Pos
-  		  
-        Width - dpiX(#ScrollBarSize)
-        
-  		  MarkDown()\WrapPos - dpiX(#ScrollBarSize)
-
-  		Else
-  		  MarkDown()\ScrollOffset = 0
-  		EndIf 
-  		;}
-  	EndIf
-  	
+		If MarkDown()\VScroll\Hide
+		  MarkDown()\ScrollOffsetY = 0
+		Else  
+		  MarkDown()\ScrollOffsetY = MarkDown()\VScroll\Pos
+		EndIf   
+		
+		If MarkDown()\HScroll\Hide
+		  MarkDown()\ScrollOffsetX = 0
+		Else  
+		  MarkDown()\ScrollOffsetX = MarkDown()\HScroll\Pos
+		EndIf
+		
 		If StartDrawing(CanvasOutput(MarkDown()\CanvasNum))
-		  
-		  Y - MarkDown()\ScrollOffset
+
+		  X - MarkDown()\ScrollOffsetX
+		  Y - MarkDown()\ScrollOffsetY
 		  
 		  ;{ _____ Colors _____
 		  FrontColor  = MarkDown()\Color\Front
@@ -7798,17 +8253,19 @@ Module MarkDown
 		    BorderColor = MarkDown()\Color\DisableFront ; or MarkDown()\Color\DisableBack
 		  EndIf ;} 
 		  
-			;{ _____ Background _____
-		  DrawingMode(#PB_2DDrawing_Default)
-		  Box(0, 0, dpiX(GadgetWidth(MarkDown()\CanvasNum)), dpiY(GadgetHeight(MarkDown()\CanvasNum)), MarkDown()\Color\Gadget) ; needed for rounded corners
-		  
+		  ;{ _____ Background _____
 		  If MarkDown()\Type = #Requester
-		    Box_(0, 0, dpiX(GadgetWidth(MarkDown()\CanvasNum)), dpiY(GadgetHeight(MarkDown()\CanvasNum) - dpiY(30)), BackColor)
+		    Box_(0, 0, MarkDown()\Area\Width, MarkDown()\Area\Height - 30, BackColor)
 		  Else
-		    Box_(0, 0, dpiX(GadgetWidth(MarkDown()\CanvasNum)), dpiY(GadgetHeight(MarkDown()\CanvasNum)), BackColor)
+		    Box_(0, 0, MarkDown()\Area\Width, MarkDown()\Area\Height, BackColor) ; BackColor
 		  EndIf 
-			;}
-			
+		  ;}
+		  
+		  ClipOutput_(MarkDown()\Area\X, MarkDown()\Area\Y, MarkDown()\Area\Width, MarkDown()\Area\Height)
+		 
+		  DrawingFont(FontID(MarkDown()\Font\Normal))
+			MarkDown()\ScrollV = TextHeight("X")
+		  
 			ForEach MarkDown()\Items()
 			  
 			  DrawingFont(FontID(MarkDown()\Font\Normal))
@@ -7894,7 +8351,7 @@ Module MarkDown
                
     	        EndIf 
     	        
-    	        If MarkDown()\Image()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Image()\Width : EndIf 
+    	        ;If MarkDown()\Image()\Width > MarkDown()\Required\Width : MarkDown()\Required\Width = MarkDown()\Image()\Width : EndIf 
     	        
     	      EndIf
 			      ;}
@@ -7986,13 +8443,8 @@ Module MarkDown
 			  ;}
 			EndIf  
       
-			MarkDown()\Required\Width + dpiX(MarkDown()\Margin\Left + MarkDown()\Margin\Right)
-			MarkDown()\Required\Height = Y + dpiY(MarkDown()\Margin\Bottom)
+			UnclipOutput_()
 			
-			If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll") ;{ ScrollBar
-  			MarkDown()\ScrollBar\Item()\Maximum = MarkDown()\Required\Height
-  		EndIf ;}
-		
 			CompilerIf #Enable_Requester
 			  
 			  If MarkDown()\Type = #Requester
@@ -8000,19 +8452,19 @@ Module MarkDown
   			  If IsImage(MarkDown()\Requester\Image\Num)
   			    OffsetY = (MsgHeight - MarkDown()\Requester\Image\Height) / 2
       		  DrawingMode(#PB_2DDrawing_AlphaBlend)
-      		  DrawImage(ImageID(MarkDown()\Requester\Image\Num), dpiX(MarkDown()\Margin\Left), OffsetY, MarkDown()\Requester\Image\Width, MarkDown()\Requester\Image\Height)
+      		  DrawImage_(ImageID(MarkDown()\Requester\Image\Num), MarkDown()\Margin\Left, OffsetY, MarkDown()\Requester\Image\Width, MarkDown()\Requester\Image\Height)
   			  EndIf  
   			  
   			  DrawingFont(FontID(MarkDown()\Font\Normal))
   			  
-  			  MarkDown()\Requester\ButtonY = MsgHeight + dpiY(6)
+  			  MarkDown()\Requester\ButtonY = MsgHeight + 6
   			  
   			  DrawingMode(#PB_2DDrawing_Default)
-		      Box(0, MsgHeight, dpiX(GadgetWidth(MarkDown()\CanvasNum)), dpiY(40), MarkDown()\Color\Gadget)
+		      Box(0, MsgHeight, GadgetWidth(MarkDown()\CanvasNum), 40, MarkDown()\Color\Gadget) ; 
 		      
 		      If MarkDown()\Requester\UserButtons
 		        
-		        X = (dpiX(GadgetWidth(MarkDown()\CanvasNum)) - MarkDown()\Requester\ButtonsWidth) / 2
+		        X = (GadgetWidth(MarkDown()\CanvasNum) - MarkDown()\Requester\ButtonsWidth) / 2
 
 		        For b=1 To CountString(MarkDown()\Requester\UserButtons, "|") + 1
 		          
@@ -8020,7 +8472,7 @@ Module MarkDown
 		          
 		          If FindMapElement(MarkDown()\Requester\Button(), Label$)
 		            Button_(Label$, X, MarkDown()\Requester\ButtonY)
-      			    X + dpiX(MarkDown()\Requester\Button()\Width) + dpiX(7)
+      			    X + MarkDown()\Requester\Button()\Width + 7
 		          EndIf   
 		          
 		        Next
@@ -8028,19 +8480,19 @@ Module MarkDown
 		      Else
 		        
     			  If MarkDown()\Flags & #YesNo ;{ Buttons
-      			  X = (dpiX(GadgetWidth(MarkDown()\CanvasNum)) - MarkDown()\Requester\ButtonsWidth) / 2
+      			  X = (GadgetWidth(MarkDown()\CanvasNum) - MarkDown()\Requester\ButtonsWidth) / 2
       			  Button_("Yes", X, MarkDown()\Requester\ButtonY)
-      			  X + dpiX(MarkDown()\Requester\Button("Yes")\Width) + dpiX(7)
+      			  X + MarkDown()\Requester\Button("Yes")\Width + 7
       			  Button_("No", X, MarkDown()\Requester\ButtonY)
       			ElseIf MarkDown()\Flags & #YesNoCancel
-      			  X = dpiX(7)
+      			  X = 7
       			  Button_("Yes", X, MarkDown()\Requester\ButtonY)
-      			  X + dpiX(MarkDown()\Requester\Button("Yes")\Width) + dpiX(7)
+      			  X + MarkDown()\Requester\Button("Yes")\Width + 7
       			  Button_("No", X, MarkDown()\Requester\ButtonY)
-      			  X = dpiX(GadgetWidth(MarkDown()\CanvasNum)) - dpiX(MarkDown()\Requester\Button("Cancel")\Width) - dpiX(7)
+      			  X = GadgetWidth(MarkDown()\CanvasNum) - MarkDown()\Requester\Button("Cancel")\Width - 7
       			  Button_("Cancel", X, MarkDown()\Requester\ButtonY)
       			Else
-      			  X = (dpiX(GadgetWidth(MarkDown()\CanvasNum)) - MarkDown()\Requester\ButtonsWidth) / 2
+      			  X = (GadgetWidth(MarkDown()\CanvasNum) - MarkDown()\Requester\ButtonsWidth) / 2
       			  Button_("OK", X, MarkDown()\Requester\ButtonY)
       			EndIf
       			
@@ -8050,46 +8502,38 @@ Module MarkDown
 			  
 			CompilerEndIf  
 			
+			
+			
 			;{ _____ Border ____
 			If MarkDown()\Flags & #Borderless = #False
 			  DrawingMode(#PB_2DDrawing_Outlined)
-			  Box_(0, 0, dpiX(GadgetWidth(MarkDown()\CanvasNum)), dpiY(GadgetHeight(MarkDown()\CanvasNum)), BorderColor)
+			  Box_(0, 0, GadgetWidth(MarkDown()\CanvasNum), GadgetHeight(MarkDown()\CanvasNum), BorderColor)
 			  If MarkDown()\Type = #Requester
-			    Box_(0, 0, dpiX(GadgetWidth(MarkDown()\CanvasNum)), dpiY(GadgetHeight(MarkDown()\CanvasNum) - dpiY(33)), BorderColor)
+			    Box_(0, 0, GadgetWidth(MarkDown()\CanvasNum), GadgetHeight(MarkDown()\CanvasNum) - 33, BorderColor)
 			  EndIf   
 			EndIf ;}
 
 			StopDrawing()
 		EndIf
 
-		DrawScrollBar_()
+		DrawScrollBar_(ScrollBar)
 		
 	EndProcedure
 	
-	Procedure   ReDraw()
-
-	  Draw_()
-	  
-	  If AdjustScrollBars_()
-	    Draw_()
-	    AdjustScrollBars_()
-	  EndIf 
-
-	EndProcedure  
 	
-	;- __________ Tools _____
+	;- ============================================================================
+	;-   Module - Tools
+  ;- ============================================================================	
 	
 	Procedure   GotoHeading_(ID.s)
     
 	  If FindMapElement(MarkDown()\HeadingID(), ID)
 	    
-	    MarkDown()\ScrollOffset = MarkDown()\HeadingID()
+	    MarkDown()\ScrollOffsetY = MarkDown()\HeadingID()
 	    
-      If MarkDown()\ScrollOffset > MarkDown()\ScrollBar\Item()\MaxPos : MarkDown()\ScrollOffset = MarkDown()\ScrollBar\Item()\MaxPos : EndIf
-
-      SetGadgetState(MarkDown()\ScrollBar\Num, MarkDown()\ScrollOffset)
-      
-      Draw_()
+      SetThumbPosY_(MarkDown()\ScrollOffsetY)
+ 
+      Draw_(#Vertical)
     EndIf
     
   EndProcedure  
@@ -8144,7 +8588,7 @@ Module MarkDown
       ProcedureReturn #PB_Default
     EndProcedure
     
-    Procedure   TooltipPosition_(X.i, Y.i)
+    Procedure   TooltipPosition_(dX.i, dY.i) ; uses DPI
   	  Define.i gX, gY, wX, wY, gWidth, gHeight, wWidth, wHeight, cWidth, cHeight, PosX, PosY, Reverse
   	  
   	  If IsGadget(ToolTips()\Gadget)
@@ -8166,24 +8610,24 @@ Module MarkDown
     	  cHeight = dpiY(GadgetHeight(ToolTips()\CanvasNum))
     	EndIf   
     	
-    	PosX = X + gX + cWidth
-    	PosY = Y + gY
+    	PosX = dX + gX + cWidth
+    	PosY = dY + gY
     	
     	If PosX < wWidth
-    	  ToolTips()\PosX = X + wX
+    	  ToolTips()\PosX = dX + wX
     	Else
-    	  ToolTips()\PosX = X + wX - cWidth
+    	  ToolTips()\PosX = dX + wX - cWidth
     	  Reverse = #True
     	EndIf
 
     	If PosY - cHeight  > 0 
-    	  ToolTips()\PosY = Y + wY - cHeight  + dpiY(1)
+    	  ToolTips()\PosY = dY + wY - cHeight  + dpiY(1)
     	  ToolTips()\PosX + dpiX(2)
     	ElseIf PosY + dpiY(GadgetHeight(ToolTips()\CanvasNum))  > wHeight
-    	  ToolTips()\PosY = Y + wY - cHeight  + dpiY(1)
+    	  ToolTips()\PosY = dY + wY - cHeight  + dpiY(1)
     	  ToolTips()\PosX + dpiX(2)
     	Else
-    	  ToolTips()\PosY = Y + wY + dpiY(2)
+    	  ToolTips()\PosY = dY + wY + dpiY(2)
     	  If Reverse = #False
     	    ToolTips()\PosX + dpiX(8)
     	  EndIf
@@ -8192,1141 +8636,6 @@ Module MarkDown
   	EndProcedure
     
   CompilerEndIf
-  
-	;- __________ Events __________
-	
-	CompilerIf Defined(ModuleEx, #PB_Module)
-    
-    Procedure _ThemeHandler()
-      
-      ForEach MarkDown()
-        
-        If IsFont(ModuleEx::ThemeGUI\Font\Num)
-          MarkDown()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
-        EndIf
-        
-        If ModuleEx::ThemeGUI\ScrollBar : MarkDown()\ScrollBar\Flags = ModuleEx::ThemeGUI\ScrollBar : EndIf 
-        
-        MarkDown()\Color\Front               = ModuleEx::ThemeGUI\FrontColor
-				MarkDown()\Color\Back                = ModuleEx::ThemeGUI\BackColor
-				MarkDown()\Color\Border              = ModuleEx::ThemeGUI\BorderColor
-				MarkDown()\Color\Gadget              = ModuleEx::ThemeGUI\GadgetColor
-				MarkDown()\Color\Button              = ModuleEx::ThemeGUI\Button\BackColor
-			  MarkDown()\Color\Focus               = ModuleEx::ThemeGUI\Focus\BackColor
-				MarkDown()\Color\DisableFront        = ModuleEx::ThemeGUI\Disable\FrontColor
-		    MarkDown()\Color\DisableBack         = ModuleEx::ThemeGUI\Disable\BackColor
-		    
-		    MarkDown()\ScrollBar\Color\Front     = ModuleEx::ThemeGUI\FrontColor
-  			MarkDown()\ScrollBar\Color\Back      = ModuleEx::ThemeGUI\BackColor
-  			MarkDown()\ScrollBar\Color\Border    = ModuleEx::ThemeGUI\BorderColor
-  			MarkDown()\ScrollBar\Color\Gadget    = ModuleEx::ThemeGUI\GadgetColor
-  			MarkDown()\ScrollBar\Color\Focus     = ModuleEx::ThemeGUI\FocusBack
-        MarkDown()\ScrollBar\Color\Button    = ModuleEx::ThemeGUI\Button\BackColor
-        MarkDown()\ScrollBar\Color\ScrollBar = ModuleEx::ThemeGUI\ScrollbarColor
-		    
-        Draw_()
-      Next
-      
-    EndProcedure
-    
-  CompilerEndIf 
-  
-	Procedure _RightClickHandler()
-		Define.i GNum = EventGadget()
-
-		If FindMapElement(MarkDown(), Str(GNum))
-
-			If IsWindow(MarkDown()\Window\Num) And IsMenu(MarkDown()\PopUpNum)
-				DisplayPopupMenu(MarkDown()\PopUpNum, WindowID(MarkDown()\Window\Num))
-			EndIf
-
-		EndIf
-
-	EndProcedure
-
-	Procedure _LeftButtonDownHandler()
-		Define.i X, Y
-		Define.i GNum = EventGadget()
-
-		If FindMapElement(MarkDown(), Str(GNum))
-
-			X = GetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_MouseX)
-			Y = GetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_MouseY)
-
-			If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll") ;{ ScrollBar
-			 
-        If MarkDown()\ScrollBar\Item()\Hide = #False
-        
-          MarkDown()\ScrollBar\Item()\Cursor = #PB_Default
-          
-  			  If X >= MarkDown()\ScrollBar\Item()\X And X <= MarkDown()\ScrollBar\Item()\X + MarkDown()\ScrollBar\Item()\Width
-  			    
-    			  If Y >= MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y And Y <= MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y + MarkDown()\ScrollBar\Item()\Buttons\Backwards\Height
-    			    ;{ Backwards Button
-    			    If MarkDown()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Click
-    			      DrawScrollButton_(MarkDown()\ScrollBar\Item()\Buttons\Backwards\X, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Height, "VScroll", #ScrollBar_Backwards, #ScrollBar_Click)
-    			      MarkDown()\ScrollBar\Item()\TimerDelay = #ScrollBar_TimerDelay
-    			      MarkDown()\ScrollBar\Item()\Timer      = #ScrollBar_Up
-    			      MarkDown()\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Click 
-    			    EndIf ;}
-    			  ElseIf Y >= MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y And Y <= MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y + MarkDown()\ScrollBar\Item()\Buttons\Forwards\Height
-    			    ;{ Forwards Button
-    			    If MarkDown()\ScrollBar\Item()\Buttons\Forwards\State <> #ScrollBar_Click
-    			      DrawScrollButton_(MarkDown()\ScrollBar\Item()\Buttons\Forwards\X, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Height, "VScroll", #ScrollBar_Forwards, #ScrollBar_Click)
-    			      MarkDown()\ScrollBar\Item()\TimerDelay = #ScrollBar_TimerDelay
-    			      MarkDown()\ScrollBar\Item()\Timer      = #ScrollBar_Down
-    			      MarkDown()\ScrollBar\Item()\Buttons\Forwards\State = #ScrollBar_Click
-    			    EndIf ;}
-    			  ElseIf Y >= MarkDown()\ScrollBar\Item()\Thumb\Y And Y <= MarkDown()\ScrollBar\Item()\Thumb\Y + MarkDown()\ScrollBar\Item()\Thumb\Height
-    			    ;{ Thumb Button
-    			    If MarkDown()\ScrollBar\Item()\Thumb\State <> #ScrollBar_Click
-    			      MarkDown()\ScrollBar\Item()\Thumb\State = #ScrollBar_Click
-    			      MarkDown()\ScrollBar\Item()\Cursor = Y
-    			      DrawScrollBar_()
-    			    EndIf ;} 
-    			  EndIf
-    			  
-    			  ProcedureReturn #True
-    			EndIf
-    			
-  			EndIf
-  			;}
-      EndIf 			
-			
-			ForEach MarkDown()\Link() ;{ Click link
-			  If Y >= MarkDown()\Link()\Y And Y <= MarkDown()\Link()\Y + MarkDown()\Link()\Height 
-			    If X >= MarkDown()\Link()\X And X <= MarkDown()\Link()\X + MarkDown()\Link()\Width
-			      MarkDown()\Link()\State = #True
-			      Draw_()
-  			    ProcedureReturn #True
-  			  EndIf
-			  EndIf ;}
-			Next  
-			
-			CompilerIf #Enable_Requester
-		  
-		    ForEach MarkDown()\Requester\Button() ;{ Click Button
-		      
-		      If Not MarkDown()\Requester\Button()\Visible : Continue : EndIf
-		      
-		      If Y >= MarkDown()\Requester\ButtonY And Y <= MarkDown()\Requester\ButtonY + dpiY(#ButtonHeight)  
-    			  If X >= MarkDown()\Requester\Button()\X And X <= MarkDown()\Requester\Button()\X + dpiX(MarkDown()\Requester\Button()\Width)
-    			    If MarkDown()\Requester\Button()\State <> #Click
-    			      MarkDown()\Requester\Button()\State = #Click
-    			      Draw_()
-    			    EndIf
-  			      ProcedureReturn #True 
-    			  EndIf
-    			EndIf 
-          ;}
-  			Next 
-  			
-  		CompilerEndIf
-			
-		EndIf
-
-	EndProcedure
-
-	Procedure _LeftButtonUpHandler()
-		Define.i X, Y, Angle
-		Define.i GNum = EventGadget()
-
-		If FindMapElement(MarkDown(), Str(GNum))
-
-			X = GetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_MouseX)
-			Y = GetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_MouseY)
-			
-			
-      If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll") ;{ ScrollBar
-        
-  		  If MarkDown()\ScrollBar\Item()\Hide = #False
-  		  
-    			MarkDown()\ScrollBar\Item()\Cursor = #PB_Default
-    			MarkDown()\ScrollBar\Item()\Timer  = #False
- 
-  			  If X >= MarkDown()\ScrollBar\Item()\X And X <= MarkDown()\ScrollBar\Item()\X + MarkDown()\ScrollBar\Item()\Width
-  			    
-    			  If Y >= MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y And Y <= MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y + MarkDown()\ScrollBar\Item()\Buttons\Backwards\Height
-    			    MarkDown()\ScrollBar\Item()\Pos - 1
-    			    If MarkDown()\ScrollBar\Item()\Pos < MarkDown()\ScrollBar\Item()\minPos : MarkDown()\ScrollBar\Item()\Pos = MarkDown()\ScrollBar\Item()\minPos : EndIf
-    			    Draw_()
-    			  ElseIf Y >= MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y And Y <= MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y + MarkDown()\ScrollBar\Item()\Buttons\Forwards\Height
-    			    MarkDown()\ScrollBar\Item()\Pos + 1
-    			    If MarkDown()\ScrollBar\Item()\Pos > MarkDown()\ScrollBar\Item()\maxPos : MarkDown()\ScrollBar\Item()\Pos = MarkDown()\ScrollBar\Item()\maxPos : EndIf
-    			    Draw_()
-    			  ElseIf Y < MarkDown()\ScrollBar\Item()\Thumb\Y
-    			    MarkDown()\ScrollBar\Item()\Pos - MarkDown()\ScrollBar\Item()\PageLength
-    			    If MarkDown()\ScrollBar\Item()\Pos < MarkDown()\ScrollBar\Item()\minPos : MarkDown()\ScrollBar\Item()\Pos = MarkDown()\ScrollBar\Item()\minPos : EndIf
-    			    Draw_()
-    			  ElseIf Y > MarkDown()\ScrollBar\Item()\Thumb\Y + MarkDown()\ScrollBar\Item()\Thumb\Height
-    			    MarkDown()\ScrollBar\Item()\Pos + MarkDown()\ScrollBar\Item()\PageLength
-    			    If MarkDown()\ScrollBar\Item()\Pos > MarkDown()\ScrollBar\Item()\maxPos : MarkDown()\ScrollBar\Item()\Pos = MarkDown()\ScrollBar\Item()\maxPos : EndIf
-    			    Draw_()
-    			  EndIf
-    			  
-    			  ProcedureReturn #True
-    			EndIf  
-			    
-  			EndIf
-  			;}
-  		EndIf	
-			
-			
-			ForEach MarkDown()\TOC()  ;{ Table of Contents
-			  If Y >= MarkDown()\TOC()\Y And Y <= MarkDown()\TOC()\Y + MarkDown()\TOC()\Height 
-			    If X >= MarkDown()\TOC()\X And X <= MarkDown()\TOC()\X + MarkDown()\TOC()\Width
-			      
-			      MarkDown()\EventValue = MarkDown()\TOC()\ID
-			      MarkDown()\EventLabel = MarkDown()\TOC()\Label
-			      
-			      PostEvent(#Event_Gadget,    MarkDown()\Window\Num, MarkDown()\CanvasNum, #EventType_Link)
-			      PostEvent(#PB_Event_Gadget, MarkDown()\Window\Num, MarkDown()\CanvasNum, #EventType_Link)
-			      
-			      ProcedureReturn #True
-			    EndIf
-			  EndIf  
-			  ;}  
-			Next
-			
-			ForEach MarkDown()\Link() ;{ Link
-			  
-			  If Y >= MarkDown()\Link()\Y And Y <= MarkDown()\Link()\Y + MarkDown()\Link()\Height 
-			    If X >= MarkDown()\Link()\X And X <= MarkDown()\Link()\X + MarkDown()\Link()\Width
-
-			      If MarkDown()\Link()\Label
-			        If FindMapElement(MarkDown()\Label(), MarkDown()\Link()\Label)
-			          MarkDown()\EventValue = Trim(MarkDown()\Label()\Destination)
-			        EndIf  
-			      Else  
-			        MarkDown()\EventValue = Trim(MarkDown()\Link()\URL)
-			      EndIf
-			      
-			      If Left(MarkDown()\EventValue, 4) = "HDG:"
-			        If FindMapElement(MarkDown()\HeadingID(), MarkDown()\EventValue)
-			          GotoHeading_(MarkDown()\EventValue)
-			        EndIf  
-			        MarkDown()\EventLabel = ""
-			      ElseIf Left(MarkDown()\EventValue, 1) = "#" ; Page Link
-			        MarkDown()\EventLabel = LTrim(MarkDown()\EventValue, "#")
-			      EndIf  
-
-			      PostEvent(#Event_Gadget,    MarkDown()\Window\Num, MarkDown()\CanvasNum, #EventType_Link)
-			      PostEvent(#PB_Event_Gadget, MarkDown()\Window\Num, MarkDown()\CanvasNum, #EventType_Link)
-			      
-			      MarkDown()\Link()\State = #False
-			      
-			      Draw_()
-			      
-  			    ProcedureReturn #True
-  			  EndIf
-  			EndIf
-  			;}
-			Next  
-			
-			ForEach MarkDown()\Link()
-			  MarkDown()\Link()\State = #False
-			Next
-			
-			Draw_()
-			
-			CompilerIf #Enable_Requester
-		  
-		    ForEach MarkDown()\Requester\Button() ;{ Click Button
-		      
-		      If Not MarkDown()\Requester\Button()\Visible : Continue : EndIf
-		      
-		      If Y >= MarkDown()\Requester\ButtonY And Y <= MarkDown()\Requester\ButtonY + dpiY(#ButtonHeight)  
-    			  If X >= MarkDown()\Requester\Button()\X And X <= MarkDown()\Requester\Button()\X + dpiX(MarkDown()\Requester\Button()\Width)
-    			    
-    			    MarkDown()\Requester\Button()\State = #Focus
-    			    MarkDown()\Requester\Result = MarkDown()\Requester\Button()\Result
-    			    Draw_()
-    			    
-    			    PostEvent(#Event_Gadget, MarkDown()\Window\Num, MarkDown()\CanvasNum, #PB_EventType_LeftClick, MarkDown()\Requester\Result)
-    			    
-  			      ProcedureReturn #True 
-    			  EndIf
-    			EndIf 
-          ;}
-  			Next 
-  			
-  		CompilerEndIf
-
-		EndIf
-
-	EndProcedure
-
-	Procedure _MouseMoveHandler()
-	  Define.i X, Y
-	  Define.s ToolTip$
-		Define.i GNum = EventGadget()
-		
-		CompilerIf #Enable_Tooltips
-		  
-			If FindMapElement(Tooltips(), Str(GNum))
-			  
-			  If GadgetType(GNum) = #PB_GadgetType_Canvas
-          X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
-          Y = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
-        Else
-          X = GetMouseEventAttribute_(Tooltips()\Window, #MouseX, GNum)
-          Y = GetMouseEventAttribute_(Tooltips()\Window, #MouseY, GNum)
-        EndIf
-
-        If X <> Tooltips()\MouseX Or Y <> Tooltips()\MouseY
-          
-          Tooltips()\MouseX = X
-          Tooltips()\MouseY = Y
-          
-          ;{ Cursor move
-          LockMutex(Mutex)
-          
-          Timer(Str(GNum))\Active = #True
-          Timer(Str(GNum))\Value  = 0
-          
-          UnlockMutex(Mutex)
-  
-          If ToolTips()\Visible
-        
-            LockMutex(Mutex)
-      	    Timer(Str(GNum))\Focus  = #False
-      	    Timer(Str(GNum))\Active = #True
-      	    Timer(Str(GNum))\Value  = 0
-      	    Timer(Str(GNum))\State  = #False
-      	    UnlockMutex(Mutex)
-  	    
-      	    Tooltips()\MouseX  = #PB_Default
-      	    Tooltips()\MouseY  = #PB_Default
-      	    ToolTips()\Visible = #False
-      	    
-            HideWindow(ToolTips()\WindowNum, #True)
-            
-            SetActiveWindow(ToolTips()\Window)
-            
-          Else  
-            
-            TooltipPosition_(X, Y)
-            
-            LockMutex(Mutex)
-      	    Timer(Str(GNum))\State = #True
-      	    UnlockMutex(Mutex)
-      	    
-      	    ProcedureReturn #True
-          EndIf ;}
-          
-          LockMutex(Mutex)
-    	    Timer(Str(GNum))\State = #True
-    	    UnlockMutex(Mutex)
-          
-        EndIf
-
-			EndIf 
-			
-	  CompilerEndIf
-
-		If FindMapElement(MarkDown(), Str(GNum))
-
-			X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
-			Y = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
-
-			If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll") ;{ Scrollbar
-      
-  	    If MarkDown()\ScrollBar\Item()\Hide = #False
-  	    
-  	      If X >= MarkDown()\ScrollBar\Item()\X And X <= MarkDown()\ScrollBar\Item()\X + MarkDown()\ScrollBar\Item()\Width
-  	      
-    	      If Y <= MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y + MarkDown()\ScrollBar\Item()\Buttons\Backwards\Height
-    			    ;{ Backwards Button
-    			    If MarkDown()\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Focus
-    			      
-    			      MarkDown()\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Focus
-    			      
-    			      If MarkDown()\ScrollBar\Item()\Thumb\State <> #False
-    			        MarkDown()\ScrollBar\Item()\Thumb\State = #False
-    			        DrawScrollBar_()
-    			      Else 
-    			        DrawScrollButton_(MarkDown()\ScrollBar\Item()\Buttons\Backwards\X, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Height, "VScroll", #ScrollBar_Backwards, #ScrollBar_Focus)
-    			      EndIf 
-    			      
-    			    EndIf
-  			      ;}
-    			    ProcedureReturn #True
-    			  ElseIf Y >= MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y
-    			    ;{ Forwards Button
-    			    If MarkDown()\ScrollBar\Item()\Buttons\Forwards\State <> #ScrollBar_Focus
-    			      
-    			      MarkDown()\ScrollBar\Item()\Buttons\Forwards\State = #ScrollBar_Focus
-    			      
-    			      If MarkDown()\ScrollBar\Item()\Thumb\State <> #False
-    			        MarkDown()\ScrollBar\Item()\Thumb\State = #False
-    			        DrawScrollBar_()
-    			      Else 
-    			        DrawScrollButton_(MarkDown()\ScrollBar\Item()\Buttons\Forwards\X, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Height, "VScroll", #ScrollBar_Forwards, #ScrollBar_Focus)
-    			      EndIf
-    			      
-    			    EndIf ;}
-    			    ProcedureReturn #True
-    			  EndIf
-  
-    			  MarkDown()\ScrollBar\Item()\Timer = #False
-    			  
-    			  If MarkDown()\ScrollBar\Item()\Buttons\Backwards\State <> #False ;{ Backwards Button
-    			    MarkDown()\ScrollBar\Item()\Buttons\Backwards\State = #False
-    			    DrawScrollButton_(MarkDown()\ScrollBar\Item()\Buttons\Backwards\X, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Height, "VScroll", #ScrollBar_Backwards)
-      			  ;}
-      			EndIf
-      			
-      			If MarkDown()\ScrollBar\Item()\Buttons\Forwards\State <> #False  ;{ Forwards Button
-      			  MarkDown()\ScrollBar\Item()\Buttons\Forwards\State = #False
-      			  DrawScrollButton_(MarkDown()\ScrollBar\Item()\Buttons\Forwards\X, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Height, "VScroll", #ScrollBar_Forwards)
-      			  ;}
-      			EndIf
-    
-    			  If Y >= MarkDown()\ScrollBar\Item()\Thumb\Y And Y <= MarkDown()\ScrollBar\Item()\Thumb\Y + MarkDown()\ScrollBar\Item()\Thumb\Height
-    			    ;{ Move Thumb
-    			    If MarkDown()\ScrollBar\Item()\Cursor <> #PB_Default
-    			      
-    			      MarkDown()\ScrollBar\Item()\Pos + GetSteps_(Y)
-    			      
-    			      If MarkDown()\ScrollBar\Item()\Pos > MarkDown()\ScrollBar\Item()\maxPos : MarkDown()\ScrollBar\Item()\Pos = MarkDown()\ScrollBar\Item()\maxPos : EndIf
-    			      If MarkDown()\ScrollBar\Item()\Pos < MarkDown()\ScrollBar\Item()\minPos : MarkDown()\ScrollBar\Item()\Pos = MarkDown()\ScrollBar\Item()\minPos : EndIf
-    			      
-    			      MarkDown()\ScrollBar\Item()\Cursor = Y
-    		        
-    		        Draw_()
-    		        ProcedureReturn #True
-    		      EndIf ;}
-    			    ;{ Thumb Focus
-    			    If MarkDown()\ScrollBar\Item()\Thumb\State <> #ScrollBar_Focus
-    			      MarkDown()\ScrollBar\Item()\Thumb\State = #ScrollBar_Focus
-    			      DrawScrollBar_()
-    			    EndIf ;} 
-    			    ProcedureReturn #True
-    			  EndIf
-    			  
-    			  ProcedureReturn #True
-    			EndIf  
-    			
-    			If MarkDown()\ScrollBar\Item()\Buttons\Backwards\State <> #False ;{ Backwards Button
-    			  DrawScrollButton_(MarkDown()\ScrollBar\Item()\Buttons\Backwards\X, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Backwards\Height, "VScroll", #ScrollBar_Backwards)
-    			  MarkDown()\ScrollBar\Item()\Buttons\Backwards\State = #False
-    			  ;}
-    			EndIf
-    			
-    			If MarkDown()\ScrollBar\Item()\Buttons\Forwards\State <> #False  ;{ Forwards Button
-    			  DrawScrollButton_(MarkDown()\ScrollBar\Item()\Buttons\Forwards\X, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Y, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Width, MarkDown()\ScrollBar\Item()\Buttons\Forwards\Height, "VScroll", #ScrollBar_Forwards)
-    			  MarkDown()\ScrollBar\Item()\Buttons\Forwards\State = #False
-    			  ;}
-    			EndIf
-    			
-    			If MarkDown()\ScrollBar\Item()\Thumb\State <> #False             ;{ Thumb Button
-    			  MarkDown()\ScrollBar\Item()\Thumb\State = #False
-    			  DrawScrollBar_()
-    			  ;}
-    			EndIf
-    			
-    		EndIf
-    	  ;}	
-  		EndIf
-			
-			ForEach MarkDown()\Link()         ;{ Links
-			  
-			  If Y >= MarkDown()\Link()\Y And Y <= MarkDown()\Link()\Y + MarkDown()\Link()\Height 
-			    If X >= MarkDown()\Link()\X And X <= MarkDown()\Link()\X + MarkDown()\Link()\Width
-			      
-			      SetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
-			      
-			      If MarkDown()\Link()\Title
-			        ToolTip$ = MarkDown()\Link()\Title
-			      Else
-			        ToolTip$ = MarkDown()\Link()\URL
-			      EndIf
-			      
-			      If ToolTip$
-			        If MarkDown()\ToolTip = #False
-  			        GadgetToolTip(GNum, ToolTip$)
-  			        MarkDown()\ToolTip = #True
-      			  EndIf
-      			EndIf 
-
-  			    ProcedureReturn #True
-  			  EndIf
-  			EndIf
-  			;}
-			Next  
-			
-			ForEach MarkDown()\Footnote()     ;{ FootNotes
-			  
-			  If Y >= MarkDown()\Footnote()\Y And Y <= MarkDown()\Footnote()\Y + MarkDown()\Footnote()\Height 
-			    If X >= MarkDown()\Footnote()\X And X <= MarkDown()\Footnote()\X + MarkDown()\Footnote()\Width
-			      
-			      SetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
-			      
-			      If MarkDown()\ToolTip = #False
-			        
-			        ToolTip$ = ""
-			        
-			        If FindMapElement(MarkDown()\FootLabel(), MarkDown()\Footnote()\Label)
-			          ForEach MarkDown()\FootLabel()\Words() : ToolTip$ + MarkDown()\FootLabel()\Words()\String + " " : Next
-			          GadgetToolTip(GNum, Trim(ToolTip$))
-			          MarkDown()\ToolTip  = #True
-			        EndIf
-			        
-			      EndIf
-			      
-  			    ProcedureReturn #True
-  			  EndIf
-  			EndIf
-  			;}
-			Next  
-			
-			ForEach MarkDown()\AbbrevWord()   ;{ Abbreviations
-			  
-			  If Y >= MarkDown()\AbbrevWord()\Y And Y <= MarkDown()\AbbrevWord()\Y + MarkDown()\AbbrevWord()\Height 
-			    If X >= MarkDown()\AbbrevWord()\X And X <= MarkDown()\AbbrevWord()\X + MarkDown()\AbbrevWord()\Width
-			      
-			      SetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
-			      
-			      If MarkDown()\ToolTip = #False
-		          GadgetToolTip(GNum, Trim(MarkDown()\Abbreviation(MarkDown()\AbbrevWord()\Word)\String))
-		          MarkDown()\ToolTip  = #True
-			      EndIf
-			      
-  			    ProcedureReturn #True
-  			  EndIf
-  			EndIf
-			  ;}
-			Next  
-			
-			ForEach MarkDown()\GlossaryWord() ;{ Glossary
-			  
-			  If Y >= MarkDown()\GlossaryWord()\Y And Y <= MarkDown()\GlossaryWord()\Y + MarkDown()\GlossaryWord()\Height 
-			    If X >= MarkDown()\GlossaryWord()\X And X <= MarkDown()\GlossaryWord()\X + MarkDown()\GlossaryWord()\Width
-			      
-			      SetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
-			      
-			      If MarkDown()\ToolTip = #False
-			        ToolTip$ = Trim(GetString_(MarkDown()\Glossary(MarkDown()\GlossaryWord()\Word)\Words()))
-		          GadgetToolTip(GNum, ToolTip$)
-		          MarkDown()\ToolTip  = #True
-			      EndIf
-			      
-  			    ProcedureReturn #True
-  			  EndIf
-  			EndIf
-			  ;}
-			Next  
-			
-			ForEach MarkDown()\TOC()          ;{ Table of Contents
-			  If Y >= MarkDown()\TOC()\Y And Y <= MarkDown()\TOC()\Y + MarkDown()\TOC()\Height 
-			    If X >= MarkDown()\TOC()\X And X <= MarkDown()\TOC()\X + MarkDown()\TOC()\Width
-			      
-			      SetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
-			      
-			      ProcedureReturn #True
-			    EndIf
-			  EndIf  
-			  ;}  
-			Next
-			
-			ForEach MarkDown()\Image()        ;{ Images
-			  
-			  If MarkDown()\Image()\Title = "" : Continue : EndIf 
-			  
-			  If Y >= MarkDown()\Image()\Y And Y <= MarkDown()\Image()\Y + MarkDown()\Image()\Height 
-			    If X >= MarkDown()\Image()\X And X <= MarkDown()\Image()\X + MarkDown()\Image()\Width
-			      
-			      If MarkDown()\ToolTip = #False
-			        GadgetToolTip(GNum, MarkDown()\Image()\Title)
-			        MarkDown()\ToolTip  = #True
-			      EndIf
-			      
-  			    ProcedureReturn #True
-  			  EndIf
-  			EndIf
-			  ;}
-			Next  
-			
-			MarkDown()\ToolTip = #False
-			GadgetToolTip(GNum, "")
-			
-		  CompilerIf #Enable_Requester
-		  
-		    ForEach MarkDown()\Requester\Button()
-		      
-		      If Not MarkDown()\Requester\Button()\Visible : Continue : EndIf
-		      
-		      If Y >= MarkDown()\Requester\ButtonY And Y <= MarkDown()\Requester\ButtonY + dpiY(#ButtonHeight)  
-    			  If X >= MarkDown()\Requester\Button()\X And X <= MarkDown()\Requester\Button()\X + dpiX(MarkDown()\Requester\Button()\Width)
-    			    If MarkDown()\Requester\Button()\State <> #Focus
-    			      MarkDown()\Requester\Button()\State = #Focus
-    			      Draw_()
-    			    EndIf
-  			      ProcedureReturn #True 
-    			  EndIf
-    			EndIf 
-    			
-    			If MarkDown()\Requester\Button()\State
-  			    MarkDown()\Requester\Button()\State = #False
-  			    Draw_()
-  			  EndIf
-    			
-  			Next 
-  			
-  		CompilerEndIf
-
-			SetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_Default)
-
-		EndIf
-
-	EndProcedure
-	
-	Procedure _MouseWheelHandler()
-    Define.i GNum = EventGadget()
-    Define.i X, Y, Delta
-    
-    If FindMapElement(MarkDown(), Str(GNum))
-      
-      Delta = GetGadgetAttribute(MarkDown()\ScrollBar\Num, #PB_Canvas_WheelDelta)
-	  
-  	  If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll")
-
-  	    If MarkDown()\ScrollBar\Item()\Hide = #False
-
-	        MarkDown()\ScrollBar\Item()\Pos - (Delta * 2)
-
-          If MarkDown()\ScrollBar\Item()\Pos > MarkDown()\ScrollBar\Item()\maxPos : MarkDown()\ScrollBar\Item()\Pos = MarkDown()\ScrollBar\Item()\maxPos : EndIf
-          If MarkDown()\ScrollBar\Item()\Pos < MarkDown()\ScrollBar\Item()\minPos : MarkDown()\ScrollBar\Item()\Pos = MarkDown()\ScrollBar\Item()\minPos : EndIf
-          
-          Draw_()
-
-    	  EndIf
-    	  
-  	  EndIf
-  	  
-    EndIf
-    
-  EndProcedure
-  
-  CompilerIf #Enable_Tooltips
-    
-    Procedure _TimerEventHandler()
-      Define.i X, Y, Handle, Window, Gadget, GadgetNum
-  
-      Window = GetActiveWindow()
-      
-      Select EventTimer()
-        Case #TooltipTimer    ;{ Tooltip Delay
- 
-          LockMutex(Mutex)
-          
-          ForEach Timer()
-            
-            If Timer()\Focus And Timer()\State 
-              
-              If Timer()\Active
-                
-                Timer()\Value + 200
-                
-    	          If Timer()\Value >= Timer()\Delay
-    	            PostEvent(#Event_ToolTip, Timer()\WindowNum, Timer()\GadgetNum)
-    	            Timer()\Value  = 0
-    	            Timer()\Active = #False
-    	          EndIf
-    	          
-    	        EndIf
-    	        
-    	      EndIf
-    	      
-    	    Next
-    	    
-    	    UnlockMutex(Mutex) 
-          ;}
-        Case #MouseEventTimer ;{ MouseEvents
-          
-          If FindMapElement(MouseEvent(), Str(Window))
-      
-            X = WindowMouseX(Window)
-            Y = WindowMouseY(Window)
-            
-            If X <> MouseEvent()\Window\MouseX Or Y <> MouseEvent()\Window\MouseY
-              
-              MouseEvent()\Window\MouseX = X
-              MouseEvent()\Window\MouseY = Y
-              
-              ; Get Handle under mouse (mk-soft)
-              CompilerSelect #PB_Compiler_OS
-                CompilerCase #PB_OS_Windows ;{ Windows
-                  Protected.i DesktopX, DesktopY
-                  
-                  DesktopX = DesktopMouseX()
-                  Desktopy = DesktopMouseY()
-                  Handle   = WindowFromPoint_(DesktopY << 32 | DesktopX)
-                  ;}
-                CompilerCase #PB_OS_MacOS   ;{ MacOS
-                  Protected WinID.i, WinCV.i, pt.NSPoint
-                  
-                  WinID = WindowID(Window)
-                  WinCV = CocoaMessage(0, WinID, "contentView")
-                  CocoaMessage(@pt, WinID, "mouseLocationOutsideOfEventStream")
-                  Handle = CocoaMessage(0, WinCV, "hitTest:@", @pt)
-                  ;}
-                CompilerCase #PB_OS_Linux   ;{ Linux
-                  Protected DesktopX.i, DesktopY.i, *GdkWindow.GdkWindowObject
-                  
-                  *GdkWindow.GdkWindowObject = gdk_window_at_pointer_(@DesktopX,@Desktopy)
-                  If *GdkWindow
-                    gdk_window_get_user_data_(*GdkWindow, @Handle)
-                  Else
-                    Handle = #False
-                  EndIf
-                  ;} 
-              CompilerEndSelect
-              
-              If Handle <> MouseEvent()\lastHandle
-                
-                ;{ ___ Event: MouseLeave ___ (mk-soft)
-                If IsGadget(MouseEvent()\lastGadget)
-                
-                  If MouseEvent()\Flags & #MouseLeave
-                    If GadgetType(MouseEvent()\lastGadget) <> #PB_GadgetType_Canvas
-                      ForEach MouseEvent()\Gadget()
-                        If MouseEvent()\Gadget()\Num = #PB_Default Or MouseEvent()\lastGadget = MouseEvent()\Gadget()\Num
-                          PostEvent(#PB_Event_Gadget, MouseEvent()\Window\Num, MouseEvent()\lastGadget, #PB_EventType_MouseLeave)
-                          Break
-                        EndIf
-                      Next
-                    EndIf
-                  EndIf
-                  
-                  MouseEvent()\lastGadget = #PB_Default
-                  
-                EndIf ;}
-                
-                ; Find GadgetID over Handle (mk-soft)
-                PB_Object_EnumerateStart(PB_Gadget_Objects)
-                
-                While PB_Object_EnumerateNext(PB_Gadget_Objects, @Gadget)
-                  
-                  If Handle = GadgetID(Gadget)
-                    
-                    MouseEvent()\lastGadget = Gadget
-                    
-                    ;{ ___ Event: MouseEnter ___ (mk-soft)
-                    If MouseEvent()\Flags & #MouseEnter
-                      If GadgetType(MouseEvent()\lastGadget) <> #PB_GadgetType_Canvas
-                        ForEach MouseEvent()\Gadget()
-                          If MouseEvent()\Gadget()\Num = #PB_Default Or MouseEvent()\lastGadget = MouseEvent()\Gadget()\Num
-                            PostEvent(#PB_Event_Gadget, MouseEvent()\Window\Num, MouseEvent()\lastGadget, #PB_EventType_MouseEnter)
-                            Break
-                          EndIf  
-                        Next
-                      EndIf
-                    EndIf ;}
-                    
-                    PB_Object_EnumerateAbort(PB_Gadget_Objects)
-                    Break
-                  EndIf
-                  
-                Wend
-                
-                MouseEvent()\lastHandle = Handle
-              EndIf
-              
-              ;{ ___ Event: MouseMove ___ (mk-soft)
-              If MouseEvent()\Flags & #MouseMove
-                
-                If IsGadget(MouseEvent()\lastGadget)
-                  If GadgetType(MouseEvent()\lastGadget) <> #PB_GadgetType_Canvas
-                    ForEach MouseEvent()\Gadget()
-                      If MouseEvent()\Gadget()\Num = #PB_Default Or MouseEvent()\lastGadget = MouseEvent()\Gadget()\Num
-                        MouseEvent()\Gadget()\MouseX = MouseEvent()\Window\MouseX - GadgetX(MouseEvent()\lastGadget, #PB_Gadget_WindowCoordinate)
-                        MouseEvent()\Gadget()\MouseY = MouseEvent()\Window\MouseY - GadgetY(MouseEvent()\lastGadget, #PB_Gadget_WindowCoordinate)
-                        PostEvent(#PB_Event_Gadget, MouseEvent()\Window\Num, MouseEvent()\lastGadget, #PB_EventType_MouseMove)
-                        Break
-                      EndIf 
-                    Next
-                  EndIf
-                EndIf
-                
-              EndIf ;}
-              
-            EndIf
-            
-          EndIf
-        ;}
-      EndSelect
-    
-    EndProcedure
-    
-    Procedure _MouseEnterHandler()
-  	  Define.i GNum = EventGadget()
-  	 
-  	  If FindMapElement(ToolTips(), Str(GNum))
-  	    
-  	    LockMutex(Mutex)
-  	    Timer(Str(GNum))\Focus = #True
-  	    Timer(Str(GNum))\Value = 0
-  	    Timer(Str(GNum))\State = #False
-  	    UnlockMutex(Mutex)
-
-  	  EndIf
-  	  
-  	EndProcedure
-	
-  	Procedure _MouseLeaveHandler()
-  	  Define.i GNum = EventGadget()
-  
-  	  If FindMapElement(Tooltips(), Str(GNum))
-  	    
-  	    LockMutex(Mutex)
-  	    
-  	    Timer(Str(GNum))\Focus  = #False
-  	    Timer(Str(GNum))\Active = #True
-  	    Timer(Str(GNum))\Value  = 0
-  	    Timer(Str(GNum))\State  = #False
-  	    
-  	    UnlockMutex(Mutex)
-  	    
-  	    Tooltips()\MouseX  = #PB_Default
-  	    Tooltips()\MouseY  = #PB_Default
-  	    Tooltips()\Visible = #False
-  	    
-  	    HideWindow(Tooltips()\WindowNum, #True)
-        
-  	    SetActiveWindow(Tooltips()\Window)
-  	  EndIf
-  	  
-  	EndProcedure
-  	
-	  Procedure _MouseLeftClickHandler()
-      Define.i GNum, CanvasNum = EventGadget()
-      
-      GNum = GetGadgetData(CanvasNum)
-      
-      If FindMapElement(ToolTips(), Str(GNum))
-        
-        LockMutex(Mutex)
-  	    Timer(Str(GNum))\Focus  = #False
-  	    Timer(Str(GNum))\Active = #True
-  	    Timer(Str(GNum))\Value  = 0
-  	    Timer(Str(GNum))\State  = #False
-  	    UnlockMutex(Mutex)
-  	    
-  	    ToolTips()\MouseX  = #PB_Default
-  	    ToolTips()\MouseY  = #PB_Default
-  	    ToolTips()\Visible = #False
-  	    
-  	    HideWindow(ToolTips()\WindowNum, #True)
-  	    
-  	    SetActiveWindow(ToolTips()\Window)
-
-  	  EndIf
-  	  
-  	  PostEvent(#PB_Event_Gadget, ToolTips()\Window, ToolTips()\Gadget, #PB_EventType_LeftClick)
-  	  
-    EndProcedure
-  
-    Procedure _MouseRightClickHandler()
-      Define.i GNum, CanvasNum = EventGadget()
-      
-      GNum = GetGadgetData(CanvasNum)
-      
-      If FindMapElement(ToolTips(), Str(GNum))
-        
-        LockMutex(Mutex)
-  	    Timer(Str(GNum))\Focus  = #False
-  	    Timer(Str(GNum))\Active = #True
-  	    Timer(Str(GNum))\Value  = 0
-  	    Timer(Str(GNum))\State  = #False
-  	    UnlockMutex(Mutex)
-  	    
-  	    ToolTips()\MouseX  = #PB_Default
-  	    ToolTips()\MouseY  = #PB_Default
-  	    ToolTips()\Visible = #False
-  	    
-  	    HideWindow(ToolTips()\WindowNum, #True)
-  	    
-  	    SetActiveWindow(ToolTips()\Window)
-        
-  	    PostEvent(#PB_Event_Gadget, ToolTips()\Window, ToolTips()\Gadget, #PB_EventType_RightClick)
-  	    
-      EndIf  
-      
-    EndProcedure
-
-  	Procedure _ToolTipHandler()
-  	  Define.i GNum = EventGadget()
-  	  
-  	  If FindMapElement(ToolTips(), Str(GNum))
-
-	      SetGadgetData(ToolTips()\CanvasNum, GNum)
-	      
-	      ResizeWindow(ToolTips()\WindowNum, DesktopUnscaledX(ToolTips()\PosX), DesktopUnscaledY(ToolTips()\PosY), #PB_Ignore, #PB_Ignore)
-	      ResizeWindow(ToolTips()\WindowNum, DesktopUnscaledX(ToolTips()\PosX), DesktopUnscaledY(ToolTips()\PosY), #PB_Ignore, #PB_Ignore)
-
-        Draw_()
-        
-        ToolTips()\Visible = #True
-        
-        HideWindow(ToolTips()\WindowNum, #False)
-        
-        SetActiveWindow(ToolTips()\Window)
-
-  	  EndIf
-  	  
-  	EndProcedure
-  	
-  CompilerEndIf
-
-	Procedure _ResizeHandler()
-		Define.i GadgetID = EventGadget()
-
-		If FindMapElement(MarkDown(), Str(GadgetID))
-		  
-		  
-		  If FindMapElement(MarkDown()\ScrollBar\Item(), "VScroll")
-		    
-		    If MarkDown()\ScrollBar\Item()\Hide = #False
-		      CalcScrollBarThumb_()
-    		EndIf
-  		
-  	  EndIf
-		  
-		  ReDraw()
-		  
-		EndIf
-
-	EndProcedure
-
-	Procedure _ResizeWindowHandler()
-		Define.f X, Y, Width, Height
-		Define.f OffSetX, OffSetY
-		
-		ForEach MarkDown()
-
-			If IsGadget(MarkDown()\CanvasNum)
-
-				If MarkDown()\Flags & #AutoResize
-
-					If IsWindow(MarkDown()\Window\Num)
-
-						OffSetX = WindowWidth(MarkDown()\Window\Num)  - MarkDown()\Window\Width
-						OffsetY = WindowHeight(MarkDown()\Window\Num) - MarkDown()\Window\Height
-
-						If MarkDown()\Size\Flags
-
-							X = #PB_Ignore : Y = #PB_Ignore : Width = #PB_Ignore : Height = #PB_Ignore
-
-							If MarkDown()\Size\Flags & #MoveX  : X = MarkDown()\Size\X + OffSetX : EndIf
-							If MarkDown()\Size\Flags & #MoveY  : Y = MarkDown()\Size\Y + OffSetY : EndIf
-							If MarkDown()\Size\Flags & #Width  : Width  = MarkDown()\Size\Width + OffSetX : EndIf
-							If MarkDown()\Size\Flags & #Height : Height = MarkDown()\Size\Height + OffSetY : EndIf
-
-							ResizeGadget(MarkDown()\CanvasNum, X, Y, Width, Height)
-	
-						Else
-							ResizeGadget(MarkDown()\CanvasNum, #PB_Ignore, #PB_Ignore, MarkDown()\Size\Width + OffSetX, MarkDown()\Size\Height + OffsetY)
-						EndIf
-						
-						CompilerIf #Enable_HelpWindow
-						  
-						  If MarkDown()\Type = #HelpWindow
-						    If IsGadget(Help\TreeNum) : ResizeGadget(Help\TreeNum, #PB_Ignore, #PB_Ignore, #PB_Ignore, GadgetHeight(MarkDown()\CanvasNum) - 30) : EndIf
-						    If IsGadget(Help\ListNum) : ResizeGadget(Help\ListNum, #PB_Ignore, #PB_Ignore, #PB_Ignore, GadgetHeight(MarkDown()\CanvasNum) - 30) : EndIf
-						  EndIf
-						  
-						CompilerEndIf
-						
-					EndIf
-
-				EndIf
-
-			EndIf
-
-		Next
-		
-	EndProcedure
-	
-  Procedure _CloseWindowHandler()
-    Define.i WindowNum = EventWindow()
-    
-    ForEach MarkDown()
-      
-      Select MarkDown()\Type
-        Case #ToolTip ;{ Tooltips
-          
-          CompilerIf #Enable_Tooltips
-            If MarkDown()\Tooltips\Window = WindowNum
-              
-              RemoveWindowTimer(MarkDown()\Window\Num, #TooltipTimer)
-              RemoveWindowTimer(MarkDown()\Window\Num, #MouseEventTimer)
-              
-              If IsWindow(MarkDown()\Window\Num)
-                CloseWindow(MarkDown()\Window\Num)
-              EndIf
-              
-              DeleteMapElement(MouseEvent(), Str(MarkDown()\Tooltips\Window))
-              DeleteMapElement(Tooltips(),   Str(MarkDown()\Tooltips\Gadget))
-              DeleteMapElement(Timer(),      Str(MarkDown()\Tooltips\Gadget))
-              DeleteMapElement(MarkDown())
-              
-            EndIf
-          CompilerEndIf  
-          ;}
-        Case #Gadget  ;{ Gadget
-          
-          If MarkDown()\Window\Num = WindowNum
-            DeleteMapElement(MarkDown())
-          EndIf  
-          ;}
-        Default
-          Continue
-      EndSelect    
-      
-    Next  
-    
-  EndProcedure 
-
-	;- __________ Init __________
-	
-	Procedure InitDefault_()
-
-	  ;{ _____ Color _____
-		MarkDown()\Color\Back          = $FFFFFF
-		MarkDown()\Color\BlockQuote    = $C0C0C0
-		MarkDown()\Color\Border        = $E3E3E3
-		MarkDown()\Color\Code          = $006400
-		MarkDown()\Color\DisableFront  = $72727D
-		MarkDown()\Color\DisableBack   = $CCCCCA
-		MarkDown()\Color\Front         = $000000
-		MarkDown()\Color\Gadget        = $F0F0F0
-		MarkDown()\Color\Highlight     = $E3F8FC
-		MarkDown()\Color\Hint          = $800000
-		MarkDown()\Color\Keystroke     = $650000
-		MarkDown()\Color\KeyStrokeBack = $F6F6F6 
-		MarkDown()\Color\Line          = $A9A9A9
-		MarkDown()\Color\Link          = $8B0000
-		MarkDown()\Color\LinkHighlight = $FF0000
-		MarkDown()\Color\HeaderBack    = $F5F5F5
-    MarkDown()\Color\Button        = $E3E3E3
-    MarkDown()\Color\Focus         = $D77800
-    MarkDown()\Color\Keyword       = $82004B
-    MarkDown()\Color\Found         = $004B00
-    MarkDown()\Color\FoundBack     = $00F6FF
-    
-		CompilerSelect #PB_Compiler_OS 
-			CompilerCase #PB_OS_Windows
-				MarkDown()\Color\Front  = GetSysColor_(#COLOR_WINDOWTEXT)
-				MarkDown()\Color\Back   = GetSysColor_(#COLOR_WINDOW)
-				MarkDown()\Color\Border = GetSysColor_(#COLOR_ACTIVEBORDER)
-				MarkDown()\Color\Gadget = GetSysColor_(#COLOR_MENU)
-				MarkDown()\Color\Button = GetSysColor_(#COLOR_3DLIGHT)
-		    MarkDown()\Color\Focus  = GetSysColor_(#COLOR_HIGHLIGHT)
-			CompilerCase #PB_OS_MacOS
-				MarkDown()\Color\Front  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
-				MarkDown()\Color\Back   = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
-				MarkDown()\Color\Border = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
-				MarkDown()\Color\Gadget = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
-				MarkDown()\Color\Button = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
-		    MarkDown()\Color\Focus  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor keyboardFocusIndicatorColor"))
-			CompilerCase #PB_OS_Linux
-
-		CompilerEndSelect ;}
-		
-		;{ _____ Margins _____
-		Select MarkDown()\Type
-		  Case #Requester
-  		  MarkDown()\Margin\Top    = 10
-    		MarkDown()\Margin\Left   = 10
-    		MarkDown()\Margin\Right  = 10
-    		MarkDown()\Margin\Bottom = 5
-    	Case #ToolTip
-    	  MarkDown()\Margin\Top    = 3
-    		MarkDown()\Margin\Left   = 5
-    		MarkDown()\Margin\Right  = 5
-    		MarkDown()\Margin\Bottom = 3
-    	Case #HelpWindow
-    	  MarkDown()\Margin\Top    = 10
-    		MarkDown()\Margin\Left   = 10
-    		MarkDown()\Margin\Right  = 10
-    		MarkDown()\Margin\Bottom = 10
-    	Default
-    	  MarkDown()\Margin\Top    = 5
-    		MarkDown()\Margin\Left   = 5
-    		MarkDown()\Margin\Right  = 5
-    		MarkDown()\Margin\Bottom = 5
-		EndSelect
-		;}		
-		
-		MarkDown()\Indent      = 10
-	  MarkDown()\LineSpacing = 1.06
-
-	EndProcedure  
-	
-
-	Procedure InitScrollBar_(CanvasNum.i, Flags.i=#False)
-	  
-	  MarkDown()\ScrollBar\Num = CanvasNum
-	  
-	  MarkDown()\ScrollBar\Flags = Flags
-
-		MarkDown()\ScrollBar\Color\Back         = $F0F0F0
-		MarkDown()\ScrollBar\Color\Border       = $A0A0A0
-		MarkDown()\ScrollBar\Color\Button       = $F0F0F0
-		MarkDown()\ScrollBar\Color\Focus        = $D77800
-		MarkDown()\ScrollBar\Color\Front        = $646464
-		MarkDown()\ScrollBar\Color\Gadget       = $F0F0F0
-		MarkDown()\ScrollBar\Color\ScrollBar    = $C8C8C8
-		MarkDown()\ScrollBar\Color\DisableFront = $72727D
-		MarkDown()\ScrollBar\Color\DisableBack  = $CCCCCA
-		
-		CompilerSelect #PB_Compiler_OS ;{ Color
-			CompilerCase #PB_OS_Windows
-				MarkDown()\ScrollBar\Color\Front     = GetSysColor_(#COLOR_GRAYTEXT)
-				MarkDown()\ScrollBar\Color\Back      = GetSysColor_(#COLOR_MENU)
-				MarkDown()\ScrollBar\Color\Border    = GetSysColor_(#COLOR_3DSHADOW)
-				MarkDown()\ScrollBar\Color\Gadget    = GetSysColor_(#COLOR_MENU)
-				MarkDown()\ScrollBar\Color\Focus     = GetSysColor_(#COLOR_MENUHILIGHT)
-				MarkDown()\ScrollBar\Color\ScrollBar = GetSysColor_(#COLOR_SCROLLBAR)
-			CompilerCase #PB_OS_MacOS
-				MarkDown()\ScrollBar\Color\Front  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
-				MarkDown()\ScrollBar\Color\Back   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
-				MarkDown()\ScrollBar\Color\Border = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
-				MarkDown()\ScrollBar\Color\Gadget = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
-				MarkDown()\ScrollBar\Color\Focus  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedControlColor"))
-				; MarkDown()\ScrollBar\Color\ScrollBar = 
-			CompilerCase #PB_OS_Linux
-
-		CompilerEndSelect ;}
-
-	EndProcedure
-	
-  Procedure CreateScrollBar_(Label.s, X.i, Y.i, Width.i, Height.i, Minimum.i, Maximum.i, PageLength.i, Type.i=#False)
-    
-    If AddMapElement(MarkDown()\ScrollBar\Item(), Label)
-    
-      MarkDown()\ScrollBar\Item()\X = dpiX(X)
-      MarkDown()\ScrollBar\Item()\Y = dpiY(Y)
-      MarkDown()\ScrollBar\Item()\Width      = dpiX(Width)
-      MarkDown()\ScrollBar\Item()\Height     = dpiY(Height)
-      MarkDown()\ScrollBar\Item()\Minimum    = Minimum
-      MarkDown()\ScrollBar\Item()\Maximum    = Maximum
-      MarkDown()\ScrollBar\Item()\PageLength = PageLength
-      MarkDown()\ScrollBar\Item()\Hide       = #True
-      MarkDown()\ScrollBar\Item()\Type       = Type
-      
-      MarkDown()\ScrollBar\Item()\Cursor = #PB_Default
-		
-			MarkDown()\ScrollBar\Item()\Buttons\Forwards\State  = #PB_Default
-			MarkDown()\ScrollBar\Item()\Buttons\Backwards\State = #PB_Default
-			
-			CalcScrollBarThumb_()
-		  DrawScrollBar_()
-			
-    EndIf
-    
-  EndProcedure 
   
   CompilerIf #Enable_HelpWindow
 
@@ -9540,6 +8849,1392 @@ Module MarkDown
 	  EndProcedure  
 	  
   CompilerEndIf  
+  
+  
+	;- ============================================================================
+	;-   Module - Events
+  ;- ============================================================================	
+  
+	CompilerIf Defined(ModuleEx, #PB_Module)
+    
+    Procedure _ThemeHandler()
+      
+      ForEach MarkDown()
+        
+        If IsFont(ModuleEx::ThemeGUI\Font\Num)
+          MarkDown()\FontID = FontID(ModuleEx::ThemeGUI\Font\Num)
+        EndIf
+        
+        If ModuleEx::ThemeGUI\ScrollBar : MarkDown()\ScrollBar\Flags = ModuleEx::ThemeGUI\ScrollBar : EndIf 
+        
+        MarkDown()\Color\Front               = ModuleEx::ThemeGUI\FrontColor
+				MarkDown()\Color\Back                = ModuleEx::ThemeGUI\BackColor
+				MarkDown()\Color\Border              = ModuleEx::ThemeGUI\BorderColor
+				MarkDown()\Color\Gadget              = ModuleEx::ThemeGUI\GadgetColor
+				MarkDown()\Color\Button              = ModuleEx::ThemeGUI\Button\BackColor
+			  MarkDown()\Color\Focus               = ModuleEx::ThemeGUI\Focus\BackColor
+				MarkDown()\Color\DisableFront        = ModuleEx::ThemeGUI\Disable\FrontColor
+		    MarkDown()\Color\DisableBack         = ModuleEx::ThemeGUI\Disable\BackColor
+		    
+		    MarkDown()\ScrollBar\Color\Front     = ModuleEx::ThemeGUI\FrontColor
+  			MarkDown()\ScrollBar\Color\Back      = ModuleEx::ThemeGUI\BackColor
+  			MarkDown()\ScrollBar\Color\Border    = ModuleEx::ThemeGUI\BorderColor
+  			MarkDown()\ScrollBar\Color\Gadget    = ModuleEx::ThemeGUI\GadgetColor
+  			MarkDown()\ScrollBar\Color\Focus     = ModuleEx::ThemeGUI\FocusBack
+        MarkDown()\ScrollBar\Color\Button    = ModuleEx::ThemeGUI\Button\BackColor
+        MarkDown()\ScrollBar\Color\ScrollBar = ModuleEx::ThemeGUI\ScrollbarColor
+		    
+        Draw_(#Horizontal|#Vertical)
+      Next
+      
+    EndProcedure
+    
+  CompilerEndIf 
+  
+  
+  Procedure _AutoScroll()
+    Define.i X, Y
+    
+    LockMutex(Mutex)
+    
+    ForEach MarkDown()
+
+      If MarkDown()\HScroll\Timer ;{ Horizontal Scrollbar
+        
+        If MarkDown()\HScroll\Delay
+          MarkDown()\HScroll\Delay - 1
+          Continue
+        EndIf  
+        
+        Select MarkDown()\HScroll\Timer
+          Case #Left
+            SetThumbPosX_(MarkDown()\HScroll\Pos - 1 - MarkDown()\ScrollH)
+          Case #Right
+            SetThumbPosX_(MarkDown()\HScroll\Pos + 1 + MarkDown()\ScrollH)
+        EndSelect
+        
+        Draw_(#Horizontal)
+   			;}
+      EndIf   
+      
+      If MarkDown()\VScroll\Timer ;{ Vertical Scrollbar
+        
+        If MarkDown()\VScroll\Delay
+          MarkDown()\VScroll\Delay - 1
+          Continue
+        EndIf  
+        
+        Select MarkDown()\VScroll\Timer
+          Case #Up
+            SetThumbPosY_(MarkDown()\VScroll\Pos - MarkDown()\ScrollV)
+          Case #Down
+            SetThumbPosY_(MarkDown()\VScroll\Pos + MarkDown()\ScrollV)
+  			EndSelect
+  			
+  			Draw_(#Vertical)
+  			;}
+      EndIf   
+      
+    Next
+    
+    UnlockMutex(Mutex)
+    
+  EndProcedure
+  
+  
+	Procedure _RightClickHandler()
+		Define.i GNum = EventGadget()
+
+		If FindMapElement(MarkDown(), Str(GNum))
+
+			If IsWindow(MarkDown()\Window\Num) And IsMenu(MarkDown()\PopUpNum)
+				DisplayPopupMenu(MarkDown()\PopUpNum, WindowID(MarkDown()\Window\Num))
+			EndIf
+
+		EndIf
+
+	EndProcedure
+
+	Procedure _LeftButtonDownHandler()
+		Define.i X, Y, dX, dY
+		Define.i GNum = EventGadget()
+
+		If FindMapElement(MarkDown(), Str(GNum))
+
+			dX = GetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_MouseX)
+			dY = GetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_MouseY)
+			
+			X = DesktopUnscaledX(dX)
+			Y = DesktopUnscaledY(dY)
+			
+
+		  ;{ Horizontal Scrollbar
+		  If MarkDown()\HScroll\Hide = #False
+		    
+		    If dY > dpiX(MarkDown()\HScroll\Y) And dY < dpiX(MarkDown()\HScroll\Y + MarkDown()\HScroll\Height)
+			    If dX > dpiX(MarkDown()\HScroll\X) And dX < dpiX(MarkDown()\HScroll\X + MarkDown()\HScroll\Width)
+		    
+    			  MarkDown()\HScroll\CursorPos = #PB_Default
+    			  
+    			  If MarkDown()\HScroll\Focus
+    			    
+      			  If dX > dpiX(MarkDown()\HScroll\Buttons\bX) And  dX < dpiX(MarkDown()\HScroll\Buttons\bX + MarkDown()\HScroll\Buttons\Width)
+      			    
+      			    ; --- Backwards Button ---
+      			    If MarkDown()\HScroll\Buttons\bState <> #Click
+      			      MarkDown()\HScroll\Delay = MarkDown()\Scrollbar\TimerDelay
+      			      MarkDown()\HScroll\Timer = #Left
+      			      MarkDown()\HScroll\Buttons\bState = #Click
+      			      DrawButton_(#Horizontal, #Backwards)
+      			    EndIf
+      			    
+      			  ElseIf dX > dpiX(MarkDown()\HScroll\Buttons\fX) And  dX < dpiX(MarkDown()\HScroll\Buttons\fX + MarkDown()\HScroll\Buttons\Width)
+      			    
+      			    ; --- Forwards Button ---
+      			    If MarkDown()\HScroll\Buttons\fState <> #Click
+      			      MarkDown()\HScroll\Delay = MarkDown()\Scrollbar\TimerDelay
+      			      MarkDown()\HScroll\Timer = #Right
+      			      MarkDown()\HScroll\Buttons\fState = #Click
+      			      DrawButton_(#Horizontal, #Forwards)
+      			    EndIf
+      			    
+      			  ElseIf  dX > dpiX(MarkDown()\HScroll\Thumb\X) And dX < dpiX(MarkDown()\HScroll\Thumb\X + MarkDown()\HScroll\Thumb\Width)
+      			    
+      			    ; --- Thumb Button ---
+      			    If MarkDown()\HScroll\Thumb\State <> #Click
+      			      MarkDown()\HScroll\Thumb\State = #Click
+      			      MarkDown()\HScroll\CursorPos = X
+      			      Draw_(#Horizontal)
+      			    EndIf
+    			    
+      			  EndIf
+      			  
+      			EndIf
+      			
+      			ProcedureReturn #True
+      		EndIf
+      	EndIf	
+  			
+  		EndIf ;}
+
+		  ;{ Vertical Scrollbar
+		  If MarkDown()\VScroll\Hide = #False
+		    
+		    If dX > dpiX(MarkDown()\VScroll\X) And dX < dpiX(MarkDown()\VScroll\X + MarkDown()\VScroll\Width)
+			    If dY > dpiY(MarkDown()\VScroll\Y) And dY < dpiY(MarkDown()\VScroll\Y + MarkDown()\VScroll\Height)
+		    
+    			  MarkDown()\VScroll\CursorPos = #PB_Default
+    			  
+    			  If MarkDown()\VScroll\Focus
+    			    
+    			    If dY > dpiY(MarkDown()\VScroll\Buttons\bY) And dY < dpiY(MarkDown()\VScroll\Buttons\bY + MarkDown()\VScroll\Buttons\Height)
+    
+    			      If MarkDown()\VScroll\Buttons\bState <> #Click
+    			        ; --- Backwards Button ---
+      			      MarkDown()\VScroll\Delay = MarkDown()\Scrollbar\TimerDelay
+      			      MarkDown()\VScroll\Timer = #Up
+      			      MarkDown()\VScroll\Buttons\bState = #Click
+      			      DrawButton_(#Vertical, #Backwards)
+      			    EndIf
+      			    
+    			    ElseIf dY > dpiY(MarkDown()\VScroll\Buttons\fY) And dY < dpiY(MarkDown()\VScroll\Buttons\fY + MarkDown()\VScroll\Buttons\Height)
+    			      
+    			      ; --- Forwards Button ---
+      			    If MarkDown()\VScroll\Buttons\fState <> #Click
+      			      MarkDown()\VScroll\Delay = MarkDown()\Scrollbar\TimerDelay
+      			      MarkDown()\VScroll\Timer = #Down
+      			      MarkDown()\VScroll\Buttons\fState = #Click
+      			      DrawButton_(#Vertical, #Forwards)
+      			    EndIf
+    			      
+    			    ElseIf  dY > dpiY(MarkDown()\VScroll\Thumb\Y) And dY < dpiY(MarkDown()\VScroll\Thumb\Y + MarkDown()\VScroll\Thumb\Height)
+    			      
+    			      ; --- Thumb Button ---
+      			    If MarkDown()\VScroll\Thumb\State <> #Click
+      			      MarkDown()\VScroll\Thumb\State = #Click
+      			      MarkDown()\VScroll\CursorPos = Y
+      			      Draw_(#Vertical)
+      			    EndIf
+    			      
+    			    EndIf  
+    
+    			  EndIf
+    			  
+    			  ProcedureReturn #True
+    			EndIf
+    		EndIf
+    		
+			EndIf ;}
+			
+			
+			ForEach MarkDown()\Link() ;{ Click link
+			  If dY >= dpiY(MarkDown()\Link()\Y) And dY <= dpiY(MarkDown()\Link()\Y + MarkDown()\Link()\Height) 
+			    If dX >= dpiX(MarkDown()\Link()\X) And dX <= dpiX(MarkDown()\Link()\X + MarkDown()\Link()\Width)
+			      MarkDown()\Link()\State = #True
+			      Draw_()
+  			    ProcedureReturn #True
+  			  EndIf
+			  EndIf ;}
+			Next  
+			
+			CompilerIf #Enable_Requester
+		  
+		    ForEach MarkDown()\Requester\Button() ;{ Click Button
+		      
+		      If Not MarkDown()\Requester\Button()\Visible : Continue : EndIf
+		      
+		      If dY >= dpiY(MarkDown()\Requester\ButtonY) And dY <= dpiY(MarkDown()\Requester\ButtonY + #ButtonHeight)  
+    			  If dX >= dpiX(MarkDown()\Requester\Button()\X) And dX <= dpiX(MarkDown()\Requester\Button()\X + MarkDown()\Requester\Button()\Width)
+    			    If MarkDown()\Requester\Button()\State <> #Click
+    			      MarkDown()\Requester\Button()\State = #Click
+    			      Draw_()
+    			    EndIf
+  			      ProcedureReturn #True 
+    			  EndIf
+    			EndIf 
+          ;}
+  			Next 
+  			
+  		CompilerEndIf
+			
+		EndIf
+
+	EndProcedure
+
+	Procedure _LeftButtonUpHandler()
+		Define.i X, Y, dX, dY, Angle
+		Define.i GNum = EventGadget()
+
+		If FindMapElement(MarkDown(), Str(GNum))
+
+			dX = GetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_MouseX)
+			dY = GetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_MouseY)
+			
+			X = DesktopUnscaledX(dX)
+			Y = DesktopUnscaledY(dY)
+			
+		  ;{ Horizontal Scrollbar
+		  If MarkDown()\HScroll\Hide = #False
+		    
+		    If dY > dpiY(MarkDown()\HScroll\Y) And dY < dpiY(MarkDown()\HScroll\Y + MarkDown()\HScroll\Height)
+			    If dX > dpiX(MarkDown()\HScroll\X) And dX < dpiX(MarkDown()\HScroll\X + MarkDown()\HScroll\Width)
+		    
+    			  MarkDown()\HScroll\CursorPos = #PB_Default
+    			  MarkDown()\HScroll\Timer     = #False
+    			  
+    			  If MarkDown()\HScroll\Focus
+    			    
+      			  If dX > dpiX(MarkDown()\HScroll\Buttons\bX) And  dX < dpiX(MarkDown()\HScroll\Buttons\bX + MarkDown()\HScroll\Buttons\Width)
+      			    
+      			    ; --- Backwards Button ---
+      			    SetThumbPosX_(MarkDown()\HScroll\Pos - 1)
+      			   
+      			    Draw_(#Horizontal)
+
+      			  ElseIf dX > dpiX(MarkDown()\HScroll\Buttons\fX) And  dX < dpiX(MarkDown()\HScroll\Buttons\fX + MarkDown()\HScroll\Buttons\Width)
+      			    
+      			    ; --- Forwards Button ---
+      			    SetThumbPosX_(MarkDown()\HScroll\Pos + 1)
+      			    
+      			    Draw_(#Horizontal)
+
+      			  ElseIf dX > dpiX(MarkDown()\HScroll\Area\X) And dX < dpiX(MarkDown()\HScroll\Thumb\X)
+      			    
+      			    ; --- Page left ---
+      			    SetThumbPosX_(MarkDown()\HScroll\Pos - MarkDown()\HScroll\PageLength)
+      			    
+      			    Draw_(#Horizontal)
+
+      			  ElseIf dX > dpiX(MarkDown()\HScroll\Thumb\X + MarkDown()\HScroll\Thumb\Width) And dX < dpiX(MarkDown()\HScroll\Area\X + MarkDown()\HScroll\Area\Width)
+      			    
+      			    ; --- Page right ---
+      			    SetThumbPosX_(MarkDown()\HScroll\Pos + MarkDown()\HScroll\PageLength)
+      			 
+      			    Draw_(#Horizontal)
+      			    
+      			  EndIf
+        			
+      			EndIf 
+      			
+      			ProcedureReturn #True
+      		EndIf
+      	EndIf
+      	
+  		EndIf ;}
+ 
+      ;{ Vertical Scrollbar
+      If MarkDown()\VScroll\Hide = #False
+        
+        If dX > dpiX(MarkDown()\VScroll\X) And dX < dpiX(MarkDown()\VScroll\X + MarkDown()\VScroll\Width)
+			    If dY > dpiY(MarkDown()\VScroll\Y) And dY < dpiY(MarkDown()\VScroll\Y + MarkDown()\VScroll\Height)
+        
+    			  MarkDown()\VScroll\CursorPos = #PB_Default
+    			  MarkDown()\VScroll\Timer     = #False
+    			  
+    			  If MarkDown()\VScroll\Focus
+    			    
+      			  If dY > dpiY(MarkDown()\VScroll\Buttons\bY) And  dY < dpiY(MarkDown()\VScroll\Buttons\bY + MarkDown()\VScroll\Buttons\Height)
+      			    
+      			    ; --- Backwards Button ---
+      			    SetThumbPosY_(MarkDown()\VScroll\Pos - MarkDown()\ScrollV)
+    
+      			    Draw_(#Vertical)
+
+      			  ElseIf dY > dpiY(MarkDown()\VScroll\Buttons\fY) And  dY < dpiY(MarkDown()\VScroll\Buttons\fY + MarkDown()\VScroll\Buttons\Height)
+      			    
+      			    ; --- Forwards Button ---
+      			    SetThumbPosY_(MarkDown()\VScroll\Pos + MarkDown()\ScrollV)
+      			    
+      			    Draw_(#Vertical)
+
+      			  ElseIf dY > dpiY(MarkDown()\VScroll\Area\Y) And dY < dpiY(MarkDown()\VScroll\Thumb\Y)
+      			    
+      			    ; --- Page up ---
+      			    SetThumbPosY_(MarkDown()\VScroll\Pos - MarkDown()\VScroll\PageLength)
+    
+      			    Draw_(#Vertical)
+
+      			  ElseIf dY > dpiY(MarkDown()\VScroll\Thumb\Y + MarkDown()\VScroll\Thumb\Height) And dY < dpiY(MarkDown()\VScroll\Area\Y + MarkDown()\VScroll\Area\Height)
+      			    
+      			    ; --- Page down ---
+      			    SetThumbPosY_(MarkDown()\VScroll\Pos + MarkDown()\VScroll\PageLength)
+    
+      			    Draw_(#Vertical)
+ 
+      			  EndIf
+        			
+      			EndIf 
+      			
+      			ProcedureReturn #True
+      		EndIf
+      	EndIf
+      	
+  		EndIf ;}
+
+			
+			ForEach MarkDown()\TOC()  ;{ Table of Contents
+			  If dY >= dpiY(MarkDown()\TOC()\Y) And dY <= dpiY(MarkDown()\TOC()\Y + MarkDown()\TOC()\Height)
+			    If dX >= dpiX(MarkDown()\TOC()\X) And dX <= dpiX(MarkDown()\TOC()\X + MarkDown()\TOC()\Width)
+			      
+			      MarkDown()\EventValue = MarkDown()\TOC()\ID
+			      MarkDown()\EventLabel = MarkDown()\TOC()\Label
+			      
+			      PostEvent(#Event_Gadget,    MarkDown()\Window\Num, MarkDown()\CanvasNum, #EventType_Link)
+			      PostEvent(#PB_Event_Gadget, MarkDown()\Window\Num, MarkDown()\CanvasNum, #EventType_Link)
+			      
+			      ProcedureReturn #True
+			    EndIf
+			  EndIf  
+			  ;}  
+			Next
+			
+			ForEach MarkDown()\Link() ;{ Link
+			  
+			  If dY >= dpiY(MarkDown()\Link()\Y) And dY <= dpiY(MarkDown()\Link()\Y + MarkDown()\Link()\Height) 
+			    If dX >= dpiX(MarkDown()\Link()\X) And dX <= dpiX(MarkDown()\Link()\X + MarkDown()\Link()\Width)
+
+			      If MarkDown()\Link()\Label
+			        If FindMapElement(MarkDown()\Label(), MarkDown()\Link()\Label)
+			          MarkDown()\EventValue = Trim(MarkDown()\Label()\Destination)
+			        EndIf  
+			      Else  
+			        MarkDown()\EventValue = Trim(MarkDown()\Link()\URL)
+			      EndIf
+			      
+			      If Left(MarkDown()\EventValue, 4) = "HDG:"
+			        If FindMapElement(MarkDown()\HeadingID(), MarkDown()\EventValue)
+			          GotoHeading_(MarkDown()\EventValue)
+			        EndIf  
+			        MarkDown()\EventLabel = ""
+			      ElseIf Left(MarkDown()\EventValue, 1) = "#" ; Page Link
+			        MarkDown()\EventLabel = LTrim(MarkDown()\EventValue, "#")
+			      EndIf  
+
+			      PostEvent(#Event_Gadget,    MarkDown()\Window\Num, MarkDown()\CanvasNum, #EventType_Link)
+			      PostEvent(#PB_Event_Gadget, MarkDown()\Window\Num, MarkDown()\CanvasNum, #EventType_Link)
+			      
+			      MarkDown()\Link()\State = #False
+			      
+			      Draw_()
+			      
+  			    ProcedureReturn #True
+  			  EndIf
+  			EndIf
+  			;}
+			Next  
+			
+			ForEach MarkDown()\Link()
+			  MarkDown()\Link()\State = #False
+			Next
+			
+			Draw_()
+			
+			CompilerIf #Enable_Requester
+		  
+		    ForEach MarkDown()\Requester\Button() ;{ Click Button
+		      
+		      If Not MarkDown()\Requester\Button()\Visible : Continue : EndIf
+		      
+		      If dY >= dpiY(MarkDown()\Requester\ButtonY) And dY <= dpiY(MarkDown()\Requester\ButtonY + #ButtonHeight)  
+    			  If dX >= dpiX(MarkDown()\Requester\Button()\X) And dX <= dpiX(MarkDown()\Requester\Button()\X + MarkDown()\Requester\Button()\Width)
+    			    
+    			    MarkDown()\Requester\Button()\State = #Focus
+    			    MarkDown()\Requester\Result = MarkDown()\Requester\Button()\Result
+    			    Draw_()
+    			    
+    			    PostEvent(#Event_Gadget, MarkDown()\Window\Num, MarkDown()\CanvasNum, #PB_EventType_LeftClick, MarkDown()\Requester\Result)
+    			    
+  			      ProcedureReturn #True 
+    			  EndIf
+    			EndIf 
+          ;}
+  			Next 
+  			
+  		CompilerEndIf
+
+		EndIf
+
+	EndProcedure
+
+	Procedure _MouseMoveHandler()
+	  Define.i X, Y, dX, dY, Backwards, Forwards, Thumb, CursorPos
+	  Define.s ToolTip$
+		Define.i GNum = EventGadget()
+		
+		CompilerIf #Enable_Tooltips
+		  
+			If FindMapElement(Tooltips(), Str(GNum))
+			  
+			  If GadgetType(GNum) = #PB_GadgetType_Canvas
+          X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
+          Y = GetGadgetAttribute(GNum, #PB_Canvas_MouseY)
+        Else
+          X = GetMouseEventAttribute_(Tooltips()\Window, #MouseX, GNum)
+          Y = GetMouseEventAttribute_(Tooltips()\Window, #MouseY, GNum)
+        EndIf
+
+        If X <> Tooltips()\MouseX Or Y <> Tooltips()\MouseY
+          
+          Tooltips()\MouseX = X
+          Tooltips()\MouseY = Y
+          
+          ;{ Cursor move
+          LockMutex(Mutex)
+          
+          Timer(Str(GNum))\Active = #True
+          Timer(Str(GNum))\Value  = 0
+          
+          UnlockMutex(Mutex)
+  
+          If ToolTips()\Visible
+        
+            LockMutex(Mutex)
+      	    Timer(Str(GNum))\Focus  = #False
+      	    Timer(Str(GNum))\Active = #True
+      	    Timer(Str(GNum))\Value  = 0
+      	    Timer(Str(GNum))\State  = #False
+      	    UnlockMutex(Mutex)
+  	    
+      	    Tooltips()\MouseX  = #PB_Default
+      	    Tooltips()\MouseY  = #PB_Default
+      	    ToolTips()\Visible = #False
+      	    
+            HideWindow(ToolTips()\WindowNum, #True)
+            
+            SetActiveWindow(ToolTips()\Window)
+            
+          Else  
+            
+            TooltipPosition_(X, Y)
+            
+            LockMutex(Mutex)
+      	    Timer(Str(GNum))\State = #True
+      	    UnlockMutex(Mutex)
+      	    
+      	    ProcedureReturn #True
+          EndIf ;}
+          
+          LockMutex(Mutex)
+    	    Timer(Str(GNum))\State = #True
+    	    UnlockMutex(Mutex)
+          
+        EndIf
+
+			EndIf 
+			
+	  CompilerEndIf
+
+		If FindMapElement(MarkDown(), Str(GNum))
+
+			dX = GetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_MouseX)
+			dY = GetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_MouseY)
+			
+			X = DesktopUnscaledX(dX)
+			Y = DesktopUnscaledY(dY)
+
+			
+		  ;{ Horizontal Scrollbar
+		  If MarkDown()\HScroll\Hide = #False
+		  
+			  MarkDown()\HScroll\Focus = #False
+			  
+			  Backwards = MarkDown()\HScroll\Buttons\bState
+			  Forwards  = MarkDown()\HScroll\Buttons\fState
+			  Thumb     = MarkDown()\HScroll\Thumb\State
+			  
+			  If dY > dpiY(MarkDown()\HScroll\Y) And dY < dpiY(MarkDown()\HScroll\Y + MarkDown()\HScroll\Height)
+			    If dX > dpiX(MarkDown()\HScroll\X) And dX < dpiX(MarkDown()\HScroll\X + MarkDown()\HScroll\Width)
+			      
+			      SetGadgetAttribute(GNum, #PB_Canvas_Cursor, #PB_Cursor_Default)
+			      
+			      ; --- Focus Scrollbar ---  
+			      MarkDown()\HScroll\Buttons\bState = #Focus
+			      MarkDown()\HScroll\Buttons\fState = #Focus
+			      MarkDown()\HScroll\Thumb\State    = #Focus
+			      
+			      ; --- Hover Buttons & Thumb ---
+			      If dX > dpiX(MarkDown()\HScroll\Buttons\bX) And  dX < dpiX(MarkDown()\HScroll\Buttons\bX + MarkDown()\HScroll\Buttons\Width)
+			        
+			        MarkDown()\HScroll\Buttons\bState = #Hover
+			        
+			      ElseIf dX > dpiX(MarkDown()\HScroll\Buttons\fX) And  dX < dpiX(MarkDown()\HScroll\Buttons\fX + MarkDown()\HScroll\Buttons\Width)
+			        
+			        MarkDown()\HScroll\Buttons\fState = #Hover
+			        
+			      ElseIf dX > dpiX(MarkDown()\HScroll\Thumb\X) And dX < dpiX(MarkDown()\HScroll\Thumb\X + MarkDown()\HScroll\Thumb\Width)
+			        
+			        MarkDown()\HScroll\Thumb\State = #Hover
+			        
+			        ;{ --- Move thumb with cursor 
+			        If MarkDown()\HScroll\CursorPos <> #PB_Default
+			          
+			          CursorPos = MarkDown()\HScroll\Pos
+			          
+  			        MarkDown()\HScroll\Pos = GetThumbPosX_(X)
+  			        MarkDown()\HScroll\CursorPos = X
+  			        
+  			        If CursorPos <> MarkDown()\HScroll\Pos
+  			          
+  			          Draw_(#Horizontal)
+
+  			        EndIf
+  			        
+  			      EndIf ;}
+  			      
+			      EndIf
+			      
+			      MarkDown()\HScroll\Focus = #True
+			      
+    		    If Backwards <> MarkDown()\HScroll\Buttons\bState : DrawButton_(#Horizontal, #Backwards) : EndIf 
+    		    If Forwards  <> MarkDown()\HScroll\Buttons\fState : DrawButton_(#Horizontal, #Forwards)  : EndIf 
+    		    If Thumb     <> MarkDown()\HScroll\Thumb\State    : DrawThumb_(#Horizontal)              : EndIf
+    		    
+    		    ProcedureReturn #True
+			    EndIf
+  			EndIf
+  		
+    		If Not MarkDown()\HScroll\Focus
+    		  
+	        MarkDown()\HScroll\Buttons\bState = #False
+	        MarkDown()\HScroll\Buttons\fState = #False
+	        MarkDown()\HScroll\Thumb\State    = #False
+	        
+	        MarkDown()\HScroll\Timer = #False
+	      EndIf
+    		
+    		If Backwards <> MarkDown()\HScroll\Buttons\bState : DrawButton_(#Horizontal, #Backwards) : EndIf 
+		    If Forwards  <> MarkDown()\HScroll\Buttons\fState : DrawButton_(#Horizontal, #Forwards)  : EndIf 
+		    If Thumb     <> MarkDown()\HScroll\Thumb\State    : DrawThumb_(#Horizontal)              : EndIf 
+		    
+		    MarkDown()\VScroll\CursorPos = #PB_Default
+		    
+		  EndIf  ;} 
+		  
+		  ;{ Vertikal Scrollbar
+		  If MarkDown()\VScroll\Hide = #False
+		    
+  		  MarkDown()\VScroll\Focus = #False
+  		  
+  		  Backwards = MarkDown()\VScroll\Buttons\bState
+  		  Forwards  = MarkDown()\VScroll\Buttons\fState
+  		  Thumb     = MarkDown()\VScroll\Thumb\State
+  		  
+  		  If dX > dpiX(MarkDown()\VScroll\X) And dX < dpiX(MarkDown()\VScroll\X + MarkDown()\VScroll\Width)
+  		    If dY > dpiY(MarkDown()\VScroll\Y) And dY < dpiY(MarkDown()\VScroll\Y + MarkDown()\VScroll\Height)
+  		     
+  		      SetGadgetAttribute(GNum, #PB_Canvas_Cursor, #PB_Cursor_Default)
+  		      
+  		      ; --- Focus Scrollbar ---  
+  		      MarkDown()\VScroll\Buttons\bState = #Focus
+  		      MarkDown()\VScroll\Buttons\fState = #Focus
+  		      MarkDown()\VScroll\Thumb\State    = #Focus
+  		      
+  		      ; --- Hover Buttons & Thumb ---
+  		      If dY > dpiY(MarkDown()\VScroll\Buttons\bY) And dY < dpiY(MarkDown()\VScroll\Buttons\bY + MarkDown()\VScroll\Buttons\Height)
+  		        
+  		        MarkDown()\VScroll\Buttons\bState = #Hover
+  		        
+  		      ElseIf dY > dpiY(MarkDown()\VScroll\Buttons\fY) And dY < dpiY(MarkDown()\VScroll\Buttons\fY + MarkDown()\VScroll\Buttons\Height)
+  		        
+  		        MarkDown()\VScroll\Buttons\fState = #Hover
+  
+  		      ElseIf dY > dpiY(MarkDown()\VScroll\Thumb\Y) And dY < dpiY(MarkDown()\VScroll\Thumb\Y + MarkDown()\VScroll\Thumb\Height)
+  		        
+  		        MarkDown()\VScroll\Thumb\State = #Hover
+  		        
+  		        ;{ --- Move thumb with cursor 
+  		        If MarkDown()\VScroll\CursorPos <> #PB_Default
+  		          
+  		          CursorPos = MarkDown()\VScroll\Pos
+  		          
+  			        MarkDown()\VScroll\Pos       = GetThumbPosY_(Y)
+  			        MarkDown()\VScroll\CursorPos = Y
+  			        
+  			        If CursorPos <> MarkDown()\VScroll\Pos
+  			          Draw_(#Vertical)
+  			        EndIf
+  			        
+  			      EndIf ;}
+  
+  			    EndIf   
+  			    
+  			    MarkDown()\VScroll\Focus = #True
+  			    
+  			    If Backwards <> MarkDown()\VScroll\Buttons\bState : DrawButton_(#Vertical, #Backwards) : EndIf 
+            If Forwards  <> MarkDown()\VScroll\Buttons\fState : DrawButton_(#Vertical, #Forwards)  : EndIf 
+            If Thumb     <> MarkDown()\VScroll\Thumb\State    : DrawThumb_(#Vertical)              : EndIf 
+            
+            ProcedureReturn #True
+    			EndIf
+    		EndIf
+    		
+    		If Not MarkDown()\VScroll\Focus
+
+          MarkDown()\VScroll\Buttons\bState = #False
+          MarkDown()\VScroll\Buttons\fState = #False
+          MarkDown()\VScroll\Thumb\State    = #False
+          
+          MarkDown()\VScroll\Timer = #False
+          
+        EndIf   
+        
+        If Backwards <> MarkDown()\VScroll\Buttons\bState : DrawButton_(#Vertical, #Backwards) : EndIf 
+        If Forwards  <> MarkDown()\VScroll\Buttons\fState : DrawButton_(#Vertical, #Forwards)  : EndIf 
+        If Thumb     <> MarkDown()\VScroll\Thumb\State    : DrawThumb_(#Vertical)              : EndIf 
+        
+        MarkDown()\VScroll\CursorPos = #PB_Default
+        
+  		EndIf ;}
+			
+			
+			ForEach MarkDown()\Link()         ;{ Links
+			  
+			  If dY >= dpiY(MarkDown()\Link()\Y) And dY <= dpiY(MarkDown()\Link()\Y + MarkDown()\Link()\Height)
+			    If dX >= dpiX(MarkDown()\Link()\X) And dX <= dpiX(MarkDown()\Link()\X + MarkDown()\Link()\Width)
+			      
+			      SetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
+			      
+			      If MarkDown()\Link()\Title
+			        ToolTip$ = MarkDown()\Link()\Title
+			      Else
+			        ToolTip$ = MarkDown()\Link()\URL
+			      EndIf
+			      
+			      If ToolTip$
+			        If MarkDown()\ToolTip = #False
+  			        GadgetToolTip(GNum, ToolTip$)
+  			        MarkDown()\ToolTip = #True
+      			  EndIf
+      			EndIf 
+
+  			    ProcedureReturn #True
+  			  EndIf
+  			EndIf
+  			;}
+			Next  
+			
+			ForEach MarkDown()\Footnote()     ;{ FootNotes
+			  
+			  If dY >= dpiY(MarkDown()\Footnote()\Y) And dY <= dpiY(MarkDown()\Footnote()\Y + MarkDown()\Footnote()\Height)
+			    If dX >= dpiX(MarkDown()\Footnote()\X) And dX <= dpiX(MarkDown()\Footnote()\X + MarkDown()\Footnote()\Width)
+			      
+			      SetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
+			      
+			      If MarkDown()\ToolTip = #False
+			        
+			        ToolTip$ = ""
+			        
+			        If FindMapElement(MarkDown()\FootLabel(), MarkDown()\Footnote()\Label)
+			          ForEach MarkDown()\FootLabel()\Words() : ToolTip$ + MarkDown()\FootLabel()\Words()\String + " " : Next
+			          GadgetToolTip(GNum, Trim(ToolTip$))
+			          MarkDown()\ToolTip  = #True
+			        EndIf
+			        
+			      EndIf
+			      
+  			    ProcedureReturn #True
+  			  EndIf
+  			EndIf
+  			;}
+			Next  
+			
+			ForEach MarkDown()\AbbrevWord()   ;{ Abbreviations
+			  
+			  If dY >= dpiY(MarkDown()\AbbrevWord()\Y) And dY <= dpiY(MarkDown()\AbbrevWord()\Y + MarkDown()\AbbrevWord()\Height) 
+			    If dX >= dpiX(MarkDown()\AbbrevWord()\X) And dX <= dpiX(MarkDown()\AbbrevWord()\X + MarkDown()\AbbrevWord()\Width)
+			      
+			      SetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
+			      
+			      If MarkDown()\ToolTip = #False
+		          GadgetToolTip(GNum, Trim(MarkDown()\Abbreviation(MarkDown()\AbbrevWord()\Word)\String))
+		          MarkDown()\ToolTip  = #True
+			      EndIf
+			      
+  			    ProcedureReturn #True
+  			  EndIf
+  			EndIf
+			  ;}
+			Next  
+			
+			ForEach MarkDown()\GlossaryWord() ;{ Glossary
+			  
+			  If dY >= dpiY(MarkDown()\GlossaryWord()\Y) And dY <= dpiY(MarkDown()\GlossaryWord()\Y + MarkDown()\GlossaryWord()\Height)
+			    If dX >= dpiX(MarkDown()\GlossaryWord()\X) And dX <= dpiX(MarkDown()\GlossaryWord()\X + MarkDown()\GlossaryWord()\Width)
+			      
+			      SetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
+			      
+			      If MarkDown()\ToolTip = #False
+			        ToolTip$ = Trim(GetString_(MarkDown()\Glossary(MarkDown()\GlossaryWord()\Word)\Words()))
+		          GadgetToolTip(GNum, ToolTip$)
+		          MarkDown()\ToolTip  = #True
+			      EndIf
+			      
+  			    ProcedureReturn #True
+  			  EndIf
+  			EndIf
+			  ;}
+			Next  
+			
+			ForEach MarkDown()\TOC()          ;{ Table of Contents
+			  If dY >= dpiY(MarkDown()\TOC()\Y) And dY <= dpiY(MarkDown()\TOC()\Y + MarkDown()\TOC()\Height) 
+			    If dX >= dpiX(MarkDown()\TOC()\X) And dX <= dpiX(MarkDown()\TOC()\X + MarkDown()\TOC()\Width)
+			      
+			      SetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_Hand)
+			      
+			      ProcedureReturn #True
+			    EndIf
+			  EndIf  
+			  ;}  
+			Next
+			
+			ForEach MarkDown()\Image()        ;{ Images
+			  
+			  If MarkDown()\Image()\Title = "" : Continue : EndIf 
+			  
+			  If dY >= dpiY(MarkDown()\Image()\Y) And dY <= dpiY(MarkDown()\Image()\Y + MarkDown()\Image()\Height)
+			    If dX >= dpiX(MarkDown()\Image()\X) And dX <= dpiX(MarkDown()\Image()\X + MarkDown()\Image()\Width)
+			      
+			      If MarkDown()\ToolTip = #False
+			        GadgetToolTip(GNum, MarkDown()\Image()\Title)
+			        MarkDown()\ToolTip  = #True
+			      EndIf
+			      
+  			    ProcedureReturn #True
+  			  EndIf
+  			EndIf
+			  ;}
+			Next  
+			
+			MarkDown()\ToolTip = #False
+			GadgetToolTip(GNum, "")
+			
+		  CompilerIf #Enable_Requester
+		  
+		    ForEach MarkDown()\Requester\Button()
+		      
+		      If Not MarkDown()\Requester\Button()\Visible : Continue : EndIf
+		      
+		      If dY >= dpiY(MarkDown()\Requester\ButtonY) And dY <= dpiY(MarkDown()\Requester\ButtonY + #ButtonHeight)
+    			  If dX >= dpiX(MarkDown()\Requester\Button()\X) And dX <= dpiX(MarkDown()\Requester\Button()\X + MarkDown()\Requester\Button()\Width)
+    			    If MarkDown()\Requester\Button()\State <> #Focus
+    			      MarkDown()\Requester\Button()\State = #Focus
+    			      Draw_()
+    			    EndIf
+  			      ProcedureReturn #True 
+    			  EndIf
+    			EndIf 
+    			
+    			If MarkDown()\Requester\Button()\State
+  			    MarkDown()\Requester\Button()\State = #False
+  			    Draw_()
+  			  EndIf
+    			
+  			Next 
+  			
+  		CompilerEndIf
+
+			SetGadgetAttribute(MarkDown()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_Default)
+
+		EndIf
+
+	EndProcedure
+	
+	Procedure _MouseWheelHandler()
+    Define.i GNum = EventGadget()
+    Define.i Delta, Offset
+
+    If FindMapElement(MarkDown(), Str(GNum))
+      
+      Delta = GetGadgetAttribute(GNum, #PB_Canvas_WheelDelta)
+
+      If MarkDown()\VScroll\Hide = #False
+        SetThumbPosY_(MarkDown()\VScroll\Pos - (Delta * MarkDown()\ScrollV))
+        Draw_(#Vertical)
+      EndIf
+      
+    EndIf
+    
+  EndProcedure
+  
+  
+  CompilerIf #Enable_Tooltips
+    
+    Procedure _TimerEventHandler()
+      Define.i X, Y, Handle, Window, Gadget, GadgetNum
+  
+      Window = GetActiveWindow()
+      
+      Select EventTimer()
+        Case #TooltipTimer    ;{ Tooltip Delay
+          
+          LockMutex(Mutex)
+          
+          ForEach Timer()
+            
+            If Timer()\Focus And Timer()\State 
+              
+              If Timer()\Active
+                
+                Timer()\Value + 200
+                
+                If Timer()\Value >= Timer()\Delay
+                  
+                  If FindMapElement(ToolTips(), Str(Timer()\GadgetNum))
+                    
+                    SetGadgetData(ToolTips()\CanvasNum, Timer()\GadgetNum)
+                    ResizeWindow(ToolTips()\WindowNum, ToolTips()\PosX, ToolTips()\PosY, #PB_Ignore, #PB_Ignore)
+  	                ResizeWindow(ToolTips()\WindowNum, ToolTips()\PosX, ToolTips()\PosY, #PB_Ignore, #PB_Ignore)
+	                
+  	                If FindMapElement(MarkDown(), Str(ToolTips()\CanvasNum))
+  	                  Draw_()
+  	                EndIf  
+                  
+                    ToolTips()\Visible = #True
+                  
+                    HideWindow(ToolTips()\WindowNum, #False)
+                  
+                    SetActiveWindow(ToolTips()\Window)
+                    
+                  EndIf
+                  
+    	            Timer()\Value  = 0
+    	            Timer()\Active = #False
+    	          EndIf
+    	          
+    	        EndIf
+    	        
+    	      EndIf
+    	      
+    	    Next
+    	    
+    	    UnlockMutex(Mutex)           
+          ;}
+        Case #MouseEventTimer ;{ MouseEvents
+          
+          If FindMapElement(MouseEvent(), Str(Window))
+      
+            X = WindowMouseX(Window)
+            Y = WindowMouseY(Window)
+            
+            If X <> MouseEvent()\Window\MouseX Or Y <> MouseEvent()\Window\MouseY
+              
+              MouseEvent()\Window\MouseX = X
+              MouseEvent()\Window\MouseY = Y
+              
+              ; Get Handle under mouse (mk-soft)
+              CompilerSelect #PB_Compiler_OS
+                CompilerCase #PB_OS_Windows ;{ Windows
+                  Protected.i DesktopX, DesktopY
+                  
+                  DesktopX = DesktopMouseX()
+                  Desktopy = DesktopMouseY()
+                  Handle   = WindowFromPoint_(DesktopY << 32 | DesktopX)
+                  ;}
+                CompilerCase #PB_OS_MacOS   ;{ MacOS
+                  Protected WinID.i, WinCV.i, pt.NSPoint
+                  
+                  WinID = WindowID(Window)
+                  WinCV = CocoaMessage(0, WinID, "contentView")
+                  CocoaMessage(@pt, WinID, "mouseLocationOutsideOfEventStream")
+                  Handle = CocoaMessage(0, WinCV, "hitTest:@", @pt)
+                  ;}
+                CompilerCase #PB_OS_Linux   ;{ Linux
+                  Protected DesktopX.i, DesktopY.i, *GdkWindow.GdkWindowObject
+                  
+                  *GdkWindow.GdkWindowObject = gdk_window_at_pointer_(@DesktopX,@Desktopy)
+                  If *GdkWindow
+                    gdk_window_get_user_data_(*GdkWindow, @Handle)
+                  Else
+                    Handle = #False
+                  EndIf
+                  ;} 
+              CompilerEndSelect
+              
+              If Handle <> MouseEvent()\lastHandle
+                
+                ;{ ___ Event: MouseLeave ___ (mk-soft)
+                If IsGadget(MouseEvent()\lastGadget)
+                
+                  If MouseEvent()\Flags & #MouseLeave
+                    If GadgetType(MouseEvent()\lastGadget) <> #PB_GadgetType_Canvas
+                      ForEach MouseEvent()\Gadget()
+                        If MouseEvent()\Gadget()\Num = #PB_Default Or MouseEvent()\lastGadget = MouseEvent()\Gadget()\Num
+                          PostEvent(#PB_Event_Gadget, MouseEvent()\Window\Num, MouseEvent()\lastGadget, #PB_EventType_MouseLeave)
+                          Break
+                        EndIf
+                      Next
+                    EndIf
+                  EndIf
+                  
+                  MouseEvent()\lastGadget = #PB_Default
+                  
+                EndIf ;}
+                
+                ; Find GadgetID over Handle (mk-soft)
+                PB_Object_EnumerateStart(PB_Gadget_Objects)
+                
+                While PB_Object_EnumerateNext(PB_Gadget_Objects, @Gadget)
+                  
+                  If Handle = GadgetID(Gadget)
+                    
+                    MouseEvent()\lastGadget = Gadget
+                    
+                    ;{ ___ Event: MouseEnter ___ (mk-soft)
+                    If MouseEvent()\Flags & #MouseEnter
+                      If GadgetType(MouseEvent()\lastGadget) <> #PB_GadgetType_Canvas
+                        ForEach MouseEvent()\Gadget()
+                          If MouseEvent()\Gadget()\Num = #PB_Default Or MouseEvent()\lastGadget = MouseEvent()\Gadget()\Num
+                            PostEvent(#PB_Event_Gadget, MouseEvent()\Window\Num, MouseEvent()\lastGadget, #PB_EventType_MouseEnter)
+                            Break
+                          EndIf  
+                        Next
+                      EndIf
+                    EndIf ;}
+                    
+                    PB_Object_EnumerateAbort(PB_Gadget_Objects)
+                    Break
+                  EndIf
+                  
+                Wend
+                
+                MouseEvent()\lastHandle = Handle
+              EndIf
+              
+              ;{ ___ Event: MouseMove ___ (mk-soft)
+              If MouseEvent()\Flags & #MouseMove
+                
+                If IsGadget(MouseEvent()\lastGadget)
+                  If GadgetType(MouseEvent()\lastGadget) <> #PB_GadgetType_Canvas
+                    ForEach MouseEvent()\Gadget()
+                      If MouseEvent()\Gadget()\Num = #PB_Default Or MouseEvent()\lastGadget = MouseEvent()\Gadget()\Num
+                        MouseEvent()\Gadget()\MouseX = MouseEvent()\Window\MouseX - GadgetX(MouseEvent()\lastGadget, #PB_Gadget_WindowCoordinate)
+                        MouseEvent()\Gadget()\MouseY = MouseEvent()\Window\MouseY - GadgetY(MouseEvent()\lastGadget, #PB_Gadget_WindowCoordinate)
+                        PostEvent(#PB_Event_Gadget, MouseEvent()\Window\Num, MouseEvent()\lastGadget, #PB_EventType_MouseMove)
+                        Break
+                      EndIf 
+                    Next
+                  EndIf
+                EndIf
+                
+              EndIf ;}
+              
+            EndIf
+            
+          EndIf
+        ;}
+      EndSelect
+    
+    EndProcedure
+    
+    Procedure _MouseEnterHandler()
+  	  Define.i GNum = EventGadget()
+  	 
+  	  If FindMapElement(ToolTips(), Str(GNum))
+  	    
+  	    LockMutex(Mutex)
+  	    Timer(Str(GNum))\Focus = #True
+  	    Timer(Str(GNum))\Value = 0
+  	    Timer(Str(GNum))\State = #False
+  	    UnlockMutex(Mutex)
+
+  	  EndIf
+  	  
+  	EndProcedure
+	
+  	Procedure _MouseLeaveHandler()
+  	  Define.i GNum = EventGadget()
+  	  
+  	  If FindMapElement(MarkDown(), Str(GNum))
+  	    
+  	    ;{ Horizontal Scrollbar
+	      MarkDown()\HScroll\Buttons\bState = #False
+        MarkDown()\HScroll\Buttons\fState = #False
+        MarkDown()\HScroll\Thumb\State    = #False
+        MarkDown()\HScroll\CursorPos      = #PB_Default
+	      ;}
+  	    
+  	    ;{ Vertikal Scrollbar
+        MarkDown()\VScroll\Buttons\bState = #False
+        MarkDown()\VScroll\Buttons\fState = #False
+        MarkDown()\VScroll\Thumb\State    = #False
+        MarkDown()\VScroll\CursorPos      = #PB_Default
+	      ;}
+        
+        Draw_(#Horizontal|#Vertical)
+  	    
+  	  EndIf  
+  	  
+  	  If FindMapElement(Tooltips(), Str(GNum))
+
+  	    LockMutex(Mutex)
+  	    
+  	    Timer(Str(GNum))\Focus  = #False
+  	    Timer(Str(GNum))\Active = #True
+  	    Timer(Str(GNum))\Value  = 0
+  	    Timer(Str(GNum))\State  = #False
+  	    
+  	    UnlockMutex(Mutex)
+  	    
+  	    Tooltips()\MouseX  = #PB_Default
+  	    Tooltips()\MouseY  = #PB_Default
+  	    Tooltips()\Visible = #False
+  	    
+  	    HideWindow(Tooltips()\WindowNum, #True)
+        
+  	    SetActiveWindow(Tooltips()\Window)
+  	  EndIf
+  	  
+  	EndProcedure
+  	
+	  Procedure _MouseLeftClickHandler()
+      Define.i GNum, CanvasNum = EventGadget()
+      
+      GNum = GetGadgetData(CanvasNum)
+      
+      If FindMapElement(ToolTips(), Str(GNum))
+        
+        LockMutex(Mutex)
+  	    Timer(Str(GNum))\Focus  = #False
+  	    Timer(Str(GNum))\Active = #True
+  	    Timer(Str(GNum))\Value  = 0
+  	    Timer(Str(GNum))\State  = #False
+  	    UnlockMutex(Mutex)
+  	    
+  	    ToolTips()\MouseX  = #PB_Default
+  	    ToolTips()\MouseY  = #PB_Default
+  	    ToolTips()\Visible = #False
+  	    
+  	    HideWindow(ToolTips()\WindowNum, #True)
+  	    
+  	    SetActiveWindow(ToolTips()\Window)
+
+  	  EndIf
+  	  
+  	  PostEvent(#PB_Event_Gadget, ToolTips()\Window, ToolTips()\Gadget, #PB_EventType_LeftClick)
+  	  
+    EndProcedure
+  
+    Procedure _MouseRightClickHandler()
+      Define.i GNum, CanvasNum = EventGadget()
+      
+      GNum = GetGadgetData(CanvasNum)
+      
+      If FindMapElement(ToolTips(), Str(GNum))
+        
+        LockMutex(Mutex)
+  	    Timer(Str(GNum))\Focus  = #False
+  	    Timer(Str(GNum))\Active = #True
+  	    Timer(Str(GNum))\Value  = 0
+  	    Timer(Str(GNum))\State  = #False
+  	    UnlockMutex(Mutex)
+  	    
+  	    ToolTips()\MouseX  = #PB_Default
+  	    ToolTips()\MouseY  = #PB_Default
+  	    ToolTips()\Visible = #False
+  	    
+  	    HideWindow(ToolTips()\WindowNum, #True)
+  	    
+  	    SetActiveWindow(ToolTips()\Window)
+        
+  	    PostEvent(#PB_Event_Gadget, ToolTips()\Window, ToolTips()\Gadget, #PB_EventType_RightClick)
+  	    
+      EndIf  
+      
+    EndProcedure
+
+  CompilerEndIf
+  
+  
+	Procedure _ResizeHandler()
+		Define.i GadgetID = EventGadget()
+
+		If FindMapElement(MarkDown(), Str(GadgetID))
+
+		  AdjustScrollBars_()
+
+		  Draw_(#Vertical|#Horizontal)
+		  
+		EndIf
+
+	EndProcedure
+
+	Procedure _ResizeWindowHandler()
+		Define.f X, Y, Width, Height
+		Define.f OffSetX, OffSetY
+		
+		ForEach MarkDown()
+
+			If IsGadget(MarkDown()\CanvasNum)
+
+				If MarkDown()\Flags & #AutoResize
+
+					If IsWindow(MarkDown()\Window\Num)
+
+						OffSetX = WindowWidth(MarkDown()\Window\Num)  - MarkDown()\Window\Width
+						OffsetY = WindowHeight(MarkDown()\Window\Num) - MarkDown()\Window\Height
+
+						If MarkDown()\Size\Flags
+
+							X = #PB_Ignore : Y = #PB_Ignore : Width = #PB_Ignore : Height = #PB_Ignore
+
+							If MarkDown()\Size\Flags & #MoveX  : X = MarkDown()\Size\X + OffSetX : EndIf
+							If MarkDown()\Size\Flags & #MoveY  : Y = MarkDown()\Size\Y + OffSetY : EndIf
+							If MarkDown()\Size\Flags & #Width  : Width  = MarkDown()\Size\Width + OffSetX : EndIf
+							If MarkDown()\Size\Flags & #Height : Height = MarkDown()\Size\Height + OffSetY : EndIf
+
+							ResizeGadget(MarkDown()\CanvasNum, X, Y, Width, Height)
+	
+						Else
+							ResizeGadget(MarkDown()\CanvasNum, #PB_Ignore, #PB_Ignore, MarkDown()\Size\Width + OffSetX, MarkDown()\Size\Height + OffsetY)
+						EndIf
+						
+						CompilerIf #Enable_HelpWindow
+						  
+						  If MarkDown()\Type = #HelpWindow
+						    If IsGadget(Help\TreeNum) : ResizeGadget(Help\TreeNum, #PB_Ignore, #PB_Ignore, #PB_Ignore, GadgetHeight(MarkDown()\CanvasNum) - 30) : EndIf
+						    If IsGadget(Help\ListNum) : ResizeGadget(Help\ListNum, #PB_Ignore, #PB_Ignore, #PB_Ignore, GadgetHeight(MarkDown()\CanvasNum) - 30) : EndIf
+						  EndIf
+						  
+						CompilerEndIf
+						
+					EndIf
+
+				EndIf
+
+			EndIf
+
+		Next
+		
+	EndProcedure
+	
+  Procedure _CloseWindowHandler()
+    Define.i WindowNum = EventWindow()
+    
+    ForEach MarkDown()
+      
+      Select MarkDown()\Type
+        Case #ToolTip ;{ Tooltips
+          
+          CompilerIf #Enable_Tooltips
+            If MarkDown()\Tooltips\Window = WindowNum
+              
+              RemoveWindowTimer(MarkDown()\Window\Num, #TooltipTimer)
+              RemoveWindowTimer(MarkDown()\Window\Num, #MouseEventTimer)
+              
+              If IsWindow(MarkDown()\Window\Num)
+                CloseWindow(MarkDown()\Window\Num)
+              EndIf
+              
+              DeleteMapElement(MouseEvent(), Str(MarkDown()\Tooltips\Window))
+              DeleteMapElement(Tooltips(),   Str(MarkDown()\Tooltips\Gadget))
+              DeleteMapElement(Timer(),      Str(MarkDown()\Tooltips\Gadget))
+              DeleteMapElement(MarkDown())
+              
+            EndIf
+          CompilerEndIf  
+          ;}
+        Case #Gadget  ;{ Gadget
+          
+          If MarkDown()\Window\Num = WindowNum
+            DeleteMapElement(MarkDown())
+          EndIf  
+          ;}
+        Default
+          Continue
+      EndSelect    
+      
+    Next  
+    
+  EndProcedure 
+
+	;- ============================================================================
+	;-   Module - Init & Scrollbar
+	;- ============================================================================	
+	
+	Procedure InitDefault_()
+
+	  ;{ _____ Color _____
+		MarkDown()\Color\Back          = $FFFFFF
+		MarkDown()\Color\BlockQuote    = $C0C0C0
+		MarkDown()\Color\Border        = $E3E3E3
+		MarkDown()\Color\Code          = $006400
+		MarkDown()\Color\DisableFront  = $72727D
+		MarkDown()\Color\DisableBack   = $CCCCCA
+		MarkDown()\Color\Front         = $000000
+		MarkDown()\Color\Gadget        = $F0F0F0
+		MarkDown()\Color\Highlight     = $E3F8FC
+		MarkDown()\Color\Hint          = $800000
+		MarkDown()\Color\Keystroke     = $650000
+		MarkDown()\Color\KeyStrokeBack = $F6F6F6 
+		MarkDown()\Color\Line          = $A9A9A9
+		MarkDown()\Color\Link          = $8B0000
+		MarkDown()\Color\LinkHighlight = $FF0000
+		MarkDown()\Color\HeaderBack    = $F5F5F5
+    MarkDown()\Color\Button        = $E3E3E3
+    MarkDown()\Color\Focus         = $D77800
+    MarkDown()\Color\Keyword       = $82004B
+    MarkDown()\Color\Found         = $004B00
+    MarkDown()\Color\FoundBack     = $00F6FF
+    
+		CompilerSelect #PB_Compiler_OS 
+			CompilerCase #PB_OS_Windows
+				MarkDown()\Color\Front  = GetSysColor_(#COLOR_WINDOWTEXT)
+				MarkDown()\Color\Back   = GetSysColor_(#COLOR_WINDOW)
+				MarkDown()\Color\Border = GetSysColor_(#COLOR_ACTIVEBORDER)
+				MarkDown()\Color\Gadget = GetSysColor_(#COLOR_MENU)
+				MarkDown()\Color\Button = GetSysColor_(#COLOR_3DLIGHT)
+		    MarkDown()\Color\Focus  = GetSysColor_(#COLOR_HIGHLIGHT)
+			CompilerCase #PB_OS_MacOS
+				MarkDown()\Color\Front  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textColor"))
+				MarkDown()\Color\Back   = BlendColor_(OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor textBackgroundColor")), $FFFFFF, 80)
+				MarkDown()\Color\Border = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+				MarkDown()\Color\Gadget = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
+				MarkDown()\Color\Button = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor controlBackgroundColor"))
+		    MarkDown()\Color\Focus  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor keyboardFocusIndicatorColor"))
+			CompilerCase #PB_OS_Linux
+
+		CompilerEndSelect ;}
+		
+		;{ _____ Margins _____
+		Select MarkDown()\Type
+		  Case #Requester
+  		  MarkDown()\Margin\Top    = 10
+    		MarkDown()\Margin\Left   = 10
+    		MarkDown()\Margin\Right  = 10
+    		MarkDown()\Margin\Bottom = 5
+    	Case #ToolTip
+    	  MarkDown()\Margin\Top    = 3
+    		MarkDown()\Margin\Left   = 5
+    		MarkDown()\Margin\Right  = 5
+    		MarkDown()\Margin\Bottom = 3
+    	Case #HelpWindow
+    	  MarkDown()\Margin\Top    = 10
+    		MarkDown()\Margin\Left   = 10
+    		MarkDown()\Margin\Right  = 10
+    		MarkDown()\Margin\Bottom = 10
+    	Default
+    	  MarkDown()\Margin\Top    = 5
+    		MarkDown()\Margin\Left   = 5
+    		MarkDown()\Margin\Right  = 5
+    		MarkDown()\Margin\Bottom = 5
+		EndSelect
+		;}		
+		
+		MarkDown()\Indent      = 10
+	  MarkDown()\LineSpacing = 1.06
+
+	EndProcedure  
+
+  Procedure.i ScrollBar()
+	  Define.i MapElement
+
+    MarkDown()\VScroll\CursorPos      = #PB_Default
+    MarkDown()\VScroll\Buttons\fState = #PB_Default
+    MarkDown()\VScroll\Buttons\bState = #PB_Default
+    
+    MarkDown()\Scrollbar\Size       = #ScrollBarSize
+    MarkDown()\Scrollbar\TimerDelay = #TimerDelay
+    
+    ; ----- Styles -----
+    If MarkDown()\Flags & #Style_Win11      : MarkDown()\Scrollbar\Flags | #Style_Win11      : EndIf
+    If MarkDown()\Flags & #Style_RoundThumb : MarkDown()\Scrollbar\Flags | #Style_RoundThumb : EndIf
+    
+    CompilerIf #PB_Compiler_Version >= 600
+      If OSVersion() = #PB_OS_Windows_11  : MarkDown()\Scrollbar\Flags | #Style_Win11 : EndIf
+    CompilerElse
+      If OSVersion() >= #PB_OS_Windows_10 : MarkDown()\Scrollbar\Flags | #Style_Win11 : EndIf
+    CompilerEndIf  
+
+    ;{ ----- Colors -----
+    MarkDown()\Scrollbar\Color\Front  = $C8C8C8
+    MarkDown()\Scrollbar\Color\Back   = $F0F0F0
+	  MarkDown()\Scrollbar\Color\Button = $F0F0F0
+	  MarkDown()\Scrollbar\Color\Focus  = $D77800
+	  MarkDown()\Scrollbar\Color\Hover  = $666666
+	  MarkDown()\Scrollbar\Color\Arrow  = $696969
+	  
+	  CompilerSelect #PB_Compiler_OS
+		  CompilerCase #PB_OS_Windows
+				MarkDown()\Scrollbar\Color\Front  = GetSysColor_(#COLOR_SCROLLBAR)
+				MarkDown()\Scrollbar\Color\Back   = GetSysColor_(#COLOR_MENU)
+				MarkDown()\Scrollbar\Color\Button = GetSysColor_(#COLOR_BTNFACE)
+				MarkDown()\Scrollbar\Color\Focus  = GetSysColor_(#COLOR_MENUHILIGHT)
+				MarkDown()\Scrollbar\Color\Hover  = GetSysColor_(#COLOR_ACTIVEBORDER)
+				MarkDown()\Scrollbar\Color\Arrow  = GetSysColor_(#COLOR_GRAYTEXT)
+			CompilerCase #PB_OS_MacOS
+				MarkDown()\Scrollbar\Color\Front  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+				MarkDown()\Scrollbar\Color\Back   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
+				MarkDown()\Scrollbar\Color\Button = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
+				MarkDown()\Scrollbar\Color\Focus  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedControlColor"))
+				MarkDown()\Scrollbar\Color\Hover  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+				MarkDown()\Scrollbar\Color\Arrow  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+			CompilerCase #PB_OS_Linux
+
+		CompilerEndSelect
+		
+		If MarkDown()\Scrollbar\Flags & #Style_Win11
+		  MarkDown()\Scrollbar\Color\Hover = $666666
+		  MarkDown()\Scrollbar\Color\Focus = $8C8C8C
+		EndIf   
+    ;}
+
+	  ;BindGadgetEvent(MarkDown()\Gadget, @_LeftButtonDownHandler(), #PB_EventType_LeftButtonDown)
+	  ;BindGadgetEvent(MarkDown()\Gadget, @_LeftButtonUpHandler(),   #PB_EventType_LeftButtonUp)
+	  ;BindGadgetEvent(MarkDown()\Gadget, @_MouseMoveHandler(),      #PB_EventType_MouseMove)
+	  ;BindGadgetEvent(MarkDown()\Gadget, @_MouseLeaveHandler(),     #PB_EventType_MouseLeave)
+
+		;BindGadgetEvent(MarkDown()\Gadget, @_MouseWheelHandler(),     #PB_EventType_MouseWheel)
+		;BindGadgetEvent(MarkDown()\Gadget, @_ResizeHandler(),         #PB_EventType_Resize)
+
+		;AddWindowTimer(MarkDown()\Window, #AutoScrollTimer, #Frequency)
+	  ;BindEvent(#PB_Event_Timer, @_AutoScroll(), MarkDown()\Window)
+  
+		CalcScrollBar_()
+
+	  DrawScrollBar_()
+		
+	EndProcedure
+
 
 	;- ==========================================================================
 	;-   Module - Declared Procedures
@@ -9638,11 +10333,10 @@ Module MarkDown
 	    
 	    Parse_(Text)
 	    DetermineTextSize_()
+	    AdjustScrollBars_()
 	    
-	    ReDraw()
+	    Draw_(#Vertical|#Horizontal)
 	    
-	    CalcScrollBarThumb_()
-
 	  EndIf
 	  
 	EndProcedure
@@ -9685,7 +10379,9 @@ Module MarkDown
 	  
 	EndProcedure
 	
-  ;- _____ Gadget _____
+	;- ---------------------------------------
+	;- Gadget 
+	;- ---------------------------------------
 	
 	CompilerIf #Enable_Gadget
 	  
@@ -9703,7 +10399,9 @@ Module MarkDown
   	    
   	    Clear_(#True)
   	    
-  	    ReDraw()
+  	    AdjustScrollBars_()
+  	    
+  	    Draw_(#Vertical|#Horizontal)
   	  EndIf
   	  
   	EndProcedure  
@@ -9715,7 +10413,7 @@ Module MarkDown
         MarkDown()\Disable = State
         DisableGadget(GNum, State)
         
-        Draw_()
+        Draw_(#Horizontal|#Vertical)
       EndIf  
       
     EndProcedure 	
@@ -9825,7 +10523,7 @@ Module MarkDown
   	    Else
   	      MarkDown()\Hide = #False
   	      HideGadget(GNum, #False)
-  	      Draw_()
+  	      Draw_(#Horizontal|#Vertical)
   	    EndIf  
   	    
   	  EndIf  
@@ -9838,8 +10536,6 @@ Module MarkDown
       If FindMapElement(MarkDown(), Str(GNum))
         
         Select Attribute
-          Case #Corner
-            MarkDown()\Radius        = Value
           Case #Margin_Top
             MarkDown()\Margin\Top    = Value
           Case #Margin_Left
@@ -9853,10 +10549,10 @@ Module MarkDown
           Case #LineSpacing
             MarkDown()\LineSpacing   = Value
           Case #ScrollBar
-            MarkDown()\ScrollBar\Flags = Value    
+            ;MarkDown()\ScrollBar\Flags = Value    
         EndSelect
         
-        Draw_()
+        Draw_(#Horizontal|#Vertical)
       EndIf
       
     EndProcedure	
@@ -9921,18 +10617,18 @@ Module MarkDown
           Case #Color_Keyword
             MarkDown()\Color\Keyword       = Value  
           Case #ScrollBar_FrontColor
-            MarkDown()\ScrollBar\Color\Front     = Value
+            ;MarkDown()\ScrollBar\Color\Front     = Value
           Case #ScrollBar_BackColor 
-            MarkDown()\ScrollBar\Color\Back      = Value
+            ;MarkDown()\ScrollBar\Color\Back      = Value
           Case #ScrollBar_BorderColor
-            MarkDown()\ScrollBar\Color\Border    = Value
+            ;MarkDown()\ScrollBar\Color\Border    = Value
           Case #ScrollBar_ButtonColor
-            MarkDown()\ScrollBar\Color\Button    = Value
+            ;MarkDown()\ScrollBar\Color\Button    = Value
           Case #ScrollBar_ThumbColor
-            MarkDown()\ScrollBar\Color\ScrollBar = Value    
+            ;MarkDown()\ScrollBar\Color\ScrollBar = Value    
         EndSelect
         
-        Draw_()
+        Draw_(#Horizontal|#Vertical)
       EndIf
       
     EndProcedure
@@ -9961,8 +10657,9 @@ Module MarkDown
         LoadFonts_(Name, Size)
         
         DetermineTextSize_()
+        AdjustScrollBars_()
         
-        ReDraw()
+        Draw_(#Vertical|#Horizontal)
       EndIf
       
     EndProcedure
@@ -9994,8 +10691,8 @@ Module MarkDown
   	 
   	EndProcedure	
 
-	  ;- _____ Gadget _____
-	
+  	; ----- MakrDown::Gadget ------ 
+  	
   	Procedure.i Gadget(GNum.i, X.i, Y.i, Width.i, Height.i, Flags.i=#False, WindowNum.i=#PB_Default)
       ; Flags: #AutoResize | #Borderless | #UseExistingCanvas
   		Define Result.i
@@ -10036,15 +10733,12 @@ Module MarkDown
   				MarkDown()\Size\Width  = Width
   				MarkDown()\Size\Height = Height
   				
-  				InitScrollBar_(GNum)
-          CreateScrollBar_("VScroll", Width - #ScrollBarSize - 1, 1, #ScrollBarSize, Height - 2, 0, Height, Height)
-          
-          If Flags & #Style_Frame
-            MarkDown()\ScrollBar\Flags = #ScrollBar_Frame
-          ElseIf Flags & #Style_DragPoint
-            MarkDown()\ScrollBar\Flags = #ScrollBar_DragPoint
-	        EndIf
-	        
+  				MarkDown()\VScroll\Hide   = #True
+  				MarkDown()\HScroll\Hide   = #True
+  				MarkDown()\Scrollbar\Size = #ScrollBarSize
+  				
+          ScrollBar()
+
   				MarkDown()\Flags  = Flags
   
           InitDefault_()
@@ -10072,9 +10766,12 @@ Module MarkDown
   				  BindEvent(#PB_Event_CloseWindow, @_CloseWindowHandler(), MarkDown()\Window\Num)
   				EndIf
   				
+  				AddWindowTimer(MarkDown()\Window\Num, #AutoScrollTimer, #Frequency)
+				  BindEvent(#PB_Event_Timer, @_AutoScroll(), MarkDown()\Window\Num)
+  				
   				LoadFonts_("Arial", 11)
   				
-  				Draw_()
+  				Draw_(#Horizontal|#Vertical)
 
   				ProcedureReturn GNum
   			EndIf
@@ -10085,7 +10782,9 @@ Module MarkDown
   	
 	CompilerEndIf
 	
-	;- _____ Requester _____
+	;- ---------------------------------------
+	;- Requester 
+  ;- ---------------------------------------
 	
 	CompilerIf #Enable_Requester
 	  
@@ -10174,15 +10873,12 @@ Module MarkDown
   	        MarkDown()\Type  = #Requester
 				    MarkDown()\Flags = Flags
 				    
-				    InitScrollBar_(GNum)
-          
-            CreateScrollBar_("VScroll", 0, 0, #ScrollBarSize, 0, 0, 0, 0)
-            
-            If Flags & #Style_Frame
-              MarkDown()\ScrollBar\Flags = #ScrollBar_Frame
-            ElseIf Flags & #Style_DragPoint
-              MarkDown()\ScrollBar\Flags = #ScrollBar_DragPoint
-  	        EndIf
+				    
+            MarkDown()\VScroll\Hide   = #True
+    				MarkDown()\HScroll\Hide   = #True
+    				MarkDown()\Scrollbar\Size = #ScrollBarSize
+    				
+            ScrollBar()
 
   	        ;{ _____ Buttons _____
   	        If Requester\ButtonWidth > 0 
@@ -10250,7 +10946,7 @@ Module MarkDown
         		      
         		      MarkDown()\Requester\Button()\Visible = #True
         		      
-        		      wButtons + dpiX(MarkDown()\Requester\Button()\Width + 7)
+        		      wButtons + MarkDown()\Requester\Button()\Width + 7
         		      
         		    ElseIf FindMapElement(Requester\Button(), Label$)
         		      
@@ -10263,14 +10959,14 @@ Module MarkDown
           		      EndIf  
           		      MarkDown()\Requester\Button()\Result  = Requester\Button()\Result
           		      MarkDown()\Requester\Button()\Visible = #True
-          		      wButtons + dpiX(buttonWidth + 7)
+          		      wButtons + buttonWidth + 7
           		    EndIf
           		    
           		  EndIf
         		  
         		  Next
         		  
-        		  If wButtons : wButtons - dpiX(7) : EndIf
+        		  If wButtons : wButtons - 7 : EndIf
         		  
         		  MarkDown()\Requester\ButtonsWidth = wButtons
         		  
@@ -10281,19 +10977,19 @@ Module MarkDown
       				  MarkDown()\Requester\Button("Yes")\Visible    = #True
       				  MarkDown()\Requester\Button("No")\Visible     = #True
       				  MarkDown()\Requester\Button("Cancel")\Visible = #False
-      				  wButtons = dpiX(MarkDown()\Requester\Button("Yes")\Width + MarkDown()\Requester\Button("No")\Width + 7)
+      				  wButtons = MarkDown()\Requester\Button("Yes")\Width + MarkDown()\Requester\Button("No")\Width + 7
       				ElseIf Flags & #YesNoCancel
       				  MarkDown()\Requester\Button("OK")\Visible     = #False
       				  MarkDown()\Requester\Button("Yes")\Visible    = #True
       				  MarkDown()\Requester\Button("No")\Visible     = #True
       				  MarkDown()\Requester\Button("Cancel")\Visible = #True		 
-      				  wButtons = dpiX(MarkDown()\Requester\Button("Yes")\Width + MarkDown()\Requester\Button("No")\Width + MarkDown()\Requester\Button("Cancel")\Width + 21)
+      				  wButtons = MarkDown()\Requester\Button("Yes")\Width + MarkDown()\Requester\Button("No")\Width + MarkDown()\Requester\Button("Cancel")\Width + 21
       				Else
       				  MarkDown()\Requester\Button("OK")\Visible     = #True
       				  MarkDown()\Requester\Button("Yes")\Visible    = #False
       				  MarkDown()\Requester\Button("No")\Visible     = #False
       				  MarkDown()\Requester\Button("Cancel")\Visible = #False
-      				  wButtons = dpiX(MarkDown()\Requester\Button("OK")\Width)
+      				  wButtons = MarkDown()\Requester\Button("OK")\Width
       				EndIf
       				
       				MarkDown()\Requester\ButtonsWidth = wButtons
@@ -10362,36 +11058,27 @@ Module MarkDown
   	    
   	    ;{ _____ Image _____
   	    If IsImage(MarkDown()\Requester\Image\Num)
-  	      If dpiY(MarkDown()\Requester\Image\Height) > MarkDown()\Required\Height
-  	        MarkDown()\Required\Height = dpiY(MarkDown()\Requester\Image\Height)
+  	      If MarkDown()\Requester\Image\Height > MarkDown()\Required\Height
+  	        MarkDown()\Required\Height = MarkDown()\Requester\Image\Height
   	      EndIf 
   	    EndIf ;}
   	    
   	    If wButtons > MarkDown()\Required\Width : MarkDown()\Required\Width = wButtons : EndIf
 
-  	    Width  = MarkDown()\Required\Width  + dpiX(MarkDown()\Margin\Left + MarkDown()\Margin\Right)
-  	    Height = MarkDown()\Required\Height + dpiY(MarkDown()\Margin\Top  + MarkDown()\Margin\Bottom + 33)
+  	    Width  = MarkDown()\Required\Width  + MarkDown()\Margin\Left + MarkDown()\Margin\Right
+  	    Height = MarkDown()\Required\Height + MarkDown()\Margin\Top  + MarkDown()\Margin\Bottom + 33
   	    
   	    If IsImage(MarkDown()\Requester\Image\Num)
-  	      Width + dpiX(MarkDown()\Requester\Image\Width + MarkDown()\Requester\Padding)
+  	      Width + MarkDown()\Requester\Image\Width + MarkDown()\Requester\Padding
   	    EndIf
   	    
   	    ResizeWindow(MarkDown()\Window\Num, #PB_Ignore, #PB_Ignore, Width, Height)
         ResizeGadget(MarkDown()\CanvasNum, 0, 0, Width, Height)
         
-        ReDraw()
+        AdjustScrollBars_()
         
-        If MarkDown()\ScrollBar\Item()\Hide = #False
+        Draw_(#Horizontal|#Vertical)
 
-          Width + dpiX(#ScrollBarSize) + dpiX(2)
-          
-          ResizeWindow(MarkDown()\Window\Num, #PB_Ignore, #PB_Ignore, Width, #PB_Ignore)
-          ResizeGadget(MarkDown()\CanvasNum,  #PB_Ignore, #PB_Ignore, Width, #PB_Ignore)
-        
-          Draw_()
-          
-        EndIf  
-        
   	    Repeat
           Select WaitWindowEvent()
             Case #PB_Event_CloseWindow           ;{ Close window
@@ -10431,7 +11118,9 @@ Module MarkDown
 
 	CompilerEndIf
 	
-	;- _____ Tooltips _____
+	;- ---------------------------------------
+	;- Tooltips 
+  ;- ---------------------------------------
 	
 	CompilerIf #Enable_Tooltips
 	  
@@ -10462,7 +11151,7 @@ Module MarkDown
             MarkDown()\Color\Border = TooltypStyle\BorderColor
           EndIf
           
-          Draw_()
+          Draw_(#Horizontal|#Vertical)
           
         EndIf
         
@@ -10486,8 +11175,8 @@ Module MarkDown
             LoadFonts_(TooltypStyle\FontName, TooltypStyle\FontSize)
             
             DetermineTextSize_()
-  	        
-  	        Draw_()
+  
+  	        Draw_(#Horizontal|#Vertical)
   	        
   	      EndIf
   	      
@@ -10519,6 +11208,11 @@ Module MarkDown
   	          MarkDown()\Tooltips\Gadget = Gadget
   	          MarkDown()\Tooltips\Window = Window
     	        MarkDown()\Type            = #ToolTip 
+    	        
+    	        MarkDown()\Margin\Left   = 1
+    	        MarkDown()\Margin\Right  = 1
+    	        MarkDown()\Margin\Top    = 1
+    	        MarkDown()\Margin\Bottom = 1
     	        
     	        If AddMapElement(Tooltips(), Str(Gadget))
     	          Tooltips()\WindowNum  = WindowNum
@@ -10553,8 +11247,6 @@ Module MarkDown
     	          MarkDown()\Color\Border = TooltypStyle\BorderColor
     	        EndIf
     	        
-    	        BindEvent(#Event_ToolTip, @_ToolTipHandler())
-    	        
     	        If GadgetType(ToolTips()\Gadget) <> #PB_GadgetType_Canvas
           		  AddMouseEvents_(ToolTips()\Window, ToolTips()\Gadget)
           		EndIf
@@ -10585,12 +11277,17 @@ Module MarkDown
     	    
     	        DetermineTextSize_()
     	        
-    	        Width  = MarkDown()\Required\Width  + dpiX(MarkDown()\Margin\Left + MarkDown()\Margin\Right)
-    	        Height = MarkDown()\Required\Height + dpiY(MarkDown()\Margin\Top  + MarkDown()\Margin\Bottom)
+    	        Width  = MarkDown()\Required\Width  + MarkDown()\Margin\Left + MarkDown()\Margin\Right  + 2
+    	        Height = MarkDown()\Required\Height + MarkDown()\Margin\Top  + MarkDown()\Margin\Bottom + 2
     	        
     	        ResizeWindow(MarkDown()\Window\Num, #PB_Ignore, #PB_Ignore, Width, Height)
-              ResizeGadget(MarkDown()\CanvasNum, 0, 0, Width, Height)
-          
+    	        ResizeGadget(MarkDown()\CanvasNum, 0, 0, Width, Height)
+    	        
+              MarkDown()\Area\X       = 0
+              MarkDown()\Area\Y       = 0
+              MarkDown()\Area\Width  = MarkDown()\Required\Width
+              MarkDown()\Area\Height = MarkDown()\Required\Height
+              
               Draw_()
               
               If IsWindow(ToolTips()\Window)
@@ -10612,8 +11309,9 @@ Module MarkDown
 	  
 	CompilerEndIf  
 	
-	
-	;- _____ Draw Canvas _____
+	;- ---------------------------------------
+	;- Draw on Canvas
+  ;- ---------------------------------------
 	
   CompilerIf #Enable_DrawCanvas
 	  
@@ -10638,6 +11336,8 @@ Module MarkDown
 				MarkDown()\Color\Front = FrontColor
 				MarkDown()\Color\Back  = BackColor
 				
+				MarkDown()\LineSpacing = 1.06
+				
 				If FrontColor = #PB_Default : MarkDown()\Color\Front = $000000 : EndIf 
 				If BackColor  = #PB_Default : MarkDown()\Color\Back  = $FFFFFF : EndIf 
 				
@@ -10652,7 +11352,7 @@ Module MarkDown
 				
         DrawingTextSize_()
         
-        DrawText_()
+        DrawTextMD_()
         
         ProcedureReturn #True
       EndIf  
@@ -10754,8 +11454,9 @@ Module MarkDown
 	  
 	CompilerEndIf
 	
-	
-	;- _____ Help Window _____
+	;- ---------------------------------------
+	;- Help - Window
+  ;- ---------------------------------------
 	
 	CompilerIf #Enable_CreateHelp
 	  
@@ -10943,6 +11644,7 @@ Module MarkDown
               
               Parse_(Item()\Text)
               DetermineTextSize_(#True)
+              AdjustScrollBars_()
               
               UpdateHelp(#PB_Default, TOC(), Glossary(), Found(), #True)
               
@@ -11322,15 +12024,13 @@ Module MarkDown
   				  MarkDown()\Size\Height = 500
 				    MarkDown()\Flags       = Flags | #IgnorePath
 				    
-				    InitScrollBar_(Help\CanvasNum)
           
-            CreateScrollBar_("VScroll", 0, 0, #ScrollBarSize, 0, 0, 0, 0)
-            
-            If Flags & #Style_Frame
-              MarkDown()\ScrollBar\Flags = #ScrollBar_Frame
-            ElseIf Flags & #Style_DragPoint
-              MarkDown()\ScrollBar\Flags = #ScrollBar_DragPoint
-  	        EndIf
+            MarkDown()\VScroll\Hide   = #True
+    				MarkDown()\HScroll\Hide   = #True
+    				MarkDown()\Scrollbar\Size = #ScrollBarSize
+    				
+            ScrollBar()
+
   	        
   	        If Help\Font\Name And Help\Font\Size
   	          LoadFonts_(Help\Font\Name, Help\Font\Size)
@@ -11437,7 +12137,8 @@ Module MarkDown
   	      
   	      AddKeyboardShortcut(WindowNum, #PB_Shortcut_Return, #Return)
   	      
-  	      ReDraw()
+  	      AdjustScrollBars_()
+  	      Draw_(#Vertical|#Horizontal)
   	      
   	      JSON = LoadJSON(#PB_Any, Help\DataDir + AppDataName$ + ".win")
           If JSON
@@ -11567,7 +12268,7 @@ Module MarkDown
                     CompilerIf Defined(TreeEx, #PB_Module)   
                       Case TreeEx::#EventType_Row    
                         If FindMapElement(MarkDown(), Str(Help\CanvasNum))
-                          MarkDown()\ScrollOffset = 0
+                          MarkDown()\ScrollOffsetY = 0
                           Selected = TreeEx::GetState(Help\TreeNum)
                           If Selected <> -1
                             If SelectElement(Help\Item(), Selected)
@@ -11581,7 +12282,7 @@ Module MarkDown
                     CompilerElse  
                       Case #PB_EventType_Change
                         If FindMapElement(MarkDown(), Str(Help\CanvasNum))
-                          MarkDown()\ScrollOffset = 0
+                          MarkDown()\ScrollOffsetY = 0
                           Selected = GetGadgetState(Help\TreeNum)
                           If Selected <> -1
                             If SelectElement(Help\Item(), Selected)
@@ -11609,7 +12310,7 @@ Module MarkDown
                           ;}
                         Else           ;{ Home Button
                           
-                          MarkDown()\ScrollOffset = 0
+                          MarkDown()\ScrollOffsetY = 0
                           
                           If FirstElement(Help\Item())
                             SetText(Help\CanvasNum, Help\Item()\Text)
@@ -11733,14 +12434,14 @@ Module MarkDown
     
 	CompilerEndIf
 	
-	; ===========================
+	;- ==========================================================================
+	;- Module - DataSection
+	;- ==========================================================================
 	
 	;{ _____ Load Emoji _____
-	
 	CompilerIf #Enable_Emoji
   	LoadEmojis_()
   CompilerEndIf 
-  
   ;}
   
   ;{ _____ DataSection _____
@@ -12279,6 +12980,7 @@ Module MarkDown
   CompilerEndIf
   ;}
   
+  
 EndModule
 
 ;- ========  Module - Example ========
@@ -12289,7 +12991,7 @@ CompilerIf #PB_Compiler_IsMainFile
   
   UsePNGImageDecoder()
   
-  #Example = 1
+  #Example = 12
   
   ; === Gadget ===
   ;  1: Headings
@@ -12309,6 +13011,8 @@ CompilerIf #PB_Compiler_IsMainFile
   ; 15: Intended Code Block
   ; 16: Glossary
   ; 17: Notes
+  ; === Draw on Canvas ===
+  ; 19  MarkDown::Text()
   ; === Requester ===
   ; 20: Message Requester
   ; 21: User image
@@ -12321,7 +13025,7 @@ CompilerIf #PB_Compiler_IsMainFile
   Define.s Text$
  
   Select #Example
-    Case 1   ;{ Headings
+    Case 1       ;{ Headings
       Text$ = "Heading level 1"+ #LF$ 
       Text$ + "==============="+ #LF$
       Text$ + "Heading level 2"+ #LF$
@@ -12331,7 +13035,7 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "##### Heading level 5 #####"  + #LF$
       Text$ + "###### Heading level 6 #####"  + #LF$ + #LF$
       ;}
-    Case 2   ;{ Emphasis
+    Case 2       ;{ Emphasis
       Text$ = "## Emphasis ##" + #LF$
       Text$ + "I just love **bold text**." + #LF$
       Text$ + "Italicized text is the *cat's meow*."+ #LF$
@@ -12343,24 +13047,24 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "## Code ##" + #LF$
       Text$ + "At the command prompt, type ``nano``."+ #LF$
       ;}
-    Case 3   ;{ Lists
+    Case 3       ;{ Lists
       Text$ = "## Ordered List ##" + #LF$
       Text$ + "1. List item"+#LF$+"   2. List item"+#LF$+"   3. List item"+#LF$+"4. List item"+ #LF$+ #LF$
       Text$ + "-----" + #LF$+ #LF$
       Text$ + "## Unordered List ##" + #LF$
       Text$ + "- First list item" + #LF$ + "  - Second list item:" + #LF$ + "  - Third list item" + #LF$ + " - Fourth list item" + #LF$ 
       ;}
-    Case 4   ;{ URL and Links
+    Case 4       ;{ URL and Links
       Text$ = "## Links & URLs ##" + #LF$  + #LF$ 
       Text$ + "URL: <https://www.markdownguide.org>" + #LF$ + #LF$
       Text$ + "EMail: <fake@example.com>  " + #LF$ + #LF$
       Text$ + "Link: [Duck Duck Go](https://duckduckgo.com "+#DQUOTE$+"My search engine!"+#DQUOTE$+") "+ #LF$
       ;}
-    Case 5   ;{ Image
+    Case 5       ;{ Image
       Text$ = "## Image ##"  + #LF$
       Text$ + "![Programmer](Test.png " + #DQUOTE$ + "Programmer Image" + #DQUOTE$ + ")" + #LF$
       ;}
-    Case 6   ;{ Table
+    Case 6       ;{ Table
       Text$ = "## Table ##"  + #LF$
       Text$ + "| Syntax    | Description   | Column 3 |" + #LF$
       Text$ + "| :-------- | :-----------: | -------: |" + #LF$
@@ -12369,19 +13073,19 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "| Cell      | Long cell               ||" + #LF$
       Text$ + "| Paragraph | **Text**      | *Table*  |" + #LF$ 
       ;}
-    Case 7   ;{ Footnote
+    Case 7       ;{ Footnote
       Text$ = "## Footnotes ##" + #LF$ + #LF$
       Text$ + "Here's a simple footnote,[^1] and here's a longer one.[^bignote]" + #LF$
       Text$ + "[^1]: This is the **first** footnote." + #LF$
       Text$ + "[^bignote]: Here's one with multiple paragraphs and code."
       ;}
-    Case 8   ;{ TaskLists
+    Case 8       ;{ TaskLists
       Text$ = "## Task List ##" + #LF$
       Text$ + "- [ ] Write the press release"+ #LF$
       Text$ + "- [X] Update the website"+ #LF$
       Text$ + "- [ ] Contact the media"+ #LF$
       ;}
-    Case 9   ;{ Definition List
+    Case 9       ;{ Definition List
       Text$ = "## Definition List ##" + #LF$ + #LF$
       Text$ + "First Term" + #LF$
       Text$ + ": This is the definition of the first term." + #LF$
@@ -12389,12 +13093,12 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + ": This is one definition of the *second term*." + #LF$
       Text$ + ": This is another definition of the **second term**." + #LF$
       ;}
-    Case 10  ;{ Subscript / Superscript
+    Case 10      ;{ Subscript / Superscript
       Text$ = "## SubScript / SuperScript ##" + #LF$  + #LF$
       Text$ + "Chemical formula for water: H~2~O  " + #LF$
       Text$ + "The area is 10m^2^  " + #LF$
       ;}
-    Case 11  ;{ Fenced Code Block
+    Case 11      ;{ Fenced Code Block
       Text$ = "## Fenced Code Block ##" + #LF$
       Text$ + "```" + #LF$
       Text$ + "{" + #LF$
@@ -12404,7 +13108,7 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "}" + #LF$
       Text$ + "```" + #LF$
       ;}
-    Case 12  ;{ Emoji
+    Case 12      ;{ Emoji
       Text$ = "## Emoji ##" + #LF$  + #LF$
       Text$ + ":phone:  telephone receiver  " + #LF$ + #LF$
       Text$ + ":mail:  envelope  " + #LF$ + #LF$
@@ -12427,17 +13131,17 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + ":rolf:  rolling on the floor laughing  " + #LF$ + #LF$
       Text$ + ":eyes:  face with rolling eyes  " + #LF$
       ;}
-    Case 13  ;{ Abbreviations
+    Case 13      ;{ Abbreviations
       Text$ = "## Hint / Tooltip ##" + #LF$  + #LF$
       Text$ + "The HTML specification is maintained by the W3C." + #LF$
       Text$ + "*[HTML]: Hypertext Markup Language" + #LF$
       Text$ + "*[W3C]:  World Wide Web Consortium" + #LF$
       ;}
-    Case 14  ;{ Keystrokes
+    Case 14      ;{ Keystrokes
       Text$ = "## Keystrokes ##" + #LF$ + #LF$ 
       Text$ + "Copy text with [[Ctrl]] [[C]]." + #LF$
       ;}
-    Case 15  ;{ Code Block
+    Case 15      ;{ Code Block
       Text$ = "## Code Block ##" + #LF$
       Text$ + Space(4) + "{" + #LF$
       Text$ + Space(4) + "  " + #DQUOTE$ + "firstName" + #DQUOTE$ + ": " + #DQUOTE$ + "John"  + #DQUOTE$ + "," + #LF$
@@ -12445,14 +13149,14 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + Space(4) + "  " + #DQUOTE$ + "age"       + #DQUOTE$ + ": 25" + #LF$
       Text$ + Space(4) + "}" + #LF$
       ;}
-    Case 16  ;{ Glossary 
+    Case 16      ;{ Glossary 
       Text$ = "## Glossary ##" + #LF$ + #LF$
       Text$ + "[?Glossary] is a glossary term." + #LF$ + #LF$
       Text$ + "[?Glossary]: The glossary collects information about important terms used in your document." + #LF$ + #LF$
       Text$ + "-----------------------------------------" + #LF$ + #LF$
       Text$ + "{{Glossary}}" + #LF$
       ;}
-    Case 17  ;{ Notes
+    Case 17      ;{ Notes
       Text$ = "## Notes ##" + #LF$ + #LF$
       Text$ + "!!! info **Note**" + #LF$
       Text$ + "Lorem ipsum" + #LF$
@@ -12467,16 +13171,16 @@ CompilerIf #PB_Compiler_IsMainFile
       Text$ + "Lorem ipsum" + #LF$
       Text$ + "!!!" + #LF$ + #LF$
       ;}
-    Case 20  ;{ Reqester
+    Case 20      ;{ Reqester
       Text$ = "Just a **short** information text.  " + #LF$
       Text$ + "*Second requester line*" + #LF$
       Text$ + "![](Test.jpg)" + #LF$
       ;}
-    Case 21, 22 ;{ Reqester - UserImage 
+    Case 21, 22  ;{ Reqester - UserImage 
       Text$ = "Just a **short** information text.  " + #LF$
       Text$ + "*Second requester line*" + #LF$
       ;}
-    Default     ;{ Example text
+    Default      ;{ Example text
       Text$ = "## MarkDown ##" + #LF$ + #LF$
       Text$ + "> The gadget can display text formatted with the [MarkDown Syntax](https://www.markdownguide.org/basic-syntax/).  "+ #LF$
       Text$ + "> Markdown[^1] is a lightweight [>MarkUp] language that you can use to add formatting elements to plaintext text documents."+ #LF$ + #LF$
@@ -12486,8 +13190,44 @@ CompilerIf #PB_Compiler_IsMainFile
       ;Text$ = "## Überschrift 1" + #LF$ + "Lorem ipsum dolor sit amet, consectetuer adipiscing elit, sed diam nonummy nibh euismod tincidunt ut laoreet dolore magna aliquam erat volutpat. " + #LF$ + #LF$ + "## Tabelle" + #LF$ + "| S1 | S2 |" + #LF$ + "| :--- | :--- |" + #LF$ + "| A  |  B  |" + #LF$ + #LF$ + "## Überschrift 2" + #LF$ + "Lorem ipsum dolor sit amet, consectetuer adipiscing elit, sed diam nonummy nibh euismod tincidunt ut laoreet dolore magna aliquam erat volutpat."
       ;}
   EndSelect
+  
+  CompilerIf #Example = 19 ; Draw on a CanvasGadget
+    
+    CompilerIf MarkDown::#Enable_DrawCanvas
+    
+    Enumeration 
+      #Window
+      #Canvas
+    EndEnumeration
+    
+    If OpenWindow(#Window, 0, 0, 300, 280, "MarkDown - Example", #PB_Window_SystemMenu|#PB_Window_Tool|#PB_Window_ScreenCentered|#PB_Window_SizeGadget)
 
-  CompilerIf #Example < 20 
+      If CanvasGadget(#Canvas, 10, 10, 280, 260)
+        
+        MarkDown::LoadFonts("Arial", 12)
+      
+        If StartDrawing(CanvasOutput(#Canvas)) 
+    
+          DrawingMode(#PB_2DDrawing_Default)
+  
+          MarkDown::Text(20,  90, "This is a **MarkDown** example, "  + #LF$)
+          MarkDown::Text(20, 110, "drawn on a *CanvasGadget*. :wink:" + #LF$)
+          
+          StopDrawing()
+        EndIf
+        
+      EndIf  
+      
+      Repeat
+        Event = WaitWindowEvent()
+      Until Event = #PB_Event_CloseWindow
+  
+      CloseWindow(#Window)
+    EndIf 
+    
+    CompilerEndIf
+
+  CompilerElseIf #Example < 20     ; Markdown - Gadget
     
     ; Examples - Gadget
     CompilerIf MarkDown::#Enable_Gadget
@@ -12523,7 +13263,6 @@ CompilerIf #PB_Compiler_IsMainFile
         If MarkDown::Gadget(#MarkDown, 10, 10, 280, 275, MarkDown::#AutoResize)
           MarkDown::SetText(#MarkDown, Text$)
           MarkDown::SetFont(#MarkDown, "Arial", 10)
-          MarkDown::SetAttribute(#MarkDown, MarkDown::#ScrollBar, MarkDown::#ScrollBar_DragPoint)
         EndIf
         
         CompilerIf MarkDown::#Enable_Tooltips
@@ -12597,7 +13336,7 @@ CompilerIf #PB_Compiler_IsMainFile
       
     CompilerEndIf  
    
-  CompilerElseIf #Example < 30 
+  CompilerElseIf #Example < 30 ; Markdown - Requester
     
     #Image = 1
     
@@ -12636,12 +13375,12 @@ CompilerIf #PB_Compiler_IsMainFile
 
     CompilerEndIf
   
-  CompilerElse
+  CompilerElse                 ; Help Window
     
     Select #Example
       Case 30 
         CompilerIf MarkDown::#Enable_HelpWindow
-          MarkDown::Help(" Help", "Help.mdh", "Module", MarkDown::#AutoResize|MarkDown::#Style_DragPoint)
+          MarkDown::Help(" Help", "Help.mdh", "Module", MarkDown::#AutoResize)
         CompilerEndIf   
       Case 31
         CompilerIf MarkDown::#Enable_HelpWindow
@@ -12660,9 +13399,9 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf
 
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 104
-; FirstLine = 6
-; Folding = ACAAAAAAQBAAAAAgDAAAAAAAAAAA9OAAAAAAAQAAAAAAIAAAAAAAAAAgAAIGBAAAAAAAAAAAAAAAA+--EAAABAIgEAAAAAwAAAAAAAAAAAIBIAoAAAEAAAAAAAAAAARE9
-; Markers = 4860
+; CursorPosition = 9073
+; FirstLine = 522
+; Folding = QAAAAQAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAIAAAD-xTB1BAAAAASAYCCAA9AAAAAAAAAAAAAACAAAAA+
+; Markers = 5143
 ; EnableXP
 ; DPIAware

@@ -2,19 +2,15 @@
 ;/ =    ComboBoxExModule.pbi    =
 ;/ ==============================
 ;/
-;/ [ PB V5.7x / 64Bit / all OS / DPI ]
+;/ [ PB V5.7x - 6.0 / 64Bit / all OS / DPI ]
 ;/
-;/ © 2019 Thorsten1867 (12/2019)
+;/ © 2022 Thorsten1867 (12/2019)
 ;/
 
-; Last Update: 06.05.2020
+; Last Update: 18.05.2022
 ;
-; Bugfixes
-;
-; Added:   Attribute #ScrollBar [#ScrollBar_Default/#ScrollBar_Frame/#ScrollBar_DragPoint]
-; Added:   SetColor() -> [#ScrollBar_FrontColor/#ScrollBar_BackColor/#ScrollBar_BorderColor/#ScrollBar_ButtonColor/#ScrollBar_ThumbColor]
-;
-; Changed: ScrollBarGadget() replaced by drawing routine
+; - New Scrollbar
+; - New DPI-management
 ;
 
 ;{ ===== MIT License =====
@@ -93,31 +89,13 @@
 
 DeclareModule ComboBoxEx
   
-  #Version  = 20050600
+  #Version  = 22051800
   #ModuleEx = 19112600
   
   ;- ===========================================================================
   ;-   DeclareModule - Constants / Structures
   ;- =========================================================================== 
   
-  EnumerationBinary ;{ ScrollBar
-		#ScrollBar_Border            ; Draw gadget border
-		#ScrollBar_ButtonBorder      ; Draw button borders
-		#ScrollBar_ThumbBorder       ; Draw thumb border
-		#ScrollBar_DragLines         ; Draw drag lines
-	EndEnumeration ;}
-	
-	Enumeration 1     ;{ ScrollBar Buttons
-	  #ScrollBar_Up
-	  #ScrollBar_Down
-	  #ScrollBar_Left
-	  #ScrollBar_Right
-	EndEnumeration ;}
-	
-	#ScrollBar_Default   = #False
-	#ScrollBar_Frame     = #ScrollBar_Border
-	#ScrollBar_DragPoint = #ScrollBar_ButtonBorder|#ScrollBar_ThumbBorder|#ScrollBar_DragLines|#ScrollBar_Border 
-	
   ;{ _____ Constants _____
   #FirstItem = 0
   #LastItem  = -1
@@ -133,7 +111,9 @@ DeclareModule ComboBoxEx
     #Right
     #Center
     #MultiSelect
-    #UseExistingCanvas    
+    #UseExistingCanvas  
+    #Style_RoundThumb
+    #Style_Win11
   EndEnumeration ;}
   
   Enumeration 1     ;{ Attribute
@@ -168,10 +148,8 @@ DeclareModule ComboBoxEx
   
   CompilerIf Defined(ModuleEx, #PB_Module)
     
-    #Event_Cursor        = ModuleEx::#Event_Cursor
     #Event_Gadget        = ModuleEx::#Event_Gadget
     #Event_Theme         = ModuleEx::#Event_Theme
-    #Event_Timer         = ModuleEx::#Event_Timer
     
     #EventType_Focus     = ModuleEx::#EventType_Focus
     #EventType_LostFocus = ModuleEx::#EventType_LostFocus
@@ -181,9 +159,7 @@ DeclareModule ComboBoxEx
   CompilerElse
     
     Enumeration #PB_Event_FirstCustomValue
-      #Event_Cursor
       #Event_Gadget
-      #Event_Timer
     EndEnumeration
     
     Enumeration #PB_EventType_FirstCustomValue
@@ -254,22 +230,28 @@ Module ComboBoxEx
   
   #ArrowSize       = 5
   #ButtonWidth     = 18
-  #ScrollBarSize   = 16
   
+  #CursorTimer     = 1868
   #CursorFrequency = 600
   
   ;{ _____ ScrollBar _____
-  #ScrollBar_ButtonSize = 18
-  
-  #ScrollBar_Timer      = 100
-  #ScrollBar_TimerDelay = 3
-  
-  Enumeration 1     ; ScrollBar Buttons
-	  #ScrollBar_Forwards
-	  #ScrollBar_Backwards
-	  #ScrollBar_Focus
-	  #ScrollBar_Click
-	EndEnumeration
+	#ScrollBarSize   = 14
+	
+	#AutoScrollTimer = 1867
+	#Frequency       = 100  ; 100ms
+	#TimerDelay      = 3    ; 100ms * 3
+	
+	EnumerationBinary Flags   ;{ Direction
+	  #Vertical
+    #Horizontal
+	  #Scrollbar_Up
+	  #Scrollbar_Left
+	  #Scrollbar_Right
+	  #Scrollbar_Down
+	  #Forwards
+	  #Backwards
+	EndEnumeration ;}
+	
   ;}
   
   EnumerationBinary ;{ CheckBox status 
@@ -281,6 +263,7 @@ Module ComboBoxEx
   EnumerationBinary State
     #Focus
     #Edit
+    #Hover
     #Click
   EndEnumeration
   
@@ -299,114 +282,83 @@ Module ComboBoxEx
   ;- ============================================================================
   ;-   Module - Structures
   ;- ============================================================================
-  
-  Structure ScrollBar_Timer_Thread_Structure ;{ TimerThread\...
-    Num.i
-    Active.i
-    Exit.i
-  EndStructure ;}
-  Global TimerThread.ScrollBar_Timer_Thread_Structure  
-  
-  Structure ScrollBar_Button_Structure       ;{ ...\ScrollBar\Item()\Buttons\Forwards\...
-	  X.i
-	  Y.i
-	  Width.i
-	  Height.i
-	  State.i
-	EndStructure ;}
-	
-	Structure ScrollBar_Buttons_Structure      ;{ ...\ScrollBar\Item()\Buttons\...
-	  Backwards.ScrollBar_Button_Structure
-	  Forwards.ScrollBar_Button_Structure
-	EndStructure ;}
-	
-	Structure ScrollBar_Thumb_Structure        ;{ ...\ScrollBar\Item()\Thumb\...
-	  X.i
-	  Y.i
-	  Width.i
-	  Height.i
-	  Factor.f
-	  Size.i
-	  State.i
-	EndStructure ;}
-	
-  Structure ScrollBar_Area_Structure         ;{ ...\ScrollBar\Item()\Area\...
-	  X.i
-	  Y.i
-	  Width.i
-	  Height.i
-	EndStructure ;}
-  
-	Structure ScrollBar_Item_Structure         ;{ ...\ScrollBar\Item()\...
-    Type.i
-    
-    Pos.i
-	  minPos.i
-	  maxPos.i
-	  Ratio.f
-	  
-		Minimum.i
-		Maximum.i
-		PageLength.i
-		
-		X.i
-		Y.i
-		Width.i
-		Height.i
-		
-		Timer.i
-	  TimerDelay.i
-	  
-	  Cursor.i
-	  
-	  Disable.i
-		Hide.i
 
-		Thumb.ScrollBar_Thumb_Structure
-		Buttons.ScrollBar_Buttons_Structure
-		Area.ScrollBar_Area_Structure
-
+  Structure Area_Structure                ;{
+	  X.i
+	  Y.i
+	  Width.i
+	  Height.i
 	EndStructure ;}  
 	
-	Structure ScrollBar_Color_Structure        ;{ ...\ScrollBar\Color\...
-		Front.i
-		Back.i
-		Border.i
+	Structure Size_Structure                ;{
+	  Width.i
+	  Height.i
+	EndStructure ;}
+		
+	Structure ScrollBar_Thumb_Structure     ;{ ComboEx()\ListView\HScroll\Forwards\Thumb\...
+	  X.i
+	  Y.i
+	  Width.i
+	  Height.i
+	  State.i
+	EndStructure ;}
+	
+	Structure ScrollBar_Button_Structure    ;{ ComboEx()\ListView\HScroll\Buttons\...
+	  Width.i
+	  Height.i
+	  ; forward: right & down
+	  fX.i
+	  fY.i
+	  fState.i
+	  ; backward: left & up
+	  bX.i
+	  bY.i
+	  bState.i
+	EndStructure ;}
+	
+	Structure ScrollBar_Color_Structure     ;{ ComboEx()\ListView\HScroll\Color\...
+	  Front.i
+	  Back.i
 		Button.i
 		Focus.i
-		Gadget.i
-		ScrollBar.i
-		DisableFront.i
-		DisableBack.i
-	EndStructure  ;}
+		Hover.i
+		Arrow.i
+	EndStructure ;}
 	
-	Structure ScrollBar_Structure              ;{ ...\ScrollBar\...
-	  Num.i
+	Structure ScrollBar_Structure   ;{ ComboEx()\ListView\HScroll\...
+	  X.i
+	  Y.i
+	  Width.i
+	  Height.i  
 	  
-	  Adjust.i
-	  Radius.i
+	  Pos.i        ; Scrollbar position
+	  minPos.i     ; max. Position
+	  maxPos.i     ; min. Position
+	  Range.i      ; maxPos - minPos
+	  Ratio.f      ; PageLength / Maximum
+	  Factor.f     ; (ScrollbarArea - ThumbSize) / Range
+	  
+	  Focus.i      ; Scrollbar Focus
+	  CursorPos.i  ; Last Cursor Position
+	  Timer.i      ; AutoScroll Timer
+	  Delay.i      ; AutoScroll Delay
+	  
+	  Hide.i       ; Hide Scrollbar
+	  Minimum.i    ; min. Value
+	  Maximum.i    ; max. Value
+	  PageLength.i ; Visible Size
+	  
+	  Area.Area_Structure                  ; Area between scroll buttons
+	  Buttons.ScrollBar_Button_Structure  ; right & down
+	  Thumb.ScrollBar_Thumb_Structure      ; thumb position & size
+	EndStructure ;}
 
-	  Flags.i
-	  
+	Structure ScrollBars_Structure  ;{ ComboEx()\ListView\ScrollBar\...
 	  Color.ScrollBar_Color_Structure
-
-    Map Item.ScrollBar_Item_Structure()
-  EndStructure ;}
-  
-  
-  Structure ListView_Structure               ;{ ListView\...
-    Window.i
-    Gadget.i
-  EndStructure ;}
-  Global ListView.ListView_Structure
-  
-  
-  Structure Cursor_Thread_Structure          ;{ Thread\...
-    Num.i
-    Active.i
-    Exit.i
-  EndStructure ;}  
-  Global Thread.Cursor_Thread_Structure
+	  Size.i       ; Scrollbar width (vertical) / height (horizontal)
+	  TimerDelay.i ; Autoscroll Delay
+	  Flags.i      ; Flag: #Vertical | #Horizontal
+	EndStructure ;}
 
   Structure CheckBox_Structure               ;{ ComboEx()\ListView\Item()\CheckBox()\...
     X.i
@@ -446,7 +398,9 @@ Module ComboBoxEx
     Focus.i
     State.i
     Hide.i
-    ScrollBar.ScrollBar_Structure
+    Area.Area_Structure ; available area
+    ScrollBar.ScrollBars_Structure
+    VScroll.ScrollBar_Structure
     Map  Index.i() 
     List Item.ListView_Item_Structure()
   EndStructure ;}
@@ -551,6 +505,8 @@ Module ComboBoxEx
   EndStructure ;}
   Global NewMap ComboEx.ComboEx_Structure()
   
+  Global Mutex.i = CreateMutex()
+	
   
   ;- ============================================================================
   ;-   Module - Internal
@@ -636,30 +592,195 @@ Module ComboBoxEx
     
   CompilerEndIf
   
-  
-  Procedure ListViewWindow_()
-    
-    ListView\Window = OpenWindow(#PB_Any, 0, 0, 0, 0, "", #PB_Window_BorderLess|#PB_Window_Invisible) 
-    If ListView\Window
-      ListView\Gadget = CanvasGadget(#PB_Any, 0, 0, 0, 0)
-      StickyWindow(ListView\Window, #True)
-    EndIf  
-
-  EndProcedure
-  
-  
-	Procedure.f dpiX(Num.i)
-	  If Num > 0  
-	    ProcedureReturn DesktopScaledX(Num)
-	  EndIf   
+  Procedure.i dpiX(Num.i)
+	  ProcedureReturn DesktopScaledX(Num) 
 	EndProcedure
 
-	Procedure.f dpiY(Num.i)
-	  If Num > 0  
-	    ProcedureReturn DesktopScaledY(Num)
-	  EndIf  
+	Procedure.i dpiY(Num.i)
+	  ProcedureReturn DesktopScaledY(Num)
 	EndProcedure
 	
+	Procedure   TextHeight_(Text.s)
+	  ProcedureReturn DesktopUnscaledY(TextHeight(Text))
+	EndProcedure
+	
+	Procedure   TextWidth_(Text.s)
+	  ProcedureReturn DesktopUnscaledX(TextWidth(Text))
+	EndProcedure  
+	
+	Procedure   DrawText_(X.i, Y.i, Text.s, FrontColor.i=#PB_Default, BackColor.i=#PB_Default)
+	  Define.i PosX
+	  
+	  If FrontColor = #PB_Default
+	    PosX = DrawText(dpiX(X), dpiY(Y), Text)
+	    ProcedureReturn DesktopUnscaledX(PosX)
+	  ElseIf BackColor = #PB_Default
+	    PosX = DrawText(dpiX(X), dpiY(Y), Text, FrontColor)
+	    ProcedureReturn DesktopUnscaledX(PosX)
+	  Else
+	    PosX = DrawText(dpiX(X), dpiY(Y), Text, FrontColor, BackColor)
+	    ProcedureReturn DesktopUnscaledX(PosX)
+	  EndIf 
+	  
+	EndProcedure  
+	
+	Procedure   DrawImage_(ImageID.i, X.i, Y.i, Width.i=#PB_Default, Height.i=#PB_Default)
+	  
+	  If Height = #PB_Default Or Width = #PB_Default
+	    DrawImage(ImageID, dpiX(X), dpiY(Y))
+	  Else 
+  	  DrawImage(ImageID, dpiX(X), dpiY(Y), dpiX(Width), dpiY(Height))
+  	EndIf
+	
+	EndProcedure
+	
+	Procedure   Line_(X.i, Y.i, Width.i, Height.i, Color.i=#PB_Default)
+	  If Color.i=#PB_Default
+	    Line(dpiX(X), dpiY(Y), dpiX(Width), dpiY(Height))
+	  Else
+	    Line(dpiX(X), dpiY(Y), dpiX(Width), dpiY(Height), Color)
+	  EndIf   
+	EndProcedure
+	
+	Procedure   LineXY_(x1.i, y1.i, x2.i, y2.i, Color.i=#PB_Default)
+	  If Color.i=#PB_Default
+	    LineXY(dpiX(x1), dpiY(y1), dpiX(x2), dpiY(y2))
+	  Else
+	    LineXY(dpiX(x1), dpiY(y1), dpiX(x2), dpiY(y2), Color)
+	  EndIf   
+	EndProcedure
+	
+	
+	Procedure   ClipOutput_(X, Y, Width, Height)
+    CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+      ClipOutput(dpiX(X), dpiY(Y), dpiX(Width), dpiY(Height)) 
+    CompilerEndIf
+  EndProcedure
+  
+  Procedure   UnclipOutput_()
+    CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
+      UnclipOutput() 
+    CompilerEndIf
+  EndProcedure
+  
+  ;- Scrollbar
+  
+  Procedure   CalcScrollBar_()
+	  Define.i Width, Height, ScrollbarSize
+	  
+	  ; current canvas ScrollbarSize
+	  Width         = GadgetWidth(ComboEx()\ListView\Num)
+	  Height        = GadgetHeight(ComboEx()\ListView\Num)
+	  ScrollbarSize = ComboEx()\ListView\Scrollbar\Size
+	  
+	  ;{ Calc available canvas area
+	  If ComboEx()\ListView\VScroll\Hide
+	    ComboEx()\ListView\Area\Width  = Width  - 2
+      ComboEx()\ListView\Area\Height = Height - 2
+    Else
+      ComboEx()\ListView\Area\Width  = Width  - ScrollbarSize - 2
+      ComboEx()\ListView\Area\Height = Height - 2
+    EndIf ;}
+    
+    ;{ Calc scrollbar size
+    ComboEx()\ListView\VScroll\X        = Width - ScrollbarSize  - 1
+    ComboEx()\ListView\VScroll\Y        = 1
+    ComboEx()\ListView\VScroll\Width    = ScrollbarSize
+    ComboEx()\ListView\VScroll\Height   = Height - 2
+    ;} 
+    
+    ;{ Calc scroll buttons
+    ComboEx()\ListView\VScroll\Buttons\Width  = ScrollbarSize
+    ComboEx()\ListView\VScroll\Buttons\Height = ScrollbarSize
+    ; forward: down
+    ComboEx()\ListView\VScroll\Buttons\fX     = ComboEx()\ListView\VScroll\X
+    ComboEx()\ListView\VScroll\Buttons\fY     = ComboEx()\ListView\VScroll\Y + ComboEx()\ListView\VScroll\Height - ScrollbarSize
+    ; backward: up
+    ComboEx()\ListView\VScroll\Buttons\bX     = ComboEx()\ListView\VScroll\X
+    ComboEx()\ListView\VScroll\Buttons\bY     = ComboEx()\ListView\VScroll\Y
+    ;}
+
+    ;{ Calc scroll area between buttons
+    ComboEx()\ListView\VScroll\Area\X      = ComboEx()\ListView\VScroll\X
+		ComboEx()\ListView\VScroll\Area\Y      = ComboEx()\ListView\VScroll\Y + ScrollbarSize 
+		ComboEx()\ListView\VScroll\Area\Width  = ScrollbarSize
+		ComboEx()\ListView\VScroll\Area\Height = ComboEx()\ListView\VScroll\Height - (ScrollbarSize * 2)
+    ;}
+
+    ;{ Calc thumb size
+    ComboEx()\ListView\VScroll\Thumb\X      = ComboEx()\ListView\VScroll\Area\X
+	  ComboEx()\ListView\VScroll\Thumb\Width  = ScrollbarSize
+	  ComboEx()\ListView\VScroll\Thumb\Height = Round(ComboEx()\ListView\VScroll\Area\Height * ComboEx()\ListView\VScroll\Ratio, #PB_Round_Nearest) 
+	  ComboEx()\ListView\VScroll\Factor       = (ComboEx()\ListView\VScroll\Area\Height - ComboEx()\ListView\VScroll\Thumb\Height) /  ComboEx()\ListView\VScroll\Range
+	  
+	  If ComboEx()\ListView\Scrollbar\Flags & #Style_Win11
+	    ComboEx()\ListView\VScroll\Thumb\Width - 8
+	    ComboEx()\ListView\VScroll\Thumb\X     + 4 
+	  Else
+	    ComboEx()\ListView\VScroll\Thumb\Width - 4
+	    ComboEx()\ListView\VScroll\Thumb\X     + 2 
+	  EndIf 
+    ;}
+    
+	EndProcedure
+	
+	Procedure   CalcScrollRange_()
+
+    If ComboEx()\ListView\VScroll\PageLength
+      ComboEx()\ListView\VScroll\Pos    = ComboEx()\ListView\VScroll\Minimum
+		  ComboEx()\ListView\VScroll\minPos = ComboEx()\ListView\VScroll\Minimum
+		  ComboEx()\ListView\VScroll\maxPos = ComboEx()\ListView\VScroll\Maximum - ComboEx()\ListView\VScroll\PageLength + 1
+		  ComboEx()\ListView\VScroll\Ratio  = ComboEx()\ListView\VScroll\PageLength / ComboEx()\ListView\VScroll\Maximum
+		  ComboEx()\ListView\VScroll\Range  = ComboEx()\ListView\VScroll\maxPos - ComboEx()\ListView\VScroll\minPos
+		EndIf
+
+    CalcScrollBar_()
+
+  	ComboEx()\ListView\VScroll\Thumb\Y = ComboEx()\ListView\VScroll\Area\Y
+    
+	EndProcedure
+	
+	Procedure.i GetThumbPosY_(Y.i)   ; Vertical Scrollbar
+	  Define.i Delta, Offset
+
+	  Delta = Y - ComboEx()\ListView\VScroll\CursorPos
+	  ComboEx()\ListView\VScroll\Thumb\Y + Delta 
+	  
+	  If ComboEx()\ListView\VScroll\Thumb\Y < ComboEx()\ListView\VScroll\Area\Y
+	    ComboEx()\ListView\VScroll\Thumb\Y =  ComboEx()\ListView\VScroll\Area\Y
+	  EndIf 
+	  
+	  If ComboEx()\ListView\VScroll\Thumb\Y + ComboEx()\ListView\VScroll\Thumb\Height >  ComboEx()\ListView\VScroll\Area\Y + ComboEx()\ListView\VScroll\Area\Height
+	    ComboEx()\ListView\VScroll\Thumb\Y =  ComboEx()\ListView\VScroll\Area\Y + ComboEx()\ListView\VScroll\Area\Height - ComboEx()\ListView\VScroll\Thumb\Height
+	  EndIf
+	  
+	  Offset = ComboEx()\ListView\VScroll\Thumb\Y - ComboEx()\ListView\VScroll\Area\Y
+	  ComboEx()\ListView\VScroll\Pos = Round(Offset / ComboEx()\ListView\VScroll\Factor, #PB_Round_Nearest) + ComboEx()\ListView\VScroll\minPos
+	  
+	  If ComboEx()\ListView\VScroll\Pos > ComboEx()\ListView\VScroll\maxPos : ComboEx()\ListView\VScroll\Pos = ComboEx()\ListView\VScroll\maxPos : EndIf
+  	If ComboEx()\ListView\VScroll\Pos < ComboEx()\ListView\VScroll\minPos : ComboEx()\ListView\VScroll\Pos = ComboEx()\ListView\VScroll\minPos : EndIf
+	  
+	  ProcedureReturn ComboEx()\ListView\VScroll\Pos
+	EndProcedure  
+	
+	Procedure   SetThumbPosY_(Pos.i) ; Vertical Scrollbar
+	  Define.i  Offset
+	  
+	  ComboEx()\ListView\VScroll\Pos = Pos
+
+	  If ComboEx()\ListView\VScroll\Pos < ComboEx()\ListView\VScroll\minPos : ComboEx()\ListView\VScroll\Pos = ComboEx()\ListView\VScroll\minPos : EndIf
+	  If ComboEx()\ListView\VScroll\Pos > ComboEx()\ListView\VScroll\maxPos : ComboEx()\ListView\VScroll\Pos = ComboEx()\ListView\VScroll\maxPos : EndIf
+	  
+    Offset = Round((ComboEx()\ListView\VScroll\Pos - ComboEx()\ListView\VScroll\minPos) * ComboEx()\ListView\VScroll\Factor, #PB_Round_Nearest)
+    ComboEx()\ListView\VScroll\Thumb\Y = ComboEx()\ListView\VScroll\Area\Y + Offset
+
+	EndProcedure
+	
+	
+  ;- ============================================================================
+  ;-   Module - Edit
+  ;- ============================================================================   
+  
 	
   Procedure.s DeleteStringPart_(String.s, Position.i, Length.i=1) ; Delete string part at Position (with Length)
     
@@ -762,7 +883,9 @@ Module ComboBoxEx
   Procedure.i CursorPos_(CursorX.i)
     Define.s Text
     Define.i p, Pos.i
-
+    
+    CursorX = DesktopUnscaledX(CursorX)
+    
     If CursorX >= ComboEx()\OffSetX
       
       Text = ComboEx()\Text
@@ -771,7 +894,7 @@ Module ComboBoxEx
         DrawingFont(ComboEx()\FontID)
         For p=1 To Len(Text)
           Pos = p
-          If ComboEx()\OffSetX + TextWidth(Left(Text, p)) >= CursorX
+          If ComboEx()\OffSetX + TextWidth_(Left(Text, p)) >= CursorX
             Break
           EndIf
         Next
@@ -792,7 +915,7 @@ Module ComboBoxEx
     Text = ComboEx()\Text
     
     If CursorPos > 0
-      ProcedureReturn TextWidth(Left(Text, CursorPos))
+      ProcedureReturn TextWidth_(Left(Text, CursorPos))
     Else
       ProcedureReturn 0
     EndIf
@@ -826,54 +949,17 @@ Module ComboBoxEx
   
   ;- __________ ScrollBar __________
   
-  Procedure.i CalcScrollBarThumb_()
-	  Define.i Size, Range, HRange
-	  
-	  If FindMapElement(ComboEx()\ListView\ScrollBar\Item(), "VScroll")
-	    
-  	  ComboEx()\ListView\ScrollBar\Item()\minPos   = ComboEx()\ListView\ScrollBar\Item()\Minimum
-  	  ComboEx()\ListView\ScrollBar\Item()\maxPos   = ComboEx()\ListView\ScrollBar\Item()\Maximum - ComboEx()\ListView\ScrollBar\Item()\PageLength + 1
-  	  ComboEx()\ListView\ScrollBar\Item()\Ratio    = ComboEx()\ListView\ScrollBar\Item()\PageLength / ComboEx()\ListView\ScrollBar\Item()\Maximum
-  	  ComboEx()\ListView\ScrollBar\Item()\Pos      = ComboEx()\ListView\ScrollBar\Item()\Minimum
-  	  
-  	  Range = ComboEx()\ListView\ScrollBar\Item()\maxPos - ComboEx()\ListView\ScrollBar\Item()\minPos
-  	  
-	    ComboEx()\ListView\ScrollBar\Item()\Area\X       = ComboEx()\ListView\ScrollBar\Item()\X
-  	  ComboEx()\ListView\ScrollBar\Item()\Area\Y       = ComboEx()\ListView\ScrollBar\Item()\Y + dpiY(#ScrollBar_ButtonSize) + dpiY(1)
-  	  ComboEx()\ListView\ScrollBar\Item()\Area\Width   = ComboEx()\ListView\ScrollBar\Item()\Width
-  	  ComboEx()\ListView\ScrollBar\Item()\Area\Height  = ComboEx()\ListView\ScrollBar\Item()\Height - dpiY(ComboEx()\ListView\ScrollBar\Adjust) - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(2)
-  	  ComboEx()\ListView\ScrollBar\Item()\Thumb\Y      = ComboEx()\ListView\ScrollBar\Item()\Area\Y
-  	  ComboEx()\ListView\ScrollBar\Item()\Thumb\Size   = Round(ComboEx()\ListView\ScrollBar\Item()\Area\Height * ComboEx()\ListView\ScrollBar\Item()\Ratio, #PB_Round_Down)
-  	  ComboEx()\ListView\ScrollBar\Item()\Thumb\Factor = (ComboEx()\ListView\ScrollBar\Item()\Area\Height - ComboEx()\ListView\ScrollBar\Item()\Thumb\Size) / Range
-   	  
-	  EndIf   
-
-	EndProcedure
-	
-	Procedure.i GetSteps_(Cursor.i)
-	  Define.i Steps
-	  
-	  Steps = (Cursor - ComboEx()\ListView\ScrollBar\Item()\Cursor) / ComboEx()\ListView\ScrollBar\Item()\Thumb\Factor
-	  
-	  If Steps = 0
-	    If Cursor < ComboEx()\ListView\ScrollBar\Item()\Cursor
-	      Steps = -1
-	    Else
-	      Steps = 1
-	    EndIf
-	  EndIf
-	  
-	  ProcedureReturn Steps
-	EndProcedure
-	
-  ;- __________ Drawing __________
+  
+  ;- ============================================================================
+  ;-   Module - Drawing
+  ;- ============================================================================   
   
   Procedure.f GetOffsetX_(Text.s, Width.i, OffsetX.i) 
     
     If ComboEx()\Flags & #Center
-      ProcedureReturn (Width - TextWidth(Text)) / 2
+      ProcedureReturn (Width - TextWidth_(Text)) / 2
     ElseIf ComboEx()\Flags & #Right
-      ProcedureReturn Width - TextWidth(Text) - OffsetX
+      ProcedureReturn Width - TextWidth_(Text) - OffsetX
     Else
       ProcedureReturn OffsetX
     EndIf
@@ -889,17 +975,285 @@ Module ComboBoxEx
     
     ProcedureReturn RGB((R1*Blend) + (R2 * (1-Blend)), (G1*Blend) + (G2 * (1-Blend)), (B1*Blend) + (B2 * (1-Blend)))
   EndProcedure
+  
+  
+	Procedure   Box_(X.i, Y.i, Width.i, Height.i, Color.i, Round.i=#False)
+	  
+	  If Round
+	    RoundBox(dpiX(X), dpiY(Y), dpiX(Width), dpiY(Height), dpiX(Round), dpiY(Round), Color)  
+  	Else
+  		Box(dpiX(X), dpiY(Y), dpiX(Width), dpiY(Height), Color)
+  	EndIf
+  	
+  EndProcedure	
+  
+  
+  Procedure   DrawArrow_(Color.i, Direction.i)
+	  Define.i X, Y, Width, Height, aWidth, aHeight, aColor
+	  
+	  aColor= RGBA(Red(Color), Green(Color), Blue(Color), 255)
+	  
+	  Width   = ComboEx()\ListView\VScroll\Buttons\Width
+	  Height  = ComboEx()\ListView\VScroll\Buttons\Height
+	  
+	  Select Direction ;{ Position & Size
+	    Case #Scrollbar_Down
+	      X       = ComboEx()\ListView\VScroll\Buttons\fX
+	      Y       = ComboEx()\ListView\VScroll\Buttons\fY
+	    Case #Scrollbar_Up
+	      X       = ComboEx()\ListView\VScroll\Buttons\bX
+	      Y       = ComboEx()\ListView\VScroll\Buttons\bY
+	  EndSelect ;}
+	  
+	  If ComboEx()\ListView\Scrollbar\Flags & #Style_Win11 ;{ Arrow Sizre
+	    
+	    If Direction = #Scrollbar_Down Or Direction = #Scrollbar_Up 
+	      aWidth  = 10
+    	  aHeight =  7
+	    Else
+	      aWidth  =  7
+        aHeight = 10  
+	    EndIf   
+	    
+	    If ComboEx()\ListView\VScroll\Buttons\bState = #Click
+	      aWidth  - 2
+        aHeight - 2 
+	    EndIf 
+	    
+	    If ComboEx()\ListView\VScroll\Buttons\fState= #Click
+	      aWidth  - 2
+        aHeight - 2 
+	    EndIf
+	    
+	  Else
+	    aWidth  = 8
+	    aHeight = 4
+      ;}
+	  EndIf  
+	  
+	  X + ((Width  - aWidth) / 2)
+    Y + ((Height - aHeight) / 2)
+	  
+	  If StartVectorDrawing(CanvasVectorOutput(ComboEx()\ListView\Num))
 
-  Procedure   Box_(X.i, Y.i, Width.i, Height.i, Color.i)
+      If ComboEx()\ListView\Scrollbar\Flags & #Style_Win11 ;{ solid
+
+        Select Direction
+          Case #Scrollbar_Up
+            MovePathCursor(dpiX(X), dpiY(Y + aHeight))
+            AddPathLine(dpiX(X + aWidth / 2), dpiY(Y))
+            AddPathLine(dpiX(X + aWidth), dpiY(Y + aHeight))
+            ClosePath()
+          Case #Scrollbar_Down 
+            MovePathCursor(dpiX(X), dpiY(Y))
+            AddPathLine(dpiX(X + aWidth / 2), dpiY(Y + aHeight))
+            AddPathLine(dpiX(X + aWidth), dpiY(Y))
+            ClosePath()
+        EndSelect
+        
+        VectorSourceColor(aColor)
+        FillPath()
+        StrokePath(1)
+        ;}
+      Else                               ;{ /\
+
+        Select Direction
+          Case #Scrollbar_Up
+            MovePathCursor(dpiX(X), dpiY(Y + aHeight))
+            AddPathLine(dpiX(X + aWidth / 2), dpiY(Y))
+            AddPathLine(dpiX(X + aWidth), dpiY(Y + aHeight))
+          Case #Scrollbar_Down 
+            MovePathCursor(dpiX(X), dpiY(Y))
+            AddPathLine(dpiX(X + aWidth / 2), dpiY(Y + aHeight))
+            AddPathLine(dpiX(X + aWidth), dpiY(Y))
+        EndSelect
+        
+        VectorSourceColor(aColor)
+        StrokePath(2, #PB_Path_RoundCorner)
+        ;}
+      EndIf
+      
+	    StopVectorDrawing()
+	  EndIf
+	  
+	EndProcedure
+  
+	Procedure   DrawScrollButton_(Type.i)
+	  Define.i X, Y, Width, Height
+	  Define.i ArrowColor, ButtonColor, Direction, State
+	  
+    If ComboEx()\ListView\VScroll\Hide : ProcedureReturn #False : EndIf
     
-    If ComboEx()\Radius
-      Box(X, Y, Width, Height, ComboEx()\Color\Gadget)
-			RoundBox(X, Y, Width, Height, ComboEx()\Radius, ComboEx()\Radius, Color)
-		Else
-			Box(X, Y, Width, Height, Color)
+    Width  = ComboEx()\ListView\VScroll\Buttons\Width
+    Height = ComboEx()\ListView\VScroll\Buttons\Height
+    
+    Select Type
+      Case #Forwards
+        X     = ComboEx()\ListView\VScroll\Buttons\fX
+        Y     = ComboEx()\ListView\VScroll\Buttons\fY
+        State = ComboEx()\ListView\VScroll\Buttons\fState
+        Direction = #Scrollbar_Down
+      Case #Backwards
+        X     = ComboEx()\ListView\VScroll\Buttons\bX
+        Y     = ComboEx()\ListView\VScroll\Buttons\bY
+        State = ComboEx()\ListView\VScroll\Buttons\bState
+        Direction = #Scrollbar_Up
+        
+    EndSelect
+    
+    ;{ ----- Colors -----
+    If ComboEx()\ListView\Scrollbar\Flags & #Style_Win11
+      
+      ButtonColor = ComboEx()\ListView\Scrollbar\Color\Back
+      
+      Select State
+	      Case #Focus
+	        ArrowColor = ComboEx()\ListView\Scrollbar\Color\Focus
+	      Case #Hover
+	        ArrowColor = ComboEx()\ListView\Scrollbar\Color\Hover
+	      Case #Click  
+	        ArrowColor = ComboEx()\ListView\Scrollbar\Color\Arrow
+	      Default
+	        ArrowColor = #PB_Default
+	    EndSelect    
+
+    Else
+      
+      Select State
+	      Case #Hover
+	        ButtonColor  = BlendColor_(ComboEx()\ListView\Scrollbar\Color\Focus, ComboEx()\ListView\Scrollbar\Color\Button, 10)
+	      Case #Click
+	        ButtonColor  = BlendColor_(ComboEx()\ListView\Scrollbar\Color\Focus, ComboEx()\ListView\Scrollbar\Color\Button, 20)
+	      Default
+	        ButtonColor  = ComboEx()\ListView\Scrollbar\Color\Button
+	    EndSelect  
+	    
+	    ArrowColor = ComboEx()\ListView\Scrollbar\Color\Arrow
+	    
+	  EndIf 
+	  ;}
+    
+	  ;{ ----- Draw button -----
+	  If StartDrawing(CanvasOutput(ComboEx()\ListView\Num))
+	    
+	    DrawingMode(#PB_2DDrawing_Default)
+
+	    Box_(X, Y, Width, Height, ButtonColor) 
+	    StopDrawing()
+	  EndIf ;}
+	  
+	  ;{ ----- Draw Arrows -----
+	  If ArrowColor <> #PB_Default
+	    DrawArrow_(ArrowColor, Direction)
+	  EndIf ;} 
+
+	EndProcedure
+	
+	Procedure   DrawThumb_()
+	  Define.i BackColor, ThumbColor, Round
+	  Define.i OffsetPos, OffsetSize
+	  
+	  ; ----- Thumb cursor state -----
+
+    If ComboEx()\ListView\VScroll\Hide : ProcedureReturn #False : EndIf
+    
+    ;{ ----- Colors -----
+	  If ComboEx()\ListView\Scrollbar\Flags & #Style_Win11 
+	    
+	    BackColor = ComboEx()\ListView\Scrollbar\Color\Back
+	    
+	    Select ComboEx()\ListView\VScroll\Thumb\State
+	      Case #Focus
+	        ThumbColor = ComboEx()\ListView\Scrollbar\Color\Focus
+	      Case #Hover
+	        ThumbColor = ComboEx()\ListView\Scrollbar\Color\Hover
+	      Case #Click
+	        ThumbColor = ComboEx()\ListView\Scrollbar\Color\Hover
+	      Default
+	        ThumbColor = ComboEx()\ListView\Scrollbar\Color\Focus
+	    EndSelect 
+	    
+	    If ComboEx()\ListView\VScroll\Thumb\State ;{ Thumb size
+	      Round = 4
+	    Else
+	      OffsetPos  = 2
+	      OffsetSize = 4
+	      Round = 0
+  	    ;}
+	    EndIf
+
+	  Else
+	    
+	    BackColor = ComboEx()\ListView\Scrollbar\Color\Back
+	    
+	    Select ComboEx()\ListView\VScroll\Thumb\State
+	      Case #Focus
+	        ThumbColor = BlendColor_(ComboEx()\ListView\Scrollbar\Color\Focus, ComboEx()\ListView\Scrollbar\Color\Front, 10)
+	      Case #Hover
+	        ThumbColor = BlendColor_(ComboEx()\ListView\Scrollbar\Color\Focus, ComboEx()\ListView\Scrollbar\Color\Hover, 10)
+	      Case #Click
+	        ThumbColor = BlendColor_(ComboEx()\ListView\Scrollbar\Color\Focus, ComboEx()\ListView\Scrollbar\Color\Front, 20)
+	      Default
+	        ThumbColor = ComboEx()\ListView\Scrollbar\Color\Front
+	    EndSelect 
+	    
+	    If ComboEx()\ListView\Scrollbar\Flags & #Style_RoundThumb
+	      Round = 4
+	    Else
+	      Round = #False
+	    EndIf
+	    
+	  EndIf ;}  
+	  
+	  If StartDrawing(CanvasOutput(ComboEx()\ListView\Num))
+	    
+	    DrawingMode(#PB_2DDrawing_Default)
+
+  	  Box_(ComboEx()\ListView\VScroll\Area\X, ComboEx()\ListView\VScroll\Area\Y, ComboEx()\ListView\VScroll\Area\Width, ComboEx()\ListView\VScroll\Area\Height, BackColor)
+  	  Box_(ComboEx()\ListView\VScroll\Thumb\X + OffsetPos, ComboEx()\ListView\VScroll\Thumb\Y, ComboEx()\ListView\VScroll\Thumb\Width - OffsetSize, ComboEx()\ListView\VScroll\Thumb\Height, ThumbColor, Round)
+
+  	  StopDrawing()
+	  EndIf  
+  	
+	EndProcedure  
+	
+	Procedure   DrawScrollBar_(ScrollBar.i=#False)
+		Define.i OffsetX, OffsetY
+		Define.i FrontColor, BackColor, BorderColor, ScrollBorderColor
+		
+		CalcScrollBar_()
+
+  	; ----- thumb position -----
+	  OffsetY = Round((ComboEx()\ListView\VScroll\Pos - ComboEx()\ListView\VScroll\minPos) * ComboEx()\ListView\VScroll\Factor, #PB_Round_Nearest)
+	  ComboEx()\ListView\VScroll\Thumb\Y = ComboEx()\ListView\VScroll\Area\Y + OffsetY
+		
+		If StartDrawing(CanvasOutput(ComboEx()\ListView\Num)) ; Draw scrollbar background
+      
+		  DrawingMode(#PB_2DDrawing_Default)
+
+	    If ScrollBar = #Vertical
+		    If ComboEx()\ListView\VScroll\Hide = #False
+		      Box_(ComboEx()\ListView\VScroll\X, ComboEx()\ListView\VScroll\Y, ComboEx()\ListView\VScroll\Width, GadgetHeight(ComboEx()\ListView\Num) - 2, ComboEx()\Color\Gadget)
+		    EndIf
+		  EndIf
+
+		  StopDrawing()
 		EndIf
 		
-	EndProcedure  
+		Select ScrollBar
+  		Case #Vertical
+		    DrawScrollButton_(#Forwards)
+    		DrawScrollButton_(#Backwards)
+    		DrawThumb_()
+		  Case #Scrollbar_Up
+		    DrawThumb_()
+		    DrawScrollButton_(#Backwards)
+		  Case #Scrollbar_Down
+		    DrawThumb_()
+		    DrawScrollButton_(#Forwards)
+		EndSelect    
+
+	EndProcedure
 	
 	
 	Procedure   Arrow_(X.i, Y.i, Width.i, Height.i, Color.i)
@@ -910,7 +1264,7 @@ Module ComboBoxEx
 
 	    If IsImage(ComboEx()\Button\Image\Num)
 	      
-	      imgHeight = ComboEx()\Button\Height - dpiY(4)
+	      imgHeight = ComboEx()\Button\Height - 4
 	      
 	      If ComboEx()\Button\Image\Height <= imgHeight
           imgWidth  = ComboEx()\Button\Image\Height
@@ -923,25 +1277,25 @@ Module ComboBoxEx
         X + ((ComboEx()\Button\Width  - imgWidth) / 2)
         Y + ((ComboEx()\Button\Height - imgHeight) / 2)
         
-	      MovePathCursor(X, Y)
-        DrawVectorImage(ImageID(ComboEx()\Button\Image\Num), 255, imgWidth, imgHeight)
+	      MovePathCursor(dpiX(X), dpiY(Y))
+        DrawVectorImage(ImageID(ComboEx()\Button\Image\Num), 255, dpiX(imgWidth), dpiY(imgHeight))
 
 	    Else
 	      
 	      aColor  = RGBA(Red(Color), Green(Color), Blue(Color), 255)
 	      
-  	    aWidth  = dpiX(8)
-        aHeight = dpiX(4)
+  	    aWidth  = 8
+        aHeight = 4
         
         X + ((Width  - aWidth) / 2)
         Y + ((Height - aHeight) / 2)
         
-        MovePathCursor(X, Y)
+        MovePathCursor(dpiX(X), dpiY(Y))
   	    
-        AddPathLine(X + dpiX(4), Y + aHeight)
-        AddPathLine(X + aWidth, Y)
+        AddPathLine(dpiX(X + 4), dpiY(Y + aHeight))
+        AddPathLine(dpiX(X + aWidth), dpiY(Y))
         VectorSourceColor(aColor)
-        StrokePath(1, #PB_Path_RoundCorner)
+        StrokePath(dpiX(1), #PB_Path_RoundCorner)
         
       EndIf
     
@@ -953,18 +1307,18 @@ Module ComboBoxEx
 	Procedure   CorrectButton_(X.i, Y.i, Radius.i, Height.i, Color.i, BackColor.i)
 	  
     DrawingMode(#PB_2DDrawing_Default)
-    Box(X, Y, Radius, Height, BackColor)
+    Box_(X, Y, Radius, Height, BackColor)
     
-    Line(X, Y, Radius, 1, Color)
-    Line(X, Y, 1, Height, Color)
-    Line(X, Y + Height - dpiY(1), Radius, 1, Color)
+    Line_(X, Y, Radius, 1, Color)
+    Line_(X, Y, 1, Height, Color)
+    Line_(X, Y + Height - 1, Radius, 1, Color)
 
   EndProcedure	
 	
   Procedure   Button_()
     Define.i X, Y
 
-    ComboEx()\Button\X = dpiX(GadgetWidth(ComboEx()\CanvasNum) - #ButtonWidth)
+    ComboEx()\Button\X = GadgetWidth(ComboEx()\CanvasNum) - #ButtonWidth
     
     DrawingMode(#PB_2DDrawing_Default)
     If ComboEx()\Button\State & #Click
@@ -978,7 +1332,7 @@ Module ComboBoxEx
       Box_(ComboEx()\Button\X, 0, ComboEx()\Button\Width, ComboEx()\Button\Height, ComboEx()\Color\FocusBack)
       If ComboEx()\Radius : CorrectButton_(ComboEx()\Button\X, 0, ComboEx()\Radius, ComboEx()\Button\Height, ComboEx()\Color\FocusBack, BlendColor_(ComboEx()\Color\FocusBack, ComboEx()\Color\Back, 10)) : EndIf
     Else
-      Box_(ComboEx()\Button\X, dpiY(1), ComboEx()\Button\Width - dpiX(1), ComboEx()\Button\Height - dpiY(2), ComboEx()\Color\Back)
+      Box_(ComboEx()\Button\X, 1, ComboEx()\Button\Width - 1, ComboEx()\Button\Height - 2, ComboEx()\Color\Back)
     EndIf  
   EndProcedure
   
@@ -986,7 +1340,7 @@ Module ComboBoxEx
     
     If StartDrawing(CanvasOutput(ComboEx()\ListView\Num))
       DrawingFont(ComboEx()\FontID)
-      ComboEx()\ListView\RowHeight = TextHeight("Abc") + dpiY(4)
+      ComboEx()\ListView\RowHeight = TextHeight_("Abc") + 4
       StopDrawing()
     EndIf
     
@@ -1001,7 +1355,7 @@ Module ComboBoxEx
       Y + ((Height - boxWidth) / 2)
       
       DrawingMode(#PB_2DDrawing_Default)
-      Box(X, Y, boxWidth, boxWidth, BackColor)
+      Box_(X, Y, boxWidth, boxWidth, BackColor)
       
       LineColor = BlendColor_(FrontColor, BackColor, 60)
       
@@ -1014,24 +1368,24 @@ Module ComboBoxEx
         Y1 = Y + 1
         Y2 = Y + boxWidth - 2
         
-        LineXY(X1 + 1, Y1, X2 + 1, Y2, bColor)
-        LineXY(X1 - 1, Y1, X2 - 1, Y2, bColor)
-        LineXY(X2 + 1, Y1, X1 + 1, Y2, bColor)
-        LineXY(X2 - 1, Y1, X1 - 1, Y2, bColor)
-        LineXY(X2, Y1, X1, Y2, LineColor)
-        LineXY(X1, Y1, X2, Y2, LineColor)
+        LineXY_(X1 + 1, Y1, X2 + 1, Y2, bColor)
+        LineXY_(X1 - 1, Y1, X2 - 1, Y2, bColor)
+        LineXY_(X2 + 1, Y1, X1 + 1, Y2, bColor)
+        LineXY_(X2 - 1, Y1, X1 - 1, Y2, bColor)
+        LineXY_(X2, Y1, X1, Y2, LineColor)
+        LineXY_(X1, Y1, X2, Y2, LineColor)
         
       ElseIf State & #Inbetween
         
         DrawingMode(#PB_2DDrawing_Default)
-        Box(X, Y, boxWidth, boxWidth, BlendColor_(LineColor, BackColor, 50))
+        Box_(X, Y, boxWidth, boxWidth, BlendColor_(LineColor, BackColor, 50))
         
       EndIf
       
       DrawingMode(#PB_2DDrawing_Outlined)
-      Box(X + 2, Y + 2, boxWidth - 4, boxWidth - 4, BlendColor_(LineColor, BackColor, 5))
-      Box(X + 1, Y + 1, boxWidth - 2, boxWidth - 2, BlendColor_(LineColor, BackColor, 25))
-      Box(X, Y, boxWidth, boxWidth, LineColor)
+      Box_(X + 2, Y + 2, boxWidth - 4, boxWidth - 4, BlendColor_(LineColor, BackColor, 5))
+      Box_(X + 1, Y + 1, boxWidth - 2, boxWidth - 2, BlendColor_(LineColor, BackColor, 25))
+      Box_(X, Y, boxWidth, boxWidth, LineColor)
       
       ComboEx()\ListView\Item()\SubItem()\X = X
       ComboEx()\ListView\Item()\SubItem()\Y = Y
@@ -1040,222 +1394,9 @@ Module ComboBoxEx
     EndIf
     
   EndProcedure  
-  
-  ;{ _____ ScrollBar _____
-	Procedure   DrawScrollArrow_(X.i, Y.i, Width.i, Height.i, Color.i, Flag.i)
-	  Define.i aWidth, aHeight, aColor
 
-	  If StartVectorDrawing(CanvasVectorOutput(ComboEx()\ListView\ScrollBar\Num))
-
-      aColor  = RGBA(Red(Color), Green(Color), Blue(Color), 255)
-      
-      If Flag = #ScrollBar_Up Or Flag = #ScrollBar_Down
-  	    aWidth  = dpiX(8)
-  	    aHeight = dpiX(4)
-  	  Else
-        aWidth  = dpiX(4)
-        aHeight = dpiX(8)  
-  	  EndIf  
-
-      X + ((Width  - aWidth) / 2)
-      Y + ((Height - aHeight) / 2)
-      
-      Select Flag
-        Case #ScrollBar_Up
-          MovePathCursor(X, Y + aHeight)
-          AddPathLine(X + aWidth / 2, Y)
-          AddPathLine(X + aWidth, Y + aHeight)
-        Case #ScrollBar_Down 
-          MovePathCursor(X, Y)
-          AddPathLine(X + aWidth / 2, Y + aHeight)
-          AddPathLine(X + aWidth, Y)
-        Case #ScrollBar_Left
-          MovePathCursor(X + aWidth, Y)
-          AddPathLine(X, Y + aHeight / 2)
-          AddPathLine(X + aWidth, Y + aHeight)
-        Case #ScrollBar_Right
-          MovePathCursor(X, Y)
-          AddPathLine(X + aWidth, Y + aHeight / 2)
-          AddPathLine(X, Y + aHeight)
-      EndSelect
-      
-      VectorSourceColor(aColor)
-      StrokePath(2, #PB_Path_RoundCorner)
-
-	    StopVectorDrawing()
-	  EndIf
-	  
-	EndProcedure
-	
-	Procedure   DrawScrollButton_(X.i, Y.i, Width.i, Height.i, ScrollBar.s, Type.i, State.i=#False)
-	  Define.i Color, Border
-	  
-	  If StartDrawing(CanvasOutput(ComboEx()\ListView\ScrollBar\Num))
-	    
-	    DrawingMode(#PB_2DDrawing_Default)
-	    
-	    Select State
-	      Case #ScrollBar_Focus
-	        Color  = BlendColor_(ComboEx()\ListView\ScrollBar\Color\Focus, ComboEx()\ListView\ScrollBar\Color\Button, 10)
-	        Border = BlendColor_(ComboEx()\ListView\ScrollBar\Color\Focus, ComboEx()\ListView\ScrollBar\Color\Border, 10)
-	      Case #ScrollBar_Click
-	        Color  = BlendColor_(ComboEx()\ListView\ScrollBar\Color\Focus, ComboEx()\ListView\ScrollBar\Color\Button, 20)
-	        Border = BlendColor_(ComboEx()\ListView\ScrollBar\Color\Focus, ComboEx()\ListView\ScrollBar\Color\Border, 20)
-	      Default
-	        Color  = ComboEx()\ListView\ScrollBar\Color\Button
-	        Border = ComboEx()\ListView\ScrollBar\Color\Border
-	    EndSelect    
-	    
-	    If FindMapElement(ComboEx()\ListView\ScrollBar\Item(), ScrollBar)
-	      
-	      If ComboEx()\ListView\ScrollBar\Item()\Hide : ProcedureReturn #False : EndIf 
-	      
-	      Select Type
-  	      Case #ScrollBar_Forwards
-  	        Box_(ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\X,  ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Y,  ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Width, ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Height,  Color)
-  	      Case #ScrollBar_Backwards
-  	        Box_(ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\X, ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Y, ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Width, ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Height, Color)
-  	    EndSelect    
-	      
-	      If ComboEx()\ListView\ScrollBar\Flags & #ScrollBar_ButtonBorder
-	      
-  	      DrawingMode(#PB_2DDrawing_Outlined)
-  	      
-  	      Select Type
-  	        Case #ScrollBar_Forwards
-  	          Box_(ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\X - dpiX(1), ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Y, ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Width + dpiX(2), ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Height + dpiY(1), Border)
-    	      Case #ScrollBar_Backwards
-    	        Box_(ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\X - dpiX(1), ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Y - dpiY(1), ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Width + dpiX(2), ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Height + dpiY(1), Border)
-    	    EndSelect 
-    	    
-  	    EndIf 
-	    
-	    EndIf
-
-	    StopDrawing()
-	  EndIf
-	  
-	  ;{ ----- Draw Arrows -----
-	  If FindMapElement(ComboEx()\ListView\ScrollBar\Item(), ScrollBar)
-	    
-  	  Select Type
-        Case #ScrollBar_Forwards
-          DrawScrollArrow_(ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\X, ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Y, ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Width, ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Height, ComboEx()\ListView\ScrollBar\Color\Front, #ScrollBar_Down)  
-        Case #ScrollBar_Backwards
-        DrawScrollArrow_(ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\X, ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Y, ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Width, ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Height, ComboEx()\ListView\ScrollBar\Color\Front, #ScrollBar_Up)
-      EndSelect
-    
-    EndIf ;}
-
-	EndProcedure
-	
-	Procedure   DrawScrollBar_()
-		Define.i X, Y, Width, Height, Offset, OffsetX, OffsetY
-		Define.i FrontColor, BackColor, BorderColor, ScrollBorderColor
-		
-		If FindMapElement(ComboEx()\ListView\ScrollBar\Item(), "VScroll")
-		  
-      If ComboEx()\ListView\ScrollBar\Item()\Hide : ProcedureReturn #False : EndIf 
-  	 
-      ;{ ----- Size -----
-		  X      = ComboEx()\ListView\ScrollBar\Item()\X
-		  Y      = ComboEx()\ListView\ScrollBar\Item()\Y
-		  Width  = ComboEx()\ListView\ScrollBar\Item()\Width 
-		  Height = ComboEx()\ListView\ScrollBar\Item()\Height
-		  ;}
-		  
-		  Offset = (ComboEx()\ListView\ScrollBar\Item()\Pos - ComboEx()\ListView\ScrollBar\Item()\minPos) * ComboEx()\ListView\ScrollBar\Item()\Thumb\Factor
-		  
-		  ;{ _____ Scrollbar _____
-		  ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\X       = X + dpiX(1)
-  		ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Y       = Y + Height - dpiY(#ScrollBar_ButtonSize) - dpiY(ComboEx()\ListView\ScrollBar\Adjust) - dpiY(1)
-  		ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Width   = Width - dpiX(2)
-  		ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Height  = dpiY(#ScrollBar_ButtonSize)	
-  		ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\X      = X + dpiX(1)
-  		ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Y      = Y + dpiY(1)
-  		ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Width  = Width - dpiX(2)
-  		ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Height = dpiY(#ScrollBar_ButtonSize)
-  		ComboEx()\ListView\ScrollBar\Item()\Area\X = X
-  	  ComboEx()\ListView\ScrollBar\Item()\Area\Y = Y + dpiY(#ScrollBar_ButtonSize) + dpiY(1)
-  	  ComboEx()\ListView\ScrollBar\Item()\Area\Width  = Width
-  	  ComboEx()\ListView\ScrollBar\Item()\Area\Height = Height - dpiY(#ScrollBar_ButtonSize * 2) - dpiY(2)
-  	  ComboEx()\ListView\ScrollBar\Item()\Thumb\X      = X
-  	  ComboEx()\ListView\ScrollBar\Item()\Thumb\Y      = ComboEx()\ListView\ScrollBar\Item()\Area\Y + Offset
-  	  ComboEx()\ListView\ScrollBar\Item()\Thumb\Width  = Width
-  	  ComboEx()\ListView\ScrollBar\Item()\Thumb\Height = ComboEx()\ListView\ScrollBar\Item()\Thumb\Size
-  	  If ComboEx()\ListView\ScrollBar\Flags & #ScrollBar_ButtonBorder
-  	    ComboEx()\ListView\ScrollBar\Item()\Thumb\Y + dpiY(1)
-  	    ComboEx()\ListView\ScrollBar\Item()\Thumb\Height - dpiY(2)
-  	  EndIf ;}
-  	  
-  		If StartDrawing(CanvasOutput(ComboEx()\ListView\ScrollBar\Num))
-  		  
-  		  ;{ _____ Color _____
-  		  FrontColor  = ComboEx()\ListView\ScrollBar\Color\Front
-  		  BackColor   = ComboEx()\ListView\ScrollBar\Color\Back
-  		  BorderColor = ComboEx()\ListView\ScrollBar\Color\Border
-  		  
-  		  If ComboEx()\ListView\ScrollBar\Item()\Disable
-  		    FrontColor  = ComboEx()\ListView\ScrollBar\Color\DisableFront
-  		    BackColor   = ComboEx()\ListView\ScrollBar\Color\DisableBack
-  		    BorderColor = ComboEx()\ListView\ScrollBar\Color\DisableFront
-  		  EndIf
-  		  ;}
-  		  
-  		  DrawingMode(#PB_2DDrawing_Default)
-  		  
-  		  ;{ _____ Background _____
-  		  Box(X, Y, Width, Height, ComboEx()\ListView\ScrollBar\Color\Gadget) ; needed for rounded corners
-  		  Box(ComboEx()\ListView\ScrollBar\Item()\Area\X, ComboEx()\ListView\ScrollBar\Item()\Area\Y, ComboEx()\ListView\ScrollBar\Item()\Area\Width, ComboEx()\ListView\ScrollBar\Item()\Area\Height, ComboEx()\ListView\ScrollBar\Color\Back)
-  			;}
-  			
-  		  ;{ _____ Draw Thumb _____
-  		  Select ComboEx()\ListView\ScrollBar\Item()\Thumb\State
-  			  Case #ScrollBar_Focus
-  			    Box_(ComboEx()\ListView\ScrollBar\Item()\Thumb\X, ComboEx()\ListView\ScrollBar\Item()\Thumb\Y, ComboEx()\ListView\ScrollBar\Item()\Thumb\Width, ComboEx()\ListView\ScrollBar\Item()\Thumb\Height, BlendColor_(ComboEx()\ListView\ScrollBar\Color\Focus, ComboEx()\ListView\ScrollBar\Color\ScrollBar, 10))
-  			  Case #ScrollBar_Click
-  			    Box_(ComboEx()\ListView\ScrollBar\Item()\Thumb\X, ComboEx()\ListView\ScrollBar\Item()\Thumb\Y, ComboEx()\ListView\ScrollBar\Item()\Thumb\Width, ComboEx()\ListView\ScrollBar\Item()\Thumb\Height, BlendColor_(ComboEx()\ListView\ScrollBar\Color\Focus, ComboEx()\ListView\ScrollBar\Color\ScrollBar, 20))
-  			  Default
-  			    Box_(ComboEx()\ListView\ScrollBar\Item()\Thumb\X, ComboEx()\ListView\ScrollBar\Item()\Thumb\Y, ComboEx()\ListView\ScrollBar\Item()\Thumb\Width, ComboEx()\ListView\ScrollBar\Item()\Thumb\Height, ComboEx()\ListView\ScrollBar\Color\ScrollBar)
-  			EndSelect
-  			
-  		  If ComboEx()\ListView\ScrollBar\Flags & #ScrollBar_DragLines   ;{ Drag Lines
-  		  
-  			  If ComboEx()\ListView\ScrollBar\Item()\Thumb\Size > dpiY(10)
-  		      OffsetY = (ComboEx()\ListView\ScrollBar\Item()\Thumb\Size - dpiY(7)) / 2			      
-  		      Line(ComboEx()\ListView\ScrollBar\Item()\Thumb\X + dpiX(4), ComboEx()\ListView\ScrollBar\Item()\Thumb\Y + OffsetY, ComboEx()\ListView\ScrollBar\Item()\Thumb\Width - dpiX(8), dpiY(1), ComboEx()\ListView\ScrollBar\Color\Front)
-  		      Line(ComboEx()\ListView\ScrollBar\Item()\Thumb\X + dpiX(4), ComboEx()\ListView\ScrollBar\Item()\Thumb\Y + OffsetY + dpiY(3), ComboEx()\ListView\ScrollBar\Item()\Thumb\Width - dpiX(8), dpiY(1), ComboEx()\ListView\ScrollBar\Color\Front)
-  		      Line(ComboEx()\ListView\ScrollBar\Item()\Thumb\X + dpiX(4), ComboEx()\ListView\ScrollBar\Item()\Thumb\Y + OffsetY + dpiY(6), ComboEx()\ListView\ScrollBar\Item()\Thumb\Width - dpiX(8), dpiY(1), ComboEx()\ListView\ScrollBar\Color\Front)
-  		    EndIf
-  			  ;}
-  			EndIf
-  			
-  			If ComboEx()\ListView\ScrollBar\Flags & #ScrollBar_ThumbBorder ;{ Thumb Border
-  			  DrawingMode(#PB_2DDrawing_Outlined)
-  			  Box_(ComboEx()\ListView\ScrollBar\Item()\Thumb\X, ComboEx()\ListView\ScrollBar\Item()\Thumb\Y, ComboEx()\ListView\ScrollBar\Item()\Thumb\Width, ComboEx()\ListView\ScrollBar\Item()\Thumb\Height, ComboEx()\ListView\ScrollBar\Color\Border)
-  			  ;}
-  			EndIf
-  			;}
-  			
-  			;{ _____ Border ____
-  			If ComboEx()\ListView\ScrollBar\Flags & #ScrollBar_Border
-  				DrawingMode(#PB_2DDrawing_Outlined)
-  				Box_(X, Y, Width, Height, BorderColor)
-  			EndIf ;}
-  
-  			StopDrawing()
-  		EndIf
-  		
-    	DrawScrollButton_(ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\X,  ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Y,  ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Width,  ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Height,  "VScroll", #ScrollBar_Forwards,  ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\State)
-    	DrawScrollButton_(ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\X, ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Y, ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Width, ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Height, "VScroll", #ScrollBar_Backwards, ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\State)
-
-    EndIf
-    
-  EndProcedure
-  ;}
-  
-  Procedure   DrawListView_()
-    Define.i X, Y, Width, Height, OffsetX, OffsetY, TextHeight, RowHeight, maxHeight, PageRows, scrollX
+  Procedure   DrawListView_(ScrollBar.i = #False)
+    Define.i X, Y, Width, Height, OffsetX, OffsetY, TextHeight, RowHeight
     Define.i ImgX, ImgY, imgHeight, imgWidth, boxSize
     Define.i FrontColor, BackColor, BorderColor
     Define.f Factor
@@ -1270,66 +1411,32 @@ Module ComboBoxEx
     
     If StartDrawing(CanvasOutput(ComboEx()\ListView\Num))
       
-      Width  = dpiX(GadgetWidth(ComboEx()\ListView\Num))
-      Height = dpiY(GadgetHeight(ComboEx()\ListView\Num))
+      Width  = ComboEx()\ListView\Area\Width
+      Height = ComboEx()\ListView\Area\Height
       
       ;{ _____ Background _____
       DrawingMode(#PB_2DDrawing_Default)
-      Box(0, 0, Width, Height, BackColor)
+      Box_(0, 0, Width, Height, BackColor)
       ;}
       
       X = 0
-      Y = dpiY(2)
+      Y = 2
       
       DrawingFont(ComboEx()\FontID)
       
-      TextHeight = TextHeight("Abc")
-      RowHeight  = TextHeight + dpiY(2)
-      OffsetY    = dpiY(1) 
+      TextHeight = TextHeight_("Abc")
+      RowHeight  = TextHeight + 2
+      OffsetY    = 1
       
-      ;{ _____ ScrollBar _____
-      PageRows  = Height / RowHeight
-
-      If PageRows < ListSize(ComboEx()\ListView\Item())
-        
-        If FindMapElement(ComboEx()\ListView\ScrollBar\Item(), "VScroll")
-          
-          ComboEx()\ListView\Offset = ComboEx()\ListView\ScrollBar\Item()\Pos
-          
-          If ComboEx()\ListView\ScrollBar\Flags = #False
-            ComboEx()\ListView\ScrollBar\Item()\X          = Width - dpiX(#ScrollBarSize) - dpiX(1)
-            ComboEx()\ListView\ScrollBar\Item()\Y          = dpiY(1)
-            ComboEx()\ListView\ScrollBar\Item()\Width      = dpiX(#ScrollBarSize)
-            ComboEx()\ListView\ScrollBar\Item()\Height     = Height - dpiX(2)
-          Else
-            ComboEx()\ListView\ScrollBar\Item()\X          = Width - dpiX(#ScrollBarSize)
-            ComboEx()\ListView\ScrollBar\Item()\Y          = 0
-            ComboEx()\ListView\ScrollBar\Item()\Width      = dpiX(#ScrollBarSize)
-            ComboEx()\ListView\ScrollBar\Item()\Height     = Height
-          EndIf
-          
-          ComboEx()\ListView\ScrollBar\Item()\Maximum    = ListSize(ComboEx()\ListView\Item())
-          ComboEx()\ListView\ScrollBar\Item()\PageLength = PageRows
-          
-          If ComboEx()\ListView\ScrollBar\Item()\Hide
-            CalcScrollBarThumb_()
-            ComboEx()\ListView\ScrollBar\Item()\Hide = #False
-          EndIf 
-
-        EndIf
-        
-      Else  
-        ComboEx()\ListView\Offset = 0
-      EndIf ;}
+      ; _____ ScrollBar _____
+      ComboEx()\ListView\Offset = ComboEx()\ListView\VScroll\Pos
+      
+      ClipOutput_(0, 0, Width, Height) 
       
       ;{ _____ Rows _____
-      CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
-        ClipOutput(0, 0, Width, Height) 
-      CompilerEndIf
-
       ForEach ComboEx()\ListView\Item()
         
-        OffSetX = dpiX(5)
+        OffSetX = 5
         
         If ListIndex(ComboEx()\ListView\Item()) < ComboEx()\ListView\Offset - 1
           ComboEx()\ListView\Item()\Y = 0
@@ -1347,7 +1454,7 @@ Module ComboBoxEx
           If IsImage(ComboEx()\ListView\Item()\Image\Num)
             
             ;{ Image Height
-            imgHeight = RowHeight - dpiY(4)
+            imgHeight = RowHeight - 4
             
             If ComboEx()\ListView\Item()\Image\Height <= imgHeight
               imgWidth  = ComboEx()\ListView\Item()\Image\Height
@@ -1363,17 +1470,17 @@ Module ComboBoxEx
             ElseIf ComboEx()\ListView\Item()\Image\Flags & #Right
               If ComboEx()\ListView\Item()\String
                 If Not ComboEx()\ListView\Item()\Flags & #Center And Not ComboEx()\ListView\Item()\Flags & #Right
-                  ImgX = TextWidth(ComboEx()\ListView\Item()\String) + dpiX(10)
+                  ImgX = TextWidth_(ComboEx()\ListView\Item()\String) + 10
                 Else
-                  ImgX = Width - imgWidth - dpiX(5)
+                  ImgX = Width - imgWidth - 5
                 EndIf 
               Else  
-                ImgX = Width - imgWidth - dpiX(5)
+                ImgX = Width - imgWidth - 5
               EndIf  
             Else
-              ImgX = dpiX(5)
+              ImgX = 5
               If Not ComboEx()\ListView\Item()\Flags & #Center And Not ComboEx()\ListView\Item()\Flags & #Right
-                OffsetX + imgWidth + dpiX(5)
+                OffsetX + imgWidth + 5
               EndIf   
             EndIf ;}
             
@@ -1381,7 +1488,7 @@ Module ComboBoxEx
             If ComboEx()\ListView\Item()\Image\Height < imgHeight
               imgY = (RowHeight - ComboEx()\ListView\Item()\Image\Height) / 2
             Else
-              imgY = dpiY(2)
+              imgY = 2
             EndIf ;}
 
           Else  
@@ -1392,20 +1499,20 @@ Module ComboBoxEx
 
         DrawingMode(#PB_2DDrawing_Transparent)
         If ComboEx()\ListView\State = ListIndex(ComboEx()\ListView\Item())
-          Box(X + dpiX(3), Y, Width - dpiX(6), RowHeight, ComboEx()\Color\FocusBack)
-          DrawText(X + OffsetX, Y + OffsetY, ComboEx()\ListView\Item()\String, ComboEx()\Color\FocusText)
+          Box_(X + 3, Y, Width - 6, RowHeight, ComboEx()\Color\FocusBack)
+          DrawText_(X + OffsetX, Y + OffsetY, ComboEx()\ListView\Item()\String, ComboEx()\Color\FocusText)
         Else
           If ComboEx()\ListView\Focus = ListIndex(ComboEx()\ListView\Item())
-            Box(X + dpiX(3), Y, Width - dpiX(6), RowHeight, BlendColor_(ComboEx()\Color\FocusBack, BackColor, 10))
+            Box_(X + 3, Y, Width - 6, RowHeight, BlendColor_(ComboEx()\Color\FocusBack, BackColor, 10))
           EndIf
-          DrawText(X  + OffsetX, Y + OffsetY, ComboEx()\ListView\Item()\String, FrontColor)
+          DrawText_(X  + OffsetX, Y + OffsetY, ComboEx()\ListView\Item()\String, FrontColor)
         EndIf
 
         ComboEx()\ListView\Item()\Y = Y
         
         If ComboEx()\ListView\Item()\Flags & #Image
           DrawingMode(#PB_2DDrawing_AlphaBlend)
-          DrawImage(ImageID(ComboEx()\ListView\Item()\Image\Num), X + imgX, Y + imgY, imgWidth, imgHeight)  
+          DrawImage_(ImageID(ComboEx()\ListView\Item()\Image\Num), X + imgX, Y + imgY, imgWidth, imgHeight)  
         EndIf 
 
         Y + RowHeight
@@ -1413,12 +1520,12 @@ Module ComboBoxEx
         If ComboEx()\Flags & #MultiSelect ;{ MultiSelect enabled
           
           If ListSize(ComboEx()\ListView\Item()\SubItem())
-            boxSize = TextHeight - dpiY(2)
-            OffSetX = boxSize + dpiX(10)
+            boxSize = TextHeight - 2
+            OffSetX = boxSize + 10
             ForEach ComboEx()\ListView\Item()\SubItem()
-              CheckBox_(dpiX(5), Y, Width, RowHeight, boxSize, FrontColor, BackColor, ComboEx()\ListView\Item()\SubItem()\State)
+              CheckBox_(5, Y, Width, RowHeight, boxSize, FrontColor, BackColor, ComboEx()\ListView\Item()\SubItem()\State)
               DrawingMode(#PB_2DDrawing_Transparent)
-              DrawText(X + OffsetX, Y + OffsetY, ComboEx()\ListView\Item()\SubItem()\String, FrontColor)
+              DrawText_(X + OffsetX, Y + OffsetY, ComboEx()\ListView\Item()\SubItem()\String, FrontColor)
               Y + RowHeight
             Next
           EndIf
@@ -1430,23 +1537,22 @@ Module ComboBoxEx
       
       ComboEx()\ListView\RowHeight = RowHeight
       
-      CompilerIf #PB_Compiler_OS <> #PB_OS_MacOS
-        UnclipOutput() 
-      CompilerEndIf
+      UnclipOutput_() 
       ;}
 
       ;{ _____ Border _____
       DrawingMode(#PB_2DDrawing_Outlined)
-      Box(0, 0, Width, Height, BorderColor)
+      Box_(0, 0, GadgetWidth(ComboEx()\ListView\Num), GadgetHeight(ComboEx()\ListView\Num), BorderColor)
       ;}
       
       StopDrawing()
     EndIf
     
-    DrawScrollBar_()
+    DrawScrollBar_(ScrollBar)
     
   EndProcedure
- 
+
+
   Procedure   Draw_()
     Define.i X, Y, Height, Width, startX, CursorX
     Define.s Text, Word, strgPart
@@ -1479,19 +1585,19 @@ Module ComboBoxEx
         BorderColor = ComboEx()\Color\DisableBack
       EndIf  
 
-      Height = dpiY(GadgetHeight(ComboEx()\CanvasNum))
-      Width  = dpiX(GadgetWidth(ComboEx()\CanvasNum))
+      Height = GadgetHeight(ComboEx()\CanvasNum)
+      Width  = GadgetWidth(ComboEx()\CanvasNum)
 
       ;{ _____ Background _____
       DrawingMode(#PB_2DDrawing_Default)
       Box_(0, 0, Width, Height, BackColor)   
       ;}
       
-      ComboEx()\Button\X      = Width - dpiX(#ButtonWidth)
-      ComboEx()\Button\Width  = dpiX(#ButtonWidth)
+      ComboEx()\Button\X      = Width - #ButtonWidth
+      ComboEx()\Button\Width  = #ButtonWidth
       ComboEx()\Button\Height = Height
       
-      Width - ComboEx()\Button\Width - dpiX(3)
+      Width - ComboEx()\Button\Width - 3
       ComboEx()\Size\Text = Width
 
       DrawingFont(ComboEx()\FontID)
@@ -1501,17 +1607,17 @@ Module ComboBoxEx
         
         Text = ComboEx()\Text
 
-        X = GetOffsetX_(Text, Width, dpiX(ComboEx()\Padding))
-        Y = (Height - TextHeight(Text)) / 2
+        X = GetOffsetX_(Text, Width, ComboEx()\Padding)
+        Y = (Height - TextHeight_(Text)) / 2
         
         ;{ TextWidth > Width
         If ComboEx()\Flags & #Editable
         
-          CursorX = X + TextWidth(Left(Text, ComboEx()\Cursor\Pos))
+          CursorX = X + TextWidth_(Left(Text, ComboEx()\Cursor\Pos))
           If CursorX > Width
             Text = Left(Text, ComboEx()\Cursor\Pos)
             For p = Len(Text) To 0 Step -1
-              If X + TextWidth(Right(Text, p)) < Width
+              If X + TextWidth_(Right(Text, p)) < Width
                 Text = Right(Text, p)
                 Break  
               EndIf 
@@ -1520,10 +1626,10 @@ Module ComboBoxEx
           
         Else
           
-          CursorX = X + TextWidth(Text)
+          CursorX = X + TextWidth_(Text)
           If CursorX > Width
             For p = Len(Text) To 0 Step -1
-              If X + TextWidth(Right(Text, p)) <= Width
+              If X + TextWidth_(Right(Text, p)) <= Width
                 Text = Right(Text, p)
                 Break  
               EndIf 
@@ -1533,7 +1639,7 @@ Module ComboBoxEx
         EndIf ;}
         
         DrawingMode(#PB_2DDrawing_Transparent)
-        DrawText(X, Y, Text, FrontColor)
+        DrawText_(X, Y, Text, FrontColor)
         ComboEx()\OffSetX = X
 
       Else
@@ -1541,12 +1647,12 @@ Module ComboBoxEx
         If ComboEx()\Flags & #Center
           X = Width / 2
         ElseIf ComboEx()\Flags & #Right
-          X = Width - dpiX(ComboEx()\Padding)
+          X = Width - ComboEx()\Padding
         Else
-          X = dpiX(ComboEx()\Padding)
+          X = ComboEx()\Padding
         EndIf
         
-        Y = (Height - TextHeight("X")) / 2  
+        Y = (Height - TextHeight_("X")) / 2  
         
       EndIf
       ;}
@@ -1567,7 +1673,7 @@ Module ComboBoxEx
           ComboEx()\Cursor\Pos = ComboEx()\Selection\Pos2
           
           DrawingMode(#PB_2DDrawing_Default)
-          DrawText(X + startX, Y, strgPart, ComboEx()\Color\HighlightText, ComboEx()\Color\Highlight)
+          DrawText_(X + startX, Y, strgPart, ComboEx()\Color\HighlightText, ComboEx()\Color\Highlight)
   
         EndIf
         
@@ -1577,13 +1683,13 @@ Module ComboBoxEx
       If ComboEx()\Flags & #Editable
         
         If ComboEx()\Cursor\Pos
-          X + TextWidth(Left(Text, ComboEx()\Cursor\Pos))
+          X + TextWidth_(Left(Text, ComboEx()\Cursor\Pos))
         EndIf
-        ComboEx()\Cursor\Height = TextHeight("X")
+        ComboEx()\Cursor\Height = TextHeight_("X")
         ComboEx()\Cursor\X = X
         ComboEx()\Cursor\Y = Y
         If ComboEx()\Cursor\Pause = #False
-          Line(ComboEx()\Cursor\X, ComboEx()\Cursor\Y, 1, ComboEx()\Cursor\Height, ComboEx()\Color\Cursor)
+          Line_(ComboEx()\Cursor\X, ComboEx()\Cursor\Y, 1, ComboEx()\Cursor\Height, ComboEx()\Color\Cursor)
         EndIf
         
       EndIf
@@ -1592,7 +1698,7 @@ Module ComboBoxEx
       ;{ _____ Border ____
       If Not ComboEx()\Flags & #Borderless
         DrawingMode(#PB_2DDrawing_Outlined)
-        Box_(0, 0, dpiX(GadgetWidth(ComboEx()\CanvasNum)), Height, BorderColor)
+        Box_(0, 0, GadgetWidth(ComboEx()\CanvasNum), Height, BorderColor)
       EndIf
       ;}
       
@@ -1604,11 +1710,71 @@ Module ComboBoxEx
     Arrow_(ComboEx()\Button\X, 0, ComboEx()\Button\Width, ComboEx()\Button\Height, ComboEx()\Color\Front)
   
   EndProcedure
+
+  ;- ============================================================================
+  ;-   Module - ListView
+  ;- ============================================================================   
   
-  ;- __________ ComboEx __________
+  Declare _AutoScroll()
   
-  Procedure OpenListView_()
-    Define.i X, Y, RowsHeight, Width, Height, SubItems
+	Procedure.i ScrollBar()
+
+    ComboEx()\ListView\VScroll\CursorPos      = #PB_Default
+    ComboEx()\ListView\VScroll\Buttons\fState = #PB_Default
+    ComboEx()\ListView\VScroll\Buttons\bState = #PB_Default
+
+    ComboEx()\ListView\Scrollbar\Size       = #ScrollBarSize
+    ComboEx()\ListView\Scrollbar\TimerDelay = #TimerDelay
+  
+    ; ----- Styles -----
+    If ComboEx()\Flags & #Style_Win11      : ComboEx()\ListView\Scrollbar\Flags | #Style_Win11      : EndIf
+    If ComboEx()\Flags & #Style_RoundThumb : ComboEx()\ListView\Scrollbar\Flags | #Style_RoundThumb : EndIf
+    
+    CompilerIf #PB_Compiler_Version >= 600
+      If OSVersion()  = #PB_OS_Windows_11  : ComboEx()\ListView\Scrollbar\Flags | #Style_Win11 : EndIf
+    CompilerElse
+      If OSVersion() >= #PB_OS_Windows_10 : ComboEx()\ListView\Scrollbar\Flags | #Style_Win11 : EndIf
+    CompilerEndIf  
+
+    ;{ ----- Colors -----
+    ComboEx()\ListView\Scrollbar\Color\Front  = $C8C8C8
+    ComboEx()\ListView\Scrollbar\Color\Back   = $F0F0F0
+	  ComboEx()\ListView\Scrollbar\Color\Button = $F0F0F0
+	  ComboEx()\ListView\Scrollbar\Color\Focus  = $D77800
+	  ComboEx()\ListView\Scrollbar\Color\Hover  = $666666
+	  ComboEx()\ListView\Scrollbar\Color\Arrow  = $696969
+	  
+	  CompilerSelect #PB_Compiler_OS
+		  CompilerCase #PB_OS_Windows
+				ComboEx()\ListView\Scrollbar\Color\Front  = GetSysColor_(#COLOR_SCROLLBAR)
+				ComboEx()\ListView\Scrollbar\Color\Back   = GetSysColor_(#COLOR_MENU)
+				ComboEx()\ListView\Scrollbar\Color\Button = GetSysColor_(#COLOR_BTNFACE)
+				ComboEx()\ListView\Scrollbar\Color\Focus  = GetSysColor_(#COLOR_MENUHILIGHT)
+				ComboEx()\ListView\Scrollbar\Color\Hover  = GetSysColor_(#COLOR_ACTIVEBORDER)
+				ComboEx()\ListView\Scrollbar\Color\Arrow  = GetSysColor_(#COLOR_GRAYTEXT)
+			CompilerCase #PB_OS_MacOS
+				ComboEx()\ListView\Scrollbar\Color\Front  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+				ComboEx()\ListView\Scrollbar\Color\Back   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
+				ComboEx()\ListView\Scrollbar\Color\Button = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
+				ComboEx()\ListView\Scrollbar\Color\Focus  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedControlColor"))
+				ComboEx()\ListView\Scrollbar\Color\Hover  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+				ComboEx()\ListView\Scrollbar\Color\Arrow  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
+			CompilerCase #PB_OS_Linux
+
+		CompilerEndSelect
+		
+		If ComboEx()\ListView\Scrollbar\Flags & #Style_Win11
+		  ComboEx()\ListView\Scrollbar\Color\Hover = $666666
+		  ComboEx()\ListView\Scrollbar\Color\Focus = $8C8C8C
+		EndIf   
+    ;}
+
+		CalcScrollBar_()
+
+	EndProcedure
+	
+  Procedure   OpenListView_()
+    Define.i X, Y, RowsHeight, Width, Height, SubItems, PageRows
     
     X      = GadgetX(ComboEx()\CanvasNum, #PB_Gadget_ScreenCoordinate)
     Y      = GadgetY(ComboEx()\CanvasNum, #PB_Gadget_ScreenCoordinate)
@@ -1622,36 +1788,51 @@ Module ComboBoxEx
       ForEach ComboEx()\ListView\Item()
         SubItems = ListSize(ComboEx()\ListView\Item()\SubItem())
         If SubItems
-          RowsHeight + (SubItems * DesktopUnscaledY(ComboEx()\ListView\RowHeight))
+          RowsHeight + (SubItems * ComboEx()\ListView\RowHeight)
         EndIf  
-        RowsHeight + DesktopUnscaledY(ComboEx()\ListView\RowHeight) 
+        RowsHeight + ComboEx()\ListView\RowHeight 
       Next
       
     Else  
-      RowsHeight = ListSize(ComboEx()\ListView\Item()) * DesktopUnscaledY(ComboEx()\ListView\RowHeight) 
+      RowsHeight = ListSize(ComboEx()\ListView\Item()) * ComboEx()\ListView\RowHeight 
     EndIf
   
     If RowsHeight < Height : Height = RowsHeight : EndIf
 
     SetGadgetData(ComboEx()\ListView\Num, ComboEx()\CanvasNum)
     
-    ResizeWindow(ComboEx()\ListView\Window, X, Y + GadgetHeight(ComboEx()\CanvasNum), Width, Height)
+    ResizeWindow(ComboEx()\ListView\Window, X, Y + GadgetHeight(ComboEx()\CanvasNum) - 1, Width, Height)
     ResizeGadget(ComboEx()\ListView\Num, 0, 0, Width, Height)
 
-    HideWindow(ComboEx()\ListView\Window, #False)
-    
+	  BindEvent(#PB_Event_Timer, @_AutoScroll(), ComboEx()\ListView\Window)
+
     SetActiveGadget(ComboEx()\ListView\Num)
     
     ComboEx()\ListView\Focus = #PB_Default
     ComboEx()\ListView\Hide  = #False
     
-    DrawListView_()
+    ComboEx()\ListView\VScroll\Minimum    = 0
+    ComboEx()\ListView\VScroll\Maximum    = ListSize(ComboEx()\ListView\Item())
+    ComboEx()\ListView\VScroll\PageLength = Height / ComboEx()\ListView\RowHeight
     
+    If RowsHeight > Height
+      ComboEx()\ListView\VScroll\Hide = #False
+    Else
+      ComboEx()\ListView\VScroll\Hide = #True
+    EndIf  
+    
+    CalcScrollRange_()
+    
+    DrawListView_(#Vertical)
+    
+    HideWindow(ComboEx()\ListView\Window, #False)
   EndProcedure
   
-  Procedure CloseListView_()
+  Procedure   CloseListView_()
     
     HideWindow(ComboEx()\ListView\Window, #True)
+    
+    UnbindEvent(#PB_Event_Timer, @_AutoScroll(), ComboEx()\ListView\Window)
     
     ComboEx()\ListView\Hide  = #True
     ComboEx()\Button\State & ~#Click
@@ -1660,7 +1841,9 @@ Module ComboBoxEx
     
   EndProcedure  
   
-  ;- __________ Events __________
+  ;- ============================================================================
+  ;-   Module - Events
+  ;- ============================================================================   
   
   CompilerIf Defined(ModuleEx, #PB_Module)
     
@@ -1702,43 +1885,39 @@ Module ComboBoxEx
     
   CompilerEndIf   
   
-  Procedure _TimerThread(Frequency.i)
-    Define.i ElapsedTime
+  
+  Procedure _AutoScroll()
+    Define.i X, Y
     
-    Repeat
+    LockMutex(Mutex)
+    
+    ForEach ComboEx()
       
-      If ElapsedTime >= Frequency
-        PostEvent(#Event_Timer)
-        ElapsedTime = 0
-      EndIf
+      If ComboEx()\ListView\VScroll\Timer ;{ Vertical Scrollbar
+        
+        If ComboEx()\ListView\VScroll\Delay
+          ComboEx()\ListView\VScroll\Delay - 1
+          Continue
+        EndIf  
+        
+        Select ComboEx()\ListView\VScroll\Timer
+          Case #Scrollbar_Up
+            SetThumbPosY_(ComboEx()\ListView\VScroll\Pos - 1)
+          Case #Scrollbar_Down
+            SetThumbPosY_(ComboEx()\ListView\VScroll\Pos + 1)
+  			EndSelect
+  			
+  			DrawListView_(#Vertical)
+  			;}
+      EndIf   
       
-      Delay(100)
-      
-      ElapsedTime + 100
-      
-    Until TimerThread\Exit
+    Next
+    
+    UnlockMutex(Mutex)
     
   EndProcedure
   
-  Procedure _CursorThread(Frequency.i)
-    Define.i ElapsedTime
-    
-    Repeat
-      
-      If ElapsedTime >= Frequency
-        PostEvent(#Event_Cursor)
-        ElapsedTime = 0
-      EndIf
-      
-      Delay(100)
-      
-      ElapsedTime + 100
-      
-    Until Thread\Exit
-    
-  EndProcedure  
-  
-  Procedure _CursorDrawing() ; Trigger from Thread (PostEvent Change)
+  Procedure _CursorDrawing() 
     Define.i BackColor
     Define.i WindowNum = EventWindow()
 
@@ -1754,9 +1933,9 @@ Module ComboBoxEx
         If StartDrawing(CanvasOutput(ComboEx()\CanvasNum))
           DrawingMode(#PB_2DDrawing_Default)
           If ComboEx()\Cursor\State
-            Line(ComboEx()\Cursor\X, ComboEx()\Cursor\Y, 1, ComboEx()\Cursor\Height, ComboEx()\Color\Cursor)
+            Line_(ComboEx()\Cursor\X, ComboEx()\Cursor\Y, 1, ComboEx()\Cursor\Height, ComboEx()\Color\Cursor)
           Else
-            Line(ComboEx()\Cursor\X, ComboEx()\Cursor\Y, 1, ComboEx()\Cursor\Height, BackColor)
+            Line_(ComboEx()\Cursor\X, ComboEx()\Cursor\Y, 1, ComboEx()\Cursor\Height, BackColor)
           EndIf
           StopDrawing()
         EndIf
@@ -1765,7 +1944,7 @@ Module ComboBoxEx
 
         If StartDrawing(CanvasOutput(ComboEx()\CanvasNum))
           DrawingMode(#PB_2DDrawing_Default)
-          Line(ComboEx()\Cursor\X - 1, ComboEx()\Cursor\Y, 1, ComboEx()\Cursor\Height, BackColor)
+          Line_(ComboEx()\Cursor\X - 1, ComboEx()\Cursor\Y, 1, ComboEx()\Cursor\Height, BackColor)
           StopDrawing()
         EndIf
       
@@ -1775,41 +1954,9 @@ Module ComboBoxEx
     
   EndProcedure  
   
-  Procedure _AutoScroll()
-    Define.i X, Y
-    
-    ForEach ComboEx()
-      
-      ForEach ComboEx()\ListView\ScrollBar\Item()
-        
-        If ComboEx()\ListView\ScrollBar\Item()\Timer
-          
-          If ComboEx()\ListView\ScrollBar\Item()\TimerDelay
-            ComboEx()\ListView\ScrollBar\Item()\TimerDelay - 1
-            Continue
-          EndIf  
-          
-          Select ComboEx()\ListView\ScrollBar\Item()\Timer
-            Case #ScrollBar_Up, #ScrollBar_Left
-              ComboEx()\ListView\ScrollBar\Item()\Pos - 1
-              If ComboEx()\ListView\ScrollBar\Item()\Pos < ComboEx()\ListView\ScrollBar\Item()\minPos : ComboEx()\ListView\ScrollBar\Item()\Pos = ComboEx()\ListView\ScrollBar\Item()\minPos : EndIf
-            Case #ScrollBar_Down, #ScrollBar_Right
-              ComboEx()\ListView\ScrollBar\Item()\Pos + 1
-              If ComboEx()\ListView\ScrollBar\Item()\Pos > ComboEx()\ListView\ScrollBar\Item()\maxPos : ComboEx()\ListView\ScrollBar\Item()\Pos = ComboEx()\ListView\ScrollBar\Item()\maxPos : EndIf
-          EndSelect
-          
-          DrawListView_()   
-          
-    		EndIf 
-    		
-      Next
-      
-    Next
-    
-  EndProcedure
 
   Procedure _ListViewHandler()
-    Define.i GNum, X, Y, Delta
+    Define.i GNum, X, Y, dX, dY, Backwards, Forwards, Thumb, CursorPos, Delta
     Define.i GadgetNum = EventGadget()
     
     GNum = GetGadgetData(GadgetNum)
@@ -1817,52 +1964,65 @@ Module ComboBoxEx
 
       If GadgetNum = ComboEx()\ListView\Num 
         
-        X = GetGadgetAttribute(GadgetNum, #PB_Canvas_MouseX)
-        Y = GetGadgetAttribute(GadgetNum, #PB_Canvas_MouseY)
+       	dX = GetGadgetAttribute(GadgetNum, #PB_Canvas_MouseX)
+  			dY = GetGadgetAttribute(GadgetNum, #PB_Canvas_MouseY)
+  			
+  			X = DesktopUnscaledX(dX)
+  			Y = DesktopUnscaledY(dY)
 
         Select EventType()
           Case #PB_EventType_LeftButtonDown ;{ Left Button Down
             
-            If FindMapElement(ComboEx()\ListView\ScrollBar\Item(), "VScroll") ;{ ScrollBar
-              
-              If ComboEx()\ListView\ScrollBar\Item()\Hide = #False
-      
-                ComboEx()\ListView\ScrollBar\Item()\Cursor = #PB_Default
-                
-        			  If X >= ComboEx()\ListView\ScrollBar\Item()\X And X <= ComboEx()\ListView\ScrollBar\Item()\X + ComboEx()\ListView\ScrollBar\Item()\Width
-        			    
-          			  If Y >= ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Y And Y <= ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Y + ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Height
-          			    ;{ Backwards Button
-          			    If ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Click
-          			      DrawScrollButton_(ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\X, ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Y, ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Width, ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Height, "VScroll", #ScrollBar_Backwards, #ScrollBar_Click)
-          			      ComboEx()\ListView\ScrollBar\Item()\TimerDelay = #ScrollBar_TimerDelay
-          			      ComboEx()\ListView\ScrollBar\Item()\Timer      = #ScrollBar_Up
-          			      ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Click 
-          			    EndIf ;}
-          			  ElseIf Y >= ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Y And ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Y + ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Height
-          			    ;{ Forwards Button
-          			    If ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\State <> #ScrollBar_Click
-          			      DrawScrollButton_(ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\X, ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Y, ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Width, ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Height, "VScroll", #ScrollBar_Forwards, #ScrollBar_Click)
-          			      ComboEx()\ListView\ScrollBar\Item()\TimerDelay = #ScrollBar_TimerDelay
-          			      ComboEx()\ListView\ScrollBar\Item()\Timer      = #ScrollBar_Down
-          			      ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\State = #ScrollBar_Click
-          			    EndIf ;}
-          			  ElseIf Y >= ComboEx()\ListView\ScrollBar\Item()\Thumb\Y And Y <= ComboEx()\ListView\ScrollBar\Item()\Thumb\Y + ComboEx()\ListView\ScrollBar\Item()\Thumb\Height
-          			    ;{ Thumb Button
-          			    If ComboEx()\ListView\ScrollBar\Item()\Thumb\State <> #ScrollBar_Click
-          			      ComboEx()\ListView\ScrollBar\Item()\Thumb\State = #ScrollBar_Click
-          			      ComboEx()\ListView\ScrollBar\Item()\Cursor = Y
-          			      DrawScrollBar_()
-          			    EndIf ;} 
+            ;{ Vertical Scrollbar
+    			  If ComboEx()\ListView\VScroll\Hide = #False
+    			    
+    			    If dX > dpiX(ComboEx()\ListView\VScroll\X) And dX < dpiX(ComboEx()\ListView\VScroll\X + ComboEx()\ListView\VScroll\Width)
+      			    If dY > dpiY(ComboEx()\ListView\VScroll\Y) And dY < dpiY(ComboEx()\ListView\VScroll\Y + ComboEx()\ListView\VScroll\Height)
+    			    
+          			  ComboEx()\ListView\VScroll\CursorPos = #PB_Default
+          			  
+          			  If ComboEx()\ListView\VScroll\Focus
+          			    
+          			    If dY > dpiY(ComboEx()\ListView\VScroll\Buttons\bY) And dY < dpiY(ComboEx()\ListView\VScroll\Buttons\bY + ComboEx()\ListView\VScroll\Buttons\Height)
+          
+          			      If ComboEx()\ListView\VScroll\Buttons\bState <> #Click
+          			        ; --- Backwards Button ---
+            			      ComboEx()\ListView\VScroll\Delay = ComboEx()\ListView\Scrollbar\TimerDelay
+            			      ComboEx()\ListView\VScroll\Timer = #Scrollbar_Up
+            			      ComboEx()\ListView\VScroll\Buttons\bState = #Click
+            			      DrawScrollButton_(#Backwards)
+            			    EndIf
+            			    
+          			    ElseIf dY > dpiY(ComboEx()\ListView\VScroll\Buttons\fY) And dY < dpiY(ComboEx()\ListView\VScroll\Buttons\fY + ComboEx()\ListView\VScroll\Buttons\Height)
+          			      
+          			      ; --- Forwards Button ---
+            			    If ComboEx()\ListView\VScroll\Buttons\fState <> #Click
+            			      ComboEx()\ListView\VScroll\Delay = ComboEx()\ListView\Scrollbar\TimerDelay
+            			      ComboEx()\ListView\VScroll\Timer = #Scrollbar_Down
+            			      ComboEx()\ListView\VScroll\Buttons\fState = #Click
+            			      DrawScrollButton_(#Forwards)
+            			    EndIf
+          			      
+          			    ElseIf  dY > dpiY(ComboEx()\ListView\VScroll\Thumb\Y) And dY < dpiY(ComboEx()\ListView\VScroll\Thumb\Y + ComboEx()\ListView\VScroll\Thumb\Height)
+          			      
+          			      ; --- Thumb Button ---
+            			    If ComboEx()\ListView\VScroll\Thumb\State <> #Click
+            			      ComboEx()\ListView\VScroll\Thumb\State = #Click
+            			      ComboEx()\ListView\VScroll\CursorPos = Y
+            			      DrawThumb_()
+            			    EndIf
+          			      
+          			    EndIf  
+          
           			  EndIf
           			  
           			  ProcedureReturn #True
           			EndIf
-          			
-          		EndIf	
-              ;}
-            EndIf  
-            
+          		EndIf
+          		
+      			EndIf  
+    			  ;}
+          
             ForEach ComboEx()\ListView\Item()
 
               If ComboEx()\Flags & #MultiSelect ;{ MultiSelect enabled
@@ -1891,40 +2051,43 @@ Module ComboBoxEx
             ;}
           Case #PB_EventType_LeftButtonUp   ;{ Left Button Up
             
-            If FindMapElement(ComboEx()\ListView\ScrollBar\Item(), "VScroll") ;{ ScrollBar
+            ;{ Vertical Scrollbar
+            If ComboEx()\ListView\VScroll\Hide = #False
               
-              If ComboEx()\ListView\ScrollBar\Item()\Hide = #False
-		  
-          			ComboEx()\ListView\ScrollBar\Item()\Cursor = #PB_Default
-          			ComboEx()\ListView\ScrollBar\Item()\Timer  = #False
-          			
-        			  If X >= ComboEx()\ListView\ScrollBar\Item()\X And X <= ComboEx()\ListView\ScrollBar\Item()\X + ComboEx()\ListView\ScrollBar\Item()\Width
-        			    
-          			  If Y >= ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Y And Y <= ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Y + ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Height
-          			    ComboEx()\ListView\ScrollBar\Item()\Pos - 1
-          			    If ComboEx()\ListView\ScrollBar\Item()\Pos < ComboEx()\ListView\ScrollBar\Item()\minPos : ComboEx()\ListView\ScrollBar\Item()\Pos = ComboEx()\ListView\ScrollBar\Item()\minPos : EndIf
-          			    DrawListView_()
-          			  ElseIf Y >= ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Y And Y <= ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Y + ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Height
-          			    ComboEx()\ListView\ScrollBar\Item()\Pos + 1
-          			    If ComboEx()\ListView\ScrollBar\Item()\Pos > ComboEx()\ListView\ScrollBar\Item()\maxPos : ComboEx()\ListView\ScrollBar\Item()\Pos = ComboEx()\ListView\ScrollBar\Item()\maxPos : EndIf
-          			    DrawListView_()
-          			  ElseIf Y < ComboEx()\ListView\ScrollBar\Item()\Thumb\Y
-          			    ComboEx()\ListView\ScrollBar\Item()\Pos - ComboEx()\ListView\ScrollBar\Item()\PageLength
-          			    If ComboEx()\ListView\ScrollBar\Item()\Pos < ComboEx()\ListView\ScrollBar\Item()\minPos : ComboEx()\ListView\ScrollBar\Item()\Pos = ComboEx()\ListView\ScrollBar\Item()\minPos : EndIf
-          			    DrawListView_()
-          			  ElseIf Y > ComboEx()\ListView\ScrollBar\Item()\Thumb\Y + ComboEx()\ListView\ScrollBar\Item()\Thumb\Height
-          			    ComboEx()\ListView\ScrollBar\Item()\Pos + ComboEx()\ListView\ScrollBar\Item()\PageLength
-          			    If ComboEx()\ListView\ScrollBar\Item()\Pos > ComboEx()\ListView\ScrollBar\Item()\maxPos : ComboEx()\ListView\ScrollBar\Item()\Pos = ComboEx()\ListView\ScrollBar\Item()\maxPos : EndIf
-          			    DrawListView_()
-          			  EndIf
+              If dX > dpiX(ComboEx()\ListView\VScroll\X) And dX < dpiX(ComboEx()\ListView\VScroll\X + ComboEx()\ListView\VScroll\Width)
+      			    If dY > dpiY(ComboEx()\ListView\VScroll\Y) And dY < dpiY(ComboEx()\ListView\VScroll\Y + ComboEx()\ListView\VScroll\Height)
+              
+          			  ComboEx()\ListView\VScroll\CursorPos = #PB_Default
+          			  ComboEx()\ListView\VScroll\Timer     = #False
           			  
-          			  ProcedureReturn #True
-          			EndIf
-          			
-        			EndIf
-        			;}
-            EndIf  
-            
+          			  If ComboEx()\ListView\VScroll\Focus
+          			    
+            			  If dY > dpiY(ComboEx()\ListView\VScroll\Buttons\bY) And  dY < dpiY(ComboEx()\ListView\VScroll\Buttons\bY + ComboEx()\ListView\VScroll\Buttons\Height)
+            			    ; --- Backwards Button ---
+            			    SetThumbPosY_(ComboEx()\ListView\VScroll\Pos - 1)
+            			    DrawListView_(#Vertical)
+            			  ElseIf dY > dpiY(ComboEx()\ListView\VScroll\Buttons\fY) And  dY < dpiY(ComboEx()\ListView\VScroll\Buttons\fY + ComboEx()\ListView\VScroll\Buttons\Height)
+            			    ; --- Forwards Button ---
+            			    SetThumbPosY_(ComboEx()\ListView\VScroll\Pos + 1)
+            			    DrawListView_(#Vertical)
+            			  ElseIf dY > dpiY(ComboEx()\ListView\VScroll\Area\Y) And dY < dpiY(ComboEx()\ListView\VScroll\Thumb\Y)
+            			    ; --- Page up ---
+            			    SetThumbPosY_(ComboEx()\ListView\VScroll\Pos - ComboEx()\ListView\VScroll\PageLength)
+            			    DrawListView_(#Vertical)
+            			  ElseIf dY > dpiY(ComboEx()\ListView\VScroll\Thumb\Y + ComboEx()\ListView\VScroll\Thumb\Height) And dY < dpiY(ComboEx()\ListView\VScroll\Area\Y + ComboEx()\ListView\VScroll\Area\Height)
+            			    ; --- Page down ---
+            			    SetThumbPosY_(ComboEx()\ListView\VScroll\Pos + ComboEx()\ListView\VScroll\PageLength)
+            			    DrawListView_(#Vertical)
+            			  EndIf
+              			
+            			EndIf 
+            			
+            			ProcedureReturn #True
+            		EndIf
+            	EndIf
+            	
+        		EndIf	 ;}
+    		
             ForEach ComboEx()\ListView\Item()
               If Y >= ComboEx()\ListView\Item()\Y And Y <= ComboEx()\ListView\Item()\Y + ComboEx()\ListView\RowHeight
                 If ComboEx()\ListView\State <> ListIndex(ComboEx()\ListView\Item())
@@ -1942,160 +2105,107 @@ Module ComboBoxEx
             Next 
             ;}
           Case #PB_EventType_MouseMove      ;{ Mouse Move
-          
-            If FindMapElement(ComboEx()\ListView\ScrollBar\Item(), "VScroll") ;{ ScrollBar
-              
-        	    If ComboEx()\ListView\ScrollBar\Item()\Hide = #False
-        	 
-        	      If X >= ComboEx()\ListView\ScrollBar\Item()\X And X <= ComboEx()\ListView\ScrollBar\Item()\X + ComboEx()\ListView\ScrollBar\Item()\Width
-        	      
-          	      If Y <= ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Y + ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Height
-          			    ;{ Backwards Button
-          			    If ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\State <> #ScrollBar_Focus
-          			      
-          			      ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\State = #ScrollBar_Focus
-          			      
-          			      If ComboEx()\ListView\ScrollBar\Item()\Thumb\State <> #False
-          			        ComboEx()\ListView\ScrollBar\Item()\Thumb\State = #False
-          			        DrawScrollBar_()
-          			      Else 
-          			        DrawScrollButton_(ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\X, ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Y, ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Width, ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Height, "VScroll", #ScrollBar_Backwards, #ScrollBar_Focus)
-          			      EndIf 
-          			      
-          			    EndIf
-        			      ;}
-          			    ProcedureReturn #True
-          			  ElseIf Y >= ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Y
-          			    ;{ Forwards Button
-          			    If ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\State <> #ScrollBar_Focus
-          			      
-          			      ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\State = #ScrollBar_Focus
-          			      
-          			      If ComboEx()\ListView\ScrollBar\Item()\Thumb\State <> #False
-          			        ComboEx()\ListView\ScrollBar\Item()\Thumb\State = #False
-          			        DrawScrollBar_()
-          			      Else 
-          			        DrawScrollButton_(ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\X, ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Y, ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Width, ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Height, "VScroll", #ScrollBar_Forwards, #ScrollBar_Focus)
-          			      EndIf
-          			      
-          			    EndIf ;}
-          			    ProcedureReturn #True
-          			  EndIf
-        
-          			  ComboEx()\ListView\ScrollBar\Item()\Timer = #False
-          			  
-          			  If ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\State <> #False ;{ Backwards Button
-          			    ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\State = #False
-          			    DrawScrollButton_(ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\X, ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Y, ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Width, ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Height, "VScroll", #ScrollBar_Backwards)
-            			  ;}
-            			EndIf
-            			
-            			If ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\State <> #False  ;{ Forwards Button
-            			  ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\State = #False
-            			  DrawScrollButton_(ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\X, ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Y, ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Width, ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Height, "VScroll", #ScrollBar_Forwards)
-            			  ;}
-            			EndIf
-          
-          			  If Y >= ComboEx()\ListView\ScrollBar\Item()\Thumb\Y And Y <= ComboEx()\ListView\ScrollBar\Item()\Thumb\Y + ComboEx()\ListView\ScrollBar\Item()\Thumb\Height
-          			    ;{ Move Thumb
-          			    If ComboEx()\ListView\ScrollBar\Item()\Cursor <> #PB_Default
-          			      
-          			      ComboEx()\ListView\ScrollBar\Item()\Pos + GetSteps_(Y)
-          			      
-          			      If ComboEx()\ListView\ScrollBar\Item()\Pos > ComboEx()\ListView\ScrollBar\Item()\maxPos : ComboEx()\ListView\ScrollBar\Item()\Pos = ComboEx()\ListView\ScrollBar\Item()\maxPos : EndIf
-          			      If ComboEx()\ListView\ScrollBar\Item()\Pos < ComboEx()\ListView\ScrollBar\Item()\minPos : ComboEx()\ListView\ScrollBar\Item()\Pos = ComboEx()\ListView\ScrollBar\Item()\minPos : EndIf
-          			      
-          			      ComboEx()\ListView\ScrollBar\Item()\Cursor = Y
-          		        
-          		        DrawListView_()
-          		        ProcedureReturn #True
-          		      EndIf ;}
-          			    ;{ Thumb Focus
-          			    If ComboEx()\ListView\ScrollBar\Item()\Thumb\State <> #ScrollBar_Focus
-          			      ComboEx()\ListView\ScrollBar\Item()\Thumb\State = #ScrollBar_Focus
-          			      DrawScrollBar_()
-          			    EndIf ;} 
-          			    ProcedureReturn #True
-          			  EndIf
-          			  
-          			  ProcedureReturn #True
-          			EndIf
-          			
-          			If ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\State <> #False ;{ Backwards Button
-          			  DrawScrollButton_(ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\X, ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Y, ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Width, ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Height, "VScroll", #ScrollBar_Backwards)
-          			  ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\State = #False
-          			  ;}
-          			EndIf
-          			
-          			If ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\State <> #False  ;{ Forwards Button
-          			  DrawScrollButton_(ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\X, ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Y, ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Width, ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Height, "VScroll", #ScrollBar_Forwards)
-          			  ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\State = #False
-          			  ;}
-          			EndIf
-          			
-          			If ComboEx()\ListView\ScrollBar\Item()\Thumb\State <> #False             ;{ Thumb Button
-          			  ComboEx()\ListView\ScrollBar\Item()\Thumb\State = #False
-          			  DrawScrollBar_()
-          			  ;}
-          			EndIf
-          			
-          		EndIf	
-        			;}
+            
+            ;{ Vertical Scrollbar
+    			  ComboEx()\ListView\VScroll\Focus = #False
+    			  
+    			  Backwards = ComboEx()\ListView\VScroll\Buttons\bState
+    			  Forwards  = ComboEx()\ListView\VScroll\Buttons\fState
+    			  Thumb     = ComboEx()\ListView\VScroll\Thumb\State
+    			  
+    			  If dX > dpiX(ComboEx()\ListView\VScroll\X) And dX < dpiX(ComboEx()\ListView\VScroll\X + ComboEx()\ListView\VScroll\Width)
+    			    If dY > dpiY(ComboEx()\ListView\VScroll\Y) And dY < dpiY(ComboEx()\ListView\VScroll\Y + ComboEx()\ListView\VScroll\Height)
+    
+    			      SetGadgetAttribute(GNum, #PB_Canvas_Cursor, #PB_Cursor_Default)
+    			      
+    			      ; --- Focus Scrollbar ---  
+    			      ComboEx()\ListView\VScroll\Buttons\bState = #Focus
+    			      ComboEx()\ListView\VScroll\Buttons\fState = #Focus
+    			      ComboEx()\ListView\VScroll\Thumb\State    = #Focus
+    			      
+    			      ; --- Hover Buttons & Thumb ---
+    			      If dY > dpiY(ComboEx()\ListView\VScroll\Buttons\bY) And dY < dpiY(ComboEx()\ListView\VScroll\Buttons\bY + ComboEx()\ListView\VScroll\Buttons\Height)
+    			        
+    			        ComboEx()\ListView\VScroll\Buttons\bState = #Hover
+    			        
+    			      ElseIf dY > dpiY(ComboEx()\ListView\VScroll\Buttons\fY) And dY < dpiY(ComboEx()\ListView\VScroll\Buttons\fY + ComboEx()\ListView\VScroll\Buttons\Height)
+    			        
+    			        ComboEx()\ListView\VScroll\Buttons\fState = #Hover
+    
+    			      ElseIf dY > dpiY(ComboEx()\ListView\VScroll\Thumb\Y) And dY < dpiY(ComboEx()\ListView\VScroll\Thumb\Y + ComboEx()\ListView\VScroll\Thumb\Height)
+    			        
+    			        ComboEx()\ListView\VScroll\Thumb\State = #Hover
+    			        
+    			        ;{ --- Move thumb with cursor 
+    			        If ComboEx()\ListView\VScroll\CursorPos <> #PB_Default
+    			          
+    			          CursorPos = ComboEx()\ListView\VScroll\Pos
+    			          
+      			        ComboEx()\ListView\VScroll\Pos       = GetThumbPosY_(Y)
+      			        ComboEx()\ListView\VScroll\CursorPos = Y
+      			        
+      			        If CursorPos <> ComboEx()\ListView\VScroll\Pos
+      			          DrawListView_(#Vertical)
+      			        EndIf
+      			        
+      			      EndIf ;}
+    
+      			    EndIf   
+      			    
+      			    ComboEx()\ListView\VScroll\Focus = #True
+      			    
+      			    If Backwards <> ComboEx()\ListView\VScroll\Buttons\bState : DrawScrollButton_(#Backwards) : EndIf 
+                If Forwards  <> ComboEx()\ListView\VScroll\Buttons\fState : DrawScrollButton_(#Forwards)  : EndIf 
+                If Thumb     <> ComboEx()\ListView\VScroll\Thumb\State    : DrawThumb_()                  : EndIf 
+                
+                ProcedureReturn #True
+        			EndIf
         		EndIf
-      		
-            ForEach ComboEx()\ListView\Item()
+        		
+        		If Not ComboEx()\ListView\VScroll\Focus
+    
+              ComboEx()\ListView\VScroll\Buttons\bState = #False
+              ComboEx()\ListView\VScroll\Buttons\fState = #False
+              ComboEx()\ListView\VScroll\Thumb\State    = #False
+              
+              ComboEx()\ListView\VScroll\Timer = #False
+              
+            EndIf   
+            
+            If Backwards <> ComboEx()\ListView\VScroll\Buttons\bState : DrawScrollButton_(#Backwards) : EndIf 
+            If Forwards  <> ComboEx()\ListView\VScroll\Buttons\fState : DrawScrollButton_(#Forwards)  : EndIf 
+            If Thumb     <> ComboEx()\ListView\VScroll\Thumb\State    : DrawThumb_()                  : EndIf 
+            
+            ComboEx()\ListView\VScroll\CursorPos = #PB_Default
+    			  ;}
+
+            ForEach ComboEx()\ListView\Item() ;{ List Items
               If Y >= ComboEx()\ListView\Item()\Y And Y <= ComboEx()\ListView\Item()\Y + ComboEx()\ListView\RowHeight
                 ComboEx()\ListView\Focus = ListIndex(ComboEx()\ListView\Item())
                 DrawListView_()
                 ProcedureReturn #True
-              EndIf
+              EndIf ;}
             Next 
             ;}
           Case #PB_EventType_MouseLeave     ;{ Mouse Leave
             
-            If FindMapElement(ComboEx()\ListView\ScrollBar\Item(), "VScroll") ;{ ScrollBar
-              
-              If ComboEx()\ListView\ScrollBar\Item()\Hide = #False
-	    
-          	    If ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\State <> #False
-          			  DrawScrollButton_(ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\X, ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Y, ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Width, ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\Height, "VScroll", #ScrollBar_Backwards)
-          			  ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\State = #False
-          			EndIf
-          			
-          			If ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\State <> #False
-          			  DrawScrollButton_(ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\X, ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Y, ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Width, ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\Height, "VScroll", #ScrollBar_Forwards)
-          			  ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\State = #False
-          			EndIf
-          			
-          	    If ComboEx()\ListView\ScrollBar\Item()\Thumb\State <> #False
-          	      ComboEx()\ListView\ScrollBar\Item()\Thumb\State = #False
-          	      DrawScrollBar_()
-          	    EndIf
-          	    
-          	  EndIf  
-        	    ;}
-            EndIf  
-            
+            ComboEx()\ListView\VScroll\Buttons\bState = #False
+            ComboEx()\ListView\VScroll\Buttons\fState = #False
+            ComboEx()\ListView\VScroll\Thumb\State    = #False
+            ComboEx()\ListView\VScroll\CursorPos      = #PB_Default
+
             ComboEx()\ListView\Focus = #PB_Default
-            DrawListView_()
+            
+            DrawListView_(#Vertical)
+            
             ProcedureReturn #True
             ;}
           Case #PB_EventType_MouseWheel     ;{ Mouse Wheel
             
-            If FindMapElement(ComboEx()\ListView\ScrollBar\Item(), "VScroll") ;{ ScrollBar
-            
+            If ComboEx()\ListView\VScroll\Hide = #False
               Delta = GetGadgetAttribute(GadgetNum, #PB_Canvas_WheelDelta)
-              
-              If ComboEx()\ListView\ScrollBar\Item()\Hide = #False
-         
-                ComboEx()\ListView\ScrollBar\Item()\Pos - Delta
-                
-                If ComboEx()\ListView\ScrollBar\Item()\Pos > ComboEx()\ListView\ScrollBar\Item()\maxPos : ComboEx()\ListView\ScrollBar\Item()\Pos = ComboEx()\ListView\ScrollBar\Item()\maxPos : EndIf
-                If ComboEx()\ListView\ScrollBar\Item()\Pos < ComboEx()\ListView\ScrollBar\Item()\minPos : ComboEx()\ListView\ScrollBar\Item()\Pos = ComboEx()\ListView\ScrollBar\Item()\minPos : EndIf
-       
-                DrawListView_()      
-              EndIf
-              
+              SetThumbPosY_(ComboEx()\ListView\VScroll\Pos - Delta)
+              DrawListView_(#Vertical)
             EndIf 
             ;}
         EndSelect 
@@ -2384,17 +2494,17 @@ Module ComboBoxEx
   EndProcedure
   
   Procedure _LeftButtonDownHandler()
-    Define.i X
+    Define.i dX
     Define.i GNum = EventGadget()
     
     If FindMapElement(ComboEx(), Str(GNum))
       
-      X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
+      dX = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
 
       If ComboEx()\Flags & #Editable
       
         If ComboEx()\Mouse = #Mouse_Move
-          ComboEx()\Cursor\Pos = CursorPos_(X)
+          ComboEx()\Cursor\Pos = CursorPos_(dX)
         EndIf
         
       EndIf
@@ -2415,16 +2525,16 @@ Module ComboBoxEx
   EndProcedure 
   
   Procedure _LeftButtonUpHandler()
-    Define.i X
+    Define.i dX
     Define.i GNum = EventGadget()
     
     If FindMapElement(ComboEx(), Str(GNum))
       
-      X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
+      dX = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
       
       If ComboEx()\Flags & #Editable ;{ editable ComboBox
         
-        If X > ComboEx()\Button\X 
+        If dX > dpiX(ComboEx()\Button\X)
           
           If ComboEx()\ListView\Hide
             OpenListView_()
@@ -2437,7 +2547,7 @@ Module ComboBoxEx
         Else 
   
           If ComboEx()\Mouse = #Mouse_Select
-            ComboEx()\Cursor\Pos     = CursorPos_(X)
+            ComboEx()\Cursor\Pos     = CursorPos_(dX)
             ComboEx()\Selection\Pos2 = ComboEx()\Cursor\Pos
             ComboEx()\Mouse = #Mouse_Move
           EndIf
@@ -2462,14 +2572,14 @@ Module ComboBoxEx
   EndProcedure 
   
   Procedure _LeftDoubleClickHandler()
-    Define.i X, Pos
+    Define.i dX, Pos
     Define.i GNum = EventGadget()
     
     If FindMapElement(ComboEx(), Str(GNum))
       
-      X = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
+      dX = GetGadgetAttribute(GNum, #PB_Canvas_MouseX)
       
-      Pos = CursorPos_(X)
+      Pos = CursorPos_(dX)
       If Pos
         ComboEx()\Selection\Pos1 = GetWordStart_(Pos)
         ComboEx()\Selection\Pos2 = GetWordEnd_(Pos)
@@ -2508,14 +2618,14 @@ Module ComboBoxEx
   EndProcedure  
   
   Procedure _MouseMoveHandler()
-    Define.i X, Y, GNum
+    Define.i dX, Y, GNum
     Define.i GadgetNum = EventGadget()
     
     If FindMapElement(ComboEx(), Str(GadgetNum))
 
-      X = GetGadgetAttribute(GadgetNum, #PB_Canvas_MouseX)
-      
-      If ComboEx()\Flags & #Editable
+     	dX = GetGadgetAttribute(GadgetNum, #PB_Canvas_MouseX)
+
+      If ComboEx()\Flags & #Editable ;{ Edit
       
         If GetGadgetAttribute(GadgetNum, #PB_Canvas_Buttons) = #PB_Canvas_LeftButton ;{ Left mouse button pressed
           
@@ -2523,20 +2633,20 @@ Module ComboBoxEx
             Case #Mouse_Move   ;{ Start selection
               If ComboEx()\Selection\Flag = #NoSelection
                 ComboEx()\Selection\Pos1 = ComboEx()\Cursor\Pos
-                ComboEx()\Selection\Pos2 = CursorPos_(X)
+                ComboEx()\Selection\Pos2 = CursorPos_(dX)
                 ComboEx()\Selection\Flag = #Selected
                 ComboEx()\Mouse = #Mouse_Select
                 Draw_()
               EndIf ;}
             Case #Mouse_Select ;{ Continue selection
-              ComboEx()\Selection\Pos2 = CursorPos_(X)
+              ComboEx()\Selection\Pos2 = CursorPos_(dX)
               ComboEx()\Cursor\Pos     = ComboEx()\Selection\Pos2
               Draw_() ;}
           EndSelect
           ;}
         Else
 
-          If X > ComboEx()\Button\X
+          If dX > dpiX(ComboEx()\Button\X)
             ComboEx()\Button\State | #Focus
             If ComboEx()\CanvasCursor <> #PB_Cursor_Default
               SetGadgetAttribute(ComboEx()\CanvasNum, #PB_Canvas_Cursor, #PB_Cursor_Default)
@@ -2552,7 +2662,7 @@ Module ComboBoxEx
         
           Draw_()
         EndIf 
-
+        ;}
       EndIf
       
       ComboEx()\Mouse = #Mouse_Move
@@ -2635,18 +2745,10 @@ Module ComboBoxEx
      
       If ComboEx()\Window\Num = Window
         
-        CompilerIf Defined(ModuleEx, #PB_Module) = #False
-          If MapSize(ComboEx()) = 1
-            Thread\Exit      = #True
-            TimerThread\Exit = #True
-            Delay(100)
-            If IsThread(Thread\Num) : KillThread(Thread\Num) : EndIf
-            If IsThread(TimerThread\Num) : KillThread(TimerThread\Num) : EndIf
-            Thread\Active      = #False
-            TimerThread\Active = #False
-          EndIf
-        CompilerEndIf
-
+        If IsWindow(ComboEx()\ListView\Window)
+          CloseWindow(ComboEx()\ListView\Window)
+        EndIf
+      
         DeleteMapElement(ComboEx())
         
       EndIf
@@ -2656,76 +2758,8 @@ Module ComboBoxEx
   EndProcedure
   
   ;{ _____ ScrollBar _____
-  Procedure InitScrollBar_(CanvasNum.i, Flags.i=#False)
-
-	  ComboEx()\ListView\ScrollBar\Num = CanvasNum
-	  
-	  ComboEx()\ListView\ScrollBar\Flags = Flags
-	  
-	  If TimerThread\Active = #False 
-      TimerThread\Exit   = #False
-      TimerThread\Num    = CreateThread(@_TimerThread(), #ScrollBar_Timer)
-      TimerThread\Active = #True
-    EndIf
-	  
-		ComboEx()\ListView\ScrollBar\Color\Back         = $F0F0F0
-		ComboEx()\ListView\ScrollBar\Color\Border       = $A0A0A0
-		ComboEx()\ListView\ScrollBar\Color\Button       = $F0F0F0
-		ComboEx()\ListView\ScrollBar\Color\Focus        = $D77800
-		ComboEx()\ListView\ScrollBar\Color\Front        = $646464
-		ComboEx()\ListView\ScrollBar\Color\Gadget       = $F0F0F0
-		ComboEx()\ListView\ScrollBar\Color\ScrollBar    = $C8C8C8
-		ComboEx()\ListView\ScrollBar\Color\DisableFront = $72727D
-		ComboEx()\ListView\ScrollBar\Color\DisableBack  = $CCCCCA
-		
-		CompilerSelect #PB_Compiler_OS ;{ Color
-			CompilerCase #PB_OS_Windows
-				ComboEx()\ListView\ScrollBar\Color\Front     = GetSysColor_(#COLOR_GRAYTEXT)
-				ComboEx()\ListView\ScrollBar\Color\Back      = GetSysColor_(#COLOR_MENU)
-				ComboEx()\ListView\ScrollBar\Color\Border    = GetSysColor_(#COLOR_3DSHADOW)
-				ComboEx()\ListView\ScrollBar\Color\Gadget    = GetSysColor_(#COLOR_MENU)
-				ComboEx()\ListView\ScrollBar\Color\Focus     = GetSysColor_(#COLOR_MENUHILIGHT)
-				ComboEx()\ListView\ScrollBar\Color\ScrollBar = GetSysColor_(#COLOR_SCROLLBAR)
-			CompilerCase #PB_OS_MacOS
-				ComboEx()\ListView\ScrollBar\Color\Front  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
-				ComboEx()\ListView\ScrollBar\Color\Back   = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
-				ComboEx()\ListView\ScrollBar\Color\Border = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor grayColor"))
-				ComboEx()\ListView\ScrollBar\Color\Gadget = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor windowBackgroundColor"))
-				ComboEx()\ListView\ScrollBar\Color\Focus  = OSX_NSColorToRGB(CocoaMessage(0, 0, "NSColor selectedControlColor"))
-				; ComboEx()\ListView\ScrollBar\Color\ScrollBar = 
-			CompilerCase #PB_OS_Linux
-
-		CompilerEndSelect ;}
-    
-		BindEvent(#Event_Timer, @_AutoScroll())
-		
-	EndProcedure
-	
-  Procedure CreateScrollBar_(Label.s, X.i, Y.i, Width.i, Height.i, Minimum.i, Maximum.i, PageLength.i, Type.i=#False)
-    
-    If AddMapElement(ComboEx()\ListView\ScrollBar\Item(), Label)
-    
-      ComboEx()\ListView\ScrollBar\Item()\X          = dpiX(X)
-      ComboEx()\ListView\ScrollBar\Item()\Y          = dpiY(Y)
-      ComboEx()\ListView\ScrollBar\Item()\Width      = dpiX(Width)
-      ComboEx()\ListView\ScrollBar\Item()\Height     = dpiY(Height)
-      ComboEx()\ListView\ScrollBar\Item()\Minimum    = Minimum
-      ComboEx()\ListView\ScrollBar\Item()\Maximum    = Maximum
-      ComboEx()\ListView\ScrollBar\Item()\PageLength = PageLength
-      ComboEx()\ListView\ScrollBar\Item()\Hide       = #True
-      ComboEx()\ListView\ScrollBar\Item()\Type       = Type
-      
-      ComboEx()\ListView\ScrollBar\Item()\Cursor = #PB_Default
-		
-			ComboEx()\ListView\ScrollBar\Item()\Buttons\Forwards\State  = #PB_Default
-			ComboEx()\ListView\ScrollBar\Item()\Buttons\Backwards\State = #PB_Default
-			
-			CalcScrollBarThumb_()
-		  DrawScrollBar_()
-			
-    EndIf
-    
-  EndProcedure 
+  
+  
   ;}
   
   ;- ==========================================================================
@@ -2733,17 +2767,19 @@ Module ComboBoxEx
   ;- ========================================================================== 
   
   Procedure   InitList_()
-
-    ComboEx()\ListView\Window = ListView\Window
     
-    If IsWindow(ComboEx()\ListView\Window)
+    ComboEx()\ListView\Window = OpenWindow(#PB_Any, 0, 0, 0, 0, "", #PB_Window_BorderLess|#PB_Window_Invisible|#PB_Window_NoActivate, WindowID(ComboEx()\Window\Num)) 
+    If ComboEx()\ListView\Window
       
-      ComboEx()\ListView\Num = ListView\Gadget
+      ;StickyWindow(ComboEx()\ListView\Window, #True)
+      
+      ComboEx()\ListView\Num = CanvasGadget(#PB_Any, 0, 0, 0, 0)
       
       If IsGadget(ComboEx()\ListView\Num)
+
+        ScrollBar()
         
-        InitScrollBar_(ComboEx()\ListView\Num)
-        CreateScrollBar_("VScroll", 0, 0, 0, 0, 1, 0, 0)
+        AddWindowTimer(ComboEx()\ListView\Window, #AutoScrollTimer, #Frequency)
         
         BindGadgetEvent(ComboEx()\ListView\Num, @_ListViewHandler())
         
@@ -2752,8 +2788,7 @@ Module ComboBoxEx
     EndIf
   
   EndProcedure  
-  
-  
+
 	Procedure.i AddItem(GNum.i, Row.i, Text.s, Label.s="", Flags.i=#False)
 	  Define.i r, Result
 	  
@@ -2951,31 +2986,6 @@ Module ComboBoxEx
           ComboEx()\Window\Num = WindowNum
         EndIf
 
-        CompilerIf Defined(ModuleEx, #PB_Module)
-          
-          If ModuleEx::AddWindow(ComboEx()\Window\Num, ModuleEx::#Tabulator|ModuleEx::#CursorEvent)
-            ModuleEx::AddGadget(GNum, ComboEx()\Window\Num, ModuleEx::#UseTabulator)
-          EndIf
-
-        CompilerElse  
-          
-          If IsWindow(ComboEx()\Window\Num)
-            RemoveKeyboardShortcut(ComboEx()\Window\Num, #PB_Shortcut_Tab)
-          Else
-            Debug "ERROR: Invalid window number"
-            ProcedureReturn #False
-          EndIf
-          
-          If Thread\Active = #False
-            
-            Thread\Exit   = #False
-            Thread\Num    = CreateThread(@_CursorThread(), #CursorFrequency)
-            Thread\Active = #True
-            
-          EndIf
-
-        CompilerEndIf
-
         CompilerSelect #PB_Compiler_OS ;{ Font
           CompilerCase #PB_OS_Windows
             ComboEx()\FontID = GetGadgetFont(#PB_Default)
@@ -3029,7 +3039,7 @@ Module ComboBoxEx
             ComboEx()\Color\FocusBack     = GetSysColor_(#COLOR_HIGHLIGHT)
             ComboEx()\Color\Gadget        = GetSysColor_(#COLOR_MENU)
             ComboEx()\Color\Button        = GetSysColor_(#COLOR_3DLIGHT)
-            ComboEx()\Color\Border        = GetSysColor_(#COLOR_WINDOWFRAME)
+            ComboEx()\Color\Border        = GetSysColor_(#COLOR_ACTIVEBORDER)
             ComboEx()\Color\WordColor     = GetSysColor_(#COLOR_HOTLIGHT)
             ComboEx()\Color\Highlight     = GetSysColor_(#COLOR_HIGHLIGHT)
             ComboEx()\Color\HighlightText = GetSysColor_(#COLOR_HIGHLIGHTTEXT)
@@ -3060,7 +3070,7 @@ Module ComboBoxEx
         BindGadgetEvent(GNum, @_CursorDrawing(),          #PB_EventType_Change)
         BindGadgetEvent(GNum, @_ResizeHandler(),          #PB_EventType_Resize)
 
-        ;BindGadgetEvent(ComboEx()\ListView\ScrollBar\Num, @_SynchronizeScrollBar(), #PB_All) 
+        
         
         If IsWindow(WindowNum) : BindEvent(#PB_Event_MoveWindow, @_MoveWindowHandler(), WindowNum) : EndIf
         
@@ -3074,7 +3084,8 @@ Module ComboBoxEx
           
         EndIf
         
-        BindEvent(#Event_Cursor, @_CursorDrawing())
+        AddWindowTimer(ComboEx()\Window\Num, #CursorTimer, #CursorFrequency)
+        BindEvent(#PB_Event_Timer, @_CursorDrawing(), ComboEx()\Window\Num)
 
         CompilerIf Defined(ModuleEx, #PB_Module)
           BindEvent(#Event_Theme, @_ThemeHandler())
@@ -3288,7 +3299,7 @@ Module ComboBoxEx
         Case #Corner
           ComboEx()\Radius  = Value
         Case #ScrollBar
-          ComboEx()\ListView\ScrollBar\Flags = Value  
+          ComboEx()\ListView\ScrollBar\Flags | Value  
       EndSelect
       
       Draw_()
@@ -3318,15 +3329,11 @@ Module ComboBoxEx
         Case #HighlightTextColor
           ComboEx()\Color\HighlightText = Color
         Case #ScrollBar_FrontColor
-          ComboEx()\ListView\ScrollBar\Color\Front     = Color
+          ComboEx()\ListView\ScrollBar\Color\Front  = Color
         Case #ScrollBar_BackColor 
-          ComboEx()\ListView\ScrollBar\Color\Back      = Color
-        Case #ScrollBar_BorderColor
-          ComboEx()\ListView\ScrollBar\Color\Border    = Color
+          ComboEx()\ListView\ScrollBar\Color\Back   = Color
         Case #ScrollBar_ButtonColor
-          ComboEx()\ListView\ScrollBar\Color\Button    = Color
-        Case #ScrollBar_ThumbColor
-          ComboEx()\ListView\ScrollBar\Color\ScrollBar = Color  
+          ComboEx()\ListView\ScrollBar\Color\Button = Color  
       EndSelect
       
       Draw_()
@@ -3518,9 +3525,7 @@ Module ComboBoxEx
     EndIf
     
   EndProcedure
-  
-  ListViewWindow_()
-  
+
 EndModule  
 
 ;- ========  Module - Example ========
@@ -3554,9 +3559,7 @@ CompilerIf #PB_Compiler_IsMainFile
         
         If ComboBoxEx::Gadget(#ComboEx, 120, 19, 90, 20, 80, "", ComboBoxEx::#Editable, #Window)
           ; ComboBoxEx::#LowerCase / ComboBoxEx::#UpperCase / ComboBoxEx::#Editable / ComboBoxEx::#BorderLess
-          
-          ComboBoxEx::SetAttribute(#ComboEx, ComboBoxEx::#ScrollBar, ComboBoxEx::#ScrollBar_DragPoint)
-          
+
           ;ComboBoxEx::SetAttribute(#ComboEx, ComboBoxEx::#Corner, 4)
           ;ComboBoxEx::SetImage(#ComboEx, #Image)
           
@@ -3614,9 +3617,10 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf
-; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 91
-; Folding = IkBAAAAAAEApBQAA5QAEGMAAAAAwGAAAAAAAg-
+; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
+; CursorPosition = 2787
+; FirstLine = 565
+; Folding = 5MAAAAAiCAAAEMFQkfBiEEAAAe+AAASAAAAA+
 ; EnableThread
 ; EnableXP
 ; DPIAware
