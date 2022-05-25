@@ -4,12 +4,12 @@
 ;/
 ;/ [ PB V5.7x / 64Bit / All OS]
 ;/
-;/ © 2019 Thorsten1867 (08/2019)
+;/ © 2022 Thorsten1867 (08/2019)
 ;/
 
-; Last Update: 21.02.2020
+; Last Update: 21.05.2022
 ;
-; BugFix: IsProgID()
+; BugFix: Content.xml
 ;
 
 ;{ ===== MIT License =====
@@ -200,7 +200,7 @@ Module SFC
   
   Global Error.i
   
-  Structure Content_Structure     ;{ Content\..
+  Structure Content_Structure     ;{ Content()\..
     ProgID.s
     Author.s
     Titel.s
@@ -208,7 +208,7 @@ Module SFC
     Creator.s
     idSFC.s
   EndStructure ;}
-  Global Content.Content_Structure
+  Global NewMap Content.Content_Structure()
   
   Structure AES_Structure         ;{ qAES\...
     Salt.s
@@ -569,46 +569,70 @@ Module SFC
   EndProcedure	
   
   
-  Procedure   SaveContentXML(PackID.i)
+  Procedure   SaveContentXML(ID.s, PackID.i)
     Define.i XML, Size
     Define   *Buffer
+    Define   Content.Content_Structure
     
-    XML = CreateXML(#PB_Any)
-    If XML
-      InsertXMLStructure(RootXMLNode(XML), @Content, Content_Structure)
-      FormatXML(XML, #PB_XML_ReFormat)
-      Size = ExportXMLSize(XML)
-      If Size
-        *Buffer = AllocateMemory(Size)
-        If *Buffer
-          If ExportXML(XML, *Buffer, Size)
-            AddPackMemory(PackID, *Buffer, Size, "Content.xml")
+    If FindMapElement(Content(), ID)
+      
+      Content\ProgID  = Content()\ProgID
+      Content\Author  = Content()\Author
+      Content\Titel   = Content()\Titel
+      Content\Subject = Content()\Subject
+      Content\Creator = Content()\Creator
+      Content\idSFC   = Content()\idSFC
+      
+      XML = CreateXML(#PB_Any)
+      If XML
+        InsertXMLStructure(RootXMLNode(XML), @Content, Content_Structure)
+        FormatXML(XML, #PB_XML_ReFormat)
+        Size = ExportXMLSize(XML)
+        If Size
+          *Buffer = AllocateMemory(Size)
+          If *Buffer
+            If ExportXML(XML, *Buffer, Size)
+              AddPackMemory(PackID, *Buffer, Size, "Content.xml")
+            EndIf
+            FreeMemory(*Buffer)
           EndIf
-          FreeMemory(*Buffer)
         EndIf
+        FreeXML(XML)
       EndIf
-      FreeXML(XML)
-    EndIf
-
+      
+    EndIf 
+    
   EndProcedure
   
-  Procedure   LoadContentXML(PackID.i, Size.i) 
+  Procedure   LoadContentXML(ID.s, PackID.i, Size.i) 
     Define.i XML
     Define   *Buffer
+    Define   Content.Content_Structure
     
     If Size = 0 : ProcedureReturn  #False : EndIf 
     
-    *Buffer = AllocateMemory(Size)
-    If *Buffer
-      If UncompressPackMemory(PackID, *Buffer, Size, "Content.xml") <> -1
-        XML = CatchXML(#PB_Any, *Buffer, Size)
-        If XML
-          ExtractXMLStructure(MainXMLNode(XML), @Content, Content_Structure)
-          FreeXML(XML)
+    If AddMapElement(Content(), ID)
+    
+      *Buffer = AllocateMemory(Size)
+      If *Buffer
+        If UncompressPackMemory(PackID, *Buffer, Size, "Content.xml") <> -1
+          XML = CatchXML(#PB_Any, *Buffer, Size)
+          If XML
+            ExtractXMLStructure(MainXMLNode(XML), @Content, Content_Structure)
+            FreeXML(XML)
+          EndIf 
         EndIf 
+        FreeMemory(*Buffer)  
       EndIf 
-      FreeMemory(*Buffer)  
-    EndIf 
+      
+      Content()\ProgID  = Content\ProgID
+      Content()\Author  = Content\Author
+      Content()\Titel   = Content\Titel
+      Content()\Subject = Content\Subject
+      Content()\Creator = Content\Creator
+      Content()\idSFC   = Content\idSFC
+      
+    EndIf
     
   EndProcedure
   
@@ -764,7 +788,7 @@ Module SFC
 	
 
 	Procedure.i AddMemory2Pack_(*Buffer, Size.i, PackedFileName.s, Key.s) ; only OpenPack()
-	  Define.i PackID, PackEntrySize, Size, pResult, Result, Files, Count
+	  Define.i ID.i,PackID, PackEntrySize, Size, pResult, Result, Files, Count
 	  Define.s PackFile, PackEntryName
 	  Define   *Buffer, *File
 	  
@@ -789,8 +813,7 @@ Module SFC
 	        If PackEntryName = PackedFileName
 	          Continue
           ElseIf PackEntryName = "Content.xml" ;{ Save 'Content.xml'
-            
-            SaveContentXML(PackID)
+            SaveContentXML(MapKey(PackEx()), PackID)
             ;}
 	        Else                                 ;{ Copy other files
 	          
@@ -874,7 +897,7 @@ Module SFC
 	        If PackEntryName = PackedFileName ;{ Ignore PackedFileName
 	          Continue                        ;}
 	        ElseIf PackEntryName = "Content.xml"
-	          SaveContentXML(PackID)
+	          SaveContentXML(MapKey(PackEx()), PackID)
 	        Else                              ;{ Copy other files
 	          
 	          PackEntrySize = PackEntrySize(PackEx()\ID)
@@ -959,7 +982,7 @@ Module SFC
 	        If PackEntryName = PackedFileName ;{ Ignore PackedFileName
 	          Continue                        ;}
 	        ElseIf PackEntryName = "Content.xml" 
-	          SaveContentXML(PackID)
+	          SaveContentXML(MapKey(PackEx()), PackID)
 	        Else                              ;{ Copy other files
 	          
 	          PackEntrySize = PackEntrySize(PackEx()\ID)
@@ -1087,18 +1110,19 @@ Module SFC
       PackEx()\Mode   = #Create
 
       If Key
-        PackEx()\Key = KeyStretching_(Key, 256)
+        PackEx()\Key    = KeyStretching_(Key, 256)
         PackEx()\idSFC  = KeyStretching_(StringFingerprint(Key, #PB_Cipher_SHA3), #SFC)
       EndIf
-    
-      Content\ProgID  = ProgID
-      Content\Creator = "Secure FileContainer"
-      Content\Author  = ""
-      Content\Titel   = ""
-      Content\Subject = ""
       
-      Content\idSFC   = PackEx()\idSFC
-
+      If AddMapElement(Content(), Str(ID))
+        Content()\ProgID  = ProgID
+        Content()\Creator = "Secure FileContainer"
+        Content()\Author  = ""
+        Content()\Titel   = ""
+        Content()\Subject = ""
+        Content()\idSFC   = PackEx()\idSFC
+      EndIf
+      
       TempDir_(ID)
       
       ProcedureReturn PackEx()\ID
@@ -1125,7 +1149,7 @@ Module SFC
 
       ReadContent_()
       
-      LoadContentXML(PackEx()\ID, PackEx()\Files("Content.xml")\Size)
+      LoadContentXML(Str(ID), PackEx()\ID, PackEx()\Files("Content.xml")\Size)
 
       TempDir_(ID)
       
@@ -1687,7 +1711,7 @@ Module SFC
           
         Next
         
-        SaveContentXML(PackEx()\ID)
+        SaveContentXML(Str(ID), PackEx()\ID)
         
       EndIf
       
@@ -1711,9 +1735,9 @@ Module SFC
   
   Procedure.i IsProgID(ID.i, ProgID.s)
     
-    If FindMapElement(PackEx(), Str(ID))
+    If FindMapElement(Content(), Str(ID))
       
-      If ProgID = Content\ProgID
+      If ProgID = Content()\ProgID
         ProcedureReturn #True
       EndIf
       
@@ -1724,11 +1748,11 @@ Module SFC
   
   Procedure.i IsCorrectKey(ID.i, Key.s) 
 
-    If FindMapElement(PackEx(), Str(ID))
+    If FindMapElement(Content(), Str(ID))
       
       If Key : Key = KeyStretching_(StringFingerprint(Key, #PB_Cipher_SHA3), #SFC) : EndIf
       
-      If Content\idSFC = Key
+      If Content()\idSFC = Key
         ProcedureReturn #True
       EndIf
       
@@ -1740,19 +1764,19 @@ Module SFC
   
   Procedure.s GetInfo(ID.i, Type.i)
     
-    If FindMapElement(PackEx(), Str(ID))
+    If FindMapElement(Content(), Str(ID))
       
       Select Type
         Case #Author
-          ProcedureReturn Content\Author
+          ProcedureReturn Content()\Author
         Case #Title
-          ProcedureReturn Content\Titel
+          ProcedureReturn Content()\Titel
         Case #Subject
-          ProcedureReturn Content\Subject
+          ProcedureReturn Content()\Subject
         Case #Creator 
-          ProcedureReturn Content\Creator
+          ProcedureReturn Content()\Creator
         Case #ProgID
-          ProcedureReturn Content\ProgID
+          ProcedureReturn Content()\ProgID
       EndSelect
       
     EndIf
@@ -1761,19 +1785,19 @@ Module SFC
   
   Procedure   SetInfo(ID.i, Type.i, Value.s)
     
-    If FindMapElement(PackEx(), Str(ID))
+    If FindMapElement(Content(), Str(ID))
       
       Select Type
         Case #Author
-          Content\Author  = Value
+          Content()\Author  = Value
         Case #Title
-          Content\Titel   = Value
+          Content()\Titel   = Value
         Case #Subject
-          Content\Subject = Value
+          Content()\Subject = Value
         Case #Creator 
-          Content\Creator = Value
+          Content()\Creator = Value
         Case #ProgID
-          Content\ProgID  = Value
+          Content()\ProgID  = Value
       EndSelect
       
     EndIf
@@ -1787,7 +1811,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
   
-  #Example = 1
+  #Example = 2
   
   ; 1: Create Container
   ; 2: Load XML
@@ -1864,9 +1888,10 @@ CompilerIf #PB_Compiler_IsMainFile
   CompilerEndSelect
 
 CompilerEndIf  
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 72
-; Folding = MGB+OAYARAYEC9
+; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
+; CursorPosition = 615
+; FirstLine = 79
+; Folding = ICA+uAYASAYkE9
 ; EnableXP
 ; DPIAware
 ; EnablePurifier

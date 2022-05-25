@@ -1,4 +1,4 @@
-;/ ===========================
+ï»¿;/ ===========================
 ;/ =    ListEx-Module.pbi    =
 ;/ ===========================
 ;/
@@ -6,22 +6,23 @@
 ;/
 ;/ Editable and sortable ListGadget
 ;/
-;/ © 2022 Thorsten1867 (03/2019)
+;/ Â© 2022 Thorsten1867 (03/2019)
 ;/
- 
-; Last Update: 15.05.2022
-; 
-; Added: Scrollbar buttons scroll line-by-line or column-by-column
+
+
+; Last Update: 25.05.2022
 ;
-;  Fixed: Resize & Scrollbar
-;  DPI adjustment & Bugfixes
+; - Bugfixes
 ;
-; Adjust row height (#AdjustRows)
-; Support for the "MarkdownModule" (#MarkDown) 
-;
-; Changed: New DPI management
-; Changed: Timer for Cursor & Autoscroll
-; Changed: New ScrollBars
+; - Added: Tooltips for columns 
+; - Added: Scrollbar buttons scroll line-by-line or column-by-column
+; - Fixed: Resize & Scrollbar
+; - DPI adjustment & Bugfixes
+; - Adjust row height (#AdjustRows)
+; - Support for the "MarkdownModule" (#MarkDown) 
+; - Changed: New DPI management
+; - Changed: Timer for Cursor & Autoscroll
+; - Changed: New ScrollBars
 ;
 
 
@@ -151,7 +152,7 @@
 ; Integer: "." or "," or "1.000" or "1,000"
 ; Date:    "%dd.%mm.%yyyy"
 ; Time:    "%hh:%ii:%ss"
-; Cash:    "0,00 €" or "$ 0.00"
+; Cash:    "0,00 â‚¬" or "$ 0.00"
 
 ;}
 
@@ -162,7 +163,7 @@
 
 DeclareModule ListEx
   
-  #Version  = 22051100
+  #Version  = 22052500
   #ModuleEx = 20030400
   
   #Enable_CSV_Support   = #True
@@ -368,7 +369,7 @@ DeclareModule ListEx
     
     #Event_Cursor        = ModuleEx::#Event_Cursor
     #Event_Gadget        = ModuleEx::#Event_Gadget
-    ;#Event_Theme         = ModuleEx::#Event_Theme
+    #Event_Theme         = ModuleEx::#Event_Theme
     #Event_Timer         = ModuleEx::#Event_Timer
     
     #EventType_Button    = ModuleEx::#EventType_Button
@@ -498,6 +499,7 @@ DeclareModule ListEx
   Declare   SetState(GNum.i, Row.i=#PB_Default, Column.i=#PB_Ignore)
   Declare   SetTimeMask(GNum.i, Mask.s, Column.i=#PB_Ignore)
   Declare   Sort(GNum.i, Column.i, Direction.i, Flags.i)
+  Declare   Tooltip(GNum.i, Column.i, Text.s)
   
   CompilerIf Defined(MarkDown, #PB_Module)
     Declare SetMarkdownFont(GNum.i, Name.s, Size.i)
@@ -538,7 +540,7 @@ Module ListEx
   #DefaultCountry          = "DE"
   #DefaultDateMask         = "%dd.%mm.%yyyy"
   #DefaultTimeMask         = "%hh:%ii:%ss"
-  #DefaultCurrency         = "€"
+  #DefaultCurrency         = "â‚¬"
   #DefaultClock            = "Uhr"
   #DefaultTimeSeparator    = ":"
   #DefaultDateSeparator    = "."
@@ -966,6 +968,7 @@ Module ListEx
     Flags.i
     FrontColor.i
     BackColor.i
+    Tooltip.s
     Header.Cols_Header_Structure
     Image.Image_Structure
   EndStructure ;}  
@@ -979,7 +982,7 @@ Module ListEx
     Height.f
     FontID.i
     Offset.i
-    OffSetY.f
+    OffSetY.i
     ScrollUp.i
     ScrollDown.i
     Focus.i
@@ -1054,12 +1057,12 @@ Module ListEx
   EndStructure ;}
   
   Structure ListEx_Size_Structure       ;{ ListEx()\Size\...
-    X.f
-    Y.f
-    Width.f
-    Height.f
-    Rows.f
-    Cols.f
+    X.i
+    Y.i
+    Width.i
+    Height.i
+    Rows.i
+    Cols.i
     Flags.i
   EndStructure ;}
   
@@ -1106,6 +1109,7 @@ Module ListEx
     MultiSelect.i
     Changed.i
     FitCols.i
+    Tooltip.i
     Flags.i
     
     Size.ListEx_Size_Structure
@@ -1305,14 +1309,16 @@ Module ListEx
   EndProcedure
   
   Procedure   UpdateColumnX_()
+    Define.i PosX
     
     PushListPosition(ListEx()\Cols())
     
-    ListEx()\Size\Cols = 0
+    PosX = ListEx()\Area\X - ListEx()\Col\OffsetX
+    ListEx()\Size\Cols = 0 
     
     ForEach ListEx()\Cols()
       If ListEx()\Cols()\Flags & #Hide : Continue : EndIf
-      ListEx()\Cols()\X  = ListEx()\Size\Cols - ListEx()\Col\OffsetX
+      ListEx()\Cols()\X  = PosX + ListEx()\Size\Cols
       ListEx()\Size\Cols + ListEx()\Cols()\Width
     Next  
     
@@ -1373,8 +1379,8 @@ Module ListEx
     
     PushListPosition(ListEx()\Rows())
     
-    Y1 = ListEx()\Size\Y + ListEx()\Header\Height
-    Y2 = ListEx()\Size\Y + ListEx()\Area\Height
+    Y1 = ListEx()\Area\Y + ListEx()\Header\Height
+    Y2 = ListEx()\Area\Y + ListEx()\Area\Height
     
     ForEach ListEx()\Rows()
       
@@ -1397,7 +1403,7 @@ Module ListEx
       ProcedureReturn #Header 
     EndIf 
     
-    If dY > dpiY(ListEx()\Size\Y) And dY < dpiY(ListEx()\Size\Rows + ListEx()\Header\Height)
+    If dY > dpiY(ListEx()\Area\Y) And dY < dpiY(ListEx()\Size\Rows + ListEx()\Header\Height)
 
       ForEach ListEx()\Rows()
         If dY >= dpiY(ListEx()\Rows()\Y) And dY <= dpiY(ListEx()\Rows()\Y + ListEx()\Rows()\Height)
@@ -1413,7 +1419,7 @@ Module ListEx
 
   Procedure.i GetColumnDPI_(dX.i)
     
-    If dX > dpiX(ListEx()\Size\X) And dX < dpiX(ListEx()\Size\Cols)
+    If dX > dpiX(ListEx()\Area\X) And dX < dpiX(ListEx()\Size\Cols)
       
       ForEach ListEx()\Cols()
         If dpiX(ListEx()\Cols()\X) >= dX
@@ -1552,6 +1558,9 @@ Module ListEx
 	  ScrollbarSize = ListEx()\Scrollbar\Size
 
 	  ;{ Calc available canvas area
+	  ListEx()\Area\X = 0
+	  ListEx()\Area\Y = 0
+	  
 	  If ListEx()\HScroll\Hide And ListEx()\VScroll\Hide
 	    ListEx()\Area\Width  = Width
       ListEx()\Area\Height = Height
@@ -1779,7 +1788,7 @@ Module ListEx
     
     ListEx()\HScroll\Thumb\X = ListEx()\HScroll\Area\X
   	ListEx()\VScroll\Thumb\Y = ListEx()\VScroll\Area\Y
-    
+  	
 	EndProcedure
 	
 	
@@ -1982,8 +1991,8 @@ Module ListEx
     
     ; --- Size with Scrollbars ---
     If ListEx()\Size\Rows + ListEx()\Header\Height > Height ;{ Vertical Scrollbar
-      ListEx()\VScroll\Maximum    = ListEx()\Size\Rows + ListEx()\Header\Height + 3
-      ListEx()\VScroll\PageLength = Height - ListEx()\Header\Height - 3
+      ListEx()\VScroll\Maximum    = ListEx()\Size\Rows + ListEx()\Header\Height
+      ListEx()\VScroll\PageLength = Height - ListEx()\Header\Height
       ListEx()\VScroll\Hide = #False
     Else
       ListEx()\Row\OffSetY = 0
@@ -2345,7 +2354,7 @@ Module ListEx
       
       ProcedureReturn #False
     EndProcedure
-      
+  
   CompilerEndIf
   
   ;- _____ Validate Content _____
@@ -2670,7 +2679,7 @@ Module ListEx
     Procedure.s FormatCash_(String.s, Mask.s) 
       Define.i Decimals
       Define.s DSep$, TSep$, sMask$, eMask$
-      
+
       String = ReplaceString(String, ",", ".")
       
       If CountString(Mask, ",") = 1
@@ -2680,10 +2689,10 @@ Module ListEx
         DSep$ = "."
         TSep$ = ","
       EndIf  
-      
+
       sMask$ = RemoveString(StringField(Mask, 1, DSep$), "0")
       eMask$ = RemoveString(StringField(Mask, 2, DSep$), "0")
-      
+
       Decimals = CountString(StringField(Mask, 2, DSep$), "0")
       
       ProcedureReturn sMask$ + FormatNumber(ValF(String), Decimals, DSep$, TSep$) + eMask$
@@ -2691,7 +2700,7 @@ Module ListEx
     
     
     Procedure.s FormatContent(String.s, Mask.s, Flags.i)
-      
+
       If Flags & #Float
         ProcedureReturn FormatFloat_(String, Mask)
       ElseIf Flags & #Cash
@@ -2792,21 +2801,21 @@ Module ListEx
   Procedure.s SortDEU_(Text.s, Flags.i=#Lexikon) ; german charakters (DIN 5007)
     
     If Flags & #Namen
-      Text = ReplaceString(Text, "Ä", "Ae")
-      Text = ReplaceString(Text, "Ö", "Oe")
-      Text = ReplaceString(Text, "Ü", "Ue")
-      Text = ReplaceString(Text, "ä", "ae")
-      Text = ReplaceString(Text, "ö", "oe")
-      Text = ReplaceString(Text, "ü", "ue")
-      Text = ReplaceString(Text, "ß", "ss")
+      Text = ReplaceString(Text, "Ã„", "Ae")
+      Text = ReplaceString(Text, "Ã–", "Oe")
+      Text = ReplaceString(Text, "Ãœ", "Ue")
+      Text = ReplaceString(Text, "Ã¤", "ae")
+      Text = ReplaceString(Text, "Ã¶", "oe")
+      Text = ReplaceString(Text, "Ã¼", "ue")
+      Text = ReplaceString(Text, "ÃŸ", "ss")
     ElseIf Flags & #Lexikon Or Flags & #Deutsch
-      Text = ReplaceString(Text, "Ä", "A")
-      Text = ReplaceString(Text, "Ö", "O")
-      Text = ReplaceString(Text, "Ü", "U")
-      Text = ReplaceString(Text, "ä", "a")
-      Text = ReplaceString(Text, "ö", "o")
-      Text = ReplaceString(Text, "ü", "u")
-      Text = ReplaceString(Text, "ß", "ss")
+      Text = ReplaceString(Text, "Ã„", "A")
+      Text = ReplaceString(Text, "Ã–", "O")
+      Text = ReplaceString(Text, "Ãœ", "U")
+      Text = ReplaceString(Text, "Ã¤", "a")
+      Text = ReplaceString(Text, "Ã¶", "o")
+      Text = ReplaceString(Text, "Ã¼", "u")
+      Text = ReplaceString(Text, "ÃŸ", "ss")
     EndIf
     
     ProcedureReturn Text
@@ -4104,8 +4113,6 @@ Module ListEx
     DrawingFont(FontID)
     txtHeight = TextHeight_("X")
     
-    ;X + ListEx()\Col\OffsetX
-    
     PosX    = X + 3
     PosY    = Y + ((Height - txtHeight) / 2) 
     maxPosX = X + Width - 1
@@ -4582,7 +4589,7 @@ Module ListEx
   Procedure   Draw_(ScrollBar.i=#False) ; DPI
     Define.f colX, rowY, textY, textX, colW0, rowHeight, imgY, imgX, imgWidth, imgHeight
     Define.i r, Width, Height, textRows, maxHeight, OffsetX, OffsetY
-    Define.i Flags, imgFlags, Align, Mark, Row
+    Define.i Flags, imgFlags, Align, Mark, Row, Column
     Define.i FrontColor, BackColor, RowColor, FontID, RowFontID, Time
     Define.s Key$, Text$
     
@@ -4623,7 +4630,7 @@ Module ListEx
       
       ListEx()\Size\Cols = 0
       
-      colX = ListEx()\Size\X - ListEx()\Col\OffsetX
+      colX = ListEx()\Area\X - ListEx()\Col\OffsetX
       
       ClipOutput_(ListEx()\Area\X, ListEx()\Area\Y, Width, Height)
       
@@ -4640,8 +4647,6 @@ Module ListEx
           
         Next  
         
-        rowY = ListEx()\Size\Y
-
       Else
         
         ListEx()\Col\OffSet = 0
@@ -4757,7 +4762,7 @@ Module ListEx
           
         Next
 
-        rowY = ListEx()\Size\Y + ListEx()\Header\Height
+        rowY + ListEx()\Header\Height
 
       EndIf ;}
       
@@ -4768,12 +4773,12 @@ Module ListEx
      
       ; ===== Rows =====
       
-      ClipOutput_(0, ListEx()\Size\Y + ListEx()\Header\Height, Width, Height - ListEx()\Size\Y - ListEx()\Header\Height)
+      ClipOutput_(0, ListEx()\Area\Y + ListEx()\Header\Height, Width, Height - ListEx()\Area\Y - ListEx()\Header\Height)
       
       ListEx()\Size\Rows = 0
       
       rowY - ListEx()\Row\OffSetY
-      
+
       ForEach ListEx()\Rows()
         
         ListEx()\Size\Rows + ListEx()\Rows()\Height
@@ -4807,27 +4812,28 @@ Module ListEx
         Else
           FontID = ListEx()\Row\FontID
         EndIf
-        
         RowFontID = FontID
 
         rowHeight + ListEx()\Rows()\Height
         
-        colX = ListEx()\Size\X - ListEx()\Col\OffsetX
+        colX = ListEx()\Area\X - ListEx()\Col\OffsetX
         
-        DrawingMode(#PB_2DDrawing_Default)
-        
-        Row = ListIndex(ListEx()\Rows())
+        Row  = ListIndex(ListEx()\Rows())
 
         ;{ Alternate Color
         If ListEx()\Color\AlternateRow <> #PB_Default
+
           If Mod(ListIndex(ListEx()\Rows()), 2)
-            BackColor = ListEx()\Color\AlternateRow
+            RowColor = ListEx()\Color\AlternateRow
           Else
-            BackColor = ListEx()\Color\Back
+            RowColor = ListEx()\Color\Back
           EndIf
+          
         Else
-          BackColor = ListEx()\Color\Back
+          RowColor = ListEx()\Color\Back
         EndIf ;}
+        
+        DrawingMode(#PB_2DDrawing_Default)
         
         ; ===== Columns =====
         ForEach ListEx()\Cols() ;{ Columns of current row
@@ -4847,11 +4853,13 @@ Module ListEx
             Continue
           EndIf  
           ;}
+
+          Column = ListIndex(ListEx()\Cols())
           
           Key$ = ListEx()\Cols()\Key
           If Key$ = "" : Key$ = Str(ListIndex(ListEx()\Cols())) : EndIf
           
-          Flags = ListEx()\Rows()\Column(Key$)\Flags
+          Flags  = ListEx()\Rows()\Column(Key$)\Flags ; Column Flags
           
           FontID = RowFontID
           
@@ -4875,12 +4883,13 @@ Module ListEx
             DrawText(dpiX(colX + textX), dpiY(rowY + textY), Text$, ListEx()\Color\HeaderFront, ListEx()\Color\HeaderBack)
             
             DrawingMode(#PB_2DDrawing_Outlined)
-            Box_(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height + 1, ListEx()\Color\HeaderLine)
+            Box_(colX, rowY, ListEx()\Cols()\Width + 1, ListEx()\Rows()\Height + 1, ListEx()\Color\HeaderLine)
             
             If Flags & #CellFont : DrawingFont(RowFontID) : EndIf
             ;}
           Else  
             
+            ;{ Front color
             If ListEx()\Cols()\Flags & #Links
               FrontColor = ListEx()\Color\Link
             ElseIf Flags & #CellFront
@@ -4891,13 +4900,17 @@ Module ListEx
               FrontColor = ListEx()\Cols()\FrontColor
             Else
               FrontColor = ListEx()\Color\Front
-            EndIf
+            EndIf ;}
             
-            ;{ Cell background
-            DrawingMode(#PB_2DDrawing_Default)
+            ;{ Background color
+            
             
             If ListEx()\Flags & #MultiSelect And ListEx()\MultiSelect = #True
-              If ListEx()\Rows()\State & #Selected : BackColor = BlendColor_(ListEx()\Color\Focus, ListEx()\Color\Back, 10) : EndIf
+              If ListEx()\Rows()\State & #Selected
+                BackColor = BlendColor_(ListEx()\Color\Focus, ListEx()\Color\Back, 10)
+              Else
+                BackColor = RowColor
+              EndIf
             ElseIf ListEx()\Focus And ListIndex(ListEx()\Rows()) = ListEx()\Row\Focus
               BackColor = BlendColor_(ListEx()\Color\Focus, ListEx()\Color\Back, 10)
             ElseIf Flags & #CellBack
@@ -4905,10 +4918,12 @@ Module ListEx
             ElseIf ListEx()\Rows()\Color\Back <> #PB_Default
               BackColor = ListEx()\Rows()\Color\Back
             ElseIf ListEx()\Cols()\BackColor <> #PB_Default
-              BackColor = ListEx()\Cols()\BackColor
+              BackColor = ListEx()\Cols()\BackColor 
             Else
-              BackColor = ListEx()\Color\Back
+              BackColor = RowColor
             EndIf
+            
+            DrawingMode(#PB_2DDrawing_Default)
             
             Box_(colX, rowY, ListEx()\Cols()\Width, ListEx()\Rows()\Height, BackColor) ; 
             ;}
@@ -5152,8 +5167,6 @@ Module ListEx
                 DrawingFont(FontID)
 
                 DrawingMode(#PB_2DDrawing_Transparent)
-                
-                textX = GetAlignOffset_(Text$, ListEx()\Cols()\Width, ListEx()\Cols()\Align)
 
                 CompilerIf #Enable_MarkContent
                   
@@ -5185,6 +5198,8 @@ Module ListEx
                 
                 CompilerIf Defined(MarkDown, #PB_Module)
                   
+                  textX = GetAlignOffset_(Text$, ListEx()\Cols()\Width, ListEx()\Cols()\Align)
+                  
                   If ListEx()\Cols()\Flags & #MarkDown And ListEx()\MarkDown ;{ Markdown Text
                     MarkDown::Text(dpiX(colX + textX), dpiY(rowY + textY), Text$, FrontColor)
                     ;}
@@ -5204,16 +5219,21 @@ Module ListEx
                   EndIf  
 
                 CompilerElse
-
+ 
                   If textRows > 1
                     
                     For r=1 To textRows
+                      textX = GetAlignOffset_(StringField(Text$, r, #LF$), ListEx()\Cols()\Width, ListEx()\Cols()\Align)
                       DrawText(dpiX(colX + textX), dpiY(rowY + textY), StringField(Text$, r, #LF$), FrontColor)
                       textY + TextHeight_("X")
                     Next
                     
                   Else
+                    
+                    textX = GetAlignOffset_(Text$, ListEx()\Cols()\Width, ListEx()\Cols()\Align)
+                    
                     DrawText(dpiX(colX + textX), dpiY(rowY + textY), Text$, FrontColor)
+                    
                   EndIf
                   
                 CompilerEndIf
@@ -5223,7 +5243,28 @@ Module ListEx
               EndIf
               ;}  
             EndIf
-          
+            
+            If ListEx()\String\Flag   ;{ Cell is being edited
+              
+              If ListEx()\String\Row = Row And ListEx()\String\Col = Column 
+                ListEx()\String\X      = colX
+                ListEx()\String\Y      = rowY
+                ListEx()\String\Width  = ListEx()\Cols()\Width
+                ListEx()\String\Height = ListEx()\Rows()\Height
+              EndIf
+              ;}
+            EndIf
+            
+            If ListEx()\ComboBox\Flag ;{ Combobox is being edited
+              If ListEx()\ComboBox\Row = Row And ListEx()\ComboBox\Col = Column
+                ListEx()\ComboBox\X      = colX
+                ListEx()\ComboBox\Y      = rowY
+                ListEx()\ComboBox\Width  = ListEx()\Cols()\Width
+                ListEx()\ComboBox\Height = ListEx()\Rows()\Height
+              EndIf  
+              ;}
+            EndIf   
+            
             If ListEx()\Flags & #GridLines ;{ Draw Gridlines
               
               DrawingMode(#PB_2DDrawing_Outlined)
@@ -5249,17 +5290,14 @@ Module ListEx
 
       Next
       
-      colX = ListEx()\Size\X - ListEx()\Col\OffsetX
-      
+      colX = ListEx()\Area\X - ListEx()\Col\OffsetX
+
       If ListEx()\Flags & #NoRowHeader = #False
-        Line(colX, dpiY(ListEx()\Size\Y + ListEx()\Header\Height), dpiX(ListEx()\Size\Cols), dpiY(1), ListEx()\Color\HeaderLine)
+        Line(dpiX(colX), dpiY(ListEx()\Area\Y + ListEx()\Header\Height), dpiX(ListEx()\Size\Cols), dpiY(1), ListEx()\Color\HeaderLine)
       EndIf
-    
-      DrawingMode(#PB_2DDrawing_Default)
-      Box_(ListEx()\Size\Cols, 0, Width - ListEx()\Size\Cols, Height, ListEx()\Color\Back) 
-      
-      If ListEx()\Flags & #NumberedColumn
-        Line(dpiX(colX + colW0 - 1), dpiY(ListEx()\Header\Height), dpiY(1), dpiY(rowHeight + 1), ListEx()\Color\Back)
+
+      If ListEx()\Flags & #NumberedColumn 
+        Line(dpiX(colX + colW0), dpiY(ListEx()\Area\Y - ListEx()\Row\OffSetY), dpiY(1), dpiY(ListEx()\Size\Rows + ListEx()\Header\Height + 1), ListEx()\Color\HeaderLine)
       EndIf
       
       UnclipOutput_()
@@ -5664,7 +5702,6 @@ Module ListEx
         ListEx()\Color\Front        = ModuleEx::ThemeGUI\FrontColor
         ListEx()\Color\Back         = ModuleEx::ThemeGUI\BackColor
         ListEx()\Color\Line         = ModuleEx::ThemeGUI\LineColor
-        ListEx()\Color\ScrollBar    = ModuleEx::ThemeGUI\ScrollbarColor
         ListEx()\Color\AlternateRow = ModuleEx::ThemeGUI\RowColor
         ListEx()\Color\HeaderFront  = ModuleEx::ThemeGUI\Header\FrontColor
         ListEx()\Color\HeaderBack   = ModuleEx::ThemeGUI\Header\BackColor
@@ -5679,11 +5716,8 @@ Module ListEx
         
         ListEx()\ScrollBar\Color\Front        = ModuleEx::ThemeGUI\FrontColor
   			ListEx()\ScrollBar\Color\Back         = ModuleEx::ThemeGUI\BackColor
-  			ListEx()\ScrollBar\Color\Border       = ModuleEx::ThemeGUI\BorderColor
-  			ListEx()\ScrollBar\Color\Gadget       = ModuleEx::ThemeGUI\GadgetColor
   			ListEx()\ScrollBar\Color\Focus        = ModuleEx::ThemeGUI\Focus\BackColor
         ListEx()\ScrollBar\Color\Button       = ModuleEx::ThemeGUI\Button\BackColor
-        ListEx()\ScrollBar\Color\ScrollBar    = ModuleEx::ThemeGUI\ScrollbarColor
         
         Draw_(#Vertical|#Horizontal)
       Next
@@ -5701,6 +5735,8 @@ Module ListEx
       
       ;{ ----- Cursor -----
       If ListEx()\Cursor\Pause = #False
+        
+        If Not IsGadget(ListEx()\CanvasNum) : Continue : EndIf 
         
         ListEx()\Cursor\Delay + 100
         If ListEx()\Cursor\Delay >= ListEx()\Cursor\Frequency
@@ -6157,8 +6193,9 @@ Module ListEx
               ListEx()\ComboBox\CursorPos - 1
             EndIf 
             RemoveSelection_()
-          Else  
-            ListEx()\Col\OffsetX - 20
+          Else
+            SetThumbPosX_(ListEx()\HScroll\Pos - 20)
+            ;ListEx()\Col\OffsetX - 20
           EndIf 
           ScrollBar = #Horizontal
           ;}
@@ -6173,8 +6210,9 @@ Module ListEx
               ListEx()\ComboBox\CursorPos + 1
             EndIf  
             RemoveSelection_()
-          Else 
-            ListEx()\Col\OffsetX + 20
+          Else
+            SetThumbPosX_(ListEx()\HScroll\Pos + 20)
+            ;ListEx()\Col\OffsetX + 20
           EndIf
           ScrollBar = #Horizontal
           ;}
@@ -6546,7 +6584,7 @@ Module ListEx
       X = DesktopUnscaledX(dX)
       Y = DesktopUnscaledY(dY)
       
-      If dX < dpiX(ListEx()\Area\X) And dX < dpiX(ListEx()\Area\Width) 
+      If dX > dpiX(ListEx()\Area\X) And dX < dpiX(ListEx()\Area\Width) 
         If dY > dpiY(ListEx()\Area\Y + ListEx()\Header\Height) And dY < dpiY(ListEx()\Area\Height)
           
           ListEx()\Row\Current = GetRowDPI_(dY)
@@ -6581,7 +6619,7 @@ Module ListEx
             EndIf
             
           EndIf
-          
+    
           If IsWindow(ListEx()\Window\Num) And IsMenu(ListEx()\PopUpID)
             DisplayPopupMenu(ListEx()\PopUpID, WindowID(ListEx()\Window\Num))
           Else
@@ -6623,7 +6661,7 @@ Module ListEx
         
         If ListEx()\ComboBox\Row = ListEx()\Row\Current And ListEx()\ComboBox\Col = ListEx()\Col\Current
           
-          If X >= ListEx()\ComboBox\ButtonX - ListEx()\Col\OffsetX
+          If X >= ListEx()\ComboBox\ButtonX
             ComboButton_(#Click)
             ProcedureReturn #True
           EndIf
@@ -6750,14 +6788,14 @@ Module ListEx
       If ListEx()\Row\Current = #Header
         
         ForEach ListEx()\Cols()
-          ColX = ListEx()\Cols()\X - ListEx()\Col\OffsetX
+          ColX = ListEx()\Cols()\X 
           If X >= ColX - 2 And X <= ColX + 2 ; "|<- |"
             ListEx()\Col\Resize = ListIndex(ListEx()\Cols()) - 1
-            ListEx()\Col\MouseX = ListEx()\Cols()\X - ListEx()\Col\OffsetX
+            ListEx()\Col\MouseX = ListEx()\Cols()\X
             ProcedureReturn #True
           ElseIf X >= ColX + ListEx()\Cols()\Width - 2 And X <= ColX + ListEx()\Cols()\Width + 2 ; "| ->|"
             ListEx()\Col\Resize = ListIndex(ListEx()\Cols())
-            ListEx()\Col\MouseX = ListEx()\Cols()\X + ListEx()\Cols()\Width - ListEx()\Col\OffsetX
+            ListEx()\Col\MouseX = ListEx()\Cols()\X + ListEx()\Cols()\Width
             ProcedureReturn #True
           EndIf
         Next
@@ -6813,8 +6851,8 @@ Module ListEx
         If SelectElement(ListEx()\Rows(), ListEx()\Row\Current)
           If SelectElement(ListEx()\Cols(), ListEx()\Col\Current)
             
-            Y = ListEx()\Rows()\Y - ListEx()\Row\OffsetY
-            X = ListEx()\Cols()\X - ListEx()\Col\OffsetX
+            Y = ListEx()\Rows()\Y
+            X = ListEx()\Cols()\X
             
             Key$  = ListEx()\Cols()\Key
             Flags = ListEx()\Rows()\Column(Key$)\Flags
@@ -7256,7 +7294,7 @@ Module ListEx
         
         If ListEx()\ComboBox\Row = ListEx()\Row\Current And ListEx()\ComboBox\Col = ListEx()\Col\Current
           
-          If X >= ListEx()\ComboBox\ButtonX - ListEx()\Col\OffsetX
+          If X >= ListEx()\ComboBox\ButtonX
             
             If ListEx()\ListView\Hide
               OpenListView_()
@@ -7579,6 +7617,7 @@ Module ListEx
               ListEx()\Col\MouseX = X
               
               UpdateColumnX_()
+              AdjustScrollBars_()
               Draw_(#Horizontal)
               
               ProcedureReturn #True ;}
@@ -7587,11 +7626,11 @@ Module ListEx
           Else                     ;{ Change cursor to #PB_Cursor_LeftRight
             
             ForEach ListEx()\Cols()
-              If X >= ListEx()\Cols()\X- ListEx()\Col\OffsetX - 2 And X <= ListEx()\Cols()\X- ListEx()\Col\OffsetX + 2 ; "|<- |"
+              If X >= ListEx()\Cols()\X - 2 And X <= ListEx()\Cols()\X + 2 ; "|<- |"
                 ListEx()\CanvasCursor = #PB_Cursor_LeftRight
                 SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
                 ProcedureReturn #True
-              ElseIf X >= ListEx()\Cols()\X - ListEx()\Col\OffsetX + ListEx()\Cols()\Width - 2 And X <= ListEx()\Cols()\X - ListEx()\Col\OffsetX + ListEx()\Cols()\Width + 2 ; "| ->|"
+              ElseIf X >= ListEx()\Cols()\X + ListEx()\Cols()\Width - 2 And X <= ListEx()\Cols()\X + ListEx()\Cols()\Width + 2 ; "| ->|"
                 ListEx()\CanvasCursor = #PB_Cursor_LeftRight
                 SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
                 ProcedureReturn #True
@@ -7620,6 +7659,8 @@ Module ListEx
           SetGadgetAttribute(GNum, #PB_Canvas_Cursor, ListEx()\CanvasCursor)
         EndIf
         
+        GadgetToolTip(ListEx()\CanvasNum, "")
+        
       Else
         
         If Row = #Header ;{ Header
@@ -7627,7 +7668,7 @@ Module ListEx
           If SelectElement(ListEx()\Cols(), Column)
             
             If ListEx()\Flags & #ResizeColumn Or ListEx()\Flags & #AdjustColumns
-              If X <= ListEx()\Cols()\X - ListEx()\Col\OffsetX + 2 Or X >= ListEx()\Cols()\X - ListEx()\Col\OffsetX + ListEx()\Cols()\Width - 2
+              If X <= ListEx()\Cols()\X + 2 Or X >= ListEx()\Cols()\X + ListEx()\Cols()\Width - 2
                 ProcedureReturn #False
               EndIf  
             EndIf 
@@ -7649,6 +7690,8 @@ Module ListEx
             EndIf
             
           EndIf
+          
+          GadgetToolTip(ListEx()\CanvasNum, "")
           ;}
         Else             ;{ Rows
           
@@ -7662,6 +7705,22 @@ Module ListEx
               
               Key$   = ListEx()\Cols()\Key
               Flags  = ListEx()\Rows()\Column(Key$)\Flags
+              
+              If ListEx()\Cols()\Tooltip
+                
+                If ListEx()\Tooltip <> Column
+                  GadgetToolTip(ListEx()\CanvasNum, ListEx()\Cols()\Tooltip)
+                  ListEx()\Tooltip = Column
+                EndIf   
+                
+              Else  
+                
+                If ListEx()\Tooltip <> #PB_Default
+                  GadgetToolTip(ListEx()\CanvasNum, "")
+                  ListEx()\Tooltip = #PB_Default
+                EndIf
+                
+              EndIf
               
               ; Change Cursor
               If ListEx()\Cols()\Flags & #Strings Or Flags & #Strings            ;{ String Gadget
@@ -7688,7 +7747,7 @@ Module ListEx
                   
                   If ListEx()\ComboBox\Row = Row And ListEx()\ComboBox\Col = Column
                   
-                    If X < ListEx()\ComboBox\ButtonX - ListEx()\Col\OffsetX
+                    If X < ListEx()\ComboBox\ButtonX
                       
                       If ListEx()\CanvasCursor <> #Cursor_Text
                         ListEx()\CanvasCursor = #Cursor_Text
@@ -8518,6 +8577,14 @@ Module ListEx
   CompilerIf #Enable_MarkContent
  
     Procedure   MarkContent(GNum.i, Column.i, Term.s, Color1.i=#PB_Default, Color2.i=#PB_Default, FontID.i=#PB_Default)
+      ; NEGATIVE
+      ; POSITIVE
+      ; EQUAL{3.95} / EQUAL{String}
+      ; LIKE{*End} / LIKE{start*} / LIKE{*part*}
+      ; COMPARE{<|12}  =>  [?] < 12
+      ; BETWEEN{10|20}  =>  10 < [?] < 20
+      ; BEYOND{3|4}  =>  3 > [?] Or [?] > 4
+      ; CHOICE{m|f}[C4]
       
       If FindMapElement(ListEx(), Str(GNum))
         
@@ -8536,6 +8603,13 @@ Module ListEx
   CompilerIf #Enable_Validation
     
     Procedure   SetCondition(GNum.i, Column.i, Term.s)
+      ; NEGATIVE
+      ; POSITIVE
+      ; EQUAL{3.95} / EQUAL{String}
+      ; LIKE{*End} / LIKE{start*} / LIKE{*part*}
+      ; COMPARE{<|12}  =>  [?] < 12
+      ; BETWEEN{10|20}  =>  10 < [?] < 20
+      ; BEYOND{3|4}  =>  3 > [?] Or [?] > 4
       
       If FindMapElement(ListEx(), Str(GNum))
         
@@ -8636,6 +8710,7 @@ Module ListEx
         CompilerEndIf  
         
         UpdateColumnX_()
+        
         AdjustScrollBars_()
         
         If ListEx()\ReDraw
@@ -9027,6 +9102,7 @@ Module ListEx
           If Flags & #NumberedColumn : ListEx()\Col\CheckBoxes = 1 : EndIf
           
           ListEx()\CanvasCursor = #Cursor_Default
+          ListEx()\Tooltip      = #Cursor_Default
           ListEx()\Editable     = #True
           
           ListEx()\ProgressBar\Minimum = 0
@@ -9036,7 +9112,7 @@ Module ListEx
           
           ListEx()\ListView\FontID = ListEx()\FontID
           
-          ListEx()\PopUpID = -1
+          ListEx()\PopUpID = #PB_Default
           
           ;{ Country defaults
           ListEx()\Country\Code             = #DefaultCountry
@@ -9057,8 +9133,8 @@ Module ListEx
           ;}
           
           ;{ Size
-          ListEx()\Size\X = 0
-          ListEx()\Size\Y = 0
+          ListEx()\Size\X = X
+          ListEx()\Size\Y = Y
           ListEx()\Size\Width  = Width
           ListEx()\Size\Height = Height
           
@@ -9090,8 +9166,8 @@ Module ListEx
           ListEx()\HScroll\Hide = #True
           ListEx()\VScroll\Hide = #True  
           
-          ListEx()\HScroll\Minimum = ListEx()\Size\X
-          ListEx()\VScroll\Minimum = ListEx()\Size\Y
+          ListEx()\HScroll\Minimum = ListEx()\Area\X
+          ListEx()\VScroll\Minimum = ListEx()\Area\Y
           
           ScrollBar()
           ;}
@@ -9780,6 +9856,7 @@ Module ListEx
   EndProcedure  
   
   Procedure   SetAutoResizeFlags(GNum.i, Flags.i)
+    ; Flags: #MoveX | #MoveY | #Width | #Height  
     
     If FindMapElement(ListEx(), Str(GNum))
       
@@ -9851,13 +9928,11 @@ Module ListEx
   EndProcedure
   
   Procedure   SetColor(GNum.i, ColorTyp.i, Value.i, Column.i=#PB_Ignore)         ; GNum: #Theme => change all gadgets
-    ; #FrontColor | #BackColor | #LineColor | #FocusColor | #AlternateRowColor | #EditColor
-    ; #HeaderFrontColor | #HeaderBackColor | #HeaderLineColor
-    ; #ButtonColor | ButtonBorderColor
-    ; #ComboFrontColor | #ComboBackColor
-    ; #ProgressBarColor | #GradientColor
-    ; #StringFrontColor | #StringBackColor
-    ; #LinkColor | #ActiveLinkColor 
+    ; #FrontColor /  #BackColor / #LineColor / #FocusColor / #AlternateRowColor / #EditColor
+    ; #HeaderFrontColor / #HeaderBackColor / #HeaderLineColor
+    ; #ButtonColor / ButtonBorderColor / #ComboFrontColor / #ComboBackColor
+    ; #StringFrontColor / #StringBackColor / #LinkColor / #ActiveLinkColor 
+    ; #ProgressBarColor / #GradientColor
     
     If GNum = #Theme 
       
@@ -9878,6 +9953,8 @@ Module ListEx
   EndProcedure
   
   Procedure   SetColorTheme(GNum.i, Theme.i=#Theme_Default, File.s="")           ; GNum: #Theme => change all gadgets
+    ; #Theme_Blue / #Theme_Green /  #Theme_Custom (File.s)
+    ; #Theme_Custom => ListEx::SaveColorTheme() 
     Define.i JSON
     
     If GNum = #Theme 
@@ -9920,7 +9997,7 @@ Module ListEx
   
   
   Procedure   SetColumnAttribute(GNum.i, Column.i, Attrib.i, Value.i)
-    ; Attrib: #Align (#Left/#Right/#Center) / #ColumnWidth / #Font
+    ; Attrib: #Align (#Left/#Right/#Center) / #ColumnWidth / #MaxChars / #Font / #FontID
     
     If FindMapElement(ListEx(), Str(GNum))
       
@@ -9951,7 +10028,9 @@ Module ListEx
   EndProcedure 
   
   Procedure   SetColumnFlags(GNum.i, Column.i, Flags.i)
-
+    ; Flags: #Hide / #LockCell
+    ; Flags: #Date / #Cash / #Float / #Grades / #Integer / #Number / #Time / #Text (contains)
+    
     If FindMapElement(ListEx(), Str(GNum))
       
       If SelectElement(ListEx()\Cols(), Column)
@@ -10004,10 +10083,15 @@ Module ListEx
   EndProcedure 
   
   Procedure   SetColumnMask(GNum.i, Column.i, Mask.s)
-
+    ; Floats:  "0.00" or "0,000"
+    ; Integer: "." or "," or "1.000" or "1,000"
+    ; Date:    "%dd.%mm.%yyyy"
+    ; Time:    "%hh:%ii:%ss"
+    ; Cash:    "0,00 â‚¬" or "$ 0.00"
     If FindMapElement(ListEx(), Str(GNum))
       
       If SelectElement(ListEx()\Cols(), Column)
+        
         ListEx()\Cols()\Format = Mask
         If ListEx()\ReDraw : Draw_() : EndIf
       EndIf
@@ -10033,7 +10117,7 @@ Module ListEx
   
   
   Procedure   SetCurrency(GNum.i, String.s, Column.i=#PB_Ignore)                 ; GNum: #Theme => change all gadgets
-    
+    ; Only needed for sorting money
     If GNum = #Theme 
       
       ForEach ListEx()
@@ -10077,7 +10161,7 @@ Module ListEx
   EndProcedure
   
   Procedure   SetDateMask(GNum.i, Mask.s, Column.i=#PB_Ignore)                   ; GNum: #Theme => change all gadgets
-    
+    ; Default date mask
     If GNum = #Theme 
       
       ForEach ListEx()
@@ -10265,10 +10349,11 @@ Module ListEx
   EndProcedure
   
   Procedure   SetHeaderSort(GNum.i, Column.i, Direction.i=#PB_Sort_Ascending, Flags.i=#True)
-    ; Direction: #Sort_Ascending|#Sort_Descending|#Sort_NoCase
-    ; Flags:     #SortString|#SortNumber|#SortFloat|#SortDate|#SortBirthday|#SortTime|#SortCash / #Deutsch / #Lexikon|#Namen
-    ; Flags:     #True    (#HeaderSort|SwitchDirection|#SortArrows)
-    ; Flags:     #Deutsch (#HeaderSort|SwitchDirection|#SortArrows|#Deutsch)
+    ; Direction: #Sort_Ascending/#Sort_Descending | #Sort_NoCase
+    ; Flags:     #SortString/#SortNumber/#SortFloat/#SortDate/#SortBirthday/#SortTime/#SortCash
+    ; Flags:     #Deutsch | #Lexikon/#Namen
+    ; #True    = #HeaderSort|SwitchDirection|#SortArrows
+    ; #Deutsch = #HeaderSort|SwitchDirection|#SortArrows|#Deutsch
     
     If FindMapElement(ListEx(), Str(GNum))
       
@@ -10289,8 +10374,10 @@ Module ListEx
     EndIf
     
   EndProcedure
-   
+  
+  
   Procedure   SetItemColor(GNum.i, Row.i, ColorTyp.i, Value.i, Column.i=#PB_Ignore)
+    ; ColorTyp: #FrontColor / #BackColor / #LineColor / #HeaderFrontColor / #HeaderBackColor / #HeaderLineColor
     Define.s Key$
     
     If FindMapElement(ListEx(), Str(GNum))
@@ -10442,6 +10529,8 @@ Module ListEx
   EndProcedure  
   
   Procedure   SetItemImage(GNum.i, Row.i, Column.i, Image.i, Align.i=#Left, Width.i=#PB_Default, Height.i=#PB_Default)
+    ; Align: #Left / #Center / #Right
+    
     
     If FindMapElement(ListEx(), Str(GNum))                    
       
@@ -10555,6 +10644,7 @@ Module ListEx
   EndProcedure
   
   Procedure   SetItemState(GNum.i, Row.i, State.i, Column.i=#PB_Ignore)          ; [#Selected/#Checked/#Inbetween]
+    ; #False / #Selected / #Checked / #Inbetween
     
     If FindMapElement(ListEx(), Str(GNum))
 
@@ -10651,6 +10741,7 @@ Module ListEx
     EndProcedure
   
     Procedure   SetProgressBarFlags(GNum.i, Flags.i)
+      ; Flags: #ShowPercent
       
       If FindMapElement(ListEx(), Str(GNum))
         ListEx()\ProgressBar\Flags = Flags
@@ -10758,9 +10849,23 @@ Module ListEx
   EndProcedure
   
   
+  Procedure   Tooltip(GNum.i, Column.i, Text.s)
+    
+    If FindMapElement(ListEx(), Str(GNum))
+      
+      If SelectElement(ListEx()\Cols(), Column)
+        ListEx()\Cols()\Tooltip = Text
+      EndIf  
+      
+    EndIf
+    
+  EndProcedure
+  
+  
   Procedure   Sort(GNum.i, Column.i, Direction.i, Flags.i)
-    ; Direction: #Sort_Ascending|#Sort_Descending|#Sort_NoCase
-    ; Flags: #SortString|#SortNumber|#SortFloat|#SortDate|#SortBirthday|#SortTime|#SortCash / #Deutsch / #Lexikon|#Namen
+    ; Direction: #Sort_Ascending/#Sort_Descending | #Sort_NoCase
+    ; Flags:     #SortString/#SortNumber/#SortFloat/#SortDate/#SortBirthday/#SortTime/#SortCash
+    ; Flags:     #Deutsch | #Lexikon/#Namen
     
     If FindMapElement(ListEx(), Str(GNum))
       
@@ -10801,16 +10906,82 @@ EndModule
 ;- ========  Module - Example ========
 
 CompilerIf #PB_Compiler_IsMainFile
+
+  #Example = 4
   
-  #Example = 0
+  ; 0: Numbering in column 0
+  ; 1: Checkboxes in column 0
+  ; 2: Checkboxes (#ThreeState)
+  ; 3: Without row header
+  ; 4: Change column width with the mouse (resizes the table width)
+  ; 5: Adjust column width with the mouse (without changing the table width)
+  ; 6: Edit with a single click
+  ; 7: Multiple selection for rows
+  ; 8: Automatically adjust row height
+  
+  ;{ ----- Testing various functions -----
+  EnumerationBinary
+    #AddPopup
+    #AutoResize
+    #CharsMax
+    #CheckBoxes
+    #Colors
+    #ColorTheme
+    #Column
+    #Export
+    #Focus
+    #Fonts
+    #Format
+    #Header
+    #HideColumn
+    #Images
+    #MarkContent
+    #MarkDown
+    #ProgressBar
+    #ResizeFlags
+    #RowHeight
+    #Scrollbar
+    #Sort
+    #ThemeGUI
+    #Tooltips
+    #Validation
+  EndEnumeration ;}
+  
+  #Functions = #Images|#Scrollbar
+  
+  ; #Header      - Customise header
+  ; #Column      - Customise columns
+  ; #Fonts       - Change list fonts
+  ; #Colors      - Change list colors
+  ; #ColorTheme  - Use a color theme
+  ; #Images      - Use images
+  ; #RowHeight   - Change row height
+  ; #Focus       - Set the focus on a row
+  ; #CheckBoxes  - Change the status of checkboxes (needs example 2)
+  ; #Sort        - Sort column with a click on the header
+  ; #ProgressBar - Column with progress bar
+  ; #CharsMax    - Maximum number of characters for editable cells
+  ; #Format      - Format content
+  ; #MarkContent - Mark content in accordance With certain rules
+  ; #Validation  - Allow only valid entries when editing
+  ; #Scrollbar   - Horizontal scrollbar
+  ; #AddPopup    - Add pop-up menu
+  ; #HideColumn  - Hide a column
+  ; #Tooltips    - Tooltips for columns
+  ; #AutoResize  - Adjust column width when resizing
+  ; #ResizeFlags - Change resizing
+  ; #Export      - Export table content as CSV
+  ; #MarkDown    - Use Markdown as text (needs 'MarkdownModule.pbi')
+  ; #ThemeGUI    - Use GUI theme        (needs 'ModuleEx.pbi')
   
   UsePNGImageDecoder()
   
   #Window  = 0
+  
   Enumeration 1 ;{ Constants
     #List
     #Button
-    #Export
+    #ExportCSV
     #PopupMenu
     #MenuItem0
     #MenuItem1
@@ -10824,7 +10995,8 @@ CompilerIf #PB_Compiler_IsMainFile
     #B_Default
   EndEnumeration ;}
 
-  #Image = 0
+  #Image        = 0
+  
   #Font_Arial9  = 1
   #Font_Arial9B = 2
   #Font_Arial9U = 3
@@ -10848,175 +11020,299 @@ CompilerIf #PB_Compiler_IsMainFile
       MenuItem(#MenuItem6, "Reset sort")
     EndIf ;}
     
-    ButtonGadget(#Button,    420,  10, 70, 22, "Resize")
-    ButtonGadget(#B_Default, 420,  50, 70, 22, "Default")
-    ButtonGadget(#B_Green,   420,  75, 70, 22, "Green")
-    ButtonGadget(#B_Blue,    420, 100, 70, 22, "Blue")
-    ButtonGadget(#Export,    420, 140, 70, 22, "Export")
+    ButtonGadget(#Button,    10,  10, 70, 22, "Resize")
+    ButtonGadget(#B_Default, 10,  50, 70, 22, "Default")
+    ButtonGadget(#B_Green,   10,  75, 70, 22, "Green")
+    ButtonGadget(#B_Blue,    10, 100, 70, 22, "Blue")
+    ButtonGadget(#ExportCSV, 10, 140, 70, 22, "Export")
     
-    If ListEx::Gadget(#List, 10, 10, 395, 230, "", 25, "", ListEx::#GridLines|ListEx::#CheckBoxes|ListEx::#AutoResize|ListEx::#MultiSelect|ListEx::#ResizeColumn|ListEx::#AdjustRows, #Window)
-      
-      ; ListEx::#NoRowHeader|ListEx::#ThreeState|ListEx::#NumberedColumn|ListEx::#SingleClickEdit|ListEx::#AdjustColumns
-      
+    Select #Example ;{ Miscellaneous lists
+      Case 1  ; Checkboxes in column 0
+        Flags.i = ListEx::#CheckBoxes|ListEx::#GridLines|ListEx::#AutoResize ;|ListEx::#MultiSelect|ListEx::#AdjustRows
+      Case 2  ; Checkboxes (#ThreeState)
+        Flags.i = ListEx::#CheckBoxes|ListEx::#ThreeState|ListEx::#GridLines|ListEx::#AutoResize 
+      Case 3  ; Without row header
+        Flags.i = ListEx::#NumberedColumn|ListEx::#NoRowHeader|ListEx::#GridLines|ListEx::#AutoResize
+      Case 4  ; Change column width with the mouse (resizes the table width)
+        Flags.i = ListEx::#NumberedColumn|ListEx::#ResizeColumn|ListEx::#GridLines|ListEx::#AutoResize
+      Case 5  ; Adjust column width with the mouse (without changing the table width)
+        Flags.i = ListEx::#NumberedColumn|ListEx::#AdjustColumns|ListEx::#GridLines|ListEx::#AutoResize
+      Case 6  ; Edit with a single click
+        Flags.i = ListEx::#NumberedColumn|ListEx::#SingleClickEdit|ListEx::#GridLines|ListEx::#AutoResize
+      Case 7  ; Multiple selection for rows
+        Flags.i = ListEx::#NumberedColumn|ListEx::#MultiSelect|ListEx::#GridLines|ListEx::#AutoResize
+      Case 8  ; Automatically adjust row height
+        Flags.i = ListEx::#NumberedColumn|ListEx::#AdjustRows|ListEx::#GridLines|ListEx::#AutoResize
+      Default ; Numbering in column 0
+        Flags.i = ListEx::#NumberedColumn|ListEx::#GridLines|ListEx::#AutoResize
+    EndSelect ;}
+    
+    If ListEx::Gadget(#List, 90, 10, 395, 230, "", 25, "", Flags, #Window)
+
       ListEx::DisableReDraw(#List, #True) 
+
+      ; ===== Add different types of columns =====
+      ListEx::AddColumn(#List, 1, "Link", 75, "link",   ListEx::#Links)     ; |ListEx::#FitColumn
+      ListEx::AddColumn(#List, 2, "Edit", 85, "edit",   ListEx::#Editable|ListEx::#StartSelected)  ; |ListEx::#FitColumn                                                                      
+      ListEx::AddColumn(#List, ListEx::#LastItem, "Combo",   60, "combo",  ListEx::#ComboBoxes)
+      ListEx::AddColumn(#List, ListEx::#LastItem, "Date",    76, "date",   ListEx::#DateGadget)
+      ListEx::AddColumn(#List, ListEx::#LastItem, "Buttons", 55, "button", ListEx::#Buttons) ; ListEx::#Hide
       
-      CompilerIf #Example = 1
+      ; ===== Add Content to rows =====
+      ListEx::AddItem(#List, ListEx::#LastItem, "Image"    + #LF$ + "no Image" + #LF$ + #LF$ + #LF$ + "Push")
+      ListEx::AddItem(#List, ListEx::#LastItem, "Thorsten" + #LF$ + "Hoeppner" + #LF$ + "male" + #LF$ + "18.07.1967" + #LF$ + "", "PureBasic")
+      ListEx::AddItem(#List, ListEx::#LastItem, "Amelia"   + #LF$ + "Smith"    + #LF$ + "female"+ #LF$ + #LF$ + "Push")
+      ListEx::AddItem(#List, ListEx::#LastItem, "Jack"     + #LF$ + "Jones"    + #LF$ + #LF$ + #LF$ + "Push")
+      ListEx::AddItem(#List, ListEx::#LastItem, "Isla"     + #LF$ + "Williams" + #LF$ + #LF$ + #LF$ + "Push")
+      ListEx::AddItem(#List, ListEx::#LastItem, "Harry"    + #LF$ + "Brown"    + #LF$ + #LF$ + #LF$ + "Push")
+      ListEx::AddItem(#List, ListEx::#LastItem, "Emily"    + #LF$ + "Taylor"   + #LF$ + #LF$ + #LF$ + "Push")
+      ListEx::AddItem(#List, ListEx::#LastItem, "Jacob"    + #LF$ + "Wilson"   + #LF$ + #LF$ + #LF$ + "Push")
+      ListEx::AddItem(#List, ListEx::#LastItem, "Ava"      + #LF$ + "Evans"    + #LF$ + #LF$ + #LF$ + "Push")
+      ListEx::AddItem(#List, ListEx::#LastItem, "Thomas"   + #LF$ + "Roberts"  + #LF$ + #LF$ + #LF$ + "Push")
+      ListEx::AddItem(#List, ListEx::#LastItem, "Harriet"  + #LF$ + "Smith"    + #LF$ + #LF$ + #LF$ + "Push")
+      
+      ListEx::AddComboBoxItem(#List, 3, "male",   $8B0000) 
+      ListEx::AddComboBoxItem(#List, 3, "female", $9314FF)
+      ; without colors: ListEx::AddComboBoxItems(#List, 3, "male" + #LF$ + "female")
+      
+      ; ==========================================
+      
+      If #Functions & #Header      ;{ Customise header
+        ; Attrib: #Align / #ColumnWidth / #FontID / #Font
+        ; Value:  #Left / #Right / #Center
+        ListEx::SetHeaderAttribute(#List, ListEx::#Align, ListEx::#Center) 
         
-        ; If the text contains #LF$, the text is output in multiple lines, if the line height is sufficient.
+        ; ColorTyp: #FrontColor / #BackColor / #LineColor / #HeaderFrontColor / #HeaderBackColor / #HeaderLineColor
+        ListEx::SetItemColor(#List, ListEx::#Header, ListEx::#FrontColor, $0000FF, 1)
         
-        ListEx::AddColumn(#List, 1, "Text", 275, "text") 
-        ListEx::SetRowsHeight(#List, 40)
-        ListEx::AddItem(#List, ListEx::#LastItem, "Row 1|Row 2") ; | is replaced in the column text by #LF$
+        ListEx::SetFont(#List, FontID(#Font_Arial9B), ListEx::#HeaderFont)
+        ;}
+      EndIf  
+      
+      If #Functions & #Column      ;{ Customise columns
+        ; Attrib: #Align (#Left/#Right/#Center) / #ColumnWidth / #MaxChars / #Font / #FontID
+        ListEx::SetColumnAttribute(#List, 1, ListEx::#FontID, FontID(#Font_Arial9U)) ; Underline column 1
+        ListEx::SetColumnAttribute(#List, 3, ListEx::#Align,  ListEx::#Center)       ; Center column 3
+        ;}
+      EndIf  
+      
+      If #Functions & #ColorTheme  ;{ Use a color theme
+        ; #Theme_Blue / #Theme_Green /  #Theme_Custom (File.s)
+        ; #Theme_Custom: => ListEx::SaveColorTheme() 
+        ListEx::SetColorTheme(#List, ListEx::#Theme_Blue)
+        ;}
+      EndIf
+     
+      If #Functions & #Colors      ;{ Change list colors
+        ; #FrontColor /  #BackColor / #LineColor / #FocusColor / #AlternateRowColor / #EditColor
+        ; #HeaderFrontColor / #HeaderBackColor / #HeaderLineColor
+        ; #ButtonColor / ButtonBorderColor / #ComboFrontColor / #ComboBackColor
+        ; #StringFrontColor / #StringBackColor / #LinkColor / #ActiveLinkColor 
+        ; #ProgressBarColor / #GradientColor
+        ListEx::SetColor(#List, ListEx::#AlternateRowColor, $F0FFF0)
+        ListEx::SetColor(#List, ListEx::#FrontColor,        $8515C7, 2) ; front color for column 2
         
+        ; #FrontColor / #BackColor / #LineColor / #HeaderFrontColor / #HeaderBackColor / #HeaderLineColor
+        ListEx::SetItemColor(#List, 5, ListEx::#FrontColor, $228B22, 2) ; front color for row 5 and column 2
+        ListEx::SetItemColor(#List, 5, ListEx::#BackColor,  $E0FFFF)    ; back color for row 5
+        ;}
+      EndIf
+      
+      If #Functions & #Fonts       ;{ Change list fonts
+        ListEx::SetFont(#List, FontID(#Font_Arial9))             ; Change list font
+        ListEx::SetFont(#List, FontID(#Font_Arial9B), #False, 5) ; Change font in column 5 (Buttons)
+        ListEx::SetItemFont(#List, 0, FontID(#Font_Arial9B), 2)  ; Change font in row 0 and column 2
+        ;}
+      EndIf  
+      
+      If #Functions & #Images      ;{ Use images
+        ; Align: #Left / #Center / #Right
         If LoadImage(#Image, "Delete.png")
-          ;ListEx::SetItemImage(#List, 0, 1, #Image)
-          ListEx::SetItemImageID(#List, 0, 1, 16, 16, ImageID(#Image))
-        EndIf 
+          ListEx::SetItemImage(#List, 0, 1, #Image)                                       ; Image in row 0 and column 1
+          ListEx::SetItemImage(#List, 1, 5, #Image, ListEx::#Center, 14, 14)              ; image in row 1 and column 5 (center)
+          ListEx::SetItemImage(#List, ListEx::#Header, 2, #Image, ListEx::#Right, 14, 14) ; image in header column 2 (right-justified)
+        EndIf
+        ; Columns: SetColumnImage()
+        ; ImageID: SetItemImageID()
+        ;}
+      EndIf  
+      
+      If #Functions & #RowHeight   ;{ Change row height
+        ListEx::SetRowsHeight(#List, 25)
+        ;}
+      EndIf
+      
+      If #Functions & #Focus       ;{ Set the focus on a row
+        ListEx::SetState(#List, 9)
+        ;}
+      EndIf
+      
+      If #Functions & #CheckBoxes  ;{ Change the status of checkboxes (needs example 2)
+        ; #False / #Checked / #Inbetween
+        ListEx::SetItemState(#List, 3, ListEx::#Inbetween)
+        ListEx::SetItemState(#List, 5, ListEx::#Checked)
+        ;}
+      EndIf 
+      
+      If #Functions & #Sort        ;{ Sort column with a click on the header
+        ; Direction: #Sort_Ascending/#Sort_Descending | #Sort_NoCase
+        ; Flags:     #SortString/#SortNumber/#SortFloat/#SortDate/#SortBirthday/#SortTime/#SortCash
+        ; Flags:     #Deutsch | #Lexikon/#Namen
+        ; #True    = #HeaderSort|SwitchDirection|#SortArrows
+        ; #Deutsch = #HeaderSort|SwitchDirection|#SortArrows|#Deutsch
+        ListEx::SetHeaderSort(#List, 2, ListEx::#Sort_Ascending|ListEx::#Sort_NoCase) ; Sort column 2
+        ;}
+      EndIf   
+      
+      If #Functions & #AddPopup    ;{ Add pop-up menu
+        ListEx::AttachPopupMenu(#List, #PopupMenu)
+        ;}
+      EndIf  
+     
+      If #Functions & #ProgressBar ;{ Column With progress bar
         
-        ;ListEx::SetItemText(#List, 0, "Row 1" + #LF$ + "Row 2" + #LF$ + "Row 3" + #LF$ + "Row 4", 1) ; #LF$ = new row
-        ;ListEx::SetItemText(#List, 0, "Row 1" + #LF$ + "Row 2" + #LF$ + "Row 3", 1) ; #LF$ = new row
+        CompilerIf ListEx::#Enable_ProgressBar
+          ; Flags: #ShowPercent
+          
+          ListEx::AddColumn(#List, ListEx::#LastItem, "Progress", 60, "progress", ListEx::#ProgressBar)
+          ListEx::SetProgressBarFlags(#List, ListEx::#ShowPercent)
+         
+          ListEx::SetCellState(#List, 1, "progress", 100) ; or SetItemState(#List, 1, 75, 5)
+          ListEx::SetCellState(#List, 2, "progress", 50)  ; or SetItemState(#List, 2, 50, 5)
+          ListEx::SetCellState(#List, 3, "progress", 25)  ; or SetItemState(#List, 3, 25, 5)
+          
+        CompilerElse
+          Debug "ProgressBar not enabled (#Enable_ProgressBar)"
+        CompilerEndIf  
+        ;}
+      EndIf
+      
+      If #Functions & #CharsMax    ;{ Maximum number of characters for editable cells
+        ListEx::SetColumnAttribute(#List, 2, ListEx::#MaxChars, 8)
+        ;}
+      EndIf
+      
+      If #Functions & #Format      ;{ Format content
         
-      CompilerElse
+        ListEx::SetColumnFlags(#List, 2, ListEx::#Cash)
+        ListEx::SetColumnAttribute(#List, 2, ListEx::#Align, ListEx::#Right)
         
-        ;{ ===== Add different types of columns =====
-        ListEx::AddColumn(#List, 1, "Link", 75, "link",   ListEx::#Links)     ; |ListEx::#FitColumn
-        ListEx::AddColumn(#List, 2, "Edit", 85, "edit",   ListEx::#Editable|ListEx::#StartSelected)  ; |ListEx::#FitColumn                                                                      
-        ListEx::AddColumn(#List, ListEx::#LastItem, "Combo",   60, "combo",  ListEx::#ComboBoxes)
-        ListEx::AddColumn(#List, ListEx::#LastItem, "Date",    76, "date",   ListEx::#DateGadget)
-        ListEx::AddColumn(#List, ListEx::#LastItem, "Buttons", 55, "button", ListEx::#Buttons) ; ListEx::#Hide
+        ; Floats:  "0.00" or "0,000"
+        ; Integer: "." or "," or "1.000" or "1,000"
+        ; Date:    "%dd.%mm.%yyyy"
+        ; Time:    "%hh:%ii:%ss"
+        ; Cash:    "0,00 â‚¬" or "$ 0.00"
+        ListEx::SetColumnMask(#List, 2, "0,00 â‚¬")
+        
+        ListEx::SetItemText(#List, 0, "10,99", 2)
+        ListEx::SetItemText(#List, 1, "2,5",   2)
+        ListEx::SetItemText(#List, 2, "0,990", 2)
+        
+        ListEx::SetCurrency(#List, "â‚¬") ; Only needed for sorting money
+        ;}
+      EndIf  
+      
+      If #Functions & #MarkContent ;{ Mark content in accordance with certain rules
+        ; NEGATIVE
+        ; POSITIVE
+        ; EQUAL{3.95} / EQUAL{String}
+        ; LIKE{*End} / LIKE{start*} / LIKE{*part*}
+        ; COMPARE{<|12}  =>  [?] < 12
+        ; BETWEEN{10|20}  =>  10 < [?] < 20
+        ; BEYOND{3|4}  =>  3 > [?] Or [?] > 4
+        ; CHOICE{m|f}[C4]
+        CompilerIf ListEx::#Enable_MarkContent
+          ; Mark content of column 1 if column 4 is 'male'  (color 1) or 'female' (color 2)
+          ListEx::MarkContent(#List, 1, "CHOICE{male|female}[C3]", $D30094, $9314FF, FontID(#Font_Arial9B))
+        CompilerElse
+          Debug "Mark content not enabled (#Enable_MarkContent)"
+        CompilerEndIf
+        ;}
+      EndIf
+      
+      If #Functions & #Validation  ;{ Allow only valid entries when editing
+        ; NEGATIVE
+        ; POSITIVE
+        ; EQUAL{3.95} / EQUAL{String}
+        ; LIKE{*End} / LIKE{start*} / LIKE{*part*}
+        ; COMPARE{<|12}  =>  [?] < 12
+        ; BETWEEN{10|20}  =>  10 < [?] < 20
+        ; BEYOND{3|4}  =>  3 > [?] Or [?] > 4
+        ListEx::SetCondition(#List, 2, "BETWEEN{0|9}")
+        ;}
+      EndIf  
+      
+      If #Functions & #Scrollbar   ;{ Horizontal scrollbar
         
         ListEx::AddColumn(#List, ListEx::#LastItem, "Test 1", 75) 
         ListEx::AddColumn(#List, ListEx::#LastItem, "Test 2", 60) 
+        ;}
+      EndIf 
+      
+      If #Functions & #Tooltips    ;{ Tooltips for column(s)
+        ListEx::Tooltip(#List, 3, "Double click to open ComboBox")
+        ;}
+      EndIf  
+      
+      If #Functions & #AutoResize  ;{ Adjust column width when resizing
+        ListEx::SetAutoResizeColumn(#List, 2, 50) ; resize column 2 (min. width = 50px)
+        ;}
+      EndIf
+      
+      If #Functions & #ResizeFlags ;{ Change resizing
+        ; Flags: #MoveX | #MoveY | #Width | #Height  
+        ListEx::SetAutoResizeFlags(#List, ListEx::#MoveX|ListEx::#MoveY)
+        ;}
+      EndIf
+      
+      If #Functions & #HideColumn  ;{ Hide a column
+        ; Flags: #Hide / #LockCell
+        ListEx::SetColumnFlags(#List, 5, ListEx::#Hide) ; hide buttons (column 5)
+        ;}
+      EndIf
+      
+      If #Functions & #Export      ;{ Export table content as CSV
+        ; Flags: #HeaderRow
+        ; Flags: #Selected/#Checked/#Inbetween
+        ; Flags: #NoButtons | #NoCheckBoxes
+        ListEx::ExportCSV(#List, "Export.csv", ListEx::#NoButtons|ListEx::#NoCheckBoxes|ListEx::#HeaderRow) ; Ignore content of buttons and checkboxes
+        ;}
+      EndIf  
+      
+      If #Functions & #MarkDown    ;{ Use Markdown as text (needs 'MarkdownModule.pbi')
         
-        ; --- Test ProgressBar ---
-        CompilerIf ListEx::#Enable_ProgressBar
-          ;ListEx::AddColumn(#List, ListEx::#LastItem, "Progress", 60, "progress", ListEx::#ProgressBar)
-          ;ListEx::SetProgressBarFlags(#List, ListEx::#ShowPercent)
+        CompilerIf Defined(MarkDown, #PB_Module)
+        
+          ListEx::SetMarkdownFont(#List, "Arial", 9)
+          ListEx::SetColumnFlags(#List, 2, ListEx::#MarkDown)
+          ListEx::SetItemText(#List, 4, "**Markdown**", 2)
+          ListEx::SetItemText(#List, 7, "*Markdown*", 2)
+          
+        CompilerElse
+          Debug "MarkdownModule.pbi missing (XIncludeFile)."
         CompilerEndIf
         ;}
+      EndIf
+      
+      If #Functions & #ThemeGUI    ;{ Use GUI theme        (needs 'ModuleEx.pbi')
         
-        ; --- Use column attributes ---
-        ListEx::SetColumnAttribute(#List, 1, ListEx::#FontID, FontID(#Font_Arial9U))
-        ListEx::SetColumnAttribute(#List, 5, ListEx::#Align, ListEx::#Center)
-        
-        ; --- Design of Header Row & List ---
-        ListEx::SetHeaderAttribute(#List, ListEx::#Align, ListEx::#Center)
-        ListEx::SetFont(#List, FontID(#Font_Arial9B), ListEx::#HeaderFont)
-        ListEx::SetItemColor(#List, ListEx::#Header, ListEx::#FrontColor, $0000FF, 1)
-
-        ListEx::SetFont(#List, FontID(#Font_Arial9))
-        ListEx::SetFont(#List, FontID(#Font_Arial9B), #False, 6)
-        ListEx::SetItemFont(#List,  0, FontID(#Font_Arial9B), 2)
-        
-        ; --- Change row height ---
-        ListEx::SetRowsHeight(#List, 22)
-        
-        ;{ ===== Add Content =====
-        ListEx::AddItem(#List, ListEx::#LastItem, "Image"    + #LF$ + "no Image" + #LF$ + #LF$ + #LF$ + "Push")
-        ListEx::AddItem(#List, ListEx::#LastItem, "Thorsten" + #LF$ + "Hoeppner" + #LF$ + "male" + #LF$ + "18.07.1967" + #LF$ + "", "PureBasic")
-        ListEx::AddItem(#List, ListEx::#LastItem, "Amelia"   + #LF$ + "Smith"    + #LF$ + "female"+ #LF$ + #LF$ + "Push")
-        ListEx::AddItem(#List, ListEx::#LastItem, "Jack"     + #LF$ + "Jones"    + #LF$ + #LF$ + #LF$ + "Push")
-        ListEx::AddItem(#List, ListEx::#LastItem, "Isla"     + #LF$ + "Williams" + #LF$ + #LF$ + #LF$ + "Push")
-        ListEx::AddItem(#List, ListEx::#LastItem, "Harry"    + #LF$ + "Brown"    + #LF$ + #LF$ + #LF$ + "Push")
-        ListEx::AddItem(#List, ListEx::#LastItem, "Emily"    + #LF$ + "Taylor"   + #LF$ + #LF$ + #LF$ + "Push")
-        ListEx::AddItem(#List, ListEx::#LastItem, "Jacob"    + #LF$ + "Wilson"   + #LF$ + #LF$ + #LF$ + "Push")
-        ListEx::AddItem(#List, ListEx::#LastItem, "Ava"      + #LF$ + "Evans"    + #LF$ + #LF$ + #LF$ + "Push")
-        ListEx::AddItem(#List, ListEx::#LastItem, "Thomas"   + #LF$ + "Roberts"  + #LF$ + #LF$ + #LF$ + "Push")
-        ListEx::AddItem(#List, ListEx::#LastItem, "Harriet"  + #LF$ + "Smith"    + #LF$ + #LF$ + #LF$ + "Push")
+        CompilerIf Defined(ModuleEx, #PB_Module)
+          ModuleEx::SetTheme(ModuleEx::#Theme_DarkBlue)
+        CompilerElse
+          Debug "ModuleEx.pbi missing (XIncludeFile)."
+        CompilerEndIf
         ;}
-        
-        ;{ --- ComboBox in column 3 ---
-        ;ListEx::AddComboBoxItems(#List, 3, "male" + #LF$ + "female")
-        ListEx::AddComboBoxItem(#List, 3, "male",   $8B0000)
-        ListEx::AddComboBoxItem(#List, 3, "female", $9314FF)
+      EndIf
+      
+      ; ==========================================
+      
+      If #Example = 8 ;{ Automatically adjust row height 
+        ListEx::SetItemText(#List, 2, "Row 1" + #LF$ + "Row 2" + #LF$ + "Row 3", 1) ; #LF$ = new row
         ;}
-        
-        ; --- Set focus to row 9 ---
-        ; ListEx::SetState(#List, 9)
-        
-        ; --- Change item state of row 3 ---
-        ;ListEx::SetItemState(#List, 3, ListEx::#Inbetween)
-        
-        ; --- Use PopupMenu ---
-        ListEx::AttachPopupMenu(#List, #PopupMenu)
-
-        ; --- Test sorting ---
-        ListEx::SetHeaderSort(#List, 2, ListEx::#Sort_Ascending|ListEx::#Sort_NoCase)
-        
-        ; --- Test colors ---
-        ;ListEx::SetColor(#List, ListEx::#FrontColor, $82004B, 2) ; front color for column 2
-        ;ListEx::SetItemColor(#List, 5, ListEx::#FrontColor, $228B22, 2)
-        ;ListEx::SetItemColor(#List, 5, ListEx::#BackColor, $FAFFF5)
-        ;ListEx::SetColor(#List, ListEx::#AlternateRowColor, $F0FFF0)
-        
-        ; --- Define AutoResize ---
-        ;ListEx::SetAutoResizeColumn(#List, 2, 50)
-        ListEx::SetAutoResizeFlags(#List, ListEx::#Height|ListEx::#Width) ; 
-        
-        ; --- Mark content in accordance with certain rules   ---
-        CompilerIf ListEx::#Enable_MarkContent
-          ListEx::MarkContent(#List, 1, "CHOICE{male|female}[C3]", $D30094, $9314FF, FontID(#Font_Arial9B))
-        CompilerEndIf
-        
-        ; --- Test validation ---
-        CompilerIf ListEx::#Enable_Validation
-          ;ListEx::SetCondition(#List, 2, "BETWEEN{0|9}")
-        CompilerEndIf
-        
-        ; --- Use color theme ---
-        ListEx::SetColorTheme(#List, ListEx::#Theme_Blue)
-        ListEx::SetColor(#List, ListEx::#AlternateRowColor, $FBF7F5)
-        
-        ; --- Use images ---
-        If LoadImage(#Image, "Delete.png")
-          ;Debug "Delete.png"
-          ListEx::SetItemImage(#List, 0, 1, #Image)
-          ListEx::SetItemImage(#List, 1, 5, #Image, ListEx::#Center, 14, 14)
-          ListEx::SetItemImage(#List, ListEx::#Header, 2, #Image, ListEx::#Right, 14, 14)
-        EndIf
-        
-        ; --- Test single cell flags ---
-        ;ListEx::SetCellFlags(#List, 2, 5, ListEx::#Strings)
-        
-        ; --- Test ProgressBar ---
-        CompilerIf ListEx::#Enable_ProgressBar
-          ListEx::SetCellState(#List, 1, "progress", 100) ; or SetItemState(#List, 1, 75, 5)
-          ListEx::SetCellState(#List, 2, "progress", 50) ; or SetItemState(#List, 2, 50, 5)
-          ListEx::SetCellState(#List, 3, "progress", 25) ; or SetItemState(#List, 3, 25, 5)
-        CompilerEndIf
-  
-        ; --- max. number of characters ---
-        ;ListEx::SetAttribute(#List, ListEx::#MaxChars, 6)
-        ;ListEx::SetColumnAttribute(#List, 2, ListEx::#MaxChars, 14)
-        
-      CompilerEndIf  
-     
-      ; --- GUI theme support ---
-      ;ModuleEx::SetTheme(ModuleEx::#Theme_DarkBlue)
-
+      EndIf  
+      
       ListEx::DisableReDraw(#List, #False) 
 
-      ;ListEx::ExportCSV(#List, "Export.csv", ListEx::#NoButtons|ListEx::#NoCheckBoxes|ListEx::#HeaderRow)
-      
-      ; ------ Change color -----
-      ;ListEx::SetItemColor(#List, 5, ListEx::#BackColor, $008CFF, 3)
-      
-      ; ------ Cell & Column flags -----
-      ;ListEx::SetCellFlags(#List, 3, 1, ListEx::#Editable)
-      
-      ;ListEx::SetColumnFlags(#List, 5, ListEx::#Hide)      
-      
-      ; ----- Test Markdown -----
-      CompilerIf Defined(MarkDown, #PB_Module)
-        
-        ListEx::SetMarkdownFont(#List, "Arial", 9)
-        ListEx::SetCellFlags(#List, 4, 2, ListEx::#MarkDown)
-        ListEx::SetItemText(#List, 4, "**Markdown**", 2)
-        
-      CompilerEndIf
-      
-      ListEx::SetItemText(#List, 3, "Row 1" + #LF$ + "Row 2" + #LF$ + "Row 3", 2) 
-      
     EndIf
     
     Repeat
@@ -11073,7 +11369,7 @@ CompilerIf #PB_Compiler_IsMainFile
               CompilerEndIf  
               ListEx::SetColorTheme(#List, ListEx::#Theme_Blue)
               ListEx::SaveColorTheme(#List, "Theme_Blue.json")
-            Case #Export
+            Case #ExportCSV
               ListEx::ExportCSV(#List, "ListEx.csv", ListEx::#HeaderRow)
               ;}
           EndSelect ;}
@@ -11103,18 +11399,14 @@ CompilerIf #PB_Compiler_IsMainFile
       EndSelect
     Until Event = #PB_Event_CloseWindow
 
-    ;ListEx::SaveColorTheme(#List, "Theme_Test.json")
+    ListEx::SaveColorTheme(#List, "Theme_Test.json")
     
   EndIf
   
 CompilerEndIf
-
 ; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 7808
-; FirstLine = 946
-; Folding = QAAhAAAAAAAAAQoAACoAAAAAAAAAAAQAwAACAADkAAQAAAADg7uAAQAAAQEDQBCcDAAAAAAAAAEACAAg3Vs-HTAEAAwCHw
-; Markers = 3102,5379,7928
-; EnableThread
+; CursorPosition = 165
+; FirstLine = 27
+; Folding = QAAgAAAAAAAAAAAGAAAA1AAAAAAAgAAAAAgAAQAAAmIAAAAAAAAAgDAAgiCIBCfBACAAAAAAAAAAAAAAAAAAAAAAAAgAAABAAA-
 ; EnableXP
 ; DPIAware
-; EnableUnicode

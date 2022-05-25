@@ -8,11 +8,9 @@
 ;/ ( based on 'PurePDF' by LuckyLuke / ABBKlaus / normeus )
 ;/
 
-; Last Update: 04.05.2022
+; Last Update: 24.05.2022
 ; 
-; Workaround: BMP-Images
-; Conversion of incompatible PNGs 
-; Added code by normeus
+; Bugfix: Cell() if Width = #PB_Default
 ;
 
 ;{ ===== MIT License =====
@@ -448,7 +446,9 @@ DeclareModule PDF
   #FullPage  = "FullPage"
   #PageWidth = "PageWidth"
   ;}
-
+  
+  #RowWidth = 0 ; Page width - page borders
+  
   ;} =====================
   
   Declare   AddPage(ID.i, Orientation.s="", Format.s="")
@@ -3215,7 +3215,7 @@ Module PDF
     
   EndProcedure  
   
-  Procedure   Cell_(Width.f, Height.f = #PB_Default, Text.s="", Border.i=#False, Ln.i=#Right, Align.s="", Fill.i=#False, Link.i=#NoLink, Label.s="")
+  Procedure   Cell_(Width.f = #PB_Default, Height.f = #PB_Default, Text.s="", Border.i=#False, Ln.i=#Right, Align.s="", Fill.i=#False, Link.i=#NoLink, Label.s="")
     Define.i txtLen
     Define.f WordSpace, StrgWidth, maxWidth, wLink, PageX, PageY, TextX
     Define.s sStrg, eStrg, Stream$
@@ -3248,7 +3248,10 @@ Module PDF
       
     EndIf ;}
     
-    If Width = 0 Or Width = #PB_Default
+    If Width = #PB_Default
+      Width = GetStringWidth_(Text)
+      If Border : Width + (PDF()\Margin\Cell * 2) : EndIf 
+    ElseIf  Width = 0
       Width = PDF()\Page\Width - PDF()\Margin\Right - PDF()\Page\X
     EndIf
 
@@ -6838,7 +6841,7 @@ CompilerIf #PB_Compiler_IsMainFile
     PDF::AddPage(#PDF)
     PDF::BookMark(#PDF, "Example: Hello")
     PDF::SetFont(#PDF, "Arial","B", 16)
-    PDF::Cell(#PDF, "Hello World!", 40, 10, #True, PDF::#Right, "", #False, "HelloLabel") 
+    PDF::Cell(#PDF, "Hello World!", 40, 10, #True, PDF::#Right, "C", #False, "HelloLabel") 
     ;}
     
     ;{ ----- Example: TruncateCell() ----- 
@@ -7115,11 +7118,11 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf 
 
 ;- ========================
-; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 5719
-; FirstLine = 871
-; Folding = cCQCAoADgAQAwAAAACAAAAAQ1AIDAYgfCAAIAQCEAAAEBAAAAAAAFQABAAAIIDAACAAhGIA9
-; Markers = 591,1026,2203,2382,2482,3323,3832,3902
+; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
+; CursorPosition = 412
+; FirstLine = 85
+; Folding = YAAAQoADgAQAwAQAACAAAAAQ1AIDAYgfCAQBAQCEAAAEBAABAAAAFQABAAAIOCAAyFAh3AA9
+; Markers = 591,1026,2203,2382,2482,3326,3835,3905
 ; EnableXP
 ; DPIAware
 ; EnablePurifier

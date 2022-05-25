@@ -7,15 +7,12 @@
 ;/ [Resize] Automatic size adjustment for gadgets
 ;/ [Window] Save & restore window size, position and state
 ;/
-;/ © 2019 Thorsten1867 (03/2019)
+;/ © 2022 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 31.08.2019
+; Last Update: 22.05.2022
 ;
-; - Added:   Resize gadget text
-; - Added:   _CloseWindowHandler()
-; - Removed: Free() / Remove() / RemoveWindow()
-; - Internal improvements
+; Bugfixes
 ;
 
 ;{ ===== MIT License =====
@@ -62,7 +59,7 @@
 
 DeclareModule Window
   
-  #Version  = 19083100
+  #Version  = 22052200
   
   ;- ===========================================================================
   ;-   DeclareModule (Window)
@@ -153,32 +150,42 @@ Module Window
   
   Procedure Save(File.s="ResizeData.win")
     Define.i JSON
+
+    If MapSize(Win())
     
-    JSON = CreateJSON(#PB_Any)
-    If JSON
-      InsertJSONMap(JSONValue(JSON), Win())
-      SaveJSON(JSON, File)
-      FreeJSON(JSON)
-    EndIf
-    
+      JSON = CreateJSON(#PB_Any)
+      If JSON
+        InsertJSONMap(JSONValue(JSON), Win())
+        SaveJSON(JSON, File)
+        FreeJSON(JSON)
+      EndIf
+      
+    EndIf 
+  
   EndProcedure
   
   Procedure StoreSize(WindowNum.i)
     
-    If IsWindow(WindowNum)
-      
-      If FindMapElement(Win(), Str(WindowNum)) = #False
-        BindEvent(#PB_Event_CloseWindow, @_CloseWindowHandler(),  WindowNum)
-      EndIf 
+    If FindMapElement(Win(), Str(WindowNum))
 
-      Win(Str(WindowNum))\X = WindowX(WindowNum)
-      Win(Str(WindowNum))\Y = WindowY(WindowNum)
-      Win(Str(WindowNum))\Width  = WindowWidth(WindowNum)
-      Win(Str(WindowNum))\Height = WindowHeight(WindowNum)
-      Win(Str(WindowNum))\State  = GetWindowState(WindowNum)
+      Win()\X      = WindowX(WindowNum)
+      Win()\Y      = WindowY(WindowNum)
+      Win()\Width  = WindowWidth(WindowNum)
+      Win()\Height = WindowHeight(WindowNum)
+      Win()\State  = GetWindowState(WindowNum)
+
+    ElseIf AddMapElement(Win(), Str(WindowNum))
       
-    EndIf
-    
+      Win()\X      = WindowX(WindowNum)
+      Win()\Y      = WindowY(WindowNum)
+      Win()\Width  = WindowWidth(WindowNum)
+      Win()\Height = WindowHeight(WindowNum)
+      Win()\State  = GetWindowState(WindowNum)
+      
+      If IsWindow(WindowNum) : BindEvent(#PB_Event_CloseWindow, @_CloseWindowHandler(),  WindowNum) : EndIf
+      
+    EndIf 
+
   EndProcedure
   
 EndModule
@@ -1150,8 +1157,8 @@ CompilerIf #PB_Compiler_IsMainFile
  
 CompilerEndIf   
 
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 43
-; Folding = IAHAPABAk-
+; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
+; CursorPosition = 15
+; Folding = QADAPABA5-
 ; EnableXP
 ; DPIAware
