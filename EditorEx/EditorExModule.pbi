@@ -7,7 +7,10 @@
 ;/ © 2022 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 17.05.2022
+; Last Update: 5.06.2022
+;
+; - Added: #EventType_Syntax (Spellchecking)
+; - Bugfixes
 ;
 ; New Scrollbars
 ; New DPI managment
@@ -143,7 +146,7 @@
 DeclareModule EditEx
   
   #Version  = 22043000
-  #ModuleEx = 20010800
+  #ModuleEx = 22060500
   
   ;- ============================================================================
   ;-   DeclareModule - Constants
@@ -251,6 +254,7 @@ DeclareModule EditEx
     #EventType_LostFocus = ModuleEx::#EventType_LostFocus
     #EventType_Change    = ModuleEx::#EventType_Change
     #EventType_NewLine   = ModuleEx::#EventType_NewLine
+    #EventType_Syntax    = ModuleEx::#EventType_Syntax
     
   CompilerElse
     
@@ -265,6 +269,7 @@ DeclareModule EditEx
       #EventType_NewLine
       #EventType_Focus
       #EventType_LostFocus
+      #EventType_Syntax
     EndEnumeration
     
   CompilerEndIf
@@ -720,6 +725,7 @@ Module EditEx
     FontID.i
     
     SyntaxHighlight.i
+    SyntaxErrors.i
     
     Text$
     
@@ -1868,7 +1874,9 @@ Module EditEx
     Procedure   UpdateWordList_()
       Define.i s, Spaces
       Define.s Word$, Text$
- 
+      
+      ClearMap(SpellCheck\Words())
+      
       Text$ = RemoveString(EditEx()\Text$, #Hyphen$)
       Text$ = RemoveString(Text$, #SoftHyphen$)
       Text$ = ReplaceString(Text$, #LF$, " ")
@@ -1876,7 +1884,7 @@ Module EditEx
       Spaces = CountString(Text$, " ")
       For s=1 To Spaces + 1
         Word$ = GetWord_(StringField(Text$, s, " "))
-        If Word$
+        If Trim(Word$)
           If FindMapElement(SpellCheck\Words(), Word$) = #False
             AddMapElement(SpellCheck\Words(), Word$)
           EndIf
@@ -1965,7 +1973,7 @@ Module EditEx
     EndProcedure
     
     
-    Procedure   SpellChecking_(Highlight.i = #True)
+    Procedure.i SpellChecking_(Highlight.i = #True)
       Define.s Word$
       
       ClearMap(EditEx()\Mistake())
@@ -1989,8 +1997,15 @@ Module EditEx
           
         Next
         
+        If EditEx()\SyntaxErrors <> MapSize(EditEx()\Mistake())
+          EditEx()\SyntaxErrors = MapSize(EditEx()\Mistake())
+          PostEvent(#Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Syntax, EditEx()\SyntaxErrors)
+          PostEvent(#PB_Event_Gadget, EditEx()\Window\Num, EditEx()\CanvasNum, #EventType_Syntax, EditEx()\SyntaxErrors)
+        EndIf  
+        
       EndIf
       
+      ProcedureReturn EditEx()\SyntaxErrors
     EndProcedure
     
     
@@ -3334,9 +3349,7 @@ Module EditEx
       
       Width  = EditEx()\Area\Width
       Height = EditEx()\Area\Height
-      
-      ClipOutput_(0, 0, Width, Height)
-      
+
       If EditEx()\FontID : DrawingFont(EditEx()\FontID) : EndIf
       
       FrontColor  = EditEx()\Color\Front
@@ -3358,12 +3371,14 @@ Module EditEx
       
       ;{ _____ Draw Background _____
       DrawingMode(#PB_2DDrawing_Default) 
-      Box_(1, 1, Width - 1, Height -1, BackColor)  
+      Box_(1, 1, Width, Height, BackColor)  
       ;}
       
       PosOffset  = EditEx()\Visible\PosOffset
       RowOffsetH = EditEx()\Visible\RowOffset * EditEx()\Text\Height
-
+      
+      ClipOutput_(0, 0, Width - EditEx()\Size\PaddingX, Height - EditEx()\Size\PaddingY)
+      
       ;{ _____ Draw Text _____
       ForEach EditEx()\Row()
         
@@ -3459,13 +3474,7 @@ Module EditEx
       
       DrawCursor_()
       ;}
-      
-      ;{ _____ Padding _____
-      DrawingMode(#PB_2DDrawing_Default)
-      Box_(1, Height - EditEx()\Size\PaddingY, Width, EditEx()\Size\PaddingY, BackColor)
-      Box_(Width - EditEx()\Size\PaddingX, 1, EditEx()\Size\PaddingX, Height, BackColor)
-      ;}
-      
+
       UnclipOutput_()
       
       ;{ _____ Border _____
@@ -4284,10 +4293,7 @@ Module EditEx
           If EditEx()\Flags & #AutoSpellCheck
             
             Select Char
-              Case 32, 33, 41, 44, 46
-                UpdateWordList_()
-                SpellChecking_(#True)
-              Case 58, 59, 63, 93, 125
+              Case 32, 33, 41, 44, 46, 58, 59, 63, 93, 125
                 UpdateWordList_()
                 SpellChecking_(#True)
             EndSelect
@@ -6728,6 +6734,11 @@ CompilerIf #PB_Compiler_IsMainFile
                 ;}
             CompilerEndIf
           EndSelect ;}
+        Case EditEx::#Event_Gadget ;{ Spellcheck
+          If EventType() = EditEx::#EventType_Syntax
+            Debug "=> Syntax errors: " + Str(EventData())
+          EndIf  
+          ;}
       EndSelect
     Until QuitWindow
     
@@ -6740,10 +6751,9 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 3612
-; FirstLine = 1215
-; Folding = QAA3ADAIQAAGADAAAMACASAAR1D6tY59-BGAAAAAAAAYIoiBIAAAAAAAAAAAgBCAAg
-; Markers = 1470,2337,3484,5468
+; IDE Options = PureBasic 5.73 LTS (Windows - x64)
+; CursorPosition = 11
+; Folding = wAF3ACAIQAAGAAAAAEIAMCAAx1D6tY5FCADCAAAGAA1NUVxAMADAAAAAQAAAwBxAAo
+; Markers = 1476,2352,3493,5474
 ; EnableXP
 ; DPIAware

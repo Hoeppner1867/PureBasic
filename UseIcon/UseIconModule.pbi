@@ -874,9 +874,9 @@ CompilerIf #PB_Compiler_IsMainFile
   EndSelect    
   
 CompilerEndIf
-; IDE Options = PureBasic 5.72 (Windows - x64)
-; CursorPosition = 292
-; FirstLine = 102
-; Folding = KIABAMOT0
+; IDE Options = PureBasic 6.00 Beta 9 (Windows - x64)
+; CursorPosition = 565
+; FirstLine = 117
+; Folding = 7ACAEcMS0
 ; EnableXP
 ; DPIAware

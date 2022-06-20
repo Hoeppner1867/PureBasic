@@ -9,14 +9,11 @@
 ;/ © 2019 Thorsten1867 (03/2019)
 ;/
 
-; Last Update: 08.12.19
+; Last Update: 20.06.22
 ;
-; Added:   ToolBar::TextButton() [similar to ImageButton()]
-; Renamed: ToolBar::TextButton() => ToolBar::Button() [ButtonGadget()]
+; Bugfix
 ;
-; Added: ToolBar::Hide()
-; Added: #UseExistingCanvas
-;
+
 
 ;{ ===== MIT License =====
 ;
@@ -94,7 +91,7 @@
 
 DeclareModule ToolBar
   
-  #Version  = 19120800
+  #Version  = 22062200
   #ModuleEx = 19112500
   
   #EnableToolBarGadgets = #True
@@ -1147,6 +1144,8 @@ Module ToolBar
                       EndIf 
                     EndIf
                     
+                    Draw_()
+                    
                   Else
                     
                     If IsMenu(TBEx()\Items()\PopupMenu) And IsWindow(TBEx()\Window\Num)
@@ -1186,6 +1185,8 @@ Module ToolBar
                         PostEvent(#Event_Gadget, TBEx()\Window\Num, TBEx()\CanvasNum, #EventType_ImageButton, btIndex)
                       EndIf 
                     EndIf
+                    
+                    Draw_()
                     
                   Else
                     
@@ -1288,6 +1289,7 @@ Module ToolBar
         Next
        
       Else 
+        DisableToolTip_()
         TBEx()\Buttons\Focus = #NoFocus
       EndIf
       
@@ -2451,10 +2453,10 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf  
-; IDE Options = PureBasic 5.71 LTS (Windows - x64)
-; CursorPosition = 96
-; FirstLine = 9
-; Folding = oCIAA9D+DKAEBAAgRGAcE3+
+; IDE Options = PureBasic 6.00 Beta 10 (Windows - x64)
+; CursorPosition = 1291
+; FirstLine = 635
+; Folding = oCIAA+H-DK9OBAAgRGAcE3+
 ; EnableXP
 ; DPIAware
 ; Executable = Test.exe

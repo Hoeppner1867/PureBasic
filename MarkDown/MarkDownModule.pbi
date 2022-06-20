@@ -9,7 +9,9 @@
 ;/ © 2022 by Thorsten Hoeppner (12/2019)
 ;/
 
-; Last Update: 16.05.2022
+; Last Update: 26.05.2022
+;
+; - Bugfixes
 ;
 ; - New Scrollbar
 ; - New DPI managment
@@ -125,7 +127,7 @@ CompilerIf Not Defined(PDF, #PB_Module) : XIncludeFile "pbPDFModule.pbi" : Compi
 
 DeclareModule MarkDown
   
-  #Version  = 22042800
+  #Version  = 22052600
   #ModuleEx = 20041700
   
   #Enable_Gadget      = #True
@@ -143,11 +145,8 @@ DeclareModule MarkDown
 	
   Enumeration 1 ;{ ScrollBar
     #Vertical   = #PB_ScrollBar_Vertical
-    #Horizontal
 	  #ScrollBar_Up
 	  #ScrollBar_Down
-	  #ScrollBar_Left
-	  #ScrollBar_Right
 	EndEnumeration ;}
 	
   ;{ _____ Constants _____
@@ -641,7 +640,7 @@ Module MarkDown
 	  Color.ScrollBar_Color_Structure
 	  Size.i       ; Scrollbar width (vertical) / height (horizontal)
 	  TimerDelay.i ; Autoscroll Delay
-	  Flags.i      ; Flag: #Vertical | #Horizontal
+	  Flags.i      ; Flag: #Vertical
 	EndStructure ;}
 
   ; ---------------------
@@ -1092,11 +1091,8 @@ Module MarkDown
 		; --- Scrollbar ---
     Area.Area_Structure ; available area
 	  Scrollbar.MarkDown_ScrollBars_Structure
-	  HScroll.MarkDown_ScrollBar_Structure
 	  VScroll.MarkDown_ScrollBar_Structure
 	  ScrollOffsetY.i
-	  ScrollOffsetX.i
-	  ScrollH.i
 	  ScrollV.i
     ; ---------
 		
@@ -1523,95 +1519,40 @@ Module MarkDown
 	  MarkDown()\Area\X = 1
 	  MarkDown()\Area\Y = 1
 	  
-    If MarkDown()\HScroll\Hide And MarkDown()\VScroll\Hide
-      MarkDown()\Area\Width  = Width
-      MarkDown()\Area\Height = Height
-    ElseIf MarkDown()\HScroll\Hide
-      MarkDown()\Area\Width  = Width  - ScrollbarSize - 3
-      MarkDown()\Area\Height = Height
-    ElseIf MarkDown()\VScroll\Hide
-      MarkDown()\Area\Width  = Width
-      MarkDown()\Area\Height = Height - ScrollbarSize - 3
+    If MarkDown()\VScroll\Hide
+      MarkDown()\Area\Width  = Width  - 3
+      MarkDown()\Area\Height = Height - 3
     Else
       MarkDown()\Area\Width  = Width  - ScrollbarSize - 3
-      MarkDown()\Area\Height = Height - ScrollbarSize - 3
+      MarkDown()\Area\Height = Height - 3
     EndIf ;}
     
     ;{ Calc scrollbar size
-    If MarkDown()\HScroll\Hide      ;{ only vertical visible
-      
-      MarkDown()\VScroll\X        = Width - ScrollbarSize - 1
-      MarkDown()\VScroll\Y        = 1
-      MarkDown()\VScroll\Width    = ScrollbarSize
-      MarkDown()\VScroll\Height   = Height - 2
-      ;}
-    ElseIf MarkDown()\VScroll\Hide  ;{ only horizontal visible
-      
-      MarkDown()\HScroll\X        = 1
-      MarkDown()\HScroll\Y        = Height - ScrollbarSize - 1
-      MarkDown()\HScroll\Width    = Width - 2
-      MarkDown()\HScroll\Height   = ScrollbarSize
-      ;}
-    Else                            ;{ both scrollbars visible
-      
-      MarkDown()\HScroll\X        = 1
-      MarkDown()\HScroll\Y        = Height - ScrollbarSize - 1
-      MarkDown()\HScroll\Width    = Width  - ScrollbarSize - 2
-      MarkDown()\HScroll\Height   = ScrollbarSize
-      
-      MarkDown()\VScroll\X        = Width - ScrollbarSize - 1
-      MarkDown()\VScroll\Y        = 1
-      MarkDown()\VScroll\Width    = ScrollbarSize
-      MarkDown()\VScroll\Height   = Height - ScrollbarSize - 2
-      ;}
-    EndIf ;}
+    MarkDown()\VScroll\X        = Width - ScrollbarSize - 1
+    MarkDown()\VScroll\Y        = 1
+    MarkDown()\VScroll\Width    = ScrollbarSize
+    MarkDown()\VScroll\Height   = Height - 2
+    ;}
     
     ;{ Calc scroll buttons
-    MarkDown()\HScroll\Buttons\Width  = ScrollbarSize
-    MarkDown()\HScroll\Buttons\Height = ScrollbarSize
-    ; forward: right
-    MarkDown()\HScroll\Buttons\fX     = MarkDown()\HScroll\X + MarkDown()\HScroll\Width - ScrollbarSize
-    MarkDown()\HScroll\Buttons\fY     = MarkDown()\HScroll\Y
-    ; backward: left
-    MarkDown()\HScroll\Buttons\bX     = MarkDown()\HScroll\X
-    MarkDown()\HScroll\Buttons\bY     = MarkDown()\HScroll\Y
-
     MarkDown()\VScroll\Buttons\Width  = ScrollbarSize
     MarkDown()\VScroll\Buttons\Height = ScrollbarSize
     ; forward: down
     MarkDown()\VScroll\Buttons\fX     = MarkDown()\VScroll\X
-    MarkDown()\VScroll\Buttons\fY     = MarkDown()\HScroll\Y + MarkDown()\VScroll\Height - ScrollbarSize
+    MarkDown()\VScroll\Buttons\fY     = MarkDown()\VScroll\Y + MarkDown()\VScroll\Height - ScrollbarSize
     ; backward: up
     MarkDown()\VScroll\Buttons\bX     = MarkDown()\VScroll\X
-    MarkDown()\VScroll\Buttons\bY     = MarkDown()\HScroll\Y
+    MarkDown()\VScroll\Buttons\bY     = MarkDown()\VScroll\Y
     ;}
     
     ;{ Calc scroll area between buttons
-    MarkDown()\HScroll\Area\X      = MarkDown()\HScroll\X + ScrollbarSize
-		MarkDown()\HScroll\Area\Y      = MarkDown()\HScroll\Y
-		MarkDown()\HScroll\Area\Width  = MarkDown()\HScroll\Width - (ScrollbarSize * 2)
-		MarkDown()\HScroll\Area\Height = ScrollbarSize  
-    
     MarkDown()\VScroll\Area\X      = MarkDown()\VScroll\X
-		MarkDown()\VScroll\Area\Y      = MarkDown()\HScroll\Y + ScrollbarSize 
+		MarkDown()\VScroll\Area\Y      = MarkDown()\VScroll\Y + ScrollbarSize 
 		MarkDown()\VScroll\Area\Width  = ScrollbarSize
 		MarkDown()\VScroll\Area\Height = MarkDown()\VScroll\Height - (ScrollbarSize * 2)	
     ;}
 
     ;{ Calc thumb size
-	  MarkDown()\HScroll\Thumb\Y      = MarkDown()\HScroll\Area\Y
-	  MarkDown()\HScroll\Thumb\Width  = Round(MarkDown()\HScroll\Area\Width * MarkDown()\HScroll\Ratio, #PB_Round_Nearest)
-	  MarkDown()\HScroll\Thumb\Height = ScrollbarSize
-	  MarkDown()\HScroll\Factor       = (MarkDown()\HScroll\Area\Width - MarkDown()\HScroll\Thumb\Width) / MarkDown()\HScroll\Range
-	  
-	  If MarkDown()\Scrollbar\Flags & #Style_Win11
-	    MarkDown()\HScroll\Thumb\Height - 10
-	    MarkDown()\HScroll\Thumb\Y      +  5 
-	  Else
-	    MarkDown()\HScroll\Thumb\Height - 4
-	    MarkDown()\HScroll\Thumb\Y      + 2 
-	  EndIf
-
     MarkDown()\VScroll\Thumb\X      = MarkDown()\VScroll\Area\X
 	  MarkDown()\VScroll\Thumb\Width  = ScrollbarSize
 	  MarkDown()\VScroll\Thumb\Height = Round(MarkDown()\VScroll\Area\Height * MarkDown()\VScroll\Ratio, #PB_Round_Nearest) 
@@ -1630,14 +1571,6 @@ Module MarkDown
 	
 	Procedure   CalcScrollRange_()
 
-	  If MarkDown()\HScroll\PageLength
-      MarkDown()\HScroll\Pos    = MarkDown()\HScroll\Minimum
-		  MarkDown()\HScroll\minPos = MarkDown()\HScroll\Minimum
-		  MarkDown()\HScroll\maxPos = MarkDown()\HScroll\Maximum - MarkDown()\HScroll\PageLength + 1
-		  MarkDown()\HScroll\Ratio  = MarkDown()\HScroll\PageLength / MarkDown()\HScroll\Maximum
-		  MarkDown()\HScroll\Range  = MarkDown()\HScroll\maxPos - MarkDown()\HScroll\minPos
-		EndIf 
-
     If MarkDown()\VScroll\PageLength
       MarkDown()\VScroll\Pos    = MarkDown()\VScroll\Minimum
 		  MarkDown()\VScroll\minPos = MarkDown()\VScroll\Minimum
@@ -1648,34 +1581,9 @@ Module MarkDown
 
     CalcScrollBar_()
     
-    MarkDown()\HScroll\Thumb\X = MarkDown()\HScroll\Area\X
   	MarkDown()\VScroll\Thumb\Y = MarkDown()\VScroll\Area\Y
     
 	EndProcedure
-	
-	
-	Procedure.i GetThumbPosX_(X.i)   ; Horizontal Scrollbar
-	  Define.i Delta, Offset
-	  
-	  Delta = X - MarkDown()\HScroll\CursorPos
-	  MarkDown()\HScroll\Thumb\X + Delta 
-	  
-	  If MarkDown()\HScroll\Thumb\X < MarkDown()\HScroll\Area\X
-	    MarkDown()\HScroll\Thumb\X = MarkDown()\HScroll\Area\X
-	  EndIf 
-	  
-	  If MarkDown()\HScroll\Thumb\X + MarkDown()\HScroll\Thumb\Width > MarkDown()\HScroll\Area\X + MarkDown()\HScroll\Area\Width
-	    MarkDown()\HScroll\Thumb\X = MarkDown()\HScroll\Area\X + MarkDown()\HScroll\Area\Width - MarkDown()\HScroll\Thumb\Width
-	  EndIf
-
-	  Offset = MarkDown()\HScroll\Thumb\X - MarkDown()\HScroll\Area\X
-	  MarkDown()\HScroll\Pos = Round(Offset / MarkDown()\HScroll\Factor, #PB_Round_Nearest) + MarkDown()\HScroll\minPos
-	  
-	  If MarkDown()\HScroll\Pos > MarkDown()\HScroll\maxPos : MarkDown()\HScroll\Pos = MarkDown()\HScroll\maxPos : EndIf
-  	If MarkDown()\HScroll\Pos < MarkDown()\HScroll\minPos : MarkDown()\HScroll\Pos = MarkDown()\HScroll\minPos : EndIf
-	  
-	  ProcedureReturn MarkDown()\HScroll\Pos
-	EndProcedure  
 	
 	Procedure.i GetThumbPosY_(Y.i)   ; Vertical Scrollbar
 	  Define.i Delta, Offset
@@ -1699,21 +1607,7 @@ Module MarkDown
 	  
 	  ProcedureReturn MarkDown()\VScroll\Pos
 	EndProcedure  
-	
-	
-	Procedure   SetThumbPosX_(Pos.i) ; Horizontal Scrollbar
-	  Define.i  Offset
-	  
-	  MarkDown()\HScroll\Pos = Pos
 
-	  If MarkDown()\HScroll\Pos < MarkDown()\HScroll\minPos : MarkDown()\HScroll\Pos = MarkDown()\HScroll\minPos : EndIf
-	  If MarkDown()\HScroll\Pos > MarkDown()\HScroll\maxPos : MarkDown()\HScroll\Pos = MarkDown()\HScroll\maxPos : EndIf
-	  
-    Offset = Round((MarkDown()\HScroll\Pos - MarkDown()\HScroll\minPos) * MarkDown()\HScroll\Factor, #PB_Round_Nearest)
-    MarkDown()\HScroll\Thumb\X = MarkDown()\HScroll\Area\X + Offset
-
-	EndProcedure
-	
 	Procedure   SetThumbPosY_(Pos.i) ; Vertical Scrollbar
 	  Define.i  Offset
 	  
@@ -1766,22 +1660,6 @@ Module MarkDown
       MarkDown()\VScroll\PageLength = 0
       MarkDown()\VScroll\Hide       = #True
     EndIf  
-    
-    If MarkDown()\Type <> #Requester
-    
-      If MarkDown()\Required\Width > Width ; Horizontal Scrollbar
-        MarkDown()\HScroll\Minimum    = 0
-        MarkDown()\HScroll\Maximum    = MarkDown()\Required\Width
-        MarkDown()\HScroll\PageLength = Width
-        MarkDown()\HScroll\Hide       = #False
-      Else
-        MarkDown()\HScroll\Maximum    = 0
-        MarkDown()\HScroll\Maximum    = 0
-        MarkDown()\HScroll\PageLength = 0
-        MarkDown()\HScroll\Hide       = #True
-      EndIf
-      
-    EndIf
     
     CalcScrollRange_()
     
@@ -6683,7 +6561,7 @@ Module MarkDown
         If ListSize(MarkDown()\TOC()) Or MapSize(MarkDown()\Glossary())
           DetermineTextSize_()
           AdjustScrollBars_()
-          Draw_(#Vertical|#Horizontal)
+          Draw_(#Vertical)
         EndIf
       EndIf
       
@@ -6723,16 +6601,6 @@ Module MarkDown
 	      Y       = MarkDown()\VScroll\Buttons\bY
 	      Width   = MarkDown()\VScroll\Buttons\Width
 	      Height  = MarkDown()\VScroll\Buttons\Height
-	    Case #Left
-	      X       = MarkDown()\HScroll\Buttons\bX
-	      Y       = MarkDown()\HScroll\Buttons\bY
-	      Width   = MarkDown()\HScroll\Buttons\Width
-	      Height  = MarkDown()\HScroll\Buttons\Height
-	    Case #Right
-	      X       = MarkDown()\HScroll\Buttons\fX
-	      Y       = MarkDown()\HScroll\Buttons\fY
-	      Width   = MarkDown()\HScroll\Buttons\Width
-	      Height  = MarkDown()\HScroll\Buttons\Height 
 	  EndSelect ;}
 	  
 	  If MarkDown()\Scrollbar\Flags & #Style_Win11 ;{ Arrow Size
@@ -6744,16 +6612,6 @@ Module MarkDown
 	      aWidth  =  7
         aHeight = 10  
 	    EndIf   
-	    
-	    If MarkDown()\HScroll\Buttons\bState = #Click
-	      aWidth  - 2
-        aHeight - 2 
-	    EndIf 
-	    
-	    If MarkDown()\HScroll\Buttons\fState = #Click
-	      aWidth  - 2
-        aHeight - 2 
-	    EndIf
 	    
 	    If MarkDown()\VScroll\Buttons\bState = #Click
 	      aWidth  - 2
@@ -6842,52 +6700,28 @@ Module MarkDown
 	  
 	EndProcedure
   
-	Procedure   DrawButton_(Scrollbar.i, Type.i)
+	Procedure   DrawButton_(Type.i)
 	  Define.i X, Y, Width, Height
 	  Define.i ArrowColor, ButtonColor, Direction, State
-	  
-	  Select Scrollbar ;{ Position, Size, State & Direction
-	    Case #Horizontal
-	      
-	      If MarkDown()\HScroll\Hide : ProcedureReturn #False : EndIf
-	      
-        Width  = MarkDown()\HScroll\Buttons\Width
-        Height = MarkDown()\HScroll\Buttons\Height
-        
-        Select Type
-          Case #Forwards
-            X      = MarkDown()\HScroll\Buttons\fX
-            Y      = MarkDown()\HScroll\Buttons\fY
-            State  = MarkDown()\HScroll\Buttons\fState
-            Direction = #Right
-  	      Case #Backwards
-  	        X     = MarkDown()\HScroll\Buttons\bX
-            Y     = MarkDown()\HScroll\Buttons\bY
-            State = MarkDown()\HScroll\Buttons\bState
-            Direction = #Left
-  	    EndSelect 
-        
-      Case #Vertical
-        
-        If MarkDown()\VScroll\Hide : ProcedureReturn #False : EndIf
-        
-        Width  = MarkDown()\VScroll\Buttons\Width
-        Height = MarkDown()\VScroll\Buttons\Height
-        
-        Select Type
-          Case #Forwards
-            X     = MarkDown()\VScroll\Buttons\fX
-            Y     = MarkDown()\VScroll\Buttons\fY
-            State = MarkDown()\VScroll\Buttons\fState
-            Direction = #Down
-  	      Case #Backwards
-  	        X     = MarkDown()\VScroll\Buttons\bX
-            Y     = MarkDown()\VScroll\Buttons\bY
-            State = MarkDown()\VScroll\Buttons\bState
-            Direction = #Up
-        EndSelect
-        ;}
-    EndSelect    
+  
+    If MarkDown()\VScroll\Hide : ProcedureReturn #False : EndIf
+    
+    Width  = MarkDown()\VScroll\Buttons\Width
+    Height = MarkDown()\VScroll\Buttons\Height
+    
+    Select Type
+      Case #Forwards
+        X     = MarkDown()\VScroll\Buttons\fX
+        Y     = MarkDown()\VScroll\Buttons\fY
+        State = MarkDown()\VScroll\Buttons\fState
+        Direction = #Down
+      Case #Backwards
+        X     = MarkDown()\VScroll\Buttons\bX
+        Y     = MarkDown()\VScroll\Buttons\bY
+        State = MarkDown()\VScroll\Buttons\bState
+        Direction = #Up
+    EndSelect
+    
     
     ;{ ----- Colors -----
     If MarkDown()\Scrollbar\Flags & #Style_Win11
@@ -6938,25 +6772,14 @@ Module MarkDown
 
 	EndProcedure
 	
-	Procedure   DrawThumb_(Scrollbar.i)
+	Procedure   DrawThumb_()
 	  Define.i BackColor, ThumbColor, ThumbState, Round
 	  Define.i OffsetPos, OffsetSize
 	  
-	  ;{ ----- Thumb cursor state -----
-	  Select Scrollbar 
-	    Case #Horizontal
-	      
-	      If MarkDown()\HScroll\Hide : ProcedureReturn #False : EndIf
-	      
-	      ThumbState = MarkDown()\HScroll\Thumb\State
-	      
-	    Case #Vertical
-	      
-	      If MarkDown()\VScroll\Hide : ProcedureReturn #False : EndIf
-	      
-  	    ThumbState = MarkDown()\VScroll\Thumb\State
-  	    
-  	EndSelect ;}    
+    If MarkDown()\VScroll\Hide : ProcedureReturn #False : EndIf
+    
+    ThumbState = MarkDown()\VScroll\Thumb\State
+ 
   	
   	;{ ----- Colors -----
 	  If MarkDown()\Scrollbar\Flags & #Style_Win11 
@@ -7010,20 +6833,8 @@ Module MarkDown
 	    
 	    DrawingMode(#PB_2DDrawing_Default)
 
-	    Select Scrollbar 
-  	    Case #Horizontal
-  	      
-  	      Box_(MarkDown()\HScroll\Area\X, MarkDown()\HScroll\Area\Y, MarkDown()\HScroll\Area\Width, MarkDown()\HScroll\Area\Height, BackColor)
-  	      
-      	  Box_(MarkDown()\HScroll\Thumb\X, MarkDown()\HScroll\Thumb\Y + OffsetPos, MarkDown()\HScroll\Thumb\Width, MarkDown()\HScroll\Thumb\Height + OffsetSize, ThumbColor, Round)
-      	  
-      	Case #Vertical
-
-      	  Box_(MarkDown()\VScroll\Area\X, MarkDown()\VScroll\Area\Y, MarkDown()\VScroll\Area\Width, MarkDown()\VScroll\Area\Height, BackColor)
-
-      	  Box_(MarkDown()\VScroll\Thumb\X + OffsetPos, MarkDown()\VScroll\Thumb\Y, MarkDown()\VScroll\Thumb\Width + OffsetSize, MarkDown()\VScroll\Thumb\Height, ThumbColor, Round)
-
-  	  EndSelect
+  	  Box_(MarkDown()\VScroll\Area\X, MarkDown()\VScroll\Area\Y, MarkDown()\VScroll\Area\Width, MarkDown()\VScroll\Area\Height, BackColor)
+  	  Box_(MarkDown()\VScroll\Thumb\X + OffsetPos, MarkDown()\VScroll\Thumb\Y, MarkDown()\VScroll\Thumb\Width + OffsetSize, MarkDown()\VScroll\Thumb\Height, ThumbColor, Round)
 
   	  StopDrawing()
 	  EndIf  
@@ -7037,79 +6848,45 @@ Module MarkDown
 		
 		CalcScrollBar_()
 
-  	;{ ----- thumb position -----
-		If MarkDown()\Scrollbar\Flags & #Horizontal
-		  OffsetX = Round((MarkDown()\HScroll\Pos - MarkDown()\HScroll\minPos) * MarkDown()\HScroll\Factor, #PB_Round_Nearest)
-		  MarkDown()\HScroll\Thumb\X = MarkDown()\HScroll\Area\X + OffsetX
-  	EndIf
-		
-		If MarkDown()\Scrollbar\Flags & #Vertical
-		  OffsetY = Round((MarkDown()\VScroll\Pos - MarkDown()\VScroll\minPos) * MarkDown()\VScroll\Factor, #PB_Round_Nearest)
-		  MarkDown()\VScroll\Thumb\Y = MarkDown()\VScroll\Area\Y + OffsetY
-		EndIf ;}
+	  OffsetY = Round((MarkDown()\VScroll\Pos - MarkDown()\VScroll\minPos) * MarkDown()\VScroll\Factor, #PB_Round_Nearest)
+	  MarkDown()\VScroll\Thumb\Y = MarkDown()\VScroll\Area\Y + OffsetY
 		
 		If StartDrawing(CanvasOutput(MarkDown()\CanvasNum)) ; Draw scrollbar background
       
 		  DrawingMode(#PB_2DDrawing_Default)
 		  
-		  If ScrollBar = #Horizontal|#Vertical
-		    
-		    If MarkDown()\Type = #Requester
-		      
-		      If MarkDown()\HScroll\Hide = #False
-  		      Box_(1, MarkDown()\HScroll\Y, GadgetWidth(MarkDown()\CanvasNum) - 2, MarkDown()\HScroll\Height - 33, MarkDown()\Color\Gadget)
-  		    EndIf
-  
-  		    If MarkDown()\VScroll\Hide = #False
-  		      Box_(MarkDown()\VScroll\X, 1, MarkDown()\VScroll\Width, GadgetHeight(MarkDown()\CanvasNum) - 35, MarkDown()\Color\Gadget)
-  		    EndIf
-		      
-		    Else
-		      
-		      If MarkDown()\HScroll\Hide = #False
-  		      Box_(MarkDown()\HScroll\Y, MarkDown()\HScroll\Y, GadgetWidth(MarkDown()\CanvasNum) - 2, MarkDown()\HScroll\Height, MarkDown()\Color\Gadget)
-  		    EndIf
-  
-  		    If MarkDown()\VScroll\Hide = #False
-  		      Box_(MarkDown()\VScroll\X, MarkDown()\VScroll\Y, MarkDown()\VScroll\Width, GadgetHeight(MarkDown()\CanvasNum) - 2, MarkDown()\Color\Gadget)
-  		    EndIf
+	    If MarkDown()\Type = #Requester
+	      
+		    If MarkDown()\VScroll\Hide = #False
+		      Box_(MarkDown()\VScroll\X, 1, MarkDown()\VScroll\Width, GadgetHeight(MarkDown()\CanvasNum) - 35, MarkDown()\Color\Gadget)
+		    EndIf
+	      
+	    Else
 
-		    EndIf   
+		    If MarkDown()\VScroll\Hide = #False
+		      Box_(MarkDown()\VScroll\X, MarkDown()\VScroll\Y, MarkDown()\VScroll\Width, GadgetHeight(MarkDown()\CanvasNum) - 2, MarkDown()\Color\Gadget)
+		    EndIf
 
-		  EndIf  
-		  
+	    EndIf   
+
 		  StopDrawing()
 		EndIf
 		
 		Select ScrollBar
-		  Case #Horizontal  
-		    DrawThumb_(#Horizontal) 
 		  Case #Vertical
-		    DrawThumb_(#Vertical)
-		  Case #Scrollbar_Left
-		    DrawThumb_(#Horizontal)
-		    DrawButton_(#Horizontal, #Backwards)
-		  Case #Scrollbar_Right
-		    DrawThumb_(#Horizontal)
-		    DrawButton_(#Horizontal, #Forwards)
+		    DrawThumb_()
 		  Case #Scrollbar_Up
-		    DrawThumb_(#Vertical)
-		    DrawButton_(#Vertical, #Backwards)
+		    DrawThumb_()
+		    DrawButton_(#Backwards)
 		  Case #Scrollbar_Down
-		    DrawThumb_(#Vertical)
-		    DrawButton_(#Vertical, #Forwards)
-		  Case #Horizontal|#Vertical
+		    DrawThumb_()
+		    DrawButton_(#Forwards)
+		  Case #Vertical
 
-		    If MarkDown()\HScroll\Hide = #False
-    		  DrawButton_(#Horizontal, #Forwards)
-    		  DrawButton_(#Horizontal, #Backwards)
-    		  DrawThumb_(#Horizontal)
-    		EndIf
-    		
     		If MarkDown()\VScroll\Hide = #False
-    		  DrawButton_(#Vertical, #Forwards)
-    		  DrawButton_(#Vertical, #Backwards)
-    		  DrawThumb_(#Vertical)
+    		  DrawButton_(#Forwards)
+    		  DrawButton_(#Backwards)
+    		  DrawThumb_()
     		EndIf 
     		
 		EndSelect
@@ -8229,15 +8006,8 @@ Module MarkDown
 		  MarkDown()\ScrollOffsetY = MarkDown()\VScroll\Pos
 		EndIf   
 		
-		If MarkDown()\HScroll\Hide
-		  MarkDown()\ScrollOffsetX = 0
-		Else  
-		  MarkDown()\ScrollOffsetX = MarkDown()\HScroll\Pos
-		EndIf
-		
 		If StartDrawing(CanvasOutput(MarkDown()\CanvasNum))
 
-		  X - MarkDown()\ScrollOffsetX
 		  Y - MarkDown()\ScrollOffsetY
 		  
 		  ;{ _____ Colors _____
@@ -8257,7 +8027,7 @@ Module MarkDown
 		  If MarkDown()\Type = #Requester
 		    Box_(0, 0, MarkDown()\Area\Width, MarkDown()\Area\Height - 30, BackColor)
 		  Else
-		    Box_(0, 0, MarkDown()\Area\Width, MarkDown()\Area\Height, BackColor) ; BackColor
+		    Box_(0, 0, MarkDown()\Area\Width + 1, MarkDown()\Area\Height + 2, BackColor) ; BackColor
 		  EndIf 
 		  ;}
 		  
@@ -8884,7 +8654,7 @@ Module MarkDown
         MarkDown()\ScrollBar\Color\Button    = ModuleEx::ThemeGUI\Button\BackColor
         MarkDown()\ScrollBar\Color\ScrollBar = ModuleEx::ThemeGUI\ScrollbarColor
 		    
-        Draw_(#Horizontal|#Vertical)
+        Draw_(#Vertical)
       Next
       
     EndProcedure
@@ -8899,24 +8669,6 @@ Module MarkDown
     
     ForEach MarkDown()
 
-      If MarkDown()\HScroll\Timer ;{ Horizontal Scrollbar
-        
-        If MarkDown()\HScroll\Delay
-          MarkDown()\HScroll\Delay - 1
-          Continue
-        EndIf  
-        
-        Select MarkDown()\HScroll\Timer
-          Case #Left
-            SetThumbPosX_(MarkDown()\HScroll\Pos - 1 - MarkDown()\ScrollH)
-          Case #Right
-            SetThumbPosX_(MarkDown()\HScroll\Pos + 1 + MarkDown()\ScrollH)
-        EndSelect
-        
-        Draw_(#Horizontal)
-   			;}
-      EndIf   
-      
       If MarkDown()\VScroll\Timer ;{ Vertical Scrollbar
         
         If MarkDown()\VScroll\Delay
@@ -8966,56 +8718,6 @@ Module MarkDown
 			
 			X = DesktopUnscaledX(dX)
 			Y = DesktopUnscaledY(dY)
-			
-
-		  ;{ Horizontal Scrollbar
-		  If MarkDown()\HScroll\Hide = #False
-		    
-		    If dY > dpiX(MarkDown()\HScroll\Y) And dY < dpiX(MarkDown()\HScroll\Y + MarkDown()\HScroll\Height)
-			    If dX > dpiX(MarkDown()\HScroll\X) And dX < dpiX(MarkDown()\HScroll\X + MarkDown()\HScroll\Width)
-		    
-    			  MarkDown()\HScroll\CursorPos = #PB_Default
-    			  
-    			  If MarkDown()\HScroll\Focus
-    			    
-      			  If dX > dpiX(MarkDown()\HScroll\Buttons\bX) And  dX < dpiX(MarkDown()\HScroll\Buttons\bX + MarkDown()\HScroll\Buttons\Width)
-      			    
-      			    ; --- Backwards Button ---
-      			    If MarkDown()\HScroll\Buttons\bState <> #Click
-      			      MarkDown()\HScroll\Delay = MarkDown()\Scrollbar\TimerDelay
-      			      MarkDown()\HScroll\Timer = #Left
-      			      MarkDown()\HScroll\Buttons\bState = #Click
-      			      DrawButton_(#Horizontal, #Backwards)
-      			    EndIf
-      			    
-      			  ElseIf dX > dpiX(MarkDown()\HScroll\Buttons\fX) And  dX < dpiX(MarkDown()\HScroll\Buttons\fX + MarkDown()\HScroll\Buttons\Width)
-      			    
-      			    ; --- Forwards Button ---
-      			    If MarkDown()\HScroll\Buttons\fState <> #Click
-      			      MarkDown()\HScroll\Delay = MarkDown()\Scrollbar\TimerDelay
-      			      MarkDown()\HScroll\Timer = #Right
-      			      MarkDown()\HScroll\Buttons\fState = #Click
-      			      DrawButton_(#Horizontal, #Forwards)
-      			    EndIf
-      			    
-      			  ElseIf  dX > dpiX(MarkDown()\HScroll\Thumb\X) And dX < dpiX(MarkDown()\HScroll\Thumb\X + MarkDown()\HScroll\Thumb\Width)
-      			    
-      			    ; --- Thumb Button ---
-      			    If MarkDown()\HScroll\Thumb\State <> #Click
-      			      MarkDown()\HScroll\Thumb\State = #Click
-      			      MarkDown()\HScroll\CursorPos = X
-      			      Draw_(#Horizontal)
-      			    EndIf
-    			    
-      			  EndIf
-      			  
-      			EndIf
-      			
-      			ProcedureReturn #True
-      		EndIf
-      	EndIf	
-  			
-  		EndIf ;}
 
 		  ;{ Vertical Scrollbar
 		  If MarkDown()\VScroll\Hide = #False
@@ -9034,7 +8736,7 @@ Module MarkDown
       			      MarkDown()\VScroll\Delay = MarkDown()\Scrollbar\TimerDelay
       			      MarkDown()\VScroll\Timer = #Up
       			      MarkDown()\VScroll\Buttons\bState = #Click
-      			      DrawButton_(#Vertical, #Backwards)
+      			      DrawButton_(#Backwards)
       			    EndIf
       			    
     			    ElseIf dY > dpiY(MarkDown()\VScroll\Buttons\fY) And dY < dpiY(MarkDown()\VScroll\Buttons\fY + MarkDown()\VScroll\Buttons\Height)
@@ -9044,7 +8746,7 @@ Module MarkDown
       			      MarkDown()\VScroll\Delay = MarkDown()\Scrollbar\TimerDelay
       			      MarkDown()\VScroll\Timer = #Down
       			      MarkDown()\VScroll\Buttons\fState = #Click
-      			      DrawButton_(#Vertical, #Forwards)
+      			      DrawButton_(#Forwards)
       			    EndIf
     			      
     			    ElseIf  dY > dpiY(MarkDown()\VScroll\Thumb\Y) And dY < dpiY(MarkDown()\VScroll\Thumb\Y + MarkDown()\VScroll\Thumb\Height)
@@ -9065,7 +8767,6 @@ Module MarkDown
     		EndIf
     		
 			EndIf ;}
-			
 			
 			ForEach MarkDown()\Link() ;{ Click link
 			  If dY >= dpiY(MarkDown()\Link()\Y) And dY <= dpiY(MarkDown()\Link()\Y + MarkDown()\Link()\Height) 
@@ -9113,55 +8814,6 @@ Module MarkDown
 			X = DesktopUnscaledX(dX)
 			Y = DesktopUnscaledY(dY)
 			
-		  ;{ Horizontal Scrollbar
-		  If MarkDown()\HScroll\Hide = #False
-		    
-		    If dY > dpiY(MarkDown()\HScroll\Y) And dY < dpiY(MarkDown()\HScroll\Y + MarkDown()\HScroll\Height)
-			    If dX > dpiX(MarkDown()\HScroll\X) And dX < dpiX(MarkDown()\HScroll\X + MarkDown()\HScroll\Width)
-		    
-    			  MarkDown()\HScroll\CursorPos = #PB_Default
-    			  MarkDown()\HScroll\Timer     = #False
-    			  
-    			  If MarkDown()\HScroll\Focus
-    			    
-      			  If dX > dpiX(MarkDown()\HScroll\Buttons\bX) And  dX < dpiX(MarkDown()\HScroll\Buttons\bX + MarkDown()\HScroll\Buttons\Width)
-      			    
-      			    ; --- Backwards Button ---
-      			    SetThumbPosX_(MarkDown()\HScroll\Pos - 1)
-      			   
-      			    Draw_(#Horizontal)
-
-      			  ElseIf dX > dpiX(MarkDown()\HScroll\Buttons\fX) And  dX < dpiX(MarkDown()\HScroll\Buttons\fX + MarkDown()\HScroll\Buttons\Width)
-      			    
-      			    ; --- Forwards Button ---
-      			    SetThumbPosX_(MarkDown()\HScroll\Pos + 1)
-      			    
-      			    Draw_(#Horizontal)
-
-      			  ElseIf dX > dpiX(MarkDown()\HScroll\Area\X) And dX < dpiX(MarkDown()\HScroll\Thumb\X)
-      			    
-      			    ; --- Page left ---
-      			    SetThumbPosX_(MarkDown()\HScroll\Pos - MarkDown()\HScroll\PageLength)
-      			    
-      			    Draw_(#Horizontal)
-
-      			  ElseIf dX > dpiX(MarkDown()\HScroll\Thumb\X + MarkDown()\HScroll\Thumb\Width) And dX < dpiX(MarkDown()\HScroll\Area\X + MarkDown()\HScroll\Area\Width)
-      			    
-      			    ; --- Page right ---
-      			    SetThumbPosX_(MarkDown()\HScroll\Pos + MarkDown()\HScroll\PageLength)
-      			 
-      			    Draw_(#Horizontal)
-      			    
-      			  EndIf
-        			
-      			EndIf 
-      			
-      			ProcedureReturn #True
-      		EndIf
-      	EndIf
-      	
-  		EndIf ;}
- 
       ;{ Vertical Scrollbar
       If MarkDown()\VScroll\Hide = #False
         
@@ -9372,84 +9024,6 @@ Module MarkDown
 			X = DesktopUnscaledX(dX)
 			Y = DesktopUnscaledY(dY)
 
-			
-		  ;{ Horizontal Scrollbar
-		  If MarkDown()\HScroll\Hide = #False
-		  
-			  MarkDown()\HScroll\Focus = #False
-			  
-			  Backwards = MarkDown()\HScroll\Buttons\bState
-			  Forwards  = MarkDown()\HScroll\Buttons\fState
-			  Thumb     = MarkDown()\HScroll\Thumb\State
-			  
-			  If dY > dpiY(MarkDown()\HScroll\Y) And dY < dpiY(MarkDown()\HScroll\Y + MarkDown()\HScroll\Height)
-			    If dX > dpiX(MarkDown()\HScroll\X) And dX < dpiX(MarkDown()\HScroll\X + MarkDown()\HScroll\Width)
-			      
-			      SetGadgetAttribute(GNum, #PB_Canvas_Cursor, #PB_Cursor_Default)
-			      
-			      ; --- Focus Scrollbar ---  
-			      MarkDown()\HScroll\Buttons\bState = #Focus
-			      MarkDown()\HScroll\Buttons\fState = #Focus
-			      MarkDown()\HScroll\Thumb\State    = #Focus
-			      
-			      ; --- Hover Buttons & Thumb ---
-			      If dX > dpiX(MarkDown()\HScroll\Buttons\bX) And  dX < dpiX(MarkDown()\HScroll\Buttons\bX + MarkDown()\HScroll\Buttons\Width)
-			        
-			        MarkDown()\HScroll\Buttons\bState = #Hover
-			        
-			      ElseIf dX > dpiX(MarkDown()\HScroll\Buttons\fX) And  dX < dpiX(MarkDown()\HScroll\Buttons\fX + MarkDown()\HScroll\Buttons\Width)
-			        
-			        MarkDown()\HScroll\Buttons\fState = #Hover
-			        
-			      ElseIf dX > dpiX(MarkDown()\HScroll\Thumb\X) And dX < dpiX(MarkDown()\HScroll\Thumb\X + MarkDown()\HScroll\Thumb\Width)
-			        
-			        MarkDown()\HScroll\Thumb\State = #Hover
-			        
-			        ;{ --- Move thumb with cursor 
-			        If MarkDown()\HScroll\CursorPos <> #PB_Default
-			          
-			          CursorPos = MarkDown()\HScroll\Pos
-			          
-  			        MarkDown()\HScroll\Pos = GetThumbPosX_(X)
-  			        MarkDown()\HScroll\CursorPos = X
-  			        
-  			        If CursorPos <> MarkDown()\HScroll\Pos
-  			          
-  			          Draw_(#Horizontal)
-
-  			        EndIf
-  			        
-  			      EndIf ;}
-  			      
-			      EndIf
-			      
-			      MarkDown()\HScroll\Focus = #True
-			      
-    		    If Backwards <> MarkDown()\HScroll\Buttons\bState : DrawButton_(#Horizontal, #Backwards) : EndIf 
-    		    If Forwards  <> MarkDown()\HScroll\Buttons\fState : DrawButton_(#Horizontal, #Forwards)  : EndIf 
-    		    If Thumb     <> MarkDown()\HScroll\Thumb\State    : DrawThumb_(#Horizontal)              : EndIf
-    		    
-    		    ProcedureReturn #True
-			    EndIf
-  			EndIf
-  		
-    		If Not MarkDown()\HScroll\Focus
-    		  
-	        MarkDown()\HScroll\Buttons\bState = #False
-	        MarkDown()\HScroll\Buttons\fState = #False
-	        MarkDown()\HScroll\Thumb\State    = #False
-	        
-	        MarkDown()\HScroll\Timer = #False
-	      EndIf
-    		
-    		If Backwards <> MarkDown()\HScroll\Buttons\bState : DrawButton_(#Horizontal, #Backwards) : EndIf 
-		    If Forwards  <> MarkDown()\HScroll\Buttons\fState : DrawButton_(#Horizontal, #Forwards)  : EndIf 
-		    If Thumb     <> MarkDown()\HScroll\Thumb\State    : DrawThumb_(#Horizontal)              : EndIf 
-		    
-		    MarkDown()\VScroll\CursorPos = #PB_Default
-		    
-		  EndIf  ;} 
-		  
 		  ;{ Vertikal Scrollbar
 		  If MarkDown()\VScroll\Hide = #False
 		    
@@ -9500,9 +9074,9 @@ Module MarkDown
   			    
   			    MarkDown()\VScroll\Focus = #True
   			    
-  			    If Backwards <> MarkDown()\VScroll\Buttons\bState : DrawButton_(#Vertical, #Backwards) : EndIf 
-            If Forwards  <> MarkDown()\VScroll\Buttons\fState : DrawButton_(#Vertical, #Forwards)  : EndIf 
-            If Thumb     <> MarkDown()\VScroll\Thumb\State    : DrawThumb_(#Vertical)              : EndIf 
+  			    If Backwards <> MarkDown()\VScroll\Buttons\bState : DrawButton_(#Backwards) : EndIf 
+            If Forwards  <> MarkDown()\VScroll\Buttons\fState : DrawButton_(#Forwards)  : EndIf 
+            If Thumb     <> MarkDown()\VScroll\Thumb\State    : DrawThumb_()            : EndIf 
             
             ProcedureReturn #True
     			EndIf
@@ -9518,9 +9092,9 @@ Module MarkDown
           
         EndIf   
         
-        If Backwards <> MarkDown()\VScroll\Buttons\bState : DrawButton_(#Vertical, #Backwards) : EndIf 
-        If Forwards  <> MarkDown()\VScroll\Buttons\fState : DrawButton_(#Vertical, #Forwards)  : EndIf 
-        If Thumb     <> MarkDown()\VScroll\Thumb\State    : DrawThumb_(#Vertical)              : EndIf 
+        If Backwards <> MarkDown()\VScroll\Buttons\bState : DrawButton_(#Backwards) : EndIf 
+        If Forwards  <> MarkDown()\VScroll\Buttons\fState : DrawButton_(#Forwards)  : EndIf 
+        If Thumb     <> MarkDown()\VScroll\Thumb\State    : DrawThumb_()            : EndIf 
         
         MarkDown()\VScroll\CursorPos = #PB_Default
         
@@ -9885,14 +9459,7 @@ Module MarkDown
   	  Define.i GNum = EventGadget()
   	  
   	  If FindMapElement(MarkDown(), Str(GNum))
-  	    
-  	    ;{ Horizontal Scrollbar
-	      MarkDown()\HScroll\Buttons\bState = #False
-        MarkDown()\HScroll\Buttons\fState = #False
-        MarkDown()\HScroll\Thumb\State    = #False
-        MarkDown()\HScroll\CursorPos      = #PB_Default
-	      ;}
-  	    
+ 
   	    ;{ Vertikal Scrollbar
         MarkDown()\VScroll\Buttons\bState = #False
         MarkDown()\VScroll\Buttons\fState = #False
@@ -9900,7 +9467,7 @@ Module MarkDown
         MarkDown()\VScroll\CursorPos      = #PB_Default
 	      ;}
         
-        Draw_(#Horizontal|#Vertical)
+        Draw_(#Vertical)
   	    
   	  EndIf  
   	  
@@ -9992,7 +9559,7 @@ Module MarkDown
 
 		  AdjustScrollBars_()
 
-		  Draw_(#Vertical|#Horizontal)
+		  Draw_(#Vertical)
 		  
 		EndIf
 
@@ -10218,17 +9785,6 @@ Module MarkDown
 		EndIf   
     ;}
 
-	  ;BindGadgetEvent(MarkDown()\Gadget, @_LeftButtonDownHandler(), #PB_EventType_LeftButtonDown)
-	  ;BindGadgetEvent(MarkDown()\Gadget, @_LeftButtonUpHandler(),   #PB_EventType_LeftButtonUp)
-	  ;BindGadgetEvent(MarkDown()\Gadget, @_MouseMoveHandler(),      #PB_EventType_MouseMove)
-	  ;BindGadgetEvent(MarkDown()\Gadget, @_MouseLeaveHandler(),     #PB_EventType_MouseLeave)
-
-		;BindGadgetEvent(MarkDown()\Gadget, @_MouseWheelHandler(),     #PB_EventType_MouseWheel)
-		;BindGadgetEvent(MarkDown()\Gadget, @_ResizeHandler(),         #PB_EventType_Resize)
-
-		;AddWindowTimer(MarkDown()\Window, #AutoScrollTimer, #Frequency)
-	  ;BindEvent(#PB_Event_Timer, @_AutoScroll(), MarkDown()\Window)
-  
 		CalcScrollBar_()
 
 	  DrawScrollBar_()
@@ -10335,7 +9891,7 @@ Module MarkDown
 	    DetermineTextSize_()
 	    AdjustScrollBars_()
 	    
-	    Draw_(#Vertical|#Horizontal)
+	    Draw_(#Vertical)
 	    
 	  EndIf
 	  
@@ -10401,7 +9957,7 @@ Module MarkDown
   	    
   	    AdjustScrollBars_()
   	    
-  	    Draw_(#Vertical|#Horizontal)
+  	    Draw_(#Vertical)
   	  EndIf
   	  
   	EndProcedure  
@@ -10413,7 +9969,7 @@ Module MarkDown
         MarkDown()\Disable = State
         DisableGadget(GNum, State)
         
-        Draw_(#Horizontal|#Vertical)
+        Draw_(#Vertical)
       EndIf  
       
     EndProcedure 	
@@ -10523,7 +10079,7 @@ Module MarkDown
   	    Else
   	      MarkDown()\Hide = #False
   	      HideGadget(GNum, #False)
-  	      Draw_(#Horizontal|#Vertical)
+  	      Draw_(#Vertical)
   	    EndIf  
   	    
   	  EndIf  
@@ -10552,7 +10108,7 @@ Module MarkDown
             ;MarkDown()\ScrollBar\Flags = Value    
         EndSelect
         
-        Draw_(#Horizontal|#Vertical)
+        Draw_(#Vertical)
       EndIf
       
     EndProcedure	
@@ -10628,7 +10184,7 @@ Module MarkDown
             ;MarkDown()\ScrollBar\Color\ScrollBar = Value    
         EndSelect
         
-        Draw_(#Horizontal|#Vertical)
+        Draw_(#Vertical)
       EndIf
       
     EndProcedure
@@ -10659,7 +10215,7 @@ Module MarkDown
         DetermineTextSize_()
         AdjustScrollBars_()
         
-        Draw_(#Vertical|#Horizontal)
+        Draw_(#Vertical)
       EndIf
       
     EndProcedure
@@ -10734,7 +10290,6 @@ Module MarkDown
   				MarkDown()\Size\Height = Height
   				
   				MarkDown()\VScroll\Hide   = #True
-  				MarkDown()\HScroll\Hide   = #True
   				MarkDown()\Scrollbar\Size = #ScrollBarSize
   				
           ScrollBar()
@@ -10771,7 +10326,7 @@ Module MarkDown
   				
   				LoadFonts_("Arial", 11)
   				
-  				Draw_(#Horizontal|#Vertical)
+  				Draw_(#Vertical)
 
   				ProcedureReturn GNum
   			EndIf
@@ -10875,7 +10430,6 @@ Module MarkDown
 				    
 				    
             MarkDown()\VScroll\Hide   = #True
-    				MarkDown()\HScroll\Hide   = #True
     				MarkDown()\Scrollbar\Size = #ScrollBarSize
     				
             ScrollBar()
@@ -11077,7 +10631,7 @@ Module MarkDown
         
         AdjustScrollBars_()
         
-        Draw_(#Horizontal|#Vertical)
+        Draw_(#Vertical)
 
   	    Repeat
           Select WaitWindowEvent()
@@ -11151,7 +10705,7 @@ Module MarkDown
             MarkDown()\Color\Border = TooltypStyle\BorderColor
           EndIf
           
-          Draw_(#Horizontal|#Vertical)
+          Draw_(#Vertical)
           
         EndIf
         
@@ -11176,7 +10730,7 @@ Module MarkDown
             
             DetermineTextSize_()
   
-  	        Draw_(#Horizontal|#Vertical)
+  	        Draw_(#Vertical)
   	        
   	      EndIf
   	      
@@ -12026,7 +11580,6 @@ Module MarkDown
 				    
           
             MarkDown()\VScroll\Hide   = #True
-    				MarkDown()\HScroll\Hide   = #True
     				MarkDown()\Scrollbar\Size = #ScrollBarSize
     				
             ScrollBar()
@@ -12138,7 +11691,7 @@ Module MarkDown
   	      AddKeyboardShortcut(WindowNum, #PB_Shortcut_Return, #Return)
   	      
   	      AdjustScrollBars_()
-  	      Draw_(#Vertical|#Horizontal)
+  	      Draw_(#Vertical)
   	      
   	      JSON = LoadJSON(#PB_Any, Help\DataDir + AppDataName$ + ".win")
           If JSON
@@ -13398,10 +12951,10 @@ CompilerIf #PB_Compiler_IsMainFile
   
 CompilerEndIf
 
-; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 9073
-; FirstLine = 522
-; Folding = QAAAAQAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAIAAAD-xTB1BAAAAASAYCCAA9AAAAAAAAAAAAAACAAAAA+
-; Markers = 5143
+; IDE Options = PureBasic 6.00 Beta 8 (Windows - x64)
+; CursorPosition = 129
+; FirstLine = 12
+; Folding = wAAAAQAAAAAAAAAEAAAAAADJAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAxBAAAAAAAAAAAAAkAAAAAAAYPkAIAEBQAkGAmiQoAHAgAAAIRAAAAAAAAAAAAg
+; Markers = 5021
 ; EnableXP
 ; DPIAware

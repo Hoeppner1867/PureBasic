@@ -4,21 +4,15 @@
 ;/
 ;/ [ PB V5.7x / 64Bit / all OS / DPI ]
 ;/
-;/ © 2020 Thorsten1867 (03/2019)
+;/ © 2022 Thorsten1867 (03/2019)
 ;/
 
 ; - Manage tabulator shortcut (#Tabulator) and gadgets can use the tab key if they have the focus (#UseTabulator).
 ; - Creates cursor events for gadgets of a window (#CursorEvent)
 ; - Provides event types for PostEvent() for other modules
 
-; Last Update: 10.04.2020
+; Last Update: 05.06.2022
 ;
-; Added: GUI theme for all supportet gadgets
-;
-; Added: Font management -> ModuleEx::Font()
-; Added: Dynamic fonts for custom gadgets
-; Added: RequiredFontSize() & CalcPadding()
-; Added: SetFont() with '#FitText'-Flag
 
 ;{ ===== MIT License =====
 ;
@@ -65,7 +59,7 @@
 
 DeclareModule ModuleEx
   
-  #Version = 22050900
+  #Version = 22060500
   
   #Enable_Tabulator_Management = #True
   
@@ -120,6 +114,8 @@ DeclareModule ModuleEx
     #EventType_SpinBox
     #EventType_String
     #EventType_ScrollBar
+    #EventType_Switch
+    #EventType_Syntax
     #EventType_TextButton
     #EventType_TrackBar
     #EventType_Year
@@ -1376,8 +1372,9 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf
-; IDE Options = PureBasic 5.73 LTS (Windows - x64)
-; CursorPosition = 67
-; Folding = kAABABAAQLOAAi
+; IDE Options = PureBasic 6.00 Beta 9 (Windows - x64)
+; CursorPosition = 117
+; FirstLine = 39
+; Folding = kBABABAAQLOAAi
 ; EnableXP
 ; DPIAware

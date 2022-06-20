@@ -3077,7 +3077,9 @@ Module PDF
     EndIf
     
     If PDF()\pageNum > 0
-      objOutPage_("BT /F" + Str(PDF()\Fonts()\Number) + " " + strF_(PDF()\Font\SizePt, 2) + " Tf ET")
+      If MapSize(PDF()\Fonts())
+        objOutPage_("BT /F" + Str(PDF()\Fonts()\Number) + " " + strF_(PDF()\Font\SizePt, 2) + " Tf ET")
+      EndIf  
     EndIf
     
   EndProcedure
@@ -7118,11 +7120,11 @@ CompilerIf #PB_Compiler_IsMainFile
 CompilerEndIf 
 
 ;- ========================
-; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 412
-; FirstLine = 85
-; Folding = YAAAQoADgAQAwAQAACAAAAAQ1AIDAYgfCAQBAQCEAAAEBAABAAAAFQABAAAIOCAAyFAh3AA9
-; Markers = 591,1026,2203,2382,2482,3326,3835,3905
+; IDE Options = PureBasic 6.00 Beta 8 (Windows - x64)
+; CursorPosition = 3079
+; FirstLine = 464
+; Folding = YCAAAoACgAQAAAQAACAAAAAQ1AIDAYgfiAQBAQCEAAAEBAABIAAAFQABAAAIOCAAyFAh3AA9
+; Markers = 591,1026,2203,2382,2482,3328,3837,3907
 ; EnableXP
 ; DPIAware
 ; EnablePurifier

@@ -9,8 +9,9 @@
 ;/ © 2022 Thorsten1867 (03/2019)
 ;/
 
-
-; Last Update: 25.05.2022
+; Last Update: 17.06.2022
+;
+; - Added: #CellFocus
 ;
 ; - Bugfixes
 ;
@@ -186,9 +187,9 @@ DeclareModule ListEx
   #All  = 1
   #None = 0
   
-  #Header   = -1
-  #NotValid = -2 
-
+  #Header  = -1
+  #Column  = -2
+  
   ;{ Sorting
   #Sort_Ascending  = #PB_Sort_Ascending
   #Sort_Descending = #PB_Sort_Descending
@@ -208,6 +209,7 @@ DeclareModule ListEx
     #Center  = 1<<2
     #ChBFlag = 1<<3
     ; --- Gadget ---
+    #CellFocus
     #GridLines
     #NoRowHeader
     #NumberedColumn
@@ -450,7 +452,7 @@ DeclareModule ListEx
   Declare.s GetItemText(GNum.i, Row.i, Column.i)
   Declare.i GetRowFromLabel(GNum.i, Label.s)
   Declare.s GetRowLabel(GNum.i, Row.i)
-  Declare.i GetState(GNum.i)
+  Declare.i GetState(GNum.i, Flag.i=#False)
   Declare   Hide(GNum.i, State.i=#True)
   Declare.i HideColumn(GNum.i, Column.i, State.i=#True)
   Declare   LoadColorTheme(GNum.i, File.s)
@@ -556,8 +558,9 @@ Module ListEx
   #ButtonWidth     = 18
   #CursorFrequency = 600
   
-  #NoFocus = -1
+  #NoFocus     = -1
   #NotSelected = -1
+  #NotValid    = -2
   
   #TextSelected = #True
   
@@ -2777,7 +2780,7 @@ Module ListEx
 
     If ListEx()\Focus
       
-      ListEx()\Row\Focus = #NotValid
+      ListEx()\Row\Focus = #PB_Default
       
       ForEach ListEx()\Rows()
         If ListEx()\Rows()\Idx = Index
@@ -4903,15 +4906,15 @@ Module ListEx
             EndIf ;}
             
             ;{ Background color
-            
-            
             If ListEx()\Flags & #MultiSelect And ListEx()\MultiSelect = #True
               If ListEx()\Rows()\State & #Selected
                 BackColor = BlendColor_(ListEx()\Color\Focus, ListEx()\Color\Back, 10)
               Else
                 BackColor = RowColor
               EndIf
-            ElseIf ListEx()\Focus And ListIndex(ListEx()\Rows()) = ListEx()\Row\Focus
+            ElseIf ListEx()\Flags & #CellFocus And ListIndex(ListEx()\Rows()) = ListEx()\Row\Focus And ListEx()\Col\Current = ListIndex(ListEx()\Cols())
+              BackColor = BlendColor_(ListEx()\Color\Focus, ListEx()\Color\Back, 10)
+            ElseIf ListEx()\Flags & #CellFocus = #False And ListEx()\Focus And ListIndex(ListEx()\Rows()) = ListEx()\Row\Focus
               BackColor = BlendColor_(ListEx()\Color\Focus, ListEx()\Color\Back, 10)
             ElseIf Flags & #CellBack
               BackColor = ListEx()\Rows()\Column(Key$)\Color\Back
@@ -9195,7 +9198,7 @@ Module ListEx
           ;}
           
           ;{ Rows
-          ListEx()\Row\Focus       = #NotValid
+          ListEx()\Row\Focus       = #PB_Default
           ListEx()\Row\Current     = #NoFocus
           ListEx()\Row\StartSelect = #PB_Default
           ListEx()\Row\FontID      = ListEx()\FontID
@@ -9238,9 +9241,7 @@ Module ListEx
           BindGadgetEvent(ListEx()\CanvasNum,  @_MouseLeaveHandler(),      #PB_EventType_MouseLeave)
           BindGadgetEvent(ListEx()\CanvasNum,  @_KeyDownHandler(),         #PB_EventType_KeyDown)  
           BindGadgetEvent(ListEx()\CanvasNum,  @_InputHandler(),           #PB_EventType_Input)
-          
-          ;BindGadgetEvent(ListEx()\CanvasNum,  @_MouseWheelHandler(),      #PB_EventType_MouseWheel)
-          
+
           CompilerIf #Enable_DragAndDrop
             EnableGadgetDrop(ListEx()\CanvasNum, #PB_Drop_Text, #PB_Drag_Copy)
             BindEvent(#PB_Event_GadgetDrop, @_GadgetDropHandler(), ListEx()\Window\Num, ListEx()\CanvasNum)
@@ -9508,10 +9509,17 @@ Module ListEx
     
   EndProcedure
   
-  Procedure.i GetState(GNum.i)
+  Procedure.i GetState(GNum.i, Flag.i=#False)
     
     If FindMapElement(ListEx(), Str(GNum))
-      ProcedureReturn ListEx()\Row\Focus
+      
+      If Flag = #Column
+        ProcedureReturn ListEx()\Col\Current
+      Else
+        If ListEx()\Row\Focus < -1 : ListEx()\Row\Focus = -1 : EndIf
+        ProcedureReturn ListEx()\Row\Focus
+      EndIf  
+      
     EndIf
     
   EndProcedure
@@ -10798,7 +10806,8 @@ Module ListEx
           ListEx()\MultiSelect = #False
         EndIf
         
-        ListEx()\Row\Focus = #NotValid
+        ListEx()\Row\Focus = #PB_Default
+        
         Draw_()
       Else 
 
@@ -10907,7 +10916,7 @@ EndModule
 
 CompilerIf #PB_Compiler_IsMainFile
 
-  #Example = 4
+  #Example = 9
   
   ; 0: Numbering in column 0
   ; 1: Checkboxes in column 0
@@ -10918,6 +10927,7 @@ CompilerIf #PB_Compiler_IsMainFile
   ; 6: Edit with a single click
   ; 7: Multiple selection for rows
   ; 8: Automatically adjust row height
+  ; 9: Cell Focus instead of row focus
   
   ;{ ----- Testing various functions -----
   EnumerationBinary
@@ -11043,6 +11053,8 @@ CompilerIf #PB_Compiler_IsMainFile
         Flags.i = ListEx::#NumberedColumn|ListEx::#MultiSelect|ListEx::#GridLines|ListEx::#AutoResize
       Case 8  ; Automatically adjust row height
         Flags.i = ListEx::#NumberedColumn|ListEx::#AdjustRows|ListEx::#GridLines|ListEx::#AutoResize
+      Case 9
+        Flags.i = ListEx::#NumberedColumn|ListEx::#CellFocus|ListEx::#GridLines|ListEx::#AutoResize
       Default ; Numbering in column 0
         Flags.i = ListEx::#NumberedColumn|ListEx::#GridLines|ListEx::#AutoResize
     EndSelect ;}
@@ -11404,9 +11416,9 @@ CompilerIf #PB_Compiler_IsMainFile
   EndIf
   
 CompilerEndIf
-; IDE Options = PureBasic 6.00 Beta 7 (Windows - x64)
-; CursorPosition = 165
-; FirstLine = 27
-; Folding = QAAgAAAAAAAAAAAGAAAA1AAAAAAAgAAAAAgAAQAAAmIAAAAAAAAAgDAAgiCIBCfBACAAAAAAAAAAAAAAAAAAAAAAAAgAAABAAA-
+; IDE Options = PureBasic 6.00 Beta 10 (Windows - x64)
+; CursorPosition = 454
+; FirstLine = 133
+; Folding = wAAgAAAAAAAAAAAAAAAAwAAAAAAAAAAAAAAAAAAAAgICAAIAAAAAA-DAAiaHBAfBAAAAAAAAAAAAQAAgAACAAAAAAAgAAABAwA-
 ; EnableXP
 ; DPIAware
